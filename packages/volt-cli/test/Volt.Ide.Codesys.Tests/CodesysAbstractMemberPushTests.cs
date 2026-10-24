@@ -242,8 +242,9 @@ namespace Volt.Ide.Codesys.Tests
             var pou = new Node("FB_Base", 1, new Pou("FUNCTION_BLOCK FB_Base", new _3S.CoDeSys.STObject.STImplementationObject()));
             _3S.CoDeSys.Core.SystemInstances.ObjectMgr = null;   // ReadObject answers null without an object manager
 
-            var ex = Assert.Throws<System.InvalidOperationException>(() => new CodesysDriver(projects: null).ReadContent(new ItemRef(pou)));
+            var ex = Assert.Throws<BridgeException>(() => new CodesysDriver(projects: null).ReadContent(new ItemRef(pou)));
 
+            Assert.Equal(BridgeErrorCodes.IdeUnsupported, ex.ErrorCode);   // no object manager: this IDE lacks the API (3c)
             Assert.Contains("the object itself could not be obtained", ex.Message);
         }
 

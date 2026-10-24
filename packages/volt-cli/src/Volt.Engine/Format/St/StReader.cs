@@ -205,7 +205,7 @@ public static class StReader
 					$"{at}, inside a comment. The CODESYS build accepts it there (measured), but {splitter}"),
 				StTrivia.PragmaChar => new BridgeException(BridgeErrorCodes.Unsupported,
 					$"{at}, inside a pragma (what the build says of it there is not measured). {splitter}"),
-				var other => new InvalidOperationException(
+				var other => new VoltInvariantException(
 					$"{what}, line {l + 1}: StTrivia classed the U+FEFF at column {col + 1} as '{other}', which only the text's " +
 					"first character can be"),
 			};
@@ -704,7 +704,7 @@ public static class StReader
 		}
 
 		var lang = ImplementationMarker.LanguageOf(line)
-			?? throw new InvalidOperationException($"'{stated}' reached the body read as a boundary line and states no language a reader reads");
+			?? throw new VoltInvariantException($"'{stated}' reached the body read as a boundary line and states no language a reader reads");
 
 		// The stated language picks the reader, and the body is not sniffed for another (openspec bridge-refusal-review
 		// 1.1, 2.3): an ST body is ST whatever it holds — `NETWORK … END_NETWORK` under `IMPLEMENTATION ST` is written

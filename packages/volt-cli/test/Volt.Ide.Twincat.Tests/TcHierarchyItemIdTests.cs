@@ -1,5 +1,7 @@
 using System;
 using Xunit;
+using Volt.Contracts;
+using Volt.Engine;
 
 namespace Volt.Ide.Twincat.Tests;
 
@@ -47,7 +49,7 @@ public class TcHierarchyItemIdTests
     [InlineData(-2147483649L)]
     public void An_Int64_no_DWORD_can_be_is_refused_by_name(long boxed)
     {
-        var refused = Assert.Throws<InvalidOperationException>(() => TcSolutionExplorer.ItemId(boxed));
+        var refused = Assert.Throws<HierarchyReadException>(() => TcSolutionExplorer.ItemId(boxed));
         Assert.Contains("Int64", refused.Message);
         Assert.Contains(boxed.ToString(System.Globalization.CultureInfo.InvariantCulture), refused.Message);
     }
@@ -55,7 +57,7 @@ public class TcHierarchyItemIdTests
     [Fact]
     public void A_non_integer_id_is_refused_by_name()
     {
-        var refused = Assert.Throws<InvalidOperationException>(() => TcSolutionExplorer.ItemId("12"));
+        var refused = Assert.Throws<HierarchyReadException>(() => TcSolutionExplorer.ItemId("12"));
         Assert.Contains("String", refused.Message);
     }
 }

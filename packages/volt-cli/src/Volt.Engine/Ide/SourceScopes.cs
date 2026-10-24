@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Volt.Engine.Format.Network;
 using Volt.Engine.Item;
 using Volt.Engine.Seam;
+using Volt.Contracts;
 
 namespace Volt.Engine.Ide
 {
@@ -103,7 +104,7 @@ namespace Volt.Engine.Ide
         /// <summary>The validated body at <paramref name="site"/> whose text is <paramref name="body"/> — or null when that
         /// body is no network text (ST, a hidden body, none). A network-text body with NO entry is Volt's bug: every one
         /// the push writes passed the pre-flight (<see cref="SourceScopes.Validated"/>), so a write handed one without its
-        /// model would have to read the text again — <see cref="InvalidOperationException"/>, naming the site. Nothing is
+        /// model would have to read the text again — a <see cref="Volt.Contracts.VoltInvariantException"/>, naming the site. Nothing is
         /// guessed. Asked only for a body the write touches: one it leaves alone (null) is never looked up.</summary>
         public static PushedNetworkBody? At(IReadOnlyList<PushedNetworkBody> bodies, BodySite site, string? body)
         {
@@ -111,7 +112,7 @@ namespace Volt.Engine.Ide
             if (body is null || !NetworkText.Is(body)) return null;
             foreach (var b in bodies)
                 if (b.Site.Matches(site)) return b;
-            throw new InvalidOperationException(
+            throw new VoltInvariantException(
                 $"{site}: a network-text body reached the write with no validated model — every network body a push writes " +
                 "is validated once by the pre-flight (SourceScopes.Validated) and handed over with its scope (openspec " +
                 "bridge-refusal-review D8). Volt's bug, not the text's.");

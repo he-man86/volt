@@ -114,14 +114,18 @@ internal static class TreeLookup
         }
     }
 
-    /// <summary>THE ONE MAPPING of a lookup's read fault (see <see cref="ItemLookup"/>'s walk): a coded refusal keeps its
-    /// code, and a child the host must not open stays its <see cref="UnreadableItemException"/>; any other fault — a raw
-    /// COM or binder throw — is <c>ITEM_UNVERIFIED</c> naming <paramref name="what"/> could not be read, never absence.
-    /// The IDE's exception travels as the inner one.</summary>
+    /// <summary>THE ONE MAPPING of a lookup's read fault (see <see cref="ItemLookup"/>'s walk): a read the IDE refused or
+    /// answered with nothing — a raw COM or binder throw, or the driver's own <c>UNREADABLE</c> (a checkout with no object,
+    /// a name answered null) — is <c>ITEM_UNVERIFIED</c> naming <paramref name="what"/> could not be read, never absence:
+    /// the node is the folder's, not the op's item, so UNREADABLE's remedy (force, or delete and create) would point at an
+    /// item nobody read (gate 3c review, finding 1). A child the host must not open stays its
+    /// <see cref="UnreadableItemException"/>, and any other coded refusal keeps its code (a missing API, a lost project).
+    /// The IDE's exception, or the driver's refusal, travels as the inner one.</summary>
     internal static T Read<T>(Func<T> read, Func<string> what, string doing)
     {
         try { return read(); }
-        catch (Exception ex) when (ex is not ICodedError and not UnreadableItemException)
+        catch (Exception ex) when (ex is not UnreadableItemException
+                                   && (ex is not ICodedError coded || coded.ErrorCode == BridgeErrorCodes.Unreadable))
         {
             throw new BridgeException(ConflictCodes.ItemUnverified,
                 $"could not read {what()} while {doing} — the IDE refused the read ({ex.Message}). Refusing to report it as absent.", ex);

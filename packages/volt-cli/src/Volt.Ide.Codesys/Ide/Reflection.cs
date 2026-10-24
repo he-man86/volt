@@ -2,6 +2,8 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using Volt.Contracts;
+using Volt.Engine;
 
 namespace Volt.Ide.Codesys
 {
@@ -9,6 +11,14 @@ namespace Volt.Ide.Codesys
     /// AppDomain, so this DLL needs no compile-time CODESYS reference.</summary>
     internal static class Reflection
     {
+        /// <summary>The bridge disagreeing with the IDE's SURFACE, not one object failing: an ambiguous or non-fitting
+        /// overload, or a vendor member that is not there by the name and arity Volt calls (a binder failure — the
+        /// framework's own, or Volt's <see cref="SurfaceMismatchException"/>). It would hit every object, so a walk that
+        /// names one failing object instead fails the operation by it. A member ONE node lacks is that node's, whatever
+        /// its code (gate 3c review, finding 4).</summary>
+        public static bool SurfaceMismatch(Exception ex) =>
+            ex is MissingMemberException or AmbiguousMatchException or SurfaceMismatchException;
+
         /// <summary>The overload of <paramref name="name"/> among <paramref name="methods"/> that takes
         /// <paramref name="args"/> — chosen by the arguments' TYPES, not merely their count — or null when no
         /// method of that name and arity exists (the one answer a caller may treat as "not there").
@@ -23,8 +33,8 @@ namespace Volt.Ide.Codesys
         ///
         /// <para>The choice is the framework's own overload resolution (<see cref="Type.DefaultBinder"/>): a
         /// candidate whose parameters cannot take the arguments is never called, and two that both could are an
-        /// <see cref="AmbiguousMatchException"/> — loud, never a coin toss. Arguments that fit no candidate throw
-        /// <see cref="MissingMethodException"/> naming their types.</para></summary>
+        /// <see cref="AmbiguousMatchException"/> — loud, never a coin toss. Arguments that fit no candidate are refused
+        /// <c>IDE_UNSUPPORTED</c> naming their types: this IDE's object model has no overload Volt can call.</para></summary>
         public static MethodInfo? Overload(System.Collections.Generic.IEnumerable<MethodInfo> methods, string name, object?[] args)
         {
             var candidates = methods.Where(m => m.Name == name && m.GetParameters().Length == args.Length)
@@ -39,7 +49,7 @@ namespace Volt.Ide.Codesys
             }
             catch (MissingMethodException)
             {
-                throw new MissingMethodException(
+                throw new SurfaceMismatchException(
                     $"No '{name}' on {candidates[0].DeclaringType?.FullName} takes ({string.Join(", ", args.Select(a => a?.GetType().Name ?? "null"))}) - " +
                     $"it has {string.Join(" | ", candidates.Select(c => $"{name}({string.Join(", ", c.GetParameters().Select(p => p.ParameterType.Name))})"))}");
             }

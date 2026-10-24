@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Volt.Engine.Format.St;
+using Volt.Contracts;
 
 namespace Volt.Engine.Format.Task;
 
@@ -53,7 +54,7 @@ public sealed record TaskSettings(
     {
         if (CallComments is null || CallComments.Count == 0) return "";
         if (CallComments.Count != Calls.Count)
-            throw new InvalidOperationException(
+            throw new VoltInvariantException(
                 $"a task's {Calls.Count} call(s) carry {CallComments.Count} comment(s) — the two lists are index-aligned");
         return CallComments[index];
     }

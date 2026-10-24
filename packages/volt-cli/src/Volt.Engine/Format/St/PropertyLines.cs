@@ -134,7 +134,7 @@ public static class PropertyLines
         {
             var raw = lines[i];
             var at = firstLine > 0 ? $"{what}, line {firstLine + i}" : $"{what}, line {i + 1} of its property lines";
-            var key = KeyOf(raw) ?? throw new InvalidOperationException($"{at}: '{raw.Trim()}' is no property line");
+            var key = KeyOf(raw) ?? throw new VoltInvariantException($"{at}: '{raw.Trim()}' is no property line");
             var t = raw.Trim();
             var value = t.Length > key.Length + 1 ? t.Substring(key.Length + 2) : null;
             var named = $"%{key}";
@@ -177,7 +177,7 @@ public static class PropertyLines
                 case CommentKey: comment = ReadNonEmptyString(value!, at, t, named); break;
                 case NetVarKey: netVar.Add(ReadNetVar(value!, at, t)); break;
                 case FileLinkKey: fileLink = ReadFileLink(value!, at, t); break;
-                default: throw new InvalidOperationException($"{at}: key '{key}' has no reader");
+                default: throw new VoltInvariantException($"{at}: key '{key}' has no reader");
             }
         }
         return (new ObjectProperties(cls, exclude, linkAlways, external, systemCall, reserve, defines, undefines,

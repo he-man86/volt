@@ -115,7 +115,7 @@ internal sealed partial class TcObjectModel
 
             // A manager that answers NO document is not a project with no libraries (cli-bridges review B7).
             var xml = (string?)((dynamic)manager).ProduceAllLibrarySignatures()
-                ?? throw new InvalidOperationException(
+                ?? throw new BridgeException(BridgeErrorCodes.Unreadable,
                     $"twincat: the library manager of {plc} answered ProduceAllLibrarySignatures() with nothing — refused " +
                     "rather than read as a project with no libraries, which would delete every library-signature file");
             var sigs = TcLibrarySignatures.Parse(xml);
@@ -694,7 +694,7 @@ internal sealed partial class TcObjectModel
         var below = PathOf(node);
         if (string.Equals(above, below, StringComparison.Ordinal)) return "";
         if (!below.StartsWith(above + "^", StringComparison.Ordinal))
-            throw new InvalidOperationException($"'{below}' is not inside '{above}'");
+            throw new VoltInvariantException($"'{below}' is not inside '{above}'");
         return below.Substring(above.Length + 1).Replace('^', '\\');
     }
 

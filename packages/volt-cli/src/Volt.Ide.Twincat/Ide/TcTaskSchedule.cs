@@ -53,7 +53,7 @@ internal static class TcTaskSchedule
     public static TaskSettings Read(string sysTaskXml, IReadOnlyList<string> calls)
     {
         var def = XDocument.Parse(sysTaskXml).Descendants("TaskDef").FirstOrDefault()
-            ?? throw new InvalidOperationException(
+            ?? throw new BridgeException(BridgeErrorCodes.Unreadable,
                 "twincat: the linked system task's XML carries no <TaskDef> — its schedule is unreadable, and " +
                 "rendering a task without one would hash as a task with no priority at all");
 
@@ -161,7 +161,7 @@ internal static class TcTaskSchedule
         var root = XDocument.Parse(sysTaskXml);
 
         var def = root.Descendants("TaskDef").FirstOrDefault()
-            ?? throw new InvalidOperationException("twincat: the system task lost its <TaskDef> across the write");
+            ?? throw new BridgeException(BridgeErrorCodes.IdeLostItem, "twincat: the system task lost its <TaskDef> across the write");
         // BY NUMBER: `Priority: 007` is written `7` (the patch writes the parsed number) and reads back `7`.
         if (!SamePriority(def.Element("Priority")?.Value, wantPriority)) return false;
         if (def.Element("CycleTime")?.Value.Trim() != wantTicks.ToString(CultureInfo.InvariantCulture)) return false;
@@ -223,7 +223,7 @@ internal static class TcTaskSchedule
     private static (string Value, string Unit) FromTicks(string ticksText)
     {
         if (!long.TryParse(ticksText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var ticks))
-            throw new InvalidOperationException(
+            throw new BridgeException(BridgeErrorCodes.Unreadable,
                 $"twincat: the system task's <CycleTime> is '{ticksText}', not a whole number of 100ns ticks");
         if (ticks % TicksPerUs != 0) return ((ticks * 100).ToString(CultureInfo.InvariantCulture), "ns");
         var us = ticks / TicksPerUs;

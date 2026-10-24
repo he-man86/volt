@@ -122,13 +122,13 @@ public static class ConflictCodes
     /// error frame, because the push catches them. Listing them is what makes the enum honest: without this,
     /// six of the ten codes are published by no op and look unreachable.
     ///
-    /// <para><c>INTERNAL_ERROR</c> is one of them: <c>PushService.ConflictFor</c> answers every refusal nobody coded with
-    /// it, and since <c>push-keeps-what-landed</c> every apply-time stop is a conflict, so a client DOES receive it here
-    /// (openspec <c>bridge-refusal-review</c> V.4).</para></summary>
+    /// <para><c>INTERNAL_ERROR</c> is one of them: since <c>push-keeps-what-landed</c> every apply-time stop is a conflict,
+    /// so a Volt bug met during the apply arrives here too. So is <c>IDE_UNSUPPORTED</c>: a write that calls a type, member
+    /// or overload this IDE's object model lacks is refused with it (openspec <c>wire-final-shape</c> step 3c).</para></summary>
     public static readonly string[] FromBridge =
     {
         BridgeErrorCodes.IdeLostItem, BridgeErrorCodes.Unsupported, BridgeErrorCodes.DuplicateChild,
         BridgeErrorCodes.BadRequest, BridgeErrorCodes.InvalidSt, BridgeErrorCodes.Unreadable,
-        BridgeErrorCodes.InternalError,
+        BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.InternalError,
     };
 }

@@ -253,7 +253,8 @@ namespace Volt.Ide.Codesys.Tests
             _3S.CoDeSys.Core.SystemInstances.ObjectMgr = new ChangedObjectManager();
             try
             {
-                var ex = Assert.Throws<MissingMethodException>(() => new CodesysDriver(new Projects(root)).WalkItems());
+                var ex = Assert.Throws<SurfaceMismatchException>(() => new CodesysDriver(new Projects(root)).WalkItems());
+                Assert.Equal(Volt.Contracts.BridgeErrorCodes.IdeUnsupported, ex.ErrorCode);
                 Assert.Contains("GetObjectToRead", ex.Message);
             }
             finally { _3S.CoDeSys.Core.SystemInstances.ObjectMgr = null; }
@@ -289,7 +290,8 @@ namespace Volt.Ide.Codesys.Tests
         [Fact]
         public void A_call_no_overload_anywhere_can_take_fails_by_name()
         {
-            var ex = Assert.Throws<MissingMethodException>(() => NwlInterop.Call(new Demux(), "SetInputTree", 0, 1.5));
+            var ex = Assert.Throws<SurfaceMismatchException>(() => NwlInterop.Call(new Demux(), "SetInputTree", 0, 1.5));
+            Assert.Equal(Volt.Contracts.BridgeErrorCodes.IdeUnsupported, ex.ErrorCode);
             Assert.Contains("SetInputTree", ex.Message);
         }
     }

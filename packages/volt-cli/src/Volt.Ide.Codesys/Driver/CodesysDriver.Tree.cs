@@ -5,6 +5,7 @@ using Volt.Contracts;
 using Volt.Engine.Ide;
 using Volt.Engine.Format.Body;
 using Volt.Engine.Item;
+using Volt.Engine;
 
 namespace Volt.Ide.Codesys;
 
@@ -58,7 +59,17 @@ public sealed partial class CodesysDriver
         }
         foreach (var child in children)
         {
-            var name = _om.GetName(child);
+            // AN OBJECT WHOSE NAME THE IDE CANNOT STATE HAS NO IDENTITY (owner 2026-10-18, as for one whose type it cannot
+            // state): no name is invented for it, its folder is unwalked — nothing there is read as deleted — and the walk
+            // goes on. A binder failure still fails the op (below).
+            string name;
+            try { name = _om.GetName(child); }
+            catch (Exception ex) when (!Reflection.SurfaceMismatch(ex))
+            {
+                BridgeLog.Warn($"could not read the name of a child of folder='{folderPath}' (folder unwalked): {ex.Message}");
+                if (!unwalked.Contains(folderPath)) unwalked.Add(folderPath);
+                continue;
+            }
             // ONE OBJECT NEVER FAILS THE WALK. Classifying reads the child's object, and that read was unguarded:
             // one failure threw out of WalkItems and `refs` answered INTERNAL_ERROR for the whole project (openspec
             // codesys-refs-guid-int32 — measured on a Pro2193 copy). The object is named instead, with its folder,
@@ -66,13 +77,12 @@ public sealed partial class CodesysDriver
             // "deleted". Matches the TwinCAT walk's classification catch.
             //
             // ONLY a fault of THIS object. A binder failure (`Reflection.Overload`: an ambiguous or non-fitting
-            // overload — `AmbiguousMatchException`, `MissingMethodException`) or a vendor member that is not there at
-            // all (`MissingMemberException`) is the bridge disagreeing with the IDE's surface: it would hit EVERY
-            // object, and caught here it would answer a successful walk with every object unreadable — so it fails
-            // the operation, by name.
+            // overload) or a vendor member that is not there by the name and arity Volt calls is the bridge disagreeing
+            // with the IDE's surface (`Reflection.SurfaceMismatch`): it would hit EVERY object, and caught here it would
+            // answer a successful walk with every object unreadable — so it fails the operation, by name.
             int code;
             try { code = KindCodeOf(child); }
-            catch (Exception ex) when (ex is not (MissingMemberException or AmbiguousMatchException))
+            catch (Exception ex) when (!Reflection.SurfaceMismatch(ex))
             {
                 BridgeLog.Warn($"could not read the kind of '{name}' in folder='{folderPath}' (named unreadable): {ex.Message}");
                 unreadable.Add(new UnreadableObject(name, folderPath, ex.Message, Kind: null, Code: BridgeErrorCodes.Unreadable));
@@ -103,7 +113,7 @@ public sealed partial class CodesysDriver
                 var sub = FolderPath.Append(folderPath, name);
                 (string Reason, bool Inside)? held;
                 try { held = _om.ContainerRefusal(child); }
-                catch (Exception ex) when (ex is not (MissingMemberException or AmbiguousMatchException))
+                catch (Exception ex) when (!Reflection.SurfaceMismatch(ex))
                 {
                     // Its kind is KNOWN (a container): its folder was walked whole. What it holds was not read, so its
                     // own subtree is unwalked — nothing under it is read as deleted.
@@ -165,7 +175,7 @@ public sealed partial class CodesysDriver
                     string? unspelled;
                     List<(string Name, string Reason)> refused;
                     try { refs = _om.GetLibraryRefs(child, out unspelled, out refused); }
-                    catch (Exception ex) when (ex is not (MissingMemberException or AmbiguousMatchException))
+                    catch (Exception ex) when (!Reflection.SurfaceMismatch(ex))
                     {
                         BridgeLog.Warn($"could not read the library manager '{name}' in folder='{folderPath}' (named unreadable): {ex.Message}");
                         unreadable.Add(new UnreadableObject(name, folderPath, ex.Message, ItemKind.Kinds.Folder, Code: BridgeErrorCodes.Unreadable));
@@ -199,7 +209,7 @@ public sealed partial class CodesysDriver
     // by descending from the same origin — the structural nodes (Device/Plc Logic/Application) are matched, not
     // re-created as user folders under the Application (which doubled the path).
     public ItemRef GetTreeRoot() =>
-        new(_om.PrimaryProject ?? throw new InvalidOperationException("CODESYS: no primary project"));
+        new(_om.PrimaryProject ?? throw BridgeException.PlcDisconnected("CODESYS: no primary project"));
 
     /// <summary>Does the node have any children? This decides where a device descriptor is PLACED, so a wrong
     /// answer moves the item to a different folder — which reads to the workspace as a move, not as an error.
@@ -286,12 +296,12 @@ public sealed partial class CodesysDriver
         return null;
     }
     /// <summary>CODESYS has no scripting call to add a property's missing Get or Set — a vendor "cannot", so a
-    /// <see cref="NotSupportedException"/> (the push reports it UNSUPPORTED). Raised inside the push's apply loop (the
+    /// refusal coded <c>UNSUPPORTED</c>. Raised inside the push's apply loop (the
     /// accessor reconcile), it can reach a conflict on an ACCEPTED push, so it names what the IDE can do and no client
     /// command (openspec <c>push-keeps-what-landed</c> gate step 2: it said "Add it in the IDE, then pull.", unclassified).
     /// <paramref name="offers"/>: the create calls the member container DOES expose.</summary>
-    internal static NotSupportedException NoAccessorCreate(string name, string offers) =>
-        new($"CODESYS: cannot create the '{name}' accessor — CODESYS creates a property's Get/Set with the property " +
+    internal static BridgeException NoAccessorCreate(string name, string offers) =>
+        new(BridgeErrorCodes.Unsupported, $"CODESYS: cannot create the '{name}' accessor — CODESYS creates a property's Get/Set with the property " +
             "itself, and exposes no scripting call to add one afterwards; only the IDE's own editor can add it. " +
             "(member container offers: " + offers + ")");
 

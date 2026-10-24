@@ -115,7 +115,7 @@ namespace Volt.Relay
         /// <summary>Start dialing. Returns immediately; the tunnel runs until <see cref="Dispose"/>.</summary>
         public void Start()
         {
-            if (_loop != null) throw new InvalidOperationException("tunnel already started");
+            if (_loop != null) throw new VoltInvariantException("the relay tunnel is started once, and was started again");
             Log(VoltLogLevel.Info, "relay: tunnel starting -> " + _config.SafeDescription);
             _loop = Task.Run(() => RunForeverAsync(_stopping.Token));
         }
@@ -478,7 +478,7 @@ namespace Volt.Relay
             try
             {
                 var socket = _socket;
-                if (socket == null) throw new InvalidOperationException("no socket");
+                if (socket == null) throw new RelaySocketGoneException();
                 // Bounded (openspec refs-silent-after-scan). A network that stops carrying a large frame without
                 // resetting the flow (the field: one ISP dropped every frame over ~16 KB) leaves this send pending
                 // for ever, holding the lock — and the ping loop parks behind it, so the heartbeat AND its watchdog
@@ -559,5 +559,12 @@ namespace Volt.Relay
             _stopping.Dispose();
             _sendLock.Dispose();
         }
+    }
+
+    /// <summary>A send found no connection — it closed between the caller's decision to send and the send. Every caller
+    /// catches it with its other send failures (the frame is dropped, logged, or the request fails); never a frame.</summary>
+    internal sealed class RelaySocketGoneException : Exception
+    {
+        public RelaySocketGoneException() : base("the relay connection is gone; nothing was sent") { }
     }
 }

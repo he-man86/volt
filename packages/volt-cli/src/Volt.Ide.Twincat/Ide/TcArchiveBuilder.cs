@@ -7,6 +7,8 @@ using System.Xml.Linq;
 using Volt.Engine.Format.Network;
 // `Parallel` is also System.Threading.Tasks.Parallel; this file means the LD branch.
 using Parallel = Volt.Engine.Format.Network.Parallel;
+using Volt.Contracts;
+using Volt.Engine;
 
 namespace Volt.Ide.Twincat;
 
@@ -84,7 +86,7 @@ internal sealed class TcArchiveBuilder
         NetworkPairing.RefuseUnpairedUnsupported(BeckhoffDriver.Row.Display, n);
         TcUnmeasured.RefuseUnbuilt(n);
         foreach (var (box, output) in NetworkPairing.NamedMainOutputs(n))
-            throw new NotSupportedException(
+            throw new UnsupportedException(
                 $"TwinCAT: network {n.Order + 1}'s '{box.Type}' box is read through its output '{output}', which neither the " +
                 $"project's declarations nor the libraries' signatures name an output of '{box.Type}', so the slot the " +
                 "consumer reads is unknown. The IDE can draw it.");
@@ -182,14 +184,14 @@ internal sealed class TcArchiveBuilder
                     "be driven to draw one, so there is no TwinCAT-written BoxTreeParallel to build it from. Draw it in the IDE.");
 
             default:
-                throw new NotSupportedException($"TwinCAT: no archive form for the graphical node '{n.GetType().Name}'.");
+                throw new UnsupportedException($"TwinCAT: no archive form for the graphical node '{n.GetType().Name}'.");
         }
     }
 
     private XElement Box(Box b, bool consumed)
     {
         if (b.Kind == CallKind.FunctionBlock && b.Instance is null)
-            throw new InvalidOperationException(
+            throw new VoltInvariantException(
                 $"network model invariant: the function-block call '{b.Type}' carries no instance; the reader builds every FB call with one.");
         if (b.Inputs.FirstOrDefault(p => !p.Flags.IsNone) is { } flagged)
             throw Unbuildable(
@@ -328,7 +330,7 @@ internal sealed class TcArchiveBuilder
         {
             while (slots.Count <= at) slots.Add((false, null));
             if (slots[at].Set)
-                throw new NotSupportedException(
+                throw new UnsupportedException(
                     $"TwinCAT: the '{b.Type}' box wires output slot {at} to {what}, a slot " +
                     (eno && at == 0 ? "its ENO echo holds" : "another pin already holds") + ".");
             slots[at] = (true, value);
@@ -342,7 +344,7 @@ internal sealed class TcArchiveBuilder
             if (string.Equals(o.Formal, Volt.Engine.Format.Network.Box.EnoPin, StringComparison.OrdinalIgnoreCase))
             {
                 if (!eno)
-                    throw new InvalidOperationException(
+                    throw new VoltInvariantException(
                         $"network model invariant: the '{b.Type}' box wires its ENO to '{o.Value.Text}' and is built with no ENO output; the reader refuses that text (P5).");
                 slots[0] = (true, o.Value);
                 continue;
@@ -353,13 +355,13 @@ internal sealed class TcArchiveBuilder
                     .Where(i => string.Equals(names[i], formal, StringComparison.OrdinalIgnoreCase) && (i >= slots.Count || !slots[i].Set))
                     .ToList();
                 if (named.Count == 0)
-                    throw new NotSupportedException(
+                    throw new UnsupportedException(
                         $"TwinCAT: the '{b.Type}' box's output names ({string.Join(", ", names.Select(n => "'" + n + "'"))}) " +
                         $"hold no '{formal}' for the pin wired to '{o.Value.Text}'.");
                 at = named[0];
             }
             else
-                at = o.Slot ?? throw new InvalidOperationException(
+                at = o.Slot ?? throw new VoltInvariantException(
                     $"network model invariant: the '{b.Type}' box's positional output to '{o.Value.Text}' has no slot.");
             At(at, o.Value, "'" + o.Value.Text + "'");
         }

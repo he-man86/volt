@@ -83,6 +83,23 @@ namespace Volt.Ide.Codesys.Tests
             Assert.Contains("3.5.21.0", text);
         }
 
+        /// <summary>A NODE WITHOUT THE FACET is a fact of that node, not of the IDE version: the read is refused UNSUPPORTED
+        /// (Volt reads no such node), never IDE_UNSUPPORTED, whose remedy is "the IDE has to change" (gate 3c review,
+        /// finding 8).</summary>
+        [Fact]
+        public void A_node_without_the_device_facet_is_refused_UNSUPPORTED()
+        {
+            _3S.CoDeSys.Core.SystemInstances.ObjectMgr = new Manager();
+            try
+            {
+                var ex = Assert.Throws<Volt.Engine.BridgeException>(() =>
+                    new CodesysDriver(projects: null).ReadManifest(new ItemRef(new Node(new DeviceObject())), ItemKind.Kinds.Device));
+                Assert.Equal(Volt.Contracts.BridgeErrorCodes.Unsupported, ex.ErrorCode);
+                Assert.Contains("ScriptDeviceObject", ex.Message);
+            }
+            finally { _3S.CoDeSys.Core.SystemInstances.ObjectMgr = null; }
+        }
+
         /// <summary>A member the identification does not answer is refused by name — never an empty line.</summary>
         [Fact]
         public void An_identification_member_that_is_not_there_is_refused_by_name()

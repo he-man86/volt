@@ -203,13 +203,13 @@ public class PushConflictCodeTests
         }
     }
 
-    /// <summary>A DRIVER'S `NotSupportedException` REACHES THE CLIENT AS `UNSUPPORTED`.
+    /// <summary>A DRIVER'S CODED "CANNOT" REACHES THE CLIENT AS `UNSUPPORTED`.
     ///
-    /// <para>Both drivers reach for `NotSupportedException` to mean exactly one thing — this vendor cannot
-    /// express the shape you pushed — at about twenty sites: a graphical body PLCopen has no spelling for, a
-    /// member kind with no mapping, an Execute box, a box output pin wired straight to a variable. None of them
-    /// is an `ICodedError`, so every one arrived as `code: null`: a refusal whose own message says at length
-    /// that the shape can NEVER be written, carrying nothing to tell it apart from "pull and retry".</para>
+    /// <para>Both drivers refuse a shape this vendor cannot express — a graphical body with no vendor form, a member
+    /// kind with no mapping, an Execute box, a box output pin wired straight to a variable — and every one arrived as
+    /// `code: null` until it carried a code: a refusal whose own message says at length that the shape can NEVER be
+    /// written, carrying nothing to tell it apart from "pull and retry". The code is the throw's own (an
+    /// <c>UnsupportedException</c> here), never read off the exception's type (wire-final-shape step 3c).</para>
     ///
     /// <para>Found by the LIVE suite, not this one — `create-shapes.test.ts` on TwinCAT — after the offline
     /// tier had been green through several rounds of exactly this work. The fake has no vendor importer to
@@ -219,7 +219,7 @@ public class PushConflictCodeTests
     {
         var ide = new FakeIde
         {
-            RefuseContentWrite = _ => new NotSupportedException("this vendor cannot draw that"),
+            RefuseContentWrite = _ => new UnsupportedException("this vendor cannot draw that"),
         };
 
         var res = BoundWrite.Push(ide, new PushRequest
@@ -235,25 +235,33 @@ public class PushConflictCodeTests
     }
 
     /// <summary>EVERY RE-CODE OF openspec <c>bridge-refusal-review</c> §2 REACHES THE WIRE WITH ITS CODE (D14). The rows
-    /// that re-coded a refusal by its exception CLASS rely on this mapping, so it is asserted per class at the write:
-    /// a Volt invariant (<c>ArgumentException</c>, 2.2; <c>InvalidOperationException</c>, 2.20, 2.30, 2.32, 2.33; a
-    /// coded INTERNAL_ERROR, 2.35) is INTERNAL_ERROR, a vendor limit (<c>NotSupportedException</c>, 2.21) is UNSUPPORTED,
-    /// and a malformed `.task` (<c>TaskDescriptorException</c>, D14) is BAD_REQUEST — it was uncoded and fell to
-    /// INTERNAL_ERROR. (2.14/2.15, 2.16-2.18 and 2.25 assert their codes where they are raised.)</summary>
+    /// carry their code at the throw (wire-final-shape step 3c), so it is asserted per class at the write: a Volt
+    /// invariant (<c>ArgumentException</c>, 2.2; <c>VoltInvariantException</c>; a coded INTERNAL_ERROR, 2.35) is
+    /// INTERNAL_ERROR, a vendor limit (<c>UnsupportedException</c>, 2.21) is UNSUPPORTED, an API this IDE lacks is
+    /// IDE_UNSUPPORTED, and a malformed `.task` (<c>TaskDescriptorException</c>, D14) is BAD_REQUEST. A FOREIGN BCL
+    /// exception — <c>NotSupportedException</c> and <c>InvalidOperationException</c> included — is nobody's
+    /// classification and answers INTERNAL_ERROR: the type is never read as a code, so a conflict and an error frame
+    /// answer one failure alike. (2.14/2.15, 2.16-2.18 and 2.25 assert their codes where they are raised.)</summary>
     [Theory]
     [InlineData("argument", BridgeErrorCodes.InternalError)]
     [InlineData("invariant", BridgeErrorCodes.InternalError)]
     [InlineData("coded-internal", BridgeErrorCodes.InternalError)]
     [InlineData("vendor-limit", BridgeErrorCodes.Unsupported)]
+    [InlineData("ide-api-missing", BridgeErrorCodes.IdeUnsupported)]
+    [InlineData("foreign-not-supported", BridgeErrorCodes.InternalError)]
+    [InlineData("foreign-invalid-operation", BridgeErrorCodes.InternalError)]
     [InlineData("task", BridgeErrorCodes.BadRequest)]
     public void Each_refusal_class_reaches_the_wire_with_its_code(string refusal, string code)
     {
         System.Exception ex = refusal switch
         {
             "argument" => new System.ArgumentException("a kind with no composite shape"),
-            "invariant" => new System.InvalidOperationException("network model invariant — a Volt bug"),
+            "invariant" => new VoltInvariantException("network model invariant — a Volt bug"),
             "coded-internal" => new BridgeException(BridgeErrorCodes.InternalError, "moved item not found after the move"),
-            "vendor-limit" => new System.NotSupportedException("no Implementation aspect"),
+            "vendor-limit" => new UnsupportedException("no Implementation aspect"),
+            "ide-api-missing" => new BridgeException(BridgeErrorCodes.IdeUnsupported, "CODESYS: no 'move' on this object"),
+            "foreign-not-supported" => new System.NotSupportedException("Specified method is not supported."),
+            "foreign-invalid-operation" => new System.InvalidOperationException("Collection was modified"),
             "task" => new Volt.Engine.Format.Task.TaskDescriptorException("line 3: 'CoreBinding' is not a task field"),
             _ => throw new System.ArgumentOutOfRangeException(nameof(refusal)),
         };
@@ -263,5 +271,35 @@ public class PushConflictCodeTests
 
         Assert.False(res.Landed());
         Assert.Equal(code, Assert.Single(res.Conflicts!).Code);
+    }
+
+    /// <summary>A VOLT BUG ANSWERED AS A CONFLICT IS LOGGED WHOLE, as one answered as a frame is (<c>PipeServer</c>):
+    /// INTERNAL_ERROR's remedy is "report a bug", and the conflict carries only the message — without the exception and its
+    /// stack in the log there is nothing to report. A refusal with a code of its own is the client's to act on and is not
+    /// logged as an error (gate 3c review, finding 7).</summary>
+    [Theory]
+    [InlineData("invariant", true)]
+    [InlineData("foreign", true)]
+    [InlineData("vendor-limit", false)]
+    public void A_Volt_bug_answered_as_a_conflict_is_logged_with_its_stack(string refusal, bool logged)
+    {
+        System.Exception ex = refusal switch
+        {
+            "invariant" => new VoltInvariantException("network model invariant — a Volt bug"),
+            "foreign" => new System.InvalidOperationException("Collection was modified"),
+            _ => new UnsupportedException("no Implementation aspect"),
+        };
+        var ide = new FakeIde { RefuseContentWrite = _ => ex };
+        using var log = new LogCapture(VoltLogLevel.Info);
+
+        var res = Push(ide, new SetItemOp { Name = "Shape.pou", SourceText = Prg("Shape"), IfVersion = null });
+
+        Assert.False(res.Landed());
+        var text = log.Read();
+        if (!logged) { Assert.DoesNotContain("[error]", text, System.StringComparison.OrdinalIgnoreCase); return; }
+        Assert.Contains("Shape.pou", text);
+        Assert.Contains(ex.GetType().FullName!, text);    // the whole exception: its type…
+        Assert.Contains(ex.Message, text);
+        Assert.Contains("   at ", text);                   // …and its stack
     }
 }

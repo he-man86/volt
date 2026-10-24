@@ -146,16 +146,19 @@ public class ImplementationKeywordTests
     {
         Assert.Equal("UML", ImplementationMarker.VendorLanguage("Uml"));
         Assert.Equal("NWL", ImplementationMarker.VendorLanguage("NWL"));
-        var notWord = Assert.Throws<System.NotSupportedException>(() => ImplementationMarker.VendorLanguage("3"));
+        var notWord = Assert.Throws<BridgeException>(() => ImplementationMarker.VendorLanguage("3"));
+        Assert.Equal(BridgeErrorCodes.Unsupported, notWord.ErrorCode);
         Assert.Contains("'3'", notWord.Message);
-        Assert.Throws<System.NotSupportedException>(() => ImplementationMarker.VendorLanguage("Unsupported"));
+        Assert.Equal(BridgeErrorCodes.Unsupported,
+                     Assert.Throws<BridgeException>(() => ImplementationMarker.VendorLanguage("Unsupported")).ErrorCode);
         // A vendor name spelling LD or FBD is a network body in a form Volt does not read — the vendor's fact, hidden as
         // LD/FBD UNSUPPORTED already is (review 2e+2g, low: it was an InvalidOperationException, "a Volt bug").
         Assert.Equal("LD", ImplementationMarker.VendorLanguage("Ld"));
         Assert.Equal("FBD", ImplementationMarker.VendorLanguage("fbd"));
         // ST is never hidden (Volt shows every ST body), so a vendor body NAMED ST that Volt cannot read is refused naming
         // it — the vendor's fact, UNSUPPORTED, not a Volt bug. (0 such bodies in the six corpora: niche, accepted loss.)
-        var st = Assert.Throws<System.NotSupportedException>(() => ImplementationMarker.VendorLanguage("st"));
+        var st = Assert.Throws<BridgeException>(() => ImplementationMarker.VendorLanguage("st"));
+        Assert.Equal(BridgeErrorCodes.Unsupported, st.ErrorCode);
         Assert.Contains("'st'", st.Message);
     }
 

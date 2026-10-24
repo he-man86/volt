@@ -7,6 +7,7 @@ using Volt.Contracts;
 using Volt.Engine.Library;
 using Volt.Engine.Format.Body;
 using Volt.Engine.Item;
+using Volt.Engine;
 
 namespace Volt.Ide.Codesys
 {
@@ -43,18 +44,18 @@ namespace Volt.Ide.Codesys
             // GetAllLibraries lives on the base ILibManObject; invoke via the
             // interface MethodInfo so explicit implementations dispatch correctly.
             var libManIface = Array.Find(iobj.GetType().GetInterfaces(), i => i.Name == "ILibManObject")
-                ?? throw new InvalidOperationException(
+                ?? throw new BridgeException(BridgeErrorCodes.IdeUnsupported,
                     $"CODESYS: '{iobj.GetType().Name}' does not implement ILibManObject, so its libraries cannot " +
                     "be enumerated. Refusing rather than reporting a project with no libraries.");
 
             var getAll = libManIface.GetMethod("GetAllLibraries")
-                ?? throw new InvalidOperationException(
+                ?? throw new BridgeException(BridgeErrorCodes.IdeUnsupported,
                     "CODESYS: ILibManObject has no GetAllLibraries(bool) — the object model has a different shape " +
                     "than this build expects. Refusing rather than reporting a project with no libraries; a " +
                     "renamed method is a version mismatch, not an empty library list.");
 
             if (getAll.Invoke(iobj, new object[] { false }) is not IEnumerable all)
-                throw new InvalidOperationException(
+                throw new BridgeException(BridgeErrorCodes.Unreadable,
                     "CODESYS: GetAllLibraries did not return an enumerable. Refusing rather than reporting a " +
                     "project with no libraries.");
             var items = all.Cast<object?>().ToList();
@@ -98,7 +99,7 @@ namespace Volt.Ide.Codesys
                     byName[r.Name] = r;
                     if (redirects.ContainsKey(r.Name) && IsPlaceholder(item)) redirected.Add(r.Name);
                 }
-                catch (Exception ex) when (ex is not (MissingMemberException or AmbiguousMatchException))
+                catch (Exception ex) when (!Reflection.SurfaceMismatch(ex))
                 {
                     // Named, never dropped: absent from the walk, its file would read as deleted.
                     var name = RefDisplayName(item);
@@ -136,14 +137,14 @@ namespace Volt.Ide.Codesys
         {
             var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             if (InvokeMethod(libMan, "GetRedirectedPlaceholderNames") is not IEnumerable names)
-                throw new InvalidOperationException(
+                throw new BridgeException(BridgeErrorCodes.Unreadable,
                     "CODESYS: the library manager answered no redirected placeholder names — refusing rather than reading " +
                     "its references as unredirected.");
             foreach (var n in names)
             {
                 if (n is not string name) continue;
                 map[name] = InvokeMethod(libMan, "GetRedirectedPlaceholderResolution", name) as string
-                    ?? throw new InvalidOperationException(
+                    ?? throw new BridgeException(BridgeErrorCodes.Unreadable,
                         $"CODESYS: the library manager redirects '{name}' to no resolution — refusing rather than guessing one.");
             }
             return map;
@@ -300,13 +301,13 @@ namespace Volt.Ide.Codesys
             Build(app);   // FALSE (a failing compile) is fine: libraries precompile independently of the app.
 
             var lmm = GetStaticMember("_3S.CoDeSys.Core.SystemInstances", "LanguageModelMgr")
-                      ?? throw new InvalidOperationException("CODESYS: LanguageModelMgr unavailable");
+                      ?? throw new BridgeException(BridgeErrorCodes.IdeUnsupported, "CODESYS: LanguageModelMgr unavailable");
             // `AllPrecompiledSignatures(true,true)` returns every resolved LIBRARY signature — libraries precompile
             // independently of the application, so this yields their declarations even when the app build fails (a
             // headless env with an unresolvable placeholder library still precompiles the resolvable libs). Verified
             // live: 5220–5406 fully-typed sigs across the real corpora.
             if (InvokeMethod(lmm, "AllPrecompiledSignatures", true, true) is not IEnumerable sigs)
-                throw new InvalidOperationException("CODESYS: AllPrecompiledSignatures returned nothing");
+                throw new BridgeException(BridgeErrorCodes.Unreadable, "CODESYS: AllPrecompiledSignatures returned nothing");
 
             List<Volt.Engine.Library.LibVar> Vars(object? sig, string prop) => LibraryVars(sig, prop);
 
@@ -374,12 +375,12 @@ namespace Volt.Ide.Codesys
                 if (GetMember(v, "Name") is not string n || n.Length == 0)
                 {
                     if (isAliasBase) continue;
-                    throw new InvalidOperationException(
+                    throw new BridgeException(BridgeErrorCodes.Unreadable,
                         $"CODESYS: the library signature '{GetMember(sig, "Name")}' lists a variable in {prop} of type " +
                         $"'{type}' with no name — Volt refuses the signatures rather than drop the pin from them.");
                 }
                 if (string.IsNullOrEmpty(type))
-                    throw new InvalidOperationException(
+                    throw new BridgeException(BridgeErrorCodes.Unreadable,
                         $"CODESYS: library variable '{n}' in {prop} of '{GetMember(sig, "Name")}' has no " +
                         "readable Type — object-model version mismatch");
                 var init = GetMember(v, "Initial")?.ToString();
@@ -419,7 +420,7 @@ namespace Volt.Ide.Codesys
         {
             var t = Reflection.FindTypeBySimpleName("ScriptImplementationLanguages")
                     ?? Reflection.FindTypeBySimpleName("ImplementationLanguages")
-                    ?? throw new InvalidOperationException(
+                    ?? throw new BridgeException(BridgeErrorCodes.IdeUnsupported,
                         "CODESYS: neither ScriptImplementationLanguages nor ImplementationLanguages is loaded — " +
                         "the scripting API does not match what this driver was written against");
 
@@ -434,7 +435,7 @@ namespace Volt.Ide.Codesys
             if (sf != null) return sf.GetValue(null)!;
 
             var instance = Activator.CreateInstance(t, nonPublic: true)
-                ?? throw new InvalidOperationException($"CODESYS: cannot instantiate {t.Name} to read '{member}'");
+                ?? throw new BridgeException(BridgeErrorCodes.IdeUnsupported, $"CODESYS: cannot instantiate {t.Name} to read '{member}'");
             var ip = t.GetProperty(member, BF);
             if (ip != null) return ip.GetValue(instance)!;
             var f = t.GetField(member, BF);
@@ -442,7 +443,7 @@ namespace Volt.Ide.Codesys
 
             var names = string.Join(", ", t.GetProperties(BF).Select(x => x.Name)
                                            .Concat(t.GetFields(BF).Select(x => x.Name)).Distinct());
-            throw new InvalidOperationException(
+            throw new BridgeException(BridgeErrorCodes.IdeUnsupported,
                 $"CODESYS: {t.Name} has no '{member}'. It offers: {names}");
         }
 
@@ -462,7 +463,7 @@ namespace Volt.Ide.Codesys
                 foreach (var child in GetChildren(parent))
                     if (string.Equals(GetName(child), name, StringComparison.Ordinal) && IsFolder(child))
                         return child;
-                throw new InvalidOperationException($"CODESYS: folder '{name}' not found after create_folder");
+                throw new BridgeException(BridgeErrorCodes.IdeLostItem, $"CODESYS: folder '{name}' not found after create_folder");
             }
 
             // Everything else goes through the IEC language container — the same
@@ -489,7 +490,7 @@ namespace Volt.Ide.Codesys
                 // a task under and therefore the folder a new `.task` file resolves to.
                 case ItemKind.PlcTask:
                     return InvokeMethod(Facet(parent, "ScriptTaskConfigObject"), "create_task", name)
-                        ?? throw new InvalidOperationException(
+                        ?? throw new BridgeException(BridgeErrorCodes.Unsupported,
                             $"CODESYS: create_task('{name}') returned nothing");
                 case ItemKind.PlcItf: return Create(c, "create_interface", name);
                 // Inline POU children (method/action/property) live on a DIFFERENT
@@ -527,7 +528,7 @@ namespace Volt.Ide.Codesys
                 // No fallback: an unhandled kind is a bug (a new kind missed here), not a function block —
                 // same policy PushService.PouKindToCode states for its own mapping.
                 default:
-                    throw new InvalidOperationException($"CODESYS: no create for item kind {itemType} ('{name}')");
+                    throw new VoltInvariantException($"CODESYS: no create for item kind {itemType} ('{name}')");
             }
         }
 
@@ -540,7 +541,7 @@ namespace Volt.Ide.Codesys
             // same wire name makes TwinCAT raise. Delete-idempotency is NOT weakened:
             // it lives one level up in PushService.ApplyOp, which answers "no-op" when the item is absent and
             // never calls here at all.
-            throw new InvalidOperationException($"CODESYS: no child named '{name}' under '{GetName(parent)}'");
+            throw new VoltInvariantException($"CODESYS: no child named '{name}' under '{GetName(parent)}'");
         }
 
         public void Rename(object node, string newName) => InvokeMethod(Unwrap(node), "rename", newName);
@@ -563,7 +564,7 @@ namespace Volt.Ide.Codesys
             // CREATING there works (a separate container exists for it - see CodesysObjectModel.IecContainer);
             // only relocating an existing item does not.
             if (IsScriptProject(Unwrap(target)))
-                throw new NotSupportedException(
+                throw new BridgeException(BridgeErrorCodes.Unsupported,
                     "CODESYS: an item cannot be MOVED to the project root (the POU pool) - the scripting API's " +
                     "`move` takes an object parent and the project is not one. Creating an item there works; " +
                     "moving one already in the tree has to be done in the IDE.");
@@ -585,7 +586,7 @@ namespace Volt.Ide.Codesys
                     try { m.Invoke(obj, new object?[] { parent, -1 }); return; }
                     catch (TargetInvocationException tie) { throw tie.InnerException ?? tie; }
                 }
-            throw new MissingMethodException(
+            throw new SurfaceMismatchException(
                 $"No usable 'move' on {t.FullName} or its interfaces (saw: {(found.Count == 0 ? "none" : string.Join("; ", found))})");
         }
     }

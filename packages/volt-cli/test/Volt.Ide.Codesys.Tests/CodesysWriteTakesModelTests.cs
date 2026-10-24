@@ -56,7 +56,7 @@ namespace Volt.Ide.Codesys.Tests
                         Stated: StatedLanguage.Shown("FBD")),
                 }, ObjectProperties.None);
 
-                var ex = Assert.Throws<InvalidOperationException>(() =>
+                var ex = Assert.Throws<Volt.Contracts.VoltInvariantException>(() =>
                     new CodesysDriver(projects: null).WriteContent(new ItemRef(pou), content, Array.Empty<PushedNetworkBody>()));
                 Assert.Contains("'Step'", ex.Message);
                 Assert.Contains("no validated model", ex.Message);

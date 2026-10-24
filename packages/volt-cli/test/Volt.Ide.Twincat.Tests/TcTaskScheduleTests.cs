@@ -235,8 +235,9 @@ public class TcTaskScheduleTests
     [Fact]
     public void A_system_task_without_a_schedule_is_not_invented()
     {
-        var ex = Assert.Throws<InvalidOperationException>(
+        var ex = Assert.Throws<BridgeException>(
             () => TcTaskSchedule.Read("<TreeItem><ItemName>PlcTask</ItemName></TreeItem>", Array.Empty<string>()));
+        Assert.Equal(BridgeErrorCodes.Unreadable, ex.ErrorCode);
         Assert.Contains("TaskDef", ex.Message);
     }
 }

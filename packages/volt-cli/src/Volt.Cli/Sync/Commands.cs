@@ -842,6 +842,7 @@ public static class Commands
             {
                 ConflictCodes.NotAttempted => "not sent — the push stopped before it; push again",
                 BridgeErrorCodes.Unsupported => "the IDE will not take this text; change it, then push again",
+                BridgeErrorCodes.IdeUnsupported => "this IDE version lacks what the write needs; no retry helps — the IDE has to change",
                 _ => "fix what the reason names, then push again",
             };
 

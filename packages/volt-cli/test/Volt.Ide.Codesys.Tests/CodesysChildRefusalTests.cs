@@ -51,7 +51,7 @@ namespace Volt.Ide.Codesys.Tests
         public void A_missing_accessor_create_is_a_vendor_cannot_that_names_no_client_command()
         {
             var ex = CodesysDriver.NoAccessorCreate("Set", "create_method, create_action");
-            Assert.IsType<NotSupportedException>(ex);
+            Assert.Equal(Volt.Contracts.BridgeErrorCodes.Unsupported, ex.ErrorCode);
             Assert.Contains("'Set'", ex.Message);
             Assert.DoesNotContain("pull", ex.Message, StringComparison.OrdinalIgnoreCase);
         }

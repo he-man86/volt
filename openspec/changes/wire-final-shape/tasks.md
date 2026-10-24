@@ -267,14 +267,88 @@ Relay 74; volt-cli `bun test test/unit` 228, volt-control 147, volt-vscode 39, v
 `scripts/bridge.test.ts` 5. No fixture, recording or transpiler change, so no fixture-map regeneration; no LSP source
 changed, so the LSP suites are not this step's.
 
-- [ ] 3.9a INTERNAL_ERROR only for a Volt bug (owner 2026-10-24: "before this refactor we got a lot of internal errors
+- [x] 3.9a INTERNAL_ERROR only for a Volt bug (owner 2026-10-24: "before this refactor we got a lot of internal errors
       back .. this is not very clean"). Census every uncoded throw reachable from the wire (`WireVocabularyTests`
       `UncodedThrow`: 164 before the rework, 177 at 1464605aaf — the refusals the rework added were mostly coded, but each
       uncoded one is answered INTERNAL_ERROR by PipeServer / ConflictFor). Classify each: a request or an IDE state gets
       its own code (BAD_REQUEST, UNSUPPORTED, UNREADABLE, PLC_DISCONNECTED, …) behind a test; only an invariant guard (a
       state Volt itself must never reach) stays INTERNAL_ERROR. The census becomes a ratchet that only goes down, and the
       contract suite gains a case per reclassified site where a request can reach it. Report before → after.
-- [ ] 3.10 All C# suites, `bun test test/unit`, typecheck, lint, `bun run check` green.
+      **Built (3c):** before: 152 `throw new` of an uncoded BCL type in `src/` (outside Contracts and the CLI; the census
+      regex at b23c70e660), plus 6 constructions the old regex did not see (3 factories returning a BCL type, 3 `new` in a
+      factory body or a switch arm) and 3 BCL subtypes ConflictFor coded by TYPE (`UnrepresentableBodyException`,
+      `ChildRefusedException`, `TcEnoRefusal` — `NotSupportedException`s). After: **0** uncoded (`No_throw_is_uncoded`;
+      the regex now also counts a non-throw `new` and a factory returning a BCL type). The 158 constructions, per class:
+      **42 invariants** (`VoltInvariantException`, new in Contracts, `INTERNAL_ERROR`, logged whole by `PipeServer`;
+      ratchet `Invariants_only_go_down`, per file, fails on a rise only); **34 IDE_UNSUPPORTED** (the IDE's object model
+      lacks a type, member or overload Volt calls — every `MissingMethodException`, every "not loaded"/"no such member");
+      **33 UNSUPPORTED** (16 `BridgeException`, 17 `UnsupportedException` — new in Engine, a coded `NotSupportedException`
+      for the paths that ROUTE on a vendor "cannot": the TwinCAT in-place write's fall-back to the builder, the
+      unchanged-network render; the three subtypes now derive from it); **28 UNREADABLE** (the IDE answered a read with
+      nothing or a shape Volt cannot read: XML, signatures, project settings, a checkout with no object); **9
+      IDE_LOST_ITEM** (a create, move, write or TaskDef the IDE does not hold back); **4 PLC_DISCONNECTED** (no primary
+      project, no XAE of the pid, no TwinCAT project bound, no PLC project in the solution); **1 ITEM_UNVERIFIED** (a
+      CODESYS node whose name the IDE answers null); **8 caught inside** by a named type (`HierarchyReadException` 6 —
+      a missing proxy still becomes IDE_UNSUPPORTED, else `Explorer`'s ITEM_UNVERIFIED; `PipeBindException` 1;
+      `RelaySocketGoneException` 1). Also re-coded: the SP18 NWL constructor refusal UNSUPPORTED → IDE_UNSUPPORTED
+      (the same situation). `ConflictFor`'s TYPE mapping deleted (code = the throw's, a network-text diagnostic's, else
+      INTERNAL_ERROR), so a frame and a conflict answer one failure with one code. Vocabulary: IDE_UNSUPPORTED is also
+      the code of ONE call's missing API (`ConflictCodes.FromBridge` and the unreadable channel gain it); `build` gains
+      UNSUPPORTED (a project with no application). Wire shape re-pinned at protocol 1
+      (`3d6beb32f772370bb701140ef99ceb8bbf57a25267e88289ba8ddc3288aad591`; one enum value added to `ConflictCode`, one
+      frame code on `build`). Tests: `PushConflictCodeTests` (theory +3 rows: IDE_UNSUPPORTED, a foreign
+      `NotSupportedException` and `InvalidOperationException` → INTERNAL_ERROR), `CallFailureEvidenceTests` (+1, an
+      invariant's frame and log), `CodesysRefusalCodeTests` (2: build with no application UNSUPPORTED, no primary project
+      PLC_DISCONNECTED), `CodesysContainerRefusalTests` (no object manager: the walk is refused IDE_UNSUPPORTED — it was
+      a folder named unreadable), and the 69 test cases the change turned red (Engine 24, Ide.Twincat 30, Ide.Codesys
+      15) re-read from the exception TYPE to the code (written beside the fix, not run red first); the
+      `WireRulesHaveOneImplementationTests` mapping ratchet re-pinned (PushService 3 → 2; `UnsupportedException` and
+      CODESYS `Reflection.SurfaceMismatch` pinned, each a definition or a route on a code, no mapping). **Contract suite (4.1):** no reclassified site is reachable by a request against the
+      fixture IDEs — each needs an IDE lacking an API, an IDE answering a read with nothing, or a Volt bug; the build
+      of a library project (no application) needs a fixture that has none. design "Built (step 3c)".
+Gate 3c (2026-10-24): the ten review findings, each fixed — principle first, then the fix (design "Built (step 3c)"
+3, 5–5f). Red first: 1, 2, 3, 4, 5, 7, 8, 9 (the restored C5), 10, and 6's invariant half; 6's channel-code half pins
+what already held.
+1. **A lookup's one mapping covers the driver's UNREADABLE**: `TreeLookup.Read` answers a sibling the IDE answered with
+   nothing ITEM_UNVERIFIED naming the folder and the child, the driver's refusal inner (`ErrorCodeVocabularyTests`
+   `A_sibling_the_IDE_answers_with_nothing_during_a_lookup_is_ITEM_UNVERIFIED_naming_the_folder`; FakeIde gains
+   `UnreadableClassifies`). wire.html's "an unreadable folder is ITEM_UNVERIFIED" holds again.
+2. **The delete-then-create advice is one refusal's**: `MemberWithoutDeclarationException` (Engine, UNREADABLE) from
+   `MemberSites.Declaration`; `ReadLive` adds the advice to that type only (`An_update_whose_read_the_IDE_answers_with_nothing_is_UNREADABLE_without_the_delete_advice`;
+   the existing delete-then-create test's fake throws the type the drivers throw; the two drivers' member tests assert it).
+3. **The census counts every exception type Volt does not declare**, not a BCL list: `TcArchiveWriter`'s two parse-side
+   `FormatException`s are `UnsupportedException` (not reachable from a request — `ParseObject` is the identity gate's
+   reader; `TcArchiveIdentityTests.A_shape_TwinCAT_never_writes_is_refused_UNSUPPORTED`); the OS types below the wire are
+   pinned per file (`BelowTheWire`: PipeAcl 6, ProcessElevation 1, RelayTunnel 1). Theory +10 rows.
+4. **What fails a CODESYS walk is a binder failure, not a code**: `SurfaceMismatchException` (IDE_UNSUPPORTED) at the
+   five former `MissingMethodException` sites and a node with no `get_name`; `Reflection.SurfaceMismatch` = that type,
+   `MissingMemberException`, `AmbiguousMatchException`. A library manager without `GetAllLibraries` is named unreadable
+   and the walk goes on (`CodesysMemberAvailabilityTests.A_library_manager_without_GetAllLibraries_is_named_unreadable_and_the_walk_goes_on`).
+5. **A CODESYS name answered null has no identity**: `GetName` refuses UNREADABLE; the walk unwalks its folder and goes on
+   (`CodesysContainerRefusalTests.A_child_whose_name_the_IDE_answers_null_unwalks_its_folder_and_the_walk_goes_on`);
+   wire.html says so. No ITEM_UNVERIFIED frame from CODESYS — the OpenRPC's "(TwinCAT)" stands.
+6. **A Volt bug is no unreadable object**: `SafeVersion` lets INTERNAL_ERROR through (`An_invariant_broken_during_a_read_fails_the_op_and_is_no_unreadable_entry`,
+   red); the channel codes pinned (`A_read_refused_with_an_unreadable_channel_code_publishes_it`: a vendor language that is
+   no word UNSUPPORTED, a read answered with nothing UNREADABLE, a foreign COM fault UNREADABLE). Report correction: since
+   3c an `unreadable` entry also carries UNSUPPORTED for `ImplementationMarker.VendorLanguage`, `UnrepresentableBodyException`
+   and `ChildRefusedException` (UNREADABLE before), and IDE_UNSUPPORTED for a missing API; ITEM_UNVERIFIED/IDE_LOST_ITEM
+   on a read reach an entry as since 3a (none measured on a read path) — **for the owner**: undeclared on that channel.
+7. **A Volt bug is logged whole on the push channel**: `ConflictFor` logs an INTERNAL_ERROR conflict at Error with
+   `CallFailure.LogText` (`PushConflictCodeTests.A_Volt_bug_answered_as_a_conflict_is_logged_with_its_stack`, 3 rows).
+8. **A missing facet is that node's**: `Facet` refuses UNSUPPORTED (`CodesysDeviceDescriptorTests.A_node_without_the_device_facet_is_refused_UNSUPPORTED`).
+9. **The C5 re-premise is withdrawn**: the test is back to its committed oracle (folder named unreadable, subtree
+   unwalked, `SimType` not published) and passes under finding 4's fix. The 69 type→code assertion changes stay: each
+   asserts the code the step decided, not the type a refactor happened to throw; 4 of them now assert the routing type
+   (`SurfaceMismatchException` ×2, `MemberWithoutDeclarationException` ×2), which is the original binder/member oracle.
+10. **The CLI advises on IDE_UNSUPPORTED** "this IDE version lacks what the write needs; no retry helps — the IDE has to
+   change" (`PartialPushCommandTests.An_op_the_IDE_lacks_the_API_for_advises_that_the_IDE_has_to_change`).
+Counts after the gate: IDE_UNSUPPORTED 34 → 33 (6 of them `SurfaceMismatchException`), UNSUPPORTED 33 → 36 (+1 Facet,
++2 archive parse), UNREADABLE 28 → 29 (+1 a null name), ITEM_UNVERIFIED 1 → 0; constructions of a type Volt does not
+declare in `src/` outside Contracts and the CLI: 0, plus 8 pinned below the wire. Wire shape unchanged
+(`3d6beb32…`); no fixture, recording, transpiler or LSP change, so no fixture-map regeneration.
+Green: typecheck, lint (0 errors), `bun run check` 16/16; C# Contracts 56, Engine 3151 (+1 skipped), Cli 361,
+Connector 154, Ide.Twincat 728, Ide.Codesys 505, Repo.Gates 275, Relay 74; volt-cli `bun test test/unit` 228.
+- [x] 3.10 All C# suites, `bun test test/unit`, typecheck, lint, `bun run check` green.
 
 ## 4. Live
 
@@ -284,6 +358,13 @@ changed, so the LSP suites are not this step's.
 - [ ] 4.3 The mixed-version cell against the previous release (protocol stays 1, owner 2026-10-24): its client sends no
       `protocol` and is refused by name before any op; our client's `protocol` member is refused by its strict reader by
       name. Both directions refused by name, never misread.
+- [ ] 4.3a PLC Assist report 2026-10-24 (bridge 0.1.17931, CODESYS SP21, intermittent, twice): a push that CREATED an
+      item answered landed, yet the next refs had no entry for it in `items` — both items had a deliberate compile error
+      (an FB with a type error; a PROGRAM referencing an uncreated DUT). Treat as a bridge bug until disproved: live
+      repro on 3.5.22.40 and 3.5.21.x on an own instance (create such an item, refs at once, N≥50 rounds, plus a refs
+      after 1 s), with VOLT_LOG_DEBUG=1. Classify: unreadable / unwalkedFolders / a silent skip (the 0.1.17931
+      "unmapped kind" Debug-only skip, ProjectSnapshot) / the object not yet in the IDE tree. Fix at the root behind a
+      red e2e test; a receipt naming an item refs then omits is never acceptable (zero-fallback).
 - [ ] 4.4 Small matrix per push (`--only codesys-3.5.22.40-64,twincat-32,vendor-parity --jobs 1`).
 
 ## 5. Close

@@ -535,7 +535,7 @@ public class PushKeepsWhatLandedTests
         var ide = new FakeIde(WithProperty("Get"))
         {
             FailCreate = (_, kind) => kind == ItemKind.PlcPropSet
-                ? new System.NotSupportedException("the IDE cannot create the 'Set' accessor") : null,
+                ? new UnsupportedException("the IDE cannot create the 'Set' accessor") : null,
         };
         var refs = RefsService.Handle(ide);
 

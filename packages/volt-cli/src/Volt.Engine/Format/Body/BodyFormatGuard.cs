@@ -295,7 +295,7 @@ public static class BodyFormatGuard
     {
         if (stated is not null) return stated;
         if (string.IsNullOrWhiteSpace(body)) return body is null ? null : StatedLanguage.St;
-        throw new InvalidOperationException(
+        throw new VoltInvariantException(
             $"{what}: {whose} body has text but no stated language — the reader that produced it must state one " +
             "(openspec bridge-refusal-review D6).");
     }

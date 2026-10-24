@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Volt.Contracts;
 
 namespace Volt.Engine.Seam;
 
@@ -20,11 +21,11 @@ public sealed class VendorRegistry
     {
         if (row is null) throw new ArgumentNullException(nameof(row));
         if (!IdShape.IsMatch(row.Id ?? ""))
-            throw new InvalidOperationException($"vendor id '{row.Id}' is no lower-case word, so it cannot name a pipe (volt.bridge.<id>.<pid>)");
+            throw new VoltInvariantException($"vendor id '{row.Id}' is no lower-case word, so it cannot name a pipe (volt.bridge.<id>.<pid>)");
         if (string.IsNullOrWhiteSpace(row.Display))
-            throw new InvalidOperationException($"vendor '{row.Id}' has no display name");
+            throw new VoltInvariantException($"vendor '{row.Id}' has no display name");
         if (_rows.TryGetValue(row.Id!, out var held) && held != row)
-            throw new InvalidOperationException(
+            throw new VoltInvariantException(
                 $"vendor '{row.Id}' is registered twice with two display names: '{held.Display}' and '{row.Display}'");
         _rows[row.Id!] = row;
     }

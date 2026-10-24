@@ -10,6 +10,8 @@ using Volt.Ide.Twincat;
 using Volt.Tests.Shared;
 using Xunit;
 using static Volt.Ide.Twincat.Tests.TcComTree;
+using Volt.Contracts;
+using Volt.Engine;
 
 namespace Volt.Ide.Twincat.Tests;
 
@@ -63,7 +65,8 @@ public class TcProjectSettingsTests
     public void A_warning_id_that_is_not_an_integer_is_refused_by_name()
     {
         var bad = Fixture("c0371.plcproj.xml").Replace("<v>371</v>", "<v>C0371</v>");
-        var ex = Assert.Throws<InvalidOperationException>(() => TcProjectSettings.DisabledWarningIds(bad));
+        var ex = Assert.Throws<BridgeException>(() => TcProjectSettings.DisabledWarningIds(bad));
+        Assert.Equal(BridgeErrorCodes.Unreadable, ex.ErrorCode);
         Assert.Contains("C0371", ex.Message);
         Assert.Contains("DisabledWarningIds", ex.Message);
     }
@@ -82,8 +85,9 @@ public class TcProjectSettingsTests
     [Fact]
     public void A_nested_project_without_compiler_settings_is_refused()
     {
-        var ex = Assert.Throws<InvalidOperationException>(() =>
+        var ex = Assert.Throws<BridgeException>(() =>
             TcProjectSettings.CompilerSettings("<TreeItem><ItemName>X</ItemName></TreeItem>"));
+        Assert.Equal(BridgeErrorCodes.Unreadable, ex.ErrorCode);
         Assert.Contains("CompilerSettings", ex.Message);
     }
 

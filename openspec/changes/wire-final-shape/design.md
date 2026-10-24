@@ -258,6 +258,68 @@ reclassified site a request can reach gets a test asserting its code (unit, plus
 wire reaches it). Report: 151 uncoded → 0; N invariants; per code, the count reclassified. No wire shape changes: only
 which code an existing failure carries. PLC Assist: one line in `plcassist-note.md` (`INTERNAL_ERROR` now means a bug).
 
+## Built (step 3c, 2026-10-24): where reality differs
+
+Counts are in tasks 3.9a. Where the build departs from the text above:
+
+1. **A coded `NotSupportedException` (`Volt.Engine.UnsupportedException`).** Some catches ROUTE on a vendor "cannot":
+   the TwinCAT in-place network write falls back to the native builder on one, an unchanged-network render reads one
+   as "changed", the pre-flight prefixes a member's site to one. A `BridgeException` there would have changed what the
+   writer does, so those refusals are an `UnsupportedException` — a `NotSupportedException` carrying `UNSUPPORTED`
+   itself. `UnrepresentableBodyException`, `ChildRefusedException` and `TcEnoRefusal` derive from it, so deleting
+   `ConflictFor`'s type mapping moved no refusal's code. The vocabulary census counts each one constructed as an
+   UNSUPPORTED raise site.
+2. **"No wire shape changes" did not hold, for the owner.** IDE_UNSUPPORTED was "the bridge serves nothing"; as the
+   code of a missing API it is now also the answer of ONE call, so it reaches a push conflict (`ConflictCodes.FromBridge`
+   gains it — one value added to the `ConflictCode` enum) and an unreadable entry (CODESYS 3.5.18.30's Project
+   Settings). No client branches on it from a frame (the connector and the UI read `health.unsupported`), and its
+   remedy is the same (the IDE has to change), so the protocol stays 1; the shape is re-pinned. The SP18 NWL
+   constructor refusal (UNSUPPORTED since 2026-10-10) is the same situation and is re-coded with it.
+3. **What fails a CODESYS walk is a binder failure, not a code.** A walk names ONE object unreadable for its own fault
+   and fails the op for a fault that would hit every object. That axis is not the code: IDE_UNSUPPORTED is also the code
+   of a member ONE node lacks (a library manager without `GetAllLibraries`, a missing object manager met by one folder's
+   properties), and routing the walk on the code made such a node fail every op that walks — the SP18 "212 of 218" class
+   (gate 3c review, finding 4). So the binder failures — the sites that were `MissingMethodException` (`Reflection.Overload`,
+   `InvokeMethod`, the two scripting overload searches, `move`) and a node exposing no `get_name` at all — throw
+   `SurfaceMismatchException` (Volt.Ide.Codesys: a `BridgeException`, IDE_UNSUPPORTED), and `Reflection.SurfaceMismatch`
+   is `MissingMemberException`, `AmbiguousMatchException` or that type, as before 3c. Every other IDE_UNSUPPORTED keeps
+   the walk going with its node named unreadable; C5 (no object manager → the folder named, its subtree unwalked) stands
+   as it was written — the re-premise is withdrawn.
+4. **`build` of a project with no application is UNSUPPORTED**, a frame (it was a failed build whose one diagnostic
+   said so); `build`'s `x-errorCodes` gain UNSUPPORTED.
+5. **A CODESYS object whose name the IDE answers null has no identity** (the owner's 2026-10-18 rule for an object
+   whose TYPE the IDE cannot state): `GetName` refuses it UNREADABLE (a read answered with nothing), the walk unwalks
+   its folder and goes on, and a lookup through that folder answers its ITEM_UNVERIFIED (`TreeLookup.Read`, below). It
+   was an ITEM_UNVERIFIED error frame for the whole refs/fetch/grep/push, whose documented cause is TwinCAT's.
+5a. **A lookup's one mapping covers the driver's UNREADABLE** (gate 3c review, finding 1). With the drivers' "answered
+   nothing" throws coded UNREADABLE, `TreeLookup.Read` let them pass, so a sibling the IDE answered with nothing made a
+   push op's lookup answer UNREADABLE — whose remedy points at the op's item, never read. A read fault during a lookup is
+   the folder's: an uncoded fault or an UNREADABLE is ITEM_UNVERIFIED naming the folder and the child, the driver's
+   refusal as the inner exception; any other code (a missing API, a lost project) passes.
+5b. **The delete-then-create advice is one refusal's** (finding 2): a member the IDE reports no declaration for throws
+   `MemberWithoutDeclarationException` (Engine, UNREADABLE), and `PushService.ReadLive` adds the advice to that type only.
+   An UNREADABLE read of any other cause keeps its own reason: a delete and re-create drops what the text does not carry.
+5c. **A Volt bug is logged whole on the push channel too** (finding 7): `ConflictFor` writes an INTERNAL_ERROR conflict's
+   exception, with its stack, to the log at Error, as `PipeServer` does for a frame.
+5d. **A Volt bug is no unreadable object** (finding 6): `Versioning.SafeVersion` keeps a read's own code — UNREADABLE,
+   UNSUPPORTED (a vendor language that is no word), IDE_UNSUPPORTED — and lets INTERNAL_ERROR through, so the op answers
+   it instead of filing the bug as one item's state. Other codes a read may raise (ITEM_UNVERIFIED through a
+   declarations index, IDE_LOST_ITEM) still reach an entry as since step 3a; none is measured on a read path.
+5e. **The census counts every type Volt does not declare** (finding 3), not a list of BCL names, which let two
+   `FormatException`s through (`TcArchiveWriter`'s parse-side rule 6, now `UnsupportedException`). The OS's own types
+   below the wire — `Win32Exception` and `UnauthorizedAccessException` where `PipeAcl` binds a pipe or reads a token,
+   `ProcessElevation.Self`, the relay's stalled send (`TimeoutException`) — reach no frame and are pinned per file
+   (`BelowTheWire`, a rise fails).
+5f. **A missing facet is that node's** (finding 8): `Facet` refuses UNSUPPORTED, not IDE_UNSUPPORTED. The CLI advises
+   on IDE_UNSUPPORTED that the IDE has to change, inviting no retry (finding 10).
+6. **Caught inside, by a named type** beyond the two the text names: `HierarchyReadException` (it keeps the HRESULT, so
+   a missing proxy still becomes IDE_UNSUPPORTED), `PipeBindException` (an `IOException`, the host's), and the relay's
+   `RelaySocketGoneException` (every send caller catches it).
+7. **Still a catch-all, for the owner:** `BuildService` answers a FOREIGN exception during a build as a failed build
+   with one error diagnostic ("Build failed: …"), not INTERNAL_ERROR — a catch that rewrites a foreign exception, which
+   the text above rules out. Left as it is: changing it changes `build`'s documented outcome, and no measured failure
+   reaches it.
+
 ## Deleted
 
 `health.networkText` · `HealthResponse.status` (prose) · `connect`/`disconnect` `ok` · `push.accepted` ·

@@ -6,6 +6,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Xml;
 using System.Xml.Linq;
+using Volt.Contracts;
+using Volt.Engine;
 
 namespace Volt.Ide.Twincat;
 
@@ -160,7 +162,7 @@ internal static class TcItemArchive
                     // that is left of it, so the `finally` below must not delete it: the message's recovery
                     // instruction points at it. A recovery route that deletes its own evidence is worse than no message.
                     archiveIsLastCopy = true;
-                    throw new InvalidOperationException(
+                    throw new BridgeException(BridgeErrorCodes.IdeLostItem,
                         $"move of '{name}' failed AND could not be undone — the item is in the archive at {zip}, " +
                         $"import it manually ({restore.Message})", restore);
                 }
@@ -169,7 +171,7 @@ internal static class TcItemArchive
                 try { Rename(from, archived, name); }
                 catch (Exception rename)
                 {
-                    throw new InvalidOperationException(
+                    throw new BridgeException(BridgeErrorCodes.IdeLostItem,
                         $"move of '{name}' was refused ({refused.Message}) and its undo restored the item under its saved " +
                         $"name '{archived}' ({rename.Message}) — rename it back to '{name}' in the IDE", refused);
                 }
@@ -179,7 +181,7 @@ internal static class TcItemArchive
                 if (strays is { } r && !r.Holds((object)from, name))
                 {
                     var appeared = r.ChildNames((object)from).Except(fromBefore!, StringComparer.OrdinalIgnoreCase).ToList();
-                    throw new InvalidOperationException(
+                    throw new BridgeException(BridgeErrorCodes.IdeLostItem,
                         $"move of '{name}' was refused ({refused.Message}) and its undo restored the item as " +
                         $"'{string.Join("', '", appeared)}', not '{name}' — rename it back to '{name}' in the IDE",
                         refused);
@@ -231,7 +233,7 @@ internal static class TcItemArchive
                 {
                     var doc = ParseVerbatim(text);
                     var obj = doc.Root?.Elements().FirstOrDefault()
-                        ?? throw new InvalidOperationException($"the archive of '{name}' holds no object element");
+                        ?? throw new BridgeException(BridgeErrorCodes.Unreadable, $"the archive of '{name}' holds no object element");
                     archived = (string?)obj.Attribute("Name") ?? Path.GetFileNameWithoutExtension(Leaf(entry.FullName));
                     var changed = false;
                     foreach (var slot in live)
@@ -257,7 +259,7 @@ internal static class TcItemArchive
         if (archived is null || lost.Count > 0)
         {
             try { File.Delete(rebuilt); } catch { /* temp */ }
-            if (archived is null) throw new InvalidOperationException($"the archive of '{name}' holds no source document");
+            if (archived is null) throw new BridgeException(BridgeErrorCodes.Unreadable, $"the archive of '{name}' holds no source document");
             // A vendor limit, not Volt's invariant: TwinCAT's archive carries no member renamed since the save (D45).
             throw new Volt.Engine.BridgeException(Volt.Contracts.BridgeErrorCodes.Unsupported,
                 $"'{name}': '{string.Join("', '", lost)}' is in the IDE but not in the document TwinCAT exports for it " +
@@ -407,7 +409,7 @@ internal static class TcItemArchive
                 WriteEntry(dst, entry.FullName, text, bom);
             }
             if (!placed)
-                throw new InvalidOperationException(
+                throw new BridgeException(BridgeErrorCodes.Unreadable,
                     $"'{memberName}' is not in its POU's archive, so it cannot be placed in '{folderPath}'");
         }
         File.Delete(zip);
@@ -444,7 +446,7 @@ internal static class TcItemArchive
         if (missing.Count > 0)
         {
             try { File.Delete(rebuilt); } catch { /* temp */ }
-            throw new InvalidOperationException(
+            throw new BridgeException(BridgeErrorCodes.Unreadable,
                 $"'{string.Join("', '", missing)}' is not in the POU's archive, so no graphical body could be " +
                 "written into it");
         }

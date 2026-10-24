@@ -24,7 +24,7 @@ namespace Volt.Ide.Codesys.Tests
             _3S.CoDeSys.Core.SystemInstances.ObjectMgr = new ObjectManager(new[] { pou, method });
             try
             {
-                var ex = Assert.Throws<BridgeException>(() => new CodesysDriver(projects: null).ReadContent(new ItemRef(pou)));
+                var ex = Assert.Throws<Volt.Engine.Ide.MemberWithoutDeclarationException>(() => new CodesysDriver(projects: null).ReadContent(new ItemRef(pou)));
 
                 Assert.Equal(BridgeErrorCodes.Unreadable, ex.ErrorCode);
                 Assert.Contains("'Step'", ex.Message);

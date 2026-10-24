@@ -4,6 +4,7 @@ using System.Linq;
 using System.Xml.Linq;
 using Volt.Contracts;
 using Volt.Engine.Library;
+using Volt.Engine;
 
 namespace Volt.Ide.Twincat;
 
@@ -47,7 +48,7 @@ internal static class TcLibrarySignatures
         try { root = XElement.Parse("<Libraries>" + xml + "</Libraries>", LoadOptions.PreserveWhitespace); }
         catch (System.Xml.XmlException ex)
         {
-            throw new InvalidOperationException(
+            throw new BridgeException(BridgeErrorCodes.Unreadable,
                 "TwinCAT: the library manager's signature XML did not parse. Volt refuses to report a project " +
                 $"as having no library signatures when the IDE produced {xml!.Length} characters of them: {ex.Message}");
         }
@@ -68,7 +69,7 @@ internal static class TcLibrarySignatures
                 // word or a tally (volt-cli-rework 3.1b review), the silent drop the pins below refuse.
                 var name = Text(ts, "Name");
                 if (name.Length == 0)
-                    throw new InvalidOperationException(
+                    throw new BridgeException(BridgeErrorCodes.Unreadable,
                         $"TwinCAT: the library '{path}' lists a {(kind.Length == 0 ? "TypeSignature" : kind)} signature with no " +
                         "name — Volt refuses the signatures rather than drop it from them.");
 
@@ -174,7 +175,7 @@ internal static class TcLibrarySignatures
         container?.Elements(child)
             .Select(e => new LibVar(Text(e, "Name"), Text(e, "DataType")))
             .Select(v => v.Name.Length > 0 && v.Type.Length > 0 ? v
-                : throw new InvalidOperationException(
+                : throw new BridgeException(BridgeErrorCodes.Unreadable,
                     $"TwinCAT: the library signature '{signature}' lists an {child.ToLowerInvariant()} " +
                     (v.Name.Length == 0 ? $"of type '{v.Type}' with no name" : $"'{v.Name}' with no data type") +
                     " — Volt refuses the signatures rather than drop the pin from them."))

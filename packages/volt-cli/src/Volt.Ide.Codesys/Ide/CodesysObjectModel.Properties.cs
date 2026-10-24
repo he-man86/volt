@@ -20,9 +20,9 @@ namespace Volt.Ide.Codesys
     {
         /// <summary>The object's IMetaObject — the read checkout, NOT released (<see cref="ReadObject"/>'s note).</summary>
         private object ReadMeta(object node) =>
-            InvokeMethod(_objMgr ?? throw new InvalidOperationException("CODESYS ObjectManager unavailable"),
+            InvokeMethod(_objMgr ?? throw new BridgeException(BridgeErrorCodes.IdeUnsupported, "CODESYS ObjectManager unavailable"),
                          "GetObjectToRead", HandleOf(node), GuidOf(node))
-            ?? throw new InvalidOperationException($"CODESYS: GetObjectToRead returned nothing for '{GetName(node)}'");
+            ?? throw new BridgeException(BridgeErrorCodes.Unreadable, $"CODESYS: GetObjectToRead returned nothing for '{GetName(node)}'");
 
         /// <summary>The meta object's properties — a member every IMetaObject declares; its absence is an object model
         /// Volt was not built against, refused by name (never read as "no properties").</summary>
@@ -426,7 +426,7 @@ namespace Volt.Ide.Codesys
         public void RefuseUnwritablePropertyChange(ObjectProperties held, ObjectProperties pushed, string what)
         {
             if (!Equals(held.Class, pushed.Class))
-                throw new InvalidOperationException($"{what}: a class change reached the write — the push refuses it first");
+                throw new VoltInvariantException($"{what}: a class change reached the write — the push refuses it first");
             RefuseUnmeasuredChange(what, "%NETVAR", held.NetVar.SequenceEqual(pushed.NetVar), 1);
             RefuseUnmeasuredChange(what, "%PARAMETER_LIST", held.ParameterList == pushed.ParameterList, 0);
             RefuseUnmeasuredChange(what, "%FILE_LINK", Equals(held.FileLink, pushed.FileLink), 1);

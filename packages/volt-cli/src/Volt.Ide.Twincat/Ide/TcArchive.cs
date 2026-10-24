@@ -4,6 +4,8 @@ using System.Globalization;
 using System.Linq;
 using System.Xml.Linq;
 using Volt.Engine.Format.St;
+using Volt.Contracts;
+using Volt.Engine;
 
 namespace Volt.Ide.Twincat;
 
@@ -195,7 +197,7 @@ internal static class TcArchive
     {
         var l = owner?.Elements("l2").FirstOrDefault(e => (string?)e.Attribute("n") == name);
         if (l == null)
-            throw new NotSupportedException(
+            throw new UnsupportedException(
                 $"TwinCAT: {what} has no '{name}' list in the archive. Refusing rather than reading it as an " +
                 "empty one — a member this reader cannot find is a body it cannot represent, not a body with " +
                 "nothing in it.");
@@ -206,7 +208,7 @@ internal static class TcArchive
     /// holder rather than the list inside it.</summary>
     public static XElement RequireObj(XElement? owner, string name, string what) =>
         Obj(owner, name)
-        ?? throw new NotSupportedException(
+        ?? throw new UnsupportedException(
                $"TwinCAT: {what} has no '{name}' member in the archive. Refusing rather than treating it as " +
                "absent content — this reader is looking by a name the object model does not use.");
 
@@ -278,7 +280,7 @@ internal static class TcArchive
     {
         if (flags is not { } f || f.IsNone) return 0;
         if (f.Reset)
-            throw new InvalidOperationException(
+            throw new VoltInvariantException(
                 "TwinCAT: a RESET reached the generic flag write. Coil storage is encoded per TARGET via " +
                 "Flags.VendorCoilBits(); a Reset anywhere else is a modifier the model should never have produced.");
         var bits = 0;

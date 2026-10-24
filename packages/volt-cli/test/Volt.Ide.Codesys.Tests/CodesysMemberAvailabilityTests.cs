@@ -231,5 +231,35 @@ namespace Volt.Ide.Codesys.Tests
             Assert.True(walk.Complete);
             Assert.Contains(walk.Items, i => i.KindCode == ItemKind.PlcLibRef);
         }
+
+        /// <summary>A library manager whose <c>ILibManObject</c> has no <c>GetAllLibraries</c> — a renamed vendor member.</summary>
+        public sealed class RenamedLibManObject : H.IObject, RenamedSurface.ILibManObject
+        {
+            public RenamedLibManObject() : base("", null) { }
+        }
+
+        /// <summary>A MEMBER THE LIBRARY MANAGER'S READ CANNOT TAKE IS THAT ONE NODE'S, NEVER THE OP'S, whatever its code: the
+        /// manager is named unreadable and every other object is walked. Its refusal is coded IDE_UNSUPPORTED (the IDE's
+        /// object model lacks the call), and that code does not make it a binder mismatch that fails the walk — the SP18
+        /// "212 of 218" regression was exactly a library-manager read failing every op (gate 3c review, finding 4).</summary>
+        [Fact]
+        public void A_library_manager_without_GetAllLibraries_is_named_unreadable_and_the_walk_goes_on()
+        {
+            var root = new TreeNode("<project>", null, null,
+                new TreeNode(Manager, new RenamedLibManObject(), null),
+                new TreeNode("Kept", new Dut("TYPE Kept :\nSTRUCT\n\tn : INT;\nEND_STRUCT\nEND_TYPE"), null));
+            _3S.CoDeSys.Core.SystemInstances.ObjectMgr = new Manager(root);
+            WalkResult walk;
+            try { walk = new CodesysDriver(new Projects(root), CodesysPlatform.ReadHostExe, "3.5.21.40").WalkItems().Gated(); }
+            finally { _3S.CoDeSys.Core.SystemInstances.ObjectMgr = null; }
+
+            AssertManagerUnreadable(walk, "GetAllLibraries");
+        }
     }
+}
+
+namespace Volt.Ide.Codesys.Tests.RenamedSurface
+{
+    /// <summary>The vendor's <c>ILibManObject</c> by NAME, without its <c>GetAllLibraries</c>.</summary>
+    public interface ILibManObject { }
 }

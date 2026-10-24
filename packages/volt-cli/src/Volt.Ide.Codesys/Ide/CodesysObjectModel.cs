@@ -86,18 +86,21 @@ namespace Volt.Ide.Codesys
         /// Two same-named blanks collapse last-write-wins, silently.
         /// <para>The two calls are an ARITY probe (see GetChildren): some scripting objects expose
         /// <c>get_name(bool)</c>, others <c>get_name()</c>. "No such overload on EITHER" is a broken object-model
-        /// contract, not an item that happens to be called nothing.</para></summary>
+        /// contract, not an item that happens to be called nothing — a binder failure, which fails the op.
+        /// <para>A name the IDE answers with NOTHING (null, or no string) is UNREADABLE, the code of every read the IDE
+        /// answers with nothing: the walk then unwalks the folder (the object has no identity), and a lookup refuses it as
+        /// its folder's ITEM_UNVERIFIED (gate 3c review, finding 5).</para></summary>
         public string GetName(object node)
         {
             var n = Unwrap(node);
             var r = TryInvokeMethod(n, "get_name", out var found, false);
             if (!found) r = TryInvokeMethod(n, "get_name", out found);
             if (!found)
-                throw new InvalidOperationException(
+                throw new SurfaceMismatchException(
                     $"CODESYS: {n?.GetType().Name ?? "node"} exposes no get_name() or get_name(bool) — " +
                     "object-model version mismatch");
             return r as string
-                ?? throw new InvalidOperationException(
+                ?? throw new BridgeException(BridgeErrorCodes.Unreadable,
                     $"CODESYS: get_name() on {n?.GetType().Name ?? "node"} returned " +
                     $"{(r is null ? "null" : r.GetType().Name)} — the item name is the wire identity and cannot be blank");
         }
@@ -125,7 +128,7 @@ namespace Volt.Ide.Codesys
         public object ReadObject(object node)
         {
             if (_objMgr == null)
-                throw new InvalidOperationException("CODESYS: no object manager — the object itself could not be obtained");
+                throw new BridgeException(BridgeErrorCodes.IdeUnsupported, "CODESYS: no object manager — the object itself could not be obtained");
             var meta = InvokeMethod(_objMgr, "GetObjectToRead", HandleOf(node), GuidOf(node));
             // INTENTIONAL, load-bearing: the returned IMetaObject (a READ checkout) is deliberately
             // NOT released. Disposing/releasing it invalidates the .Object IObject for every subsequent
@@ -133,7 +136,7 @@ namespace Volt.Ide.Codesys
             // keep only .Object and let the checkout lapse with the object; the per-read cost is accepted.
             // (Contrast WriteSourceText, which MUST close its WRITE transaction via SetObject.)
             return GetMember(meta, "Object")   // .Object is an explicit IMetaObject member
-                ?? throw new InvalidOperationException(
+                ?? throw new BridgeException(BridgeErrorCodes.Unreadable,
                     $"CODESYS: the read checkout of a {Unwrap(node)?.GetType().Name ?? "null"} node answers no object — the object " +
                     "itself could not be obtained, and is not read as a container");
         }
@@ -179,7 +182,7 @@ namespace Volt.Ide.Codesys
         public static string? TryReadAspectText(object? iobject, string aspectName)
         {
             if (iobject == null)
-                throw new InvalidOperationException(
+                throw new BridgeException(BridgeErrorCodes.Unreadable,
                     $"CODESYS: cannot read the '{aspectName}' aspect — the object itself could not be obtained. " +
                     "Refusing rather than reporting an item with no text, which would be written to the " +
                     "workspace as an emptied POU and pushed back as one.");
@@ -231,10 +234,10 @@ namespace Volt.Ide.Codesys
         public static void PutNewBodyAspect(object? iobj, string aspectType)
         {
             var type = Reflection.FindType(aspectType)
-                ?? throw new InvalidOperationException(
+                ?? throw new BridgeException(BridgeErrorCodes.IdeUnsupported,
                     $"CODESYS: the body aspect class '{aspectType}' is not loaded in this IDE — it was measured on SP21 " +
                     "(DIALECT N24); refusing to change the body's language with any other class.");
-            SetMember(iobj ?? throw new InvalidOperationException("CODESYS: the checked-out object is null"),
+            SetMember(iobj ?? throw new BridgeException(BridgeErrorCodes.Unreadable, "CODESYS: the checked-out object is null"),
                       "Implementation", Activator.CreateInstance(type));
         }
 
@@ -249,9 +252,9 @@ namespace Volt.Ide.Codesys
         /// the caller actually needs.</summary>
         private void Modify(object node, Action<object> mutate)
         {
-            if (_objMgr == null) throw new InvalidOperationException("CODESYS ObjectManager unavailable");
+            if (_objMgr == null) throw new BridgeException(BridgeErrorCodes.IdeUnsupported, "CODESYS ObjectManager unavailable");
             var meta = InvokeMethod(_objMgr, "GetObjectToModify", HandleOf(node), GuidOf(node))
-                       ?? throw new InvalidOperationException("GetObjectToModify returned null");
+                       ?? throw new BridgeException(BridgeErrorCodes.Unreadable, "GetObjectToModify returned null");
             try
             {
                 mutate(meta);
@@ -285,9 +288,9 @@ namespace Volt.Ide.Codesys
         private static void SetAspectText(object? iobject, string aspectName, string text)
         {
             var aspect = GetMember(iobject, aspectName)
-                ?? throw new InvalidOperationException($"CODESYS: the '{aspectName}' aspect vanished after it was asked for");
+                ?? throw new BridgeException(BridgeErrorCodes.IdeLostItem, $"CODESYS: the '{aspectName}' aspect vanished after it was asked for");
             var doc = GetMember(aspect, "TextDocument")
-                ?? throw new InvalidOperationException(
+                ?? throw new BridgeException(BridgeErrorCodes.IdeUnsupported,
                     $"CODESYS: the '{aspectName}' aspect has no TextDocument — the write would be accepted and " +
                     "land nothing");
             SetMember(doc, "Text", text);

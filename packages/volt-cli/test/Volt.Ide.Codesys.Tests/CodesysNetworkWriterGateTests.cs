@@ -768,8 +768,9 @@ public class CodesysCoilFlagTests
                         System.Array.Empty<Output>(), null, "iCount := iCount + 1;", Flags.None),
             });
 
-            var ex = Assert.Throws<System.InvalidOperationException>(() =>
+            var ex = Assert.Throws<Volt.Engine.BridgeException>(() =>
                 CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, BodyLanguage.Fbd, ScopeOf(model, BodyLanguage.Fbd)));
+            Assert.Equal(Volt.Contracts.BridgeErrorCodes.IdeLostItem, ex.ErrorCode);
             Assert.Contains("did not take its ST", ex.Message);
         }
         finally { Nwl.TextDocument.DropsText = false; }
@@ -825,7 +826,7 @@ public class CodesysViewModeTests
     {
         var pou = new LadderPou();
         pou.Implementation.Seed(view);
-        Assert.Throws<System.InvalidOperationException>(() =>
+        Assert.Throws<Volt.Contracts.VoltInvariantException>(() =>
             CodesysNetworkWriter.Write(pou, new NetworkBody(BodyLanguage.Ld, System.Array.Empty<Network>()), NetworkScope.Empty));
         Assert.Equal(0, pou.Implementation.ViewWrites);
     }

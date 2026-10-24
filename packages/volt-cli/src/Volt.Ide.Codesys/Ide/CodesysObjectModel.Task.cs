@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reflection;
 using Volt.Contracts;
 using Volt.Engine.Format.Task;
+using Volt.Engine;
 
 namespace Volt.Ide.Codesys
 {
@@ -169,7 +170,7 @@ namespace Volt.Ide.Codesys
             SetMember(f, "event", t.Event ?? "");
             SetMember(f, "external_event", t.ExternalEvent ?? "");
 
-            var wd = GetMember(f, "watchdog") ?? throw new InvalidOperationException("CODESYS: the task facet has no watchdog");
+            var wd = GetMember(f, "watchdog") ?? throw new BridgeException(BridgeErrorCodes.IdeUnsupported, "CODESYS: the task facet has no watchdog");
             var w = t.Watchdog!;
             SetMember(wd, "time", w.Time);
             SetMember(wd, "time_unit", w.Unit);
@@ -177,7 +178,7 @@ namespace Volt.Ide.Codesys
             SetMember(wd, "enabled", w.Enabled);
 
             if (t.CallComments is { Count: > 0 } said && said.Count != t.Calls.Count)
-                throw new InvalidOperationException($"a task's {t.Calls.Count} call(s) carry {said.Count} comment(s)");
+                throw new VoltInvariantException($"a task's {t.Calls.Count} call(s) carry {said.Count} comment(s)");
             WriteCallList(f, t.Calls, t.Calls.Select((_, i) => t.CommentOf(i)).ToList());
         }
 
@@ -257,7 +258,7 @@ namespace Volt.Ide.Codesys
             for (var i = 0; i < calls.Count; i++)
             {
                 var entry = InvokeMethod(taskFacet, "CreatePouObject", calls[i])
-                            ?? throw new InvalidOperationException($"CODESYS: CreatePouObject('{calls[i]}') returned nothing");
+                            ?? throw new BridgeException(BridgeErrorCodes.Unsupported, $"CODESYS: CreatePouObject('{calls[i]}') returned nothing");
                 SetMember(entry, "Comment", comments[i]);
                 list.Add(entry);
             }

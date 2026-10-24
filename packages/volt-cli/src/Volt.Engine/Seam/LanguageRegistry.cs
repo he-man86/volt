@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Volt.Engine.Ide;
+using Volt.Contracts;
 
 namespace Volt.Engine.Seam;
 
@@ -73,14 +74,14 @@ public sealed class LanguageRegistry
     {
         if (row is null) throw new ArgumentNullException(nameof(row));
         if (!IsLanguageWord(row.Name))
-            throw new InvalidOperationException(
+            throw new VoltInvariantException(
                 $"vendor '{vendor}' cannot register the language '{row.Name}': a language is an upper-case word, and " +
                 $"{NoneWord} and {UnsupportedWord} are the line's own words");
         if (!_readers.TryGetValue(row.Name, out var held)) _readers[row.Name] = null;
         if (row.Reader is { } reader)
         {
             if (held is not null && held.GetType() != reader.GetType())
-                throw new InvalidOperationException(
+                throw new VoltInvariantException(
                     $"vendor '{vendor}' reads '{row.Name}' with {reader.GetType().Name}, but '{_readerOwner[row.Name]}' reads it " +
                     $"with {held.GetType().Name}: one language name is one grammar");
             if (held is null) { _readers[row.Name] = reader; _readerOwner[row.Name] = vendor; }

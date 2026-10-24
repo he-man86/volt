@@ -145,6 +145,6 @@ public sealed class KindRegistry
 
     private string Owners(string kind) => string.Join(" and ", VendorsOf(kind));
 
-    private static InvalidOperationException Conflict(string vendor, string what) =>
+    private static VoltInvariantException Conflict(string vendor, string what) =>
         new($"vendor '{vendor}' cannot register its kinds: {what}");
 }

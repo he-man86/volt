@@ -7,6 +7,7 @@ using System.Reflection;
 using Volt.Contracts;
 using Volt.Engine.Library;
 using Volt.Engine.Format.Body;
+using Volt.Engine;
 
 namespace Volt.Ide.Codesys
 {
@@ -22,7 +23,7 @@ namespace Volt.Ide.Codesys
         public bool Build(object applicationNode)
         {
             var cmdMgr = GetStaticMember("_3S.CoDeSys.ScriptDriverProjects.Common", "CommandManager")
-                         ?? throw new InvalidOperationException("CODESYS CommandManager unavailable");
+                         ?? throw new BridgeException(BridgeErrorCodes.IdeUnsupported, "CODESYS CommandManager unavailable");
             var appGuid = GuidOf(applicationNode);
             InvokeMethod(cmdMgr, "ExecuteCommand", BuildActiveApplication,
                 new[] { "--applicationGuid=" + appGuid.ToString() });

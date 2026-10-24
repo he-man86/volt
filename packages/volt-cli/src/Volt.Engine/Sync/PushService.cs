@@ -659,10 +659,10 @@ public static class PushService
     /// deliberately does not (it carries its own <c>Code</c>) — do NOT "tidy" that, or <c>PipeServer</c> would stamp a
     /// NETWORK_* value onto an ERROR FRAME.</para>
     ///
-    /// <para><b>A driver's <c>NotSupportedException</c> IS an UNSUPPORTED refusal</b>, mapped here rather than rewritten
-    /// at ~20 raise sites (a <see cref="ChildRefusedException"/> is one). And never null: anything that is not a coded
-    /// error, a network-text diagnostic or a vendor "cannot" is a fault nobody classified, and INTERNAL_ERROR is exactly
-    /// what the frame vocabulary calls that.</para>
+    /// <para><b>The code comes from the throw, never from the exception's type</b> (openspec <c>wire-final-shape</c> step
+    /// 3c): a refusal states its code where it is raised, so a conflict and an error frame answer one failure with one
+    /// code. And never null: anything that is neither a coded error nor a network-text diagnostic is a foreign exception
+    /// nobody classified — Volt's bug — and INTERNAL_ERROR is exactly what the frame vocabulary calls that.</para>
     ///
     /// <para><b>The reason describes the refusal and nothing else</b> — no client instruction (no "volt pull", no "push
     /// again"): the CLI renders its own advice from the code, and a client that is not the CLI has no such command. Only
@@ -670,9 +670,11 @@ public static class PushService
     private static PushConflict ConflictFor(PushOp op, Exception ex, OpOutcome? outcome = null)
     {
         var netEx = ex as NetworkTextException;
-        var code = (ex as ICodedError)?.ErrorCode
-                   ?? netEx?.Code
-                   ?? (ex is NotSupportedException ? BridgeErrorCodes.Unsupported : BridgeErrorCodes.InternalError);
+        var code = (ex as ICodedError)?.ErrorCode ?? netEx?.Code ?? BridgeErrorCodes.InternalError;
+        // A Volt bug answered as a conflict is logged WHOLE, as PipeServer logs one answered as a frame: the conflict
+        // carries the message only, and INTERNAL_ERROR's remedy — report a bug — needs the exception and its stack.
+        if (code == BridgeErrorCodes.InternalError)
+            VoltLog.Error($"push: '{op.Name}' refused by a Volt bug — " + CallFailure.LogText(ex));
         var reason = outcome?.Created switch
         {
             null when outcome?.UpdateKept is { } kept => $"{ex.Message} — {kept}",
@@ -926,7 +928,7 @@ public static class PushService
 
             default:
                 // PushOp is abstract: an op with no discriminator is refused when the body is read (BridgePipeHost.Body).
-                throw new InvalidOperationException($"no apply arm for {op.GetType().Name}");
+                throw new VoltInvariantException($"no apply arm for {op.GetType().Name}");
         }
     }
 
@@ -963,7 +965,7 @@ public static class PushService
                                     SourceOf(validated, set), ItemPath.FolderOf(wireName), outcome);
                 return "replaced";
             default:
-                throw new InvalidOperationException($"no apply arm for {op.GetType().Name}");
+                throw new VoltInvariantException($"no apply arm for {op.GetType().Name}");
         }
     }
 
@@ -1457,17 +1459,18 @@ public static class PushService
     /// <summary>The LIVE item an update reads before it writes (the format guard, the member reconcile, the last-moment
     /// version, a refused member create).
     ///
-    /// <para><b>An item the IDE does not return at all cannot be updated in place, forced or not.</b> A driver that holds
-    /// the item and cannot read it whole — a member the IDE holds no declaration for, on both vendors — refuses it
-    /// <c>UNREADABLE</c>. Force skips the version GATE, not this read, so the refusal says what does work: fix it in the
-    /// IDE, or replace it — delete, then create, two pushes because one push names an item once
-    /// (<c>ErrorCodeVocabularyTests</c>).</para></summary>
+    /// <para><b>An item holding a member the IDE reports no declaration for cannot be updated in place, forced or
+    /// not</b> (<see cref="MemberWithoutDeclarationException"/>, both vendors). Force skips the version GATE, not this
+    /// read, so that refusal says what does work: fix it in the IDE, or replace it — delete, then create, two pushes
+    /// because one push names an item once (<c>ErrorCodeVocabularyTests</c>). Every other read refusal keeps its own
+    /// code and reason: a read the IDE answered with nothing may be transient, and a delete and re-create drops what the
+    /// text does not carry (object properties, the GUID, the online-change identity) — gate 3c review, finding 2.</para></summary>
     private static Content ReadLive(HostLink link, ItemRef item, string name)
     {
         // The host's read, as the fetch reads it (the IEC family's FOLDED, openspec abstract-member-parity), so the
         // version gate, the format guard and `OnlyChanged` all see the text the fetch publishes.
         try { return link.Driver.Read(item); }
-        catch (Exception ex) when (ex is ICodedError { ErrorCode: BridgeErrorCodes.Unreadable })
+        catch (MemberWithoutDeclarationException ex)
         {
             throw new BridgeException(BridgeErrorCodes.Unreadable,
                 $"'{name}' cannot be updated in place, with or without force: the IDE does not return it ({ex.Message}). " +

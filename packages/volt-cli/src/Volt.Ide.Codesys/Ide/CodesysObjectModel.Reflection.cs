@@ -6,6 +6,7 @@ using System.Reflection;
 using Volt.Contracts;
 using Volt.Engine.Library;
 using Volt.Engine.Format.Body;
+using Volt.Engine;
 
 namespace Volt.Ide.Codesys
 {
@@ -44,7 +45,7 @@ namespace Volt.Ide.Codesys
                 var ip = i.GetProperty(name);
                 if (ip != null && ip.CanWrite) { Set(ip, o, value, name); return; }
             }
-            throw new InvalidOperationException($"no writable '{name}' on {t.FullName}");
+            throw new BridgeException(BridgeErrorCodes.IdeUnsupported, $"no writable '{name}' on {t.FullName}");
         }
 
         private static void Set(PropertyInfo p, object o, object? value, string name)
@@ -53,7 +54,7 @@ namespace Volt.Ide.Codesys
             catch (TargetInvocationException tie)
             {
                 var inner = tie.InnerException ?? tie;
-                throw new InvalidOperationException(
+                throw new BridgeException(BridgeErrorCodes.Unsupported,
                     $"CODESYS refused '{name}' = {(value is null ? "null" : $"'{value}'")}: {inner.Message}", inner);
             }
         }
@@ -68,7 +69,7 @@ namespace Volt.Ide.Codesys
         {
             if (o == null) return null;
             return TryInvokeMethod(o, name, out var found, args) is var r && found ? r
-                : throw new MissingMethodException(
+                : throw new SurfaceMismatchException(
                     $"No '{name}' taking {args.Length} arg(s) on {o.GetType().FullName}");
         }
 

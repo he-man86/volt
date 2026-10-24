@@ -56,7 +56,7 @@ public class LanguageChangeGuardTests
     [Fact]
     public void A_body_with_text_and_no_stated_language_is_refused_loud()
     {
-        var e = Assert.Throws<InvalidOperationException>(() =>
+        var e = Assert.Throws<VoltInvariantException>(() =>
             BodyFormatGuard.RequireWritable(Pou("q := a;", null), Pou("q := NOT a;", StatedLanguage.St), Writes));
         Assert.Contains("no stated language", e.Message);
         BodyFormatGuard.RequireWritable(Pou(null, null), Pou("q := NOT a;", StatedLanguage.St), Refuses);

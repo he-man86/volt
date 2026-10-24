@@ -15,11 +15,13 @@ namespace Volt.Ide.Codesys.Tests
     public class NwlInteropVersionTests
     {
         [Fact]
-        public void A_missing_constructor_is_an_unsupported_refusal_that_says_why()
+        public void A_missing_constructor_is_an_IDE_UNSUPPORTED_refusal_that_says_why()
         {
+            // The IDE's object model lacks what Volt calls: IDE_UNSUPPORTED, the code of every API this IDE version
+            // does not have (wire-final-shape step 3c) — the IDE has to change, not the call.
             var ex = Assert.Throws<Volt.Engine.BridgeException>(() =>
                 NwlInterop.New(new NwlOperandWithoutStringCtor(0), nameof(NwlOperandWithoutStringCtor), "x"));
-            Assert.Equal(Volt.Contracts.BridgeErrorCodes.Unsupported, ex.ErrorCode);
+            Assert.Equal(Volt.Contracts.BridgeErrorCodes.IdeUnsupported, ex.ErrorCode);
             Assert.Contains("NwlOperandWithoutStringCtor", ex.Message);
             Assert.Contains("(String)", ex.Message);
             Assert.Contains("SP21 or later", ex.Message);

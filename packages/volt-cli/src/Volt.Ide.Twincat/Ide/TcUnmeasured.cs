@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Volt.Contracts;
 using Volt.Engine.Format.Network;
+using Volt.Engine;
 
 namespace Volt.Ide.Twincat;
 
@@ -36,7 +37,7 @@ internal static class TcUnmeasured
         foreach (var network in body.Networks)
             foreach (var tree in network.Trees)
                 if (FirstNegatedEdge(tree) is { } node)
-                    throw new NotSupportedException(
+                    throw new UnsupportedException(
                         $"TwinCAT: network {network.Order + 1} holds {EdgeOrderMarker} on {node} (`R_EDGE NOT x` / " +
                         "`F_EDGE NOT x`). That is the order CODESYS evaluates them in (DIALECT N17); TwinCAT's is not " +
                         "measured, so Volt will not write one to it. Draw it in the IDE if it is meant.");
@@ -103,9 +104,9 @@ internal static class TcUnmeasured
     }
 
     /// <summary>The in-place half of <see cref="RefuseUnbuilt"/>: an edit that would WRITE one of its shapes into the
-    /// archive the IDE holds. A <see cref="NotSupportedException"/>, so the push routes the network to the builder, which
+    /// archive the IDE holds. An <see cref="UnsupportedException"/> (a <see cref="NotSupportedException"/>), so the push routes the network to the builder, which
     /// refuses the shape by name before anything is written; a shape the IDE already holds, unchanged, is never refused.</summary>
-    internal static NotSupportedException InPlace(string shape) =>
+    internal static UnsupportedException InPlace(string shape) =>
         new($"TwinCAT: this push writes {shape} into the body the IDE holds, and no TwinCAT edit of that shape is measured " +
             "(stored, built, reopened), so Volt writes none by a guess. The IDE can make this change.");
 
@@ -122,10 +123,11 @@ internal static class TcUnmeasured
 /// <summary>
 /// The push half of "EN is a pin, ENO is spelled" on TwinCAT: the text reads a box through an output the box the IDE
 /// holds does not give — <c>ENO</c> on a box with no ENO output, or its data on a box whose main output is ENO. The
-/// box's output list is read as CODESYS reads it (<see cref="Box.HasEnoSlot"/>). A <see cref="NotSupportedException"/>
-/// so the in-place pass routes the network to a rebuild, which builds the box the text states.
+/// box's output list is read as CODESYS reads it (<see cref="Box.HasEnoSlot"/>). An <see cref="UnsupportedException"/>
+/// (a <see cref="NotSupportedException"/>) so the in-place pass routes the network to a rebuild, which builds the box the
+/// text states; reaching the push, it answers UNSUPPORTED by its own code.
 /// </summary>
-internal sealed class TcEnoRefusal : NotSupportedException
+internal sealed class TcEnoRefusal : UnsupportedException
 {
     public TcEnoRefusal(string box, bool textReadsEno)
         : base(textReadsEno

@@ -80,12 +80,9 @@ public static class MemberSites
         if (site.Code == ItemKind.PlcAction) return $"ACTION {site.Name}";
 
         var decl = read(site.Ref);
-        // UNREADABLE: the IDE holds the item and Volt cannot read it whole — fix it in the IDE, or push with force. A
-        // broken item in the project is not INTERNAL_ERROR, a Volt bug (openspec bridge-refusal-review V.1).
-        if (string.IsNullOrWhiteSpace(decl))
-            throw new BridgeException(Volt.Contracts.BridgeErrorCodes.Unreadable,
-                $"'{site.Name}': the IDE reports no declaration for this member — that is a broken item, not a " +
-                "transport gap");
+        // UNREADABLE: the IDE holds the item and Volt cannot read it whole. A broken item in the project is not
+        // INTERNAL_ERROR, a Volt bug (openspec bridge-refusal-review V.1); its own type carries the push's advice.
+        if (string.IsNullOrWhiteSpace(decl)) throw new MemberWithoutDeclarationException(site.Name);
         return decl!;   // verbatim (bridge-one-to-one §1.1, every character)
     }
 }

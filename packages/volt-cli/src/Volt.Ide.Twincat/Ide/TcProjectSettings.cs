@@ -4,6 +4,8 @@ using System.Globalization;
 using System.Linq;
 using System.Xml.Linq;
 using Volt.Engine.Format.Settings;
+using Volt.Contracts;
+using Volt.Engine;
 
 namespace Volt.Ide.Twincat;
 
@@ -56,7 +58,7 @@ internal static class TcProjectSettings
     {
         var path = XDocument.Parse(plcProjectItemXml).Root?.Element("PlcProjectDef")?.Element("ProjectPath")?.Value.Trim();
         return string.IsNullOrEmpty(path)
-            ? throw new InvalidOperationException(
+            ? throw new BridgeException(BridgeErrorCodes.Unreadable,
                 "twincat: the PLC project item's XML has no PlcProjectDef/ProjectPath — cannot find the .plcproj that " +
                 "holds the disabled warnings")
             : path!;
@@ -73,7 +75,7 @@ internal static class TcProjectSettings
     public static IReadOnlyList<int> DisabledWarningIds(string plcprojXml)
     {
         var root = XDocument.Parse(plcprojXml).Root
-            ?? throw new InvalidOperationException("twincat: the .plcproj is empty");
+            ?? throw new BridgeException(BridgeErrorCodes.Unreadable, "twincat: the .plcproj is empty");
         var archive = root.Descendants().FirstOrDefault(e => e.Name.LocalName == "PlcProjectOptions");
         if (archive is null) return Array.Empty<int>();
 
@@ -96,14 +98,14 @@ internal static class TcProjectSettings
     public static (bool ReplaceConstants, string MaxWarnings, string Defines) CompilerSettings(string nestedProjectXml)
     {
         var cs = XDocument.Parse(nestedProjectXml).Root?.Element("IECProjectDef")?.Element("CompilerSettings")
-            ?? throw new InvalidOperationException(
+            ?? throw new BridgeException(BridgeErrorCodes.Unreadable,
                 "twincat: the PLC project's XML has no IECProjectDef/CompilerSettings — not the NestedProject's document");
         string Required(string name) => cs.Element(name)?.Value.Trim()
-            ?? throw new InvalidOperationException($"twincat: CompilerSettings has no <{name}>");
+            ?? throw new BridgeException(BridgeErrorCodes.Unreadable, $"twincat: CompilerSettings has no <{name}>");
 
         var replace = Required("ReplaceConstants");
         if (!bool.TryParse(replace, out var replaceConstants))
-            throw new InvalidOperationException($"twincat: CompilerSettings/ReplaceConstants is '{replace}', not a boolean");
+            throw new BridgeException(BridgeErrorCodes.Unreadable, $"twincat: CompilerSettings/ReplaceConstants is '{replace}', not a boolean");
         return (replaceConstants, Required("MaxWarnings"), Required("CompilerDefines"));
     }
 
@@ -125,7 +127,7 @@ internal static class TcProjectSettings
         {
             var t = part.Trim();
             if (!int.TryParse(t, NumberStyles.None, CultureInfo.InvariantCulture, out var n))
-                throw new InvalidOperationException(
+                throw new BridgeException(BridgeErrorCodes.Unreadable,
                     $"twincat: {DisabledIdsName} holds '{t}' (in \"{raw}\"), which is not a bare warning number — " +
                     "TwinCAT writes integers there (DIALECT D37)");
             ids.Add(n);

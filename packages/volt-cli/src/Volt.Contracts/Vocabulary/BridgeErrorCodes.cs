@@ -51,11 +51,13 @@ public static class BridgeErrorCodes
     /// the way that works, a delete and then a create, in two pushes (review of <c>bridge-refusal-review</c> step V).</summary>
     public const string Unreadable = "UNREADABLE";
 
-    /// <summary>The IDE this bridge runs in lacks something the bridge needs, so it serves nothing: every op but
-    /// <c>health</c> answers with this code, and the message is a fixed English sentence naming the IDE's platform
-    /// version and what it lacks (never an OS-localized exception text). <c>health</c> carries the same sentence as
-    /// <c>unsupported</c>. Do not retry — the IDE has to change, not the call. A NEW code on purpose: a client maps by
-    /// code, and an old code would be read as its old meaning (openspec <c>codesys-minimum-version</c>).</summary>
+    /// <summary>The IDE this bridge runs in lacks something the bridge needs. Needed for everything, the bridge serves
+    /// nothing: every op but <c>health</c> answers with this code, and the message is a fixed English sentence naming the
+    /// IDE's platform version and what it lacks (never an OS-localized exception text); <c>health</c> carries the same
+    /// sentence as <c>unsupported</c> (openspec <c>codesys-minimum-version</c>). Needed by one call — a type, member or
+    /// overload of the IDE's object model this version does not have — that call answers it, as a frame, a push conflict
+    /// or an unreadable entry's code, naming what is missing (openspec <c>wire-final-shape</c> step 3c). Do not retry —
+    /// the IDE has to change, not the call.</summary>
     public const string IdeUnsupported = "IDE_UNSUPPORTED";
 
     /// <summary>A <c>push</c> or <c>build</c> arrived while another push or build held the IDE: refused at once, nothing
@@ -65,8 +67,10 @@ public static class BridgeErrorCodes
     /// <c>codesys-build-nesting</c>).</summary>
     public const string IdeBusy = "IDE_BUSY";
 
-    /// <summary>Volt's OWN broken invariant, and nothing else: a state Volt's code guarantees cannot happen, and the
-    /// catch-all <c>PipeServer</c> (and the push's <c>ConflictFor</c>) assign to any exception nobody coded. An IDE
+    /// <summary>A Volt bug, and nothing else: Volt's OWN broken invariant (<see cref="VoltInvariantException"/> — a state
+    /// Volt's code guarantees cannot happen), or a foreign exception (COM, the vendor's .NET API) that reached
+    /// <c>PipeServer</c> or the push's <c>ConflictFor</c> uncaught — Volt did not classify an IDE call. Every throw in Volt
+    /// states its own code (openspec <c>wire-final-shape</c> step 3c). An IDE
     /// state is never this — an unreadable folder is <c>ITEM_UNVERIFIED</c>, an IDE refusal <see cref="Unsupported"/>,
     /// a post-condition the IDE broke <see cref="IdeLostItem"/>. Remedy: report a bug; the fix for an uncoded refusal
     /// is to code it, not to widen the fallback (openspec <c>bridge-refusal-review</c> V.1).</summary>

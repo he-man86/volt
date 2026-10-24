@@ -6,6 +6,7 @@ using System.Reflection;
 using Volt.Contracts;
 using Volt.Engine.Library;
 using Volt.Engine.Format.Body;
+using Volt.Engine;
 
 namespace Volt.Ide.Codesys
 {
@@ -24,12 +25,12 @@ namespace Volt.Ide.Codesys
         private object AsExtended(object node, Type baseType)
         {
             var apEnv = Reflection.FindType("_3S.CoDeSys.ScriptDriverProjects.APEnvironment")
-                ?? throw new InvalidOperationException("CODESYS APEnvironment type not found — object-model version mismatch");
+                ?? throw new BridgeException(BridgeErrorCodes.IdeUnsupported, "CODESYS APEnvironment type not found — object-model version mismatch");
             var se = _scriptEngine ??= apEnv.GetProperty("ScriptEngine", BF | BindingFlags.Static)?.GetValue(null)
-                ?? throw new InvalidOperationException("CODESYS APEnvironment.ScriptEngine not available");
+                ?? throw new BridgeException(BridgeErrorCodes.IdeUnsupported, "CODESYS APEnvironment.ScriptEngine not available");
             var createExt = se.GetType().GetMethods(BF).FirstOrDefault(x => x.Name == "CreateExtendedObject"
                 && x.IsGenericMethodDefinition && x.GetParameters().Length == 1)
-                ?? throw new InvalidOperationException("CODESYS ScriptEngine.CreateExtendedObject not found — object-model version mismatch");
+                ?? throw new BridgeException(BridgeErrorCodes.IdeUnsupported, "CODESYS ScriptEngine.CreateExtendedObject not found — object-model version mismatch");
             return createExt.MakeGenericMethod(baseType).Invoke(se, new[] { node })!;
         }
 
@@ -59,7 +60,7 @@ namespace Volt.Ide.Codesys
                 try { return Unwrap(m.Invoke(container, BindingFlags.OptionalParamBinding, null, values, null))!; }
                 catch (TargetInvocationException tie) { throw tie.InnerException ?? tie; }
             }
-            throw new MissingMethodException($"No '{method}' overload exposing [{string.Join(", ", Array.ConvertAll(args, a => a.Name))}] on {container.GetType().FullName}");
+            throw new SurfaceMismatchException($"No '{method}' overload exposing [{string.Join(", ", Array.ConvertAll(args, a => a.Name))}] on {container.GetType().FullName}");
         }
 
         /// <summary>Container for top-level objects (POU/DUT/GVL/interface) under the parent.
@@ -96,7 +97,7 @@ namespace Volt.Ide.Codesys
         {
             var baseObj = Unwrap(parent)!;
             var t = Reflection.FindType("_3S.CoDeSys.ScriptDriverProjects." + simpleTypeName)
-                    ?? throw new InvalidOperationException(simpleTypeName + " type not found");
+                    ?? throw new BridgeException(BridgeErrorCodes.IdeUnsupported, simpleTypeName + " type not found");
             return Activator.CreateInstance(t,
                 BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public,
                 null, new object[] { baseObj }, null)!;
@@ -120,11 +121,11 @@ namespace Volt.Ide.Codesys
                 }
                 catch (TargetInvocationException tie) { throw tie.InnerException ?? tie; }
             }
-            throw new MissingMethodException($"No '{method}' overload taking {leadingArgs.Length}+ args on {target.GetType().FullName}");
+            throw new SurfaceMismatchException($"No '{method}' overload taking {leadingArgs.Length}+ args on {target.GetType().FullName}");
         }
 
         private static object EnumValue(string enumSimpleName, string member) =>
             Enum.Parse(Reflection.FindEnum(enumSimpleName)
-                ?? throw new InvalidOperationException($"CODESYS enum {enumSimpleName} not found"), member);
+                ?? throw new BridgeException(BridgeErrorCodes.IdeUnsupported, $"CODESYS enum {enumSimpleName} not found"), member);
     }
 }

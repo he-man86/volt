@@ -20,7 +20,8 @@ public class CodesysWriterNoBodySlotTests
     {
         var body = new NetworkBody(BodyLanguage.Fbd, Array.Empty<Network>());
 
-        var ex = Assert.Throws<NotSupportedException>(() => CodesysNetworkWriter.Write(new object(), body, NetworkScope.Empty));
+        var ex = Assert.Throws<Volt.Engine.BridgeException>(() => CodesysNetworkWriter.Write(new object(), body, NetworkScope.Empty));
+        Assert.Equal(Volt.Contracts.BridgeErrorCodes.Unsupported, ex.ErrorCode);
 
         Assert.Contains("Implementation", ex.Message);
         Assert.Contains("graphical body", ex.Message);

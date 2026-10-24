@@ -227,9 +227,9 @@ public sealed partial class BeckhoffDriver
             if (existing is { } item && !Creates(item, body.Site, ref members)) continue;
             // Only whether the build throws: a member's refusal names the member, as the op names only the item.
             try { Created(body.Model, body.Scope); }
-            catch (NotSupportedException ex) when (ex.GetType() == typeof(NotSupportedException) && body.Site.Member is not null)
+            catch (NotSupportedException ex) when (ex.GetType() == typeof(UnsupportedException) && body.Site.Member is not null)
             {
-                throw new NotSupportedException($"{body.Site}: {ex.Message}", ex);
+                throw new UnsupportedException($"{body.Site}: {ex.Message}", ex);
             }
             catch (NetworkTextException ex) when (body.Site.Member is not null)
             {

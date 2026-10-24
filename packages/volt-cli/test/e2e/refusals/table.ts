@@ -245,8 +245,9 @@ export const ROWS: Row[] = [
 		code: "IDE_UNSUPPORTED",
 		live: false,
 		reason:
-			"raised only by an IDE below the bridge's minimum (CODESYS older than SP21 — openspec codesys-minimum-version); " +
-			"both fixture IDEs meet it (CODESYS SP21, TwinCAT 3.1.4024), and SP18 is installed but never used (codesys-sp21-only)",
+			"raised only by an IDE that lacks what Volt calls — below the bridge's minimum (CODESYS older than SP21 — openspec " +
+			"codesys-minimum-version), or an object-model type, member or overload one call needs (wire-final-shape 3c); both " +
+			"fixture IDEs have everything (CODESYS SP21, TwinCAT 3.1.4024), and SP18 is installed but never used (codesys-sp21-only)",
 	},
 	{
 		code: "IDE_BUSY",
@@ -292,8 +293,8 @@ export const ROWS: Row[] = [
 		code: "INTERNAL_ERROR",
 		live: false,
 		reason:
-			"means Volt's own broken invariant or a refusal nobody coded (wire.html); a live trigger IS a bug, fixed by coding " +
-			"the refusal — the uncoded-throw census in WireVocabularyTests holds the sites that could still raise it",
+			"means a Volt bug: its own broken invariant, or an IDE exception Volt did not classify (wire.html); a live trigger IS " +
+			"a bug — every throw in Volt states its code (WireVocabularyTests: no uncoded throw, the invariants a ratchet)",
 	},
 	{
 		code: "IDE_LOST_ITEM",

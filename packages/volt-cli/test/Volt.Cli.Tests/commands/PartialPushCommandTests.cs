@@ -70,6 +70,37 @@ public class PartialPushCommandTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
+    /// <summary>An op refused IDE_UNSUPPORTED — the IDE's object model lacks a call the write needs (CODESYS 3.5.18.30's
+    /// graphical write, a renamed vendor member) — is not the engineer's to fix by editing and retrying: the advice says
+    /// the IDE has to change, and invites no retry (gate 3c review, finding 10).</summary>
+    [Fact]
+    public void An_op_the_IDE_lacks_the_API_for_advises_that_the_IDE_has_to_change()
+    {
+        FakeIde ide = null!;
+        ide = new FakeIde(Pou("PLC_PRG"), Pou("Z_Late"))
+        {
+            HealthConnected = true, HealthPlatform = "codesys", HealthProjectName = "Demo",
+            RefuseContentWrite = item => ide.Name(item) == "Z_Late"
+                ? new Volt.Engine.BridgeException(Volt.Contracts.BridgeErrorCodes.IdeUnsupported,
+                    "CODESYS 3.5.18.30: no NWL constructor takes a network") : null,
+        };
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            Edit(root, "PLC_PRG.pou", "x := 1;", "x := 2;");
+            Edit(root, "Z_Late.pou", "x := 1;", "x := 3;");
+
+            var r = Commands.Push(root, client);
+
+            Assert.True(r.Kind == ResultKinds.Partial, $"expected a partial push, got {r.Kind}: {r.Reason}");
+            Assert.Contains("[IDE_UNSUPPORTED]", r.Reason);
+            Assert.Contains("this IDE version lacks", r.Reason);
+            Assert.DoesNotContain("then push again", r.Reason);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
     /// <summary>An edit lands beside a refused op while the IDE changes <c>W_User</c>, which no op names. Review R3
     /// adopted its new version; that hid the change behind the workspace's old text (openspec bridge-refusal-review 8.4 —
     /// the next push of <c>W_User</c> wrote the old text back). It keeps its OLD version, so it is incoming, as on a full

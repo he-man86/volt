@@ -2,6 +2,8 @@ using System;
 using Volt.Engine.Ide;
 using Volt.Engine.Item;
 using Xunit;
+using Volt.Contracts;
+using Volt.Engine;
 
 namespace Volt.Ide.Twincat.Tests;
 
@@ -30,8 +32,9 @@ public class TcInterfaceMemberSeedTests
     {
         // The parent is no tree item: reaching TcObjectModel at all would fail on it, so a refusal that names the
         // member proves nothing was asked of the IDE.
-        var ex = Assert.Throws<NotSupportedException>(() =>
+        var ex = Assert.Throws<BridgeException>(() =>
             Driver().CreateChild(new ItemRef(new object()), "Speed", kindCode, seed, null));
+        Assert.Equal(BridgeErrorCodes.Unsupported, ex.ErrorCode);
 
         Assert.Contains("'Speed'", ex.Message);
         Assert.Contains("type", ex.Message);

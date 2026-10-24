@@ -6,6 +6,8 @@ using Volt.Engine.Format.St;
 using Volt.Engine.Format.Network;
 // `Parallel` is also System.Threading.Tasks.Parallel; this file means the LD branch.
 using Parallel = Volt.Engine.Format.Network.Parallel;
+using Volt.Contracts;
+using Volt.Engine;
 
 namespace Volt.Ide.Codesys
 {
@@ -32,10 +34,9 @@ namespace Volt.Ide.Codesys
         internal static void Write(object? iobj, NetworkBody body, NetworkScope scope)
         {
             // An object with no Implementation aspect holds no body: a fact about the target, refused by name as
-            // UNSUPPORTED (openspec bridge-refusal-review 2.21) — not an InvalidOperationException, which the push
-            // would report as INTERNAL_ERROR, a Volt bug.
+            // UNSUPPORTED (openspec bridge-refusal-review 2.21), never INTERNAL_ERROR, a Volt bug.
             var impl = NwlInterop.Get(iobj, "Implementation")
-                ?? throw new NotSupportedException(
+                ?? throw new BridgeException(BridgeErrorCodes.Unsupported,
                     "CODESYS: this object has no Implementation aspect, so it holds no body — a graphical body cannot " +
                     "be written into it.");
 
@@ -111,7 +112,7 @@ namespace Volt.Ide.Codesys
         {
             NetworkPairing.RefuseUnpairedUnsupported(CodesysDriver.Row.Display, model);
             foreach (var (box, output) in NetworkPairing.NamedMainOutputs(model))
-                throw new NotSupportedException(
+                throw new BridgeException(BridgeErrorCodes.Unsupported,
                     $"CODESYS: network {model.Order + 1} changed, and its '{box.Type}' box is read through its output " +
                     $"'{output}', which neither the project's declarations nor the libraries' signatures name an output of " +
                     $"'{box.Type}' — the slot the consumer reads is the null at that output's position (v2-measurements #12), " +
@@ -128,7 +129,7 @@ namespace Volt.Ide.Codesys
         {
             var stated = NetworkText.ViewLanguage(view);
             var live = NetworkText.LanguageNamed(stated)
-                ?? throw new InvalidOperationException(
+                ?? throw new VoltInvariantException(
                     $"CODESYS: a graphical body reached the write over a body whose view is '{view}' " +
                     $"('{Volt.Engine.Format.St.ImplementationMarker.Unsupported(stated)}'), which the push's body guard " +
                     "refuses before any write. This is a Volt bug.");
@@ -387,7 +388,7 @@ namespace Volt.Ide.Codesys
                         // Unreachable from a push: the reader builds every FB call with its instance and its type
                         // from the declarations. A model without one is Volt's bug (openspec bridge-refusal-review 2.20).
                         if (b.Kind == CallKind.FunctionBlock && b.Instance is null)
-                            throw new InvalidOperationException(
+                            throw new VoltInvariantException(
                                 $"network model invariant: the function-block call '{b.Type}' carries no instance; the " +
                                 "reader builds every FB call with one.");
 
@@ -443,7 +444,7 @@ namespace Volt.Ide.Codesys
                             var snippet = NwlInterop.New(box, "STSnippet");
                             var stImpl = Activator.CreateInstance(
                                 Reflection.FindType("_3S.CoDeSys.STObject.STImplementationObject")
-                                ?? throw new InvalidOperationException(
+                                ?? throw new BridgeException(BridgeErrorCodes.IdeUnsupported,
                                     "CODESYS: _3S.CoDeSys.STObject.STImplementationObject is not loaded, so an " +
                                     "Execute box's ST has nowhere to live."))!;
                             NwlInterop.Set(snippet, "Snippet", stImpl);
@@ -453,7 +454,7 @@ namespace Volt.Ide.Codesys
                             catch (InvalidOperationException) { /* the UID generator; the text still lands */ }
 
                             if (!string.Equals(NwlInterop.Text(doc, "Text"), b.StCode, StringComparison.Ordinal))
-                                throw new InvalidOperationException(
+                                throw new BridgeException(BridgeErrorCodes.IdeLostItem,
                                     $"CODESYS: the Execute box '{b.Type}' did not take its ST — the document " +
                                     "read back different text than was written. Refusing rather than creating " +
                                     "a box whose code is gone.");
@@ -627,7 +628,7 @@ namespace Volt.Ide.Codesys
                     }
 
                     default:
-                        throw new NotSupportedException(
+                        throw new VoltInvariantException(
                             $"CODESYS: no way to write the graphical node '{n.GetType().Name}' — refusing " +
                             "rather than writing a body that is not what the source says.");
                 }
@@ -650,7 +651,7 @@ namespace Volt.Ide.Codesys
                 {
                     while (slots.Count <= at) slots.Add(null);
                     if (slots[at] is not null)
-                        throw new NotSupportedException(
+                        throw new BridgeException(BridgeErrorCodes.Unsupported,
                             $"CODESYS: the '{b.Type}' box wires output slot {at} to {what}, a slot " +
                             (eno && at == 0 ? "its ENO echo holds" : "another pin already holds") +
                             " — refusing rather than write the pin onto another output.");
@@ -664,7 +665,7 @@ namespace Volt.Ide.Codesys
                     if (string.Equals(o.Formal, Box.EnoPin, StringComparison.OrdinalIgnoreCase))
                     {
                         if (!eno)
-                            throw new InvalidOperationException(
+                            throw new VoltInvariantException(
                                 $"network model invariant: the '{b.Type}' box wires its ENO to '{o.Value.Text}' and is built with no ENO output; the reader refuses that text (P5).");
                         slots[0] = OutputSlot.Of(o.Value);
                         continue;
@@ -675,13 +676,13 @@ namespace Volt.Ide.Codesys
                             .Where(i => string.Equals(names[i], formal, StringComparison.OrdinalIgnoreCase) && (i >= slots.Count || slots[i] is null))
                             .ToList();
                         if (named.Count == 0)
-                            throw new NotSupportedException(
+                            throw new BridgeException(BridgeErrorCodes.Unsupported,
                                 $"CODESYS: the '{b.Type}' box's output names ({string.Join(", ", names.Select(n => "'" + n + "'"))}) " +
                                 $"hold no '{formal}' for the pin wired to '{o.Value.Text}'.");
                         at = named[0];
                     }
                     else
-                        at = o.Slot ?? throw new InvalidOperationException(
+                        at = o.Slot ?? throw new VoltInvariantException(
                             $"network model invariant: the '{b.Type}' box's positional output to '{o.Value.Text}' has no slot; the reader places every one.");
                     At(at, OutputSlot.Of(o.Value), "'" + o.Value.Text + "'");
                 }
@@ -728,10 +729,10 @@ namespace Volt.Ide.Codesys
                     NwlInterop.Call(box, "SetInputFlag", slot, set);
                 }
                 var kept = (NwlInterop.Get(box, "InputFlags") as System.Collections.IEnumerable)?.Cast<object?>().ToList()
-                           ?? throw new NotSupportedException(
+                           ?? throw new BridgeException(BridgeErrorCodes.Unsupported,
                                $"CODESYS: the '{b.Type}' box answers no InputFlags after its pin flags were set.");
                 if (kept.Count != first + b.Inputs.Count)
-                    throw new NotSupportedException(
+                    throw new BridgeException(BridgeErrorCodes.Unsupported,
                         $"CODESYS: the '{b.Type}' box answers {kept.Count} pin flag set(s) for {first + b.Inputs.Count} input(s), " +
                         "so which pin a flag belongs to is unknown. Refusing rather than flag another pin.");
                 // READ BACK, every bit: a pin whose modifier the box does not keep is refused by name rather than built
@@ -741,7 +742,7 @@ namespace Volt.Ide.Codesys
                         (flags.Negated && !NwlInterop.Flag(k, "Negation")) ||
                         (flags.Rising && !NwlInterop.Flag(k, "Rtrig")) ||
                         (flags.Falling && !NwlInterop.Flag(k, "Ftrig")))
-                        throw new NotSupportedException(
+                        throw new BridgeException(BridgeErrorCodes.Unsupported,
                             $"CODESYS: the '{b.Type}' box did not keep the modifier written on its pin {name} — " +
                             "refusing rather than build the pin plain, another program than the text.");
             }
@@ -822,13 +823,13 @@ namespace Volt.Ide.Codesys
                 // TARGET (`Flags.CoilFromVendor`), and only the assignment arm knows which operands are
                 // targets.
                 if (f.Reset)
-                    throw new InvalidOperationException(
+                    throw new VoltInvariantException(
                         "CODESYS: a RESET reached the generic flag write. Coil storage is encoded per TARGET " +
                         "via Flags.VendorCoilBits(); a Reset anywhere else is a modifier the model should " +
                         "never have produced.");
 
                 SetBits(NwlInterop.Get(item, "Flags")
-                    ?? throw new InvalidOperationException(
+                    ?? throw new BridgeException(BridgeErrorCodes.IdeUnsupported,
                         $"CODESYS: '{item.GetType().Name}' carries no Flags, so its modifiers cannot be written"), f);
             }
 

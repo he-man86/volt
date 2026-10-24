@@ -46,11 +46,23 @@ public class WireVocabularyTests
             ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 1))),   // a delete with no IDE attached, before its member documents are closed (D45)
         new("another project is served", "the bound project is not the one named: rebind, never merge", "WRONG_PROJECT", At(
             ("Volt.Engine/BridgeException.cs", 1))),
-        new("the bridge cannot serve this IDE process (it lacks a capability, or Volt's assemblies loaded twice, or this worker cannot unmarshal its Solution Explorer)",
-            "every op but health: the IDE has to change (upgraded, or restarted), not the call",
+        new("the IDE process lacks what the bridge needs (a capability, so it serves nothing; or the type, member or overload one call needs — wire-final-shape 3c), or Volt's assemblies loaded twice, or this worker cannot unmarshal its Solution Explorer",
+            "the IDE has to change (upgraded, or restarted), not the call",
             "IDE_UNSUPPORTED", At(
             ("Volt.Engine.Host/BridgePipeHost.cs", 1),
-            ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 1))),
+            ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 1),
+            ("Volt.Ide.Codesys/Ide/CodesysNetworkWriter.cs", 2),   // wire-final-shape 3c: coded at the throw
+            ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Build.cs", 1),   // wire-final-shape 3c: coded at the throw
+            ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Classes.cs", 1),   // wire-final-shape 3c: coded at the throw
+            ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Descriptors.cs", 3),   // wire-final-shape 3c: coded at the throw; -1 a node without a facet is that node's, UNSUPPORTED (3c review 8)
+            ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Libraries.cs", 6),   // wire-final-shape 3c: coded at the throw; -1 no usable move is a binder failure (SurfaceMismatchException, 3c review 4)
+            ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Properties.cs", 1),   // wire-final-shape 3c: coded at the throw
+            ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Reflection.cs", 1),   // wire-final-shape 3c: coded at the throw; -1 InvokeMethod's missing method is a binder failure (SurfaceMismatchException)
+            ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Scripting.cs", 5),   // wire-final-shape 3c: coded at the throw; -2 the overload searches are binder failures (SurfaceMismatchException)
+            ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Task.cs", 1),   // wire-final-shape 3c: coded at the throw
+            ("Volt.Ide.Codesys/Ide/CodesysObjectModel.cs", 4),   // wire-final-shape 3c: coded at the throw; -1 no get_name at all is a binder failure (SurfaceMismatchException)
+            ("Volt.Ide.Codesys/Ide/NwlInterop.cs", 3),   // wire-final-shape 3c: coded at the throw; -1 Call catches the binder failure by its type
+            ("Volt.Ide.Codesys/Ide/SurfaceMismatchException.cs", 1))),   // the binder failures (Reflection.Overload, InvokeMethod, the overload searches, move): fail a walk (3c review 4)
         new("another push or build holds the IDE", "wait for it to answer, then try once: nothing was applied",
             "IDE_BUSY", At(
             ("Volt.Engine.Host/BridgePipeHost.cs", 1))),
@@ -76,11 +88,11 @@ public class WireVocabularyTests
             "UNSUPPORTED", At(
             ("Volt.Engine/Format/Body/BodyFormatGuard.cs", 12),
             ("Volt.Engine/Ide/ExcludedFolder.cs", 2),   // wire-final-shape §4: an unreadable entry's code — an excluded folder, and each item under it
-            ("Volt.Ide.Codesys/Driver/CodesysDriver.Tree.cs", 2),   // wire-final-shape §4: an unreadable entry's code — a container holding what no text spells, the library manager's unspelled content  // abstract-member-parity: the NONE/ABSTRACT refusals as named builders (NONE off a member site, NONE without ABSTRACT, ABSTRACT dropped over NONE, statements under ABSTRACT) + a body over NONE at an item site, over a slotless concrete member, and a comment over NONE
+            ("Volt.Ide.Codesys/Driver/CodesysDriver.Tree.cs", 3),   // wire-final-shape §4: an unreadable entry's code — a container holding what no text spells, the library manager's unspelled content  // abstract-member-parity: the NONE/ABSTRACT refusals as named builders (NONE off a member site, NONE without ABSTRACT, ABSTRACT dropped over NONE, statements under ABSTRACT) + a body over NONE at an item site, over a slotless concrete member, and a comment over NONE
             ("Volt.Engine/Format/Network/NetworkText.cs", 1),
             ("Volt.Engine/Format/St/FamilyContent.cs", 1),   // volt-cli-rework step 5: a %-key the IEC layout's object record has no field for
             ("Volt.Engine/Format/St/IecFormat.cs", 4),   // moved from Materializer (volt-cli-rework step 5): what a pull must not write
-            ("Volt.Engine/Format/St/ImplementationMarker.cs", 1),
+            ("Volt.Engine/Format/St/ImplementationMarker.cs", 3),
             ("Volt.Engine/Format/St/StReader.cs", 3),
             ("Volt.Engine/Format/St/PropertyLines.cs", 1),   // gate review of step 3, finding 8: a %NETVAR value the line cannot carry
             ("Volt.Engine/Format/St/StWriter.cs", 3),
@@ -89,36 +101,52 @@ public class WireVocabularyTests
             ("Volt.Engine/Item/ItemKind.cs", 1),
             ("Volt.Engine/Library/LibraryFetch.cs", 1),
             ("Volt.Engine/Sync/GrepService.cs", 1),   // wire-final-shape 3.7: a notSearched entry's code — a body that reads IMPLEMENTATION <LANG> UNSUPPORTED
-            ("Volt.Engine/Sync/PushService.cs", 10),
+            ("Volt.Engine/Sync/PushService.cs", 9),
             ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 4),   // +1: a body site whose type declares no Implementation (abstract-member-push); +1 a create carrying %NETVAR / %PARAMETER_LIST (gate review of step 3, 7c); +1 a create of %CLASS PERSISTENT / NVL (second review of step 3, finding 5)
-            ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Descriptors.cs", 2),   // +1 a device member that is not there (gate review of step 3, 10)
-            ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Libraries.cs", 2),   // +1 a reference answering no namespace, no name and no placeholder name has no identity: the manager is refused (volt-cli-rework 3.1b)   // -1 a reference flag off its measured value (every flag is a manifest line now, C37b)
+            ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Descriptors.cs", 3),   // +1 a device member that is not there (gate review of step 3, 10); +1 a node without the facet a read or create needs (3c review 8)
+            ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Libraries.cs", 4),   // +1 a reference answering no namespace, no name and no placeholder name has no identity: the manager is refused (volt-cli-rework 3.1b)   // -1 a reference flag off its measured value (every flag is a manifest line now, C37b)
             ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Properties.cs", 13),   // bridge-one-to-one §3: a property the bridge cannot read or write, by name; +2 a measured constant off its value, a %NETVAR value the line cannot carry (gate review of step 3, 2 / 8); +2 an archive member absent where it is no version fact, and one read where the platform lacks it with no measured meaning for its absence (environment-dependency-audit 2.0, DIALECT V7) — the item refused by name, as the rest
-            ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Task.cs", 10),   // +2 a task member or a call stored with surrounding blanks (gate review of step 3, 8); +1 a task facet with no call list (volt-cli-rework 3.1, C5)
+            ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Task.cs", 11),   // +2 a task member or a call stored with surrounding blanks (gate review of step 3, 8); +1 a task facet with no call list (volt-cli-rework 3.1, C5)
             ("Volt.Ide.Codesys/Ide/CodesysObjectModel.cs", 4),
             ("Volt.Ide.Codesys/Ide/CodesysTypeMap.cs", 1),
-            ("Volt.Ide.Codesys/Ide/NwlInterop.cs", 1),   // an LD/FBD write on a CODESYS older than SP21 (2026-10-10)
-            ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 10),   // +1 a member's %EXCLUDE_FROM_BUILD inside a POU that carries it too (C39); +1 an interface accessor storing another declaration (gate review of step 3, 5); +1 a reference flag property unanswered / neither True nor False (two sites for the one flag property, C37b)
+            ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 11),   // +1 a member's %EXCLUDE_FROM_BUILD inside a POU that carries it too (C39); +1 an interface accessor storing another declaration (gate review of step 3, 5); +1 a reference flag property unanswered / neither True nor False (two sites for the one flag property, C37b)
             ("Volt.Ide.Twincat/Ide/TcItemArchive.cs", 2),   // a member renamed since the save, and a CFC/SFC body edited since it, which TwinCAT's archive does not carry (D45)
             ("Volt.Ide.Twincat/Ide/TcObjectModel.Properties.cs", 3),   // an Exclude write the IDE took and did not apply, read back (C39); +1 the same for LinkAlways / External / CompilerDefines (C40); +1 an AdditionalAllocation other than 0, a build property with no line (C40)
             ("Volt.Ide.Twincat/Ide/TcObjectModel.Task.cs", 4),
             ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 1),   // -2 the PLCopen import that built nothing (deleted with the import, twincat-inproc-host)
-            ("Volt.Ide.Twincat/Ide/TcTaskSchedule.cs", 8))),   // +1 a TaskDef member none of the 13 measured (gate review of step 3, 6)
+            ("Volt.Ide.Twincat/Ide/TcTaskSchedule.cs", 8),   // +1 a TaskDef member none of the 13 measured (gate review of step 3, 6)
+            ("Volt.Engine/UnsupportedException.cs", 1),   // wire-final-shape 3c: the code the type states, for the catches that route on a vendor "cannot"
+            ("Volt.Ide.Codesys/Driver/CodesysDriver.cs", 1),   // wire-final-shape 3c: coded at the throw
+            ("Volt.Ide.Codesys/Ide/CodesysNetworkWriter.cs", 7),   // wire-final-shape 3c: coded at the throw
+            ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Reflection.cs", 1),   // wire-final-shape 3c: coded at the throw
+            ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Tree.cs", 1),   // wire-final-shape 3c: coded at the throw
+            ("Volt.Ide.Twincat/Ide/TcArchive.cs", 2),   // wire-final-shape 3c: coded at the throw
+            ("Volt.Ide.Twincat/Ide/TcArchiveBuilder.cs", 4),   // wire-final-shape 3c: coded at the throw
+            ("Volt.Ide.Twincat/Ide/TcArchiveWriter.cs", 6),   // wire-final-shape 3c: coded at the throw; +2 rule 6 on the parse side, a blank line and stray text (3c review 3)
+            ("Volt.Ide.Twincat/Ide/TcNetworkWriter.cs", 3),   // wire-final-shape 3c: coded at the throw
+            ("Volt.Ide.Twincat/Ide/TcUnmeasured.cs", 2))),   // wire-final-shape 3c: coded at the throw
         new("Volt's own broken invariant, or a refusal nobody coded", "report a bug; code the refusal", "INTERNAL_ERROR", At(
             ("Volt.Engine/Format/St/FamilyContent.cs", 2),   // volt-cli-rework step 5: a body with no stated language, or one its stated language does not spell back
             ("Volt.Engine/Item/ItemKind.cs", 1),
             ("Volt.Engine/Sync/ProjectSnapshot.cs", 1),
-            ("Volt.Engine/Sync/PushService.cs", 7),   // -1 PouKindToCode's default arm (gone: a create names the host's kind); +1 a kind the host declared with no shape (volt-cli-rework step 5)
+            ("Volt.Engine/Sync/PushService.cs", 8),   // +1 ConflictFor logs a Volt bug whole (3c review 7); -1 PouKindToCode's default arm (gone: a create names the host's kind); +1 a kind the host declared with no shape (volt-cli-rework step 5)
             ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 1),
             ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 3),   // +1 a project-settings read of a node that is no PLC project's settings item (multi-application-tree)
             ("Volt.Relay/RelayTunnel.cs", 1),
-            ("Volt.Wire/PipeServer.cs", 1))),
+            ("Volt.Wire/PipeServer.cs", 1),
+            ("Volt.Engine/Sync/Versioning.cs", 1))),   // a Volt bug during one item's read fails the op, never an unreadable entry (3c review 6)
         new("the IDE no longer holds what Volt just wrote or read", "pull to see what landed, then push again",
             "IDE_LOST_ITEM", At(
             ("Volt.Engine/Sync/PushService.cs", 6),
             ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 1),
             ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 4),
-            ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Tree.cs", 3))),
+            ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Tree.cs", 3),
+            ("Volt.Ide.Codesys/Ide/CodesysNetworkWriter.cs", 1),   // wire-final-shape 3c: coded at the throw
+            ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Classes.cs", 2),   // wire-final-shape 3c: coded at the throw
+            ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Libraries.cs", 1),   // wire-final-shape 3c: coded at the throw
+            ("Volt.Ide.Codesys/Ide/CodesysObjectModel.cs", 1),   // wire-final-shape 3c: coded at the throw
+            ("Volt.Ide.Twincat/Ide/TcItemArchive.cs", 3),   // wire-final-shape 3c: coded at the throw
+            ("Volt.Ide.Twincat/Ide/TcTaskSchedule.cs", 1))),   // wire-final-shape 3c: coded at the throw
         new("a create collided with a child already there", "rename, or update instead", "DUPLICATE_CHILD", At(
             ("Volt.Engine/Sync/PushService.cs", 1))),
         new("the text cannot be split into what the push writes", "fix the body", "INVALID_ST", At(
@@ -131,19 +159,26 @@ public class WireVocabularyTests
             ("Volt.Engine/Seam/PropertyKeyRegistry.cs", 4))),
         new("the IDE holds the item and Volt cannot read it whole",
             "fix it in the IDE, or push with force — or, for an item the IDE does not return, delete then create", "UNREADABLE", At(
-            ("Volt.Engine/Ide/MemberSites.cs", 1),   // a member with no declaration (volt-cli-rework step 6: both drivers' MemberDeclaration, one)
-            ("Volt.Engine/Sync/TreeLookup.cs", 1),   // moved from Ide/ItemLookup (volt-cli-rework step 5)
+            ("Volt.Engine/Ide/MemberWithoutDeclarationException.cs", 1),   // a member with no declaration (MemberSites, both drivers): its own type carries the push's delete-then-create advice (3c review 2)
+            ("Volt.Engine/Sync/TreeLookup.cs", 2),   // moved from Ide/ItemLookup (volt-cli-rework step 5); +1 Read maps a driver's UNREADABLE to the folder's ITEM_UNVERIFIED (3c review 1)
             ("Volt.Engine/Sync/Versioning.cs", 1),   // the code an `unreadable` entry carries when its materialize failed uncoded (wire-final-shape §4)
             ("Volt.Ide.Codesys/Driver/CodesysDriver.Tree.cs", 4),   // wire-final-shape §4: an unreadable entry's code — a kind, a folder's properties, the library manager, a library reference the IDE did not answer
             ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Tree.cs", 4),   // wire-final-shape §4: an unreadable entry's code — an item C2i must not open, a kind, a folder's Exclude property, an inherited exclusion
             ("Volt.Engine/Sync/PushConflicts.cs", 2),
-            ("Volt.Engine/Sync/PushService.cs", 4),   // -1 ApplyToUnopened: an op of another kind no longer reaches it (resolved by path, unreadable-name-carries-kind 1.7)
+            ("Volt.Engine/Sync/PushService.cs", 3),   // -1 ReadLive routes on MemberWithoutDeclarationException, not on the code (3c review 2); -1 ApplyToUnopened: an op of another kind no longer reaches it (resolved by path, unreadable-name-carries-kind 1.7)
             ("Volt.Ide.Codesys/Ide/CodesysNetworkReader.cs", 1),   // an archived SymbolComment that is not text (ld-fbd-coverage gate 1b-3)
             ("Volt.Ide.Twincat/Ide/TcDeviceDescriptor.cs", 1),   // a device whose ProduceXml does not parse (volt-cli-rework 2.2, review B6)
             ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 2),   // -1 the member declaration (MemberSites, volt-cli-rework step 6); +1 an item read as excluded by a folder the walk did not see (C39); +1 an interface accessor the saved file does not hold (gate review of step 3, 5)
             ("Volt.Ide.Twincat/Ide/TcObjectModel.Properties.cs", 12),   // +3 the live Exclude property: no item XML, none published, neither True nor False (C39); +4 the live LinkAlways / External / CompilerDefines: no item XML, none published, read-only, neither True nor False (C40); +4 no item XML, no FullPath, a saved file / .plcproj not on disk (gate review of step 3, 6)
-            ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 2),   // bridge-one-to-one §3: a declaration or implementation that reads null
-            ("Volt.Ide.Twincat/Ide/TcTaskSchedule.cs", 1))),   // a TaskDef that carries no measured member (gate review of step 3, 6)   // bridge-one-to-one §3: a declaration or implementation that reads null
+            ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 3),   // bridge-one-to-one §3: a declaration or implementation that reads null
+            ("Volt.Ide.Twincat/Ide/TcTaskSchedule.cs", 3),   // a TaskDef that carries no measured member (gate review of step 3, 6)   // bridge-one-to-one §3: a declaration or implementation that reads null
+            ("Volt.Ide.Codesys/Driver/CodesysDriver.cs", 1),   // wire-final-shape 3c: coded at the throw
+            ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Libraries.cs", 6),   // wire-final-shape 3c: coded at the throw
+            ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Properties.cs", 1),   // wire-final-shape 3c: coded at the throw
+            ("Volt.Ide.Codesys/Ide/CodesysObjectModel.cs", 5),   // wire-final-shape 3c: coded at the throw; +1 a name the IDE answers null (3c review 5)
+            ("Volt.Ide.Twincat/Ide/TcItemArchive.cs", 4),   // wire-final-shape 3c: coded at the throw
+            ("Volt.Ide.Twincat/Ide/TcLibrarySignatures.cs", 3),   // wire-final-shape 3c: coded at the throw
+            ("Volt.Ide.Twincat/Ide/TcProjectSettings.cs", 6))),   // wire-final-shape 3c: coded at the throw
 
         // ── the optimistic gate and the apply loop ─────────────────────────────────────────────────────────────
         new("the lease is stale", "pull, then push again", "STALE_PROJECT_VERSION", At(
@@ -336,131 +371,188 @@ public class WireVocabularyTests
         var byConst = codes.ToDictionary(c => c.Const, c => c.Code, StringComparer.Ordinal);
         foreach (Match m in Regex.Matches(code, @"\b((?:BridgeErrorCodes|ConflictCodes)\.\w+)\b"))
             if (byConst.TryGetValue(m.Groups[1].Value, out var c)) yield return c;
+        // An UnsupportedException states UNSUPPORTED by its type — the one coded type a catch routes on (wire-final-shape
+        // step 3c) — so each one constructed is a raise site like a spelled constant.
+        if (byConst.ContainsValue("UNSUPPORTED"))
+            foreach (Match _ in Regex.Matches(code, @"\bnew\s+UnsupportedException\s*\(|\bUnsupportedException\s+\w+\s*\([^)]*\)\s*=>\s*new\s*\("))
+                yield return "UNSUPPORTED";
     }
 
-    // ── the codes assigned by TYPE ───────────────────────────────────────────────────────────────────────────────
+    // ── every throw states its class ─────────────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// EVERY UNCODED THROW, COUNTED (review of step V). The census above sees a code only where it is SPELLED; a code
-    /// assigned by an exception's TYPE is invisible to it. An uncoded exception reaches a client anyway: the push's
-    /// <c>ConflictFor</c> answers a <c>NotSupportedException</c> <c>UNSUPPORTED</c> and every other uncoded exception
-    /// <c>INTERNAL_ERROR</c>, as <c>PipeServer</c> does for a frame. So a new <c>throw new InvalidOperationException("CODESYS
-    /// refused X")</c> in a driver was an IDE refusal answered "Volt bug", and the one-situation gate stayed green — the
-    /// exact class V.1 re-coded by hand.
-    ///
-    /// <para>Here every <c>throw new</c> of a BCL exception type that carries no code (<see cref="UncodedThrow"/>) is
-    /// counted per file, like the raise sites. A new one fails until someone decides: code it with its situation's code
-    /// (an IDE refusal, a request rule, a vendor limit — almost always), or, when it really is Volt's own broken invariant
-    /// (<c>INTERNAL_ERROR</c>'s situation) or caught inside the toolchain before any client sees it, raise its count here.
-    /// <c>ArgumentException</c> and its kind are not counted: a parameter guard is a caller's broken invariant by
-    /// definition.</para>
+    /// EVERY THROW STATES ITS CLASS AT THE THROW (openspec <c>wire-final-shape</c> step 3c). The census above sees a code
+    /// only where it is SPELLED, and an exception of a type Volt does not own carries none: it reached a client as
+    /// <c>INTERNAL_ERROR</c> — "Volt bug" — whatever the situation, an IDE refusal and a request rule included. So the
+    /// toolchain's code CONSTRUCTS — throws, or returns from a factory — only exceptions of its OWN types (a class declared
+    /// under <c>src/</c>): a coded refusal (a <c>BridgeException</c> with its situation's code, an
+    /// <c>UnsupportedException</c> where a catch routes on the vendor "cannot"), Volt's own broken invariant
+    /// (<c>VoltInvariantException</c>, counted below), or a named type a named catch turns into a coded answer before any
+    /// client sees it. The rule is over every type Volt does not declare, not a list of BCL names: a list let
+    /// <c>FormatException</c> through (gate 3c review, finding 3). <c>ArgumentException</c> and its kind are not counted:
+    /// a parameter guard is a caller's broken invariant by definition. The transport below the wire is pinned apart
+    /// (<see cref="BelowTheWire"/>).
     /// </summary>
-    private static readonly Dictionary<string, int> Uncoded = At(
-        ("Volt.Engine/Format/Body/BodyFormatGuard.cs", 1),
-        ("Volt.Engine/Format/Network/NetworkTextGate.cs", 2),
-        ("Volt.Engine/Format/Network/NetworkMembers.cs", 1),   // a stored member value read as a list of strings it is not (MemberValue.AsTexts): Volt's own invariant (ld-fbd-coverage 2R.3, the pragma's value kept as the model's)
-        ("Volt.Engine/Format/Network/NetworkTextReader.cs", 1),
-        ("Volt.Engine/Format/St/ImplementationMarker.cs", 2),
-        ("Volt.Engine/Format/St/PropertyLines.cs", 2),
-        ("Volt.Engine/Format/St/StReader.cs", 1),
-        ("Volt.Engine/Format/Task/TaskDescriptorFormat.cs", 1),
-        ("Volt.Engine/Ide/SourceScopes.cs", 1),
-        // The new contract's registries (volt-cli-rework step 3): a host's declaration that conflicts with another's or
-        // breaks a row's shape is refused at REGISTRATION, when a process starts — Volt's own invariant, before any client.
-        ("Volt.Engine/Seam/LanguageRegistry.cs", 2),
-        ("Volt.Engine/Seam/PropertyKeyRegistry.cs", 2),
-        ("Volt.Engine/Seam/VendorRegistry.cs", 3),
-        ("Volt.Engine/Sync/Materializer.cs", 1),
-        ("Volt.Engine/Sync/PushService.cs", 2),   // the two op dispatches' default arm: a PushOp type with no apply arm, Volt's own invariant (PushOp is abstract with two members; refuse-unknown-request-members)
-        ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 0),   // -4 every "object could not be obtained" is ReadObject's own throw now (cli-bridges review B1)
-        ("Volt.Ide.Codesys/Driver/CodesysDriver.Tree.cs", 1),
-        ("Volt.Ide.Codesys/Driver/CodesysDriver.cs", 2),   // +1 no Application to extract library signatures for, moved here from CodesysObjectModel.Libraries.cs (per application, multi-application-tree)
-        ("Volt.Ide.Codesys/Ide/CodesysNetworkWriter.cs", 16),   // 2R.5 +1 a named ENO pin on a box built with no ENO output (invariant: the reader refuses that text); +1 a changed network reading a box by a named main output (S4, N21; ld-fbd-coverage 1b.4); +3 a box that answers no pin flags, misaligned ones, or does not keep a negation (S6, 2.3) — NotSupported, UNSUPPORTED; +2 the output slots laid out by name (2.3): a named pin its names do not hold (NotSupported), and a positional pin the reader left unslotted (invariant)
-        ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Build.cs", 1),
-        ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Classes.cs", 3),   // +1 a persistent-list create refused until the oracle reproduces one (gate review of step 3, 7b)
-        ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Descriptors.cs", 4),   // -1 the device object read (ReadObject's own throw, B1)
-        ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Libraries.cs", 18),   // +1 a library pin with no name (not an alias base): the signatures are refused, as on TwinCAT (volt-cli-rework 3.1b)   // -1 no Application: moved to CodesysDriver.cs (multi-application-tree)   // -1 the manager's object read (ReadObject's own throw, B1); +2 a redirection the manager answers no names / no resolution for (gate review of step 3, 4)
-        ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Properties.cs", 3),   // -2 the checkout/commit: CodesysObjectModel.Modify (volt-cli-rework 3.1, C1)
-        ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Reflection.cs", 3),
-        ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Scripting.cs", 7),
-        ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Task.cs", 3),   // -2 the task object reads (ReadObject's own throw, B1)
-        ("Volt.Ide.Codesys/Ide/CodesysObjectModel.cs", 11),   // -2 one checkout/commit (Modify) for the three transactions (volt-cli-rework 3.1, C1); +2 ReadObject refuses no object manager / a checkout with no object (cli-bridges review B1)
-        ("Volt.Ide.Codesys/Ide/NwlInterop.cs", 1),
-        ("Volt.Ide.Codesys/Ide/Reflection.cs", 1),
-        ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 1),   // -1 the unused manifest name ReadManifest computed (cli-bridges review A7); -2 the import's stamp and splice (twincat-inproc-host)
-        ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Tree.cs", 1),
-        ("Volt.Ide.Twincat/Ide/TcArchive.cs", 3),   // +1 the one flag→bit encoding (TcArchive.Bits) moved here from the builder and the writer (volt-cli-rework 3.1, T3)
-        // The native writer (twincat-inproc-host): the builder's invariants (an FB call with no instance, a positional
-        // output with no slot, a RESET at the generic flag write) and its shape refusals (a slot two pins claim, a named
-        // pin the names do not hold, a node with no archive form); the writer's refusals of what TwinCAT never writes.
-        // +1 (merge onto 2R): a named ENO pin on a box built with no ENO output, which the reader refuses (P5).
-        ("Volt.Ide.Twincat/Ide/TcArchiveBuilder.cs", 7),   // -1 the RESET at the flag write: TcArchive.Bits (T3)
-        ("Volt.Ide.Twincat/Ide/TcArchiveWriter.cs", 4),
-        ("Volt.Ide.Twincat/Ide/TcItemArchive.cs", 7),   // +2 carrying the live state (D45): an archive with no object element / no source document; +1 an undo restored under its saved name the rename back refused
-        ("Volt.Ide.Twincat/Ide/TcLibrarySignatures.cs", 3),   // +1 a signature with no name (volt-cli-rework 3.1b)   // +1 a pin with no name or no data type: the whole signature document is refused (volt-cli-rework 3.1)
-        ("Volt.Ide.Twincat/Ide/TcNetworkWriter.cs", 5),   // -1 the RESET at the flag write: TcArchive.Bits (T3); +2 S4 in a changed network (unmeasured) and an insertion with no import to build it (1b.4)
-        ("Volt.Ide.Twincat/Ide/TcObjectModel.Session.cs", 3),
-        ("Volt.Ide.Twincat/Ide/TcObjectModel.Task.cs", 1),
-        ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 2),   // +1 a library manager answering no signatures (cli-bridges review B7)
-        ("Volt.Ide.Twincat/Ide/TcProjectSettings.cs", 6),
-        ("Volt.Ide.Twincat/Ide/TcHierarchy.cs", 3),   // every one caught by TcObjectModel.Explorer: IDE_UNSUPPORTED or ITEM_UNVERIFIED
-        ("Volt.Ide.Twincat/Ide/TcSolutionExplorer.cs", 3),   // +1: a refused manifest activation named on the proxy failure; +1: an item id that is no DWORD (twincat-large-solution-refs); caught the same way
-        ("Volt.Ide.Twincat/Ide/TcTaskSchedule.cs", 3),
-        ("Volt.Ide.Twincat/Ide/TcUnmeasured.cs", 1),
-        ("Volt.Relay/RelayTunnel.cs", 2),
-        ("Volt.Wire/PipeServer.cs", 0),   // -2 a held pipe name is PipeNameTakenException now (twincat-double-click-next-free-xae): it reaches the host that took the claim, never a frame
-        ("Volt.Wire/PipeAcl.cs", 1));   // a pipe bind the OS refused (environment-dependency-audit 2.2): it reaches PipeServer.Start's caller, the host, which reports it — never a frame
-
-    /// <summary>A <c>throw new</c> of a BCL exception type that carries no wire code.</summary>
-    private static readonly Regex UncodedThrow = new(
-        @"\bthrow\s+new\s+(?:System\.(?:IO\.|Runtime\.InteropServices\.)?)?(?:InvalidOperation|NotSupported|NotImplemented|IO|MissingMethod|COM)?Exception\s*\(",
+    private static readonly Regex Construction = new(
+        @"\bnew\s+(?:\w+\.)*(\w*Exception)\s*\(|\b(?:\w+\.)*(\w*Exception)\s+\w+\s*\([^)]*\)\s*=>\s*new\s*\(",
         RegexOptions.Compiled);
 
-    [Fact]
-    public void Every_uncoded_throw_is_counted_so_a_new_one_is_classified()
-    {
-        var src = Path.Combine(NoCodeCheckLeftTests.RepoRoot(), "packages", "volt-cli", "src");
-        var findings = UncodedFindings(Uncoded, UncodedCensus(src));
-        Assert.True(findings.Count == 0,
-            "An uncoded throw reaches a client by its TYPE (NotSupportedException → UNSUPPORTED on a push conflict, anything " +
-            "else → INTERNAL_ERROR) — code it with its situation's code, or count it as Volt's own invariant " +
-            "(openspec bridge-refusal-review, review of step V):\n  " + string.Join("\n  ", findings));
-    }
+    private static readonly Regex DeclaredException = new(@"\bclass\s+(\w+Exception)\b", RegexOptions.Compiled);
+
+    private static string Src() => Path.Combine(NoCodeCheckLeftTests.RepoRoot(), "packages", "volt-cli", "src");
+
+    /// <summary>Every exception type the toolchain declares — Volt's own, so each states its class.</summary>
+    private static HashSet<string> VoltTypes() =>
+        Directory.EnumerateFiles(Src(), "*.cs", SearchOption.AllDirectories)
+            .Where(p => !p.Replace('\\', '/').Contains("/bin/") && !p.Replace('\\', '/').Contains("/obj/"))
+            .SelectMany(p => DeclaredException.Matches(File.ReadAllText(p)).Select(m => m.Groups[1].Value))
+            .ToHashSet(StringComparer.Ordinal);
+
+    /// <summary>The constructions in <paramref name="code"/> of a type Volt does not declare.</summary>
+    private static int Uncoded(string code, ISet<string> volt) =>
+        Construction.Matches(code).Count(m =>
+        {
+            var type = m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Value;
+            return !volt.Contains(type) && !type.StartsWith("Argument", StringComparison.Ordinal);
+        });
+
+    /// <summary>
+    /// BELOW THE WIRE, PER FILE: the OS's own exception types where the transport binds a pipe or reads a token
+    /// (<c>Win32Exception</c>, <c>UnauthorizedAccessException</c> — the host that starts the server, or the connector,
+    /// reads them; never a request) and the relay's stalled send (<c>TimeoutException</c>, caught by every send caller
+    /// with its other send failures). No frame carries one. Pinned like the invariants: a rise fails.
+    /// </summary>
+    private static readonly Dictionary<string, int> BelowTheWire = At(
+        ("Volt.Wire/PipeAcl.cs", 6),             // the security descriptor, the bind, the token, the SID read and spelled (Win32Exception ×5), the name held by another user
+        ("Volt.Wire/ProcessElevation.cs", 1),    // this process's own token elevation (the connector, the CLI)
+        ("Volt.Relay/RelayTunnel.cs", 1));       // a frame that did not go out within the silence limit
 
     [Fact]
-    public void A_new_uncoded_throw_fails_until_it_is_counted() =>
-        Assert.Contains(UncodedFindings(At(("A.cs", 1)), new Dictionary<string, int> { ["A.cs"] = 2 }),
-                        f => f.Contains("A.cs") && f.Contains("found 2"));
+    public void No_throw_is_uncoded()
+    {
+        var volt = VoltTypes();
+        var found = CensusOf(Src(), code => Uncoded(code, volt));
+        var findings = found.Where(kv => kv.Value > (BelowTheWire.TryGetValue(kv.Key, out var pinned) ? pinned : 0))
+                            .Select(kv => $"{kv.Key}: {kv.Value}").ToList();
+        Assert.True(findings.Count == 0,
+            "An exception of a type Volt does not declare carries no code and reaches a client as INTERNAL_ERROR (Volt's " +
+            "bug) whatever the situation — code it with its situation's code (BridgeException, or UnsupportedException " +
+            "where a catch routes on the vendor's \"cannot\"), raise it as a VoltInvariantException when it is Volt's own " +
+            "broken invariant, or give it a named type that a named catch turns into a coded answer (openspec " +
+            "wire-final-shape step 3c):\n  " + string.Join("\n  ", findings));
+    }
 
     [Theory]
     [InlineData("throw new InvalidOperationException(\"CODESYS refused X\");", true)]
     [InlineData("throw new System.NotSupportedException(\"x\");", true)]
     [InlineData("throw new Exception(\"x\");", true)]
     [InlineData("throw new COMException(\"x\", 1);", true)]
+    [InlineData("throw new FormatException(\"x\");", true)]
+    [InlineData("throw new System.Xml.XmlException(\"x\");", true)]
+    [InlineData("throw new KeyNotFoundException(\"x\");", true)]
+    [InlineData("throw new InvalidDataException(\"x\");", true)]
+    [InlineData("throw new Win32Exception(5);", true)]
+    [InlineData("var other => new InvalidOperationException(\"x\"),", true)]
+    [InlineData("private static NotSupportedException Refuse(string what) =>\n        new(\"x\");", true)]
+    [InlineData("private static FormatException Refuse(string what) =>\n        new(\"x\");", true)]
     [InlineData("throw new BridgeException(BridgeErrorCodes.Unsupported, \"x\");", false)]
+    [InlineData("throw new Volt.Engine.BridgeException(BridgeErrorCodes.Unsupported, \"x\");", false)]
+    [InlineData("throw new UnsupportedException(\"x\");", false)]
+    [InlineData("throw new VoltInvariantException(\"x\");", false)]
     [InlineData("throw new UnrepresentableBodyException(\"x\");", false)]
+    [InlineData("throw new TaskDescriptorException(\"x\");", false)]
     [InlineData("throw new ArgumentNullException(nameof(x));", false)]
-    public void An_uncoded_throw_is_one_of_a_BCL_type_that_carries_no_code(string line, bool counted) =>
-        Assert.Equal(counted, UncodedThrow.IsMatch(line));
+    [InlineData("throw new System.ArgumentOutOfRangeException(nameof(x));", false)]
+    [InlineData("catch (InvalidOperationException) { }", false)]
+    [InlineData("catch (FormatException) { }", false)]
+    public void An_uncoded_throw_is_an_exception_of_a_type_Volt_does_not_declare(string line, bool counted) =>
+        Assert.Equal(counted, Uncoded(line, VoltTypes()) > 0);
 
-    private static List<string> UncodedFindings(Dictionary<string, int> declared, Dictionary<string, int> found)
+    // ── the invariants: a ratchet ───────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// VOLT'S OWN BROKEN INVARIANTS, PER FILE — the one situation <c>INTERNAL_ERROR</c> names by intent. Each is a state
+    /// Volt's code guarantees cannot happen, so the line only goes DOWN: a new invariant fails until someone shows it is
+    /// one (raise the count here, with why); a removed one passes, and its line is lowered with it. A request, an IDE state
+    /// or a vendor limit is never one of these — it is coded with its own situation's code.
+    /// </summary>
+    private static readonly Dictionary<string, int> Invariants = At(
+        ("Volt.Engine/Format/Body/BodyFormatGuard.cs", 1),       // a body with text and no stated language from its reader
+        ("Volt.Engine/Format/Network/NetworkMembers.cs", 1),     // a stored member value read as a list of strings it is not
+        ("Volt.Engine/Format/Network/NetworkTextGate.cs", 2),    // the writer refused a node, or a network, the reader did not mark
+        ("Volt.Engine/Format/Network/NetworkTextReader.cs", 1),  // a language word LanguageOf found and LanguageNamed does not name
+        ("Volt.Engine/Format/St/PropertyLines.cs", 2),           // a line no key opens, or a key with no reader, handed to Read
+        ("Volt.Engine/Format/St/StReader.cs", 2),                // a boundary line stating no language; a U+FEFF StTrivia classed impossibly
+        ("Volt.Engine/Format/Task/TaskDescriptorFormat.cs", 1),  // call comments not index-aligned with the calls
+        ("Volt.Engine/Ide/SourceScopes.cs", 1),                  // a network body written with no validated model
+        ("Volt.Engine/Seam/KindRegistry.cs", 1),                 // the registries refuse a conflicting host declaration, at start
+        ("Volt.Engine/Seam/LanguageRegistry.cs", 2),
+        ("Volt.Engine/Seam/PropertyKeyRegistry.cs", 2),
+        ("Volt.Engine/Seam/VendorRegistry.cs", 3),
+        ("Volt.Engine/Sync/Materializer.cs", 1),                 // a hidden body read without its reason, or a shown one with one
+        ("Volt.Engine/Sync/PushService.cs", 2),                  // a PushOp with no apply arm (PushOp is abstract, two members)
+        ("Volt.Ide.Codesys/Ide/CodesysNetworkWriter.cs", 7),     // the model's guarantees: an FB call's instance, a box's ENO and slots, a known node type, no RESET at the flag write, a body the guard let through
+        ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Libraries.cs", 2),  // a create of a kind with no arm; a delete of a child the push saw
+        ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Properties.cs", 1), // a class change the push refuses first
+        ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Task.cs", 1),  // call comments not index-aligned with the calls
+        ("Volt.Ide.Twincat/Ide/TcArchive.cs", 1),                // a RESET at the generic flag write
+        ("Volt.Ide.Twincat/Ide/TcArchiveBuilder.cs", 3),         // an FB call's instance, a box's ENO and slots
+        ("Volt.Ide.Twincat/Ide/TcNetworkWriter.cs", 3),          // an in-place write with no archive, or no builder for an insertion; a body the guard let through
+        ("Volt.Ide.Twincat/Ide/TcObjectModel.Task.cs", 1),       // SysTaskPatch let through a member it refuses
+        ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 1),            // a relative path asked of a node outside its root
+        ("Volt.Relay/RelayTunnel.cs", 1));                       // a tunnel started twice
+
+    private static readonly Regex InvariantThrow = new(
+        @"\bnew\s+VoltInvariantException\s*\(|\bVoltInvariantException\s+\w+\s*\([^)]*\)\s*=>\s*new\s*\(", RegexOptions.Compiled);
+
+    [Fact]
+    public void Invariants_only_go_down()
+    {
+        var findings = InvariantFindings(Invariants,
+            Census(Path.Combine(NoCodeCheckLeftTests.RepoRoot(), "packages", "volt-cli", "src"), InvariantThrow));
+        Assert.True(findings.Count == 0,
+            "INTERNAL_ERROR means Volt's own broken invariant (openspec wire-final-shape step 3c):\n  " + string.Join("\n  ", findings));
+    }
+
+    [Fact]
+    public void A_new_invariant_fails_and_a_removed_one_passes()
+    {
+        Assert.Contains(InvariantFindings(At(("A.cs", 1)), new Dictionary<string, int> { ["A.cs"] = 2 }),
+                        f => f.Contains("A.cs") && f.Contains("found 2") && f.Contains("a new one"));
+        Assert.Contains(InvariantFindings(At(("A.cs", 1)), new Dictionary<string, int> { ["B.cs"] = 1 }),
+                        f => f.Contains("B.cs") && f.Contains("found 1"));
+        Assert.Empty(InvariantFindings(At(("A.cs", 2)), new Dictionary<string, int> { ["A.cs"] = 1 }));
+        Assert.Empty(InvariantFindings(At(("A.cs", 1)), new Dictionary<string, int>()));
+    }
+
+    [Theory]
+    [InlineData("throw new VoltInvariantException(\"x\");", true)]
+    [InlineData("private static VoltInvariantException Conflict(string vendor, string what) =>\n        new($\"x\");", true)]
+    [InlineData("catch (VoltInvariantException) { }", false)]
+    [InlineData("if (ex is VoltInvariantException)", false)]
+    public void An_invariant_is_a_constructed_VoltInvariantException(string line, bool counted) =>
+        Assert.Equal(counted, InvariantThrow.IsMatch(line));
+
+    /// <summary>A rise fails as a new invariant (design: the ratchet fails on a rise only; a fall lowers the line).</summary>
+    private static List<string> InvariantFindings(Dictionary<string, int> declared, Dictionary<string, int> found)
     {
         var findings = new List<string>();
         foreach (var file in declared.Keys.Union(found.Keys).OrderBy(f => f, StringComparer.Ordinal))
         {
             declared.TryGetValue(file, out var want);
             found.TryGetValue(file, out var got);
-            if (want != got)
-                findings.Add($"uncoded throws in {file}: census {want}, found {got} — " +
-                             (got > want ? "a new one: code it, or count it as an invariant" : "one is gone: lower the count") +
-                             $". Census line: (\"{file}\", {got}),");
+            if (got > want)
+                findings.Add($"invariants in {file}: census {want}, found {got} — a new one: code it with its situation's code, " +
+                             $"or show it is Volt's own guarantee and raise the line: (\"{file}\", {got}),");
         }
         return findings;
     }
 
-    /// <summary>File → count of <see cref="UncodedThrow"/> under <paramref name="src"/>, comments stripped, outside
+    /// <summary>File → count of <paramref name="pattern"/> under <paramref name="src"/>, comments stripped, outside
     /// Contracts and the CLI client (the same scope as the raise-site census).</summary>
-    private static Dictionary<string, int> UncodedCensus(string src)
+    private static Dictionary<string, int> Census(string src, Regex pattern) => CensusOf(src, code => pattern.Matches(code).Count);
+
+    private static Dictionary<string, int> CensusOf(string src, Func<string, int> count)
     {
         var census = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (var path in Directory.EnumerateFiles(src, "*.cs", SearchOption.AllDirectories))
@@ -468,7 +560,7 @@ public class WireVocabularyTests
             var rel = Path.GetRelativePath(src, path).Replace('\\', '/');
             if (rel.Contains("/bin/") || rel.Contains("/obj/") || rel.StartsWith("Volt.Contracts/", StringComparison.Ordinal)
                 || rel.StartsWith("Volt.Cli/", StringComparison.Ordinal)) continue;
-            var n = UncodedThrow.Matches(NoCodeCheckLeftTests.StripComments(File.ReadAllText(path))).Count;
+            var n = count(NoCodeCheckLeftTests.StripComments(File.ReadAllText(path)));
             if (n > 0) census[rel] = n;
         }
         return census;

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using Volt.Contracts;
 
 namespace Volt.Engine.Format.Network;
 
@@ -37,7 +38,7 @@ public sealed class MemberValue : IEquatable<MemberValue>
     public IReadOnlyList<string> AsTexts =>
         Kind == MemberKind.List && Items!.All(i => i.Kind == MemberKind.Text)
             ? Items!.Select(i => i.Scalar!).ToList()
-            : throw new InvalidOperationException($"a {Kind} member value is no list of strings");
+            : throw new VoltInvariantException($"a {Kind} member value is no list of strings");
 
     public bool Equals(MemberValue? other) =>
         other is not null && Kind == other.Kind && Scalar == other.Scalar &&

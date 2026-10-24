@@ -69,7 +69,7 @@ public class DriverPreflightModelsTests
             ValidatesSource = bodies =>
             {
                 if (bodies.Any(b => b.Model.Language == BodyLanguage.Ld))
-                    throw new NotSupportedException("this vendor cannot create that ladder");
+                    throw new UnsupportedException("this vendor cannot create that ladder");
             },
         };
 

@@ -5,6 +5,7 @@ using System.Xml.Linq;
 using Volt.Contracts;
 using Volt.Engine.Format.Network;
 using Xunit;
+using Volt.Engine;
 
 namespace Volt.Ide.Twincat.Tests;
 
@@ -164,7 +165,7 @@ public class TcNetworkPairingTests
         };
         var scope = new NetworkScope(new[] { "go", "elapsed" }, Array.Empty<string>(), new Dictionary<string, string> { ["t1"] = "TON" });
 
-        var ex = Assert.Throws<NotSupportedException>(() => TcNetworkWriter.Apply(body, pushed, scope, Never));
+        var ex = Assert.Throws<UnsupportedException>(() => TcNetworkWriter.Apply(body, pushed, scope, Never));
         Assert.Contains("network 2 changed", ex.Message);
         Assert.Contains("'ET'", ex.Message);
     }

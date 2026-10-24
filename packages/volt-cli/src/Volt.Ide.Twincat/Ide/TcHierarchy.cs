@@ -3,6 +3,8 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using Volt.Wire;
+using Volt.Contracts;
+using Volt.Engine;
 
 namespace Volt.Ide.Twincat;
 
@@ -12,6 +14,19 @@ namespace Volt.Ide.Twincat;
 internal sealed class HierarchyUnreachableException : Exception
 {
     public HierarchyUnreachableException(string missing) : base(missing) { }
+}
+
+/// <summary>A read of the Solution Explorer hierarchy FAILED — the XAE process could not be opened, a hierarchy call
+/// answered a failing HRESULT (<see cref="Exception.HResult"/>, kept so a missing proxy is still told apart), an item id
+/// that is no DWORD. Caught inside: a missing proxy becomes <see cref="HierarchyUnreachableException"/>
+/// (<c>IDE_UNSUPPORTED</c>), anything else <c>TcObjectModel.Explorer</c>'s <c>ITEM_UNVERIFIED</c> — never a frame of
+/// its own.</summary>
+internal sealed class HierarchyReadException : Exception
+{
+    public HierarchyReadException(string message, int hresult = 0, Exception? inner = null) : base(message, inner)
+    {
+        if (hresult != 0) HResult = hresult;
+    }
 }
 
 /// <summary>
@@ -39,7 +54,7 @@ internal static class TcHierarchy
         if (!Reads(xae.Is32Bit, Environment.Is64BitProcess)) throw new HierarchyUnreachableException(OtherBitness(xae.Is32Bit));
         try { return TcSolutionExplorer.ReadSystem(dte, system, xae.IdeDir, roots); }
         catch (TcSolutionExplorer.ProxyManifestMissingException ex) { throw new HierarchyUnreachableException(ex.Message); }
-        catch (COMException ex) when (TcSolutionExplorer.IsProxyMissing(ex.HResult))
+        catch (Exception ex) when (ex is COMException or HierarchyReadException && TcSolutionExplorer.IsProxyMissing(ex.HResult))
         { throw new HierarchyUnreachableException($"{Proxy} is not available to this {Bits} worker: {ex.Message}"); }
     }
 
@@ -67,15 +82,15 @@ internal static class TcHierarchy
     private static (string IdeDir, bool Is32Bit) Xae(int pid)
     {
         var h = OpenProcess(ProcessQueryLimitedInformation, false, pid);
-        if (h == IntPtr.Zero) throw new InvalidOperationException($"cannot open the XAE process {pid} (Win32 {Marshal.GetLastWin32Error()})");
+        if (h == IntPtr.Zero) throw new HierarchyReadException($"cannot open the XAE process {pid} (Win32 {Marshal.GetLastWin32Error()})");
         try
         {
             var path = new StringBuilder(1024);
             var size = path.Capacity;
             if (!QueryFullProcessImageName(h, 0, path, ref size))
-                throw new InvalidOperationException($"cannot read the XAE process {pid}'s image path (Win32 {Marshal.GetLastWin32Error()})");
+                throw new HierarchyReadException($"cannot read the XAE process {pid}'s image path (Win32 {Marshal.GetLastWin32Error()})");
             var is32 = ProcessBitness.Is32Bit(pid)
-                ?? throw new InvalidOperationException($"cannot read the XAE process {pid}'s bitness");
+                ?? throw new HierarchyReadException($"cannot read the XAE process {pid}'s bitness");
             return (Path.GetDirectoryName(path.ToString())!, is32);
         }
         finally { CloseHandle(h); }

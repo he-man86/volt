@@ -106,4 +106,27 @@ public class CallFailureEvidenceTests
         Assert.DoesNotContain("Exception:", ex.Message);
         Assert.DoesNotContain("failed —", log);
     }
+
+    /// <summary>VOLT'S OWN BROKEN INVARIANT is the one coded INTERNAL_ERROR (openspec wire-final-shape step 3c): the client
+    /// reads the invariant's own sentence, and — a bug, like an uncoded failure — the log holds it whole, with its stack.</summary>
+    [Fact]
+    public void A_broken_invariant_answers_INTERNAL_ERROR_with_its_sentence_and_is_logged_whole()
+    {
+        var pipe = Pipe();
+        PipeCallException? ex = null;
+        var log = WithLog(() =>
+        {
+            using var host = new BridgePipeHost(
+                new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;"))
+                    { CallFault = () => new VoltInvariantException("no apply arm for SomeOp") },
+                pipe);
+            host.Start();
+            ex = Assert.Throws<PipeCallException>(() => new PipeClient(pipe).Call(Ops.Refs));
+        });
+
+        Assert.Equal(BridgeErrorCodes.InternalError, ex!.Code);
+        Assert.Equal("no apply arm for SomeOp", ex.Message);
+        Assert.Contains($"pipe {pipe}: 'refs' broke an invariant — Volt.Contracts.VoltInvariantException: no apply arm for SomeOp", log);
+        Assert.Contains("   at ", log);
+    }
 }

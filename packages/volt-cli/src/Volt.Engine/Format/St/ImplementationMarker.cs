@@ -125,11 +125,11 @@ namespace Volt.Engine.Format.St
         {
             var language = vendorName.ToUpperInvariant();
             if (!IsLanguageWord(language))
-                throw new System.NotSupportedException(
+                throw new BridgeException(BridgeErrorCodes.Unsupported,
                     $"the body's language is '{vendorName}', a name Volt has never seen and cannot state on its {Keyword} " +
                     "line, where a language is a word.");
             if (language == Languages.St)
-                throw new System.NotSupportedException(
+                throw new BridgeException(BridgeErrorCodes.Unsupported,
                     $"the body's language is '{vendorName}' in a form Volt does not read, and Volt shows every ST body — it " +
                     "has no line for a hidden one.");
             return language;

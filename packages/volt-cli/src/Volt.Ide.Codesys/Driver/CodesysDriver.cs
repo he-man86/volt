@@ -8,6 +8,7 @@ using Volt.Engine.Ide;
 using Volt.Engine.Item;
 using Volt.Engine.Library;
 using Volt.Engine.Seam;
+using Volt.Engine;
 
 namespace Volt.Ide.Codesys;
 
@@ -217,7 +218,7 @@ public sealed partial class CodesysDriver : VendorDriverBase, IVendorDriver, IIe
     public bool Build(IReadOnlyCollection<string>? applications)
     {
         var all = Applications();
-        if (all.Count == 0) throw new InvalidOperationException("CODESYS: no Application to build");
+        if (all.Count == 0) throw new BridgeException(BridgeErrorCodes.Unsupported, "CODESYS: no Application to build");
         var chosen = applications is null
             ? all
             : all.Where(a => applications.Contains(a.Path, StringComparer.OrdinalIgnoreCase)).ToList();
@@ -244,7 +245,7 @@ public sealed partial class CodesysDriver : VendorDriverBase, IVendorDriver, IIe
     {
         var applications = Applications();
         if (applications.Count == 0)
-            throw new InvalidOperationException(
+            throw new BridgeException(BridgeErrorCodes.Unreadable,
                 "CODESYS: no Application node, so the referenced libraries cannot be precompiled and their signatures " +
                 "would come back all but empty — which the client would apply as a deletion of every library file it " +
                 "holds. Refusing instead.");

@@ -3,6 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Volt.Contracts;
+using Volt.Engine;
 
 namespace Volt.Ide.Codesys
 {
@@ -95,12 +97,12 @@ namespace Volt.Ide.Codesys
         public static object? Call(object o, string method, params object?[] args)
         {
             var t = o.GetType();
-            MissingMethodException? noFit = null;
+            BridgeException? noFit = null;
             foreach (var src in new[] { t }.Concat(t.GetInterfaces()))
             {
                 MethodInfo? m;
                 try { m = Reflection.Overload(src.GetMethods(BF), method, args); }
-                catch (MissingMethodException ex) { noFit ??= ex; continue; }
+                catch (SurfaceMismatchException ex) { noFit ??= ex; continue; }
                 if (m == null) continue;
                 try { return m.Invoke(o, args); }
                 catch (TargetInvocationException tie) { throw tie.InnerException ?? tie; }
@@ -164,17 +166,17 @@ namespace Volt.Ide.Codesys
         {
             var asm = sample.GetType().Assembly;
             var t = asm.GetTypes().FirstOrDefault(x => x.Name == typeName && x.IsClass && !x.IsAbstract)
-                ?? throw new InvalidOperationException(
+                ?? throw new BridgeException(BridgeErrorCodes.IdeUnsupported,
                     $"CODESYS: the NWL type '{typeName}' is not in {Describe(asm)} — the object model does not " +
                     "match what this adapter was written against, and a graphical write would land nothing.");
             try { return Activator.CreateInstance(t, args)!; }
             catch (TargetInvocationException tie) { throw tie.InnerException ?? tie; }
             // An older object model lacks the constructor: SP18 (NWLObject 4.1.0.0) has no Operand(string), measured
             // 2026-10-10 — every graphical write there failed as INTERNAL_ERROR "Constructor on type ... not found".
-            // An UNSUPPORTED refusal that says why.
+            // The IDE lacks what Volt calls (IDE_UNSUPPORTED), said with why.
             catch (MissingMethodException)
             {
-                throw new Volt.Engine.BridgeException(Volt.Contracts.BridgeErrorCodes.Unsupported,
+                throw new BridgeException(BridgeErrorCodes.IdeUnsupported,
                     $"CODESYS: this CODESYS version cannot take an LD/FBD body from Volt — its graphical object model " +
                     $"({Describe(asm)}) has no '{typeName}' constructor for ({string.Join(", ", args.Select(a => a?.GetType().Name ?? "null"))}). " +
                     "Volt writes LD/FBD against CODESYS V3.5 SP21 or later. Structured text and declarations still sync; " +
@@ -214,8 +216,8 @@ namespace Volt.Ide.Codesys
 
         // ── diagnostics ───────────────────────────────────────────────────────────────────────────
 
-        private static InvalidOperationException Missing(object o, string member) =>
-            new InvalidOperationException(
+        private static BridgeException Missing(object o, string member) =>
+            new BridgeException(BridgeErrorCodes.IdeUnsupported,
                 $"CODESYS: '{o.GetType().Name}' has no '{member}'. Volt's graphical transport is written " +
                 $"against the 3S NWL object model in {Describe(o.GetType().Assembly)}; this build exposes a " +
                 "different shape. Refusing rather than reading a partial body — a body that comes back " +

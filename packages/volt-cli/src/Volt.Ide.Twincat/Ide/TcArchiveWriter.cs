@@ -4,6 +4,8 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
+using Volt.Contracts;
+using Volt.Engine;
 
 namespace Volt.Ide.Twincat;
 
@@ -101,10 +103,10 @@ internal static class TcArchiveWriter
                     // One newline introduces each line. A second one is a blank line, which TwinCAT never writes: an
                     // element removed by a text edit left it (rule 6), or a member deleted by hand (`*.derived`).
                     if (t.Value.Count(c => c == '\n') > 1)
-                        throw new FormatException($"TwinCAT archive: a blank line inside <{e.Name.LocalName} {Describe(e)}>, which TwinCAT never writes.");
+                        throw new UnsupportedException($"TwinCAT archive: a blank line inside <{e.Name.LocalName} {Describe(e)}>, which TwinCAT never writes.");
                     break;
                 case XText t:
-                    throw new FormatException($"TwinCAT archive: text '{t.Value.Trim()}' inside <{e.Name}>, where only members are.");
+                    throw new UnsupportedException($"TwinCAT archive: text '{t.Value.Trim()}' inside <{e.Name}>, where only members are.");
             }
         }
         return copy;
@@ -136,7 +138,7 @@ internal static class TcArchiveWriter
         foreach (var name in TypeNames(obj))
         {
             if (!NwlTypes.TryGetValue(name, out var guid))
-                throw new NotSupportedException(
+                throw new UnsupportedException(
                     $"TwinCAT archive: the type '{name}' has never been seen in a TwinCAT NWL archive, so its GUID is " +
                     "unknown — refusing rather than naming a type the IDE may not resolve.");
             sb.Append("<Type n=\"").Append(name).Append("\">").Append(guid).Append("</Type>");
@@ -168,7 +170,7 @@ internal static class TcArchiveWriter
         : Int64Form.IsMatch(raw) ? "Int64"
         : Int32Form.IsMatch(raw) ? "Int32"
         : GuidForm.IsMatch(raw) ? "Guid"
-        : throw new NotSupportedException(
+        : throw new UnsupportedException(
               $"TwinCAT archive: the scalar '{raw}' has no type attribute and is none of the measured lexical forms " +
               "(\"string\", true/false, NL, N, {guid}).");
 
@@ -187,7 +189,7 @@ internal static class TcArchiveWriter
         if (children.Count == 0)                                        // rules 4 and 5
         {
             if (e.Attribute("cet") != null)                             // rule 6
-                throw new NotSupportedException($"TwinCAT archive: an empty list <{tag} {Describe(e)}> carries an element type, which TwinCAT never writes.");
+                throw new UnsupportedException($"TwinCAT archive: an empty list <{tag} {Describe(e)}> carries an element type, which TwinCAT never writes.");
             sb.Append(" />");
             return;
         }
@@ -207,7 +209,7 @@ internal static class TcArchiveWriter
         var attributes = e.Attributes().ToList();
         foreach (var a in attributes)
             if (Array.IndexOf(AttributeOrder, a.Name.LocalName) < 0)
-                throw new NotSupportedException($"TwinCAT archive: <{e.Name.LocalName}> carries the attribute '{a.Name}', which no vendor archive writes.");
+                throw new UnsupportedException($"TwinCAT archive: <{e.Name.LocalName}> carries the attribute '{a.Name}', which no vendor archive writes.");
         return attributes.OrderBy(a => Array.IndexOf(AttributeOrder, a.Name.LocalName), Comparer<int>.Default);
     }
 

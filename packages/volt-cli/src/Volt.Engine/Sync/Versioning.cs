@@ -98,14 +98,17 @@ public static class Versioning
     /// <para><see cref="Materialize"/> is deliberately no-catch and this is its ONLY caller. That is not a
     /// spare seam for "single-item paths where the failure must surface" — the header claimed one and there
     /// has never been such a path. It is split out so the catch is visible as a choice rather than buried in
-    /// the walk.</para></summary>
+    /// the walk.</para>
+    /// <para><b>A Volt bug is no unreadable object.</b> An entry says why the IDE's object was not read, in the codes the
+    /// `unreadable` channel declares; Volt's own broken invariant (INTERNAL_ERROR) met during one item's read fails the op —
+    /// loud, logged whole by the host — instead of being filed as that item's state (gate 3c review, finding 6).</para></summary>
     public static VersionedItem SafeVersion(HostLink link, string name, string kind, ItemRef item, string folder)
     {
         var kinds = link.Catalog.Kinds;
         // An unreadable item is a real error — its body did NOT make it into the pull — so surface it at Warn
         // with the name + reason (not Debug): a silent catch hides a real materialize bug.
         try { var (v, m) = Materialize(link, name, kind, item, folder); return new VersionedItem(v, m, kind, folder, name, null, kinds); }
-        catch (System.Exception ex)
+        catch (System.Exception ex) when (ex is not ICodedError { ErrorCode: BridgeErrorCodes.InternalError })
         {
             VoltLog.Warn($"materialize failed name='{PathOf(kinds, kind, folder, name)}' — body skipped from pull: {ex.Message}");
             // The code the read raised, when it raised one; otherwise the IDE did not give the text: UNREADABLE.

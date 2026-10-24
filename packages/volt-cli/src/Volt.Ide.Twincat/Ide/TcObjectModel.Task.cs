@@ -110,7 +110,7 @@ internal sealed partial class TcObjectModel
                     $"states '{now}' (niche, accepted loss). Change it in the IDE and pull.");
         }
         if (t.ExternalEvent is not null || t.CallComments?.Any(c => c.Length > 0) == true)
-            throw new InvalidOperationException("twincat: SysTaskPatch let an external event or a call comment through");
+            throw new VoltInvariantException("twincat: SysTaskPatch let an external event or a call comment through");
 
         ((dynamic)LookupTreeItem(path)).ConsumeXml(patch);
 

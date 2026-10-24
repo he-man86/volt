@@ -25,7 +25,7 @@ internal sealed partial class TcObjectModel
     public void ConnectToPid(int pid)
     {
         _xaePid = pid;
-        var dte = BindWindow(pid) ?? throw new InvalidOperationException($"No running TwinCAT XAE with pid {pid}.");
+        var dte = BindWindow(pid) ?? throw BridgeException.PlcDisconnected($"No running TwinCAT XAE with pid {pid}.");
         SwapDte(dte);
         // The vendor is the one fact only the exe states (the DTE has no vendor member), and the exe is the XAE's —
         // through ITS pid, never this worker's own process, which would name VoltBridgeTwincat (DIALECT V4/V5).
@@ -319,7 +319,7 @@ internal sealed partial class TcObjectModel
     public IReadOnlyList<TcPlc> Plcs()
     {
         if (_plcs is { } known) return known;
-        if (_systems.Count == 0) throw new InvalidOperationException("no TwinCAT project bound");
+        if (_systems.Count == 0) throw BridgeException.PlcDisconnected("no TwinCAT project bound");
         var plcs = new List<TcPlc>();
         foreach (var (system, manager) in _systems)
         {
@@ -334,7 +334,7 @@ internal sealed partial class TcObjectModel
                 plcs.Add(new TcPlc(system, manager, plc, plcName, nestedName));
             }
         }
-        if (plcs.Count == 0) throw new InvalidOperationException("Cannot find a PLC project under TIPC in any system project of the solution.");
+        if (plcs.Count == 0) throw BridgeException.PlcDisconnected("Cannot find a PLC project under TIPC in any system project of the solution.");
         _plcs = plcs;
         return plcs;
     }

@@ -3,6 +3,8 @@ using System.Linq;
 using System.Reflection;
 using Volt.Engine.Ide;
 using Volt.Engine.Item;
+using Volt.Contracts;
+using Volt.Engine;
 
 namespace Volt.Ide.Codesys
 {
@@ -117,7 +119,7 @@ namespace Volt.Ide.Codesys
         /// <c>move</c>, the vendor's own primitive, as a drag in the tree does.</para></summary>
         private object AddVendorObject(object parent, string name, object o, object? factory, Func<string, string> refused)
         {
-            var om = _objMgr ?? throw new InvalidOperationException("CODESYS ObjectManager unavailable");
+            var om = _objMgr ?? throw new BridgeException(BridgeErrorCodes.IdeUnsupported, "CODESYS ObjectManager unavailable");
             var owner = parent;
             while (IsFolder(owner))
                 owner = ParentOf(owner) ?? throw new ChildRefusedException(refused("the folder has no owner to add it under"),
@@ -146,9 +148,9 @@ namespace Volt.Ide.Codesys
                     }
                     foreach (var moved in GetChildren(parent))
                         if (string.Equals(GetName(moved), name, StringComparison.Ordinal)) return moved;
-                    throw new InvalidOperationException($"CODESYS: '{name}' was moved into its folder, but the folder holds no child of that name");
+                    throw new BridgeException(BridgeErrorCodes.IdeLostItem, $"CODESYS: '{name}' was moved into its folder, but the folder holds no child of that name");
                 }
-            throw new InvalidOperationException($"CODESYS: '{name}' was added, but its owner holds no child of that name");
+            throw new BridgeException(BridgeErrorCodes.IdeLostItem, $"CODESYS: '{name}' was added, but its owner holds no child of that name");
         }
 
         private static object New(string typeName, Func<string, string> refused) =>

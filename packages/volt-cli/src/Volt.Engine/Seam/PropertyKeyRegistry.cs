@@ -84,11 +84,11 @@ public sealed class PropertyKeyRegistry
     {
         if (key is null) throw new ArgumentNullException(nameof(key));
         if (!KeyShape.IsMatch(key.Key ?? "") || key.Key == FolderKey)
-            throw new InvalidOperationException(
+            throw new VoltInvariantException(
                 $"vendor '{vendor}' cannot register the property key '{key.Key}': a key is an upper-case word, and " +
                 $"%{FolderKey} is a member's place, not a property");
         if (_keys.TryGetValue(key.Key!, out var held) && held != key)
-            throw new InvalidOperationException(
+            throw new VoltInvariantException(
                 $"vendor '{vendor}' registers %{key.Key} as {Describe(key)}, but '{_owner[key.Key!]}' registered it as " +
                 $"{Describe(held)}: one key is one grammar");
         if (held is null) { _keys[key.Key!] = key; _owner[key.Key!] = vendor; }

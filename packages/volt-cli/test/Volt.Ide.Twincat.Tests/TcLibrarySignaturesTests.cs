@@ -4,6 +4,8 @@ using System.Linq;
 using Volt.Engine.Library;
 using Volt.Tests.Shared;
 using Xunit;
+using Volt.Contracts;
+using Volt.Engine;
 
 namespace Volt.Ide.Twincat.Tests;
 
@@ -163,7 +165,8 @@ public class TcLibrarySignaturesTests
     [Fact]
     public void Malformed_xml_fails_loudly()
     {
-        var ex = Assert.Throws<InvalidOperationException>(() => TcLibrarySignatures.Parse("<Library><oops>"));
+        var ex = Assert.Throws<BridgeException>(() => TcLibrarySignatures.Parse("<Library><oops>"));
+        Assert.Equal(BridgeErrorCodes.Unreadable, ex.ErrorCode);
         Assert.Contains("did not parse", ex.Message);
     }
 }
@@ -240,7 +243,8 @@ public class TcLibraryUntypedPinTests
     {
         var xml = string.Format(Lib, "<TypeSignature type=\"FunctionBlock\"><Name>FB_Gate</Name>" +
                                      "<Inputs><Input><Name>bOpen</Name></Input></Inputs></TypeSignature>");
-        var ex = Assert.Throws<InvalidOperationException>(() => TcLibrarySignatures.Parse(xml));
+        var ex = Assert.Throws<BridgeException>(() => TcLibrarySignatures.Parse(xml));
+        Assert.Equal(BridgeErrorCodes.Unreadable, ex.ErrorCode);
         Assert.Contains("bOpen", ex.Message);
         Assert.Contains("FB_Gate", ex.Message);
     }
@@ -252,7 +256,8 @@ public class TcLibraryUntypedPinTests
     {
         var xml = string.Format(Lib, "<TypeSignature type=\"FunctionBlock\"><Name>FB_Gate</Name>" +
                                      "<Inputs><Input><DataType>BOOL</DataType></Input></Inputs></TypeSignature>");
-        var ex = Assert.Throws<InvalidOperationException>(() => TcLibrarySignatures.Parse(xml));
+        var ex = Assert.Throws<BridgeException>(() => TcLibrarySignatures.Parse(xml));
+        Assert.Equal(BridgeErrorCodes.Unreadable, ex.ErrorCode);
         Assert.Contains("FB_Gate", ex.Message);
         Assert.Contains("BOOL", ex.Message);
     }
@@ -263,7 +268,8 @@ public class TcLibraryUntypedPinTests
     {
         var xml = string.Format(Lib, "<TypeSignature type=\"FunctionBlock\">" +
                                      "<Inputs><Input><Name>bOpen</Name><DataType>BOOL</DataType></Input></Inputs></TypeSignature>");
-        var ex = Assert.Throws<InvalidOperationException>(() => TcLibrarySignatures.Parse(xml));
+        var ex = Assert.Throws<BridgeException>(() => TcLibrarySignatures.Parse(xml));
+        Assert.Equal(BridgeErrorCodes.Unreadable, ex.ErrorCode);
         Assert.Contains("Tc2_Standard", ex.Message);
         Assert.Contains("FunctionBlock", ex.Message);
     }

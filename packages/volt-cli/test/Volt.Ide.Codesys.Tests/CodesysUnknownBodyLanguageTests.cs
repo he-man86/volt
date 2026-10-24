@@ -68,7 +68,8 @@ namespace Volt.Ide.Codesys.Tests
         [Fact]
         public void A_network_aspect_whose_type_lacks_the_view_member_fails_loud_naming_it()
         {
-            var ex = Assert.Throws<System.InvalidOperationException>(() => Read(new NwlNoView.NWLImplementationObject()));
+            var ex = Assert.Throws<Volt.Engine.BridgeException>(() => Read(new NwlNoView.NWLImplementationObject()));
+            Assert.Equal(Volt.Contracts.BridgeErrorCodes.IdeUnsupported, ex.ErrorCode);
 
             Assert.Contains("'DefaultViewMode'", ex.Message);
             Assert.Contains("NWLImplementationObject", ex.Message);

@@ -126,7 +126,7 @@ public sealed class TcArchiveIdentityTests(Xunit.Abstractions.ITestOutputHelper 
             }
             return null;
         }
-        catch (Exception ex) when (ex is FormatException or NotSupportedException or System.Xml.XmlException)
+        catch (Exception ex) when (ex is NotSupportedException or System.Xml.XmlException)
         {
             return ex.GetType().Name + ": " + ex.Message;
         }
@@ -164,4 +164,16 @@ public sealed class TcArchiveIdentityTests(Xunit.Abstractions.ITestOutputHelper 
             Assert.True(Mismatch(a) != null, $"{a}: reproduced, but it is not vendor-written ({NotVendorWritten[Path.GetFileName(a.File)]})");
     }
 
+    /// <summary>A shape TwinCAT never writes (rule 6: a blank line; text where only members are) is refused CODED, as the
+    /// writer's own rule-6 refusals are — UNSUPPORTED, never an uncoded <c>FormatException</c> that a client would read as
+    /// a Volt bug (gate 3c review, finding 3).</summary>
+    [Theory]
+    [InlineData("<o xml:space=\"preserve\" t=\"Network\">\r\n\r\n  <v n=\"A\">1</v>\r\n</o>", "blank line")]
+    [InlineData("<o xml:space=\"preserve\" t=\"Network\">\r\n  stray\r\n  <v n=\"A\">1</v>\r\n</o>", "stray")]
+    public void A_shape_TwinCAT_never_writes_is_refused_UNSUPPORTED(string archive, string named)
+    {
+        var ex = Assert.Throws<Volt.Engine.UnsupportedException>(() => TcArchiveWriter.ParseObject(archive));
+        Assert.Equal(Volt.Contracts.BridgeErrorCodes.Unsupported, ex.ErrorCode);
+        Assert.Contains(named, ex.Message);
+    }
 }

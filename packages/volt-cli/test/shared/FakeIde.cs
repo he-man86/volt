@@ -301,6 +301,10 @@ public sealed class FakeIde : VendorDriverBase, IVendorDriver, IIecTree
     public IReadOnlyList<string> FaultingChildReads { get; init; } = System.Array.Empty<string>();
     public IReadOnlyList<string> FaultingNameReads { get; init; } = System.Array.Empty<string>();
 
+    /// <summary>Items whose <see cref="Classify"/> the IDE answers with NOTHING — CODESYS's read checkout answering no
+    /// object, which the driver refuses coded <c>UNREADABLE</c> (<c>CodesysObjectModel.ReadObject</c>).</summary>
+    public IReadOnlyList<string> UnreadableClassifies { get; init; } = System.Array.Empty<string>();
+
     // ── the IEC tree (only the walk + accessors the services use are real) ──
 
     /// <summary>How many times the tree was walked — lets a test prove an op that must NOT walk doesn't.</summary>
@@ -409,7 +413,10 @@ public sealed class FakeIde : VendorDriverBase, IVendorDriver, IIecTree
     public HostWalk Walk(WalkObserver? observer = null) => WalkItems(observer).ToHostWalk();
     public ItemRef Root => GetTreeRoot();
     public IReadOnlyList<ItemRef> Children(ItemRef node) => new IndexedChildren(ChildCount(node), i => ChildAt(node, i));
-    public NodeClass Classify(ItemRef node) => ItemKind.ClassOf(KindCode(node));
+    public NodeClass Classify(ItemRef node) =>
+        UnreadableClassifies.Contains(NameOf(node))
+            ? throw new Volt.Engine.BridgeException(BridgeErrorCodes.Unreadable, $"the read checkout of '{NameOf(node)}' answers no object")
+            : ItemKind.ClassOf(KindCode(node));
     public ItemRef CreateFolder(ItemRef parent, string name) => CreateChild(parent, name, ItemKind.PlcFolder, null, null);
 
     public ItemRef CreateChild(ItemRef parent, string name, string kind, CreateArgs args) =>

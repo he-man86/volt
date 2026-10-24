@@ -6,6 +6,8 @@ using System.Xml.Linq;
 using Volt.Engine.Format.Network;
 // `Parallel` is also System.Threading.Tasks.Parallel; this file means the LD branch.
 using Parallel = Volt.Engine.Format.Network.Parallel;
+using Volt.Contracts;
+using Volt.Engine;
 
 namespace Volt.Ide.Twincat;
 
@@ -49,7 +51,7 @@ internal static class TcNetworkWriter
         // drawn in it to the CREATE door first. So a blank body here is a broken route, a Volt bug (INTERNAL_ERROR,
         // openspec bridge-refusal-review 2.30), not an UNSUPPORTED worded as if the push asked for something.
         if (string.IsNullOrWhiteSpace(bodyXml))
-            throw new InvalidOperationException(
+            throw new VoltInvariantException(
                 "TwinCAT: a graphical body reached the in-place writer with no archive to edit. A body the IDE does not " +
                 "have yet is built whole (ResolveBody routes it there first); this is a Volt bug.");
 
@@ -130,7 +132,7 @@ internal static class TcNetworkWriter
                 {
                     var model = body.Networks[move.Pushed!.Value];
                     RefuseUnbuildable(model);
-                    var built = Built(model, scope, resolve ?? throw new NotSupportedException(
+                    var built = Built(model, scope, resolve ?? throw new VoltInvariantException(
                         $"TwinCAT: this push adds network {move.Pushed.Value + 1}, and a new network is built by the native " +
                         "builder, which this in-place write was not handed. This is a Volt bug."));
                     var inserted = Place(impl.Elements("l2").First(l => (string?)l.Attribute("n") == "NetworkList"), last, built);
@@ -176,7 +178,7 @@ internal static class TcNetworkWriter
     /// <summary>The column <paramref name="e"/> starts at: the spaces after the last line break before it.</summary>
     private static int IndentOf(XElement e) =>
         e.PreviousNode is XText t && t.Value.LastIndexOf('\n') is var nl and >= 0 ? t.Value.Length - nl - 1
-            : throw new InvalidOperationException("TwinCAT: an archive element that does not start its own line.");
+            : throw new UnsupportedException("TwinCAT: an archive element that does not start its own line.");
 
     /// <summary>Insert the built network <paramref name="graph"/> into <paramref name="list"/> after <paramref name="after"/>
     /// (first when null), on its own line at the list's member indentation — the vendor's layout.</summary>
@@ -317,7 +319,7 @@ internal static class TcNetworkWriter
     {
         NetworkPairing.RefuseUnpairedUnsupported(BeckhoffDriver.Row.Display, model);
         foreach (var (box, output) in NetworkPairing.NamedMainOutputs(model))
-            throw new NotSupportedException(
+            throw new UnsupportedException(
                 $"TwinCAT: network {model.Order + 1} changed, and its '{box.Type}' box is read through its output " +
                 $"'{output}', which is not the box's first output. No TwinCAT project Volt measured holds such a box, so " +
                 "writing one is unmeasured here. Refusing to write this network; a network whose text is unchanged is kept " +
@@ -349,7 +351,7 @@ internal static class TcNetworkWriter
         var view = TcArchive.ViewMode(impl);
         var stated = NetworkText.ViewLanguage(view);
         var live = NetworkText.LanguageNamed(stated)
-            ?? throw new InvalidOperationException(
+            ?? throw new VoltInvariantException(
                 $"TwinCAT: a graphical body reached the write over a body whose view is '{view ?? "(none)"}' " +
                 $"('{Volt.Engine.Format.St.ImplementationMarker.Unsupported(stated)}'), which the push's body guard " +
                 "refuses before any write. This is a Volt bug.");
@@ -378,8 +380,8 @@ internal static class TcNetworkWriter
         catch (NotSupportedException) { return false; }
     }
 
-    private static NotSupportedException Refuse(string what) =>
-        new NotSupportedException(
+    private static UnsupportedException Refuse(string what) =>
+        new UnsupportedException(
             $"TwinCAT: this push {what}, which Volt cannot do through the archive. It edits the VALUES of an " +
             "existing graphical body - operands, types, comments, titles, flags - and never builds archive " +
             "elements, because the IDE's own reader depends on a member contract only the IDE produces. " +

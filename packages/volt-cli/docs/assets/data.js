@@ -241,11 +241,13 @@ window.VOLT = {
           "INTERNAL_ERROR",
           "PLC_DISCONNECTED",
           "WRONG_PROJECT",
-          "IDE_BUSY"
+          "IDE_BUSY",
+          "UNSUPPORTED"
         ],
         "x-outcomes": [
           "IDE_BUSY when another push or build holds the IDE: refused at once, before the IDE is touched, so nothing is applied or compiled. Reads and \u0060health\u0060 are never refused with it. Wait for the running op, then try once.",
           "BAD_REQUEST when \u0060expectedPlatform\u0060 or \u0060expectedProjectName\u0060 is absent or empty, naming each missing member, before anything is walked: a write names the project it writes. The reads keep both optional.",
+          "UNSUPPORTED for a project that holds no application (a CODESYS library project): there is nothing to build.",
           "BAD_REQUEST for an \u0060applications\u0060 root the project does not hold, or an empty list, before anything is built. Named roots build those applications alone and report only their diagnostics; absent, every application is built.",
           "A project that does not compile is \u0060success: false\u0060 with its diagnostics, never an error frame; a compile that throws answers \u0060success: false\u0060 with the reason as an error diagnostic.",
           "\u0060success\u0060 is each vendor\u0027s own signal: CODESYS has it from its diagnostics, TwinCAT from the IDE\u0027s count of failed projects. A failed build always carries an error diagnostic: when the IDE wrote none Volt could read, one says so, with no position.",
@@ -413,6 +415,7 @@ window.VOLT = {
             "BAD_REQUEST",
             "INVALID_ST",
             "UNREADABLE",
+            "IDE_UNSUPPORTED",
             "INTERNAL_ERROR",
             "NOT_ATTEMPTED",
             "NETWORK_PARSE",
@@ -1360,6 +1363,7 @@ window.VOLT = {
       "BAD_REQUEST",
       "INVALID_ST",
       "UNREADABLE",
+      "IDE_UNSUPPORTED",
       "INTERNAL_ERROR"
     ],
     "network": [
@@ -1489,10 +1493,13 @@ window.VOLT = {
     {
       "code": "UNSUPPORTED",
       "channels": [
+        "frame",
         "conflict",
         "unreadable"
       ],
-      "frameOn": []
+      "frameOn": [
+        "build"
+      ]
     },
     {
       "code": "DUPLICATE_CHILD",
@@ -1519,7 +1526,9 @@ window.VOLT = {
     {
       "code": "IDE_UNSUPPORTED",
       "channels": [
-        "frame"
+        "frame",
+        "conflict",
+        "unreadable"
       ],
       "frameOn": [
         "connect",

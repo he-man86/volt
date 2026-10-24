@@ -145,7 +145,8 @@ public class CodesysNetworkPairingTests
         var (impl, nets) = Live(Rung("o1", "a"), S4Rung());
         var pushed = Pushed(impl, t => t.Replace("xEnable := src", "xEnable := a").Replace("o1 := a;", "o1 := b;"));
 
-        var ex = Assert.Throws<NotSupportedException>(() => Write(impl, pushed));
+        var ex = Assert.Throws<Volt.Engine.BridgeException>(() => Write(impl, pushed));
+        Assert.Equal(Volt.Contracts.BridgeErrorCodes.Unsupported, ex.ErrorCode);
         Assert.Contains("network 2 changed", ex.Message);
         Assert.Contains("'xErrorActive'", ex.Message);
         Assert.Empty(impl.Calls);

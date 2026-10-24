@@ -5,6 +5,8 @@ using System.Linq;
 using System.Xml.Linq;
 using Volt.Engine.Format.Network;
 using Xunit;
+using Volt.Contracts;
+using Volt.Engine;
 
 namespace Volt.Ide.Twincat.Tests;
 
@@ -176,7 +178,7 @@ public class TcNetworkWriterTests
         var model = Read(body);
         var grown = model with { Networks = model.Networks.Append(model.Networks[0]).ToList() };
 
-        var ex = Assert.Throws<NotSupportedException>(() => TcText.Apply(body, grown));
+        var ex = Assert.Throws<VoltInvariantException>(() => TcText.Apply(body, grown));
         Assert.Contains("adds network 3", ex.Message);
         Assert.Contains("Volt bug", ex.Message);
     }
@@ -214,7 +216,7 @@ public class TcNetworkWriterTests
         var box = (Box)model.Networks[0].Trees[0];
         var grown = Replace(model, box with { Inputs = box.Inputs.Append(box.Inputs[0]).ToList() });
 
-        var ex = Assert.Throws<NotSupportedException>(() => TcText.Apply(body, grown));
+        var ex = Assert.Throws<UnsupportedException>(() => TcText.Apply(body, grown));
         Assert.Contains("from 2 to 3 input(s)", ex.Message);
     }
 
@@ -229,7 +231,7 @@ public class TcNetworkWriterTests
         var box = (Box)model.Networks[0].Trees[0];
         var retyped = Replace(model, box with { Type = "OR" });
 
-        var ex = Assert.Throws<NotSupportedException>(() => TcText.Apply(body, retyped));
+        var ex = Assert.Throws<UnsupportedException>(() => TcText.Apply(body, retyped));
         Assert.Contains("box changes from 'AND' to 'OR'", ex.Message);
     }
 
@@ -241,7 +243,7 @@ public class TcNetworkWriterTests
     public void A_blank_body_reaching_the_in_place_writer_is_an_invariant()
     {
         var model = Read(VendorBody());
-        var ex = Assert.Throws<InvalidOperationException>(() => TcText.Apply("", model));
+        var ex = Assert.Throws<VoltInvariantException>(() => TcText.Apply("", model));
         Assert.Contains("Volt bug", ex.Message);
     }
 
@@ -261,7 +263,7 @@ public class TcNetworkWriterTests
         var reset = leaf with { Flags = Flags.None with { Reset = true } };   // a contact's modifiers are the leaf's
         var pushed = Replace(model, box with { Inputs = new[] { input with { Value = reset } }.Concat(box.Inputs.Skip(1)).ToList() });
 
-        var ex = Assert.Throws<InvalidOperationException>(() => TcText.Apply(body, pushed));
+        var ex = Assert.Throws<VoltInvariantException>(() => TcText.Apply(body, pushed));
         Assert.Contains("a RESET reached the generic flag write", ex.Message);
     }
 
@@ -270,7 +272,7 @@ public class TcNetworkWriterTests
     public void Replacing_a_textual_body_with_a_graphical_one_is_refused()
     {
         var model = Read(VendorBody());
-        var ex = Assert.Throws<NotSupportedException>(() => TcText.Apply("a := b;", model));
+        var ex = Assert.Throws<UnsupportedException>(() => TcText.Apply("a := b;", model));
         Assert.Contains("replaces a textual body with a graphical one", ex.Message);
     }
 
@@ -356,7 +358,7 @@ public class TcNetworkWriterTests
                 .ToList(),
         };
 
-        Assert.Throws<System.NotSupportedException>(() => TcText.Apply(body, edited));
+        Assert.Throws<UnsupportedException>(() => TcText.Apply(body, edited));
     }
 
     /// <summary>Respell every AND box's type, leaving everything else alone.</summary>

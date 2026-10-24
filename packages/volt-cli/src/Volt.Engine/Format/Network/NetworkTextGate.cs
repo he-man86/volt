@@ -42,10 +42,10 @@ public static class NetworkTextGate
             var (offset, length) =
                 at is not null
                     ? trace.Spans.TryGetValue(at, out var span) ? span
-                      : throw new InvalidOperationException(
+                      : throw new VoltInvariantException(
                           $"network text: the writer refused a node the reader did not mark ({at.GetType().Name}): {e.Message}")
                     : e.Network is { } n && n < trace.Headers.Count ? (trace.Headers[n].Offset, trace.Headers[n].Length)
-                    : throw new InvalidOperationException(
+                    : throw new VoltInvariantException(
                         $"network text: the writer refused network {e.Network?.ToString(CultureInfo.InvariantCulture) ?? "(none)"}, which the reader did not read: {e.Message}");
             var (line, col) = lexer!.LineCol(offset);
             return new NetworkGateResult(null, new[]

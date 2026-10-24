@@ -7,6 +7,8 @@ using Volt.Engine.Format.Network;
 using Volt.Engine.Ide;
 using Volt.Engine.Item;
 using Xunit;
+using Volt.Contracts;
+using Volt.Engine;
 
 namespace Volt.Ide.Twincat.Tests;
 
@@ -50,7 +52,7 @@ public class TcWriteTakesModelTests
         var content = new ItemContent(ItemKind.Kinds.Pou, decl, "IMPLEMENTATION LD\nNETWORK\nEND_NETWORK",
                                       new List<Member>(), ObjectProperties.None, Stated: StatedLanguage.Shown("LD"));
 
-        var ex = Assert.Throws<InvalidOperationException>(() =>
+        var ex = Assert.Throws<VoltInvariantException>(() =>
             TcUntouchablePouTests.BoundDriver().WriteContent(TcRefs.Ref(pou), content, Array.Empty<PushedNetworkBody>()));
         Assert.Contains("the item", ex.Message);
         Assert.Equal(0, pou.ImplementationWrites);

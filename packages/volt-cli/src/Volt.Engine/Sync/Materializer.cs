@@ -52,7 +52,7 @@ public static class Materializer
             if (body is not { Form: BodyForm.Hidden } hidden) return;
             var reason = string.IsNullOrEmpty(hidden.Why) ? null : hidden.Why;
             if (link.Catalog.Languages.IsShown(hidden.Language, link.Driver.Vendor) != (reason is not null))
-                throw new InvalidOperationException(
+                throw new VoltInvariantException(
                     $"the driver read {(member is null ? "the item's body" : $"'{member}'")} as '{ImplementationLine.For(hidden)}' with " +
                     $"{(reason is null ? "no reason" : $"the reason '{reason}'")} — an UNSUPPORTED body and its reason come together");
             found.Add(new HiddenBody(member, hidden.Language, reason));

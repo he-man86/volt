@@ -189,8 +189,7 @@ public class ErrorCodeVocabularyTests
         ide.OnReadContent = (fake, item) =>
         {
             if (fake.Name(item) == "FB_A" && !fake.Recorded.Any(r => r.StartsWith("delete")))
-                throw new BridgeException(BridgeErrorCodes.Unreadable,
-                    "'Step': the IDE reports no declaration for this member — that is a broken item, not a transport gap");
+                throw new MemberWithoutDeclarationException("Step");
         };
         Assert.Contains("FB_A.pou", RefsService.Handle(ide).Unreadable.Select(u => u.Name));
 
@@ -212,5 +211,109 @@ public class ErrorCodeVocabularyTests
         var created = BoundWrite.Push(ide, new PushRequest { Ops = new List<PushOp> { new SetItemOp { Name = "FB_A.pou", SourceText = fb } } });
         Assert.True(created.Landed(), string.Join("; ", (created.Conflicts ?? new()).Select(c => c.Reason)));
         Assert.Contains("FB_A.pou", RefsService.Handle(ide).Items.Keys);
+    }
+
+    /// <summary>The delete-then-create advice is the remedy of ONE refusal — a member the IDE holds no declaration for —
+    /// and of no other UNREADABLE: a read the IDE answered with nothing (a checkout with no object, a null aspect) may be
+    /// transient, and a delete and re-create drops what the text does not carry (object properties, the GUID, the
+    /// online-change identity). Such a refusal keeps its own code and reason, and names no delete (gate 3c review,
+    /// finding 2).</summary>
+    [Fact]
+    public void An_update_whose_read_the_IDE_answers_with_nothing_is_UNREADABLE_without_the_delete_advice()
+    {
+        const string fb = "FUNCTION_BLOCK FB_A\nVAR\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\nEND_FUNCTION_BLOCK\n";
+        var ide = new FakeIde(
+            FakeIde.Item.TextualPou("PLC_PRG", Prg, "x := 1;"),
+            FakeIde.Item.TextualPou("FB_A", "FUNCTION_BLOCK FB_A\nVAR\nEND_VAR", "x := 0;"));
+        ide.OnReadContent = (fake, item) =>
+        {
+            if (fake.Name(item) == "FB_A")
+                throw new BridgeException(BridgeErrorCodes.Unreadable, "CODESYS: the read checkout of a FB_A node answers no object");
+        };
+
+        var forced = BoundWrite.Push(ide, new PushRequest
+        {
+            Force = true,
+            Ops = new List<PushOp> { new SetItemOp { Name = "FB_A.pou", SourceText = fb } },
+        });
+
+        var refused = Assert.Single(forced.Conflicts!, c => c.Code != ConflictCodes.NotAttempted);
+        Assert.Equal(BridgeErrorCodes.Unreadable, refused.Code);
+        Assert.Contains("answers no object", refused.Reason);   // the IDE's fact, as raised
+        Assert.DoesNotContain("deleteItem", refused.Reason);
+        Assert.DoesNotContain("with or without force", refused.Reason);
+    }
+
+    // ── a lookup meets a sibling the IDE answers with nothing → still the FOLDER's refusal ──────────────────────
+
+    /// <summary>THE LOOKUP'S ONE MAPPING holds for a CODED read failure too: a sibling whose classification the IDE answers
+    /// with nothing (CODESYS: the read checkout answers no object, coded UNREADABLE at the driver) is not the op's item —
+    /// the lookup cannot say whether the item it wants is there, so the refusal is ITEM_UNVERIFIED naming the folder and
+    /// the child, and the driver's refusal travels as the inner exception. UNREADABLE's remedy (force, or delete and
+    /// create) would point at the op's item, which was never read (gate 3c review, finding 1).</summary>
+    [Fact]
+    public void A_sibling_the_IDE_answers_with_nothing_during_a_lookup_is_ITEM_UNVERIFIED_naming_the_folder()
+    {
+        var ide = new FakeIde(FakeIde.Item.TextualPou("B", "FUNCTION_BLOCK B\nVAR\nEND_VAR", "x := 1;", "POUs"))
+        {
+            UnreadableClassifies = new[] { "B" },
+        };
+
+        var ex = Assert.Throws<BridgeException>(() => ItemLookup.Find(ide, "POUs/FB_Wanted.pou"));
+
+        Assert.True(ex.ErrorCode == ConflictCodes.ItemUnverified, $"{ex.ErrorCode} — {ex.Message}");
+        Assert.Contains("'POUs/FB_Wanted.pou'", ex.Message);
+        Assert.Contains("the folder 'POUs'", ex.Message);
+        Assert.Contains("answers no object", ex.Message);
+        Assert.Equal(BridgeErrorCodes.Unreadable, Assert.IsType<BridgeException>(ex.InnerException).ErrorCode);
+    }
+
+    // ── the code an `unreadable` entry carries ──────────────────────────────────────────────────────────────────
+
+    /// <summary>A read refused with a code of the `unreadable` channel keeps it: a body whose vendor language is no word
+    /// (<see cref="Volt.Engine.Format.St.ImplementationMarker.VendorLanguage"/>) is UNSUPPORTED — Volt has no line for it —
+    /// and a read the IDE answered with nothing is UNREADABLE (gate 3c review, finding 6).</summary>
+    [Theory]
+    [InlineData("vendor-language", BridgeErrorCodes.Unsupported)]
+    [InlineData("answered-nothing", BridgeErrorCodes.Unreadable)]
+    [InlineData("foreign", BridgeErrorCodes.Unreadable)]
+    public void A_read_refused_with_an_unreadable_channel_code_publishes_it(string refusal, string code)
+    {
+        var ide = new FakeIde(
+            FakeIde.Item.TextualPou("PLC_PRG", Prg, "x := 1;"),
+            FakeIde.Item.TextualPou("FB_A", "FUNCTION_BLOCK FB_A\nVAR\nEND_VAR", "x := 0;"));
+        ide.OnReadContent = (fake, item) =>
+        {
+            if (fake.Name(item) != "FB_A") return;
+            switch (refusal)
+            {
+                case "vendor-language": Volt.Engine.Format.St.ImplementationMarker.VendorLanguage("My Mode"); break;
+                case "answered-nothing": throw new BridgeException(BridgeErrorCodes.Unreadable, "the checkout answers no object");
+                default: throw new System.Runtime.InteropServices.COMException("RPC_E_CALL_REJECTED", unchecked((int)0x80010001));
+            }
+        };
+
+        var entry = Assert.Single(RefsService.Handle(ide).Unreadable);
+        Assert.Equal("FB_A.pou", entry.Name);
+        Assert.Equal(code, entry.Code);
+    }
+
+    /// <summary>VOLT'S OWN BROKEN INVARIANT IS NO UNREADABLE OBJECT. An `unreadable` entry says why the IDE's object was not
+    /// read, in the codes that channel declares (UNREADABLE, UNSUPPORTED, IDE_UNSUPPORTED); an invariant met during one
+    /// item's read is a Volt bug, so the op answers INTERNAL_ERROR — loud, logged whole — instead of filing the bug as
+    /// that item's state (gate 3c review, finding 6).</summary>
+    [Fact]
+    public void An_invariant_broken_during_a_read_fails_the_op_and_is_no_unreadable_entry()
+    {
+        var ide = new FakeIde(
+            FakeIde.Item.TextualPou("PLC_PRG", Prg, "x := 1;"),
+            FakeIde.Item.TextualPou("FB_A", "FUNCTION_BLOCK FB_A\nVAR\nEND_VAR", "x := 0;"));
+        ide.OnReadContent = (fake, item) =>
+        {
+            if (fake.Name(item) == "FB_A") throw new VoltInvariantException("a hidden body read without its reason");
+        };
+
+        var ex = Assert.Throws<VoltInvariantException>(() => RefsService.Handle(ide));
+        Assert.Equal(BridgeErrorCodes.InternalError, ex.ErrorCode);
     }
 }

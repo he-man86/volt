@@ -5,6 +5,7 @@ using Volt.Contracts;
 using Volt.Engine.Format.Body;
 using Volt.Engine.Format.Network;
 using Xunit;
+using Volt.Engine;
 
 namespace Volt.Ide.Twincat.Tests;
 
@@ -207,7 +208,7 @@ public class TcStructuralEditTests
                                                   _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName, Volt.Tests.Shared.Scopes.NoLibrary);
         var pushed = NetworkText.Validate("IMPLEMENTATION FBD\nNETWORK\n  n := MAX(a, b);\nEND_NETWORK\n", scope);
 
-        var ex = Assert.Throws<NotSupportedException>(() => TcNetworkWriter.Apply(xml, pushed, scope));
+        var ex = Assert.Throws<UnsupportedException>(() => TcNetworkWriter.Apply(xml, pushed, scope));
         Assert.Contains("'In1'", ex.Message);
     }
 
@@ -398,7 +399,7 @@ public class TcStructuralEditTests
     [Fact]
     public void A_negation_with_an_edge_on_a_box_is_refused_on_push()
     {
-        var ex = Assert.Throws<NotSupportedException>(() =>
+        var ex = Assert.Throws<UnsupportedException>(() =>
             TcNetworkWriter.Apply(Ladder(), Pushed("xoutput := R_EDGE NOT (xtest OR xtest2);"), Scope, NeverImported));
         Assert.Contains("a negation with an edge", ex.Message);
         Assert.Contains("the 'OR' box", ex.Message);
@@ -408,7 +409,7 @@ public class TcStructuralEditTests
     [Fact]
     public void A_negation_with_an_edge_is_refused_on_push()
     {
-        var ex = Assert.Throws<NotSupportedException>(() =>
+        var ex = Assert.Throws<UnsupportedException>(() =>
             TcNetworkWriter.Apply(Ladder(), Pushed("xoutput := R_EDGE NOT xtest OR xtest2;"), Scope, NeverImported));
         Assert.Contains("a negation with an edge", ex.Message);
         Assert.Contains("xtest", ex.Message);

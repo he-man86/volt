@@ -143,7 +143,7 @@ public static class NetworkTextReader
             }
 
             var language = NetworkText.LanguageNamed(marked)
-                           ?? throw new InvalidOperationException($"the line states '{marked}', which is no body language.");
+                           ?? throw new VoltInvariantException($"the line states '{marked}', which is no body language.");
             _lx = new NetworkLexer(_text, eol);
 
             _toks = _lx.Tokenize();

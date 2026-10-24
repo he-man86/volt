@@ -2,6 +2,8 @@
 using System.Xml.Linq;
 using Volt.Engine.Format.Network;
 using Xunit;
+using Volt.Contracts;
+using Volt.Engine;
 
 namespace Volt.Ide.Twincat.Tests;
 
@@ -156,7 +158,7 @@ public class TcDrawnJumpTests
                     : t).ToList(),
             }).ToList(),
         };
-        var ex = Assert.Throws<System.NotSupportedException>(() => TcText.Apply(xml, switched));
+        var ex = Assert.Throws<UnsupportedException>(() => TcText.Apply(xml, switched));
         Assert.Contains("a Parallel changes mode to Sequential", ex.Message);
     }
 

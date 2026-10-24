@@ -3,6 +3,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
+using Volt.Contracts;
+using Volt.Engine;
 
 namespace Volt.Ide.Twincat;
 
@@ -159,8 +161,8 @@ internal static class TcSolutionExplorer
     {
         using (Activate(ideDir, out var refused))
             try { return Read(dte, system, roots); }
-            catch (COMException ex) when (refused.Length > 0 && IsProxyMissing(ex.HResult))
-            { throw new COMException(refused + ex.Message, ex.HResult); }
+            catch (Exception ex) when (ex is COMException or HierarchyReadException && refused.Length > 0 && IsProxyMissing(ex.HResult))
+            { throw new HierarchyReadException(refused + ex.Message, ex.HResult, ex); }
     }
 
     /// <summary>The solution's project hierarchies, enumerated ONCE per operation and named as they are met
@@ -327,14 +329,14 @@ internal static class TcSolutionExplorer
         ushort us => us,
         sbyte sb => unchecked((uint)sb),
         byte b => b,
-        _ => throw new InvalidOperationException(
+        _ => throw new HierarchyReadException(
             $"the hierarchy answered an item id that is no DWORD: {v.GetType().Name} " +
             $"{Convert.ToString(v, CultureInfo.InvariantCulture)}"),
     };
 
     private static void Check(int hr, string what)
     {
-        if (hr != 0) throw new COMException($"{what} failed (0x{hr:X8})", hr);
+        if (hr != 0) throw new HierarchyReadException($"{what} failed (0x{hr:X8})", hr);
     }
 
     [ComImport, Guid("6d5140c1-7436-11ce-8034-00aa006009fa"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]

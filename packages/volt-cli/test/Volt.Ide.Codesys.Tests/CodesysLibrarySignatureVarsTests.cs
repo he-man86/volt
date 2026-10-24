@@ -31,7 +31,8 @@ namespace Volt.Ide.Codesys.Tests
         public void A_pin_with_a_type_and_no_name_is_refused_naming_the_signature()
         {
             var sig = new Sig { Inputs = new object[] { new Var("bOpen", "BOOL"), new Var("", "INT") } };
-            var ex = Assert.Throws<InvalidOperationException>(() => CodesysObjectModel.LibraryVars(sig, "Inputs"));
+            var ex = Assert.Throws<Volt.Engine.BridgeException>(() => CodesysObjectModel.LibraryVars(sig, "Inputs"));
+            Assert.Equal(Volt.Contracts.BridgeErrorCodes.Unreadable, ex.ErrorCode);
             Assert.Contains("FB_Gate", ex.Message);
             Assert.Contains("INT", ex.Message);
             Assert.Contains("no name", ex.Message);
@@ -41,7 +42,8 @@ namespace Volt.Ide.Codesys.Tests
         public void A_variable_with_no_name_in_a_non_alias_signature_is_refused()
         {
             var sig = new Sig { Name = "ST_Pair", AllVariables = new object[] { new Var(null, "INT") } };
-            var ex = Assert.Throws<InvalidOperationException>(() => CodesysObjectModel.LibraryVars(sig, "AllVariables"));
+            var ex = Assert.Throws<Volt.Engine.BridgeException>(() => CodesysObjectModel.LibraryVars(sig, "AllVariables"));
+            Assert.Equal(Volt.Contracts.BridgeErrorCodes.Unreadable, ex.ErrorCode);
             Assert.Contains("ST_Pair", ex.Message);
         }
 

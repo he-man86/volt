@@ -26,8 +26,11 @@ namespace Volt.Engine.Format.Body
     ///
     /// <para><b>Level 0.</b> The vendor readers, the network model and the writer all raise it, and none of them may
     /// depend on another to do so.</para>
+    ///
+    /// <para>An <see cref="UnsupportedException"/>: one that escapes to a push or a frame answers <c>UNSUPPORTED</c> by its
+    /// own code.</para>
     /// </summary>
-    public class UnrepresentableBodyException : System.NotSupportedException
+    public class UnrepresentableBodyException : UnsupportedException
     {
         /// <summary>The fact network text has no spelling for, in a few words — e.g. <c>a vendor split point</c>. It is
         /// what the pull message names for the body (the file holds no reason); the

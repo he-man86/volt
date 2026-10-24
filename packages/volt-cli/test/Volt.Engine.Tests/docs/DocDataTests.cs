@@ -143,10 +143,12 @@ public class DocDataTests
             "What of a refused op the IDE kept is stated on its conflict: `partiallyApplied`, `renamedTo`, `remains` — each "
             + "absent when it does not apply.",
         }),
-        [Ops.Build] = (new[] { BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject, BridgeErrorCodes.IdeBusy }, new[]
+        [Ops.Build] = (new[] { BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject, BridgeErrorCodes.IdeBusy,
+                               BridgeErrorCodes.Unsupported }, new[]
         {
             BusyFrame,
             WriteNamesItsProject,
+            "UNSUPPORTED for a project that holds no application (a CODESYS library project): there is nothing to build.",
             "BAD_REQUEST for an `applications` root the project does not hold, or an empty list, before anything is built. "
             + "Named roots build those applications alone and report only their diagnostics; absent, every application is "
             + "built.",
@@ -279,10 +281,11 @@ public class DocDataTests
     private static string[] ConflictCodeVocabulary() =>
         ConflictCodes.Gate.Concat(ConflictCodes.FromBridge).Append(ConflictCodes.NotAttempted).Concat(ConflictCodes.Network).ToArray();
 
-    /// <summary>The codes an <c>unreadable</c>, <c>unreadableNodes</c> or <c>notSearched</c> entry carries as the walk's own:
-    /// the object the IDE did not give (<c>UNREADABLE</c>) and the one Volt's text has no spelling for, or that sits where
-    /// Volt does not read (<c>UNSUPPORTED</c>). A read that failed with a code of its own keeps that code.</summary>
-    private static readonly string[] UnreadableCodes = { BridgeErrorCodes.Unreadable, BridgeErrorCodes.Unsupported };
+    /// <summary>The codes an <c>unreadable</c>, <c>unreadableNodes</c> or <c>notSearched</c> entry carries: the object the IDE
+    /// did not give (<c>UNREADABLE</c>), the one Volt's text has no spelling for, or that sits where Volt does not read
+    /// (<c>UNSUPPORTED</c>), and the one whose read calls an API this IDE's version lacks (<c>IDE_UNSUPPORTED</c> — CODESYS
+    /// 3.5.18.30's Project Settings). A read that failed with a code of its own keeps that code.</summary>
+    private static readonly string[] UnreadableCodes = { BridgeErrorCodes.Unreadable, BridgeErrorCodes.Unsupported, BridgeErrorCodes.IdeUnsupported };
 
     /// <summary>Which channel(s) each code arrives on: an error <c>frame</c> (some op declares it), a push
     /// <c>conflict</c>, an <c>unreadable</c> entry.</summary>
@@ -981,7 +984,7 @@ public class DocDataTests
 
     /// <summary>The protocol number and the hash of the generated <c>volt-bridge.openrpc.json</c> it was decided for.</summary>
     private const int PinnedProtocol = 1;
-    private const string PinnedWireShape = "3231658c20c5ed48d450d9683df1b6172d81f5d3c53a2a8f65bb2a3774034221";
+    private const string PinnedWireShape = "3d6beb32f772370bb701140ef99ceb8bbf57a25267e88289ba8ddc3288aad591";
 
     /// <summary>The document names the protocol it describes, and <c>health</c> states it: every bridge writes
     /// <c>protocol</c>, so the schema requires it (C# reads it as <c>int?</c> only so the connector can still read a bridge

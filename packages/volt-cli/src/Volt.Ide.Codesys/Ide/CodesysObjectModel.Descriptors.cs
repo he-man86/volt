@@ -10,6 +10,7 @@ using Volt.Engine.Format.Body;
 using Volt.Engine.Format.Settings;
 using Volt.Engine.Format.St;
 using Volt.Engine.Format.Task;
+using Volt.Engine;
 
 namespace Volt.Ide.Codesys
 {
@@ -107,12 +108,12 @@ namespace Volt.Ide.Codesys
         {
             var provider = GetStaticMember("_3S.CoDeSys.Engine.APEnvironment", "LMServiceProvider")
                 // Absent on SP18 (3.5.18.30, measured 2026-10-10): that version does not expose the settings to Volt.
-                ?? throw new InvalidOperationException(
+                ?? throw new BridgeException(BridgeErrorCodes.IdeUnsupported,
                     "CODESYS: this CODESYS version cannot give Volt its Project Settings (compiler warnings, compile " +
                     "options) — APEnvironment.LMServiceProvider is not there. Volt reads them on CODESYS V3.5 SP21 or " +
                     "later; until then the LSP uses the default warning set.");
             var config = GetMember(provider, "ConfigurationService")
-                ?? throw new InvalidOperationException("CODESYS: ILMServiceProvider.ConfigurationService unavailable");
+                ?? throw new BridgeException(BridgeErrorCodes.IdeUnsupported, "CODESYS: ILMServiceProvider.ConfigurationService unavailable");
             return ProjectSettingsFormat.Write(ReadProjectSettings(
                 GetMember(config, "WarningConfiguration"), GetMember(config, "CompileOptions")));
         }
@@ -225,7 +226,7 @@ namespace Volt.Ide.Codesys
         internal static object TaskKind(string type)
         {
             var kinds = Reflection.FindEnum("KindOfTask")
-                ?? throw new InvalidOperationException("CODESYS enum KindOfTask not found");
+                ?? throw new BridgeException(BridgeErrorCodes.IdeUnsupported, "CODESYS enum KindOfTask not found");
             var names = Enum.GetNames(kinds);
             if (Array.IndexOf(names, type) < 0)
                 throw new Volt.Engine.BridgeException(BridgeErrorCodes.BadRequest,
@@ -235,14 +236,17 @@ namespace Volt.Ide.Codesys
         }
 
         /// <summary>A named scripting facet of a node — device / project-info APIs live on the Extender's DLR
-        /// extension list, not the base ScriptObject. Throws if the facet is absent (fail loud, no fallback).</summary>
+        /// extension list, not the base ScriptObject. Throws if the facet is absent (fail loud, no fallback): UNSUPPORTED,
+        /// because a facet is a fact of ONE node (a device without its device facet, a parent that is no Task
+        /// Configuration), not of the IDE version — never IDE_UNSUPPORTED, whose remedy is the IDE changing (gate 3c
+        /// review, finding 8).</summary>
         private object Facet(object node, string facetTypeName)
         {
             var ext = GetMember(Unwrap(node), "Extender");
             if (GetMember(ext, "Extensions") is IEnumerable facets)
                 foreach (var f in facets)
                     if (f != null && f.GetType().Name == facetTypeName) return f;
-            throw new InvalidOperationException($"node has no {facetTypeName} facet");
+            throw new BridgeException(BridgeErrorCodes.Unsupported, $"node has no {facetTypeName} facet");
         }
     }
 }

@@ -198,8 +198,8 @@ public class WireRulesHaveOneImplementationTests
     /// else is INTERNAL_ERROR. Every other place that inspects <c>ICodedError</c> or defaults a code to INTERNAL_ERROR
     /// decides the mapping again. Today's extra sites:
     /// <list type="bullet">
-    /// <item><c>Sync/PushService.cs</c> — <c>ConflictFor</c> (a conflict's code: it ALSO maps <c>NotSupportedException</c> to
-    /// UNSUPPORTED, which the frame mapping does not) and the create guard's UNREADABLE filter;</item>
+    /// <item><c>Sync/PushService.cs</c> — <c>ConflictFor</c> (a conflict's code: a coded exception's, a network-text
+    /// diagnostic's, else INTERNAL_ERROR — the frame mapping's rule) and the create guard's UNREADABLE filter;</item>
     /// <item><c>Sync/BuildService.cs</c> — an uncoded build failure becomes a failed build, a coded one a frame;</item>
     /// <item><c>Sync/TreeLookup.cs</c> — <c>TreeLookup.Read</c>: an uncoded IDE read failure becomes ITEM_UNVERIFIED (the
     /// lookup's descent and the hosts' walk of every item, <c>Ide/ItemLookup</c>), and <c>Place</c>'s name fallback;</item>
@@ -303,8 +303,9 @@ public class WireRulesHaveOneImplementationTests
     {
         ["Volt.Engine/Ide/ProjectDeclarations.cs"] = 1,
         ["Volt.Engine/Sync/BuildService.cs"] = 1,
-        ["Volt.Engine/Sync/PushService.cs"] = 3,
-        ["Volt.Engine/Sync/Versioning.cs"] = 1,   // the code an UNREADABLE entry carries (wire-final-shape §4): a read's own code, else UNREADABLE — the unreadable channel's one mapping, never a frame
+        ["Volt.Engine/Sync/PushService.cs"] = 1,   // -1 ConflictFor maps no exception TYPE to a code any more (wire-final-shape 3c); -1 ReadLive routes on MemberWithoutDeclarationException, not on UNREADABLE (3c review 2)
+        ["Volt.Engine/UnsupportedException.cs"] = 1,   // a coded exception TYPE (UNSUPPORTED) that is also a NotSupportedException — a definition beside BridgeException, not a mapping (wire-final-shape 3c)
+        ["Volt.Engine/Sync/Versioning.cs"] = 2,   // the code an UNREADABLE entry carries (wire-final-shape §4): a read's own code, else UNREADABLE — the unreadable channel's one mapping, never a frame; +1 a Volt bug (INTERNAL_ERROR) is not caught into one (3c review 6)
         ["Volt.Engine/Sync/TreeLookup.cs"] = 2,   // TreeLookup.Read, the one read-fault mapping of the descent and of Ide/ItemLookup's walk; Place's name fallback (volt-cli-rework 3.1)
         ["Volt.Relay/RelayTunnel.cs"] = 1,
         ["Volt.Wire/PipeServer.cs"] = 2,

@@ -435,7 +435,7 @@ public sealed partial class BeckhoffDriver
         var memberKind = kindCode == ItemKind.PlcItfProp ? ItemKind.Kinds.InterfaceProperty
             : kindCode == ItemKind.PlcItfMeth ? ItemKind.Kinds.InterfaceMethod : null;
         if (memberKind is not null && UntypedInterfaceMember(memberKind, name, seed) is { } refusal)
-            throw new NotSupportedException(refusal);
+            throw new BridgeException(BridgeErrorCodes.Unsupported, refusal);
         try { return Wrap(_om.CreateChild(Com(parent), name, kindCode, seed)); }
         catch (Exception ex) when (Refusal(ex) is { } why) { throw new ChildRefusedException(why.Message, why.Cause, ex); }
     }

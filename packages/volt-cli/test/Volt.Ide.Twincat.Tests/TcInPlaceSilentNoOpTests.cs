@@ -4,6 +4,8 @@ using System.Xml.Linq;
 using Volt.Engine.Format.Body;
 using Volt.Engine.Format.Network;
 using Xunit;
+using Volt.Contracts;
+using Volt.Engine;
 
 namespace Volt.Ide.Twincat.Tests;
 
@@ -53,7 +55,7 @@ public class TcInPlaceSilentNoOpTests
             "  xoutput := xoutput2 := xtest OR xtest2;",
             "  split1 := xtest OR xtest2;\n  xoutput := split1;\n  xoutput2 := split1;");
 
-        Assert.Throws<NotSupportedException>(() => TcText.Apply(before, model));
+        Assert.Throws<UnsupportedException>(() => TcText.Apply(before, model));
     }
 
     /// <summary>Reading a consumed call through ENO (an open line, B4) moves its consumer from the main output (Q) to the

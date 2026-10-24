@@ -4,6 +4,7 @@ using Volt.Engine;
 using Volt.Engine.Item;
 using Volt.Engine.Seam;
 using Xunit;
+using Volt.Contracts;
 
 namespace Volt.Engine.Tests.Seam;
 
@@ -78,7 +79,7 @@ public class SeamRegistryTests
         var kinds = new KindRegistry();
         kinds.Register("codesys", KindRow.Source("pou", "pou", WithBody, Layout));
 
-        var ex = Assert.Throws<InvalidOperationException>(() => kinds.Register("twincat", KindRow.Source("pou", "tcpou", WithBody, Layout)));
+        var ex = Assert.Throws<VoltInvariantException>(() => kinds.Register("twincat", KindRow.Source("pou", "tcpou", WithBody, Layout)));
         Assert.Contains("vendor 'twincat'", ex.Message);
         Assert.Contains("as codesys registered it", ex.Message);
     }
@@ -89,7 +90,7 @@ public class SeamRegistryTests
         var kinds = new KindRegistry();
         kinds.Register("siemens", KindRow.Source("fb", "blk", WithBody, Layout));
 
-        var ex = Assert.Throws<InvalidOperationException>(() => kinds.Register("fakeco", KindRow.Source("block", "blk", WithBody, Layout)));
+        var ex = Assert.Throws<VoltInvariantException>(() => kinds.Register("fakeco", KindRow.Source("block", "blk", WithBody, Layout)));
         Assert.Contains("'.blk' names kind 'block' here but kind 'fb' as siemens registered it", ex.Message);
     }
 
@@ -108,7 +109,7 @@ public class SeamRegistryTests
             _ => KindRow.Source("gvl", "gvl", NoBody, new StubFormat("scl")),
         };
 
-        Assert.Throws<InvalidOperationException>(() => kinds.Register("twincat", other));
+        Assert.Throws<VoltInvariantException>(() => kinds.Register("twincat", other));
     }
 
     [Theory]
@@ -116,15 +117,15 @@ public class SeamRegistryTests
     [InlineData("p ou")]
     [InlineData("")]
     public void An_extension_that_is_no_lower_case_word_is_refused(string extension) =>
-        Assert.Throws<InvalidOperationException>(() => Kinds(KindRow.Descriptor("thing", extension)));
+        Assert.Throws<VoltInvariantException>(() => Kinds(KindRow.Descriptor("thing", extension)));
 
     [Fact]
     public void A_row_whose_role_contradicts_its_fields_is_refused()
     {
-        Assert.Throws<InvalidOperationException>(() => Kinds(new KindRow("method", "meth", KindRole.Member, WithBody)));   // a member is no file
-        Assert.Throws<InvalidOperationException>(() => Kinds(new KindRow("block", "blk", KindRole.Source, WithBody)));      // a source kind has a format
-        Assert.Throws<InvalidOperationException>(() => Kinds(new KindRow("block", "blk", KindRole.Source, null, Layout)));  // and a shape
-        Assert.Throws<InvalidOperationException>(() => Kinds(new KindRow("station", "stn", KindRole.Descriptor, null, Layout)));
+        Assert.Throws<VoltInvariantException>(() => Kinds(new KindRow("method", "meth", KindRole.Member, WithBody)));   // a member is no file
+        Assert.Throws<VoltInvariantException>(() => Kinds(new KindRow("block", "blk", KindRole.Source, WithBody)));      // a source kind has a format
+        Assert.Throws<VoltInvariantException>(() => Kinds(new KindRow("block", "blk", KindRole.Source, null, Layout)));  // and a shape
+        Assert.Throws<VoltInvariantException>(() => Kinds(new KindRow("station", "stn", KindRole.Descriptor, null, Layout)));
     }
 
     [Fact]
@@ -185,7 +186,7 @@ public class SeamRegistryTests
         var langs = new LanguageRegistry();
         langs.Register("codesys", LanguageRow.Shown("FBD", new OtherReader()));
 
-        var ex = Assert.Throws<InvalidOperationException>(() => langs.Register("siemens", LanguageRow.Shown("FBD", PlainTextReader.Instance)));
+        var ex = Assert.Throws<VoltInvariantException>(() => langs.Register("siemens", LanguageRow.Shown("FBD", PlainTextReader.Instance)));
         Assert.Contains("one language name is one grammar", ex.Message);
     }
 
@@ -195,7 +196,7 @@ public class SeamRegistryTests
     [InlineData("UNSUPPORTED")]
     [InlineData("S T")]
     public void A_language_name_that_is_no_upper_case_word_or_is_the_lines_own_word_is_refused(string name) =>
-        Assert.Throws<InvalidOperationException>(() => new LanguageRegistry().Register("a", LanguageRow.Hidden(name)));
+        Assert.Throws<VoltInvariantException>(() => new LanguageRegistry().Register("a", LanguageRow.Hidden(name)));
 
     [Fact]
     public void The_line_states_a_shown_language_only_where_the_vendor_shows_it()
@@ -266,9 +267,9 @@ public class SeamRegistryTests
     {
         var keys = Keys();
         Assert.Contains("one key is one grammar",
-            Assert.Throws<InvalidOperationException>(() => keys.Register("siemens", new PropertyKey("COMMENT", PropertyGrammar.Words))).Message);
-        Assert.Throws<InvalidOperationException>(() => keys.Register("x", new PropertyKey("FOLDER", PropertyGrammar.Words)));
-        Assert.Throws<InvalidOperationException>(() => keys.Register("x", new PropertyKey("retain", PropertyGrammar.Flag)));
+            Assert.Throws<VoltInvariantException>(() => keys.Register("siemens", new PropertyKey("COMMENT", PropertyGrammar.Words))).Message);
+        Assert.Throws<VoltInvariantException>(() => keys.Register("x", new PropertyKey("FOLDER", PropertyGrammar.Words)));
+        Assert.Throws<VoltInvariantException>(() => keys.Register("x", new PropertyKey("retain", PropertyGrammar.Flag)));
         keys.Register("twincat", new PropertyKey("COMMENT", PropertyGrammar.Text));   // the same key, the same grammar: shared
     }
 
@@ -284,8 +285,8 @@ public class SeamRegistryTests
 
         Assert.Equal("Fakeco", vendors.Display("fakeco"));
         Assert.Contains("(codesys | fakeco)", Assert.Throws<ArgumentException>(() => vendors.Display("siemens")).Message);
-        Assert.Throws<InvalidOperationException>(() => vendors.Register(new VendorRow("fakeco", "FakeCo")));
-        Assert.Throws<InvalidOperationException>(() => vendors.Register(new VendorRow("Fake.co", "Fakeco")));   // names no pipe
+        Assert.Throws<VoltInvariantException>(() => vendors.Register(new VendorRow("fakeco", "FakeCo")));
+        Assert.Throws<VoltInvariantException>(() => vendors.Register(new VendorRow("Fake.co", "Fakeco")));   // names no pipe
     }
 
     // ── the catalog ──
@@ -301,6 +302,6 @@ public class SeamRegistryTests
         Assert.Equal(new[] { "fakeco", "fakeco2" }, catalog.Kinds.VendorsOf("block"));
         Assert.Equal(new[] { "FKL" }, catalog.Languages.ShownBy("fakeco2"));
 
-        Assert.Throws<InvalidOperationException>(() => Catalog.Of(Decl("fakeco", "blk"), Decl("other", "blok")));
+        Assert.Throws<VoltInvariantException>(() => Catalog.Of(Decl("fakeco", "blk"), Decl("other", "blok")));
     }
 }

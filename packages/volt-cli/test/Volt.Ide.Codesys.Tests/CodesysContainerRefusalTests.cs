@@ -277,6 +277,26 @@ namespace Volt.Ide.Codesys.Tests
             Assert.Contains("StackSize 4096", listed.Reason);
         }
 
+        /// <summary>AN OBJECT WHOSE NAME THE IDE CANNOT STATE HAS NO IDENTITY (owner 2026-10-18, the rule for an object whose
+        /// TYPE the IDE cannot state): its folder is unwalked — nothing there is read as deleted — no name is invented for
+        /// it, and the walk goes on. It failed the whole refs/fetch/push as an error frame whose documented cause is
+        /// TwinCAT's (gate 3c review, finding 5).</summary>
+        [Fact]
+        public void A_child_whose_name_the_IDE_answers_null_unwalks_its_folder_and_the_walk_goes_on()
+        {
+            var root = new TreeNode("<project>", null, null,
+                new TreeNode("Kept", null, null, Type("Inside")),
+                new TreeNode("Sim", null, null, new TreeNode(null!, new Dut("TYPE X :\nSTRUCT\n\tn : INT;\nEND_STRUCT\nEND_TYPE"), null), Type("SimType")));
+
+            var walk = Walk(root);
+
+            Assert.Contains("Sim", walk.UnwalkedFolders);
+            Assert.DoesNotContain("Kept", walk.UnwalkedFolders);
+            Assert.Contains(walk.Items, i => i.Name == "Inside");
+            Assert.Contains(walk.Items, i => i.Name == "SimType");
+            Assert.DoesNotContain(walk.UnreadableObjects, o => string.IsNullOrEmpty(o.Name));
+        }
+
         /// <summary>…and a Task Configuration at its measured values holds nothing to list.</summary>
         [Fact]
         public void A_task_configuration_at_its_measured_values_is_walked_plain() =>

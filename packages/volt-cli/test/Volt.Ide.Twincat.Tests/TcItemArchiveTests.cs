@@ -4,6 +4,8 @@ using System.IO;
 using System.IO.Compression;
 using Xunit;
 using Volt.Ide.Twincat;
+using Volt.Contracts;
+using Volt.Engine;
 
 namespace Volt.Ide.Twincat.Tests;
 
@@ -126,7 +128,8 @@ public class TcItemArchiveTests
         var from = new FakeNode { SuffixOnClash = true };
         var to = new FakeNode { ThrowOnImport = true };
 
-        var ex = Assert.Throws<InvalidOperationException>(() => Move(from, to, "GVL_PackML"));
+        var ex = Assert.Throws<BridgeException>(() => Move(from, to, "GVL_PackML"));
+        Assert.Equal(BridgeErrorCodes.IdeLostItem, ex.ErrorCode);
 
         Assert.Contains("'GVL_PackML'", ex.Message);
         Assert.Contains("'GVL_PackML_1'", ex.Message);
@@ -144,7 +147,8 @@ public class TcItemArchiveTests
         var from = new FakeNode { ThrowOnImport = true };   // undo also fails
         var to = new FakeNode { ThrowOnImport = true };     // the move itself fails
 
-        var ex = Assert.Throws<InvalidOperationException>(() => Move(from, to, "FB_Orphan"));
+        var ex = Assert.Throws<BridgeException>(() => Move(from, to, "FB_Orphan"));
+        Assert.Equal(BridgeErrorCodes.IdeLostItem, ex.ErrorCode);
 
         Assert.Contains("could not be undone", ex.Message);
         var path = ArchivePathFrom(ex.Message);

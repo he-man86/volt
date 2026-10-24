@@ -1,10 +1,10 @@
 # Volt bridge wire, protocol 1 (final shape) — what changes for PLC Assist
 
-DRAFT (2026-10-24). Final when `wire-final-shape` is built; the owner may still change the two open points in
-`design.md` (deleting `accepted`, the lease as an error frame).
+DRAFT (2026-10-24). Final when `wire-final-shape` is built. Both owner decisions are made (2026-10-24): `accepted` is
+deleted, and the lease is the error frame `STALE_PROJECT_VERSION` with `error.data.currentProjectVersion`.
 
-Protocol 2 replaces protocol 1 in one step. A bridge answers a request without `"protocol": 2` with the error frame
-`PROTOCOL_MISMATCH`, so move every call at once.
+The protocol number stays **1**: this shape IS protocol 1. A bridge answers a request without `"protocol": 1` (or with
+another number) with the error frame `PROTOCOL_MISMATCH`, so move every call at once.
 
 ## Every request
 
@@ -32,8 +32,9 @@ Protocol 2 replaces protocol 1 in one step. A bridge answers a request without `
 ## `push`
 
 - `accepted` is gone. Every op `conflicts` does not name landed; every op after a refused one is `NOT_ATTEMPTED`.
-- A stale `expectedProjectVersion` is the error frame `STALE_PROJECT_VERSION` (no `<project>` conflict row, no
-  `currentProjectVersion`). Pull, then push again.
+- A stale `expectedProjectVersion` is the error frame `STALE_PROJECT_VERSION`; the IDE's current version is
+  `error.data.currentProjectVersion` (no `<project>` conflict row, no top-level `currentProjectVersion`). Pull, then push
+  again.
 - The receipt adds `removed`: every path the push made disappear. Update your baseline from `newItems` and `removed`.
 - `conflicts[].code` is always present. `conflicts[].name` is always your op's `name`; on `ITEM_EXISTS` the colliding
   item is in `existing`.
@@ -44,6 +45,14 @@ Protocol 2 replaces protocol 1 in one step. A bridge answers a request without `
 - `duration` is now `durationMs`.
 - `diagnostics[].line` / `column` are 1-based and absent when the IDE states no position (no more `0`).
 - `diagnostics[].severity` is absent when the IDE's own word is not one Volt maps.
+
+## Error codes
+
+- `INTERNAL_ERROR` now means a Volt bug and nothing else: every refusal of a request, an IDE state or a vendor limit
+  carries its own code. Report an `INTERNAL_ERROR` to us; do not retry it.
+- `IDE_UNSUPPORTED` can also answer ONE call (a frame, a push conflict, or an unreadable entry's `code`): the IDE lacks
+  what that call needs, named in the message. As before, do not retry — the IDE has to change.
+- `build` may answer `UNSUPPORTED`: the project holds no application to build.
 
 ## `grep`
 

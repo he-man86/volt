@@ -69,7 +69,7 @@ internal static class PipeAcl
                 // The managed constructor's own types for the two failures a caller acts on: the name is held by a
                 // process this one may not join (access denied), or anything else the OS said.
                 if (err == ERROR_ACCESS_DENIED) throw new UnauthorizedAccessException($"pipe '{pipeName}': {w32.Message}", w32);
-                throw new IOException($"pipe '{pipeName}': {w32.Message}", w32);
+                throw new PipeBindException($"pipe '{pipeName}': {w32.Message}", w32);
             }
             return new NamedPipeServerStream(PipeDirection.InOut, isAsync: false, isConnected: false, safePipeHandle: handle);
         }
@@ -129,4 +129,12 @@ internal static class PipeAcl
     [DllImport("kernel32.dll")] private static extern IntPtr GetCurrentProcess();
     [DllImport("kernel32.dll")] private static extern bool CloseHandle(IntPtr h);
     [DllImport("kernel32.dll")] private static extern IntPtr LocalFree(IntPtr h);
+}
+
+/// <summary>The OS refused to bind a bridge pipe instance — the Win32 error, named with the pipe. It reaches the host that
+/// starts the server (<see cref="PipeServer.Start"/>'s caller), or ends the accept loop, which logs it: never a frame. An
+/// <see cref="IOException"/>, the type the managed constructor gives the same failure.</summary>
+public sealed class PipeBindException : IOException
+{
+    public PipeBindException(string message, Exception inner) : base(message, inner) { }
 }

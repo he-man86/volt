@@ -264,6 +264,9 @@ public sealed class PipeServer : IDisposable
                     message = CallFailure.Message(ex);
                     VoltLog.Error($"pipe {_pipeName}: '{op ?? "(no op read)"}' failed — " + CallFailure.LogText(ex));
                 }
+                // Volt's own broken invariant is a bug like an uncoded failure: logged whole, the stack with it.
+                if (ex is VoltInvariantException)
+                    VoltLog.Error($"pipe {_pipeName}: '{op ?? "(no op read)"}' broke an invariant — " + CallFailure.LogText(ex));
                 try { WriteFrame(server, new PipeFrame { Error = new PipeError { Code = code, Message = message, Data = data } }); }
                 catch (Exception writeEx)
                 {

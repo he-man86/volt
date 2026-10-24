@@ -28,9 +28,9 @@ public enum ChildRefusalCause
 /// the vendor's wording — so it says which one it is by throwing this, and WHY (<see cref="Cause"/>); anything else
 /// stays an unclassified fault.</para>
 ///
-/// <para>A <see cref="NotSupportedException"/>, so a path that does not catch it still answers <c>UNSUPPORTED</c>
-/// (<c>PushService.ConflictFor</c>).</para></summary>
-public sealed class ChildRefusedException : NotSupportedException
+/// <para>An <see cref="UnsupportedException"/>, so a path that does not catch it still answers <c>UNSUPPORTED</c>, by its
+/// own code.</para></summary>
+public sealed class ChildRefusedException : UnsupportedException
 {
     public ChildRefusedException(string vendorMessage, ChildRefusalCause cause, Exception? inner = null)
         : base(vendorMessage, inner) => Cause = cause;
