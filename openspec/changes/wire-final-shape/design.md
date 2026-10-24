@@ -222,6 +222,42 @@ A fresh agent with only sections 1–7, `wire.html` and the OpenRPC document (no
    unknown `dirty` makes no "IDE changed" edge (it read as clean before), and it keeps the last STATED value as the
    baseline (`healthStep`), so clean → unknown → dirty still signals the edit (gate 3b).
 
+## Step 3c (task 3.9a): INTERNAL_ERROR only for a Volt bug
+
+**Target.** `INTERNAL_ERROR` means one thing: Volt reached a state it must never reach. A request the bridge cannot
+honour, an IDE state, or a vendor limit answers its own code. Measured at `30ec5ccd97`: 151 uncoded `throw new` sites
+in `src/` (outside Contracts and the CLI; `WireVocabularyTests.Uncoded`) — 118 `InvalidOperationException`, 26
+`NotSupportedException`, 5 `MissingMethodException`, 2 `COMException`, 1 `IOException` — counted per FILE, so the gate
+cannot say which throw in a file is which, and every one reaches a client as `INTERNAL_ERROR` (a `NotSupportedException`
+as `UNSUPPORTED` in a push conflict but `INTERNAL_ERROR` on a frame: one fact, two codes by channel).
+
+**Choice: every site states its class at the throw.** Each of the 151 becomes one of:
+- a **coded refusal** — `BridgeException` with its situation's code (`BAD_REQUEST`, `UNSUPPORTED`, `IDE_UNSUPPORTED` —
+  every `MissingMethodException`, a vendor API this IDE version lacks —, `UNREADABLE`, `PLC_DISCONNECTED`, `IDE_BUSY`, …);
+- an **invariant** — `VoltInvariantException` (new, `Volt.Contracts`, `ICodedError` → `INTERNAL_ERROR`): a state Volt
+  itself must never reach (a `PushOp` with no apply arm, a registry conflict at start, a reader-refused shape a writer
+  was handed). Its message names the broken invariant;
+- **caught inside** — a throw a named catch turns into a coded answer before any client sees it (`TcHierarchy` →
+  `TcObjectModel.Explorer`, `PipeAcl` → the host). It throws the catcher's own type, so the census does not see it.
+
+Then `UncodedThrow` counts **0** and stays 0 (any BCL `throw new` fails by name); the new ratchet counts
+`VoltInvariantException` per file and fails on a RISE only (a fall just lowers the line). `ConflictFor`'s TYPE mapping
+(`NotSupportedException → UNSUPPORTED`) is deleted: the code comes from the throw, so a frame and a conflict answer the
+same code. `ArgumentException` stays uncounted (a caller's broken invariant by definition).
+
+Rejected: **keep per-file counts with comments** — a count cannot classify a site; it is how 151 accumulated.
+**Map by exception type at the boundary** — a type is not a situation (`InvalidOperationException` is a refusal in one
+file and an invariant in the next); it is the guess the zero-fallback rule forbids.
+
+**Stays INTERNAL_ERROR, by name:** the invariants, and a FOREIGN exception (COM, the vendor's .NET API) reaching
+`PipeServer`/`ConflictFor` uncaught — Volt did not classify an IDE call, which is Volt's bug; it stays logged whole
+(`CallFailure.LogText`) and is coded at its call when a log shows it. No catch-all rewrites a foreign exception.
+
+**Migration.** One commit per package (Engine, Ide.Codesys, Ide.Twincat, Wire/Relay), each lowering the census; a
+reclassified site a request can reach gets a test asserting its code (unit, plus a contract-suite case when the live
+wire reaches it). Report: 151 uncoded → 0; N invariants; per code, the count reclassified. No wire shape changes: only
+which code an existing failure carries. PLC Assist: one line in `plcassist-note.md` (`INTERNAL_ERROR` now means a bug).
+
 ## Deleted
 
 `health.networkText` · `HealthResponse.status` (prose) · `connect`/`disconnect` `ok` · `push.accepted` ·
