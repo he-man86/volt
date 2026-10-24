@@ -21,3 +21,8 @@ before its first cell, and `up` already closes its own instance's orphaned worke
 
 **Testable core**: run membership and the foreign selection are pure PowerShell functions in
 `packages/volt-cli/scripts/ide-run.ps1`, dot-sourced by `ide.ps1`, tested offline by `test/unit/ide-run.test.ts`.
+
+**One function decides and words the refusal** (`Get-ForeignRefusal`, live finding 1.6). Windows PowerShell hands a
+function's one-element array to its caller as the bare element, whose `.Count` a `[pscustomobject]` does not answer, and
+an empty one as `$null`, which a pipeline carries as one process: the matrix started beside one foreign CODESYS and
+refused an empty machine. The selection stays an array inside the one pure function both `up` and `check` call.

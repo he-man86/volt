@@ -400,7 +400,7 @@ function Get-IdeProcesses {
         ForEach-Object { [pscustomobject]@{ Pid = [int]$_.ProcessId; Name = $_.Name; CommandLine = $_.CommandLine } })
 }
 
-function Get-ForeignIdes { @(Select-Foreign (Get-IdeProcesses) (Get-RunOwnPids)) }
+function Get-ForeignRefusalNow { Get-ForeignRefusal $RunTag (Get-IdeProcesses) (Get-RunOwnPids) }
 
 # THE CHECK AND THE LAUNCH ARE ONE STEP. Two cells of one run start together; between a sibling's Start-Process and its
 # Save-Pids its IDE runs unrecorded, and a check in that gap would call it foreign. So `up` takes this machine-wide lock
@@ -1007,8 +1007,8 @@ switch ($Action) {
     }
     "check" {
         # What `up` would refuse, without starting anything (the matrix asks once, before any cell). Exit 1 names them.
-        $foreign = Get-ForeignIdes
-        if ($foreign.Count -gt 0) { Write-Host (Format-ForeignRefusal $RunTag $foreign); exit 1 }
+        $refusal = Get-ForeignRefusalNow
+        if ($refusal) { Write-Host $refusal; exit 1 }
         Write-Host "run '$RunTag': no IDE it does not own is running"
     }
     "logs" {
@@ -1053,8 +1053,8 @@ switch ($Action) {
         # session's run, the connector's worker. Checked under the launch lock, so a sibling cell's launch is either not
         # started or already recorded. Volt neither drives nor closes a foreign IDE: the user decides.
         Enter-LaunchLock
-        $foreign = Get-ForeignIdes
-        if ($foreign.Count -gt 0) { throw (Format-ForeignRefusal $RunTag $foreign) }
+        $refusal = Get-ForeignRefusalNow
+        if ($refusal) { throw $refusal }
         $live = @((Get-OurProcesses $Vendor).Ours | Where-Object { (Get-Process -Id $_ -ErrorAction SilentlyContinue).ProcessName -ne "VoltBridgeTwincat" })
         if ($live.Count -gt 0) {
             throw "instance $(if ($Instance) { $Instance } else { '(default)' }) of $Vendor is UP (pid $($live -join ', ')) - another run may be driving it. If it is a leftover: ide.ps1 down -Vendor $Vendor$(if ($Instance) { " -Instance $Instance" }); else use another -Instance."

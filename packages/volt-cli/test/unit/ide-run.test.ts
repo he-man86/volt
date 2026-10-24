@@ -87,8 +87,25 @@ describe("foreign processes", () => {
 		expect(ps(`@(Select-Foreign @() @()).Count | ConvertTo-Json`)).toBe(0)
 	})
 
+	// The live matrix started beside ONE foreign CODESYS: a function's one-element array reaches its caller as the bare
+	// element, and Windows PowerShell's [pscustomobject] has no .Count — so "$foreign.Count -gt 0" was false.
+	it("ONE foreign process is a refusal — a single element is not nothing", () => {
+		const one = `@([pscustomobject]@{ Pid = 10; Name = 'CODESYS.exe'; CommandLine = 'CODESYS.exe' })`
+		const text: string = ps(`Get-ForeignRefusal 'release-matrix' ${one} @() | ConvertTo-Json`)
+		expect(text).toContain("will not start beside an IDE it does not own - 1 running")
+		expect(text).toContain("pid 10 CODESYS.exe: CODESYS.exe")
+		expect(ps(`$null -eq (Get-ForeignRefusal 'release-matrix' ${one} @(10)) | ConvertTo-Json`)).toBe(true)
+		expect(ps(`$null -eq (Get-ForeignRefusal 'release-matrix' @() @()) | ConvertTo-Json`)).toBe(true)
+	})
+
+	// And the reverse: NO IDE running reaches it as $null (a function's empty array), which a pipeline counts as one
+	// process — the matrix refused "pid  : (command line not readable)" on an empty machine.
+	it("no process at all — $null, as a function returns an empty list — is no refusal", () => {
+		expect(ps(`function None { @() }; $null -eq (Get-ForeignRefusal 'release-matrix' (None) @()) | ConvertTo-Json`)).toBe(true)
+	})
+
 	it("the refusal names each process by pid, image and command line", () => {
-		const text: string = ps(`Format-ForeignRefusal 'release-matrix' (Select-Foreign ${PROCS} @(20)) | ConvertTo-Json`)
+		const text: string = ps(`Get-ForeignRefusal 'release-matrix' ${PROCS} @(20) | ConvertTo-Json`)
 		expect(text).toContain("run 'release-matrix' will not start beside an IDE it does not own - 2 running")
 		expect(text).toContain("pid 10 CODESYS.exe: CODESYS.exe --runscript=x.py")
 		expect(text).toContain("pid 30 VoltBridgeTwincat.exe: (command line not readable)")

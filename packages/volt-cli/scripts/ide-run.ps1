@@ -35,13 +35,18 @@ function Resolve-RunTag([bool]$RunGiven, [string]$Run, [string]$EnvRun, [string]
     $tag
 }
 
-# The running IDE processes ($Processes: objects with Pid, Name, CommandLine) whose pid is not one the run owns.
+# The running IDE processes ($Processes: objects with Pid, Name, CommandLine) whose pid is not one the run owns. No
+# process at all arrives as $null (a function's empty list), which a pipeline would carry as one process with no pid.
 function Select-Foreign($Processes, [int[]]$OwnPids) {
-    @($Processes | Where-Object { $OwnPids -notcontains [int]$_.Pid })
+    @($Processes | Where-Object { $null -ne $_ -and $OwnPids -notcontains [int]$_.Pid })
 }
 
-# The refusal: every foreign process by pid, image and command line, so the user can tell whose it is.
-function Format-ForeignRefusal([string]$Tag, $Foreign) {
+# The refusal `up` and `check` give, or $null when nothing foreign runs: every foreign process by pid, image and command
+# line, so the user can tell whose it is. The selection stays an array HERE: returned from a function, a one-element
+# array arrives as its bare element, whose .Count Windows PowerShell's [pscustomobject] does not answer.
+function Get-ForeignRefusal([string]$Tag, $Processes, [int[]]$OwnPids) {
+    $Foreign = @(Select-Foreign $Processes $OwnPids)
+    if ($Foreign.Count -eq 0) { return $null }
     $lines = @($Foreign | ForEach-Object { "  pid $($_.Pid) $($_.Name): $(if ($_.CommandLine) { $_.CommandLine } else { '(command line not readable)' })" })
     "run '$Tag' will not start beside an IDE it does not own - $($Foreign.Count) running:`n$($lines -join "`n")`n" +
         "Close them (or wait for the run that owns them), then start again. Volt never drives or closes them."
