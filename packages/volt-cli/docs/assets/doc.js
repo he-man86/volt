@@ -256,6 +256,39 @@ function renderObjectProperties(el) {
       .join("")}</table>`
 }
 
+/** What a push of a text that breaks a layout row does (StLayoutRules.PushOutcome, pinned per row by
+ *  StLayoutRulesTests). */
+const LAYOUT_PUSH = {
+  canonical: "accepted; comes back in this layout",
+  kept: "accepted; what breaks the rule is the item's own text and comes back as pushed",
+  refused: "refused INVALID_ST",
+}
+
+/** A layout example with the whitespace it is about made visible: a trailing space is ·, each line's LF is ⏎ — so
+ *  the file's final LF and a line's trailing spaces show, which a bare <pre> hides. */
+const layoutText = (text) =>
+  text
+    .replace(/\n$/, "")
+    .split("\n")
+    .map((line) => {
+      const body = line.replace(/ +$/, "")
+      return `${esc(body)}<span class="ws">${"·".repeat(line.length - body.length)}⏎</span>`
+    })
+    .join("\n")
+
+/** The canonical layout: each rule StWriter applies, with the writer's own output for one made-up item
+ *  (DocDataTests.BuildLayout, pinned by StLayoutRulesTests), and what a push of a text that breaks it does. */
+function renderLayout(el) {
+  el.innerHTML = `<table>
+    <tr><th>rule</th><th>the writer writes</th><th>a push that breaks it</th></tr>
+    ${window.VOLT.layout
+      .map(
+        (r) => `<tr id="layout-${r.id}"><td>${esc(r.rule)}</td>
+          <td><pre>${layoutText(r.example)}</pre></td><td>${esc(LAYOUT_PUSH[r.push])}</td></tr>`,
+      )
+      .join("")}</table>`
+}
+
 function renderDriver(el) {
   el.innerHTML = window.VOLT.driver
     .map(
@@ -399,6 +432,7 @@ const RENDERERS = {
   kinds: renderKinds,
   extensions: renderExtensions,
   "object-properties": renderObjectProperties,
+  layout: renderLayout,
   driver: renderDriver,
   errors: (el) => renderList(el, window.VOLT.errors),
   statuses: (el) => renderList(el, window.VOLT.statuses),

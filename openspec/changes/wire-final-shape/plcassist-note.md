@@ -33,6 +33,11 @@ another number) with the error frame `PROTOCOL_MISMATCH`, so move every call at 
 - Send `knownApplications` with `knownItems`: the `applications` the read that produced your baseline stated. Sent
   without it (you do not know them), a known path under an unread folder outside every application the walk states is
   never reported removed.
+- A fetched text is in the canonical layout (`wire.html#layout`: LF, a blank line before the END line, members after
+  it in METHOD / ACTION / PROPERTY then name order, …). Each rule there states what a push of a text that breaks it
+  does: accepted and fetched in the layout, accepted and fetched as pushed (the text is the item's own), or refused
+  `INVALID_ST`. Compare a pushed text against the fetched one, or against those rules, never byte for byte against what
+  you sent.
 
 ## `push`
 

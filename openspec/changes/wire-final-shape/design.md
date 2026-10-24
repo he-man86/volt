@@ -382,13 +382,32 @@ client runs in Docker, outside .NET, so the contract is a stated rule a client c
 
 **Choice.** One table, `#layout` in `wire.html`, rendered by `doc.js` from `data.js` like `items.html`'s kinds. Its rows
 are `StWriter`'s rules, one made-up example each (`a`, `b`, `x`):
-LF only, the file ends in one `\n` · a GVL/DUT is its declaration, then its `%`-lines · a POU is its declaration, the
-`IMPLEMENTATION` line, its `%`-lines, its code · one blank line, then the `END_…` line mirroring the header · each member
-after one blank line, below the END line (inside the block for an interface) · member order METHOD, ACTION, PROPERTY,
-then name, ordinal · a member is declaration, `IMPLEMENTATION` line, `%`-lines, code, `END_METHOD`/`END_ACTION` · a
-property is declaration, `%`-lines, `GET` then `SET`, `END_PROPERTY` · every other character verbatim (inner blank lines,
-trailing whitespace, a body's own trailing newline). The rows live in `test/Volt.Engine.Tests/format/st/StLayoutRules.cs`:
-`(id, sentence, ItemContent example, Func<string,bool> holds)`. Two tests: `DocDataTests` generates each row's example as
+LF line ends, the file ends in one `\n` after the item's last character · a GVL/DUT is its declaration, then its
+`%`-lines · a POU is its declaration, the `IMPLEMENTATION` line, its `%`-lines, its code · one blank line, then the
+`END_…` line mirroring the header · each member after one blank line, below the END line (inside the block for an
+interface) · member order METHOD, ACTION, PROPERTY, then name, ordinal · a POU's member is declaration, `IMPLEMENTATION`
+line, `%`-lines, code, `END_METHOD`/`END_ACTION` · a POU's property is declaration, `%`-lines, `GET` then `SET`,
+`END_PROPERTY` · an interface's member has no `IMPLEMENTATION` line and no code (method: declaration, `%`-lines,
+`END_METHOD`; property accessor: keyword, declaration, `END_GET`/`END_SET`) · every other character verbatim (inner
+blank lines, trailing whitespace, the trailing newlines a declaration or a body ends with). The rows live in
+`test/Volt.Engine.Tests/format/st/StLayoutRules.cs`:
+`(id, sentence, ItemContent example, Func<string,bool> holds, Func<string,string> break, PushOutcome push)` — `break`
+is the hand-made non-canonical variant, and `push` is what a push of it does, stated per row on the page and pinned per
+row: `canonical` (`StWriter.Write(StReader.Read(variant))` is the canonical text — `lf`, `end-line`, `members-below`,
+`member-order`, `property`), `kept` (what breaks the rule is the item's own text and comes back as pushed — `member`:
+a blank line before `END_METHOD` is the code's last line; `verbatim`), or `refused` `INVALID_ST` (the rule is structure
+the reader needs — `declaration-only`, `pou`, `members-inside`, `interface-member`) (4.3d second review: the page said
+every row's variant comes back canonical; 6 of 11 do). Further
+layout-only texts — no final LF, extra LFs after END, 0 or 2 blank lines before a member, an empty body with no blank
+line, an interface with no blank lines, CRLF and CR on a POU, a GVL and a DUT — are pinned beside the rows). CRLF and
+a lone CR are layout-only at the reader, for EVERY kind: `StReader.LfLines` is the one line-ending rule (fixed in 4.3d
+review: a GVL's and a DUT's declaration kept its CRs and reached the IDE as `END_VAR\r`; only composite kinds were
+normalised, and 4.3b's (b) pushed only `.pou` files, so it measured the reader, not the IDEs). The WRITER applies the
+same rule to what the IDE holds (`StWriter.LfContent`, per text before the layout joins them), so the `lf` row holds on
+a fetch too: a CR an earlier push left in the IDE, or one the IDE produces, is fetched as LF (0 CRs in the six corpora,
+so no IDE was seen handing one back; the rule no longer rests on that). A CR is a line end wherever it stands — in a
+string literal or a comment too (0 CRs in the corpora; a raw line break in a literal is no valid literal either way). Two tests:
+`DocDataTests` generates each row's example as
 `StWriter.Write(example)` into `data.js` (the existing gate: the doc cannot drift from the writer), and
 `StLayoutRulesTests` asserts `holds` on that output AND fails on a hand-made non-canonical variant of it (the rule bites).
 A writer change that breaks a rule turns red there; a new rule without a row is caught by review, not a census (the
@@ -403,7 +422,15 @@ addition for what `fetch onlyItems` already answers. A shared normalizer library
 with no PROGRAM / FUNCTION_BLOCK / FUNCTION has no END line to mirror (pull: `unreadable`, `UNSUPPORTED`). Non-canonical
 text (CRLF, no blank line, any member order) stays ACCEPTED: the fetched text is its canonical form, and the table says so.
 
-**Migration.** None for Volt: the writer does not change, no file moves. 4.3b is ticked against this rule ((a) and (b)
+**Open, for the owner (a grammar edge case, not documented).** An EMPTY body has one spelling too few: the writer
+writes body `""` as `IMPLEMENTATION ST`, blank line, END, and body `"\n"` with three blank lines, so a pushed text with
+TWO blank lines there (one of its own, then the separator) reads as `""` and comes back with one — the pushed blank
+line is dropped. With code present (`b;`, two blank lines, END) the same lines survive. Cause: a body string cannot
+tell zero lines from one empty line, and the writer joins an empty body with no newline. Removing it changes the
+canonical text of every empty body (the 4.3b minimal-separator option would too).
+
+**Migration.** None for Volt: no file moves (no workspace file holds a CR: 0 in the corpora); the reader now reads a CR
+in a GVL or DUT as a line end (as it did in a POU), and the writer writes a CR the IDE holds as LF. 4.3b is ticked against this rule ((a) and (b)
 are rows). `plcassist-note.md`: one bullet under `fetch` — compare a pushed text against the fetched one, or against
 the `#layout` rules, never byte-for-byte against what was sent.
 

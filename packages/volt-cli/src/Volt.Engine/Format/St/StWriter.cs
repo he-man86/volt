@@ -19,6 +19,7 @@ public static class StWriter
 {
     public static string Write(ItemContent item)
     {
+        item = LfContent(item);
         var shape = ItemKind.ShapeOf(item.Kind);
         var layout = IecLayout.Of(item.Kind);
         // THE OBJECT'S PROPERTIES (openspec bridge-one-to-one §1.2): directly under its IMPLEMENTATION line where it has
@@ -81,6 +82,7 @@ public static class StWriter
     /// <c>StWriterLinesTests</c> pins every entry against the written text.</summary>
     public static IReadOnlyList<ObjectLines> Lines(ItemContent item)
     {
+        item = LfContent(item);
         var shape = ItemKind.ShapeOf(item.Kind);
         var layout = IecLayout.Of(item.Kind);
         var declared = Count(item.Declaration);
@@ -114,6 +116,28 @@ public static class StWriter
         return found;
 
         static int Count(string text) => text.Split('\n').Length;
+    }
+
+    /// <summary>THE ONE LINE-ENDING RULE on the way out (<c>wire.html#layout</c> <c>lf</c>, <see cref="StReader.LfLines"/>
+    /// on the way in): a CR the IDE holds — one a push wrote before the reader normalised every kind, or the IDE's own —
+    /// is a line end, so each text of the item is written with LF before the layout joins them. Per text, not over the
+    /// joined file: a declaration ending in CR ends in a line end of its own, which the layout's separator follows.</summary>
+    private static ItemContent LfContent(ItemContent item)
+    {
+        static string? Lf(string? text) => text is null ? null : StReader.LfLines(text);
+        static Accessor? LfAccessor(Accessor? a) => a is null ? null : a with { Declaration = Lf(a.Declaration), Body = Lf(a.Body) };
+        return item with
+        {
+            Declaration = Lf(item.Declaration)!,
+            Body = Lf(item.Body),
+            Members = item.Members.Select(m => m with
+            {
+                Declaration = Lf(m.Declaration)!,
+                Body = Lf(m.Body),
+                Getter = LfAccessor(m.Getter),
+                Setter = LfAccessor(m.Setter),
+            }).ToList(),
+        };
     }
 
     // No silent fallback — an invented `END_<KIND>` would write syntactically wrong ST into the user's repo.

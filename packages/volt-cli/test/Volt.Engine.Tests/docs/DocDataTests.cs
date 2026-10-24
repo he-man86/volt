@@ -892,6 +892,26 @@ public class DocDataTests
         return t.Name + q;
     }
 
+    // ── the canonical layout ────────────────────────────────────────────────────────────────────────
+
+    /// <summary>Every row of <see cref="StLayoutRules"/> with its example as the writer writes it (openspec
+    /// <c>wire-final-shape</c> 4.3d): <c>wire.html#layout</c> shows <c>StWriter.Write</c>'s own output, so the page cannot
+    /// drift from the writer; <c>StLayoutRulesTests</c> pins that the output holds each rule.</summary>
+    private static JsonArray BuildLayout() =>
+        new(StLayoutRules.Rows.Select(r => (JsonNode?)new JsonObject
+        {
+            ["id"] = r.Id,
+            ["rule"] = r.Rule,
+            ["example"] = Volt.Engine.Format.St.StWriter.Write(r.Example),
+            ["push"] = r.Push switch
+            {
+                StLayoutRules.PushOutcome.Canonical => "canonical",
+                StLayoutRules.PushOutcome.Kept => "kept",
+                StLayoutRules.PushOutcome.Refused => "refused",
+                _ => throw new InvalidOperationException($"{r.Id}: push outcome {r.Push} has no spelling"),
+            },
+        }).ToArray());
+
     // ── the bundle ──────────────────────────────────────────────────────────────────────────────────
 
     private static JsonObject BuildData(JsonObject spec) => new()
@@ -922,6 +942,7 @@ public class DocDataTests
         ["kinds"] = BuildKinds(),
         ["extensions"] = BuildExtensions(),
         ["objectProperties"] = BuildObjectProperties(),
+        ["layout"] = BuildLayout(),
         ["driver"] = new JsonArray(Facets.Select(f => (JsonNode?)new JsonObject
         {
             ["name"] = f.Name,

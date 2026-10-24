@@ -2530,6 +2530,74 @@ window.VOLT = {
       "means": "A GVL linked to an external file: the link type, then the path as an ST string \u2014 FileLink."
     }
   ],
+  "layout": [
+    {
+      "id": "lf",
+      "rule": "Lines end in LF, and the file ends in one LF after the item\u0027s last character. A CR is a line end wherever it stands \u2014 in a comment or a string too \u2014 and comes back as LF.",
+      "example": "VAR_GLOBAL\n\ta : INT;\nEND_VAR\n",
+      "push": "canonical"
+    },
+    {
+      "id": "declaration-only",
+      "rule": "A GVL or a DUT is its declaration, then its %-lines.",
+      "example": "TYPE E :\n(a, b);\nEND_TYPE\n%EXCLUDE_FROM_BUILD\n",
+      "push": "refused"
+    },
+    {
+      "id": "pou",
+      "rule": "A POU is its declaration, its IMPLEMENTATION line, its %-lines, then its code.",
+      "example": "FUNCTION_BLOCK a\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n%EXCLUDE_FROM_BUILD\nx := 1;\n\nEND_FUNCTION_BLOCK\n",
+      "push": "refused"
+    },
+    {
+      "id": "end-line",
+      "rule": "After the code, one blank line, then the END line that mirrors the header (END_PROGRAM, END_FUNCTION_BLOCK, END_FUNCTION).",
+      "example": "PROGRAM b\nIMPLEMENTATION ST\nb := TRUE;\n\nEND_PROGRAM\n",
+      "push": "canonical"
+    },
+    {
+      "id": "members-below",
+      "rule": "Each member of a POU follows its END line, after one blank line.",
+      "example": "FUNCTION_BLOCK a\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD m : BOOL\nIMPLEMENTATION ST\nm := TRUE;\nEND_METHOD\n",
+      "push": "canonical"
+    },
+    {
+      "id": "members-inside",
+      "rule": "An interface\u0027s members sit inside its block, each after one blank line, and one blank line precedes END_INTERFACE.",
+      "example": "INTERFACE I\n\nMETHOD m : BOOL\nEND_METHOD\n\nEND_INTERFACE\n",
+      "push": "refused"
+    },
+    {
+      "id": "member-order",
+      "rule": "Members are ordered METHOD, ACTION, PROPERTY, and by name (ordinal: uppercase before lowercase) within a kind \u2014 whatever order was pushed.",
+      "example": "FUNCTION_BLOCK a\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD a : BOOL\nIMPLEMENTATION ST\nEND_METHOD\n\nMETHOD b : BOOL\nIMPLEMENTATION ST\nEND_METHOD\n\nACTION x\nIMPLEMENTATION ST\nEND_ACTION\n\nPROPERTY p : BOOL\nGET\nIMPLEMENTATION ST\np := TRUE;\nEND_GET\nEND_PROPERTY\n",
+      "push": "canonical"
+    },
+    {
+      "id": "member",
+      "rule": "A POU\u0027s METHOD or ACTION is its declaration, its IMPLEMENTATION line, its %-lines, its code, then END_METHOD or END_ACTION on the next line: no blank line separates them, so a blank line pushed there is the code\u0027s own last line.",
+      "example": "FUNCTION_BLOCK a\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD m : BOOL\nVAR_INPUT\n\tx : BOOL;\nEND_VAR\nIMPLEMENTATION ST\n%EXCLUDE_FROM_BUILD\nm := x;\nEND_METHOD\n",
+      "push": "kept"
+    },
+    {
+      "id": "property",
+      "rule": "A POU\u0027s PROPERTY is its declaration, its %-lines, GET then SET (each: keyword, declaration, IMPLEMENTATION line, code, END_GET / END_SET), then END_PROPERTY.",
+      "example": "FUNCTION_BLOCK a\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\nPROPERTY p : INT\nGET\nVAR\nEND_VAR\nIMPLEMENTATION ST\np := 1;\nEND_GET\nSET\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_SET\nEND_PROPERTY\n",
+      "push": "canonical"
+    },
+    {
+      "id": "interface-member",
+      "rule": "An interface\u0027s METHOD is its declaration, its %-lines, then END_METHOD; an interface PROPERTY\u0027s GET and SET are each keyword, declaration, END_GET / END_SET \u2014 no IMPLEMENTATION line and no code in either.",
+      "example": "INTERFACE I\n\nMETHOD m : BOOL\n%EXCLUDE_FROM_BUILD\nEND_METHOD\n\nPROPERTY p : INT\nGET\nVAR\nEND_VAR\nEND_GET\nEND_PROPERTY\n\nEND_INTERFACE\n",
+      "push": "refused"
+    },
+    {
+      "id": "verbatim",
+      "rule": "Every other character is the item\u0027s own and comes back as pushed: inner blank lines, trailing whitespace, and the trailing newlines a declaration or a body ends with (each then followed by the line the layout puts after it).",
+      "example": "FUNCTION_BLOCK a\n\nIMPLEMENTATION ST\nx := 1;  \n\n\ny := 2;\n\n\nEND_FUNCTION_BLOCK\n",
+      "push": "kept"
+    }
+  ],
   "driver": [
     {
       "name": "IVendorSession",

@@ -111,7 +111,8 @@ public static class StReader
 			var what1 = name is null ? $"this {kind}" : $"'{name}'";
 			// The declaration VERBATIM, its own trailing newlines included (openspec bridge-one-to-one §1.1 "every character",
 			// `trailing-newline-cache`): the file holds it plus exactly ONE newline, which is all that is stripped.
-			var (props, _, declaration) = PeelPropertiesClosing(StripSeparator(sourceText), what1, 1, folderAllowed: false);
+			// Its line endings are LF like every kind's (LfLines): a CR is a line end, never the declaration's character.
+			var (props, _, declaration) = PeelPropertiesClosing(StripSeparator(LfLines(sourceText)), what1, 1, folderAllowed: false);
 			RefusePropertyLinesIn(what1, declaration);
 			return new ItemContent(kind, declaration, null, new List<Member>(), props);
 		}
@@ -1375,12 +1376,12 @@ public static class StReader
 			$"runs to its own END_{kw}. Close it with END_{kw} on a line of its own.");
 	}
 
-	private static List<string> NormalizeLines(string source)
-	{
-		// Split on \n, preserve original lines (no trailing \r).
-		var raw = source.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
-		return new List<string>(raw);
-	}
+	private static List<string> NormalizeLines(string source) => new(LfLines(source).Split('\n'));
+
+	/// <summary>THE ONE LINE-ENDING RULE, for every kind (openspec <c>wire-final-shape</c> 4.3d, <c>wire.html#layout</c>
+	/// <c>lf</c>): CRLF and a lone CR end a line exactly as LF does, wherever they stand (a comment's, a string's too), so
+	/// the text the IDE receives holds no CR. The writer applies it to what the IDE holds (<c>StWriter.LfContent</c>).</summary>
+	internal static string LfLines(string source) => source.Replace("\r\n", "\n").Replace("\r", "\n");
 
 	/// <summary>The lines in [startInclusive, endInclusive] — the ONE slicing convention in this file.
 	/// An empty or reversed range yields an empty list.</summary>

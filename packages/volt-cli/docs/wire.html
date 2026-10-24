@@ -305,6 +305,17 @@ Project Settings.projectsettings                  CODESYS: the tree root (the PO
   instruction.
 </p>
 
+<h3 id="layout">The canonical layout</h3>
+<p>
+  A <code>fetch</code> returns an item's text in one layout. Each rule states what a push of a text that breaks it
+  does: accepted and fetched in this layout; accepted and fetched as pushed, because what breaks the rule is the item's
+  own text; or refused <code>INVALID_ST</code>. Compare a pushed text against the fetched one, or against these rules,
+  never byte for byte against what was sent. A <code>sourceText</code> that starts with U+FEFF is refused
+  <code>BAD_REQUEST</code>. The examples are the writer's own output; in them <span class="ws">·</span> is a trailing
+  space and <span class="ws">⏎</span> the LF that ends a line.
+</p>
+<div data-render="layout"></div>
+
 <h2 id="build">Building</h2>
 <pre>{ "success": false, "durationMs": 2140,
   "diagnostics": [ { "name": "Device/Plc Logic/Application/FB_Motor.pou", "member": "Execute", "code": "C0046",

@@ -499,12 +499,43 @@ Connector 154, Ide.Twincat 728, Ide.Codesys 505, Repo.Gates 275, Relay 74; volt-
       `test/e2e/endpoints/create-then-refs.test.ts` — the receipt names the create and refs at once holds it at that
       version. No root fix without a reproduction; PLC Assist's next report on this release names the class
       (`unwalkedFolders`/`unreadable`) if it recurs.
-- [ ] 4.3d OWNER DECISION 2026-10-24 ("agree with both"): the canonical file layout stays; it becomes PART OF THE WIRE.
+- [x] 4.3d OWNER DECISION 2026-10-24 ("agree with both"): the canonical file layout stays; it becomes PART OF THE WIRE.
       `wire.html` (generated where the layout comes from code) states exactly what a pushed text comes back as: LF line
       endings, one blank line before each member and before the closing `END_…`, the member order, and every other rule
       the writer applies, with one example per rule. A test pins that the writer's output equals the stated layout, so
       the doc cannot drift. Pushing non-canonical text stays accepted; the fetched text is its canonical form. 4.3b is
       then ticked against this rule; PLC Assist's edit tool compares against the canonical form.
+      **Done 2026-10-24:** 10 rows in `test/Volt.Engine.Tests/format/st/StLayoutRules.cs` (`lf`, `declaration-only`,
+      `pou`, `end-line`, `members-below`, `members-inside`, `member-order`, `member`, `property`, `verbatim`), rendered
+      as `wire.html#layout` from `data.js` (`DocDataTests.BuildLayout`: each example is `StWriter.Write`'s output).
+      `StLayoutRulesTests` (31): every rule holds on the writer's output, refuses its hand-made variant, and the 4
+      layout-only variants (no blank line before END — 4.3b (a) —, none after it, member order, GET/SET order) read back
+      and write canonical. Writer unchanged; Volt.Engine.Tests 3196 pass, Volt.Repo.Gates 275 pass. `plcassist-note.md`:
+      one bullet under `fetch`.
+      **Review fixes 2026-10-24:** (1) CRLF/CR is the READER's for every kind — `StReader.LfLines`, one rule; a GVL's and
+      a DUT's declaration kept its CRs and reached the IDE as `END_VAR\r` (only POU/interface were normalised; 4.3b (b)
+      pushed only `.pou`, so it measured the reader), red first in `StLayoutRulesTests`; `lf` is now layout-only.
+      (2) `lf` no longer claims "exactly one LF": the file ends in one LF after the item's last character, and
+      `verbatim` names a declaration's own trailing newlines (28/1296 .gvl, 251/8169 .dut end `\n\n`, 381/16986 .pou
+      have a blank line before IMPLEMENTATION in the corpora); the example shows both. (3) `member`/`property` are a
+      POU's; new row `interface-member` (no IMPLEMENTATION line, no code). (5) 11 further layout-only texts pinned
+      (no final LF, extra LFs, 0/2 blank lines before a member, empty body with no blank line, interface with no blank
+      lines, CRLF/CR on POU, GVL, DUT). (4) the empty-body edge case is NOT documented: listed for the owner in
+      design.md 4.3d "Open, for the owner". 11 rows.
+      **Second review, gate 2026-10-24:** (1) the page promised every row's variant "is accepted and comes back in this
+      layout"; 6 of 11 do. `LayoutOnly` became `PushOutcome` per row (`canonical` 5: lf, end-line, members-below,
+      member-order, property; `kept` 2: member — a blank line before `END_METHOD` is the code's own last line —,
+      verbatim; `refused INVALID_ST` 4: declaration-only, pou, members-inside, interface-member), exported to `data.js`
+      as `push` and rendered as the column "a push that breaks it"; `A_push_that_breaks_the_rule_does_what_the_row_says`
+      (11) pins each. (2) `lf` holds on a FETCH too: `StWriter.LfContent` writes a CR the IDE holds as LF, per text
+      before the layout joins them (a held `END_VAR\r` is `END_VAR` + its own line end, not merged into the
+      separator); red first, 5 tests (`A_CR_the_IDE_holds_is_fetched_as_LF` ×4, `A_CR_a_member_holds_is_fetched_as_LF`).
+      0 CRs in the six corpora (30,157 files). (3) a CR in a string literal or a comment is a line end like any other —
+      stated in the `lf` row ("wherever it stands"), 0 occurrences in the corpora (niche, and one rule, not an
+      exception). (4) the examples mark whitespace: `·` per trailing space, `⏎` per LF (the final one included), in
+      `doc.js` `layoutText` + `.ws`. Volt.Engine.Tests 3221 pass (1 skip), Volt.Repo.Gates 275, Volt.Contracts.Tests 56,
+      Volt.Connector.Tests 156, Volt.Ide.Twincat.Tests 728, Volt.Ide.Codesys.Tests 505, Volt.Cli.Tests 377, volt-cli
+      `test/unit` 241; typecheck green.
 - [ ] 4.3b Round-trip fidelity, PLC Assist read/edit suite 2026-10-24 (0.1.17931, both vendors): their deterministic
       2,451-line FB (`C:UsersmarceAppDataLocalplcassist-parkolt-fidelityVltRwBig.pou.txt`, also `.lines.json`, and
       `VltRwCrlf.pou.txt` (CRLF+BOM) / `VltRwLf.pou.txt`) pushed as one `set` create, then `fetch onlyItems`: 80 of 2,451
