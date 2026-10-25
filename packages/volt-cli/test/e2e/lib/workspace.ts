@@ -352,6 +352,21 @@ export async function fetchItem(name: string): Promise<any> {
 	return { ...it, folder: folderOf(path) }
 }
 
+/**
+ * Read one item a `refs` ALREADY NAMED (the main program, found in `refs` by `mainProgram`) with `fetch` alone, for the
+ * harness's setup and restore reads. The answer's own `items` must still list it, and its `projectVersion` — the
+ * same walk's lease — guards a write that follows at once. Not for a create-then-read: `fetchItem` keeps its `refs`
+ * check for those (volt-cli-rework 3.1b). Each call saves the `refs` a `fetchItem` plus a version-less `pushOps` cost.
+ */
+export async function fetchKnown(path: string): Promise<{ item: any; projectVersion: string }> {
+	const f = await bridge.fetch({ knownItems: {}, onlyItems: [path] })
+	if (!(path in (f.items ?? {}))) throw new Error(`'${path}' is not in the items its own fetch answered`)
+	const it = f.changed.find((i: any) => i.name === path)
+	if (!it) throw new Error(`item '${path}' not in fetch`)
+	if (typeof f.projectVersion !== "string" || f.projectVersion === "") throw new Error(`fetch of '${path}' answered no projectVersion`)
+	return { item: { ...it, folder: folderOf(path) }, projectVersion: f.projectVersion }
+}
+
 export async function fetchSource(name: string): Promise<string> {
 	return (await fetchItem(name)).sourceText
 }

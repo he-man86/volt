@@ -7,7 +7,7 @@ import { landed } from "./workspace"
  */
 import { expect } from "bun:test"
 import { bridge } from "./bridge"
-import { PREFIX, applications, fetchItem, mainProgram, pushOps } from "./workspace"
+import { PREFIX, applications, fetchKnown, mainProgram, pushOps } from "./workspace"
 import { drivenApplication, drivenDiagnostics } from "./main-program"
 
 /**
@@ -40,15 +40,15 @@ export async function drivenBuild(): Promise<{ success: boolean; diagnostics: an
 export async function withMainProgramRestored<T>(body: () => Promise<T>): Promise<T> {
 	const main = await mainProgram()
 	if (!main) return body() // a library project has no main program to disturb
-	const original = (await fetchItem(main)).sourceText
+	const original = (await fetchKnown(main)).item.sourceText
 	try {
 		return await body()
 	} finally {
-		const current = await fetchItem(main)
+		const { item: current, projectVersion } = await fetchKnown(main)
 		if (current.sourceText !== original) {
 			const r = await pushOps([
 				{ op: "set", name: main, sourceText: original, ifVersion: current.version },
-			])
+			], projectVersion)
 			if (!landed(r))
 				throw new Error(
 					`could not restore '${main}' — the fixture's main program is left edited: ` +
@@ -67,12 +67,12 @@ export async function withMainProgramRestored<T>(body: () => Promise<T>): Promis
 export async function clearTestInstances(): Promise<void> {
 	const main = await mainProgram()
 	if (!main) return
-	const item = await fetchItem(main)
+	const { item, projectVersion } = await fetchKnown(main)
 	if (!item.sourceText.includes(PREFIX)) return
 	const kept = item.sourceText.split("\n").filter((l: string) => !l.includes(PREFIX))
 	const r = await pushOps([
 		{ op: "set", name: main, sourceText: kept.join("\n"), ifVersion: item.version },
-	])
+	], projectVersion)
 	if (!landed(r))
 		throw new Error(`could not clear stale test instances from '${main}': ${JSON.stringify(r.conflicts).slice(0, 300)}`)
 }
@@ -82,7 +82,7 @@ export async function clearTestInstances(): Promise<void> {
 export async function instantiate(pouName: string): Promise<void> {
 	const main = await mainProgram()
 	if (!main) return // CODESYS compiles every POU regardless; nothing to do
-	const item = await fetchItem(main)
+	const { item, projectVersion } = await fetchKnown(main)
 	const lines = item.sourceText.split("\n")
 	const endVar = lines.findIndex((l: string) => l.trim() === "END_VAR")
 	if (endVar === -1) throw new Error(`${main} has no END_VAR`)
@@ -91,7 +91,7 @@ export async function instantiate(pouName: string): Promise<void> {
 	lines.splice(endVar, 0, `\t${varName} : ${pouName};`)
 	const r = await pushOps([
 		{ op: "set", name: main, sourceText: lines.join("\n"), ifVersion: item.version },
-	])
+	], projectVersion)
 	expect(landed(r), `could not instantiate '${pouName}': ${JSON.stringify(r.conflicts)}`).toBe(true)
 }
 

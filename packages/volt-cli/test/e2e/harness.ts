@@ -50,7 +50,7 @@ export { expectRoundTrip, expectRoundTripOrRefusal, expectStable, expectNoOperan
 export { snapshot, assertDelta, libraryRoots, inLibrary, type Snapshot } from "./lib/versions"
 
 import { expect } from "bun:test"
-import { fetchItem, mainProgram, pushOps } from "./lib/workspace"
+import { fetchKnown, mainProgram, pushOps } from "./lib/workspace"
 import { clearTestInstances } from "./lib/compile"
 import { snapshot as _snapshot, versionIn, has } from "./lib/versions"
 
@@ -81,7 +81,7 @@ const _mainProgramStack: string[] = []
 export async function savePlcPrg(): Promise<void> {
 	const main = await mainProgram()
 	if (!main) return
-	_mainProgramStack.push((await fetchItem(main)).sourceText)
+	_mainProgramStack.push((await fetchKnown(main)).item.sourceText)
 }
 
 export async function restorePlcPrg(): Promise<void> {
@@ -89,9 +89,9 @@ export async function restorePlcPrg(): Promise<void> {
 	if (original === undefined) return
 	const main = await mainProgram()
 	if (!main) return
-	const current = await fetchItem(main)
+	const { item: current, projectVersion } = await fetchKnown(main)
 	if (current.sourceText === original) return
-	const r = await pushOps([{ op: "set", name: main, sourceText: original, ifVersion: current.version }])
+	const r = await pushOps([{ op: "set", name: main, sourceText: original, ifVersion: current.version }], projectVersion)
 	// The message is built ONLY on failure. `expect(cond, msg)` evaluates `msg` eagerly, and `r.conflicts` is
 	// undefined on an accepted push — so an inline `JSON.stringify(r.conflicts).slice(…)` threw on the happy path
 	// and failed every test that restores the main program.
