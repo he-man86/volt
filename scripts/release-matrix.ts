@@ -170,7 +170,7 @@ const instanceOf = (cell: Cell): string => `${RUN}-${cell.id}`
 const RUN = "release-matrix"
 function ideRun(verb: "sweep" | "check"): { status: number | null; text: string } {
 	const r = spawnSync("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", join(CLI, "scripts", "ide.ps1"), verb,
-		"-Vendor", "codesys", "-Instance", RUN, "-Run", RUN], { encoding: "utf8" })
+		"-Run", RUN], { encoding: "utf8" })
 	return { status: r.status, text: `${r.stdout ?? ""}${r.stderr ?? ""}`.trim() }
 }
 

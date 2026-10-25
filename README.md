@@ -8,7 +8,7 @@ Volt gives PLC code a git-native workflow and AI assistance: it syncs a live IDE
 
 | Package | What it is |
 |---|---|
-| `packages/volt-cli` | the single C# toolchain: the **`volt` CLI** (git-native PLC sync — `init/pull/push/status/build/show/merge`) + the in-IDE bridges (CODESYS / TwinCAT) + the tray connector, over Windows named pipes |
+| `packages/volt-cli` | the single C# toolchain: the **`volt` CLI** (git-native PLC sync — `init/pull/push/status/build/show/merge/grep`) + the in-IDE bridges (CODESYS / TwinCAT) + the tray connector, over Windows named pipes |
 | `packages/volt-lsp-iec` | TypeScript-native LSP for Structured Text (diagnostics, nav, completion, hover, …) |
 | `packages/volt-control` | UI-agnostic core (status/pull/push/health/diagnostics) shared by both frontends |
 | `packages/volt-desktop` | the standalone desktop app — connection, sync and diagnostics for one workspace |

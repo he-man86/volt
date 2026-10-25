@@ -50,6 +50,32 @@ describe("the run an invocation is in", () => {
 		expect(r).toEqual(["release-matrix", "release-matrix", "volt-cli-rework"])
 	})
 
+	it("sweep and check act on a RUN: no vendor and no instance, the run from -Run or VOLT_IDE_RUN", () => {
+		const r = ps(`@(
+			(Resolve-RunScope 'sweep' $true 'release-matrix' '' '' ''),
+			(Resolve-RunScope 'check' $false '' 'release-matrix' '' '')
+		) | ConvertTo-Json -Compress`)
+		expect(r).toEqual(["release-matrix", "release-matrix"])
+	})
+
+	it("a run verb refuses an instance or a vendor, and a run it is not told", () => {
+		expect(() => ps(`Resolve-RunScope 'sweep' $true 'release-matrix' '' 'release-matrix' '' | ConvertTo-Json`)).toThrow(
+			"sweep acts on a whole run",
+		)
+		expect(() => ps(`Resolve-RunScope 'check' $true 'release-matrix' '' '' 'codesys' | ConvertTo-Json`)).toThrow(
+			"check acts on a whole run",
+		)
+		expect(() => ps(`Resolve-RunScope 'sweep' $false '' '' '' '' | ConvertTo-Json`)).toThrow("sweep needs the run")
+	})
+
+	it("an instance verb needs its vendor, and keeps the instance's run rule", () => {
+		expect(ps(`Resolve-RunScope 'up' $false '' '' 'volt-cli-rework' 'twincat' | ConvertTo-Json`)).toBe("volt-cli-rework")
+		expect(() => ps(`Resolve-RunScope 'down' $false '' '' 'x' '' | ConvertTo-Json`)).toThrow("down needs -Vendor")
+		expect(() => ps(`Resolve-RunScope 'up' $false '' 'release-matrix' 'volt-cli-rework' 'codesys' | ConvertTo-Json`)).toThrow(
+			"instance volt-cli-rework is not in run 'release-matrix'",
+		)
+	})
+
 	it("an instance outside the run it is told it is in is refused by name", () => {
 		expect(() => ps(`Resolve-RunTag $false '' 'release-matrix' 'volt-cli-rework' | ConvertTo-Json`)).toThrow(
 			"instance volt-cli-rework is not in run 'release-matrix'",

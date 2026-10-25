@@ -35,6 +35,21 @@ function Resolve-RunTag([bool]$RunGiven, [string]$Run, [string]$EnvRun, [string]
     $tag
 }
 
+# The run an `ide.ps1` invocation acts in, by verb. `sweep` and `check` act on a WHOLE run, both vendors: they take
+# no instance and no vendor, and the run must be named (-Run or $VOLT_IDE_RUN) — a run verb with no run, or with an
+# instance or a vendor that would mean nothing to it, is refused by name. Every other verb acts on ONE instance of one
+# vendor, under Resolve-RunTag's rule.
+function Resolve-RunScope([string]$Action, [bool]$RunGiven, [string]$Run, [string]$EnvRun, [string]$Inst, [string]$Vendor) {
+    if ($Action -in @("sweep", "check")) {
+        if ($Inst -or $Vendor) { throw "$Action acts on a whole run, both vendors - name the run with -Run (or VOLT_IDE_RUN), not -Instance or -Vendor" }
+        $tag = if ($RunGiven) { $Run } else { $EnvRun }
+        if (-not $tag) { throw "$Action needs the run it acts on - name it with -Run or VOLT_IDE_RUN" }
+        return $tag
+    }
+    if (-not $Vendor) { throw "$Action needs -Vendor codesys|twincat" }
+    Resolve-RunTag $RunGiven $Run $EnvRun $Inst
+}
+
 # The running IDE processes ($Processes: objects with Pid, Name, CommandLine) whose pid is not one the run owns. No
 # process at all arrives as $null (a function's empty list), which a pipeline would carry as one process with no pid.
 function Select-Foreign($Processes, [int[]]$OwnPids) {

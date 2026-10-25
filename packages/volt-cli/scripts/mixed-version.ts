@@ -197,7 +197,7 @@ if (import.meta.main) {
 	// prefix is under `release-matrix`), else the prefix's own. A signal closes both, through the current tree's ide.ps1.
 	process.env.VOLT_IDE_RUN ??= prefix
 	const sweep = () => spawnSync("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", join(CLI, "scripts", "ide.ps1"), "sweep",
-		"-Vendor", "codesys", "-Instance", prefix, "-Run", prefix], { encoding: "utf8", stdio: "inherit" })
+		"-Run", prefix], { encoding: "utf8", stdio: "inherit" })
 	for (const sig of ["SIGINT", "SIGTERM", "SIGHUP"] as const) process.once(sig, () => { sweep(); process.exit(130) })
 	const codesys = { version: arg("--codesys-version") ?? "3.5.21.40", bits: arg("--bits") ?? "64" }
 	mkdirSync(out, { recursive: true })

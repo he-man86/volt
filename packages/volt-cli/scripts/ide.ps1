@@ -25,7 +25,7 @@
   otherwise leaves TcXaeShell's "Recovered Files" dialog for the next start, and a modal dialog blocks every COM call.
 
 .PARAMETER Action  up (default) | down | pipe | logs
-.PARAMETER Vendor  codesys | twincat
+.PARAMETER Vendor  codesys | twincat (every verb but check and sweep, which act on a whole run)
 .PARAMETER Fixture Vendor-interpreted selector for WHICH committed fixture to serve:
                      codesys — a .project path (default: test/fixtures/CodesysTestProject.<CodesysVersion>.project,
                                the project native to that version; CodesysTestProject.project where none exists)
@@ -88,7 +88,8 @@
                     instance its tag names and every `<tag>-...` one. `up` refuses to start while any CODESYS, TcXaeShell or
                     VoltBridgeTwincat runs that no instance of the run recorded, naming each by pid and command line;
                     `check` gives that answer without starting anything (exit 1 when it would refuse); `sweep` runs
-                    `down` for every instance of the run that has a record.
+                    `down` for every instance of the run that has a record. `check` and `sweep` act on a whole run, both
+                    vendors: they take -Run (or VOLT_IDE_RUN) and no -Vendor or -Instance. Every other verb needs -Vendor.
 .PARAMETER DryRun   down only: print what would be closed and what is left running, and close nothing.
 .PARAMETER Wait     Block until the pipe is SERVING and print its name. Without it `up` returns as soon as the
                     IDE is launched, which is minutes before it serves — and every caller then reinvents the
@@ -101,7 +102,7 @@
 #>
 param(
     [ValidateSet("up", "down", "logs", "pipe", "check", "sweep")] [string]$Action = "up",
-    [Parameter(Mandatory = $true)] [ValidateSet("codesys", "twincat")] [string]$Vendor,
+    [ValidateSet("", "codesys", "twincat")] [string]$Vendor = "",
     [string]$Fixture = "",
     [string]$Instance = "",
     [string]$Run = "",
@@ -138,7 +139,7 @@ $projFile = Join-Path $work "$Vendor-ide$sfx.projects"
 . (Join-Path $PSScriptRoot "ide-run.ps1")
 # What `up` says about an XAE dialog it does not answer and an XAE that exits before an attach (tested offline).
 . (Join-Path $PSScriptRoot "ide-dialogs.ps1")
-$RunTag = Resolve-RunTag $PSBoundParameters.ContainsKey("Run") $Run $env:VOLT_IDE_RUN $Instance
+$RunTag = Resolve-RunScope $Action $PSBoundParameters.ContainsKey("Run") $Run $env:VOLT_IDE_RUN $Instance $Vendor
 
 # The SDK that can target what the solution targets. "Has an SDK" is not enough — this machine carries several
 # dotnet installs and the .NET 8 one fails net10.0 with NETSDK1045 (see build-cli.ps1, same trap).
