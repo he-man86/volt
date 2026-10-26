@@ -123,7 +123,9 @@ public static class PushService
         // request order), no receipt — `newProjectVersion` is absent exactly when nothing landed.
         PushResponse RejectAll(List<PushConflict> refused, string? why = null)
         {
-            why ??= $"{refused.Count} conflicts: {string.Join(", ", refused.Take(5).Select(c => c.Name))}{(refused.Count > 5 ? "..." : "")}";
+            // Each conflict with its code and reason: the client's copy of a rejected push may be gone, and the log line is
+            // then the only record of WHY (a PLC Assist gate, 2026-10-26: "1 conflicts" alone could not be read).
+            why ??= $"{refused.Count} conflicts: {string.Join("; ", refused.Take(5).Select(c => $"{c.Name} {c.Code} {c.Reason}"))}{(refused.Count > 5 ? "..." : "")}";
             VoltLog.Info($"push {ops.Count} ops — REJECTED ({why}) ({sw.ElapsedMilliseconds}ms)");
             return new PushResponse
             {

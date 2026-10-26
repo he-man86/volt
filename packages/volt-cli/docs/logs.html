@@ -53,12 +53,12 @@
 <h2 id="lines">The lines worth knowing</h2>
 <h3 id="push-receipt">The push receipt — Info</h3>
 <pre>push 3 ops — landed [created: FooFB.pou; updated: Bar.gvl; deleted: Gone.st] (2 changed, 1 removed) (215ms)
-push 2 ops — REJECTED (2 conflicts: Bar.gvl, Baz.pou) (12ms)
+push 2 ops — REJECTED (2 conflicts: Bar.gvl STALE_ITEM_VERSION item changed since you fetched its version; Baz.pou ITEM_EXISTS expected to create new item but it already exists) (12ms)
 push 2 ops — REFUSED (stale lease) (9ms)
 push 3 ops — REFUSED at FB_Logger.pou (The name 'Log' is not valid for this object.), 2 already applied (40ms)
 push 3 ops — landed IN PART [created: E_Mode.dut, ST_Data.dut], not landed: FB_Logger.pou UNSUPPORTED (2 changed, 0 removed) (310ms)</pre>
 <p>
-  A push that landed <b>names exactly what it wrote</b>, grouped by action. A rejected one names every refused op —
+  A push that landed <b>names exactly what it wrote</b>, grouped by action. A rejected one names every refused op with its code and reason —
   nothing was written. When the live IDE refuses an op after others landed, the <code>REFUSED at</code> line says
   how many had already been applied, and the receipt line that follows says <code>landed IN PART</code> and names
   each op that did not land (the refused one with its code, every later one <code>NOT_ATTEMPTED</code>) — the line to

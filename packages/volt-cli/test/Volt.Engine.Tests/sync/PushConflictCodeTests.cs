@@ -75,6 +75,21 @@ public class PushConflictCodeTests
         Assert.Equal(ConflictCodes.ItemExists, Assert.Single(collide.Conflicts!).Code);
     }
 
+    /// <summary>THE LOG NAMES WHY A PUSH WAS REJECTED, not only which op: a client may keep no copy of a rejected
+    /// answer, and "1 conflicts: A.pou" alone could not be read (a PLC Assist gate, 2026-10-26).</summary>
+    [Fact]
+    public void A_rejected_push_logs_each_conflicts_code_and_reason()
+    {
+        var ide = new FakeIde();
+        Push(ide, new SetItemOp { Name = "A.pou", SourceText = Prg("A"), IfVersion = null });
+
+        using var capture = new LogCapture(VoltLogLevel.Info);
+        var collide = Push(ide, new SetItemOp { Name = "A.pou", SourceText = Prg("A"), IfVersion = null });
+
+        var conflict = Assert.Single(collide.Conflicts!);
+        Assert.Contains($"REJECTED (1 conflicts: A.pou {ConflictCodes.ItemExists} {conflict.Reason})", capture.Read());
+    }
+
     /// <summary>A version quoted for an item that is gone. Distinct from a stale version because there is
     /// nothing to merge with.</summary>
     [Fact]
