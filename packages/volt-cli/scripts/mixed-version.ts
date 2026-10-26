@@ -28,7 +28,7 @@
  */
 import { spawn, spawnSync } from "node:child_process"
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
-import { dirname, join, resolve } from "node:path"
+import { dirname, join, relative, resolve } from "node:path"
 import { tmpdir } from "node:os"
 import { capabilityGap, judgeCell, type Direction, type OpenRpcLike, type VerbRun } from "./mixed-version-lib"
 
@@ -72,7 +72,9 @@ function extract(tag: string, out: string): string {
 	mkdirSync(root, { recursive: true })
 	const tar = join(out, `${tag}.tar`)
 	git("archive", "--format=tar", "-o", tar, tag, "packages/volt-cli")
-	const x = spawnSync("tar", ["-xf", tar, "-C", root], { encoding: "utf8" })
+	// The archive is named RELATIVE to the extraction dir: GNU tar (Git's, first on a Git-Bash PATH) reads `C:\...` as a
+	// remote host `C`, where Windows' bsdtar reads it as a path; a relative name means the same file to both.
+	const x = spawnSync("tar", ["-xf", relative(root, tar)], { cwd: root, encoding: "utf8" })
 	if (x.status !== 0) throw new Error(`could not extract ${tar}: ${x.stderr}`)
 	rmSync(tar, { force: true })
 	return pkg
