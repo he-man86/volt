@@ -57,6 +57,7 @@ dotnet test test/Volt.Cli.Tests/                     # pipe transport + sync + b
 dotnet test test/Volt.Engine.Tests/                # shared engine
 dotnet test test/Volt.Repo.Gates/                    # gates on the repo tree itself
 bun test test/unit                                   # offline TS (no bridge)
+bun test test/windows                                # offline TS that drives Windows PowerShell (ide.ps1 cores)
 bun test test/e2e                                    # TS e2e parity suite (set VOLT_PIPE, needs a live bridge)
 pwsh scripts/build-cli.ps1                           # publish volt.exe + pipe workers + the connector bundle
 ```

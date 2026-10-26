@@ -90,6 +90,7 @@ dotnet test test/Volt.Ide.Codesys.Tests/                 # CODESYS driver, offli
 dotnet test test/Volt.Contracts.Tests/                    # the wire contracts (VoltLog, Severity)
 dotnet test test/Volt.Repo.Gates/                            # gates on the REPO, not a package (no ProjectReference)
 bun test test/unit                                          # the offline TS tests (no bridge) — volt-cli's `test` script
+bun test test/windows                                       # offline TS tests that drive Windows PowerShell (the ide.ps1 cores) — `test:windows`
 bun test test/e2e                                          # TS e2e parity suite (drives a live bridge over the pipe)
 pwsh scripts/build-cli.ps1                                 # publish volt.exe + pipe workers + the connector bundle
 ```
