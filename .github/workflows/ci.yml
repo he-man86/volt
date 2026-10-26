@@ -162,7 +162,9 @@ jobs:
           bun-version-file: package.json
       - if: matrix.culture == 'machine'
         name: volt-cli TS tests that need Windows PowerShell
-        run: bun install --frozen-lockfile && bun run --filter=@volt/cli test:windows
+        # One PowerShell start first: Windows PowerShell's FIRST start on a fresh runner (loading .NET Framework) took over
+        # 5 s on 0580289101 and timed out the first test, whose own work is milliseconds.
+        run: powershell -NoProfile -Command "exit 0" && bun install --frozen-lockfile && bun run --filter=@volt/cli test:windows
       # Every suite runs even after one fails, so a red cell names every suite it broke.
       - name: Every C# suite (${{ matrix.culture }} culture)
         shell: pwsh
