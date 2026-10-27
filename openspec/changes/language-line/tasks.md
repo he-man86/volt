@@ -1,0 +1,7 @@
+- [ ] 1.1 design.md: answer the four open points (owner review).
+- [ ] 1.2 Tell PLC Assist the new line and the release it lands in.
+- [ ] 2.1 C#: `%LANGUAGE` in `PropertyLines` (key, value grammar, order), reader + writer, refusal of the old line by name.
+- [ ] 2.2 LSP: the same key in `object-properties.ts`; lexer/format reader; the false positive of family 4 gone.
+- [ ] 3.1 Rewrite fixtures, recordings, transcripts and corpora; regenerate the fixture map and generated docs.
+- [ ] 3.2 Docs: items.html, network-text.html (current implementation only).
+- [ ] 4.1 Full suites + the release matrix.
