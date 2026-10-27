@@ -105,19 +105,24 @@ Assign item, a null input slot, a missing pin-flag list, and an unreadable Execu
 **Target.** A network body is ST that CODESYS compiles and runs as the network, and that reads back to the stored tree.
 Volt adds only `%` lines. Decided on 1.1–1.3 and the measurements below.
 
-**Revision (owner, 2026-10-27: "these are just functions", "similar to LIMIT", "the LSP knows what they are").** An
-enabled box is a call of the SAME function with `EN` as its first formal, returning ENO; its value leaves through `OUT`.
-The LSP knows it as it knows LIMIT (`frontend/types/builtins.ts`): no library file, no namespace, no network rule.
-A chain nests, as drawn:
+**Revision (owner, 2026-10-27: "these are just functions", "similar to LIMIT", "the LSP knows what they are", "like a
+MOVE_EN() and a MOVE() function", "in the end in CS they are also 2 sep blocks you choose from").** One rule: **one
+function name per element the IDE's toolbox offers.** Where CODESYS offers two elements (a box and the box with EN/ENO),
+the text has two functions, so the text alone says which element is stored and nothing is told apart by context.
+An enabled box is `<name>_EN`, `EN` first, returning ENO, its value through `OUT`. The LSP knows these functions as it
+knows LIMIT (`frontend/types/builtins.ts`): no library file, no namespace, no network rule. A chain nests, as drawn:
 
 ```
-done := MOVE(EN := MOVE(EN := c, IN := 1, OUT => x), IN := 2, OUT => y);
+done := MOVE_EN(EN := MOVE_EN(EN := c, IN := 1, OUT => x), IN := 2, OUT => y);
 ```
 
-This replaces every `IF en THEN …` row below (EN, EN chain, result pin, ENO by value, enabled comparison). CODESYS
-compiles none of it (1.2: EN/ENO refused on every call), so the exec twin (oracle 3) rewrites each enabled call into
-its `IF`, which runs the same (1.3). Open before 2.1: the pin names of an enabled keyword operator (`ADD(EN := c, …)`),
-an enabled FB's ENO, and a callee that declares its own `EN` (55 library POUs; 0 enabled in the corpus).
+This replaces every `IF en THEN …` row below (EN, EN chain, result pin, ENO by value, enabled comparison) and the
+probe's `MOVE(EN := …)`; it also ends the clash with a callee that declares its own `EN` (55 library POUs): `f(EN := …)`
+is that POU's pin, `f_EN(…)` the enabled box. CODESYS compiles none of it (1.2: EN/ENO refused on every call), so the
+exec twin (oracle 3) rewrites each `_EN` call into its `IF`, which runs the same (1.3). The same rule spells the stored
+members below where the toolbox has its own element (contact vs drawn box, negated/edge contact, negated/edge coil);
+3.0 measures the toolbox and fixes the name table, checking no name collides with a library or user POU (0 `*_EN`
+names in the LSP fixtures, 2026-10-27).
 
 ### Measurements (1.4)
 
