@@ -90,8 +90,9 @@ archived.
         a drawn box on a branch (8 with EN, 4 FBs or functions without), 5 hold contacts only.
       - EN/ENO, all 8 kinds measured (ADD, GT, MOVE, LIMIT, a user function, CTU, a user FB, EXECUTE): EN FALSE skips
         the box (an FB is not called, a function result is not assigned, the output keeps its value) and ENO = EN on
-        every scan. ENO cannot be set inside a POU: `ENO := …` in a function or FB body is a compile error
-        ("Identifier 'ENO' not defined", "'ENO' is no valid assignment target"). Twin
+        every scan. A POU that does not declare ENO cannot set it: `ENO := …` in its body is a compile error
+        ("Identifier 'ENO' not defined", "'ENO' is no valid assignment target"). A POU that declares EN/ENO as its
+        own members can (lenze-mid WSM and Dryer, 55 library POUs); 1c measured those boxes. Twin
         `IF en THEN <box>; END_IF; eno := en;` equals every trace, the EN chain (MOVE.ENO → MOVE.EN → coil) too.
         An unwired EN (Terminator) runs every scan.
       - The 130 result-pin boxes (1.1) all have EN and ENO (8 with an unwired EN, 1 fed by a mid-rung Assign): result
@@ -125,8 +126,10 @@ archived.
         builds with no message and runs as a PLAIN coil (`out := a`, not a pulse). CODESYS has no edge coil.
         Corpus 0, cases 3 (Volt's own `R_EDGE x := a;`).
       - Parallel, `Sequential`: every branch runs, the EN box on each scan the feed is TRUE (twin
-        `IF en THEN cnt(…); END_IF; out := en AND (en OR a);` equal). `BoxShortCircuit`: the box branch runs ONLY when
-        the feed is TRUE and no contact branch is TRUE, whichever branch comes first (box first or last: calls 2
+        `IF en THEN cnt(…); END_IF; out := en AND (en OR a);` equal). `BoxShortCircuit` (superseded by 1.4, which
+        measured the rule for any box: the box branch runs unless the feed and a box-free branch are both TRUE, and
+        also when the feed is FALSE; here the box's EN was the feed, so it ran only when the feed was TRUE): the box
+        branch runs ONLY when the feed is TRUE and no contact branch is TRUE, whichever branch comes first (box first or last: calls 2
         against 4; no feed: 3 against 8). Plain ST carries it as a guard: `IF en AND NOT a THEN cnt(IN := b, calls => o);
         END_IF; out := en;` (box first and box last), `IF NOT a THEN cnt(…); END_IF; out := TRUE;` (no feed), traces
         equal; the Sequential twin differs. This covers ONE shape: a single enabled FB on a branch, EN fed by the
@@ -182,7 +185,7 @@ archived.
       body's language, so the subset cannot say "contacts only in LD".
       Gate 1b: typecheck green on all 5 packages; full LSP suite with VOLT_REQUIRE_FULL=1: 10392 pass, 0 fail, 34 skip,
       428 todo (594 s). No fixture or transpiler change, so the map is not regenerated.
-- [ ] 1.4 design.md (design-first, before any code): the mapping per node kind. It must decide:
+- [x] 1.4 design.md (design-first, before any code): the mapping per node kind. It must decide:
       - EN/ENO: the `IF en THEN <box> END_IF` pattern, chains, and ENO targets; or a `%` line if ST cannot carry it;
       - the operator-chain rule (one chain = one extensible box, brackets nest);
       - wire variables: name and declaration;
@@ -196,15 +199,94 @@ archived.
       what they are, not as result pins. It takes up every design.md row that still points at 1.3.
       Every case where plain ST cannot carry a stored difference is listed with the choice made and why. The owner
       said go ahead, so the design is decided by evidence here and reported to the owner. It does not wait.
+      Done 2026-10-27 (design.md "1.4 Mapping"). Measured on CODESYS 3.5.21.40 64-bit, `ide.ps1 -Instance
+      network-text-st` on a fixture copy, closed after: 42 PROGRAMs (37 NWL-built, 5 ST-only) beside 1 to 3 candidate
+      ST twins, 10 scans in simulation, outputs plus a call log per scan (scratch, not kept). Findings:
+      - BoxShortCircuit, all 12 corpus-like box shapes: a branch holding a box runs (all its boxes, inner first) unless
+        the feed and a box-free branch are both TRUE; with the feed FALSE it runs. 1.3's EN shape follows the same rule.
+      - An enabled box without ENO read by value: under an Assign it holds (`IF en THEN x := <box>; END_IF`; AND, OR,
+        a BOOL and an INT function, ADD); a comparison is FALSE when disabled, also as another comparison's EN; any
+        other enabled box inside a box does not build ("A box with EN can be used for comparison operators only.").
+      - The four `=> ???`: stored as an extra slot past the names `['ENO']`; built that way they compile and run as the
+        plain call. Not result pins, and the 1.3 "result slot" reading was the probe's own naming.
+      - CODESYS calls a tree's FB boxes before evaluating the tree (`AND(f(a), s1(b).Q)` calls s1 first).
+      - An assignment is an expression: `out2 := (out := a) AND b;` (also `S=`, two targets, inside a call) builds and
+        runs as the mid-rung coil.
+      - 139 corpus Demux definitions, each read after it in its network.
+      Decisions: EN is `IF en THEN … END_IF`, an enabled value goes through a wire set in THEN and ELSE; wires `w1…` per
+      body, undeclared, defined once before a read; FB boxes are statements before their item; mid-rung coil is the
+      assignment expression; the label is an ST label; `=> ???` is the plain call. Stored members (runs the same,
+      RebuildLoss on rebuild): +6 rows, among them a call-free Parallel (8 in 7 networks) as its OR and the rail-fed
+      coil/wire (8) as `TRUE`. Refused by name: a Parallel with a call on a branch (5, lenze-mid; their 5 networks),
+      an enabled non-comparison box nested in a box (0, CODESYS refuses it), and the niche list (edge contact 1,
+      `???` instance 4, ENO without EN 1, lone empty leaf 1, pin/output edge and output negation 0; 1c re-files these,
+      see below). For the owner:
+      the Parallel-with-a-call guard form, brackets carrying meaning in operator chains, the wider RebuildLoss, the
+      `???` instance losing push, `%EXECUTE` as the only `%` pair. Docs only, no code: the gate runs typecheck and
+      the suite; the fixture map is not regenerated.
+      1c (review fixes, 2026-10-27, docs plus one live measurement): six findings, all fixed in design.md.
+      Measured on CODESYS 3.5.21.40 64-bit (`ide.ps1 -Instance network-text-st -CodesysCulture en`, closed after), 9
+      NWL-built PROGRAMs beside 2 to 3 ST twins, 10 scans (design.md "Measurements (1c)").
+      (1) EN/ENO the callee declares: the 1.3 sentence "ENO cannot be set inside a POU" was false (corrected above).
+      WSM's and Dryer's boxes store `En`/`Eno` false; they run as plain calls with formal pins
+      (`ef(EN := en, IN := a, ENO => t)`, equal), not as enabled boxes. A box that shows its own EN over such a
+      callee runs as the enable IF and never sets the declared EN. On the five CODESYS archives the flags agree with
+      the pin names on every other box (225). Decision: the enable is the stored flag, the pins are formals; the
+      current reader keys on the pin name (`HasEnableSlot`/`HasEnoSlot`), so 2.2 reads the flag. Dryer ("ENO without
+      EN", refused) is now spelled.
+      (2) The Parallel criterion is "a side effect on a branch" (a call, an output wired to a variable, a coil), not
+      "a call". Measured: a result-pin ADD on a branch follows the skip rule; a coil on a branch never wrote its
+      target and no twin of three is equal. Corpus 0 (the 5 side-effect branches are the 5 calls).
+      (3) Wires are named on a per-network `%WIRES w1, w2` line instead of being decided by scope; a wire name that
+      is also in scope is refused by name.
+      (4) The owner rule ("every stored shape gets a spelling") is restored; the edge contact, the `???` instance,
+      pin/output edges and negations, the Parallel with a side effect and the negated and edge coils (rebuild loss)
+      are "Open for the owner", each with what v2 spells today, not filed as niche.
+      (5) Labels: a trailing label with no statement and two labels in a row build in ST and run as the networks;
+      a jump to a disabled network's label does not build in CODESYS, so dropping a disabled network's text with its
+      label in the twin is the IDE's own behaviour.
+      (6) The 1.3 BoxShortCircuit bullet is annotated as superseded; the evidence gap (scratch probes) and the 3 of 12
+      Parallel shapes judged on call logs are stated in design.md, to be closed by 2.4's exec cases.
+      1c gate (review fixes, 2026-10-27, docs only; every finding re-checked on the recorded archives
+      `test/fixtures/nwl-corpus` and the 1c traces by scratch scripts, not kept). Five findings, all confirmed and
+      fixed in design.md:
+      (1) Unwired input pin (7 / 5 / 2): the 7 corpus pins are all LD bare-rail Terminators on boxes without `En`
+      (AHWF `WSM.EN`, 4× `fc_CamC_CP_UDT.iEN`, `fc_CamC_LS_Base2.i_xEnable`, `TOF.IN` on a Parallel branch). 1c's
+      `N15_enfb_pin_rail` shows a rail-fed pin is TRUE (`EN := TRUE` twin equal, the pin left out all FALSE). Row 75
+      now spells it `X := TRUE`, a stored member beside the rail-fed coil and Demux (4 + 4 + 7); a mapping row added;
+      the "omitted pin reads back as unwired" question for 2.2 is gone.
+      (2) Demux over an FB box (4: `R_TRIG` ×3, `Dryer`, read 2 to 6 times; enabled MOVE 1 and ADD 1 are the same
+      case for the enabled-IF form): one rule for all three wire definitions, "read twice or more is a Demux, read
+      once is the box where it is read"; `w1 := <tree>;` read once is refused by name. All 139 archive definitions are
+      read 2+ times (0 once). Reported to the owner as a grammar edge case: the read count decides the node, and a
+      Demux read once (0) has no spelling.
+      (3) A jump to a disabled network's label: the subset now states a `%DISABLED` network is not part of the
+      compiled body, so its label is no jump target and the `JMP` is CODESYS's "No such label" error (LSP parity);
+      the exec twin drops its text, label included. The 1c bullet is corrected: both twins run kept `lx:` on the next
+      network and built; a twin without the label was not run. Reported to the owner.
+      (4) Parallel with a coil on a branch: restated as "CODESYS drops the coil" (`out = en AND (a OR c)` on all 10
+      scans, computed from the stimulus; `out2` never set), shape built through the API only.
+      (5) EN/ENO counts by the stored flag: EN 225 (FB 24, unwired 36), ENO 185; on the five archives the flags agree
+      with the names on 224 boxes with an EN pin and 1074 with neither; WSM was in EN, both in ENO; neither is an
+      EN-chain link. (1.1's "EN 226 … ENO 187" above is the pin-name count.)
+      No product code, fixture or transpiler change, so no failing test applies and the map is not regenerated.
+      Gate 1c (a clean HEAD worktree, 934abd81b9): typecheck green on all 5 packages; full LSP suite with
+      VOLT_REQUIRE_FULL=1: 10392 pass, 0 fail, 34 skip, 428 todo (819 s). Two earlier runs were not green for
+      reasons outside the change: `check-size` timed out under machine load (40 s; 2.5 s alone, green), and the
+      worktree's bun store lost `vscode-languageserver-protocol` between runs (16 fail "Cannot find module";
+      `bun install` restored it).
 
 ## 2. Read-only (after language-line is archived)
 
 - [ ] 2.1 Writer: NWL → plain ST network text (behind `NetworkTextSwitch`, as LD/FBD are today). A push of an LD/FBD body is
       refused by name until section 3 ("LD/FBD push comes back with the plain-ST reader").
 - [ ] 2.2 C# reader of the plain-ST form into the NWL model (it is needed for the oracle). Round-trip oracle: every corpus and
-      fixture network → text → model gives the identical tree.
+      fixture network → text → model gives the identical tree. The model takes EN/ENO from the box's stored `En`/`Eno`
+      flags, not the pin name (1c: WSM, Dryer), and wires from the network's `%WIRES` line (read twice or more: a
+      Demux; once: the box where it is read).
 - [ ] 2.3 LSP: a network body is read by the ST front-end, plus ONE subset check (what a network may hold, refused
-      by name). No network lexer, grammar or keyword list. LSP conformance against the same case set.
+      by name). No network lexer, grammar or keyword list. LSP conformance against the same case set. A `%DISABLED`
+      network's label is no jump target (CODESYS: "No such label … within the scope of the JMP statement").
 - [ ] 2.4 Exec oracle: the corpus networks' text compiled in CODESYS as called ST bodies, 0 errors; behaviour equal on
       the exec-oracle cases.
 
