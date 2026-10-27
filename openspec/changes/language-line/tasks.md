@@ -52,3 +52,22 @@
     Relay 211, Repo.Gates 276 — all green; volt-cli bun unit 225 → 231, windows 19; volt-control 149; volt-vscode 39;
     typecheck, lint, check green. No fixture or transpiler change: map not regenerated.
 - [ ] 4.1 Full suites + the release matrix.
+  - BLOCKED (gate 2026-10-27, nothing committed): the release matrix's `mixed-version` cell is red and cannot turn
+    green without an OWNER choice. 0.1.18026 and this build both say protocol 1, yet each refuses the other's push by
+    name (current CLI → old bridge: "no `IMPLEMENTATION <ST|LD|FBD>` line … Run `volt pull`"; old CLI → new bridge: the
+    same refusal locally, after a pull that wrote `%LANGUAGE` texts), and the advice "pull again" loops. Nothing is
+    lost, but a text-format break travels over an unchanged protocol number. Choose one: (a) protocol 1 → 2 with PLC
+    Assist (proposed default: the archived `relay-protocol-tracks-wire-breaks` bump rule — "a re-meant response member
+    needs one" — reads `sourceText`'s format change as a bump; design.md "Not kept" says protocol stays 1 and would
+    change), (b) accept a refusal-by-name in the mixed-version judge, or (c) a recorded red cell. 4.1 stays unticked.
+  - To do in the next step-4 run (review findings, after the choice):
+    1. `behaviour-changes.test.ts` 4.26: KEEP the original row (GVL `VAR_GLOBAL … END_VAR\n<stmt>` with NO `%`-line,
+       written whole, read back verbatim, build reports errors at the GVL — the only live proof of the slotless path)
+       and ADD the refusal row (same text with `%LANGUAGE ST`: `INVALID_ST` naming the item and the line, refs state
+       unchanged); the file header names both. (The working tree still holds an uncommitted edit that REPLACED the
+       row with the refusal row; it must become the added row, not the replacement.)
+    2. Re-run 4.26 on every matrix cell (3.5.18.30, 3.5.21 64/32, 3.5.22, twincat-32), not only 3.5.22 + Project14;
+       the last `runs.jsonl` record is from 934abd81b9/2a0cc8648c, not the tree under review.
+    3. design.md: add the decision line — a `%LANGUAGE` line in the declaration of a kind with no body (GVL, DUT, …)
+       is refused by name (`StReader.RefusePropertyLinesIn`), as the LSP reports it (`object-properties.ts`
+       `misplacedPropertyMessage`).
