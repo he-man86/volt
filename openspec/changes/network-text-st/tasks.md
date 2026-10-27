@@ -304,7 +304,8 @@ read-only phase only; 3.0 spells them.
 
 - [ ] 3.0 100% coverage (owner, 2026-10-27: "of course we need 100% coverage in the end"; memory support-all-ld-fbd):
       every shape the IDE can store gets a plain-ST spelling — the four open-list shapes, the lone empty leaf, the
-      Demux read once, and every accept-case gap of the probe. Gate: 0 `%UNSUPPORTED` on the corpora, the TwinCAT archives
+      Demux read once, and every accept-case gap of the probe; and every stored member that is its own toolbox element
+      gets its own function name (design.md "Revision": one function per toolbox element), so a rebuilt network keeps it. Gate: 0 `%UNSUPPORTED` on the corpora, the TwinCAT archives
       and the accept cases. The v2 reader is not deleted (3.2) before this is green. Each new spelling measured in
       CODESYS first (compiles, runs as the network).
 - [ ] 3.1 Push through the new reader (NetworkPairing, the derivation, RebuildLoss as today); the full e2e suite on
