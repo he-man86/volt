@@ -106,3 +106,54 @@ Assign item, a null input slot, a missing pin-flag list, and an unreadable Execu
 **Niche, accepted loss:** the empty lone leaf (1).
 
 **Migration:** none in this step. The corpus stays v2 text until 2.1 re-pulls it through the plain-ST writer.
+
+## 1.4 Mapping: NWL → plain ST
+
+**Target.** A network body is ST that CODESYS compiles and runs as the network (1.3 twins), and that reads back to the
+stored tree. Volt adds only `%` lines. Decided on 1.1–1.3, without new measurements; the gaps are listed below.
+
+**Choice: a box is its ST form, and an edge ST cannot write inline goes through a wire.**
+- Boxes. The 14 keyword operators are infix (1.2: no call form). An unbracketed chain is one extensible box, and
+  brackets nest a box: `a AND b AND c`, `(a OR b) AND c`. Every other box is a call: positional for built-ins, formals
+  as stored otherwise (1.2). The NOT box is `NOT(a)`; a negated leaf or contact is `NOT a`.
+- EN is `IF en THEN <box>; END_IF` (1.3: equal on all 8 kinds). An EN chain is the next box inside the same IF, in
+  chain order. A result-pin box (130, all with EN) is `IF en THEN x := v * 10; END_IF`.
+- A wire is a name the network assigns and the POU's scope does not declare. Its type is its definition's type: the
+  LSP and the exec twin declare it, and the POU's declaration is never touched. It is defined once and read at least
+  once. The writer names wires `w1`, `w2`, … per network, skipping names in scope. A wire is defined in one of three ways:
+  `w := <tree>;` is a Demux (140), and is its own item;
+  `t1(IN := a, Q => w);` is a box output read once, which is how an FB box feeds a tree (93);
+  `IF en THEN <boxes>; w := v; ELSE w := FALSE; END_IF` is an enabled box read by value: `v = TRUE` is its ENO
+  (ENO = EN, 1.3; about 50 ENO-in-series reads), `v = i > 3` an enabled comparison (40; FALSE when disabled, 1.3).
+- An item is one root statement: an assignment (`:=`, `S=`, `R=`, `a := b := v`), a call, an EN `IF`, or a jump. The
+  definitions of the edge wires it reads come before it, in execution order. A leaf `t1.Q` in another statement stays a leaf.
+- Jumps: `IF c THEN JMP l; END_IF`, `IF c THEN RETURN; END_IF`, or `JMP l;` alone. A network label is an ST label, the
+  network's first statement: `l:`.
+- Network lines: `%NETWORK "title"` opens a network, `%DISABLED` follows it, `//` lines directly under them are the
+  network comment. The Execute box is `%EXECUTE` … `%END_EXECUTE` around its ST, inside its EN `IF` when EN is wired.
+- The LSP subset (one check, by name): the statements above; no FOR/WHILE/REPEAT/CASE/ELSIF or other nested IF; no
+  comment after the first statement. Full ST is allowed only inside `%EXECUTE`. A `%DISABLED` network is not checked:
+  CODESYS does not compile it.
+- Oracles: (1) model → text → model is identical on 394 corpus networks, 121 cases and 130 TC archives, except the
+  members below; (2) the LSP gives the C# reader's refusals on the case set; (3) exec: each corpus body's text builds
+  as a called ST twin with 0 errors, and the 1.3 twins become exec cases with equal traces.
+
+**Rejected:** a call form for operators (syntax error, 1.2). EN as a `%` line (the compiler would run the box
+unconditionally). ENO read as the IF condition repeated (ambiguous with a leaf of that name, e.g. `split4`). Blank lines
+as item boundaries (layout with meaning). Inline FB calls (no ST form). Pragmas `{…}` (keywords in braces, unmeasured).
+
+**Stored members, not spelled (they run the same, 1.3; pairing keeps them on an unchanged network, RebuildLoss names
+them on a rebuilt one):** contacts vs a drawn AND/OR box (15 drawn); EN present but unwired vs absent (37); a negation
+on a pin, coil or box output vs a leaf or NOT box (6 pins); an edge flag on a coil (0; CODESYS runs it as a plain coil).
+
+**Refused by name** (`%UNSUPPORTED`, kept on push):
+- Parallel (17): 1.3 measured one shape, and the three corpus shapes (a no-EN function branch, an enabled comparison,
+  several boxes) are measured before 2.1;
+- niche, accepted loss: a rail-fed coil or wire (8: `x := TRUE` is a leaf), an edge contact (1: needs an `R_TRIG`
+  instance), a `???` instance (4) and `=> ???` (4), ENO without EN (1), the lone empty leaf (1);
+- unmeasured, 0 in the corpora: an enabled non-comparison box read by value, and an Assign over an enabled arithmetic box.
+
+**For the owner:** the four stored-member rows widen today's RebuildLoss list; v2 spells `???`, so the Lenze POU loses
+push in this design; `%EXECUTE`/`%END_EXECUTE` is the only `%` pair.
+
+**Migration:** none here. 2.1 writes this form behind `NetworkTextSwitch`, and v2 stays until 3.2 deletes it.
