@@ -46,8 +46,9 @@ sent for a chunk of an id that is no longer pending, which the relay then drops.
 ## Bridge obligations
 
 - **Window, per connection:** unacked chunk bytes ≤ W. W = clamp(acked bytes over the last 5 s ÷ 5 s × 5 s, 16 KiB,
-  256 KiB), starting at 16 KiB. While the window is the limit, the measured rate is W/RTT, so W grows about 5 s/RTT
-  times per round. At 300 ms RTT it reaches the cap in 2 rounds, and a 20 MB `refs` (~3 MB gzip) takes about 4 s.
+  256 KiB), starting at 16 KiB. From a cold start the acked sum grows by at most the window it allowed, so W at most
+  doubles per round: 16, 16, 32, 64, 128, 256 KiB, the cap in 5 rounds (`ChunkWindowTests`). At 300 ms RTT that is
+  about 1.5 s, and a 20 MB `refs` (~3 MB gzip) takes about 5 s.
   On a 2 KB/s link W stays at 16 KiB.
 - Whole frames don't count against W and go out between chunks (one send lock, per message). So any frame waits at
   most about W / uplink plus one chunk: about 12 s at 2 KB/s.

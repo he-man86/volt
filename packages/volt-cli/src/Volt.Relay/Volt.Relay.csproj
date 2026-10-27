@@ -30,6 +30,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The chunk splitter and window are tested as logic, not only through a tunnel: a 5 s rate span and a 256 KiB
+         cap are arithmetic a tunnel test cannot reach in a second. -->
+    <InternalsVisibleTo Include="Volt.Relay.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Include="..\Polyfills.cs" Link="Polyfills.cs" />
   </ItemGroup>
 </Project>

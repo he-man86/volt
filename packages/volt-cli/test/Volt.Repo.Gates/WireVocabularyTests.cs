@@ -82,7 +82,7 @@ public class WireVocabularyTests
             ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Task.cs", 2),   // bridge-one-to-one §3: a TwinCAT member label, a bare `Watchdog: off`
             ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Nodes.cs", 1),   // a write into the solution's own structure, above a PLC project (multi-application-tree)
             ("Volt.Ide.Twincat/Ide/TcTaskSchedule.cs", 4),
-            ("Volt.Relay/RelayTunnel.cs", 1),
+            ("Volt.Relay/RelayTunnel.cs", 2),   // +1 a request id too long for a chunk header under the relay's maxBytes, refused before it runs (relay-chunked-results)
             ("Volt.Wire/PipeServer.cs", 3))),   // +1 a request frame that is JSON null, no envelope (wire-final-shape 4.1); +1 a request frame over MaxFrameBytes (volt-cli-rework 1.0 bug b)
         new("the IDE, or a documented Volt limit on a vendor shape, will not take it", "change the TEXT, or do it in the IDE",
             "UNSUPPORTED", At(
@@ -500,6 +500,7 @@ public class WireVocabularyTests
         ("Volt.Ide.Twincat/Ide/TcNetworkWriter.cs", 3),          // an in-place write with no archive, or no builder for an insertion; a body the guard let through
         ("Volt.Ide.Twincat/Ide/TcObjectModel.Task.cs", 1),       // SysTaskPatch let through a member it refuses
         ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 1),            // a relative path asked of a node outside its root
+        ("Volt.Relay/RelayChunks.cs", 1),                        // an answer split for an id RelayTunnel refuses at intake (IdFits)
         ("Volt.Relay/RelayTunnel.cs", 1));                       // a tunnel started twice
 
     private static readonly Regex InvariantThrow = new(

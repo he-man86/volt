@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text.Json;
 using Volt.Contracts;
 
@@ -14,8 +15,14 @@ namespace Volt.Relay
         /// <summary>Anything else well-formed — a pong, a keepalive, a field we do not know. Ignored, but it
         /// counts as traffic for the watchdog: the relay is alive.</summary>
         Ignorable,
-        /// <summary>Not parseable, or a request missing `id`. <see cref="RelayInbound.Reason"/> says why.</summary>
+        /// <summary>Not parseable, a request missing `id`, or an announcement or ack that breaks its shape.
+        /// <see cref="RelayInbound.Reason"/> says why.</summary>
         Malformed,
+        /// <summary>The relay's announcement that this connection may carry chunks (openspec relay-chunked-results).
+        /// <see cref="RelayInbound.MaxBytes"/> is set.</summary>
+        Announcement,
+        /// <summary>The relay acked one chunk. <see cref="RelayInbound.Id"/> and <see cref="RelayInbound.Seq"/> are set.</summary>
+        Ack,
     }
 
     public sealed class RelayInbound
@@ -31,6 +38,11 @@ namespace Volt.Relay
         public int? Protocol { get; set; }
         /// <summary>Set only when <see cref="Kind"/> is <see cref="RelayInboundKind.Malformed"/>.</summary>
         public string? Reason { get; set; }
+        /// <summary>Set only when <see cref="Kind"/> is <see cref="RelayInboundKind.Announcement"/>: the largest binary
+        /// message the relay takes.</summary>
+        public int? MaxBytes { get; set; }
+        /// <summary>Set only when <see cref="Kind"/> is <see cref="RelayInboundKind.Ack"/>: the chunk acked.</summary>
+        public int? Seq { get; set; }
     }
 
     /// <summary>Reading and writing the tunnel's frames.
@@ -98,8 +110,40 @@ namespace Volt.Relay
             "{\"id\":" + JsonEncode(id) + ",\"error\":{\"code\":" + JsonEncode(code) +
             ",\"message\":" + JsonEncode(message) + (data is { } d ? ",\"data\":" + d.GetRawText() : "") + "}}";
 
-        private static string JsonEncode(string value) =>
+        internal static string JsonEncode(string value) =>
             JsonSerializer.Serialize(value ?? "");
+
+        /// <summary><c>{"id":"r1","ack":2}</c>: the relay accepted chunk 2 of r1.</summary>
+        private static RelayInbound ReadAck(JsonElement root, JsonElement ack)
+        {
+            if (!root.TryGetProperty("id", out var id) || id.ValueKind != JsonValueKind.String)
+                return Malformed("an ack has no string `id`");
+            if (ack.ValueKind != JsonValueKind.Number || !ack.TryGetInt32(out var seq) || seq < 0)
+                return Malformed("an ack's `ack` is not a chunk number (a non-negative integer): " + ack.GetRawText());
+            return new RelayInbound { Kind = RelayInboundKind.Ack, Id = id.GetString()!, Seq = seq };
+        }
+
+        /// <summary><c>{"volt":"relay","chunks":{"maxBytes":8192,"ack":true}}</c>. Anything short of that shape is
+        /// refused by name, and the connection then sends whole frames: chunking on a guess about the relay's limit, or
+        /// without acks (no flow control), is worse than not chunking.</summary>
+        private static RelayInbound ReadAnnouncement(JsonElement root)
+        {
+            if (!root.TryGetProperty("chunks", out var chunks) || chunks.ValueKind != JsonValueKind.Object)
+                return Malformed("the relay's announcement has no `chunks` object");
+            if (!chunks.TryGetProperty("maxBytes", out var max) || max.ValueKind != JsonValueKind.Number ||
+                !max.TryGetInt64(out var maxBytes))
+                return Malformed("the relay's announcement has no integer `chunks.maxBytes`");
+            if (maxBytes < 1)
+                return Malformed("the relay's announcement is refused: `chunks.maxBytes` " + maxBytes.ToString(CultureInfo.InvariantCulture) +
+                                 " is not a positive integer");
+            if (!chunks.TryGetProperty("ack", out var ack) || ack.ValueKind != JsonValueKind.True)
+                return Malformed("the relay's announcement does not state `chunks.ack: true`, and chunks without acks have no flow control");
+            // Any limit over an int's range is over the window's floor too, which is what the bridge sends at most.
+            return new RelayInbound { Kind = RelayInboundKind.Announcement, MaxBytes = (int)Math.Min(maxBytes, int.MaxValue) };
+        }
+
+        private static RelayInbound Malformed(string reason) =>
+            new RelayInbound { Kind = RelayInboundKind.Malformed, Reason = reason };
 
         /// <summary>Parse one inbound frame.</summary>
         /// <remarks>Never throws. A relay that sends rubbish is a relay bug, and taking the socket down over it
@@ -125,9 +169,15 @@ namespace Volt.Relay
 
                 JsonElement opElement;
                 if (!root.TryGetProperty("op", out opElement))
+                {
+                    if (root.TryGetProperty("ack", out var ack)) return ReadAck(root, ack);
+                    if (root.TryGetProperty("volt", out var volt) && volt.ValueKind == JsonValueKind.String &&
+                        volt.GetString() == "relay")
+                        return ReadAnnouncement(root);
                     // A pong, a keepalive, something from a newer relay. Not ours to act on, and NOT an error:
                     // it still proves the relay is alive, which is what the watchdog cares about.
                     return new RelayInbound { Kind = RelayInboundKind.Ignorable };
+                }
 
                 JsonElement idElement;
                 if (!root.TryGetProperty("id", out idElement) || idElement.ValueKind != JsonValueKind.String)

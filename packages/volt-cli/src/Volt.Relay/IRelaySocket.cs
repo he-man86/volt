@@ -14,11 +14,14 @@ namespace Volt.Relay
     /// failures (a socket that dies mid-push, a relay that goes silent) are ones a real socket will not perform
     /// on request.</para>
     ///
-    /// <para>Text frames only: the protocol has no binary frame.</para></summary>
+    /// <para>Text frames, and BINARY messages for one thing: the chunks of a large terminal frame, on a connection
+    /// whose relay announced chunks (openspec relay-chunked-results).</para></summary>
     public interface IRelaySocket : IDisposable
     {
         Task ConnectAsync(Uri url, string token, CancellationToken cancellation);
         Task SendTextAsync(string text, CancellationToken cancellation);
+        /// <summary>One whole binary message: a chunk (a JSON header line, then gzip bytes).</summary>
+        Task SendBinaryAsync(byte[] message, CancellationToken cancellation);
         /// <summary>The next frame, or the relay's close WITH its status and description. The close is not a
         /// bare "gone": 1008 is how a relay turns a bridge away (`unsupported protocol N`), and a tunnel that
         /// only learns "closed" cannot tell that from a network blip.</summary>
@@ -59,6 +62,9 @@ namespace Volt.Relay
             return _socket.SendAsync(
                 new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, cancellation);
         }
+
+        public Task SendBinaryAsync(byte[] message, CancellationToken cancellation) =>
+            _socket.SendAsync(new ArraySegment<byte>(message), WebSocketMessageType.Binary, true, cancellation);
 
         public async Task<RelayReceived> ReceiveAsync(CancellationToken cancellation)
         {

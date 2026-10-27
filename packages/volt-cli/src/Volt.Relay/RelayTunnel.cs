@@ -77,7 +77,16 @@ namespace Volt.Relay
             // Set by the heartbeat when IT drops the socket, so the end line names the watchdog or the dead
             // heartbeat rather than the receive exception the drop causes.
             public volatile string? DropCause;
+            // Chunking (openspec relay-chunked-results): set by the connection's announcement, whenever it comes, and never
+            // carried to the next connection. The largest message this bridge sends (RelayChunks.MessageBytes); 0 = whole
+            // frames. SawFrame: the first relay frame has been seen, so "no announcement yet" is logged once.
+            public bool SawFrame;
+            public volatile int ChunkMaxBytes;
+            public readonly ChunkWindow Window = new ChunkWindow(() => Monotonic.Elapsed);
         }
+
+        // The window's clock: monotonic, so a wall-clock step cannot empty or inflate its 5 s rate span.
+        private static readonly Stopwatch Monotonic = Stopwatch.StartNew();
 
         public RelayTunnel(
             RelaySidecar config,
@@ -243,6 +252,7 @@ namespace Volt.Relay
                 using (var connectionDead = CancellationTokenSource.CreateLinkedTokenSource(stopping))
                 {
                     var pinger = PingLoopAsync(connectionDead.Token);
+                    var chunkSender = ChunkSendLoopAsync(conn, connectionDead.Token);
                     try
                     {
                         return await ReceiveLoopAsync(socket, conn, connectionDead.Token).ConfigureAwait(false);
@@ -254,6 +264,10 @@ namespace Volt.Relay
                         // The ping loop owns no state worth waiting on, but leaving it running would have two
                         // pingers on the next connection.
                         try { await pinger.ConfigureAwait(false); } catch { /* cancelled */ }
+                        // Every chunked answer not yet acked is abandoned with the connection, like a whole frame not
+                        // yet sent: the relay discards a partial reassembly when its socket ends.
+                        conn.Window.Close();
+                        try { await chunkSender.ConfigureAwait(false); } catch { /* cancelled */ }
                         _socket = null;
                         // In-flight requests are abandoned by contract — the relay fails them to its caller, and
                         // `ifVersion` makes the retry safe. Nothing to clean up here; the point is that we do
@@ -283,10 +297,36 @@ namespace Volt.Relay
                     Log(VoltLogLevel.Info, "relay: connected to " + _config.SafeDescription);
                 }
                 var frame = RelayFrames.Read(text);
+                // The relay announces right after it accepts `hello`, but the contract is "a connection that RECEIVED it",
+                // not "as its first frame": an announcement after a pong still turns chunking on. So the first frame can
+                // only say what is true so far.
+                if (!conn.SawFrame && frame.Kind != RelayInboundKind.Announcement)
+                    Log(VoltLogLevel.Info, "relay: no chunk announcement yet — this connection sends whole frames until the relay announces chunks");
+                conn.SawFrame = true;
 
                 switch (frame.Kind)
                 {
                     case RelayInboundKind.Ignorable:
+                        break;
+
+                    case RelayInboundKind.Announcement:
+                        if (conn.ChunkMaxBytes == 0)
+                        {
+                            conn.ChunkMaxBytes = RelayChunks.MessageBytes(frame.MaxBytes!.Value);
+                            Log(VoltLogLevel.Info, "relay: this connection chunks terminal frames over " + RelayChunks.Over +
+                                " B, at most " + conn.ChunkMaxBytes + " B per message");
+                        }
+                        else
+                            // The contract announces once per connection. A second one does not move the limit under
+                            // answers already being split by the first.
+                            Log(VoltLogLevel.Warn, "relay: ignoring a second chunk announcement — the connection keeps chunking at most " +
+                                conn.ChunkMaxBytes + " B per message");
+                        break;
+
+                    case RelayInboundKind.Ack:
+                        if (!conn.Window.Ack(frame.Id!, frame.Seq!.Value))
+                            Log(VoltLogLevel.Warn, "relay: an ack for nothing — chunk " + frame.Seq.Value + " of " + frame.Id +
+                                " is not awaiting an ack");
                         break;
 
                     case RelayInboundKind.Malformed:
@@ -325,12 +365,27 @@ namespace Volt.Relay
 
             Log(VoltLogLevel.Info, "relay: <- " + op + " (" + id + ")");
 
+            // Whether this request's answer may be chunked, fixed at intake: an announcement arriving while the op runs
+            // does not change how an answer already promised goes out.
+            var maxBytes = conn.ChunkMaxBytes;
+
             // 1. The op's own outcome, and the terminal frame that carries it. Both stay null when it never ran.
             string? outcome = null;
             string? frame = null;
             try
             {
-                if (!RelayFrames.Allowed.Contains(op))
+                if (maxBytes > 0 && !RelayChunks.IdFits(id, maxBytes))
+                {
+                    // Refused BEFORE the op runs: once a push has run, an answer that cannot be sent leaves its caller
+                    // waiting with the IDE already written. The id and the limit are both known now. This answer goes
+                    // whole: its id does not fit a chunk.
+                    var refused = BridgeErrorCodes.BadRequest;
+                    outcome = "refused " + refused;
+                    frame = RelayFrames.Error(id, refused, "the request id (" + id.Length + " characters) cannot fit a chunk header under the relay's maxBytes " +
+                        maxBytes + ", so a large answer could not be delivered; it was not run");
+                    maxBytes = 0;
+                }
+                else if (!RelayFrames.Allowed.Contains(op))
                 {
                     // Refused WITHOUT touching the pipe. `connect`/`disconnect` land here: a remote party does
                     // not get to rebind which project an engineer's IDE serves.
@@ -393,10 +448,28 @@ namespace Volt.Relay
             // 2. Delivery. The connection having gone is "abandoned": the relay has already failed the id to its
             // caller, and answering it on the next connection would answer an id nobody is waiting on. A send that
             // fails on a connection still live is a delivery failure, named as one.
+            // A large frame on a connection that announced chunks goes as acked binary chunks, and is delivered at its
+            // LAST ACK — the first real "the relay has it" this tunnel gets (a whole frame counts as sent when the OS
+            // buffer took it, which on a slow link says nothing).
             string? sendFailure = null;
+            var chunked = "";
             if (frame != null && !token.IsCancellationRequested)
             {
-                try { await SendAsync(frame, token).ConfigureAwait(false); }
+                try
+                {
+                    var size = Encoding.UTF8.GetByteCount(frame);
+                    if (maxBytes > 0 && size > RelayChunks.Over)
+                    {
+                        var messages = RelayChunks.Split(id, frame, maxBytes);
+                        chunked = ", " + size + " B as " + messages.Count + " chunks";
+                        // A chunk that could not be sent faults the delivery with its reason: a delivery failure, whether
+                        // or not the socket drop it causes has already cancelled the token. Only the window closing with
+                        // the connection (a cancellation) is "abandoned".
+                        try { await conn.Window.Enqueue(id, messages).ConfigureAwait(false); }
+                        catch (Exception ex) when (!(ex is OperationCanceledException)) { sendFailure = ex.GetType().Name + ": " + ex.Message; }
+                    }
+                    else await SendAsync(frame, token).ConfigureAwait(false);
+                }
                 catch (Exception ex) when (!token.IsCancellationRequested) { sendFailure = ex.GetType().Name + ": " + ex.Message; }
                 catch (Exception) { /* the connection went during the send: abandoned, below */ }
             }
@@ -406,7 +479,7 @@ namespace Volt.Relay
             conn.InFlight.TryRemove(id, out _);
             Log(VoltLogLevel.Info, "relay: -> " + op + " (" + id + ") " +
                 (abandoned ? "abandoned" + (outcome == null ? "" : " " + outcome) : outcome) +
-                " " + clock.ElapsedMilliseconds + "ms" +
+                " " + clock.ElapsedMilliseconds + "ms" + chunked +
                 (delivered ? "" : " delivered=no") + (sendFailure == null ? "" : " (" + sendFailure + ")"));
         }
 
@@ -463,6 +536,22 @@ namespace Volt.Relay
                     return;
                 }
 
+                // A chunk the relay has not acked within the same limit: the relay stopped taking this connection's
+                // chunks (or the network stopped carrying them) while it may still send pongs, so the inbound watchdog
+                // above never fires — and every later chunk waits behind the full window for ever.
+                var stalledConn = _connection;
+                var stalled = stalledConn?.Window.Stalled(_silenceLimit);
+                if (stalled != null)
+                {
+                    var within = (int)_silenceLimit.TotalSeconds + "s";
+                    Log(VoltLogLevel.Warn, "relay: chunk " + stalled.Seq + " of " + stalled.Id + " was not acked within " + within +
+                        " — the relay stopped acking; dropping the socket");
+                    stalledConn!.DropCause = "a chunk was not acked (chunk " + stalled.Seq + " of " + stalled.Id + " within " + within + ")";
+                    var socket = _socket;
+                    if (socket != null) { try { socket.Abort(); } catch { /* going anyway */ } }
+                    return;
+                }
+
                 // Logged at Info deliberately. A tunnel that goes quiet is the failure this whole
                 // design is about, and "when did the heartbeat stop" is the first question — it cannot
                 // be answered from a log that only records problems.
@@ -472,7 +561,11 @@ namespace Volt.Relay
             }
         }
 
-        private async Task SendAsync(string frame, CancellationToken token)
+        private Task SendAsync(string frame, CancellationToken token) =>
+            SendMessageAsync(Encoding.UTF8.GetByteCount(frame), socket => socket.SendTextAsync(frame, token), token);
+
+        /// <summary>One message (a text frame or a binary chunk) under the send lock, bounded by the silence limit.</summary>
+        private async Task SendMessageAsync(int bytes, Func<IRelaySocket, Task> sendOn, CancellationToken token)
         {
             await _sendLock.WaitAsync(token).ConfigureAwait(false);
             try
@@ -484,7 +577,7 @@ namespace Volt.Relay
                 // for ever, holding the lock — and the ping loop parks behind it, so the heartbeat AND its watchdog
                 // stop, silently. The bound is the silence limit: the relay fails a request and calls a bridge
                 // silent after the same 60 s, so a frame not out by then is lost to its caller anyway.
-                var send = socket.SendTextAsync(frame, token);
+                var send = sendOn(socket);
                 using (var bound = CancellationTokenSource.CreateLinkedTokenSource(token))
                 {
                     var first = await Task.WhenAny(send, Task.Delay(_silenceLimit, bound.Token)).ConfigureAwait(false);
@@ -492,7 +585,7 @@ namespace Volt.Relay
                     if (first != send)
                     {
                         token.ThrowIfCancellationRequested();
-                        var stalled = "a " + Encoding.UTF8.GetByteCount(frame) + "-byte frame did not go out within " +
+                        var stalled = "a " + bytes + "-byte frame did not go out within " +
                                       _silenceLimit.TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture) + "s";
                         Log(VoltLogLevel.Warn, "relay: " + stalled + " — the connection to the relay stalls; dropping it");
                         var conn = _connection;
@@ -508,6 +601,55 @@ namespace Volt.Relay
             finally
             {
                 _sendLock.Release();
+            }
+        }
+
+        /// <summary>The connection's chunk sender: takes each queued chunk the window allows and sends it as one binary
+        /// message, under the same send lock as every frame — so a ping or a small answer goes out between two chunks
+        /// and waits at most about W / uplink plus one chunk. One per connection, like the heartbeat.</summary>
+        private async Task ChunkSendLoopAsync(Connection conn, CancellationToken token)
+        {
+            try
+            {
+                while (true)
+                {
+                    await conn.Window.WaitReadyAsync(token).ConfigureAwait(false);
+                    while (conn.Window.TryTake(out var chunk))
+                    {
+                        try
+                        {
+                            await SendMessageAsync(chunk.Message.Length,
+                                socket => socket.SendBinaryAsync(chunk.Message, token), token).ConfigureAwait(false);
+                        }
+                        catch (Exception ex) when (!token.IsCancellationRequested)
+                        {
+                            // Its answer is not delivered, by name. The relay may already hold the chunks before this one,
+                            // and it has no frame that says "this id will not complete": its socket ending is how it learns
+                            // (it discards a partial reassembly then). Kept open, the relay would hold the partial answer
+                            // until its idle timeout and its caller would wait for an answer that cannot come.
+                            conn.Window.Fail(chunk, ex);
+                            // A send that stalled has already named itself and dropped the socket.
+                            if (conn.DropCause == null)
+                            {
+                                Log(VoltLogLevel.Warn, "relay: chunk " + chunk.Seq + " of " + chunk.Id + " could not be sent (" +
+                                    ex.GetType().Name + ": " + ex.Message + ") — the relay cannot complete " + chunk.Id + "; dropping the socket");
+                                conn.DropCause = "a chunk could not be sent (chunk " + chunk.Seq + " of " + chunk.Id + ": " + ex.GetType().Name + ")";
+                                var socket = _socket;
+                                if (socket != null) { try { socket.Abort(); } catch { /* going anyway */ } }
+                            }
+                            return;
+                        }
+                    }
+                }
+            }
+            catch (Exception) when (token.IsCancellationRequested) { /* connection going */ }
+            catch (Exception ex)
+            {
+                // Like the heartbeat: a dead sender would leave every chunked answer waiting for ever, unseen.
+                Log(VoltLogLevel.Error, "relay: the chunk sender died — " + ex);
+                conn.DropCause = "the chunk sender died (" + ex.GetType().Name + "): " + ex.Message;
+                var socket = _socket;
+                if (socket != null) { try { socket.Abort(); } catch { /* going anyway */ } }
             }
         }
 

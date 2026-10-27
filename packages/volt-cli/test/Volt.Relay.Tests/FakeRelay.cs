@@ -20,6 +20,9 @@ public sealed class FakeRelay
 {
     private readonly object _gate = new();
     private readonly List<string> _sentToRelay = new();
+    // BINARY messages (chunks), kept apart from the text frames: a text frame is one JSON object, a binary message is
+    // a header line plus gzip bytes, and a test that mixed them would parse gzip as JSON.
+    private readonly List<byte[]> _binaryToRelay = new();
     // What the bridge's next receive yields. A thunk, not a string, so the queue can also carry a close with its
     // status and a connection that dies without one: the three things a real socket's receive can produce.
     private readonly BlockingCollection<Func<RelayReceived>> _toBridge = new();
@@ -59,6 +62,74 @@ public sealed class FakeRelay
     public IReadOnlyList<string> Received
     {
         get { lock (_gate) return _sentToRelay.ToArray(); }
+    }
+
+    /// <summary>Every BINARY message (chunk) the bridge has sent, in order.</summary>
+    public IReadOnlyList<byte[]> ReceivedBinary
+    {
+        get { lock (_gate) return _binaryToRelay.ToArray(); }
+    }
+
+    /// <summary>Ack every chunk the moment it arrives, as a relay that keeps up does.</summary>
+    public volatile bool AutoAck;
+
+    /// <summary>Set to make a binary send fail while the connection is otherwise live.</summary>
+    public volatile Func<byte[], bool>? FailBinaryWhen;
+
+    /// <summary>The relay's announcement (relay-chunked-results): this connection may carry chunks.</summary>
+    public void Announce(int maxBytes = 8192) =>
+        Send("{\"volt\":\"relay\",\"chunks\":{\"maxBytes\":" + maxBytes + ",\"ack\":true}}");
+
+    /// <summary>Ack one chunk.</summary>
+    public void Ack(string id, int seq) => Send("{\"id\":" + JsonSerializer.Serialize(id) + ",\"ack\":" + seq + "}");
+
+    /// <summary>A chunk message split at its first newline: the JSON header line, and the gzip slice after it.</summary>
+    public static (JsonElement Header, byte[] Slice) ParseChunk(byte[] message)
+    {
+        var newline = Array.IndexOf(message, (byte)'\n');
+        if (newline < 0) throw new InvalidOperationException("a chunk with no header line");
+        using var doc = JsonDocument.Parse(new ReadOnlyMemory<byte>(message, 0, newline));
+        return (doc.RootElement.Clone(), message[(newline + 1)..]);
+    }
+
+    /// <summary>The chunks of <paramref name="id"/> received so far, in arrival order.</summary>
+    public IReadOnlyList<(JsonElement Header, byte[] Slice)> ChunksOf(string id)
+    {
+        var chunks = new List<(JsonElement, byte[])>();
+        foreach (var message in ReceivedBinary)
+        {
+            var chunk = ParseChunk(message);
+            if (chunk.Header.GetProperty("id").GetString() == id) chunks.Add(chunk);
+        }
+        return chunks;
+    }
+
+    /// <summary>Wait for every chunk of <paramref name="id"/> (seq 0 states <c>count</c>), then reassemble them as a
+    /// relay must: concatenate the slices in seq order and inflate. Returns the frame's exact UTF-8 bytes.</summary>
+    public async Task<byte[]> AwaitReassembled(string id, int timeoutMs = 15_000)
+    {
+        var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+        while (DateTime.UtcNow < deadline)
+        {
+            var chunks = ChunksOf(id);
+            if (chunks.Count > 0 && chunks[0].Header.TryGetProperty("count", out var count) && chunks.Count == count.GetInt32())
+            {
+                using var gz = new System.IO.MemoryStream();
+                for (var seq = 0; seq < chunks.Count; seq++)
+                {
+                    if (chunks[seq].Header.GetProperty("seq").GetInt32() != seq)
+                        throw new InvalidOperationException("chunk " + seq + " of " + id + " arrived out of order");
+                    gz.Write(chunks[seq].Slice);
+                }
+                gz.Position = 0;
+                using var inflate = new System.IO.Compression.GZipStream(gz, System.IO.Compression.CompressionMode.Decompress);
+                using var frame = new System.IO.MemoryStream();
+                inflate.CopyTo(frame);
+                return frame.ToArray();
+            }
+            await Task.Delay(25);
+        }
+        throw new TimeoutException("the chunks of '" + id + "' never completed within " + timeoutMs + "ms; got " + ChunksOf(id).Count);
     }
 
     public IRelaySocket NewSocket() => new Socket(this);
@@ -147,6 +218,20 @@ public sealed class FakeRelay
                 return stalled.Task;
             }
             lock (_relay._gate) _relay._sentToRelay.Add(text);
+            return Task.CompletedTask;
+        }
+
+        public Task SendBinaryAsync(byte[] message, CancellationToken cancellation)
+        {
+            if (_aborted.IsCancellationRequested) throw new OperationCanceledException();
+            if (_relay.FailBinaryWhen?.Invoke(message) == true)
+                throw new WebSocketException(WebSocketError.ConnectionClosedPrematurely);
+            lock (_relay._gate) _relay._binaryToRelay.Add(message);
+            if (_relay.AutoAck)
+            {
+                var header = ParseChunk(message).Header;
+                _relay.Ack(header.GetProperty("id").GetString()!, header.GetProperty("seq").GetInt32());
+            }
             return Task.CompletedTask;
         }
 
