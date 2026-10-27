@@ -286,7 +286,20 @@ network, and RebuildLoss names it on a rebuilt one.
 - a coil, a Demux or an input pin fed by the bare rail vs `TRUE` (4 + 4 + 7);
 - an edge flag on a coil (0; CODESYS runs a plain coil);
 - a side-effect-free Parallel vs the AND/OR it computes, and its Mode (8 Parallels in 7 networks);
-- an extra output slot past the names, including the four `???` ones (`RebuildLoss.ExtraOutputSlots`, as today).
+- an extra output slot past the names, including the four `???` ones (`RebuildLoss.ExtraOutputSlots`, as today);
+- an operand that holds an ST expression (`INT_TO_WORD(x)`, `a.Speed*10`; 20 lenze networks) vs the boxes it reads
+  back as: it runs the same (owner, 2026-10-27, gap probe 911876691e);
+- TwinCAT's unconditional jump/return value stored as an empty leaf vs the rail CODESYS stores (`JMP l;`; 2 TwinCAT
+  archives).
+
+**Gap probe (911876691e, branch `worktree-agent-a334baa03b87b3d4b`):** a prototype writer and reader round-tripped
+every recorded network: corpus 355 of 394 (90.1%) identical or stored members only; TwinCAT archives 96.6%. With the two
+stored members above, ~97%. Open-point choices it made, adopted: an enabled keyword operator is `ADD(EN := c, x, 1,
+OUT => x)` (EN first, then positional pins as stored); an enabled comparison returns its value, every other enabled box
+returns ENO; an enabled FB is `t1(EN := c, IN := a, ENO => w)`. Whether an enabled box has an ENO is read from the
+callee's declaration (3 accept cases, 0 corpus), so the reader takes the callee signatures the LSP already has.
+An unconnected input pin (Leaf `""`, 10 lenze networks) is measured in 2.1 (candidate: the pin left out, restored from
+the callee's declaration).
 
 **Refused by name** (`%UNSUPPORTED`, kept on push):
 - an enabled non-comparison box inside another box (0): CODESYS does not build it;

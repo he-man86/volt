@@ -278,8 +278,17 @@ archived.
 
 ## 2. Read-only (after language-line is archived)
 
+Owner, 2026-10-27: "go ahead with your proposals for section 2". Start from the gap probe (branch
+`worktree-agent-a334baa03b87b3d4b`, 911876691e: `test/shared/StNetworkWriter.cs`, `StNetworkReader.cs`, `StNetworkProbe.cs`
+and its three probe tests): move writer and reader into `src/` and build on them, do not rewrite from scratch. The two
+new stored members and the adopted open-point choices are in design.md ("Gap probe"). The four open-list shapes
+(Parallel with a side effect, `???` instance, edge contact, edges/negations on pins) stay `%UNSUPPORTED`.
+
 - [ ] 2.1 Writer: NWL → plain ST network text (behind `NetworkTextSwitch`, as LD/FBD are today). A push of an LD/FBD body is
-      refused by name until section 3 ("LD/FBD push comes back with the plain-ST reader").
+      refused by name until section 3 ("LD/FBD push comes back with the plain-ST reader"). Measure first, in CODESYS on
+      an `ide.ps1` fixture copy: an unconnected input pin (Leaf `""`, 10 lenze networks) left out of the call — does the
+      text compile and run as the network? If yes it is the pin left out, restored from the callee's declaration;
+      if not, `%UNSUPPORTED`.
 - [ ] 2.2 C# reader of the plain-ST form into the NWL model (it is needed for the oracle). Round-trip oracle: every corpus and
       fixture network → text → model gives the identical tree. The model takes EN/ENO from the box's stored `En`/`Eno`
       flags, not the pin name (1c: WSM, Dryer), and wires from the network's `%WIRES` line (read twice or more: a
