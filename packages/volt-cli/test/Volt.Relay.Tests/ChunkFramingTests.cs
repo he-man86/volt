@@ -189,7 +189,7 @@ public class ChunkFramingTests
         for (var i = 0; i < 1000; i++) reads.Add((Filled(16 * 1024, 2), WebSocketMessageType.Binary, false));
         reads.Add((Filled(100, 3), WebSocketMessageType.Binary, true));
 
-        var received = await RelayReceived.ReadAsync(Script(reads.ToArray()), 16 * 1024);
+        var received = await RelayReceived.ReadAsync(Script(reads.ToArray()), 16 * 1024, _ => { });
 
         Assert.Equal(ChunkAssembly.MaxBytes, received.Bytes!.Length);
         Assert.Equal(head[..ChunkAssembly.MaxBytes], received.Bytes);
@@ -201,7 +201,7 @@ public class ChunkFramingTests
     {
         var chunk = Filled(ChunkAssembly.MaxBytes, 7);
         var binary = await RelayReceived.ReadAsync(Script(
-            (chunk[..5000], WebSocketMessageType.Binary, false), (chunk[5000..], WebSocketMessageType.Binary, true)), 16 * 1024);
+            (chunk[..5000], WebSocketMessageType.Binary, false), (chunk[5000..], WebSocketMessageType.Binary, true)), 16 * 1024, _ => { });
         Assert.Equal(chunk, binary.Bytes);
         Assert.Equal(chunk.Length, binary.Length);
 
@@ -209,7 +209,49 @@ public class ChunkFramingTests
         var bytes = Encoding.UTF8.GetBytes(text);
         var frame = await RelayReceived.ReadAsync(Script(
             (bytes[..16384], WebSocketMessageType.Text, false), (bytes[16384..32768], WebSocketMessageType.Text, false),
-            (bytes[32768..], WebSocketMessageType.Text, true)), 16 * 1024);
+            (bytes[32768..], WebSocketMessageType.Text, true)), 16 * 1024, _ => { });
         Assert.Equal(text, frame.Text);
+        // A text frame's length is what arrived on the wire (relay-chunked-results §4: the end line's byte accounting).
+        Assert.Equal(bytes.Length, frame.Length);
+    }
+
+    /// <summary>§4 review: a text frame's length is the bytes that arrived, not the decoded text's UTF-8 count — they
+    /// differ where a byte is not valid UTF-8 (one 0xFF byte decodes to U+FFFD, three bytes in UTF-8).</summary>
+    [Fact]
+    public async Task A_text_frame_with_a_byte_that_is_not_utf8_has_the_length_that_arrived()
+    {
+        var bytes = new byte[] { (byte)'{', 0xFF, (byte)'}' };
+        var frame = await RelayReceived.ReadAsync(Script((bytes, WebSocketMessageType.Text, true)), 16 * 1024, _ => { });
+        Assert.Equal("{�}", frame.Text);
+        Assert.Equal(5, Encoding.UTF8.GetByteCount(frame.Text!));
+        Assert.Equal(3, frame.Length);
+    }
+
+    /// <summary>§4 review: every read's bytes are reported as they arrive, before the message is whole — so a connection
+    /// cut partway through an inbound message still counts what came over it (the case the accounting diagnoses: an ISP
+    /// that cuts a connection after ~16 KB).</summary>
+    [Fact]
+    public async Task Each_reads_bytes_are_reported_as_they_arrive_even_when_the_message_never_completes()
+    {
+        var arrived = new List<int>();
+        var first = Filled(16 * 1024, (byte)'x');
+        var reads = 0;
+        Func<ArraySegment<byte>, Task<WebSocketReceiveResult>> receive = buffer =>
+        {
+            if (reads++ > 0) throw new WebSocketException(WebSocketError.ConnectionClosedPrematurely);
+            Buffer.BlockCopy(first, 0, buffer.Array!, buffer.Offset, first.Length);
+            return Task.FromResult(new WebSocketReceiveResult(first.Length, WebSocketMessageType.Text, false));
+        };
+
+        await Assert.ThrowsAsync<WebSocketException>(() => RelayReceived.ReadAsync(receive, 16 * 1024, arrived.Add));
+        Assert.Equal(new[] { 16 * 1024 }, arrived);
+
+        // Whole messages too, binary past the kept limit included: what arrived, read by read.
+        arrived.Clear();
+        var chunk = Filled(ChunkAssembly.MaxBytes + 3000, 7);
+        var binary = await RelayReceived.ReadAsync(Script(
+            (chunk[..5000], WebSocketMessageType.Binary, false), (chunk[5000..], WebSocketMessageType.Binary, true)), 16 * 1024, arrived.Add);
+        Assert.Equal(new[] { 5000, chunk.Length - 5000 }, arrived);
+        Assert.Equal(chunk.Length, binary.Length);
     }
 }

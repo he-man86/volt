@@ -21,12 +21,15 @@ namespace Volt.Relay
         /// <summary>A binary message: whole, or — when it was longer than the bridge takes — only its first bytes, so the
         /// adapter never holds a message past the limit the bridge announced.</summary>
         public byte[]? Bytes { get; }
-        /// <summary>The binary message's length on the wire; over <see cref="Bytes"/>' length only when it was cut.</summary>
+        /// <summary>The message's payload length on the wire, text or binary (0 for a close) — the bytes that arrived, which
+        /// for a text frame with a byte that is not UTF-8 differs from its decoded text's UTF-8. A binary message's is over
+        /// <see cref="Bytes"/>' length only when it was cut.</summary>
         public long Length { get; }
         public RelayClose? Close { get; }
 
+        /// <summary>A text frame whose payload on the wire was its UTF-8.</summary>
         public static RelayReceived Frame(string text) =>
-            new RelayReceived(text ?? throw new ArgumentNullException(nameof(text)), null, 0, null);
+            new RelayReceived(text ?? throw new ArgumentNullException(nameof(text)), null, Encoding.UTF8.GetByteCount(text), null);
 
         public static RelayReceived Binary(byte[] message) =>
             new RelayReceived(null, message ?? throw new ArgumentNullException(nameof(message)), message.Length, null);
@@ -47,9 +50,13 @@ namespace Volt.Relay
         ///
         /// <para>A binary message is a chunk, which the bridge's <c>hello</c> caps at <see cref="ChunkAssembly.MaxBytes"/>:
         /// past that only its first bytes are kept (its header names the id to refuse) and the rest is read and counted, not
-        /// held, so a relay cannot make the IDE's process hold a message of any size before it is refused.</para></summary>
-        internal static async Task<RelayReceived> ReadAsync(Func<ArraySegment<byte>, Task<WebSocketReceiveResult>> receive, int readBytes)
+        /// held, so a relay cannot make the IDE's process hold a message of any size before it is refused.</para>
+        ///
+        /// <para><paramref name="arrived"/> gets each read's byte count as it arrives (see <see cref="IRelaySocket.ReceiveAsync"/>).</para></summary>
+        internal static async Task<RelayReceived> ReadAsync(
+            Func<ArraySegment<byte>, Task<WebSocketReceiveResult>> receive, int readBytes, Action<int> arrived)
         {
+            if (arrived == null) throw new ArgumentNullException(nameof(arrived));
             var buffer = new byte[readBytes];
             long length = 0;
             using (var assembled = new System.IO.MemoryStream())
@@ -64,6 +71,7 @@ namespace Volt.Relay
                             result.CloseStatusDescription);
 
                     length += result.Count;
+                    arrived(result.Count);
                     var keep = result.MessageType == WebSocketMessageType.Binary
                         ? (int)Math.Min(result.Count, Math.Max(0, ChunkAssembly.MaxBytes - assembled.Length))
                         : result.Count;
@@ -81,7 +89,8 @@ namespace Volt.Relay
                     }
                 }
 
-                return Frame(Encoding.UTF8.GetString(assembled.ToArray()));
+                // Its length is what arrived, not the decoded text's UTF-8 (they differ where a byte was not valid UTF-8).
+                return new RelayReceived(Encoding.UTF8.GetString(assembled.ToArray()), null, length, null);
             }
         }
     }

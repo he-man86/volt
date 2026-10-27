@@ -696,7 +696,7 @@ public class RelayTunnelTests : IDisposable
         var ends = EndLines(log);
         Assert.True(ends.Count == 1, "expected one end line, got:\n" + log);
         Assert.Equal(VoltLogLevel.Info, ends[0].Level);
-        Assert.Matches(@"^relay: connection on " + pipe + @" ended after \d+s — the relay closed the connection: 1001 ""going away"" \| in flight: none \| next dial in " +
+        Assert.Matches(@"^relay: connection on " + pipe + @" ended after \d+s — the relay closed the connection: 1001 ""going away"" \| in flight: none \| sent \d+ B \(largest \d+\), received \d+ B \(largest \d+\) \| next dial in " +
                        (int)wait.TotalSeconds + "s$", ends[0].Message);
         // Nothing was in flight, so no request's terminal line is written.
         Assert.DoesNotContain(log.At(VoltLogLevel.Info), l => l.StartsWith("relay: -> "));
@@ -716,7 +716,7 @@ public class RelayTunnelTests : IDisposable
         var ends = EndLines(log);
         Assert.True(ends.Count == 1, "expected one end line, got:\n" + log);
         Assert.Equal(VoltLogLevel.Warn, ends[0].Level);
-        Assert.Matches(@"^relay: connection on " + pipe + @" ended after \d+s — dropped without a close \(WebSocketException\): .+ \| in flight: none \| next dial in " +
+        Assert.Matches(@"^relay: connection on " + pipe + @" ended after \d+s — dropped without a close \(WebSocketException\): .+ \| in flight: none \| sent \d+ B \(largest \d+\), received \d+ B \(largest \d+\) \| next dial in " +
                        (int)wait.TotalSeconds + "s$", ends[0].Message);
     }
 
@@ -746,7 +746,7 @@ public class RelayTunnelTests : IDisposable
 
         var ends = EndLines(log);
         Assert.True(ends.Count == 1, "expected one end line, got:\n" + log);
-        Assert.Matches(@"^relay: connection on " + pipe + @" ended after \d+s — the watchdog dropped it \(no frame for \d+s\) \| in flight: a b \| next dial in " +
+        Assert.Matches(@"^relay: connection on " + pipe + @" ended after \d+s — the watchdog dropped it \(no frame for \d+s\) \| in flight: a b \| sent \d+ B \(largest \d+\), received \d+ B \(largest \d+\) \| next dial in " +
                        (int)wait.TotalSeconds + "s$", ends[0].Message);
         await AwaitTerminalLine(log, "a");
         await AwaitTerminalLine(log, "b");
@@ -768,8 +768,113 @@ public class RelayTunnelTests : IDisposable
 
         var ends = EndLines(log);
         Assert.True(ends.Count == 2, "expected two end lines (the drop, then the refused dial), got:\n" + log);
-        Assert.Matches(@"^relay: connection on " + pipe + @" ended before it connected — could not connect \(InvalidOperationException\): relay refused \(test\) \| in flight: none \| next dial in " +
+        Assert.Matches(@"^relay: connection on " + pipe + @" ended before it connected — could not connect \(InvalidOperationException\): relay refused \(test\) \| in flight: none \| sent 0 B \(largest 0\), received 0 B \(largest 0\) \| next dial in " +
                        (int)wait.TotalSeconds + "s$", ends[1].Message);
+    }
+
+    // ── byte accounting on the end line (openspec relay-chunked-results §4) ──
+    //
+    // To learn which limit an ISP applies (per message or per connection, up or down), the end line states the message
+    // payload bytes the connection carried each way, and the largest message. Bytes are what went over the WebSocket as
+    // message payload — a text frame in UTF-8, a binary message at its length on the wire — not TCP.
+
+    private static long Utf8(string text) => System.Text.Encoding.UTF8.GetByteCount(text);
+
+    private static string Accounting(long sent, long sentLargest, long received, long receivedLargest) =>
+        " | sent " + sent + " B (largest " + sentLargest + "), received " + received + " B (largest " + receivedLargest + ")";
+
+    [Fact]
+    public async Task The_end_line_counts_the_payload_bytes_each_way_text_in_utf8_and_binary_at_its_wire_length()
+    {
+        var log = new LogCapture();
+        var delay = new FakeDelay();
+        var (relay, _, _) = Start(out var pipe, delay: delay, log: log);
+        await relay.AwaitHello();
+
+        // Inbound, both kinds: a pong, a request whose id is not ASCII (so characters and bytes differ), and a binary
+        // message of 300,000 B of which the bridge keeps only the first 8192 — counted at its length on the wire.
+        relay.Send(RelayFrames.Pong);
+        var request = FakeRelay.RequestFrame("запрос", Ops.Health);
+        relay.Send(request);
+        await relay.AwaitFrame("запрос", "result");
+        var prefix = FakeRelay.Chunk("{\"id\":\"c1\",\"seq\":0,\"count\":1,\"bytes\":100}", new byte[ChunkAssembly.MaxBytes])[..ChunkAssembly.MaxBytes];
+        relay.SendOversizedBinary(prefix, 300_000);
+        await relay.AwaitFrame("c1", "error");
+        var deadline = DateTime.UtcNow.AddSeconds(15);
+        while (relay.AcksFrom("c1").Count == 0 && DateTime.UtcNow < deadline) await Task.Delay(25);
+        Assert.Single(relay.AcksFrom("c1"));
+
+        // A close is not a message: it is not counted.
+        relay.Close(1001, "going away");
+        var wait = await delay.NextWait();
+
+        var sent = relay.Received.Select(Utf8).ToList();
+        Assert.Empty(relay.ReceivedBinary);
+        var received = new List<long> { Utf8(RelayFrames.Pong), Utf8(request), 300_000 };
+        var ends = EndLines(log);
+        Assert.True(ends.Count == 1, "expected one end line, got:\n" + log);
+        Assert.Equal("relay: connection on " + pipe + " ended after 0s — the relay closed the connection: 1001 \"going away\" | in flight: none" +
+                     Accounting(sent.Sum(), sent.Max(), received.Sum(), received.Max()) +
+                     " | next dial in " + (int)wait.TotalSeconds + "s",
+            System.Text.RegularExpressions.Regex.Replace(ends[0].Message, @"ended after \d+s", "ended after 0s"));
+    }
+
+    /// <summary>§4 review: received bytes are counted as each read arrives, not when a message is whole — so a connection
+    /// cut partway through an inbound message (the field: an ISP cutting after ~16 KB) states the bytes that came over it,
+    /// and the cut message, the largest that arrived, is the largest.</summary>
+    [Fact]
+    public async Task A_message_cut_partway_counts_the_bytes_that_arrived_before_the_cut()
+    {
+        var log = new LogCapture();
+        var delay = new FakeDelay();
+        var (relay, _, _) = Start(out _, delay: delay, log: log);
+        await relay.AwaitHello();
+
+        relay.Send(RelayFrames.Pong);
+        relay.DieMidMessage(16 * 1024);
+        await delay.NextWait();
+
+        var ends = EndLines(log);
+        Assert.True(ends.Count == 1, "expected one end line, got:\n" + log);
+        Assert.Contains("received " + (Utf8(RelayFrames.Pong) + 16 * 1024) + " B (largest " + 16 * 1024 + ") | next dial in ", ends[0].Message);
+    }
+
+    [Fact]
+    public async Task Each_connection_counts_only_its_own_bytes_and_a_dial_that_never_connected_counts_none()
+    {
+        var log = new LogCapture();
+        var delay = new FakeDelay();
+        var (relay, _, _) = Start(out var pipe, delay: delay, log: log);
+        await relay.AwaitHello();
+
+        relay.Send(RelayFrames.Pong);
+        var deadline = DateTime.UtcNow.AddSeconds(15);
+        while (!log.Lines.Any(l => l.Message.StartsWith("relay: connected to ")) && DateTime.UtcNow < deadline) await Task.Delay(25);
+        relay.DieWithoutClose();
+        await delay.NextWait();
+        var hellos = relay.Received.ToList();
+        Assert.Single(hellos);
+
+        // The second connection: its own hello out, nothing in, then the relay closes.
+        delay.Release();
+        deadline = DateTime.UtcNow.AddSeconds(15);
+        while (relay.Received.Count < 2 && DateTime.UtcNow < deadline) await Task.Delay(25);
+        relay.Close(1001, "going away");
+        await delay.NextWait();
+
+        // The third dial is refused: it carried nothing either way.
+        relay.RefuseConnect = true;
+        delay.Release();
+        await delay.NextWait();
+
+        var ends = EndLines(log);
+        Assert.True(ends.Count == 3, "expected three end lines, got:\n" + log);
+        var hello1 = Utf8(relay.Received[0]);
+        var hello2 = Utf8(relay.Received[1]);
+        Assert.Contains(" | in flight: none" + Accounting(hello1, hello1, Utf8(RelayFrames.Pong), Utf8(RelayFrames.Pong)) + " | next dial in ", ends[0].Message);
+        Assert.Contains(" | in flight: none" + Accounting(hello2, hello2, 0, 0) + " | next dial in ", ends[1].Message);
+        Assert.Matches(@"^relay: connection on " + pipe + @" ended before it connected — could not connect \(InvalidOperationException\): relay refused \(test\)" +
+                       System.Text.RegularExpressions.Regex.Escape(" | in flight: none" + Accounting(0, 0, 0, 0)) + @" \| next dial in \d+s$", ends[2].Message);
     }
 
     // ── a deliberate stop closes (openspec bridge-close-frame) ────
@@ -836,8 +941,12 @@ public class RelayTunnelTests : IDisposable
                 @"^relay: a \d+-byte frame did not go out within \d+(\.\d+)?s — the connection to the relay stalls; dropping it$")), "expected one stall line, got:\n" + log);
         var ends = EndLines(log);
         Assert.True(ends.Count == 1, "expected one end line, got:\n" + log);
-        Assert.Matches(@"^relay: connection on " + pipe + @" ended after \d+s — a send stalled \(a \d+-byte frame did not go out within \d+(\.\d+)?s\) \| in flight: (r1|none) \| next dial in " +
+        Assert.Matches(@"^relay: connection on " + pipe + @" ended after \d+s — a send stalled \(a \d+-byte frame did not go out within \d+(\.\d+)?s\) \| in flight: (r1|none) \| sent \d+ B \(largest \d+\), received \d+ B \(largest \d+\) \| next dial in " +
                        (int)wait.TotalSeconds + "s$", ends[0].Message);
+        // §4 review: the stalled frame carried nothing the relay can have counted, so `sent` is exactly what reached it
+        // (the fake keeps a stalled frame out of Received), and the largest is not the stalled frame either.
+        var sent = relay.Received.Select(Utf8).ToList();
+        Assert.Contains(" | sent " + sent.Sum() + " B (largest " + sent.Max() + "), received ", ends[0].Message);
         var line = await AwaitTerminalLine(log, "r1");
         Assert.Matches(@"^relay: -> refs \(r1\) (ok \d+ms delivered=no \(TimeoutException: .+\)|abandoned ok \d+ms delivered=no)$", line);
     }

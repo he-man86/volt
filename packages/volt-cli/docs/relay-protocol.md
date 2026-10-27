@@ -183,10 +183,15 @@ Reconnecting is the bridge's job; a relay does nothing to encourage it. What the
 ends a connection, and the bridge reads that choice.
 
 Every end is ONE log line, whatever ended it:
-`relay: connection on <pipe> ended after <N>s — <cause> | in flight: <ids or none> | next dial in <N>s`
+`relay: connection on <pipe> ended after <N>s — <cause> | in flight: <ids or none> | sent <B> B (largest <B>), received <B> B (largest <B>) | next dial in <N>s`
 (`ended before it connected` when the dial itself failed). The pipe name embeds the bridge's pid, which is what
 tells two processes apart in one vendor's log file. The ids are the requests still open when the connection went;
-each also gets its own `abandoned` terminal line (see "The bridge log" below).
+each also gets its own `abandoned` terminal line (see "The bridge log" below). `sent` and `received` are the message
+payload bytes the connection carried each way — a text frame in UTF-8, a binary message at its length on the wire, a
+close not counted — and the largest single message; a dial that never connected carried `0 B (largest 0)`.
+`received` counts each read as it arrives, so a message the connection lost partway counts the bytes that came.
+`sent` counts a message once the bridge's socket took it whole: a send that failed or stalled counts nothing, and a
+counted message was handed to the operating system, not proven delivered.
 
 | How the connection ended | Level and `<cause>` | Next dial |
 | --- | --- | --- |

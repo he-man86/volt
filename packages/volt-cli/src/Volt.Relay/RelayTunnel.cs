@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Net.WebSockets;
 using System.Text.Json;
@@ -55,14 +56,13 @@ namespace Volt.Relay
         // through here.
         private readonly SemaphoreSlim _sendLock = new SemaphoreSlim(1, 1);
 
-        private IRelaySocket? _socket;
         private DateTime _lastInboundUtc;
         // Whether the relay sent this connection any frame at all. A field rather than a return value because it
         // must survive the connection ending in an exception (a 1006 after a week of service still earns the
         // backoff reset). Written and read only on the reconnect loop's own async flow.
         private bool _accepted;
-        // The connection being served (or dialed): what its end line reports. Replaced per dial on the reconnect
-        // loop's own flow; the heartbeat writes only its DropCause.
+        // The connection being served (or dialed): what its end line reports, and its socket while it is open. Replaced
+        // per dial on the reconnect loop's own flow; the heartbeat writes only its DropCause.
         private Connection? _connection;
         private Task? _loop;
 
@@ -86,6 +86,50 @@ namespace Volt.Relay
             // The relay's chunked requests being reassembled. Per connection on purpose: a partial request dies with its
             // connection and is never served (openspec relay-chunked-results, the mirror image).
             public readonly ChunkAssembly Assembly = new ChunkAssembly();
+            // Byte accounting (openspec relay-chunked-results §4), for the end line: the message payload bytes this
+            // connection carried each way — a text frame in UTF-8, a binary message at its length on the wire, a close not
+            // at all — and the largest message. What tells a per-message limit from a per-connection one, up or down.
+            // Received bytes count read by read as they arrive (a message cut partway counts what came); sent bytes count
+            // when the socket took the whole message (a send that failed or stalled counts nothing).
+            public readonly ByteCount Sent = new ByteCount();
+            // The open socket: set once it is made, cleared when the connection ends. Read with its connection, so a send
+            // counts against the connection it went out on (§4).
+            public volatile IRelaySocket? Socket;
+            public readonly ByteCount Received = new ByteCount();
+        }
+
+        /// <summary>One direction's message payload bytes: the total and the largest message, the one in progress
+        /// included. Interlocked, because the end line reads it on the reconnect loop while a send that raced the
+        /// connection's end may still count. One writer per direction (the receive loop; sends under the send lock).</summary>
+        private sealed class ByteCount
+        {
+            private long _total;
+            private long _largest;
+            private long _current;
+
+            /// <summary>Bytes of the message in progress arrived (or went out).</summary>
+            public void Carried(int bytes)
+            {
+                Interlocked.Add(ref _total, bytes);
+                var current = Interlocked.Add(ref _current, bytes);
+                long seen;
+                while (current > (seen = Interlocked.Read(ref _largest)))
+                    if (Interlocked.CompareExchange(ref _largest, current, seen) == seen) break;
+            }
+
+            /// <summary>The message in progress is whole; the next one starts at 0.</summary>
+            public void MessageEnded() => Interlocked.Exchange(ref _current, 0);
+
+            /// <summary>One whole message.</summary>
+            public void Message(int bytes)
+            {
+                Carried(bytes);
+                MessageEnded();
+            }
+
+            public override string ToString() =>
+                Interlocked.Read(ref _total).ToString(CultureInfo.InvariantCulture) + " B (largest " +
+                Interlocked.Read(ref _largest).ToString(CultureInfo.InvariantCulture) + ")";
         }
 
         // The window's clock: monotonic, so a wall-clock step cannot empty or inflate its 5 s rate span.
@@ -142,9 +186,11 @@ namespace Volt.Relay
             {
                 RelayClose? close = null;
                 Exception? ended = null;
+                // Made here, not in the dial: every end line has its connection's own facts, a dial that never connected too.
+                var conn = new Connection();
                 try
                 {
-                    close = await RunOneConnectionAsync(stopping).ConfigureAwait(false);
+                    close = await RunOneConnectionAsync(conn, stopping).ConfigureAwait(false);
                     // A close is still a disconnect, so back off: an immediate redial against a relay that is
                     // refusing is a hot loop against someone else's server.
                 }
@@ -169,7 +215,6 @@ namespace Volt.Relay
                 TimeSpan baseWait;
                 VoltLogLevel level;
                 string cause;
-                var conn = _connection;
                 if (close != null && close.IsPolicyRefusal)
                 {
                     // The relay will not serve this bridge, and redialing cannot change its mind — only a new
@@ -187,9 +232,9 @@ namespace Volt.Relay
                     backoff = doubled > BackoffCeiling ? BackoffCeiling : doubled;
                     level = VoltLogLevel.Warn;
                     if (close != null) { level = VoltLogLevel.Info; cause = "the relay closed the connection: " + close; }
-                    else if (conn?.DropCause != null) cause = conn.DropCause;
+                    else if (conn.DropCause != null) cause = conn.DropCause;
                     else if (ended == null) cause = "the receive loop ended with no close";
-                    else if (conn?.ConnectedUtc == null)
+                    else if (conn.ConnectedUtc == null)
                         // A refused upgrade (401/403) lands here; the platform's message names the HTTP status
                         // where it reports one.
                         cause = "could not connect (" + ended.GetType().Name + "): " + ended.Message;
@@ -224,27 +269,29 @@ namespace Volt.Relay
         }
 
         /// <summary>The ONE line a connection end gets: the pipe it served (the name embeds the pid, and one log
-        /// file holds every process of a vendor), its age, its cause, the ids it abandoned and the next dial.</summary>
-        private string EndLine(Connection? conn, string cause, TimeSpan nextDial)
+        /// file holds every process of a vendor), its age, its cause, the ids it abandoned, the bytes it carried each way
+        /// (openspec relay-chunked-results §4) and the next dial.</summary>
+        private string EndLine(Connection conn, string cause, TimeSpan nextDial)
         {
-            var connected = conn?.ConnectedUtc;
+            var connected = conn.ConnectedUtc;
             var age = connected == null
                 ? "before it connected"
                 : "after " + (int)(DateTime.UtcNow - connected.Value).TotalSeconds + "s";
-            var inFlight = conn == null || conn.InFlightAtEnd.Length == 0 ? "none" : string.Join(" ", conn.InFlightAtEnd);
+            var inFlight = conn.InFlightAtEnd.Length == 0 ? "none" : string.Join(" ", conn.InFlightAtEnd);
+            // A dial that never connected carried nothing, and says so in the same form: sent 0 B (largest 0).
             return "relay: connection on " + _pipeName + " ended " + age + " — " + cause +
-                   " | in flight: " + inFlight + " | next dial in " + (int)nextDial.TotalSeconds + "s";
+                   " | in flight: " + inFlight + " | sent " + conn.Sent + ", received " + conn.Received +
+                   " | next dial in " + (int)nextDial.TotalSeconds + "s";
         }
 
         /// <summary>Serve one connection. Returns the relay's close, or null when it ended any other way.</summary>
-        private async Task<RelayClose?> RunOneConnectionAsync(CancellationToken stopping)
+        private async Task<RelayClose?> RunOneConnectionAsync(Connection conn, CancellationToken stopping)
         {
             _accepted = false;
-            var conn = new Connection();
             _connection = conn;
             using (var socket = _socketFactory())
             {
-                _socket = socket;
+                conn.Socket = socket;
                 await socket.ConnectAsync(new Uri(_config.Url), _config.Token, stopping).ConfigureAwait(false);
                 // The socket is open; the relay has accepted nothing yet. "connected" is logged on its first frame.
                 conn.ConnectedUtc = DateTime.UtcNow;
@@ -271,7 +318,7 @@ namespace Volt.Relay
                         // yet sent: the relay discards a partial reassembly when its socket ends.
                         conn.Window.Close();
                         try { await chunkSender.ConfigureAwait(false); } catch { /* cancelled */ }
-                        _socket = null;
+                        conn.Socket = null;
                         // In-flight requests are abandoned by contract — the relay fails them to its caller, and
                         // `ifVersion` makes the retry safe. Nothing to clean up here; the point is that we do
                         // NOT try to answer them on the next connection, which would answer an id the relay has
@@ -286,7 +333,8 @@ namespace Volt.Relay
         {
             while (!token.IsCancellationRequested)
             {
-                var received = await socket.ReceiveAsync(token).ConfigureAwait(false);
+                var received = await socket.ReceiveAsync(conn.Received.Carried, token).ConfigureAwait(false);
+                conn.Received.MessageEnded();
                 // Handed up, not logged here: what the close MEANS (an ordinary end, or a refusal that sets the
                 // next dial an hour out) is the reconnect policy's call, and it logs the close with that verdict.
                 if (received.Close != null) return received.Close;
@@ -580,7 +628,7 @@ namespace Volt.Relay
                 if (conn != null) conn.DropCause = "the heartbeat died (" + ex.GetType().Name + "): " + ex.Message;
                 // Take the socket with it. A connection with no heartbeat is not a connection; dropping it
                 // forces the reconnect that gets us a working one.
-                var socket = _socket;
+                var socket = conn?.Socket;
                 if (socket != null) { try { socket.Abort(); } catch { /* going anyway */ } }
             }
         }
@@ -600,7 +648,7 @@ namespace Volt.Relay
                     Log(VoltLogLevel.Warn, "relay: no frame for " + (int)_silenceLimit.TotalSeconds + "s — dropping the socket");
                     var conn = _connection;
                     if (conn != null) conn.DropCause = "the watchdog dropped it (no frame for " + (int)_silenceLimit.TotalSeconds + "s)";
-                    var socket = _socket;
+                    var socket = conn?.Socket;
                     if (socket != null) { try { socket.Abort(); } catch { /* going anyway */ } }
                     return;
                 }
@@ -616,7 +664,7 @@ namespace Volt.Relay
                     Log(VoltLogLevel.Warn, "relay: chunk " + stalled.Seq + " of " + stalled.Id + " was not acked within " + within +
                         " — the relay stopped acking; dropping the socket");
                     stalledConn!.DropCause = "a chunk was not acked (chunk " + stalled.Seq + " of " + stalled.Id + " within " + within + ")";
-                    var socket = _socket;
+                    var socket = stalledConn.Socket;
                     if (socket != null) { try { socket.Abort(); } catch { /* going anyway */ } }
                     return;
                 }
@@ -639,8 +687,11 @@ namespace Volt.Relay
             await _sendLock.WaitAsync(token).ConfigureAwait(false);
             try
             {
-                var socket = _socket;
-                if (socket == null) throw new RelaySocketGoneException();
+                // The socket and the connection it belongs to, read as one: a send counts against the connection it went
+                // out on, even when a redial replaces the connection while it is pending (§4).
+                var sentOn = _connection;
+                var socket = sentOn?.Socket;
+                if (sentOn == null || socket == null) throw new RelaySocketGoneException();
                 // Bounded (openspec refs-silent-after-scan). A network that stops carrying a large frame without
                 // resetting the flow (the field: one ISP dropped every frame over ~16 KB) leaves this send pending
                 // for ever, holding the lock — and the ping loop parks behind it, so the heartbeat AND its watchdog
@@ -657,8 +708,7 @@ namespace Volt.Relay
                         var stalled = "a " + bytes + "-byte frame did not go out within " +
                                       _silenceLimit.TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture) + "s";
                         Log(VoltLogLevel.Warn, "relay: " + stalled + " — the connection to the relay stalls; dropping it");
-                        var conn = _connection;
-                        if (conn != null) conn.DropCause = "a send stalled (" + stalled + ")";
+                        sentOn.DropCause = "a send stalled (" + stalled + ")";
                         // Observed, so the abort's fault on the pending send is not an unobserved exception.
                         _ = send.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
                         try { socket.Abort(); } catch { /* going anyway */ }
@@ -666,6 +716,8 @@ namespace Volt.Relay
                     }
                 }
                 await send.ConfigureAwait(false);
+                // Counted once it went out: a send that failed or stalled carried nothing the relay can have counted.
+                sentOn.Sent.Message(bytes);
             }
             finally
             {
@@ -703,7 +755,7 @@ namespace Volt.Relay
                                 Log(VoltLogLevel.Warn, "relay: chunk " + chunk.Seq + " of " + chunk.Id + " could not be sent (" +
                                     ex.GetType().Name + ": " + ex.Message + ") — the relay cannot complete " + chunk.Id + "; dropping the socket");
                                 conn.DropCause = "a chunk could not be sent (chunk " + chunk.Seq + " of " + chunk.Id + ": " + ex.GetType().Name + ")";
-                                var socket = _socket;
+                                var socket = conn.Socket;
                                 if (socket != null) { try { socket.Abort(); } catch { /* going anyway */ } }
                             }
                             return;
@@ -717,7 +769,7 @@ namespace Volt.Relay
                 // Like the heartbeat: a dead sender would leave every chunked answer waiting for ever, unseen.
                 Log(VoltLogLevel.Error, "relay: the chunk sender died — " + ex);
                 conn.DropCause = "the chunk sender died (" + ex.GetType().Name + "): " + ex.Message;
-                var socket = _socket;
+                var socket = conn.Socket;
                 if (socket != null) { try { socket.Abort(); } catch { /* going anyway */ } }
             }
         }
@@ -748,7 +800,7 @@ namespace Volt.Relay
 
         public void Dispose()
         {
-            var socket = _socket;
+            var socket = _connection?.Socket;
             // The close goes out BEFORE the stop cancels: cancelling a pending ClientWebSocket receive aborts the
             // socket, and the frame would never leave. Bounded twice — the token for a socket that honours it,
             // the Wait for one that does not.

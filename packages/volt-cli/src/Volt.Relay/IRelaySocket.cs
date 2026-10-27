@@ -25,8 +25,11 @@ namespace Volt.Relay
         Task SendBinaryAsync(byte[] message, CancellationToken cancellation);
         /// <summary>The next frame (text, or a binary chunk of a request), or the relay's close WITH its status and description. The close is not a
         /// bare "gone": 1008 is how a relay turns a bridge away (`unsupported protocol N`), and a tunnel that
-        /// only learns "closed" cannot tell that from a network blip.</summary>
-        Task<RelayReceived> ReceiveAsync(CancellationToken cancellation);
+        /// only learns "closed" cannot tell that from a network blip.
+        /// <para><paramref name="arrived"/> is called with each read's payload bytes as they arrive, before the message is
+        /// whole: a message the connection loses partway still counts what came over it (the end line's byte accounting,
+        /// openspec relay-chunked-results §4).</para></summary>
+        Task<RelayReceived> ReceiveAsync(Action<int> arrived, CancellationToken cancellation);
         /// <summary>Send a Close frame and do not wait for the relay's answer — a deliberate stop's goodbye, so
         /// the relay can tell it from a drop (openspec bridge-close-frame). The caller bounds the wait.</summary>
         Task CloseOutputAsync(int status, string reason, CancellationToken cancellation);
@@ -67,8 +70,8 @@ namespace Volt.Relay
         public Task SendBinaryAsync(byte[] message, CancellationToken cancellation) =>
             _socket.SendAsync(new ArraySegment<byte>(message), WebSocketMessageType.Binary, true, cancellation);
 
-        public Task<RelayReceived> ReceiveAsync(CancellationToken cancellation) =>
-            RelayReceived.ReadAsync(buffer => _socket.ReceiveAsync(buffer, cancellation), ChunkBytes);
+        public Task<RelayReceived> ReceiveAsync(Action<int> arrived, CancellationToken cancellation) =>
+            RelayReceived.ReadAsync(buffer => _socket.ReceiveAsync(buffer, cancellation), ChunkBytes, arrived);
 
         public Task CloseOutputAsync(int status, string reason, CancellationToken cancellation) =>
             _socket.CloseOutputAsync((WebSocketCloseStatus)status, reason, cancellation);

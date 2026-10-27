@@ -94,7 +94,9 @@ Agreed 2026-10-27, after the owner asked to close the gap rather than keep it as
 
 To learn which limit the RU ISP applies (per message or per connection, up or down), both ends log totals when a
 connection closes. The bridge's end line gains
-`| sent <B> B (largest <B>), received <B> B (largest <B>)`. Bytes are message payloads, not TCP. The relay logs the
+`| sent <B> B (largest <B>), received <B> B (largest <B>)`. Bytes are message payloads, not TCP. The bridge counts
+received bytes read by read as they arrive (a message cut partway counts what came) and a sent message once its
+socket took it whole (a failed or stalled send counts nothing). The relay logs the
 same, plus ASN and colo. Rotating connections is designed only once a RU drop shows a per-connection limit.
 
 ## Known limits

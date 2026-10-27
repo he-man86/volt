@@ -441,10 +441,43 @@ public class ChunkedResultTests : IDisposable
             Regex.IsMatch(l, @"^relay: chunk 0 of r1 was not acked within \d+s — the relay stopped acking; dropping the socket$"));
         var end = log.Lines.Single(l => l.Message.StartsWith("relay: connection on "));
         Assert.Equal(VoltLogLevel.Warn, end.Level);
-        Assert.Matches(@" ended after \d+s — a chunk was not acked \(chunk 0 of r1 within \d+s\) \| in flight: r1 \| next dial in " +
+        Assert.Matches(@" ended after \d+s — a chunk was not acked \(chunk 0 of r1 within \d+s\) \| in flight: r1 \| sent \d+ B \(largest \d+\), received \d+ B \(largest \d+\) \| next dial in " +
                        (int)wait.TotalSeconds + "s$", end.Message);
         var line = await AwaitTerminalLine(log, "r1");
         Assert.Matches(@"^relay: -> fetch \(r1\) abandoned ok \d+ms, \d+ B as \d+ chunks delivered=no$", line);
+    }
+
+    /// <summary>§4: the end line's byte accounting counts the chunks too — binary messages at their length, beside the
+    /// text frames — so a connection that carried a chunked answer states what really went over it.</summary>
+    [Fact]
+    public async Task The_end_line_counts_binary_chunks_with_the_text_frames_each_way()
+    {
+        var log = new LogCapture();
+        var delay = new FakeDelay();
+        var (relay, _) = Start(BigIde(), log, delay, beforeStart: r => { r.AutoAck = true; r.Announce(); });
+        await relay.AwaitHello();
+        var request = FakeRelay.RequestFrame("r1", Ops.Fetch, new { init = true });
+        relay.Send(request);
+        var line = await AwaitTerminalLine(log, "r1");
+        Assert.Matches(@"^relay: -> fetch \(r1\) ok \d+ms, \d+ B as \d+ chunks$", line);
+
+        relay.Close(1001, "going away");
+        var wait = await delay.NextWait();
+
+        var binary = relay.ReceivedBinary;
+        Assert.True(binary.Count > 1, "the answer was not chunked");
+        var sent = relay.Received.Select(f => (long)Encoding.UTF8.GetByteCount(f)).Concat(binary.Select(m => (long)m.Length)).ToList();
+        // What the relay sent: its announcement, the request, and one ack per chunk.
+        var received = new[] { "{\"volt\":\"relay\",\"chunks\":{\"maxBytes\":8192,\"ack\":true}}", request }
+            .Concat(binary.Select(m =>
+            {
+                var header = FakeRelay.ParseChunk(m).Header;
+                return "{\"id\":\"r1\",\"ack\":" + header.GetProperty("seq").GetInt32() + "}";
+            }))
+            .Select(f => (long)Encoding.UTF8.GetByteCount(f)).ToList();
+        var end = log.Lines.Single(l => l.Message.StartsWith("relay: connection on ")).Message;
+        Assert.EndsWith(" | in flight: none | sent " + sent.Sum() + " B (largest " + sent.Max() + "), received " + received.Sum() +
+                        " B (largest " + received.Max() + ") | next dial in " + (int)wait.TotalSeconds + "s", end);
     }
 
     [Fact]
@@ -482,8 +515,13 @@ public class ChunkedResultTests : IDisposable
         var end = log.Lines.Single(l => l.Message.StartsWith("relay: connection on "));
         Assert.Equal(VoltLogLevel.Warn, end.Level);
         // r1 may have finished (its terminal line written, delivered=no) before the receive loop ends.
-        Assert.Matches(@" ended after \d+s — a chunk could not be sent \(chunk 1 of r1: WebSocketException\) \| in flight: (r1|none) \| next dial in " +
+        Assert.Matches(@" ended after \d+s — a chunk could not be sent \(chunk 1 of r1: WebSocketException\) \| in flight: (r1|none) \| sent \d+ B \(largest \d+\), received \d+ B \(largest \d+\) \| next dial in " +
                        (int)wait.TotalSeconds + "s$", end.Message);
+        // §4 review: the chunk whose send failed carried nothing the relay can have counted — `sent` is exactly the text
+        // frames and the one chunk that reached it (the fake keeps a failed message out of what it received).
+        var sent = relay.Received.Select(f => (long)Encoding.UTF8.GetByteCount(f)).Concat(relay.ReceivedBinary.Select(m => (long)m.Length)).ToList();
+        Assert.Single(relay.ReceivedBinary);
+        Assert.Contains(" | sent " + sent.Sum() + " B (largest " + sent.Max() + "), received ", end.Message);
         var line = await AwaitTerminalLine(log, "r1");
         Assert.Matches(@"^relay: -> fetch \(r1\) ok \d+ms, \d+ B as \d+ chunks delivered=no \(WebSocketException: .+\)$", line);
     }

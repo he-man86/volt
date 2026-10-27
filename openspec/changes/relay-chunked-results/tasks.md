@@ -243,8 +243,44 @@ every behaviour gets a red test before code (`Volt.Relay.Tests`, FakeRelay exten
 
 ## 4. Byte accounting
 
-- [ ] 4.1 The connection end line gains `| sent <B> B (largest <B>), received <B> B (largest <B>)` (message payload
+- [x] 4.1 The connection end line gains `| sent <B> B (largest <B>), received <B> B (largest <B>)` (message payload
       bytes, both kinds). Existing end-line regexes updated with the reason.
+      Built (step 4, 2026-10-27): `ByteCount` per direction on each `Connection`; a text frame counts its UTF-8, a binary
+      message its length on the wire, a close nothing; a dial that never connected states `sent 0 B (largest 0),
+      received 0 B (largest 0)`. Tests: `The_end_line_counts_the_payload_bytes_each_way_…`,
+      `Each_connection_counts_only_its_own_bytes_…`, `The_end_line_counts_binary_chunks_with_the_text_frames_each_way`.
+      The seven existing end-line regexes gained the accounting (they pin cause and order, not the numbers).
+- [x] 4.2 Review fixes (gate step 4, 2026-10-27), red shown by mutation (the tests were written against uncommitted §4
+      code; each mutation below fails exactly the named tests, all green on the fix):
+      - **The real adapter's text length is pinned.** `ChunkFramingTests`' 40,000-byte text case asserts `Length`, and
+        `A_text_frame_with_a_byte_that_is_not_utf8_has_the_length_that_arrived` (`{`,0xFF,`}`: 3 B arrived, 5 B as
+        decoded UTF-8). Mutation "return `Frame(text)`" fails the second; "length 0" fails both.
+      - **A failed or stalled send counts nothing, asserted exactly:** the stalled-send test
+        (`A_send_that_stalls_is_named_and_the_connection_dropped`) and the chunk-failure test
+        (`A_chunk_send_that_fails_after_earlier_chunks_went_…`; the finding named its sibling, which has no end line —
+        this is the one that does) now assert `sent` = the UTF-8 of `relay.Received` plus the binary messages that
+        reached the relay, and the largest of those. Mutation "count before the send" fails both.
+      - **Received bytes count as they arrive, not when a message is whole** (principle: the line exists to measure an
+        ISP that cuts a connection mid-flow, so it counts what crossed, not what completed). `IRelaySocket.ReceiveAsync`
+        takes an `arrived` callback; `RelayReceived.ReadAsync` reports each read's bytes before the message ends;
+        `ByteCount` keeps the message in progress, so a cut message is also the largest when it is. Tests:
+        `Each_reads_bytes_are_reported_as_they_arrive_even_when_the_message_never_completes` (adapter level) and
+        `A_message_cut_partway_counts_the_bytes_that_arrived_before_the_cut` (tunnel, `FakeRelay.DieMidMessage`).
+        Mutation "count on the whole message" fails the tunnel test. Sent stays counted on completion — what a stalled
+        send put on the wire is not knowable above the socket — and relay-protocol.md and design.md now say both rules
+        and that a counted send was handed to the OS, not proven delivered.
+      - **No new invariants.** §4's two `?? throw new VoltInvariantException` (a connection or a socket with no record
+        of its dial) are gone by construction: the reconnect loop makes each `Connection` and passes it in, and the open
+        socket lives on its `Connection` (`_socket` field removed), so a send reads the socket and its connection as one.
+        `WireVocabularyTests.Invariants_only_go_down` green with the census unchanged (RelayTunnel 1).
+      **Add to the message to PLC Assist before 6.1:** the bridge counts received bytes read by read (a cut message
+      counts what arrived) and a sent message once its socket took it whole.
+      Numbers (gate step 4, VOLT_REQUIRE_FULL=1): `dotnet build Volt.sln -c Release` 0 errors; Volt.Relay.Tests 194/194
+      (3 runs green); Volt.Cli.Tests 377/377; Volt.Engine.Tests 3222 pass + 1 skip; Volt.Connector.Tests 156/156;
+      Volt.Ide.Twincat.Tests 728/728; Volt.Ide.Codesys.Tests 505/505 (net48); Volt.Contracts.Tests 56/56;
+      Volt.Repo.Gates 275/275; volt-cli `bun test test/unit` 225/225; `bun run typecheck` 0; `bun run lint` exit 0
+      (warnings only, none in changed files); `bun run check` exit 0. Delta vs 3.8: Volt.Relay.Tests +6 (188 → 194: §4's
+      three, the review's three).
 
 ## 5. Real sockets
 
