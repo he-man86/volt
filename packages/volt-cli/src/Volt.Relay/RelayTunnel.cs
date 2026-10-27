@@ -498,8 +498,10 @@ namespace Volt.Relay
                     // whole: its id does not fit a chunk.
                     var refused = BridgeErrorCodes.BadRequest;
                     outcome = "refused " + refused;
-                    frame = RelayFrames.Error(id, refused, "the request id (" + id.Length + " characters) cannot fit a chunk header under the relay's maxBytes " +
-                        maxBytes + ", so a large answer could not be delivered; it was not run");
+                    // maxBytes is this connection's chunk size (the relay's maxBytes clamped to the window's floor), the
+                    // limit the id was judged against: named as such, never as the number the relay announced.
+                    frame = RelayFrames.Error(id, refused, "the request id (" + id.Length + " characters) cannot fit a chunk header in the " +
+                        maxBytes + " B chunks this connection sends, so a large answer could not be delivered; it was not run");
                     maxBytes = 0;
                 }
                 else if (!RelayFrames.Allowed.Contains(op))

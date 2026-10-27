@@ -281,6 +281,10 @@ public class ChunkedRequestTests : IDisposable
         yield return new object[] { "a frame that is not a request",
             FakeRelay.ChunksFor("r1", "{\"id\":\"r1\",\"ack\":3}", 1 << 20).ToArray(),
             "the reassembled frame of r1 is not a request", new[] { 0 } };
+        // A frame the reader cannot read: its reason is part of the refusal (review of gate step 6).
+        yield return new object[] { "a frame that is not a JSON object",
+            FakeRelay.ChunksFor("r1", "[1]", 1 << 20).ToArray(),
+            "the reassembled frame of r1 is not a request (not a JSON object)", new[] { 0 } };
         yield return new object[] { "a request naming another id",
             FakeRelay.ChunksFor("r1", Fetch("other"), 1 << 20).ToArray(),
             "the reassembled request of r1 names the id \"other\"", new[] { 0 } };
@@ -300,11 +304,10 @@ public class ChunkedRequestTests : IDisposable
 
         Assert.Equal(BridgeErrorCodes.BadRequest, error.GetProperty("code").GetString());
         var message = error.GetProperty("message").GetString()!;
-        Assert.StartsWith("chunked request refused: " + reason, message);
-        Assert.EndsWith("; it was not run", message);
+        // Whole, not a prefix: the doc's refusal table is held to these exact reasons (RelayProtocolDocTests).
+        Assert.Equal("chunked request refused: " + reason + "; it was not run", message);
         Assert.Single(log.At(VoltLogLevel.Warn), l =>
-            l.StartsWith("relay: refusing chunked request r1 — " + reason, StringComparison.Ordinal) &&
-            l.EndsWith("; answered BAD_REQUEST, nothing was run", StringComparison.Ordinal));
+            l == "relay: refusing chunked request r1 — " + reason + "; answered BAD_REQUEST, nothing was run");
         // The ack for each chunk the bridge could name goes out first; the refusal is the id's ONE terminal frame.
         await Eventually(() => relay.AcksFrom("r1").Count == acks.Length, situation + ": acks " + string.Join(",", relay.AcksFrom("r1")));
         await Task.Delay(200);

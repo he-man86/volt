@@ -1,8 +1,9 @@
-# Design — the contract
+# Design
 
-This is the ONE copy of the agreed contract until it's built. Once built, it moves into
-`packages/volt-cli/docs/relay-protocol.md`, which describes only what the code does. PLC Assist's design §4 cites this
-file, and then that one. Any change goes through a message to PLC Assist first.
+The contract is built and lives in `packages/volt-cli/docs/relay-protocol.md` (Chunks, Liveness, the end-line byte
+counts, the bridge log, Known limits), which describes only what the code does; PLC Assist's design §4 cites that file.
+Any change to it goes through a message to PLC Assist first. This file keeps only what the doc does not: the
+measurements that chose the design, and what was decided against.
 
 ## Measured (2026-10-27)
 
@@ -13,102 +14,6 @@ file, and then that one. Any change goes through a message to PLC Assist first.
 | GZipStream Optimal, .NET Framework 4.8 x64, fetch-shaped JSON from ST in our customer test corpus | 2 MB: 52 ms, 6.9×. 20 MB: 384 ms, 7.1×. |
 
 So chunking keeps the socket alive, and only flow control bounds how long every OTHER frame waits.
-
-## Frames
-
-**Announcement** (relay → bridge, text), once per connection, right after the relay accepts `hello`:
-
-```json
-{ "volt": "relay", "chunks": { "maxBytes": 8192, "ack": true } }
-```
-
-A bridge chunks only on a connection that received it. Without it, frames are whole, as today. An older bridge ignores
-it: an op-less frame from the relay is ignored and counts as traffic. The bridge logs per connection whether it chunks.
-
-**Chunk** (bridge → relay, BINARY): one JSON header line, `\n`, then raw gzip bytes. The whole message is at most
-`maxBytes`.
-
-```
-{"id":"r1","seq":0,"count":3,"bytes":121184}\n<gzip slice>
-{"id":"r1","seq":1}\n<gzip slice>
-{"id":"r1","seq":2}\n<gzip slice>
-```
-
-- Only a TERMINAL frame (`result` / `error`) whose UTF-8 is over 8 KiB is chunked. Everything else stays a whole text
-  frame: ping, progress, small answers.
-- The slices concatenated are gzip(the frame's UTF-8). Inflated, they are byte for byte the frame the bridge would have
-  sent whole. `count` and `bytes` are on seq 0 only.
-- Integrity: TLS, the gzip trailer (CRC32 + ISIZE) and `bytes`. No second hash.
-
-**Ack** (relay → bridge, text): `{"id":"r1","ack":2}`. Sent at once for every chunk whose header names an id and
-seq, before inflating, whether the chunk is accepted, belongs to an id that is no longer pending (dropped), or is
-refused as invalid (the call is then answered `INTERNAL_ERROR`). An ack means "received", not "valid". Without it a
-refused chunk would stay in the sender's window, and the 60 s stall rule would drop the whole socket and every other
-call on it.
-
-## Bridge obligations
-
-- **Window, per connection:** unacked chunk bytes ≤ W. W = clamp(acked bytes over the last 5 s ÷ 5 s × 5 s, 16 KiB,
-  256 KiB), starting at 16 KiB. From a cold start the acked sum grows by at most the window it allowed, so W at most
-  doubles per round: 16, 16, 32, 64, 128, 256 KiB, the cap in 5 rounds (`ChunkWindowTests`). At 300 ms RTT that is
-  about 1.5 s, and a 20 MB `refs` (~3 MB gzip) takes about 5 s.
-  On a 2 KB/s link W stays at 16 KiB.
-- Whole frames don't count against W and go out between chunks (one send lock, per message). So any frame waits at
-  most about W / uplink plus one chunk: about 12 s at 2 KB/s.
-- Chunks of different ids share the window in FIFO order.
-- A chunk not acked within 60 s is a stall: a named WARN line, the socket is dropped and redialed.
-- Log: the terminal line of a chunked answer gains `<bytes> B as <n> chunks, acked in <s>`.
-
-## Relay obligations (PLC Assist)
-
-- Reassemble per id. A seq > 0 without seq 0, a gap, a duplicate, more than `count` chunks, an inflate error, or an
-  ISIZE/length mismatch is `chunk_invalid`: the call is answered `INTERNAL_ERROR`, never dropped silently.
-- Guards before work: `count × maxBytes` ≤ 32 MiB, `bytes` ≤ 64 MiB, inflate stops at `bytes`.
-- Every chunk counts as traffic for liveness. The socket silence limit is 60 s.
-
-## Relay → bridge: the mirror image
-
-Agreed 2026-10-27, after the owner asked to close the gap rather than keep it as a known limit.
-
-- The bridge's `hello` gains `"chunks": { "maxBytes": 8192, "ack": true }`. A relay MAY then chunk a REQUEST frame
-  whose UTF-8 is over 8 KiB, in the same binary form. A bridge without the field (0.1.18029 and older) gets whole frames.
-- The bridge acks each chunk at once with `{"id":"r1","ack":seq}`, before inflating, under the same rule: every chunk
-  whose header names an id and seq is acked, refused ones included. After the last chunk it inflates
-  to the exact request frame and serves it as if it had arrived whole.
-- **The bridge never runs a request from a partial set of chunks.** A buffer that is not complete when the connection
-  ends is discarded. It is never carried to the next connection. So a request whose last chunk the relay never SENT
-  cannot have run: the relay answers it as not sent, and a push is then safe to retry. Once the last chunk has been
-  sent, a push's outcome is unknown, as it is today.
-- A broken chunked request is refused by name: seq > 0 without seq 0, a gap, a duplicate, more than `count` chunks,
-  an inflate error, a length mismatch, `bytes` over 64 MiB (the pipe's frame cap), or a seq 0 whose `count` × maxBytes
-  is over 32 MiB (the relay's guard, mirrored). Both receivers check the gzip trailer themselves (the set's last 8
-  bytes: CRC32 of the output, ISIZE = `bytes`), because runtimes differ: Node's DecompressionStream accepts a second
-  member, and .NET's GZipStream accepts a missing trailer. The bridge does not check where the deflate data ends (see
-  Known limits). The bridge logs a WARN and
-  answers the id with `BAD_REQUEST`, naming what was broken. Nothing is served.
-- The relay runs the same window toward the bridge.
-- Relay side, noted so both copies agree: the per-call idle clock starts when the last request chunk is acked (or
-  sent, while the ack is in flight). Acks are bridge frames, so they keep the relay's silence clock fresh.
-
-## Connection byte accounting
-
-To learn which limit the RU ISP applies (per message or per connection, up or down), both ends log totals when a
-connection closes. The bridge's end line gains
-`| sent <B> B (largest <B>), received <B> B (largest <B>)`. Bytes are message payloads, not TCP. The bridge counts
-received bytes read by read as they arrive (a message cut partway counts what came) and a sent message once its
-socket took it whole (a failed or stalled send counts nothing). The relay logs the
-same, plus ASN and colo. Rotating connections is designed only once a RU drop shows a per-connection limit.
-
-## Known limits
-
-- An ISP that cuts a connection after ~16 KB in TOTAL (the likely RU case, 2026-10-14) is not fixed by chunking.
-  The byte accounting above measures it, and connection rotation is designed on that evidence. A per-MESSAGE limit
-  is covered: no message is over 8 KiB.
-- The bridge's trailer check reads the LAST 8 bytes, and the runtime's inflater does not say where its deflate data
-  ends, so "nothing after the one member" is not checked. Anything between the end of the deflate data and the last
-  8 bytes (junk, or a second member of the same frame) and an unterminated deflate stream (no final block) pass when
-  the last 8 bytes are the real trailer. The frame served is then the one that CRC32 vouches for, on both runtimes.
-  Pinned as known divergences (`ChunkFramingTests.Known_divergence_…`, three shapes), for the owners.
 
 ## Decided against
 

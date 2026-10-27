@@ -24,8 +24,9 @@ public class ChunkAssemblyBoundsTests
 
     private static string HeaderN(string id, int seq) => "{\"id\":\"" + id + "\",\"seq\":" + seq + "}";
 
-    [Fact]
-    public void The_gzip_of_all_unfinished_sets_on_a_connection_is_bounded_by_one_frame_cap_and_refused_by_name()
+    /// <summary>The connection bound's refusal, as the bridge words it (<see cref="RelayProtocolDocTests"/> holds the doc's
+    /// refusal table to it).</summary>
+    public static (string Reason, long Held, int Seq, long HeldAfter) OverfillConnection()
     {
         // The reviewer's repro: twenty ids, each stating the largest count the guard of tasks 3.6 lets through (it stated
         // int.MaxValue before 3.6; that is now refused first, by the guard) and the largest `bytes`, fed round-robin and
@@ -55,8 +56,15 @@ public class ChunkAssemblyBoundsTests
         Assert.True(held + slice.Length > cap, "refused at " + held + " B, before the cap");
         Assert.Equal("chunk " + refusedSeq + " of " + refusedId + " brings this connection's unfinished chunked requests to " +
             (held + slice.Length) + " B of gzip, over the " + cap + " B (one frame cap) the bridge holds at once", refused!.Reason);
+        return (refused.Reason!, held, refusedSeq, assembly.HeldBytes);
+    }
+
+    [Fact]
+    public void The_gzip_of_all_unfinished_sets_on_a_connection_is_bounded_by_one_frame_cap_and_refused_by_name()
+    {
+        var (_, held, seq, heldAfter) = OverfillConnection();
         // The refused set's gzip is released: what is held is exactly the other sets'.
-        Assert.Equal(held - (long)refusedSeq * slice.Length, assembly.HeldBytes);
+        Assert.Equal(held - (long)seq * 8000, heldAfter);
     }
 
     [Fact]

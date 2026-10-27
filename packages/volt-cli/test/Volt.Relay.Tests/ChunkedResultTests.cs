@@ -264,8 +264,9 @@ public class ChunkedResultTests : IDisposable
 
         var error = JsonDocument.Parse(TextFrameOf(relay, id, "error")!).RootElement.GetProperty("error");
         Assert.Equal(BridgeErrorCodes.BadRequest, error.GetProperty("code").GetString());
-        Assert.StartsWith("the request id (1000 characters) cannot fit a chunk header under the relay's maxBytes 1024",
-            error.GetProperty("message").GetString());
+        Assert.Equal("the request id (1000 characters) cannot fit a chunk header in the 1024 B chunks this connection sends, " +
+            "so a large answer could not be delivered; it was not run", error.GetProperty("message").GetString());
+        Assert.Matches(RelayProtocolDoc.IdRefusal(), error.GetProperty("message").GetString());
         Assert.Equal(0, ide.WalkCalls);
         Assert.Empty(relay.ReceivedBinary);
         var line = await AwaitTerminalLine(log, id);
@@ -275,6 +276,43 @@ public class ChunkedResultTests : IDisposable
         relay.SendRequest("r1", Ops.Fetch, new { init = true });
         await relay.AwaitReassembled("r1");
         Assert.True(ide.WalkCalls > 0, "the probe does not see a fetch run");
+    }
+
+    [Fact]
+    public async Task The_id_refusal_names_the_chunk_size_this_connection_sends_not_the_relays_larger_maxBytes()
+    {
+        // Review of gate step 6: a relay announcing 100000 gets 16384 B chunks (the window's floor), so an id is judged
+        // against 16384, and the refusal names that number, never the relay's 100000 as if it were the limit.
+        var ide = BigIde();
+        var log = new LogCapture();
+        var (relay, _) = Start(ide, log, beforeStart: r => { r.AutoAck = true; r.Announce(100000); });
+        await relay.AwaitHello();
+        var id = new string('x', 16400);
+        relay.SendRequest(id, Ops.Fetch, new { init = true });
+        await relay.AwaitFrame(id, "error");
+
+        var message = JsonDocument.Parse(TextFrameOf(relay, id, "error")!).RootElement.GetProperty("error").GetProperty("message").GetString();
+        Assert.Equal("the request id (16400 characters) cannot fit a chunk header in the 16384 B chunks this connection sends, " +
+            "so a large answer could not be delivered; it was not run", message);
+        Assert.Equal(0, ide.WalkCalls);
+    }
+
+    [Fact]
+    public async Task A_malformed_announcement_after_a_valid_one_is_a_named_warn_and_the_connection_keeps_chunking()
+    {
+        // The doc's claim (review of gate step 6): a malformed announcement changes nothing, so after a valid one the
+        // connection keeps chunking at the size that one set.
+        var log = new LogCapture();
+        var (relay, _) = Start(BigIde(), log, beforeStart: r => { r.AutoAck = true; r.Announce(4096); r.Send("{\"volt\":\"relay\",\"chunks\":{}}"); });
+        await relay.AwaitHello();
+        await Eventually(() => log.At(VoltLogLevel.Warn).Any(), "no WARN for the malformed announcement:\n" + log);
+        relay.SendRequest("r1", Ops.Fetch, new { init = true });
+        await relay.AwaitReassembled("r1");
+
+        Assert.Single(log.At(VoltLogLevel.Warn), l =>
+            l == "relay: ignoring a malformed frame — the relay's announcement has no integer `chunks.maxBytes`");
+        Assert.NotEmpty(relay.ReceivedBinary);
+        Assert.All(relay.ReceivedBinary, m => Assert.True(m.Length <= 4096, "a message of " + m.Length + " B"));
     }
 
     [Fact]

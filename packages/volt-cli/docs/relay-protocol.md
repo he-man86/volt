@@ -51,7 +51,8 @@ keep-alive interval is 25 s, matching the protocol's heartbeat below.
 The bridge's first frame, before any response frame:
 
 ```json
-{ "hello": { "protocol": 1, "volt": "0.0.1.842", "vendor": "codesys", "pipe": "volt.bridge.codesys.1234" } }
+{ "hello": { "protocol": 1, "volt": "0.0.1.842", "vendor": "codesys", "pipe": "volt.bridge.codesys.1234",
+             "chunks": { "maxBytes": 8192, "ack": true } } }
 ```
 
 | field | meaning |
@@ -60,6 +61,7 @@ The bridge's first frame, before any response frame:
 | `volt` | The bridge's release, for the relay's logs and support — the same value `health.bridgeVersion` carries (`BridgeRelease`): the stamped version of a release build (`0.0.1.842`), or `(dev) <commit>` for an unstamped one (`(dev)` alone only when its file states no commit). Empty only when the bridge cannot read its own file. It was the assembly version, `1.0.0.0` on every unstamped build. |
 | `vendor` | `codesys` or `twincat`. |
 | `pipe` | The local pipe this tunnel serves. Diagnostic: it identifies WHICH IDE on a machine with several. |
+| `chunks` | What the bridge takes as a chunked request: messages of at most `maxBytes` bytes, each acked (see [Chunks](#chunks)). |
 
 There is **no negotiation**, and no acknowledgement of `hello`. A relay that will not serve this bridge (for
 example because it does not speak `protocol`) closes the socket with **1008 and a reason**; see
@@ -75,9 +77,10 @@ and would serve a request of this one leniently. An empty list is a fact and pas
 
 ## Frames
 
-Text frames, one JSON object each. There is no binary frame. A frame may be large (a `fetch` or `refs` result on
-a big project is megabytes) and arrives in as many WebSocket fragments as it needs; the bridge reassembles to
-the end of the message before parsing.
+A frame is a text message holding one JSON object. A frame may be large (a `fetch` or `refs` result on a big project
+is megabytes); a large one may instead cross as binary chunks (see [Chunks](#chunks)). A binary message is a chunk and
+nothing else. Either kind may arrive in as many WebSocket fragments as it needs; the bridge reassembles to the end of
+the message before parsing.
 
 **Request** (relay → bridge):
 
@@ -119,8 +122,124 @@ fails to send is dropped, the request is not.
 "reading"` first, then one every 25 items). On a large TwinCAT solution the walk alone can take longer than a
 minute, so a relay that counts progress sees the bridge working before any item is read (`wire.html`).
 
-**Anything else** from the relay (a frame with no `op`: a pong, a keepalive, a field from a newer relay) is
-ignored, but counts as traffic for the watchdog.
+**Anything else** from the relay (a frame with no `op` that is neither the chunk announcement nor an ack: a pong, a
+keepalive, a field from a newer relay) is ignored, but counts as traffic for the watchdog.
+
+## Chunks
+
+A large frame crosses as binary messages of a few KiB each, so a slow link keeps carrying traffic and no message is
+large. Both directions use one form: the receiver states the largest message it takes, and acks every chunk.
+
+### The form
+
+A chunk is ONE binary message: a JSON header line, `\n`, then a slice of gzip(the frame's UTF-8).
+
+```
+{"id":"r1","seq":0,"count":3,"bytes":121184}\n<gzip slice>
+{"id":"r1","seq":1}\n<gzip slice>
+{"id":"r1","seq":2}\n<gzip slice>
+```
+
+- `count` (the chunks in the set) and `bytes` (the frame's UTF-8 length) are on seq 0 only.
+- The slices in seq order are ONE gzip member: header, deflate data, the 8-byte trailer (CRC32 of the frame, ISIZE).
+  Inflated, it is byte for byte the frame that would have been sent whole.
+- Integrity is TLS, the gzip trailer and `bytes`. There is no second hash.
+
+**Ack**, a text frame from the receiver: `{"id":"r1","ack":2}` (chunk 2 of `r1` arrived). It is sent at once, before
+inflating, for every chunk whose header names an id and a seq: accepted, refused, or of an id no longer pending (its
+set dropped). An ack means "received", not
+"valid": an unacked chunk would hold the sender's window until the sender drops the socket.
+
+### Bridge → relay: a large answer
+
+The relay announces, once per connection, after it accepts `hello`:
+
+```json
+{ "volt": "relay", "chunks": { "maxBytes": 8192, "ack": true } }
+```
+
+- A connection chunks once it has received the announcement, whatever frames came before it. Without it every frame
+  is whole. A second announcement is ignored (WARN) and the first stands.
+- An announcement without a `chunks` object, a positive integer `chunks.maxBytes` or `chunks.ack: true` is a malformed
+  frame (WARN, naming which) and changes nothing: a connection that has no valid announcement stays whole-frame, one
+  that has keeps chunking.
+- Chunked: a TERMINAL frame (`result` / `error`) whose UTF-8 is over **8192 B**. Ping, progress, acks and small
+  answers stay whole text frames.
+- The connection's chunk size is min(`maxBytes`, 16384) B; every chunk but the last is exactly that. Gzip level:
+  Optimal.
+- Whether an answer may be chunked is fixed when its request arrives. A request whose `id` is too long for a seq 0
+  header in one chunk of that size is answered `BAD_REQUEST` then, before its op runs: `the request id (<n> characters)
+  cannot fit a chunk header in the <m> B chunks this connection sends, so a large answer could not be delivered; it
+  was not run`.
+
+**Window.** Per connection, the chunk bytes sent and not yet acked are at most W. W = the bytes acked in the last 5 s,
+clamped to **16–256 KiB**, starting at 16 KiB. From a cold start W at most doubles per round trip (16, 16, 32, 64, 128,
+256 KiB); on a 2 KB/s link it stays at 16 KiB.
+
+- An answer queues all its chunks, in order, when it is ready; chunks of different ids go out FIFO.
+- Whole text frames do not count against W and go out between two chunks (one send at a time), so any frame waits at
+  most about W / uplink plus one chunk: ~12 s at 2 KB/s.
+
+**Delivery.** A chunked answer is delivered at its LAST ack. An ack for a chunk that is not awaiting one is a WARN.
+
+- On each heartbeat tick (25 s), a chunk unacked for more than **60 s** drops the socket, 60–85 s after it went.
+- A chunk whose send fails drops the socket: the relay learns from the socket ending that the answer will not
+  complete, and discards what it holds.
+- Every chunk send is under the same 60 s send bound as a frame (see [Liveness](#liveness)).
+
+The relay, receiving: it reassembles per id and answers a broken set (a seq > 0 without seq 0, a gap, a duplicate,
+more than `count` chunks, an inflate error, a CRC32, ISIZE or length mismatch) to its caller as `INTERNAL_ERROR`, never
+silently. It checks the gzip trailer itself: the set's last 8 bytes are CRC32 of what inflated and ISIZE = `bytes`.
+A runtime's gzip reader is not trusted with the trailer: Node's `DecompressionStream` accepts a second member, and
+.NET's `GZipStream` accepts a missing trailer. The bridge checks it the same way (the refusals below). Before any work it refuses `count` × `maxBytes` over 32 MiB and `bytes` over 64 MiB, and it inflates no
+further than `bytes`. A chunk is traffic for its 60 s silence limit.
+
+### Relay → bridge: a large request
+
+`hello`'s `chunks` states what the bridge takes: messages of at most **8192 B**, each acked. The relay MAY then chunk a
+request frame whose UTF-8 is over 8 KiB, and runs the same window toward the bridge. The bridge inflates the set at its
+last chunk and serves the request exactly as if it had arrived whole. A bridge whose `hello` has no `chunks` gets
+whole request frames. The relay's per-call idle clock starts when the last request chunk is acked, or is sent while
+that ack is in flight.
+
+**A request is never run from a partial set.** A set not complete when its connection ends is discarded, never carried
+to the next connection. So a request whose last chunk the relay never SENT cannot have run, and a push is safe to
+retry. Once the last chunk has been sent, a push's outcome is unknown, as with a whole frame.
+
+A broken set is answered with ONE error frame, `BAD_REQUEST`, message `chunked request refused: <reason>; it was not
+run`. The reasons:
+
+| `<reason>` | when |
+| --- | --- |
+| ``a chunk of <id> has no chunk number (`seq`, a non-negative integer)`` | no usable `seq`; this chunk is not acked |
+| `chunk <k> of <id> is <n> B, over the 8192 B this bridge announced` | judged by the message's length on the wire |
+| `chunk <k> of <id> arrived twice` | a duplicate |
+| ``chunk 0 of <id> has no positive integer `<field>` `` | `count` or `bytes` missing or below 1 |
+| `chunk 0 of <id> states <n> chunks: <n> x 8192 B is over the 33554432 B (32 MiB) a chunked request may take` | `count` over 4096 |
+| `chunk 0 of <id> states <n> B, over the 67108864 B frame cap` | `bytes` over 64 MiB |
+| `chunk <k> of <id> arrived without chunk 0` | |
+| `chunk <k> of <id> is past the <n> chunks chunk 0 states` | more than `count` |
+| `chunk <k> of <id> arrived after chunk <j>: chunk <j+1> is missing` | a gap |
+| `chunk <k> of <id> brings the set to <n> B of gzip, over the <m> B this bridge holds for a request of <B> B (2 x bytes + 1 KiB)` | one set |
+| `chunk <k> of <id> brings this connection's unfinished chunked requests to <n> B of gzip, over the 67108864 B (one frame cap) the bridge holds at once` | all unfinished sets on the connection |
+| `the chunks of <id> do not inflate (<what>)` | not a gzip header, a header defect, or `the deflate data is not valid` |
+| `the chunks of <id> are <n> B, too short for their <h> B gzip header and the 8-byte trailer (CRC32 and ISIZE)` | |
+| `the chunks of <id> inflate past the <B> B chunk 0 states` | |
+| `the chunks of <id> fail the gzip CRC32 check` | the last 8 bytes are not the trailer of what inflated |
+| `the chunks of <id> end with ISIZE <n> in the gzip trailer, not the <B> B they inflate to` | |
+| `the chunks of <id> inflate to <n> B, not the <B> B chunk 0 states` | |
+| `the chunks of <id> inflate to bytes that are not UTF-8` | |
+| `the reassembled frame of <id> is not a request` | a frame of another kind (an ack, a pong) |
+| `the reassembled frame of <id> is not a request (<why>)` | a frame the bridge cannot read: not JSON, not an object, no string `id`, … |
+| `the reassembled request of <id> names the id "<other>"` | |
+
+The rest of a refused set is acked and dropped. A chunk past the end of a set already reassembled is acked, named in a
+WARN and never answered twice. A chunk 0 under an id whose set is finished (reassembled or refused) starts a new
+request; under an id whose set is unfinished it is `arrived twice`, and that set is refused. A connection
+remembers its last 256 finished ids; a later chunk of an id further back is `arrived without chunk 0`.
+
+A binary message with no header line, a header that is not JSON, or no string `id` has no one to answer: a WARN and
+nothing else.
 
 ## The op allowlist
 
@@ -165,7 +284,8 @@ demultiplexes on `id` and nothing else. Frame ORDER is guaranteed only within on
 - The bridge sends the constant text frame `{"volt":"ping"}` every **25 s**. It never varies, so a hosted relay
   can answer it at its edge (an exact-match auto-response) without waking whatever owns the connection.
 - A relay SHOULD answer with the constant `{"volt":"pong"}`. The bridge correlates nothing: the pong exists
-  only to be traffic. Any frame from the relay counts.
+  only to be traffic. Any message from the relay counts, a chunk or an ack included; the bridge's acks are traffic
+  for the relay the same way.
 - On each 25 s tick, if the bridge has had **no frame from the relay for more than 60 s**, it drops the socket
   (no close handshake) and reconnects. Silence is therefore noticed 60–85 s after the last frame.
 - Every send is bounded by the same **60 s**. A frame that has not gone out by then (a network that stops carrying
@@ -200,7 +320,10 @@ counted message was handed to the operating system, not proven delivered.
 | No close at all (1006: the flow died, the relay restarted) | WARN: `dropped without a close (<exception>): <message>` | ordinary backoff |
 | The silence watchdog dropped it | WARN: `the watchdog dropped it (no frame for 60s)` (the watchdog also logs its own WARN line the moment it fires) | ordinary backoff |
 | A send stalled | WARN: `a send stalled (a <N>-byte frame did not go out within 60s)` (after its own WARN line) | ordinary backoff |
+| A chunk was not acked | WARN: `a chunk was not acked (chunk <k> of <id> within 60s)` (after its own WARN line) | ordinary backoff |
+| A chunk could not be sent | WARN: `a chunk could not be sent (chunk <k> of <id>: <exception>)` (after its own WARN line) | ordinary backoff |
 | The heartbeat task died | WARN: `the heartbeat died (<exception>): <message>` (after its own ERROR line with the whole exception) | ordinary backoff |
+| The chunk sender died | WARN: `the chunk sender died (<exception>): <message>` (after its own ERROR line with the whole exception) | ordinary backoff |
 | Upgrade refused (HTTP 401/403), or any failed dial | WARN: `could not connect (<exception>): <message>`, with `ended before it connected`. On .NET (the TwinCAT worker) the message names the HTTP status; the CODESYS host's .NET Framework socket may report only that it could not connect. | ordinary backoff |
 
 **Ordinary backoff** is 1 s, doubling after each end, capped at **30 s**, with 0–1 s of jitter added to every
@@ -228,9 +351,9 @@ reason for every stop: a relay needs "stopped on purpose" against "dropped", not
 and does not wait for the relay's answer, so a stop never holds up an IDE that is closing; the bridge logs
 `relay: stopping — sent close 1001 bridge stopping` (or that the close did not go out within 1 s).
 
-Still **1006**, with no Close: the silence watchdog, a stalled send and a dead heartbeat (a handshake with a peer that stopped
-answering is a wait whose answer is known), a TwinCAT worker the connector stops (it kills the process tree, and no
-code runs in a killed process), and a crash.
+Still **1006**, with no Close: the silence watchdog, a stalled send, an unacked or unsendable chunk, a dead heartbeat
+or chunk sender (a handshake with a peer that stopped answering is a wait whose answer is known), a TwinCAT worker the
+connector stops (it kills the process tree, and no code runs in a killed process), and a crash.
 
 **A refused credential is a 401, not a 1008.** A bad bearer token fails the HTTP upgrade inside the connect
 call and never reaches a close frame, so it takes the ordinary backoff (a redial every 30 s). A relay that
@@ -256,8 +379,9 @@ measured against a live deployment**:
 **Errors are coded or they are bugs.**
 
 - A pipe failure crosses as its own `code`: the `BridgeErrorCodes` vocabulary in `wire.html`, unchanged.
-- An op not on the allowlist is answered `BAD_REQUEST`. Any other tunnel-side failure (the pipe is gone, the
-  call threw) is answered `INTERNAL_ERROR` with the reason.
+- An op not on the allowlist, a request id too long to chunk an answer under, and a broken chunked request are
+  answered `BAD_REQUEST`. Any other tunnel-side failure (the pipe is gone, the call threw) is answered
+  `INTERNAL_ERROR` with the reason.
 - **An `INTERNAL_ERROR` message is `<ExceptionType>: <message>`** — on either side of the pipe (`CallFailure`),
   because the message text is OS-localized and the type name is not. The bridge log holds the whole exception
   (stack, inner exceptions). A client that records these messages records what exactly failed (openspec
@@ -284,14 +408,43 @@ Local only (see the operational notes); the token is never in it. Per relayed re
     `ok rejected` (nothing landed) or `ok nothing to apply`;
   - `error <CODE>` — the coded error the pipe answered (`PLC_DISCONNECTED`, `WRONG_PROJECT`, `IDE_BUSY`, …), or
     `INTERNAL_ERROR` for a call that threw (that case also logs the whole exception at Error);
-  - `refused BAD_REQUEST` — an op not on the allowlist, refused before the pipe;
-  - `abandoned [<outcome>]` — the connection went before the terminal frame was sent; the op's own outcome follows
-    when it had completed (a push that landed reads `abandoned ok landed newProjectVersion=<v>`).
+  - `refused BAD_REQUEST` — an op not on the allowlist, or an id too long to chunk an answer under; refused before
+    the pipe;
+  - `abandoned [<outcome>]` — the connection went before the terminal frame was sent (a chunked one: before its last
+    ack); the op's own outcome follows when it had completed (a push that landed reads `abandoned ok landed
+    newProjectVersion=<v>`).
 
-  `<N>ms` is the total time from read to terminal line; the wait for the IDE thread is not split out (the tunnel is
-  a pipe client and cannot see it). `delivered=no` is the op's frame not reaching the socket. A send that fails on a
+  A chunked answer's line reads `<outcome> <N>ms, <B> B as <n> chunks`. `<N>ms` is the total time from read to
+  terminal line (for a chunked answer, to its last ack); the wait for the IDE thread is not split out (the tunnel is a
+  pipe client and cannot see it). `delivered=no` is the op's frame not reaching the socket. A send that fails on a
   connection still live is followed by its exception, `delivered=no (<Type>: <message>)`, and the op's outcome
   stands: a push that landed is `ok … delivered=no`, never a failure.
+
+Two Info lines say whether a connection chunks, each true when it is written. When the relay's first frame is not the
+announcement: `relay: no chunk announcement yet — this connection sends whole frames until the relay announces chunks`.
+When the announcement comes, first or later: `relay: this connection chunks terminal frames over 8192 B, at most <n> B
+per message`. A connection whose announcement follows another frame logs both. The chunk WARN lines:
+
+```
+relay: ignoring a malformed frame — the relay's announcement …          (changes nothing)
+relay: ignoring a second chunk announcement — the connection keeps chunking at most <n> B per message
+relay: an ack for nothing — chunk <k> of <id> is not awaiting an ack
+relay: ignoring a malformed frame — an ack …
+relay: chunk <k> of <id> was not acked within 60s — the relay stopped acking; dropping the socket
+relay: chunk <k> of <id> could not be sent (<Type>: <message>) — the relay cannot complete <id>; dropping the socket
+relay: refusing chunked request <id> — <reason>; answered BAD_REQUEST, nothing was run
+relay: ignoring chunk <k> of <id> — it arrived after <id> was reassembled on this connection
+relay: ignoring a malformed chunk — <what>
+```
+
+## Known limits
+
+- An ISP that cuts a connection after some bytes in TOTAL is not helped by chunking; the end line's byte counts are
+  there to show it. A per-MESSAGE limit is: no chunk is over the `maxBytes` its receiver states.
+- The bridge checks a chunked request's trailer as the set's LAST 8 bytes, and the runtime's inflater does not say
+  where its deflate data ends. So bytes between the end of the deflate data and the last 8 (junk, or a second member
+  of the same frame) and deflate data with no final block pass when the last 8 bytes are the real trailer; the request
+  served is the one that CRC32 vouches for (`ChunkFramingTests.Known_divergence_…`).
 
 ## What a relay must not do
 
@@ -360,6 +513,19 @@ R→B {"volt":"pong"}
 ```
 
 Note `r2`: rejected, and still a `result`. Nothing was applied.
+
+A large answer, on a relay that announces chunks:
+
+```
+B→R {"hello":{…,"chunks":{"maxBytes":8192,"ack":true}}}
+R→B {"volt":"relay","chunks":{"maxBytes":8192,"ack":true}}
+R→B {"id":"r4","op":"fetch","protocol":1,"body":{}}
+B→R (binary) {"id":"r4","seq":0,"count":2,"bytes":61204}\n<gzip slice>   8192 B with its header
+B→R (binary) {"id":"r4","seq":1}\n<gzip slice>                           the rest; both fit the 16 KiB window
+R→B {"id":"r4","ack":0}
+R→B {"id":"r4","ack":1}                                                   r4 delivered
+    bridge log: [info] relay: -> fetch (r4) ok 812ms, 61204 B as 2 chunks
+```
 
 A bridge from another protocol version:
 

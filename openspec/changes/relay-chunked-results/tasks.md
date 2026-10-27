@@ -351,10 +351,68 @@ every behaviour gets a red test before code (`Volt.Relay.Tests`, FakeRelay exten
 
 ## 6. Docs
 
-- [ ] 6.1 Move the contract into `packages/volt-cli/docs/relay-protocol.md`, current implementation only: frames
+- [x] 6.1 Move the contract into `packages/volt-cli/docs/relay-protocol.md`, current implementation only: frames
       (binary chunks, announcement, ack, hello field), liveness/window, errors, the bridge log lines, known limits.
       Remove "there is no binary frame" and "Text frames only". Update `docs/logs.html` if it lists relay lines.
       design.md keeps only what is not in the doc.
+      Built (step 6, docs only, no code): relay-protocol.md gains `hello.chunks`, a **Chunks** section (the form, the
+      ack, bridge → relay: announcement, what is chunked, message size, intake id refusal, window, delivery and stall,
+      the relay's receiving rules; relay → bridge: never run from a partial set, the refusal table in the bridge's own
+      words, stragglers and reused ids), chunk traffic in Liveness, four end-line causes, BAD_REQUEST cases in Errors,
+      the chunked terminal line and the chunk Info/WARN lines in The bridge log, **Known limits**, and a chunked worked
+      example; "There is no binary frame" is gone. Every rule and string read from `Volt.Relay` (RelayTunnel,
+      RelayFrames, RelayChunks, ChunkWindow, ChunkAssembly, Gzip), so the bridge-side items queued above "for the
+      message to PLC Assist before 6.1" are all stated in the doc. `docs/logs.html` lists no relay lines: unchanged.
+      design.md keeps only Measured and Decided against. Output-neutral: no source, test or snapshot touched.
+      (This note first offered "Volt.Repo.Gates 276/276 (it scans `docs/*.md`)" as verification of the doc. It was
+      not: that gate only looks for retired kind spellings. See 6.2 for the gate that now ties the doc to the code.)
+      **For the owner:** the message to PLC Assist (items under 2.6, 3.4, 3.5, 3.5b, 4.2) is not something this step
+      can send; the doc now carries every one of them and can be that message. `openspec validate
+      relay-chunked-results` fails, as before this step: the change has no `specs/` delta and no `skip_specs`.
+- [x] 6.2 Review fixes (gate step 6, 2026-10-27). The failing tests came first: Relay 3 red (the new doc gate, the
+      id-refusal wording ×2). All 7 findings were right and are fixed:
+      - Relay's own trailer check dropped when design.md was trimmed: "The relay, receiving" now says it checks the gzip
+        trailer itself (the last 8 bytes = CRC32 of what inflated + ISIZE = `bytes`) and why (Node's
+        `DecompressionStream` accepts a second member; .NET's `GZipStream` accepts a missing trailer). CRC32 is added to its
+        list of broken sets.
+      - The three dropped relay-side details are back in the doc. The idle clock starts at the last request chunk's ack
+        "or is sent while that ack is in flight". A bridge whose `hello` has no `chunks` gets whole request frames. The ack
+        goes out for a chunk "of an id no longer pending (its set dropped)".
+      - "A chunk 0 starts a new request under any id" was false. Now: it starts one under a FINISHED id (reassembled or
+        refused). Under an unfinished id it is `arrived twice` and that set is refused (pinned already by Broken's "a
+        duplicate seq 0").
+      - The bridge log section is fixed. A malformed announcement "changes nothing" (whole-frame before a valid one,
+        still chunking after one). New test `A_malformed_announcement_after_a_valid_one_is_a_named_warn_and_the_connection_keeps_chunking`
+        pins it (green on arrival: the doc was wrong, the code was not). The two Info lines are described as two lines,
+        each true when written: a connection whose announcement follows another frame logs both.
+      - Code fix (`RelayTunnel.ServeAsync`): the id refusal named the connection's chunk size (min(relay maxBytes, 16384))
+        "the relay's maxBytes". It now reads `the request id (<n> characters) cannot fit a chunk header in the <m> B chunks
+        this connection sends, so a large answer could not be delivered; it was not run`. The doc's bullet says the id is
+        judged against min(`maxBytes`, 16384). Red first: new
+        `The_id_refusal_names_the_chunk_size_this_connection_sends_not_the_relays_larger_maxBytes` (announce 100000,
+        id of 16,400 characters → 16384 named) and the existing 1024 test, now asserting the whole message.
+      - The refusal table had no " (<why>)" for a reassembled frame the reader cannot read. It now has two rows (another
+        kind of frame; an unreadable frame), and Broken has a new case for the second (`[1]` → `… is not a request (not a
+        JSON object)`). The `count`/`bytes` row became one template, ``chunk 0 of <id> has no positive integer `<field>` ``.
+      - A gate now ties the doc to the code: `RelayProtocolDocTests` (new, Volt.Relay.Tests) reads the refusal table from
+        relay-protocol.md (each `<…>` is one value, the rest literal, anchored). It asserts both ways: every refusal the
+        bridge gives (all `ChunkedRequestTests.Broken` reasons, plus the connection bound driven by
+        `ChunkAssemblyBoundsTests.OverfillConnection`) matches a row, and every row is matched by one. The Broken
+        theory now asserts each message and WARN line WHOLE, not by prefix. So a reworded refusal turns its theory row
+        red, and a stale doc row turns the gate red. The id-fit test matches its message against the doc's quoted id
+        refusal (`RelayProtocolDoc.IdRefusal`). Mutation shown: deleting the "(<why>)" row → gate red, naming
+        `the reassembled frame of r1 is not a request (not a JSON object)`. Not gated (local log wording, not wire): the
+        WARN block and the end-line cause table of The bridge log.
+      Relay 207 → 211 (+2 ChunkedResultTests, +1 Broken case, +1 RelayProtocolDocTests), all green.
+      Gate (Release build, every suite in ci.yml's loop, VOLT_REQUIRE_FULL=1): Cli 377, Engine 3222 (+1 skipped),
+      Connector 156, Ide.Twincat 728, Ide.Codesys 518 (net48), Contracts 56, Relay 211, Repo.Gates 276. 0 failed.
+      Typecheck and lint (0 errors) are green, `bun run check` is green, and volt-cli `bun test test/unit` is 225/225.
+      **For the owner (not this change's code):** in the first Cli run, 3 tests timed out:
+      `RefsSingleFlightTests` ×2 ("the first refs never reached its walk") and
+      `PipeTransportTests.A_request_frame_over_the_size_cap_is_a_BAD_REQUEST_and_the_bridge_keeps_serving` (30 s
+      TimeoutException). That run had typecheck, lint and `bun run check` going at the same time. Run again alone, Cli is
+      377/377. Volt.Cli.Tests does not reference Volt.Relay, and this step changed no pipe or refs code. A timeout is a
+      bug, not a budget, so these pipe tests depending on machine load should be root-caused in their own change.
 
 ## 7. Joint gate
 
