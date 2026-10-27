@@ -33,7 +33,7 @@ alarm := t1.Q;
 
 | NWL element | Today | Plain ST |
 |---|---|---|
-| operator box (AND, ADD, GT, …) | `a ADD b ADD c` | `ADD(a, b, c)`. Standard functions; infix `a AND b` is kept only where it is a different node (below). |
+| operator box (AND, ADD, GT, …) | `a ADD b ADD c` | plain ST operators: `a AND b`, `a + b + c`, `a > b`. A chain of one operator is one extensible box, and brackets nest boxes: `(a + b) * c`. The call form is used only where a stored difference needs it (below). |
 | box with EN/ENO | `MOVE 1 => t ENO EN c` | `t := MOVE(EN := c, IN := 1, ENO => lamp);`. IEC formal call; ENO is an output pin like any other. |
 | EN chain (staircase) | nested `… ENO EN …` | one call per box, joined by wire variables: `MOVE(EN := w1, …, ENO => w2)` |
 | FB box | `t1 : TON(IN := a).Q` | `t1(IN := a, PT := T#1S); x := t1.Q;`. The type comes from the declaration. |
@@ -56,8 +56,10 @@ in ST:
 - `BRANCH … SHORTCIRCUIT`;
 - the `EXECUTE` box (ST inside a network).
 
-Candidate rule: **operator syntax = the LD connection, call syntax = a box.** For example `a AND b` (series contacts)
-vs `AND(a, b)` (an AND box), and `NOT x` (a negated contact or pin) vs `NOT(x)` (a NOT box). Both are plain ST with the
+Owner, 2026-10-27: AND and OR need not be functions. In an FBD body, `a AND b` IS the AND box: FBD has no contacts,
+so there is one shape and nothing to tell apart. In an LD body, `a AND b` is series contacts and `a OR b` parallel
+ones. Only if an LD body can ALSO hold an AND/OR box, and CODESYS stores it differently (to measure: 1.2), does that
+box take the call form `AND(a, b)`. The same holds for `NOT x` (a negated contact or pin) vs a NOT box. Both are plain ST with the
 same meaning, so the ST compiles to what the network does, and the spelling carries what the IDE stores. Each case
 gets measured before it is chosen; a difference ST cannot carry is listed for the owner, not hidden in a convention.
 
