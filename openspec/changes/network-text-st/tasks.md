@@ -56,10 +56,132 @@ archived.
       - Clean: `JMP lbl;` and labels (`lbl:`, `lbl: ;`); `IF a THEN JMP lbl; END_IF`; `IF a THEN RETURN; END_IF`;
         `x S= a;`, `x R= a;`, `xb S= ok R= a;`, `xb := ok := a;` (a chained assignment).
       - Side finding: declaring `s` or `r` fails in CODESYS too (C0009); see lsp-field-false-positives task 2.
-- [ ] 1.3 Measure what 1.1 leaves open, in CODESYS through the shipped bridge on a fixture copy (an `ide.ps1` instance
+- [x] 1.3 Measure what 1.1 leaves open, in CODESYS through the shipped bridge on a fixture copy (an `ide.ps1` instance
       of this change, closed after). Questions: does an LD body store an AND/OR box apart from series/parallel contacts,
       and how; what EN/ENO does at run time (is ENO always EN, for operators, functions and FBs?); and which ST each
       remaining node needs (branches, edge contacts, negated coils and pins, EXECUTE). No product code.
+      Measured 2026-10-27, CODESYS 3.5.21.40 64-bit, `ide.ps1 up -Instance network-text-st -NoBuild` on a copy of
+      CodesysTestProject.3.5.21.40 (closed cleanly after). 57 PROGRAMs (53 run, 4 only built: they fail it), each beside an ST twin (the candidate plain ST),
+      both called from PLC_PRG and run 8 scans in simulation on one stimulus (a, b, en, i per scan); every scan's
+      outputs read back. 37 were authored by CODESYS's own PLCopen importer, 20 built as NWL objects with the calls the
+      shipped writer makes (the importer drops edge coils, moves a mid-rung coil and cannot make a Parallel or an
+      Execute box). Scratch scripts and raw traces in the session scratchpad (`m13/`), not kept.
+      - Authoring: SP21's PLCopen import makes an `<LD>` body an LD2 (`LadderImplementationObject`), not NWL. The line
+        `<!--ObjectVersion: LD1-->`, which CODESYS's own export writes, makes it NWL.
+      - AND/OR box vs contacts: yes, stored apart, and the output list is the marker. Contacts are an AND (series) or
+        OR (parallel) box with no output item and no output name (`OutputParam.Names []`), `MainOutputIndex` null. A
+        drawn AND/OR box has one output item (null), names `['']` and `MainOutputIndex` 0. `EN`/`ENO` are no marker
+        (the importer leaves them null on a box, hand-drawn boxes hold false), nor is `Flags.Fixed` (false on 3 of
+        pro2193's 4 FBD box ANDs). Corpus, every AND/OR box classified by its output list in the recorded archives
+        (`test/fixtures/nwl-corpus`; on CODESYS `MainOutputIndex` agrees on every one: 0 on every drawn box, null on
+        every contact). Split by the body's `DefaultViewMode`, which records only the editor view the object opens in,
+        not where contacts may stand: CODESYS LD-view 636 contact ANDs and
+        178 contact ORs against 1 AND box, 1 OR box and 3 NOT boxes; FBD-view 13 box-form AND/OR (lenze-mid 9, pro2193 4)
+        and 1 contact-form OR (pro2193 `Cylinder_53ValveFB/SetAlarm`, nested under drawn-box ANDs: contacts occur in an
+        FBD-view body, so the contact form is not an LD-only fact and 1.4 must not tie it to `%LANGUAGE LD`); TwinCAT
+        (twincat-project14 `POUexecute`, LD) 1 AND box and 1 OR box. That is
+        830 + 2 = 1.1's 832 (AND 648, OR 184), and LD ORs 178 + 1 + 1 = 1.1's 180. Volt's model holds the difference
+        only as the stored `OutputParam.Names` the CODESYS reader carries (`Box.Members`); a text read derives `[]`,
+        the contact form, so rebuilding a box-form AND/OR is named by `RebuildLoss`, and the text does not spell it.
+        Run time: identical (series = box AND, parallel = box OR, all traces equal). CODESYS's own PLCopen export draws
+        a box-form OR as contacts in LD view.
+      - The importer stores a parallel branch holding an FB box without EN as one input of the contact OR, not as a
+        Parallel (runs as `cnt(IN := b); out := a OR cnt.Q;`, every scan). In the corpus, 12 of the 17 Parallels hold
+        a drawn box on a branch (8 with EN, 4 FBs or functions without), 5 hold contacts only.
+      - EN/ENO, all 8 kinds measured (ADD, GT, MOVE, LIMIT, a user function, CTU, a user FB, EXECUTE): EN FALSE skips
+        the box (an FB is not called, a function result is not assigned, the output keeps its value) and ENO = EN on
+        every scan. ENO cannot be set inside a POU: `ENO := …` in a function or FB body is a compile error
+        ("Identifier 'ENO' not defined", "'ENO' is no valid assignment target"). Twin
+        `IF en THEN <box>; END_IF; eno := en;` equals every trace, the EN chain (MOVE.ENO → MOVE.EN → coil) too.
+        An unwired EN (Terminator) runs every scan.
+      - The 130 result-pin boxes (1.1) all have EN and ENO (8 with an unwired EN, 1 fed by a mid-rung Assign): result
+        on output slot 1, ENO on slot 0. So they are `IF en THEN x := v * 10; END_IF` (traces equal). A root function
+        box without EN whose result slot 0 holds a variable builds clean and never writes it (0 such function boxes in
+        the corpus; 1 FB, `L_FECA.L_GetErrorTextFromFileReadArray` in lenze-mid, stores a target on slot 0).
+      - EN without ENO, consumed by value (the 40 comparisons). Measured on two operators only, GT (a comparison,
+        BOOL) and ADD (arithmetic, INT), so the data separates neither the result type from the operator kind nor (for
+        ADD, consumed only by a root Assign) the consumer's position; the rule stands as "an enabled comparison" against
+        "an enabled arithmetic box", not by the consumer's type. An enabled comparison gives FALSE when EN is FALSE, not
+        the held value: `out := en AND (i > 3);` directly, `out := a AND en AND (i > 3);` inside an AND (traces equal). The
+        hold twins differ at scans 4 and 7 (EN FALSE, i > 3), both `IF en THEN out := i > 3; END_IF;` and a held
+        result inside the AND (`IF en THEN t := i > 3; END_IF; out := a AND t;`). The same box pushed through the
+        shipped bridge (``out := i GT 3 EN `en`;`` and ``out := a AND (i GT 3 EN `en`);``) builds clean, stores what the
+        probe built (`EN` true, `ENO` false, one null output item named `''`, `CallType Gt`, `MainOutputIndex` 0) and
+        runs the same traces. An enabled ADD consumed by a root Assign (`o := ADD[EN](i, j)`) keeps its value:
+        `IF en THEN o := i + j; END_IF` equal, `o := SEL(en, 0, i + j)` differs. Not measured: a BOOL box that is not a
+        comparison (an AND, a BOOL function, with EN and no ENO) and an enabled arithmetic box nested in another box.
+        The corpus holds neither (all 40 are comparisons); 1.4 measures them before it states a rule wider than these two.
+      - Negations: negated contact, NOT box (LD and FBD), negated input pin (`InputFlags`, needs the importer's
+        `BoxInputFlagsSupported` attribute; without it the importer puts the negation on the leaf) and negated leaf
+        all run as `NOT a`. Negated coil (`Negation` without `Set` on the target) runs as `out := NOT a`.
+      - Coils: set `S=`, reset `R=`, two targets on one Assign (`out := a; out2 := a`), rail-fed coil (Terminator
+        value) `out := TRUE`, a rail-fed wire `w := TRUE` then `out := w AND a`, and a mid-rung coil
+        (`out2 := AND(Assign(out := a), b)`) runs as `out := a; out2 := a AND b;`. All twins equal.
+      - Edge contacts: `Rtrig`/`Ftrig` on a leaf = `R_TRIG`/`F_TRIG` on the VARIABLE, called every scan, also behind a
+        series contact. Twin `rt(CLK := a); out := en AND rt.Q;` equal on a second stimulus where `a` rises while `en`
+        is TRUE (scan 1: a one-scan pulse) and `en` turns on while `a` is already TRUE (scan 5: no pulse). The other
+        candidates differ there: `out := FALSE` at scan 1, an edge of the whole rung (`rt2(CLK := en AND a)`) at scan 5.
+      - Edge coils: the importer drops `edge` on a coil, and a coil target with `Rtrig`/`Ftrig` set (stored, Flags 16/32)
+        builds with no message and runs as a PLAIN coil (`out := a`, not a pulse). CODESYS has no edge coil.
+        Corpus 0, cases 3 (Volt's own `R_EDGE x := a;`).
+      - Parallel, `Sequential`: every branch runs, the EN box on each scan the feed is TRUE (twin
+        `IF en THEN cnt(…); END_IF; out := en AND (en OR a);` equal). `BoxShortCircuit`: the box branch runs ONLY when
+        the feed is TRUE and no contact branch is TRUE, whichever branch comes first (box first or last: calls 2
+        against 4; no feed: 3 against 8). Plain ST carries it as a guard: `IF en AND NOT a THEN cnt(IN := b, calls => o);
+        END_IF; out := en;` (box first and box last), `IF NOT a THEN cnt(…); END_IF; out := TRUE;` (no feed), traces
+        equal; the Sequential twin differs. This covers ONE shape: a single enabled FB on a branch, EN fed by the
+        feed, the branch value its ENO (= the feed). The corpus's 17 Parallels hold none of it: of the 16
+        BoxShortCircuit ones, 4 hold a box without EN (a TOF FB, 3 `fc_CamC_CC_UDT` FUNCTION calls: the branch value
+        is the box's own output, not the feed), 7 hold enabled comparisons or arithmetic (EQ ×2, GE, GE/ADD/MUL,
+        GE + TON, LE/GE/LT, GE/LE/GT: their value is FALSE when disabled, N41, not ENO), and 4 of those hold 2 to 6
+        boxes on their branches (call order inside a branch not measured); the one Sequential holds an LE[EN].
+        Before 1.4 decides on the guard it measures a no-EN function branch, an enabled-comparison branch and a
+        branch with several boxes.
+      - EXECUTE: the ST runs only after a second commit (as execute-runs.test.ts says); then
+        `eno := EXECUTE[EN := en](o := o + i;)` = `IF en THEN o := o + i; END_IF; eno := en;`, and a root Execute box
+        with an unwired EN runs every scan. Twins equal.
+      - `???`, probe-built: an FB box with instance `???` and wired pins fails the build ("Expression expected instead
+        of '?'", "Program name, function or function block instance expected"); an `ADD[EN]` whose result pin is wired
+        to `???` fails it ("The assignment target is not specified."). The corpus shapes are not those, and the
+        recorded lenze-mid build has 0 errors: the 4 `???` instances (every pin empty) are in `MotionControl/POU`,
+        which is `%EXCLUDE_FROM_BUILD`, so never compiled. The 4 `=> ???` are in `Mach1_MIDS` (3) and `AHWF` (1), both
+        compiled (MainTask → General → Mach1_MIDS → AHWF), so that stored shape builds. They are NOT result pins: each
+        box stores `OutputParam.Names ['ENO']` and two output slots `[null, '???']`, and only one callee has a result
+        (`Alarms_V5_1_100 : BOOL`); `SideCorrection` and `SpeedCalculationDryer` are PROGRAMs and
+        `SpeedCalculationTrayfiller` a FUNCTION with no return type. So three hold `???` in N37's extra unnamed slot of an
+        enabled call (`RebuildLoss.ExtraOutputSlots`), one in a BOOL function's result slot. All four store
+        `CallType Function`, which therefore does not show the callee is a function: of lenze-mid's 14 enabled PROGRAM
+        calls, 11 store `CallType Program` and 3 `CallType Function` (2 of them these). 1.4 spells them neither as
+        `??? := f(…)` nor as result pins.
+      Not measured (Volt-side, for 2.2): whether an omitted pin reads back as unwired.
+      1b (review fixes, 2026-10-27, re-measured on a fresh `ide.ps1 -Instance network-text-st` copy, closed after): all
+      53 runnable cases re-run on the same stimulus, with the kept twins plus the candidates the bullets above choose
+      between. Twin equal on every case except the ones the bullets name, and four importer artifacts: the
+      importer moves a mid-rung coil (`M13_ld_mid_coil`; the NWL-built case is equal), stores an EN box on a parallel
+      branch as a series AND (`M13_ld_par_enbox`, `…_first`: `out = a`) and drops a fed parallel's network
+      (`M13_ld_fed_par_enbox`: empty body). The NWL-built `N13_par_*` cases measure those shapes. The 4 only built:
+      the two `???` cases and the two whose helper assigns `ENO`. DIALECT N21 is stale on two points, and its
+      corrections go with 3.2, because DIALECT.md and the reader are in language-line's working set now: a consumed
+      enabled comparison builds since 2R.5 (N41 #26 and the push above), and a GT box the push builds stores
+      `MainOutputIndex` 0 once the vendor resolves its `CallType`, so the `CodesysNetworkReader` comment "absent on
+      every box a push built" holds for the contact AND it builds (null), not for an operator box. The reader takes a
+      stored index first, so its behaviour is unaffected.
+      1b review (2026-10-27, docs only, counted on the recorded archives `test/fixtures/nwl-corpus` by scratch
+      scripts, not kept): six findings, all fixed in the bullets above and in design.md. (1) `=> ???`: 1 of the 4 is
+      a result pin, 3 sit in an enabled call's extra slot; the reviewer's "only AHWF's call is `CallType Program`" was
+      inverted (11 of the 14 enabled PROGRAM calls store `Program`), the point stands: 3 PROGRAM calls store
+      `Function`. The 1.1 function-box counts (227; library or user POU 124; EN on a function 132) include these 14
+      PROGRAM calls (the model has no program kind: a box without an instance is `CallKind.Function`). (2)
+      BoxShortCircuit guard scoped to the one measured shape; the corpus shapes go to 1.4 as measurements. (3) The
+      reader's other comments ("absent on the AND/OR boxes (census 1.6)", `UnstoredMainOutput`) are false too: added
+      to 3.2. (4) EN
+      without ENO stated per operator kind; the reviewer's "both consumed by a root Assign" holds for ADD only (GT
+      was also measured inside an AND, `N13_gt_en_value_and`). (5) design.md rows 38, 46, 50, 64, 69 and the open
+      list now carry 1.3's answers. (6) The AND/OR split is by editor view, and contact form occurs in an FBD-view
+      body (pro2193 `SetAlarm`). For the owner (a grammar edge case, not doc content): contacts are not tied to the
+      body's language, so the subset cannot say "contacts only in LD".
+      Gate 1b: typecheck green on all 5 packages; full LSP suite with VOLT_REQUIRE_FULL=1: 10392 pass, 0 fail, 34 skip,
+      428 todo (594 s). No fixture or transpiler change, so the map is not regenerated.
 - [ ] 1.4 design.md (design-first, before any code): the mapping per node kind. It must decide:
       - EN/ENO: the `IF en THEN <box> END_IF` pattern, chains, and ENO targets; or a `%` line if ST cannot carry it;
       - the operator-chain rule (one chain = one extensible box, brackets nest);
@@ -68,6 +190,10 @@ archived.
       - the `%NETWORK`/`%LABEL`/`%DISABLED` lines;
       - the network subset the LSP allows;
       - the oracles.
+      Before deciding, it measures what 1.3 left out (1b review): a BoxShortCircuit branch holding a no-EN function,
+      an enabled comparison and several boxes; an enabled non-comparison BOOL box and a nested enabled arithmetic box
+      consumed by value. The 3 `=> ???` in an enabled call's extra slot and the 1 in a result slot are spelled as
+      what they are, not as result pins. It takes up every design.md row that still points at 1.3.
       Every case where plain ST cannot carry a stored difference is listed with the choice made and why. The owner
       said go ahead, so the design is decided by evidence here and reported to the owner. It does not wait.
 
@@ -87,5 +213,9 @@ archived.
 - [ ] 3.1 Push through the new reader (NetworkPairing, the derivation, RebuildLoss as today); the full e2e suite on
       both vendors.
 - [ ] 3.2 Delete the old reader, lexer, spelling and the LSP's network parser; rewrite `docs/network-text.html` (much
-      smaller: the mapping table and the subset); the case set re-recorded.
+      smaller: the mapping table and the subset); the case set re-recorded. Correct DIALECT N21 and the
+      `CodesysNetworkReader` `MainOutputIndex` comments by 1.3's 1b note: "absent on every box a push built" holds only
+      for the contact AND it builds, and "absent on the AND/OR boxes (census 1.6)" / "the AND/OR boxes an engineer
+      drew" (`UnstoredMainOutput`) is false: every drawn AND/OR/NOT box stores 0 (15 AND/OR, 3 NOT); only the
+      contact form (814 in LD-view bodies, 1 in an FBD-view body) stores null.
 - [ ] 3.3 Close: cold full suites, the release matrix, archive.

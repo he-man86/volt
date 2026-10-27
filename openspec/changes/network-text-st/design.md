@@ -35,19 +35,19 @@ Networks: LD 356 / 105 / 15, FBD 38 / 24 / 132.
 | NOT box | 3 / 2 / 3 | `NOT a`. **ST cannot carry it** apart from the next two rows: 1.2 measured `NOT(a)` and `NOT a` as one AST |
 | negated contact or leaf | 359 / 10 / 2 | `NOT a` |
 | negated input pin | 6 / 3 / 0 | `NOT a` |
-| LD Parallel (BoxShortCircuit 16, Sequential 1; 3 branches 1; no feed 5) vs LD OR box (180) | 17 / 16 / 0 | `a OR b` for both. **ST cannot carry it** (Parallel vs box, and Mode): 1.3 measures whether the 180 LD OR boxes are contacts |
+| LD Parallel (BoxShortCircuit 16, Sequential 1; 3 branches 1; no feed 5) vs LD OR box (180) | 17 / 16 / 0 | `a OR b` for both. **ST cannot carry it** (Parallel vs box, and Mode). 1.3: 178 of the 180 are contacts (the OR box with no output item), 1 a drawn OR box, 1 TwinCAT's; run time identical. BoxShortCircuit measured on one shape only (an enabled FB on a branch, 0 in the corpus); the corpus shapes are measured in 1.4 |
 | · TwinCAT: a hand-drawn LD parallel is stored as an OR box | – / – / 5 | the archives' 5 LD parallels (`Vn_ld_parallel2`, `…3`, `…_series`, `…_then_series`, `Vn_ld_series_parallel`) each hold one `BoxType "OR"` box and no `BoxTreeParallel`: TwinCAT has no Parallel-vs-OR distinction in LD (a measured vendor asymmetry, counted in the 25 archive OR boxes above). 1.3 |
-| function box, Execute excluded | 227 / 60 / 43 | a call |
+| function box, Execute excluded (corpus: incl. 14 enabled PROGRAM calls, lenze-mid: the model has no program kind) | 227 / 60 / 43 | a call |
 | · MOVE (stored as a function call) | 102 / 47 / 3 | `x := MOVE(v);` positional (1.2: a built-in takes no formals), only for a MOVE an Assign consumes (corpus: 1). The other 101 corpus MOVE boxes have their result pin wired to a variable: see the result-pin row |
 | · other built-ins (TO_STRING; in archives MAX, MIN, MUX, SEL, LIMIT, SHL…ROR, trig, conversions, ADR, SIZEOF) | 1 / 2 / 35 | positional |
-| · library or user POU (incl. CONCAT, LEN, DELETE, REPLACE) | 124 / 11 / 5 | formals as stored (`f(IN := a, o => y)`), 1.2 clean |
+| · library or user POU (incl. CONCAT, LEN, DELETE, REPLACE; and the 14 PROGRAM calls) | 124 / 11 / 5 | formals as stored (`f(IN := a, o => y)`), 1.2 clean |
 | box with outputs wired (`=>`) · with a named output (boxes; corpus: 87 named output pins on the 43; 177 = 130 result-pin boxes + 43 named-output boxes + 4 `=> ???`) | 177 · 43 / 54 · 5 / 0 · 0 | `o => y` in a formal call |
 | · keyword operator or built-in whose result pin is wired to a variable (`v MUL 10 => x`): ADD 17, SUB 5, MUL 5, DIV 2 (every corpus arithmetic box), MOVE 101 (15 of them on an EN-chain continuation) | 130 / – / – | **ST cannot carry it**: `x := MOVE(v);` / `x := i * j;` read back as an Assign root over the box, not a box with a wired result pin, and an operator has no call form (1.2). 1.3/1.4 |
-| · positional output wired to `???` (`f(…, => ???)`, Mach1_MIDS ×3, AHWF ×1) | 4 / – / – | **ST cannot carry it**: `=> ???` names no variable. 1.3/1.4 |
+| · output slot wired to `???` (Mach1_MIDS ×3, AHWF ×1) | 4 / – / – | **ST cannot carry it**: `=> ???` names no variable. 1.3: builds (compiled, 0 errors); 1 is a BOOL function's result slot, 3 the extra unnamed slot of an enabled call (2 PROGRAMs, 1 FUNCTION with no type; `RebuildLoss.ExtraOutputSlots`), all `CallType Function`. Not result pins. 1.4 |
 | FB box | 157 / 14 / 19 | `t1(IN := a, PT := p);` |
 | · output read by name | 93 / 7 / 0 | `x := t1.Q;` after the call |
 | · instance `???` | 4 / 1 / 0 | **ST cannot carry it**: `???(…)` is no call. v2 spells it today (`??? : TYPE(…)`, added so the Lenze POU can be pushed back). 1.3/1.4 |
-| box at a tree's root (no Assign) | 184 / 33 / 20 | a call statement `f(…);` / `t1(…);` (1.3 checks a discarded function result) |
+| box at a tree's root (no Assign) | 184 / 33 / 20 | a call statement `f(…);` / `t1(…);`. 1.3: a root function box without EN whose result slot holds a variable builds and never writes it (0 in the corpus) |
 | EN | 226 / 63 / 2 | **ST cannot carry it**: CODESYS ST has no EN/ENO (1.2). 1.4 decides between `IF en THEN … END_IF` and a `%` line |
 | · on a keyword operator · function or built-in · FB | 69 · 132 · 25 / 10 · 50 · 3 / 1 · 1 · 0 | as above |
 | · EN unwired | 37 / 3 / 0 | as above |
@@ -61,12 +61,12 @@ Networks: LD 356 / 105 / 15, FBD 38 / 24 / 132.
 | · fed by the bare rail (Terminator value, no jump) | 4 / 2 / 0 | **ST cannot carry it** apart from a `TRUE` leaf: `x := TRUE;` is a different tree. 1.3/1.4 |
 | · negated coil | 0 / 2 / 3 | **ST cannot carry it**; v2 spells it (`NOT x := a;`). 1.3/1.4 |
 | · edge coil (rising, falling) | 0 / 3 / 0 | **ST cannot carry it**; v2 spells it (`R_EDGE x := a;`). 1.3/1.4 |
-| mid-rung coil (Assign nested in a tree) | 6 / 2 / 0 | **ST cannot carry it** as an expression. 1.3 measures it |
+| mid-rung coil (Assign nested in a tree) | 6 / 2 / 0 | **ST cannot carry it** as an expression. 1.3: runs as `out := a; out2 := a AND b;` |
 | Demux: definitions · references | 140 · 436 / 11 · 14 / 4 · 10 | a wire variable `w := …;` then `w`. Name and declaration: 1.4 |
 | · definition fed by the bare rail (Terminator input: `split2 := ;` ×4, GeneralProgramFlags) | 4 / – / – | **ST cannot carry it**: `w := ;` is no ST, `w := TRUE;` reads back as a Leaf. 1.3/1.4, with the rail-fed coil |
 | edge contact or leaf (rising, falling) | 1 / 3 / 3 | **ST cannot carry it**: ST has no edge operator, and `R_TRIG` needs an instance. v2 spells it (`R_EDGE NOT clk`). 1.3/1.4 |
 | edge on a pin, or edge/negation on a box output or EN (negated input pins: the row above) | 0 / 6 / 0 | **ST cannot carry it**; v2 spells it (`TON(NOT IN := v …)`). 1.3/1.4 |
-| unwired input pin | 7 / 5 / 2 | the pin left out of the call. 1.3: does an omitted pin read back as unwired? |
+| unwired input pin | 7 / 5 / 2 | the pin left out of the call. Whether an omitted pin reads back as unwired is Volt-side: 2.2 |
 | jump · return | 0 · 1 / 7 · 4 / 2 · 2 | `IF c THEN JMP l; END_IF` / `IF c THEN RETURN; END_IF` (unconditional: `JMP l;` / `RETURN;`) |
 | a tree that is a lone leaf with no operand | 1 / 0 / 0 | **ST cannot carry it**: `;` is no node. Niche, accepted loss (1) |
 | network: title · comment · label · disabled | 260 · 20 · 2 · 3 / 5 · 3 · 9 · 2 / 0 · 0 · 0 · 0 | `%NETWORK "…"`, `//` lines, `%LABEL l`, `%DISABLED` |
@@ -101,7 +101,7 @@ Assign item, a null input slot, a missing pin-flag list, and an unreadable Execu
   leaves, edges and negations on a pin, an output or EN. The proposal names the negated coil and the edge contacts as
   the design's real work, and the owner's rule is that every stored shape gets a spelling, so none of these is an
   accepted loss;
-- whether an omitted pin reads back as unwired.
+- whether an omitted pin reads back as unwired (Volt-side, not measured by 1.3: 2.2).
 
 **Niche, accepted loss:** the empty lone leaf (1).
 
