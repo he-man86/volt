@@ -4,7 +4,8 @@ import { landed } from "../harness"
  *
  * <p>Two directions. The REMOVED code checks now ACCEPT, and the IDE's own build says what is wrong (1.1, 1.2, 2.1, 1.4):
  * a push no longer judges the code. The SILENT DROPS are gone: 4.26 a body at an item with no body slot is not dropped
- * (no wire text reaches such an item as a body — it is written whole, and the build reports it), 4.31 a move into a node
+ * (no wire text reaches such an item as a body — it is written whole, and the build reports it; 4.26b: a `%LANGUAGE`
+ * line there, which would be written as code, is refused by name), 4.31 a move into a node
  * that is no folder is refused before anything is written, and D27 a body in a language Volt does not show reads with
  * its declaration and a marker naming the language instead of dropping the POU. Every row runs against every fixture
  * IDE of ours that is up, and — when both are — the two answers must be byte-identical after `normalize` (8.4). The
@@ -146,15 +147,19 @@ const ROWS: Row[] = [
 	{
 		key: "4.26",
 		// MEASURED 2026-10-04 on both vendors: no wire text reaches a slotless item AS a body. The reader sends a GVL's
-		// whole text as its declaration and a null body (`NoBodySlotIsNullTests`), so a body after an `%LANGUAGE ST`
-		// line is not dropped — it is written as sent, and the build reports it. The drivers' own `RequireSlot` refusal
+		// whole text as its declaration and a null body (`NoBodySlotIsNullTests`), so a statement after its VAR block is not
+		// dropped — it is written as sent, and the build reports it. The drivers' own `RequireSlot` refusal
 		// (CodesysNoSlotTextTests, TcNoSlotTextTests) guards every other caller and is unreachable from the wire; the
 		// silent drop this row was written for (TwinCAT's kind table dropped the body) cannot happen from a push.
-		title: "4.26 a GVL text with a body after %LANGUAGE ST is written whole (nothing dropped); the build reports it",
+		title: "4.26 a GVL text with a statement after its VAR block is written whole (nothing dropped); the build reports it",
 		run: async (b) => {
 			const bare = n("gvl_body")
 			const name = b.path(`${bare}.gvl`)
-			const text = `VAR_GLOBAL\n\t${bare}_g : INT;\nEND_VAR\n${MARK}\n${bare}_g := 1;\n`
+			const text = `VAR_GLOBAL
+	${bare}_g : INT;
+END_VAR
+${bare}_g := 1;
+`
 			const r = await pushFresh(b, [{ op: "set", name, sourceText: text, ifVersion: null }])
 			expect(accepted(r), `${b.vendor}: refused: ${JSON.stringify(r)}`).toBe(true)
 			const back = (await fetchOne(b, name)).sourceText
@@ -163,6 +168,31 @@ const ROWS: Row[] = [
 			console.log(`[behaviour ${b.vendor}] 4.26 build:`, JSON.stringify(errs))
 			expect(errorsOf(errs, bare).length, `${b.vendor}: the build reported nothing at ${bare} for a body in a GVL`).toBeGreaterThan(0)
 			return { text: back }
+		},
+	},
+	{
+		key: "4.26b",
+		// A `%LANGUAGE` line opens a body, and a GVL has none: the reader refuses it by name (`StReader.RefusePropertyLinesIn`)
+		// instead of writing it into the IDE as code — the push's side of the LSP's misplaced-property-line report.
+		title: "4.26b a GVL text with a %LANGUAGE ST line is refused INVALID_ST, naming the item and the line; nothing changes",
+		run: async (b) => {
+			const bare = n("gvl_line")
+			const name = b.path(`${bare}.gvl`)
+			const before = await refsOf(b)
+			const text = `VAR_GLOBAL
+	${bare}_g : INT;
+END_VAR
+${MARK}
+${bare}_g := 1;
+`
+			const r = await pushFresh(b, [{ op: "set", name, sourceText: text, ifVersion: null }])
+			const c = r.kind === "push" ? (r.response.conflicts ?? []).find((x: any) => x.name === name) : undefined
+			expect(c, `${b.vendor}: a %LANGUAGE line in a GVL was not refused: ${JSON.stringify(r)}`).toBeDefined()
+			expect(c.code).toBe("INVALID_ST")
+			expect(c.reason).toContain(bare)
+			expect(c.reason).toContain(MARK)
+			expect(stateOf(await refsOf(b))).toEqual(stateOf(before))
+			return normalize(r, b)
 		},
 	},
 	{
