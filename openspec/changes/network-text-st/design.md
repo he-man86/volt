@@ -109,12 +109,25 @@ Volt adds only `%` lines. Decided on 1.1–1.3 and the measurements below.
 MOVE_EN() and a MOVE() function", "in the end in CS they are also 2 sep blocks you choose from").** One rule: **one
 function name per element the IDE's toolbox offers.** Where CODESYS offers two elements (a box and the box with EN/ENO),
 the text has two functions, so the text alone says which element is stored and nothing is told apart by context.
-An enabled box is `<name>_EN`, `EN` first, returning ENO, its value through `OUT`. The LSP knows these functions as it
-knows LIMIT (`frontend/types/builtins.ts`): no library file, no namespace, no network rule. A chain nests, as drawn:
+**Every box is a call** (owner, 2026-10-27: "i thought we only use functions so GT(temp>80) and GT_EN(EN= …"),
+the 14 keyword operators included: `GT(temp, 80)`, `ADD(i, j)`, `AND(a, b, c)`, `NOT(a)`. An extensible box is one call
+with all its inputs, a nested box a nested call, so brackets carry no meaning and the operator-chain rule below is
+gone. Infix `a AND b`, `a OR b`, `NOT a` remain only for what the LD toolbox draws as contacts (series, parallel,
+negated contact); a drawn AND/OR/NOT box in LD is the call. FBD has no contacts, so FBD is calls only. An enabled box
+is `<name>_EN`, `EN` first, ALWAYS returning ENO (comparisons too), its value through `OUT`. Pins are positional for a
+built-in (as on the box), formal otherwise. The LSP knows every one of these functions as it knows LIMIT
+(`frontend/types/builtins.ts`): no library file, no namespace, no network rule. CODESYS ST has no call form for the 14
+keyword operators (1.2), so — like `_EN` — the exec twin rewrites them to infix. A chain nests, as drawn:
 
 ```
-done := MOVE_EN(EN := MOVE_EN(EN := c, IN := 1, OUT => x), IN := 2, OUT => y);
+tooHot := GT(temp, 80);
+ok     := GT_EN(EN := auto, temp, 80, OUT => alarm);
+run    := AND(start, NOT(stop), ok);
+done   := MOVE_EN(EN := MOVE_EN(EN := c, IN := 1, OUT => x), IN := 2, OUT => y);
 ```
+
+This overrides the "Boxes are their ST form" choice, the operator rows of the mapping table, the bracket edge case
+and the probe's "an enabled comparison returns its value".
 
 This replaces every `IF en THEN …` row below (EN, EN chain, result pin, ENO by value, enabled comparison) and the
 probe's `MOVE(EN := …)`; it also ends the clash with a callee that declares its own `EN` (55 library POUs): `f(EN := …)`

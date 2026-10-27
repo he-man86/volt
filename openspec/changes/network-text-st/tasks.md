@@ -285,6 +285,10 @@ new stored members and the adopted open-point choices are in design.md ("Gap pro
 (Parallel with a side effect, `???` instance, edge contact, edges/negations on pins) are `%UNSUPPORTED` during the
 read-only phase only; 3.0 spells them.
 
+Restart note (2026-10-27): the first section-2 run was stopped mid-2.1 when the owner set "every box is a call"
+(design.md "Revision"). Its UNCOMMITTED work in the tree (StNetworkWriter moved to `src/`, StNetworkOracle, the
+switch and vendor-reader wiring, test updates) is kept: continue it, change only the spelling to the revision.
+
 - [ ] 2.1 Writer: NWL → plain ST network text (behind `NetworkTextSwitch`, as LD/FBD are today). A push of an LD/FBD body is
       refused by name until section 3 ("LD/FBD push comes back with the plain-ST reader"). Measure first, in CODESYS on
       an `ide.ps1` fixture copy: an unconnected input pin (Leaf `""`, 10 lenze networks) left out of the call — does the
