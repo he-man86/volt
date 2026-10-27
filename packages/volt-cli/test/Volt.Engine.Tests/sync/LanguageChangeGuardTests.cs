@@ -21,7 +21,7 @@ namespace Volt.Engine.Tests;
 public class LanguageChangeGuardTests
 {
     const string Decl = "PROGRAM P\nVAR\n\ta : BOOL;\n\tq : BOOL;\nEND_VAR";
-    const string Fbd = "IMPLEMENTATION FBD\nNETWORK\n  q := a;\nEND_NETWORK";
+    const string Fbd = "%LANGUAGE FBD\nNETWORK\n  q := a;\nEND_NETWORK";
 
     static ItemContent Pou(string? body, StatedLanguage? stated) =>
         new(ItemKind.Kinds.Pou, Decl, body, new List<Member>(), ObjectProperties.None, Stated: stated);
@@ -122,15 +122,15 @@ public class LanguageChangeGuardTests
     public void A_hidden_body_is_never_a_language_change_the_vendor_is_asked_about()
     {
         Func<string, string, string, string?> never = (_, _, _) => throw new InvalidOperationException("asked");
-        var cfc = ImplementationMarker.Unsupported(Languages.Cfc);
+        var cfc = PropertyLines.UnsupportedLine(Languages.Cfc);
 
         Assert.Throws<BridgeException>(() => BodyFormatGuard.RequireWritable(
             Pou(cfc, StatedLanguage.HiddenIn(Languages.Cfc)), Pou("x", StatedLanguage.St), never));
         Assert.Throws<BridgeException>(() => BodyFormatGuard.RequireWritable(
             Pou(cfc, StatedLanguage.HiddenIn(Languages.Cfc)),
-            Pou(ImplementationMarker.Unsupported(Languages.Sfc), StatedLanguage.HiddenIn(Languages.Sfc)), never));
+            Pou(PropertyLines.UnsupportedLine(Languages.Sfc), StatedLanguage.HiddenIn(Languages.Sfc)), never));
         BodyFormatGuard.RequireWritable(Pou(Fbd, StatedLanguage.Shown(Languages.Fbd)),
-            Pou(ImplementationMarker.Unsupported(Languages.Fbd), StatedLanguage.HiddenIn(Languages.Fbd)), never);
+            Pou(PropertyLines.UnsupportedLine(Languages.Fbd), StatedLanguage.HiddenIn(Languages.Fbd)), never);
     }
 
     // ── through a push ───────────────────────────────────────────────────────────────────────────────────
@@ -144,7 +144,7 @@ public class LanguageChangeGuardTests
             Ops = new List<PushOp>
             {
                 new SetItemOp { Name = "P.pou", IfVersion = refs.Items["P.pou"],
-                                SourceText = $"{Decl}\nIMPLEMENTATION ST\n{body}\nEND_PROGRAM\n" },
+                                SourceText = $"{Decl}\n%LANGUAGE ST\n{body}\nEND_PROGRAM\n" },
             },
         });
     }
@@ -209,10 +209,10 @@ public class LanguageChangeGuardTests
 
         // …while a property is asked at its accessors, and a method at its body.
         static Member Prop(string get) => new(ItemKind.Kinds.Property, "P", "PROPERTY P : BOOL", "", ObjectProperties.None,
-            Getter: new Accessor("", get, Stated: get.StartsWith("IMPLEMENTATION") ? StatedLanguage.Shown(Languages.Ld) : StatedLanguage.St));
+            Getter: new Accessor("", get, Stated: get.StartsWith("%LANGUAGE") ? StatedLanguage.Shown(Languages.Ld) : StatedLanguage.St));
         static ItemContent Fb(params Member[] ms) => new(ItemKind.Kinds.Pou, Decl, "", ms.ToList(), ObjectProperties.None, Stated: StatedLanguage.St);
         Assert.Throws<BridgeException>(() => BodyFormatGuard.RequireWritable(
-            Fb(Prop("IMPLEMENTATION LD\nNETWORK\nEND_NETWORK")), Fb(Prop("q := a;")), Record));
+            Fb(Prop("%LANGUAGE LD\nNETWORK\nEND_NETWORK")), Fb(Prop("q := a;")), Record));
         Assert.Equal(new[] { ItemKind.Kinds.PropertyGet }, asked);
     }
 }

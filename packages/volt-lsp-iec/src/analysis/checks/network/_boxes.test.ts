@@ -17,7 +17,7 @@ END_FUNCTION_BLOCK
 test("network text: an unknown FB pin is flagged; a declared pin is not", () => {
   const bad = `${FB_M}FUNCTION_BLOCK F
 VAR m : FB_M; x : BOOL; END_VAR
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
 m : FB_M(b := x);
 END_NETWORK
@@ -30,7 +30,7 @@ END_FUNCTION_BLOCK`
 test("network text: a box on an unresolvable (library/standard) FB is not pin-checked", () => {
   const src = `FUNCTION_BLOCK F
 VAR tmr : TON; on : BOOL; t : TIME; END_VAR
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
 tmr : TON(IN := on, PT := t, MADE_UP := on);
 END_NETWORK
@@ -43,7 +43,7 @@ test("network text: EN and ENO are every box's own, not unknown pins", () => {
   // recorded build accepts every one.
   const src = `FUNCTION_BLOCK Outer
 VAR inner : Inner; go : BOOL; done : BOOL; END_VAR
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   done := inner : Inner() ENO EN go;
 END_NETWORK
@@ -57,7 +57,7 @@ END_FUNCTION_BLOCK`
 test("network text: a pin the FB really lacks is still reported", () => {
   const src = `FUNCTION_BLOCK Outer
 VAR inner : Inner; go : BOOL; END_VAR
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   inner : Inner(nosuchpin := go);
 END_NETWORK
@@ -72,7 +72,7 @@ test("network text: an operator box read through ENO with no EN has no text; on 
   // X9: a box shows ENO only with EN, so the reader refuses `ENO` without it — the push never builds it. An FB may declare
   // ENO without EN (Lenze `Dryer`, N16), read with nothing after its call: nothing is said.
   const fb = (vars: string, statement: string) =>
-    `FUNCTION_BLOCK FB_T\nVAR_INPUT IN : BOOL; END_VAR\nVAR_OUTPUT ENO : BOOL; END_VAR\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK FB\nVAR a : INT; b : INT; x : BOOL; go : BOOL; sv : INT; ${vars} END_VAR\nIMPLEMENTATION FBD\nNETWORK\n  ${statement}\nEND_NETWORK\nEND_FUNCTION_BLOCK`
+    `FUNCTION_BLOCK FB_T\nVAR_INPUT IN : BOOL; END_VAR\nVAR_OUTPUT ENO : BOOL; END_VAR\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK FB\nVAR a : INT; b : INT; x : BOOL; go : BOOL; sv : INT; ${vars} END_VAR\n%LANGUAGE FBD\nNETWORK\n  ${statement}\nEND_NETWORK\nEND_FUNCTION_BLOCK`
   expect(vgDiags(fb("", "x := a ADD b => sv ENO;")).map((d) => d.code)).toEqual(["NETWORK_BAD_EXPRESSION"])
   expect(vgDiags(fb("", "x := a ADD b => sv ENO EN go;"))).toEqual([])
   expect(vgDiags(fb("t : FB_T;", "x := t : FB_T(IN := go);"))).toEqual([])
@@ -89,7 +89,7 @@ test("network text: ENO with no EN on a QUALIFIED library function's box is no c
   const manifest = { uri: `${lib}/Util.library`, folder: "Util", dir: `${lib}/`, namespace: "Util", library: "Util", dependencies: [], materialization: 2 }
   const libSrc = "FUNCTION Twice : INT\nVAR_INPUT\n  a : INT;\n  b : INT;\nEND_VAR\nTwice := a + b;\nEND_FUNCTION\n"
   const run = (statement: string) => {
-    const src = `FUNCTION FUN : INT\nVAR_INPUT a : INT; b : INT; END_VAR\nFUN := a + b;\nEND_FUNCTION\nFUNCTION_BLOCK FB\nVAR a : INT; b : INT; x : BOOL; go : BOOL; END_VAR\nIMPLEMENTATION FBD\nNETWORK\n  ${statement}\nEND_NETWORK\nEND_FUNCTION_BLOCK`
+    const src = `FUNCTION FUN : INT\nVAR_INPUT a : INT; b : INT; END_VAR\nFUN := a + b;\nEND_FUNCTION\nFUNCTION_BLOCK FB\nVAR a : INT; b : INT; x : BOOL; go : BOOL; END_VAR\n%LANGUAGE FBD\nNETWORK\n  ${statement}\nEND_NETWORK\nEND_FUNCTION_BLOCK`
     const d = doc(src)
     const p = build.buildSymbolTable(
       [{ uri: d.uri, source: d.source, parseResult: d.parseResult }, { uri: `${lib}/Twice.pou`, source: libSrc, parseResult: parseSource(libSrc, { networkText: true }, "codesys") }],
@@ -117,7 +117,7 @@ test("network text: a call box's pins and kind, as CODESYS builds the box the pu
     "FUNCTION F_add : INT\nVAR_INPUT first : INT; second : INT; END_VAR\nF_add := first + second;\nEND_FUNCTION\n" +
     "FUNCTION_BLOCK FB_O\nVAR n : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD M_twice : INT\nVAR_INPUT k : INT; END_VAR\nM_twice := k * 2;\nEND_METHOD\n"
   const caller = (statement: string) =>
-    `${fns}FUNCTION_BLOCK F\nVAR v : INT; w : INT; y : INT; fbm : FB_O; END_VAR\nIMPLEMENTATION FBD\nNETWORK\n  ${statement}\nEND_NETWORK\nEND_FUNCTION_BLOCK\n`
+    `${fns}FUNCTION_BLOCK F\nVAR v : INT; w : INT; y : INT; fbm : FB_O; END_VAR\n%LANGUAGE FBD\nNETWORK\n  ${statement}\nEND_NETWORK\nEND_FUNCTION_BLOCK\n`
   const messages = (src: string) => vgDiags(src).map((d) => d.message)
   expect(messages(caller("y := F_add(v);"))).toEqual(["Function 'F_add' requires exactly '2' inputs"])
   expect(messages(caller("y := F_inc(v, i := w);"))).toEqual(["Function 'F_inc' requires exactly '1' inputs"])
@@ -133,7 +133,7 @@ test("network text: a call box's pins and kind, as CODESYS builds the box the pu
 test("network text: `??? := ENO` off an FB instance's box is unrecorded and says nothing; off a function it is the target complaint", () => {
   const fb = `FUNCTION_BLOCK F
 VAR t1 : TON; go : BOOL; a : BOOL; END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   ??? := t1 : TON(IN := a, PT := T#1S) ENO EN go;
 END_NETWORK
@@ -146,7 +146,7 @@ FN := x;
 END_FUNCTION
 FUNCTION_BLOCK F
 VAR go : BOOL; a : BOOL; END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   ??? := FN(a) ENO EN go;
 END_NETWORK
@@ -165,7 +165,7 @@ END_FUNCTION
 test("network text: a function box given more positional values than it declares inputs is the arity error", () => {
   const src = `${F_INC}FUNCTION_BLOCK F
 VAR v : INT; w : INT; y : INT; END_VAR
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   y := F_inc(v, w);
 END_NETWORK

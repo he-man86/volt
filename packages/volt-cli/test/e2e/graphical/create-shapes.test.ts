@@ -50,7 +50,7 @@ describe(`graphical / create shapes (${BASE})`, () => {
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tc : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;\nEND_VAR\n` +
 			// NO blank line between networks — not the canonical form a PULL emits. It is written all the same
 			// (bridge-refusal-review 2.12: the layout-only gate is gone) and the pull below returns the canonical text.
-			`IMPLEMENTATION FBD\nNETWORK\n  out1 := a AND b;\nEND_NETWORK\n` +
+			`%LANGUAGE FBD\nNETWORK\n  out1 := a AND b;\nEND_NETWORK\n` +
 			`NETWORK\n  out2 := b OR c;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
@@ -89,7 +89,7 @@ describe(`graphical / create shapes (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\tt1 : TON;\n\ta : BOOL;\n\tpt : TIME;\n\tel : TIME;\nEND_VAR\n` +
-			`IMPLEMENTATION FBD\nNETWORK\n  t1 : TON(IN := a, PT := pt, ET => el);\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`%LANGUAGE FBD\nNETWORK\n  t1 : TON(IN := a, PT := pt, ET => el);\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
 
@@ -115,7 +115,7 @@ describe(`graphical / create shapes (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\tt1 : TON;\n\ta : BOOL;\n\tpt : TIME;\n\tdone : BOOL;\nEND_VAR\n` +
-			`IMPLEMENTATION FBD\nNETWORK\n  t1 : TON(IN := a, PT := pt);\n  done := t1.Q;\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`%LANGUAGE FBD\nNETWORK\n  t1 : TON(IN := a, PT := pt);\n  done := t1.Q;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
 		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)

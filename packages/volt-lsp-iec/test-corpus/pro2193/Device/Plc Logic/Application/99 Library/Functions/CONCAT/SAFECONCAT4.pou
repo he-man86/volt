@@ -8,7 +8,7 @@ VAR_INPUT
 	bufferSize	: INT;					// bufferSize of s1
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF						StrConcatA(pstFrom := ADR(s2), pstTo := s1, iBufferSize := bufferSize) THEN
 	IF					StrConcatA(pstFrom := ADR(s3), pstTo := s1, iBufferSize := bufferSize) THEN
 		SAFECONCAT4 :=	StrConcatA(pstFrom := ADR(s4), pstTo := s1, iBufferSize := bufferSize);

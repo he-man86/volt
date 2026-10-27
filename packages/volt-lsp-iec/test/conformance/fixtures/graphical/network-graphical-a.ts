@@ -18,7 +18,7 @@ VAR
 \tout : BOOL;
 END_VAR
 
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   out := (a AND b) OR c;
 END_NETWORK
@@ -34,7 +34,7 @@ VAR
 \tout : BOOL;
 END_VAR
 
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   out := a AND b AND c;
 END_NETWORK
@@ -51,7 +51,7 @@ VAR
 \trest : INT;
 END_VAR
 
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   sum := x ADD y ADD z;
 END_NETWORK
@@ -70,7 +70,7 @@ VAR
 \tsame : BOOL;
 END_VAR
 
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   below := x LT y;
 END_NETWORK
@@ -90,7 +90,7 @@ VAR
 \tout2 : BOOL;
 END_VAR
 
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   split1 := a OR b;
   out1 := split1;
@@ -109,7 +109,7 @@ VAR
 \tcleared : BOOL;
 END_VAR
 
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   split1 := a OR b;
   plain := split1;
@@ -128,7 +128,7 @@ VAR
 \tout : BOOL;
 END_VAR
 
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   out := a AND \`NOT b\`;
 END_NETWORK
@@ -145,7 +145,7 @@ VAR
 \tout : BOOL;
 END_VAR
 
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   out := NOT (a AND b);
 END_NETWORK
@@ -160,7 +160,7 @@ VAR
 \tdown : BOOL;
 END_VAR
 
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   up := R_EDGE clk;
 END_NETWORK
@@ -181,7 +181,7 @@ VAR
 \tdone : BOOL;
 END_VAR
 
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   t1 : TON(IN := go, PT := pt);
   done := t1.Q;
@@ -208,7 +208,7 @@ VAR
 \ttwice : INT;
 END_VAR
 
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   next := F_NG_split(src, doubled => twice);
 END_NETWORK
@@ -226,7 +226,7 @@ VAR
 \tout : BOOL;
 END_VAR
 
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   out := a AND b ENO EN go;
 END_NETWORK
@@ -243,7 +243,7 @@ VAR
 \tout3 : BOOL;
 END_VAR
 
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   split1 := b OR c ENO EN go;
   out := split1;
@@ -260,7 +260,7 @@ VAR
 \ttarget : INT;
 END_VAR
 
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   EXECUTE
 IF bStart THEN
@@ -280,7 +280,7 @@ VAR
 \tafter : BOOL;
 END_VAR
 
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   out := TRUE;
   JMP Onwards := ;
@@ -300,7 +300,7 @@ VAR
 \tlater : BOOL;
 END_VAR
 
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   JMP Tail := cond;
 END_NETWORK
@@ -326,7 +326,7 @@ VAR
 \tout : BOOL;
 END_VAR
 
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK TITLE: "the interlock"
   // both have to be true
   out := a AND b;
@@ -342,7 +342,7 @@ VAR
 \tlive : BOOL;
 END_VAR
 
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK DISABLED
   out := nothingDeclaredWithThisName;
 END_NETWORK
@@ -362,7 +362,7 @@ VAR
 \tfromLd : BOOL;
 END_VAR
 
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   fromFbd := a AND b;
 END_NETWORK
@@ -382,7 +382,7 @@ VAR
 \tcount : INT;
 END_VAR
 
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   count := a AND b;
 END_NETWORK

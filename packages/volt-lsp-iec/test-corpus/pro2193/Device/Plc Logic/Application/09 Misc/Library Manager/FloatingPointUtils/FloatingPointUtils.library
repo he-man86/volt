@@ -3,4 +3,4 @@ NAMESPACE FPU
 RESOLUTION FloatingPointUtils, 3.5.17.0 (System)
 PLACEHOLDER true
 REDIRECT FloatingPointUtils FloatingPointUtils, 3.5.17.0 (System)
-MATERIALIZATION 4
+MATERIALIZATION 5

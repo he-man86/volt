@@ -34,7 +34,7 @@ export const FIELD_LIST: DeclList = { ends: ["END_STRUCT", "END_UNION"], global:
 
 /**
  * A VAR section left without its END_VAR: "'END_VAR' expected instead of ''" — the vendor reads the section on to the
- * end of the declaration part, whatever ends the list here: its `IMPLEMENTATION` line, a unit's own closer (which the IDE
+ * end of the declaration part, whatever ends the list here: its `%LANGUAGE` line, a unit's own closer (which the IDE
  * never receives), the end of the text (`rec_unterminated_var`), the next VAR section (`rec_unterminated_var_before_section`,
  * where each vendor first reads that section back as a STRUCT does a section in its fields: "Variable declaration
  * expected instead of VAR_INPUT\r\n\tk:INT;\r\nEND_VAR\r\n" — `refuseSectionInStruct`'s echo, TwinCAT's recording cut at
@@ -103,8 +103,8 @@ export function parseVarSection(c: Cursor): VarSection | undefined {
     // the unit's closer, drawing a third "unterminated <unit>" from the unit parser.
     // Any OTHER non-name token is a reserved word used as a variable name (`Limit : INT;`) — a bad decl, not
     // an unterminated section. Fall through: `parseVarDecl` reports it on the name and recovers to the `;`.
-    // …and so does the `IMPLEMENTATION <LANG>` line: the declaration part ends there, as the IDE receives it
-    if (c.atDeclListEnd() || c.opensImplementationLine()) break
+    // …and so does the `%LANGUAGE` line: the declaration part ends there, as the IDE receives it
+    if (c.atDeclListEnd() || c.opensLanguageLine()) break
     if (!parseDeclInto(c, list, section.decls)) break
   }
   unclosedSection(c)

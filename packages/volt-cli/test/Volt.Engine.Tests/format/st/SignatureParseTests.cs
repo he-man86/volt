@@ -25,8 +25,8 @@ public class SignatureParseTests
 {
     private static Member Only(string signature, string body = "x := 1;") =>
         StReader.Read(
-            "FUNCTION_BLOCK FB_S\nVAR\nEND_VAR\n" + ImplementationMarker.For(Volt.Engine.Format.Body.Languages.St) + "\nEND_FUNCTION_BLOCK\n\n" +
-            signature + "\n" + ImplementationMarker.For(Volt.Engine.Format.Body.Languages.St) + "\n" + body + "\n" + EndOf(signature) + "\n",
+            "FUNCTION_BLOCK FB_S\nVAR\nEND_VAR\n" + PropertyLines.LanguageLine(Volt.Engine.Format.Body.Languages.St) + "\nEND_FUNCTION_BLOCK\n\n" +
+            signature + "\n" + PropertyLines.LanguageLine(Volt.Engine.Format.Body.Languages.St) + "\n" + body + "\n" + EndOf(signature) + "\n",
             ItemKind.Kinds.Pou)
         .Members.Single();
 
@@ -169,8 +169,8 @@ public class SignatureParseTests
     public void A_property_without_a_type_is_read_with_no_type()
     {
         var m = StReader.Read(
-            "FUNCTION_BLOCK FB_S\nVAR\nEND_VAR\n" + ImplementationMarker.For(Volt.Engine.Format.Body.Languages.St) + "\nEND_FUNCTION_BLOCK\n\n" +
-            "PROPERTY Ready\nGET\n" + ImplementationMarker.For(Volt.Engine.Format.Body.Languages.St) + "\nReady := TRUE;\nEND_GET\nEND_PROPERTY\n",
+            "FUNCTION_BLOCK FB_S\nVAR\nEND_VAR\n" + PropertyLines.LanguageLine(Volt.Engine.Format.Body.Languages.St) + "\nEND_FUNCTION_BLOCK\n\n" +
+            "PROPERTY Ready\nGET\n" + PropertyLines.LanguageLine(Volt.Engine.Format.Body.Languages.St) + "\nReady := TRUE;\nEND_GET\nEND_PROPERTY\n",
             ItemKind.Kinds.Pou).Members.Single();
         Assert.Equal("Ready", m.Name);
         Assert.Null(m.DataType);

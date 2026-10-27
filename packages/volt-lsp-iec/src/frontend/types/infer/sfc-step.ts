@@ -4,7 +4,7 @@
  * an instance of IecSfc's `SFCStepType` — `x` and `_x` BOOL, `t` and `_t` TIME (`system.ts`) — readable bare inside the
  * POU (its actions, methods, transitions) and through its program or instance from outside (`PRG.S_Boot.x`).
  *
- * THE CHART IS NOT IN THE TEXT: Volt materializes an SFC body as `IMPLEMENTATION SFC UNSUPPORTED`, so no step list reaches
+ * THE CHART IS NOT IN THE TEXT: Volt materializes an SFC body as `%LANGUAGE SFC UNSUPPORTED`, so no step list reaches
  * the LSP. What it does instead is a BET, recorded as DIALECT D40 (`packages/volt-cli/src/Volt.Engine/Ide/DIALECT.md`): a
  * base read WITH A MEMBER (`X.m`) in an SFC POU is that chart's step when
  *   - the POU does not declare `X` (its own variables, its bases', the member's locals, its actions and methods) — a
@@ -86,7 +86,7 @@ function isStepName(name: string, scope: Scope): boolean {
   }
 }
 
-/** Is the POU scope `pou` a PROGRAM's or FUNCTION_BLOCK's whose body is SFC — `IMPLEMENTATION SFC UNSUPPORTED`? */
+/** Is the POU scope `pou` a PROGRAM's or FUNCTION_BLOCK's whose body is SFC — `%LANGUAGE SFC UNSUPPORTED`? */
 function isSfcPou(pou: Scope): boolean {
   let hit = SFC_POU.get(pou)
   if (hit === undefined) SFC_POU.set(pou, (hit = bodyIsSfc(pou)))
@@ -102,7 +102,7 @@ function bodyIsSfc(pou: Scope): boolean {
   )
   const ast = sym?.ast
   if (ast === undefined || (ast.kind !== "program" && ast.kind !== "function_block")) return false
-  const statement = ast.body.implementation?.statement
+  const statement = ast.body.languageLine?.statement
   return statement?.kind === "unsupported" && statement.language.toUpperCase() === "SFC"
 }
 

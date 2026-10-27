@@ -9,7 +9,7 @@ namespace Volt.Engine.Tests;
 /// code").
 ///
 /// <para>A comment is a comment. The pull used to refuse every source item whose IDE text held a <c>(* @volt-… *)</c>
-/// comment — the tag of a Volt from before the <c>IMPLEMENTATION</c> line — and listed it unreadable, for every kind:
+/// comment — the tag of a Volt from before the <c>%LANGUAGE</c> line — and listed it unreadable, for every kind:
 /// a DUT or a GVL holding one was pushable (neither is read on a push) and never pullable. The comment states no
 /// boundary in a file that has one, so nothing about it stops the file reading back; the round-trip refusals the pull
 /// keeps (<c>RefuseUnreadableBack</c>, <c>RefuseMemberOfAnotherClass</c>) are about the SPLIT, not about the code.</para>
@@ -40,7 +40,7 @@ public class PullDoesNotJudgeCommentsTests
         Assert.Contains("(* @volt-note *)", item.Text);
     }
 
-    /// <summary>…and a POU, in its declaration and in its ST body: the file carries an <c>IMPLEMENTATION</c> line, so the
+    /// <summary>…and a POU, in its declaration and in its ST body: the file carries an <c>%LANGUAGE</c> line, so the
     /// comment states nothing.</summary>
     [Fact]
     public void A_POU_holding_a_retired_volt_comment_pulls_as_held()

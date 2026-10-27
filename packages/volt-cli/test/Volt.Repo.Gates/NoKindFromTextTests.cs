@@ -75,7 +75,9 @@ public class NoKindFromTextTests
     /// <summary>Where a header keyword in a string is not a read that decides a kind — path as above.</summary>
     private static readonly Dictionary<string, Allowance> MaySpellHeaderKeywords = new(StringComparer.Ordinal)
     {
-        ["Volt.Engine/Format/St/StReader.cs"] = new(1, "the END line mirror's three keywords (PouHeaderKeyword)"),
+        ["Volt.Engine/Format/St/StReader.cs"] = new(2,
+            "the END line mirror's three keywords (PouHeaderKeyword); the VAR section words a slotless member's declaration " +
+            "runs through (VarSectionKeywords, the LSP's VAR_SECTION_KEYWORDS: where a declaration ENDS — no kind, no name)"),
         ["Volt.Engine/Format/St/StWriter.cs"] = new(1, "the refusal of a POU with no header names the three keywords the END line mirrors"),
         ["Volt.Engine/Format/St/StDeclaration.cs"] = new(3,
             "network-text scope's statement reader: the block words (VAR_GLOBAL, STRUCT, UNION …) that end a variable " +

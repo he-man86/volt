@@ -2,4 +2,4 @@ LIBRARY VisuUserMgmt3 Interfaces, * (System)
 NAMESPACE VisuUserManagement_Interfaces
 RESOLUTION VisuUserMgmt3 Interfaces, * (System)
 PLACEHOLDER false
-MATERIALIZATION 4
+MATERIALIZATION 5

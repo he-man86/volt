@@ -26,7 +26,7 @@ VAR
 \tb : BOOL;
 \tout : BOOL;
 END_VAR
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   out := NOT (a AND b);
 END_NETWORK
@@ -42,7 +42,7 @@ VAR
 \tb : BOOL;
 \tout : BOOL;
 END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   out := a AND b;
 END_NETWORK
@@ -66,7 +66,7 @@ VAR
 \tb : BOOL;
 \tout : BOOL;
 END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   out := NOT a AND b;
 END_NETWORK
@@ -82,7 +82,7 @@ VAR
 \tc : BOOL;
 \tout : BOOL;
 END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   out := a AND b AND c;
 END_NETWORK
@@ -98,7 +98,7 @@ VAR
 \tq : BOOL;
 \tr : BOOL;
 END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   q := a;
   r := b;
@@ -113,7 +113,7 @@ VAR
 \ta : BOOL;
 \tout : BOOL;
 END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   out S= a;
 END_NETWORK
@@ -132,7 +132,7 @@ VAR
 \tbRun : BOOL := TRUE;
 \tiResult : INT;
 END_VAR
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   EXECUTE
   IF bRun THEN
@@ -158,7 +158,7 @@ function emptyExecuteProgram(name: string) {
 VAR
 	bRun : BOOL := TRUE;
 END_VAR
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   EXECUTE
 
@@ -178,7 +178,7 @@ VAR
 \tb : BOOL;
 \tout : BOOL;
 END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   out := a AND b;
 END_NETWORK
@@ -206,7 +206,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 			const after = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name === fullName)
 			expect(after).toBeDefined()
 			expect(after.name.endsWith(".pou")).toBe(true)                        // named by KIND (pou); graphical-ness is in the content
-			expect(after.sourceText).toContain(`IMPLEMENTATION ${lang}`)   // stayed ${lang}, not flattened to ST
+			expect(after.sourceText).toContain(`%LANGUAGE ${lang}`)   // stayed ${lang}, not flattened to ST
 			expectNoOperandsLost(src, after.sourceText)   // …and nothing in the diagram was dropped on the way
 
 			// WHAT VOLT WROTE IS WHAT VOLT READS BACK — the pushed source, byte for byte.
@@ -251,7 +251,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 
 		const after = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name === fullName)
 		expect(after).toBeDefined()
-		expect(after.sourceText).toContain("IMPLEMENTATION FBD")   // stayed FBD, not flattened to ST
+		expect(after.sourceText).toContain("%LANGUAGE FBD")   // stayed FBD, not flattened to ST
 		// The Execute box materialized as a real CODESYS Execute box and read back with its inline ST intact.
 		expect(after.sourceText).toContain("EXECUTE")
 		expect(after.sourceText).toContain("END_EXECUTE")
@@ -313,7 +313,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 			const v1 = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => fileOf(i.name).startsWith(name + "."))
 			expect(v1).toBeDefined()
 			expect(v1.name.endsWith(".pou")).toBe(true)                // a graphical program is a .pou file like any POU
-			expect(v1.sourceText).toContain("IMPLEMENTATION LD")   // stayed ladder (LD), not flattened to ST
+			expect(v1.sourceText).toContain("%LANGUAGE LD")   // stayed ladder (LD), not flattened to ST
 			expectNoOperandsLost(buildSrc(name), v1.sourceText)          // and every element survived the write
 			if (exact) expect(v1.sourceText).toBe(buildSrc(name))        // …and it came back exactly as pushed
 			// The one inexact shape still has to keep every rung — the split may regroup them, never drop one.
@@ -409,15 +409,15 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		expect(landed((await bridge.push({ expectedProjectVersion: r0.projectVersion, ops: [{ op: "set", name: fullName, sourceText: fbdProgram(name), ifVersion: null }] })))).toBe(true)
 		const before = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => fileOf(i.name).startsWith(name + "."))
 		expect(before.name.endsWith(".pou")).toBe(true)                 // .pou file holding an FBD body
-		expect(before.sourceText).toContain("IMPLEMENTATION FBD")
+		expect(before.sourceText).toContain("%LANGUAGE FBD")
 
 		const r1 = await bridge.refs()
-		const stSrc = `PROGRAM ${name}\nVAR\n\tx : BOOL;\nEND_VAR\nIMPLEMENTATION ST\nx := TRUE;\nEND_PROGRAM\n`
+		const stSrc = `PROGRAM ${name}\nVAR\n\tx : BOOL;\nEND_VAR\n%LANGUAGE ST\nx := TRUE;\nEND_PROGRAM\n`
 		const r = await bridge.push({ expectedProjectVersion: r1.projectVersion, ops: [{ op: "set", name: fullName, sourceText: stSrc, ifVersion: r1.items[before.name] }] })
 		if (VENDOR === "codesys") {
 			expect(landed(r), `CODESYS refused a language change it writes (N24): ${JSON.stringify(r.conflicts)}`).toBe(true)
 			const st = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name === fullName)
-			expect(st.sourceText).toContain("IMPLEMENTATION ST\nx := TRUE;")
+			expect(st.sourceText).toContain("%LANGUAGE ST\nx := TRUE;")
 			return
 		}
 		expect(landed(r)).toBe(false)

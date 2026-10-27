@@ -165,8 +165,8 @@ export const UNIT_RULE_TESTS_A: readonly LanguageTest[] = [
   loaderNamed({
     ...fbUnit("unit_property_override", "U16 — `PROPERTY OVERRIDE P`, overriding the base's P",
       "FUNCTION_BLOCK FB_LANG_unit_property_override EXTENDS FB_LANG_unit_property_override_base\nVAR\n\tout : INT;\nEND_VAR\n" +
-        "IMPLEMENTATION ST\nout := P;\nEND_FUNCTION_BLOCK\n\nPROPERTY OVERRIDE P : INT\nGET\nIMPLEMENTATION ST\nP := 6;\nEND_GET\nEND_PROPERTY\n"),
-    asSent: "the parser reads OVERRIDE as the property's name, so it cannot mark the getter; the text states its own IMPLEMENTATION lines, as a workspace file does",
+        "%LANGUAGE ST\nout := P;\nEND_FUNCTION_BLOCK\n\nPROPERTY OVERRIDE P : INT\nGET\n%LANGUAGE ST\nP := 6;\nEND_GET\nEND_PROPERTY\n"),
+    asSent: "the parser reads OVERRIDE as the property's name, so it cannot mark the getter; the text states its own %LANGUAGE lines, as a workspace file does",
   },
     "a property object named OVERRIDE holding `PROPERTY OVERRIDE P : INT` BUILDS there and leaves the base's P in place (out = 1)"),
   property("unit_property_modifiers", "U16 — stacked PROPERTY modifiers: `PROPERTY PUBLIC FINAL P`", "PUBLIC FINAL"),
@@ -191,7 +191,7 @@ export const UNIT_RULE_TESTS_A: readonly LanguageTest[] = [
   pushRewrites(property("unit_property_no_end_get_alone", "U16 — the only accessor, a getter not closed by END_GET", "",
     "GET\nP := stored;\n"), "the push closes the getter at END_PROPERTY as an EMPTY accessor, dropping `P := stored;`"),
   // GET AND SET ARE NAMES INSIDE AN ACCESSOR'S BODY AND ITS VAR BLOCKS (openspec lsp-accessor-keyword-at-line-start): a
-  // body runs from its IMPLEMENTATION line to its own END keyword, as every element's does. The field FB (PLCAssist,
+  // body runs from its %LANGUAGE line to its own END keyword, as every element's does. The field FB (PLCAssist,
   // 2026-10-10) declared `SET : POINTER TO <struct>` and wrote `SET^.stri_Name := P;` — CODESYS builds it, the LSP closed
   // the accessor at the operand. One operand shape per fixture, at a line start and mid-line; then the controls.
   accessorNameRec,
@@ -215,7 +215,7 @@ export const UNIT_RULE_TESTS_A: readonly LanguageTest[] = [
   accessorName("unit_accessor_name_setter_get", "U16 — `GET := P;` in a setter, GET a declared INT",
     "\tGET : INT;\n", "P := 7;\nout := P;", getter("P := GET;") + setter("GET := P;")),
   accessorName("unit_accessor_name_var_block", "U16 — `SET : INT;` declared in a getter's own VAR block",
-    "", "out := P;", "GET\nVAR\n\tSET : INT;\nEND_VAR\nIMPLEMENTATION ST\nSET := 7;\nP := SET;\nEND_GET\n"),
+    "", "out := P;", "GET\nVAR\n\tSET : INT;\nEND_VAR\n%LANGUAGE ST\nSET := 7;\nP := SET;\nEND_GET\n"),
   accessorName("unit_accessor_name_control_closed", "U16 — control: a getter and a setter, each closed by its END",
     "\tstored : INT;\n", "P := 7;\nout := P;", getter("P := stored;") + setter("stored := P;")),
   accessorName("unit_accessor_name_control_bare_get", "U16 — control: a bare GET, closed by the SET under it",
@@ -225,22 +225,22 @@ export const UNIT_RULE_TESTS_A: readonly LanguageTest[] = [
   // dropped and both builds answered the body alone ("Identifier 't' not defined"). Refused by name now.
   {
     ...pushRefuses(fb("unit_action_var_section", "U17 — an ACTION declaring a VAR section of its own",
-      "<name>", "Act();", "ACTION Act\nVAR\n\tt : INT;\nEND_VAR\nIMPLEMENTATION ST\nt := 4;\nout := t;\nEND_ACTION\n"),
+      "<name>", "Act();", "ACTION Act\nVAR\n\tt : INT;\nEND_VAR\n%LANGUAGE ST\nt := 4;\nout := t;\nEND_ACTION\n"),
       "'FB_LANG_unit_action_var_section', line 10: 'VAR' would be part of action 'Act's declaration, and an action has no declaration the IDE stores — its line is 'ACTION Act', so this would be dropped. Move it into the action's body or the owner's declaration."),
     execSkip:
       "NOTHING TO MEASURE: a CODESYS ACTION has no declaration, so there is no text to give the VAR section to — the push refuses it, and `record:exec` loads the parser's units, which hold no such action",
-    asSent: "the parser reads no declaration on an ACTION, so it would mark the body above the VAR; the text states its own IMPLEMENTATION lines, as a workspace file does",
-    source: "FUNCTION_BLOCK FB_LANG_unit_action_var_section\nVAR\n\tout : INT;\nEND_VAR\nIMPLEMENTATION ST\nAct();\nEND_FUNCTION_BLOCK\n\nACTION Act\nVAR\n\tt : INT;\nEND_VAR\nIMPLEMENTATION ST\nt := 4;\nout := t;\nEND_ACTION\n",
+    asSent: "the parser reads no declaration on an ACTION, so it would mark the body above the VAR; the text states its own %LANGUAGE lines, as a workspace file does",
+    source: "FUNCTION_BLOCK FB_LANG_unit_action_var_section\nVAR\n\tout : INT;\nEND_VAR\n%LANGUAGE ST\nAct();\nEND_FUNCTION_BLOCK\n\nACTION Act\nVAR\n\tt : INT;\nEND_VAR\n%LANGUAGE ST\nt := 4;\nout := t;\nEND_ACTION\n",
   },
   // The push REFUSES an action line holding anything besides its keyword and name (openspec bridge-refusal-review D10): an
   // action's line is composed, not stored, so the modifier was dropped without a word (both vendors built the FB).
   {
     ...pushRefuses(fb("unit_action_modifier", "U17 — an access modifier on an ACTION: `ACTION PRIVATE Act`", "<name>", "Act();"),
       "'FB_LANG_unit_action_modifier', line 9: Cannot parse ACTION signature: an action has no declaration the IDE stores — its line is 'ACTION Act', so anything else on it would be dropped — ACTION PRIVATE Act"),
-    asSent: "the parser does not read a modifier on an ACTION; the text states its own IMPLEMENTATION lines, as a workspace file does",
+    asSent: "the parser does not read a modifier on an ACTION; the text states its own %LANGUAGE lines, as a workspace file does",
     execSkip:
       "NOTHING TO MEASURE: a CODESYS ACTION has no declaration, so there is no text to give the modifier to — the push refuses the header, and `record:exec` loads the parser's units, which hold no such action",
-    source: "FUNCTION_BLOCK FB_LANG_unit_action_modifier\nVAR\n\tout : INT;\nEND_VAR\nIMPLEMENTATION ST\nAct();\nEND_FUNCTION_BLOCK\n\nACTION PRIVATE Act\nIMPLEMENTATION ST\nout := 4;\nEND_ACTION\n",
+    source: "FUNCTION_BLOCK FB_LANG_unit_action_modifier\nVAR\n\tout : INT;\nEND_VAR\n%LANGUAGE ST\nAct();\nEND_FUNCTION_BLOCK\n\nACTION PRIVATE Act\n%LANGUAGE ST\nout := 4;\nEND_ACTION\n",
   },
   // ─── U18 INTERFACE member modifiers, one by one (the interface's modifier set is decided by these) ────────────────
   itfMethod("unit_interface_method_public", "U18 — an interface method `METHOD PUBLIC Get`", "PUBLIC"),
@@ -369,7 +369,7 @@ export const UNIT_RULE_TESTS_A: readonly LanguageTest[] = [
     (fbText) => `NAMESPACE NS_LANG_unit_namespace_nested\nNAMESPACE NS_LANG_unit_namespace_nested_inner\n${fbText}END_NAMESPACE\nEND_NAMESPACE\n`)),
     "'FB_LANG_unit_namespace_nested', line 10: expected METHOD/ACTION/PROPERTY, got: END_NAMESPACE"),
   pushRefuses(undeclaredFb(namespaced("unit_namespace_method_after_fb", "U28 — an FB and its METHOD after it, inside one NAMESPACE",
-    (fbText) => `NAMESPACE NS_LANG_unit_namespace_method_after_fb\n${fbText}\nMETHOD M : INT\nIMPLEMENTATION ST\nM := 7;\nEND_METHOD\nEND_NAMESPACE\n`,
+    (fbText) => `NAMESPACE NS_LANG_unit_namespace_method_after_fb\n${fbText}\nMETHOD M : INT\n%LANGUAGE ST\nM := 7;\nEND_METHOD\nEND_NAMESPACE\n`,
     "out := M();")),
     "'FB_LANG_unit_namespace_method_after_fb', line 14: expected METHOD/ACTION/PROPERTY, got: END_NAMESPACE"),
   // …so the one namespace text the push hands an IDE is the keyword line alone, with no END_NAMESPACE to refuse: does

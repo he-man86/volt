@@ -43,7 +43,7 @@ public class MemberRetypeRenameTests
         var ide = Owner(new FakeIde.Item("Ready", ItemKind.PlcProp, "", false, "PROPERTY Ready : BOOL", null, null, null));
         var text = Pulled(ide, "FBs/FB_Owner.pou");
         var retyped = text.Substring(0, text.IndexOf("PROPERTY Ready", StringComparison.Ordinal))
-                      + "METHOD Ready : BOOL\nIMPLEMENTATION ST\nReady := TRUE;\nEND_METHOD\n";
+                      + "METHOD Ready : BOOL\n%LANGUAGE ST\nReady := TRUE;\nEND_METHOD\n";
 
         var resp = Update(ide, "FBs/FB_Owner.pou", retyped);
 
@@ -102,7 +102,7 @@ public class MemberRetypeRenameTests
         var text = Pulled(ide, "FBs/FB_Owner.pou");
         var at = text.IndexOf("METHOD ABSTRACT Pick", StringComparison.Ordinal);
         var end = text.IndexOf("END_METHOD", at, StringComparison.Ordinal) + "END_METHOD".Length;
-        var pushed = text.Substring(0, at) + "METHOD Choose : BOOL" + NL + "IMPLEMENTATION ST" + NL + "Choose := TRUE;" + NL + "END_METHOD" + text.Substring(end);
+        var pushed = text.Substring(0, at) + "METHOD Choose : BOOL" + NL + "%LANGUAGE ST" + NL + "Choose := TRUE;" + NL + "END_METHOD" + text.Substring(end);
 
         var resp = Update(ide, "FBs/FB_Owner.pou", pushed);
 
@@ -113,23 +113,28 @@ public class MemberRetypeRenameTests
         Assert.Null(ide.ClassOf("Choose"));
     }
 
-    /// <summary>The reverse: a method with code renamed into <c>METHOD ABSTRACT</c> with no code is a delete and a create, and
-    /// the create makes the vendor's abstract class (§1.1: "A create of METHOD ABSTRACT with no code makes the vendor's
-    /// abstract class") — the rename would have kept the slotted class under a text that states none.</summary>
+    /// <summary>The reverse: a method with code renamed into <c>METHOD ABSTRACT</c> stating no <c>%LANGUAGE</c> line (no body
+    /// slot) is a delete and a create, and the create makes the vendor's abstract class (§1.1: "A create of METHOD ABSTRACT
+    /// with no code makes the vendor's abstract class"; openspec <c>language-line</c>: the text states no slot) — the rename
+    /// would have kept the slotted class under a text that states none. Stated <c>%LANGUAGE ST</c>, the same rename keeps
+    /// the object.</summary>
     [Fact]
-    public void A_method_with_code_renamed_into_an_abstract_one_is_created_abstract()
+    public void A_method_with_code_renamed_into_an_abstract_one_with_no_slot_is_created_abstract()
     {
         var ide = Owner(new FakeIde.Item("Calc", ItemKind.PlcMethod, "", false, "METHOD Calc : BOOL", "Calc := TRUE;", null, null));
         var text = Pulled(ide, "FBs/FB_Owner.pou");
         var at = text.IndexOf("METHOD Calc", StringComparison.Ordinal);
         var end = text.IndexOf("END_METHOD", at, StringComparison.Ordinal) + "END_METHOD".Length;
-        var pushed = text.Substring(0, at) + "METHOD ABSTRACT Compute : BOOL" + NL + "IMPLEMENTATION NONE" + NL + "END_METHOD" + text.Substring(end);
+        var noSlot = text.Substring(0, at) + "METHOD ABSTRACT Compute : BOOL" + NL + "END_METHOD" + text.Substring(end);
 
-        var resp = Update(ide, "FBs/FB_Owner.pou", pushed);
-
-        AcceptedOk(resp);
+        AcceptedOk(Update(ide, "FBs/FB_Owner.pou", noSlot));
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("rename:", StringComparison.Ordinal));
         Assert.Equal("AbstractPOUMethodObject", ide.ClassOf("Compute"));
+
+        var slottedIde = Owner(new FakeIde.Item("Calc", ItemKind.PlcMethod, "", false, "METHOD Calc : BOOL", "Calc := TRUE;", null, null));
+        var slotted = text.Substring(0, at) + "METHOD ABSTRACT Compute : BOOL" + NL + "%LANGUAGE ST" + NL + "END_METHOD" + text.Substring(end);
+        AcceptedOk(Update(slottedIde, "FBs/FB_Owner.pou", slotted));
+        Assert.Contains("rename:Calc", string.Join(",", slottedIde.Recorded));
     }
 
     /// <summary>The same for a PROPERTY, whose slot is its accessors' (gate review of step 3, second review, finding 2): an
@@ -149,7 +154,7 @@ public class MemberRetypeRenameTests
         var at = text.IndexOf("PROPERTY ABSTRACT Busy", StringComparison.Ordinal);
         var end = text.IndexOf("END_PROPERTY", at, StringComparison.Ordinal) + "END_PROPERTY".Length;
         var pushed = text.Substring(0, at) + "PROPERTY Ready : BOOL" + NL + "GET" + NL + "VAR" + NL + "END_VAR" + NL
-                     + "IMPLEMENTATION ST" + NL + "Ready := TRUE;" + NL + "END_GET" + NL + "END_PROPERTY" + text.Substring(end);
+                     + "%LANGUAGE ST" + NL + "Ready := TRUE;" + NL + "END_GET" + NL + "END_PROPERTY" + text.Substring(end);
 
         var resp = Update(ide, "FBs/FB_Owner.pou", pushed);
 

@@ -20,14 +20,14 @@ namespace Volt.Engine.Tests;
 /// </summary>
 public class DriverPreflightModelsTests
 {
-    private const string Fbd = "IMPLEMENTATION FBD\nNETWORK\n  out := a;\nEND_NETWORK";
-    private const string Ld = "IMPLEMENTATION LD\nNETWORK\n  out := a;\nEND_NETWORK";
+    private const string Fbd = "%LANGUAGE FBD\nNETWORK\n  out := a;\nEND_NETWORK";
+    private const string Ld = "%LANGUAGE LD\nNETWORK\n  out := a;\nEND_NETWORK";
 
     /// <summary>An FB whose own body, METHOD body and property GET are network text, and whose ACTION is ST.</summary>
     private static string Fb(string name) =>
         $"FUNCTION_BLOCK {name}\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR\n{Fbd}\nEND_FUNCTION_BLOCK\n\n" +
         $"METHOD Run : BOOL\n{Ld}\nEND_METHOD\n\n" +
-        "ACTION Reset\nIMPLEMENTATION ST\nout := FALSE;\nEND_ACTION\n\n" +
+        "ACTION Reset\n%LANGUAGE ST\nout := FALSE;\nEND_ACTION\n\n" +
         $"PROPERTY Ready : BOOL\nGET\n{Fbd}\nEND_GET\nEND_PROPERTY\n";
 
     /// <summary>An FB whose own body is network text and nothing else.</summary>
@@ -112,7 +112,7 @@ public class DriverPreflightModelsTests
     {
         var ide = new FakeIde();
 
-        var res = Push(ide, "PRG_Main.pou", "PROGRAM PRG_Main\nVAR\nEND_VAR\nIMPLEMENTATION ST\nn := 0;\n\nEND_PROGRAM\n");
+        var res = Push(ide, "PRG_Main.pou", "PROGRAM PRG_Main\nVAR\nEND_VAR\n%LANGUAGE ST\nn := 0;\n\nEND_PROGRAM\n");
 
         Assert.True(res.Landed());
         Assert.Empty(ide.SourcesValidated);

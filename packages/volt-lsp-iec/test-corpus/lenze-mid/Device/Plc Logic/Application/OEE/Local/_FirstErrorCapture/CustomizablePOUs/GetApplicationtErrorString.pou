@@ -23,7 +23,7 @@ VAR
 	sErrorText 		: STRING(255);	// Error text from the Text list
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 CASE wTextRefId OF
 

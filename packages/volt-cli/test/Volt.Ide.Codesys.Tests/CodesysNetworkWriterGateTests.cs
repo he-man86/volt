@@ -543,7 +543,7 @@ public class CodesysCoilFlagTests
     {
         const string declaration = "PROGRAM P\nVAR\n  x : BOOL;\n  c : BOOL;\n  a : INT;\n  b : INT;\n  n : INT;\n  lamp : BOOL;\n  sv : INT;\nEND_VAR";
         var scope = NetworkScope.FromDeclarations(declaration, _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, CodesysDriver.RefusedPouName, Volt.Tests.Shared.Scopes.NoLibrary);
-        return (NetworkText.Validate("IMPLEMENTATION FBD\nNETWORK\n  " + statement + "\nEND_NETWORK\n", scope).Networks[0], scope);
+        return (NetworkText.Validate("%LANGUAGE FBD\nNETWORK\n  " + statement + "\nEND_NETWORK\n", scope).Networks[0], scope);
     }
 
     /// <summary>THE PUSH HALF OF "EN IS A PIN, ENO IS SPELLED" (task 4.1; spec "ENO is the main output", "a box that has
@@ -789,7 +789,7 @@ public class CodesysCoilFlagTests
 /// <c>CodesysNetworkWriter.Write</c> — the write into the object the IDE hands out, without the vendor's ObjectManager
 /// transaction around it.
 ///
-/// <para>Network text states FBD or LD once, on the body's IMPLEMENTATION line, and the view is one STRING member of the
+/// <para>Network text states FBD or LD once, on the body's %LANGUAGE line, and the view is one STRING member of the
 /// aspect (<c>INWLImplementationObject.DefaultViewMode</c>, writable — reflected off SP21's <c>NWLObject.dll</c>; the
 /// live write is measured in DIALECT, task 3.5). It was refused as "nothing here writes it": a push that changed only
 /// the marker was a refusal, where TwinCAT writes the same member through its archive.</para></summary>
@@ -852,7 +852,7 @@ public class CodesysViewModeTests
 /// <c>bridge-refusal-review</c> 3.10, review 3a). The vendor's own View command was measured live to write
 /// <c>DefaultViewMode</c> and nothing else stored, a Parallel included (<c>probe-view-switch.py (deleted; git show 5312b799fe:packages/volt-cli/scripts/probe-view-switch.py)</c>). That a Volt
 /// flip does the same rested on reading <c>WriteView</c> and the change gate; this pins it through the shipped write
-/// (<c>CodesysNetworkWriter.Write</c>): the LD body is pushed, pulled, its IMPLEMENTATION line flipped, pushed again —
+/// (<c>CodesysNetworkWriter.Write</c>): the LD body is pushed, pulled, its %LANGUAGE line flipped, pushed again —
 /// the view is the one member written, no network is torn down or rebuilt, and the pull states the same networks under
 /// the new line. Live, the same path is <c>test/e2e/graphical/view-change.test.ts</c>.</summary>
 public class CodesysViewFlipParallelTests
@@ -902,7 +902,7 @@ public class CodesysViewFlipParallelTests
         var ldText = NetworkTextWriter.Write(pulled, ScopeOf(pulled));
         Assert.Contains(" BRANCH (", ldText);
 
-        // The flip: the pulled body under the other IMPLEMENTATION line, nothing else changed.
+        // The flip: the pulled body under the other %LANGUAGE line, nothing else changed.
         var nets = impl.NetworkList.Cast<Nwl.Network>().ToArray();
         foreach (var n in nets) n.Calls.Clear();
         var trees = nets.Select(n => n.GetTree(0)).ToArray();
@@ -914,7 +914,7 @@ public class CodesysViewFlipParallelTests
         Assert.Equal(trees, nets.Select(n => n.GetTree(0)).ToArray());
         var back = Pull(impl);
         Assert.Equal(BodyLanguage.Fbd, back.Language);
-        Assert.Equal(ldText.Replace("IMPLEMENTATION LD", "IMPLEMENTATION FBD"), NetworkTextWriter.Write(back, ScopeOf(back)));
+        Assert.Equal(ldText.Replace("%LANGUAGE LD", "%LANGUAGE FBD"), NetworkTextWriter.Write(back, ScopeOf(back)));
         Assert.Equal(new[] { ParallelMode.BoxShortCircuit, ParallelMode.Sequential },
             back.Networks.SelectMany(n => n.Trees).SelectMany(Walk).OfType<Volt.Engine.Format.Network.Parallel>().Select(p => p.Mode));
 

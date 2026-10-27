@@ -20,7 +20,7 @@ const messages = (source: string): string[] => {
 test("a split carries its feeder's type, a string's declared length included", () => {
   const src = `FUNCTION_BLOCK F
 VAR s10 : STRING(10); i : INT; END_VAR
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
 split1 := s10;
 i := split1;
@@ -32,7 +32,7 @@ END_FUNCTION_BLOCK`
 /** A POU whose FBD body is one network of `lines`. */
 const fbd = (vars: string, lines: string): string => `PROGRAM P
 VAR ${vars} END_VAR
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
 ${lines}
 END_NETWORK
@@ -54,7 +54,7 @@ const parseNt = (source: string) => parseSource(source, { networkText: true }, "
 /** A program whose FBD body is the given networks, each its lines. */
 const nets = (vars: string, ...networks: string[]): string => `PROGRAM P
 VAR ${vars} END_VAR
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 ${networks.map((n) => `NETWORK\n${n}\nEND_NETWORK`).join("\n")}
 END_PROGRAM`
 
@@ -71,7 +71,7 @@ const codes = (source: string): string[] => {
 const CAPTURE = `FUNCTION_BLOCK Capture
 VAR_INPUT xEnable : BOOL; END_VAR
 VAR_OUTPUT xBusy : BOOL; tElapsed : TIME; END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 xBusy := xEnable;
 END_FUNCTION_BLOCK
 `
@@ -123,7 +123,7 @@ test("the text's own refusals around the two spellings are the bridge reader's",
 test("network text: ENO and EN follow the box, and a coil reads the box that shows ENO through it", () => {
   const src = `FUNCTION_BLOCK F
 VAR c : BOOL; lamp : BOOL; status : INT; END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
 lamp := MOVE 0 => status ENO EN c;
 END_NETWORK
@@ -142,7 +142,7 @@ END_FUNCTION_BLOCK`
 test("network text: computeNetworkTextDiagnostics lifts network text errors into DiagnosticItems for the server", () => {
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
 out := TRUE;
 END_FUNCTION_BLOCK`
@@ -164,7 +164,7 @@ test("network text: a POU named EXECUTE is called backticked, and a bare EXECUTE
   // word of the text is backticked, so the call and the inline-ST box cannot be confused.
   const src = `PROGRAM P
 VAR x : BOOL; END_VAR
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   \`EXECUTE\`(TRUE);
 END_NETWORK
@@ -176,7 +176,7 @@ END_PROGRAM`
 test("network text: a double-quoted title is consumed, not parsed as a statement", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; b : BOOL; END_VAR
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK TITLE: "Some title"
   split1 := a;
   b := split1;
@@ -191,7 +191,7 @@ END_FUNCTION_BLOCK`
 test("network text: a quote inside a title is ST's $\" escape", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; b : BOOL; END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK TITLE: "Muting of alarm $"No bunch$""
   b := a;
 END_NETWORK
@@ -208,7 +208,7 @@ END_FUNCTION_BLOCK`
 test("network text: a v1 body gets the re-pull finding and nothing else", () => {
   const src = `PROGRAM P
 VAR a : BOOL; END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK 0 LD
   ??? := a;
 END_NETWORK
@@ -226,7 +226,7 @@ VAR_INPUT IN : BOOL; PT : TIME; END_VAR
 END_FUNCTION_BLOCK
 FUNCTION_BLOCK FB
 VAR a : BOOL; o : BOOL; R_EDGE : FB_T; END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   \`R_EDGE\` : FB_T(IN := a, PT := T#1S);
 END_NETWORK
@@ -243,7 +243,7 @@ test("network text: an FB whose TYPE is named like a word of the text is called 
   // The bridge asks the instance's type (`NetworkScope.InstanceType`); the call names it, backticked where reserved.
   const edgeFb = `FUNCTION_BLOCK R_EDGE\nVAR_INPUT CLK : BOOL; END_VAR\nEND_FUNCTION_BLOCK`
   const call = (decl: string, statement: string) =>
-    `PROGRAM P\nVAR a : BOOL; ${decl} END_VAR\nIMPLEMENTATION FBD\nNETWORK\n${statement}\nEND_NETWORK\nEND_PROGRAM`
+    `PROGRAM P\nVAR a : BOOL; ${decl} END_VAR\n%LANGUAGE FBD\nNETWORK\n${statement}\nEND_NETWORK\nEND_PROGRAM`
   const structural = (files: Record<string, string>): string[] => projectDiags(files, "file:///P.pou").filter((d) => d.startsWith("NETWORK_"))
   expect(structural({ "file:///R.pou": edgeFb, "file:///P.pou": call("e1 : R_EDGE;", "e1 : `R_EDGE`(CLK := a);") })).toEqual([])
   // …through a path too: the instance a GVL declares (`GVL.e1`), which the bridge resolves by the same question.
@@ -262,21 +262,21 @@ test("network text: an FB whose TYPE is named like a word of the text is called 
 test("network text: an ST body whose first statement starts with a variable named `network` is ST", () => {
   // The stated language decides, and `network := 1;` opens no network (the bridge's `NetworkText.OpensNetwork`), so
   // it draws no "network text under ST" finding either.
-  const prg = `PROGRAM P\nVAR network : INT; END_VAR\nIMPLEMENTATION ST\nnetwork := 1;\nEND_PROGRAM`
+  const prg = `PROGRAM P\nVAR network : INT; END_VAR\n%LANGUAGE ST\nnetwork := 1;\nEND_PROGRAM`
   expect(unitBodies(parseSource(prg, { networkText: true }, "codesys").units[0]!).some(isGraphicalBody)).toBe(false)
   expect(vgDiags(prg)).toEqual([])
-  const fn = `FUNCTION Network : BOOL\nVAR_INPUT x : BOOL; END_VAR\nIMPLEMENTATION ST\nNetwork := x;\nEND_FUNCTION`
+  const fn = `FUNCTION Network : BOOL\nVAR_INPUT x : BOOL; END_VAR\n%LANGUAGE ST\nNetwork := x;\nEND_FUNCTION`
   expect(unitBodies(parseSource(fn, { networkText: true }, "codesys").units[0]!).some(isGraphicalBody)).toBe(false)
   expect(vgDiags(fn)).toEqual([])
   // v1 text is still met by name, asking for a re-pull.
-  const v1 = `PROGRAM P\nVAR a : BOOL; END_VAR\nIMPLEMENTATION LD\nNETWORK 0 LD\na := TRUE;\nEND_NETWORK\nEND_PROGRAM`
+  const v1 = `PROGRAM P\nVAR a : BOOL; END_VAR\n%LANGUAGE LD\nNETWORK 0 LD\na := TRUE;\nEND_NETWORK\nEND_PROGRAM`
   expect(vgDiags(v1).map((d) => d.code)).toEqual(["NETWORK_PARSE"])
 })
 
 test("network text: a split beside a POU variable of its name is no finding (B6, P1)", () => {
   // The name IS the VarId, and P1 reserves the pattern: the bare word is the split, the variable `split1`. Both IDEs
   // build the shape clean (`rcc_network_wire_named_like_variable`: []), so nothing is said while it is typed.
-  const src = `FUNCTION_BLOCK FB\nVAR split1 : INT; a : BOOL; out : BOOL; END_VAR\nIMPLEMENTATION LD\nNETWORK\n  split1 := a;\n  out := split1;\nEND_NETWORK\nEND_FUNCTION_BLOCK`
+  const src = `FUNCTION_BLOCK FB\nVAR split1 : INT; a : BOOL; out : BOOL; END_VAR\n%LANGUAGE LD\nNETWORK\n  split1 := a;\n  out := split1;\nEND_NETWORK\nEND_FUNCTION_BLOCK`
   expect(vgDiags(src).map((d) => `${d.code}: ${d.message}`)).toEqual([])
 })
 
@@ -286,7 +286,7 @@ VAR_INPUT x : INT; END_VAR
 END_FUNCTION_BLOCK
 FUNCTION_BLOCK D EXTENDS B
 VAR a : INT; END_VAR
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   \`SUPER^\` : B(${pin} := a);
 END_NETWORK

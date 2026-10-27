@@ -34,7 +34,7 @@ public class TcPreflightTests
         var scope = new NetworkScope(Array.Empty<string>(), Array.Empty<string>(),
                                      new Dictionary<string, string> { ["t1"] = "TON" });
         return new(site ?? BodySite.Item,
-                   NetworkText.Validate($"IMPLEMENTATION LD\nNETWORK\n  {statement}\nEND_NETWORK\n", scope), scope);
+                   NetworkText.Validate($"%LANGUAGE LD\nNETWORK\n  {statement}\nEND_NETWORK\n", scope), scope);
     }
 
     /// <summary>A shape the native builder refuses (a parallel branch: TwinCAT never wrote one to build it from). It was a

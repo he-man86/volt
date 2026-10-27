@@ -8,7 +8,7 @@ VAR
 	_extState		: enumFunctionKeyPayload;	// Private backing field for property
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 END_FUNCTION_BLOCK
 
@@ -20,7 +20,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 ExtState := _extState;
 
 END_GET
@@ -28,7 +28,7 @@ SET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 _extState := ExtState;
 
 END_SET

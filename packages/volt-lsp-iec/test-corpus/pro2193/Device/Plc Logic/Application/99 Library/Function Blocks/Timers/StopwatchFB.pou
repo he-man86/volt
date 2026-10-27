@@ -14,14 +14,14 @@ VAR_OUTPUT
 	maxTime		: UDINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 END_FUNCTION_BLOCK
 
 // Returns measurement [µs]
 METHOD PUBLIC End : UDINT
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF TO_UDINT(ltStart) = 0 THEN
 	RETURN;
 END_IF
@@ -44,7 +44,7 @@ VAR_INST
 	last				: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF in XOR last THEN
 	IF in THEN
 		Start();
@@ -60,7 +60,7 @@ END_METHOD
 // Resets minimum and maximum values
 METHOD PUBLIC Reset
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 actTime		:= 0;
 minTime		:= 0;
 maxTime		:= 0;
@@ -70,7 +70,7 @@ END_METHOD
 // Starts measurement
 METHOD PUBLIC Start
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 ltStart := LTIME();
 
 END_METHOD

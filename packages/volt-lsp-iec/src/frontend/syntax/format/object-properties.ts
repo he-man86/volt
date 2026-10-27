@@ -1,30 +1,33 @@
 /**
- * THE `%`-LINES — an object's properties as the Volt file format spells them (openspec `bridge-one-to-one` §1.2), read
- * where the push reads them (`StReader.PeelPropertiesUnder` / `PeelPropertiesClosing`, `PropertyLines`) and nowhere else:
+ * THE `%`-LINES — the Volt file format's own lines (openspec `bridge-one-to-one` §1.2, `language-line`), the LSP's one
+ * home of their grammar, mirroring the push's `PropertyLines` (`volt-cli/src/Volt.Engine/Format/St/PropertyLines*.cs`):
  *
- *   - directly under an object's `IMPLEMENTATION` line — a POU's (`peelProperties`, no `%FOLDER`: its folder is its
- *     file's) and a METHOD's or an ACTION's (`%CLASS` first, then its `%FOLDER`, then the rest);
- *   - else closing its declaration — a DUT's and a GVL's (at the end of the file), an interface's (before its first
- *     member), a property's and an interface member's (`closesDeclaration`);
+ *   - a body's `%LANGUAGE` line, the first of the keys: it ends the declaration, starts the body and states its
+ *     language (`languageStatementOf`); `format/language-line.ts` splits a body on it;
+ *   - an object's properties, read directly under its `%LANGUAGE` line (`property-peel.ts`) — a POU's (no `%FOLDER`: its
+ *     folder is its file's) and a METHOD's or an ACTION's (`%CLASS` first, then its `%FOLDER`, then the rest) — else
+ *     closing its declaration: a DUT's and a GVL's (at the end of the file), an interface's (before its first member), a
+ *     property's, an interface member's (`closesDeclaration`) and a member's with no body slot
+ *     (`property-peel.ts` `peelClosingProperties`);
  *   - anywhere else the push refuses the line, and the LSP reports it (`reportMisplacedProperty`).
  *
- * WHAT A PROPERTY LINE IS: `%` and one of the CLOSED keys, the key ending at a space or the line's end — exactly the
- * push's test. Every other line opening with `%` is code (`%QB1 := x;` is a direct address, which the lexer reads as one
- * token anyway; `%class` is code the IDE compiles). One canonical spelling: `%CLASS` first, then a member's `%FOLDER`,
- * then the keys in `PROPERTY_KEYS` order, each once but `%UNDEFINE` / `%NETVAR`; another order, a repeat, a value on a
- * flag or a valued key with none is reported on its line, as the push refuses it (`checkPropertyLines`). The lines are
- * the object's PROPERTIES, not code: the analyzer never sees them, and the formatter prints them back as written.
- *
- * Generalizes the `%FOLDER` directive's former module (deleted): `%FOLDER` is one of the keys.
+ * WHAT A PROPERTY LINE IS: `%` and one of the CLOSED keys, the key ending at a space, a tab or the line's end — exactly the
+ * push's test. A space or a tab separates every word of the line alike, the key's and the value's (`PropertyLines.KeyEnd`). Every other line opening with `%` is code (`%QB1 := x;` is a direct address, which the lexer reads as one
+ * token anyway; `%class` is code the IDE compiles). One canonical spelling: `%LANGUAGE` first, then `%CLASS`, then a
+ * member's `%FOLDER`, then the keys in `PROPERTY_KEYS` order, each once but `%UNDEFINE` / `%NETVAR`; another order, a
+ * repeat, a value on a flag or a valued key with none is reported on its line, as the push refuses it
+ * (`checkPropertyLines`). The lines are not code: the analyzer never sees them, and the formatter prints them back.
  */
+import type { LanguageStatement } from "../ast/nodes/index.js"
 import type { Span } from "../span.js"
 import type { Token } from "../lex/tokens.js"
 import type { Keyword } from "../lex/vocabulary.js"
 import { joinSpans } from "../span.js"
-import { lineAround, type ReportAt } from "./lines.js"
+import type { ReportAt } from "./lines.js"
 
 /** The closed key list, in canonical order (`PropertyLines.Keys`). */
 const PROPERTY_KEYS = [
+  "LANGUAGE",
   "CLASS",
   "FOLDER",
   "EXCLUDE_FROM_BUILD",
@@ -42,15 +45,106 @@ const PROPERTY_KEYS = [
 type PropertyKey = (typeof PROPERTY_KEYS)[number]
 
 const FLAGS: ReadonlySet<string> = new Set(["EXCLUDE_FROM_BUILD", "LINK_ALWAYS", "EXTERNAL", "ENABLE_SYSTEM_CALL", "PARAMETER_LIST"])
+
+// ── the %LANGUAGE line ──────────────────────────────────────────────────────────────────────────
+
+/** The key of a body's line (`PropertyLines.LanguageKey`). */
+export const LANGUAGE_KEY = "LANGUAGE"
+
+/** The word after a language that states a body Volt does not show. */
+const UNSUPPORTED_WORD = "UNSUPPORTED"
+
+/** The languages a body's line may state that a parser READS. */
+type ReadLanguage = "ST" | "LD" | "FBD"
+
+const READ: ReadonlySet<string> = new Set(["ST", "LD", "FBD"])
+
+/** The languages Volt never shows a body in: their line always carries UNSUPPORTED. */
+const NEVER_SHOWN: ReadonlySet<string> = new Set(["CFC", "SFC", "IL"])
+
+const LANGUAGE_WORD = /^[A-Za-z_][A-Za-z0-9_]*$/
+
+/** The line of a body Volt reads, in its one spelling — what the recorder writes above a fixture's ST. */
+export function languageLine(language: ReadLanguage): string {
+  return `%${LANGUAGE_KEY} ${language}`
+}
+
+/** The line of a body Volt does not show, in its one spelling. */
+function unsupportedLine(language: string): string {
+  return `%${LANGUAGE_KEY} ${language} ${UNSUPPORTED_WORD}`
+}
+
+/** The line a statement is spelled as — as the refusals quote it and the formatter prints it. */
+export function statementLine(s: LanguageStatement): string {
+  return s.kind === "read" ? languageLine(s.language) : unsupportedLine(s.language)
+}
+
+/** Is `line` a `%LANGUAGE` line — the key, whatever it states (`PropertyLines.IsLanguageLine`)? Such a line is never code
+ *  (no IEC direct address opens `%L`), so it is a body's line or it is reported, saying what it lacks. */
+export function isLanguageLine(line: string): boolean {
+  return propertyKeyOf(line) === LANGUAGE_KEY
+}
+
+/** The words after the key, split at spaces and tabs. */
+function languageWords(line: string): string[] {
+  return line.trim().slice(1 + LANGUAGE_KEY.length).split(/[ \t]+/).filter((w) => w !== "")
+}
+
+/** What a `%LANGUAGE` line states, in its one spelling, or undefined for a line that states no body
+ *  (`PropertyLines.ParseLanguage`): one language word, any case, then optionally UNSUPPORTED — required after every word
+ *  but ST, LD and FBD, refused after ST. */
+export function languageStatementOf(line: string): LanguageStatement | undefined {
+  if (!isLanguageLine(line)) return undefined
+  const words = languageWords(line)
+  if (words.length === 0 || words.length > 2) return undefined
+  const language = words[0]!.toUpperCase()
+  if (!LANGUAGE_WORD.test(language) || language === UNSUPPORTED_WORD) return undefined
+  if (words.length === 2)
+    return words[1]!.toUpperCase() === UNSUPPORTED_WORD && language !== "ST" ? { kind: "unsupported", language } : undefined
+  return READ.has(language) ? { kind: "read", language: language as ReadLanguage } : undefined
+}
+
+/** Why a `%LANGUAGE` line states no body, as the push refuses it (`PropertyLines.LanguageLineProblem`) — or undefined
+ *  for a line that states one. */
+export function languageLineProblem(line: string): string | undefined {
+  if (languageStatementOf(line) !== undefined) return undefined
+  const words = languageWords(line)
+  const readLines = `${languageLine("ST")}, ${languageLine("LD")} or ${languageLine("FBD")}`
+  if (words.length === 0) return `it states no language — a body states one: ${readLines}`
+  const word = words[0]!.toUpperCase()
+  if (words.length === 1 && NEVER_SHOWN.has(word))
+    return `Volt shows no ${word} body, so its line is '${unsupportedLine(word)}', with nothing under it. Pull the item again to get it`
+  if (words.length === 2 && word === "ST" && words[1]!.toUpperCase() === UNSUPPORTED_WORD)
+    return `Volt shows every ST body, so ST is never ${UNSUPPORTED_WORD}: state '${languageLine("ST")}'`
+  return (
+    `'${words.join(" ")}' is no language a body can state. The line states one of ST, LD or FBD, or — for a body Volt ` +
+    `does not show — its language (LD, FBD, CFC, SFC, IL or the IDE's own word) and ${UNSUPPORTED_WORD}. Code goes under ` +
+    "the line, and a body in another language is edited in the IDE"
+  )
+}
+
+/** The line the format no longer reads — `IMPLEMENTATION`, a word, optionally UNSUPPORTED, alone on its line
+ *  (`PropertyLines.RetiredLineIn`). */
+const RETIRED_LINE = /^\s*IMPLEMENTATION[ \t]+[A-Za-z_][A-Za-z0-9_]*(?:[ \t]+UNSUPPORTED)?\s*$/i
+
+/** Is `line` the retired line? */
+export function isRetiredLine(line: string): boolean {
+  return RETIRED_LINE.test(line)
+}
+
+/** The refusal of the retired line, naming it (`PropertyLines.RetiredLineRefusal`). */
+export function retiredLineMessage(what: string, line: string): string {
+  return `${what} holds '${line}': \`IMPLEMENTATION\` is no longer read — pull again (it is now \`%${LANGUAGE_KEY} <LANG>\`).`
+}
 const REPEATING: ReadonlySet<string> = new Set(["UNDEFINE", "NETVAR"])
 const CLASS_WORDS: ReadonlySet<string> = new Set(["CHECK", "PERSISTENT", "TEXTLIST_ENUM", "NVL"])
 
 /** The key a whole line opens with when it is a property line as the push reads it (`PropertyLines.KeyOf`), or
  *  undefined: `%` + a closed key ending at a space or the line's end, `%FOLDER` only with a path. */
-function propertyKeyOf(line: string): PropertyKey | undefined {
+export function propertyKeyOf(line: string): PropertyKey | undefined {
   const t = line.trim()
   if (t.length < 2 || t[0] !== "%") return undefined
-  const sp = t.indexOf(" ")
+  const sp = t.search(/[ \t]/)
   const key = sp < 0 ? t.slice(1) : t.slice(1, sp)
   if (!(PROPERTY_KEYS as readonly string[]).includes(key)) return undefined
   if (key === "FOLDER" && (sp < 0 || t.slice(sp + 1).trim() === "")) return undefined
@@ -58,7 +152,7 @@ function propertyKeyOf(line: string): PropertyKey | undefined {
 }
 
 /** A property line as it stands: its text (trimmed), its key when the push reads it as one, and where it is. */
-interface PropertyLine {
+export interface PropertyLine {
   text: string
   key: PropertyKey | undefined
   span: Span
@@ -142,12 +236,21 @@ export function acceptClosingRun(
 /** A `%`-line where the push reads no property: it would reach the IDE as code, so the push refuses it
  *  (`StReader.RefusePropertyLinesIn`) — and the LSP reports it, on the line. */
 export function reportMisplacedProperty(c: PropertyCursor, line: PropertyLine): void {
-  c.pushError(
+  c.pushError(misplacedPropertyMessage(line), line.span)
+}
+
+/** The finding for a `%`-line where the push reads no property (`reportMisplacedProperty`): its text and its key. */
+export function misplacedPropertyMessage(line: { text: string; key: string | undefined }): string {
+  if (line.key === LANGUAGE_KEY)
+    return (
+      `'${line.text}' opens a body and states its language, so it stands only where a body starts, and here there is none: ` +
+      "the push would write it into the IDE as code. Remove it."
+    )
+  return (
     `'${line.text}' is no property the push reads here. A %-line (%CLASS, %FOLDER, %EXCLUDE_FROM_BUILD, …) stands directly ` +
-      "under an object's IMPLEMENTATION line, or closing its declaration — a DUT's, a GVL's, an interface's, a property's " +
-      "or an interface member's — spelled `%KEY [value]`, alone on its line; anywhere else the push refuses it. Move it " +
-      "there, or remove it.",
-    line.span,
+    "under an object's %LANGUAGE line, or closing its declaration — a DUT's, a GVL's, an interface's, a property's, an " +
+    "interface member's or a member's with no body slot — spelled `%KEY [value]`, alone on its line; anywhere else the " +
+    "push refuses it. Move it there, or remove it."
   )
 }
 
@@ -172,8 +275,12 @@ export function checkPropertyLines(run: readonly PropertyLine[], folderAllowed: 
     if (key === undefined) continue
     const value = line.text.length > key.length + 1 ? line.text.slice(key.length + 2) : undefined
     const at = (why: string): void => report(`'${line.text}' — ${why}.`, line.span)
+    if (key === LANGUAGE_KEY) {
+      at("%LANGUAGE opens a body, so it stands only where one starts — never among the lines that close a declaration")
+      continue
+    }
     if (key === "FOLDER" && !folderAllowed) {
-      at("%FOLDER stands only in a member's block (directly under its IMPLEMENTATION line, or closing its declaration)")
+      at("%FOLDER stands only in a member's block (directly under its %LANGUAGE line, or closing its declaration)")
       continue
     }
     const rank = PROPERTY_KEYS.indexOf(key)
@@ -204,7 +311,7 @@ export function checkPropertyLines(run: readonly PropertyLine[], folderAllowed: 
 function valueProblem(key: PropertyKey, value: string): string | undefined {
   switch (key) {
     case "CLASS": {
-      const words = value.split(" ").filter((w) => w !== "")
+      const words = value.split(/[ \t]+/).filter((w) => w !== "")
       if (words.length === 0 || !CLASS_WORDS.has(words[0]!)) return `%CLASS names one of ${[...CLASS_WORDS].sort().join(", ")}`
       if (words[0] === "CHECK") return words.length === 2 ? undefined : "%CLASS CHECK names the check it is (`%CLASS CHECK CheckBounds`)"
       return words.length === 1 ? undefined : `%CLASS ${words[0]} takes no argument`
@@ -221,7 +328,7 @@ function valueProblem(key: PropertyKey, value: string): string | undefined {
       return sep > 0 && /^[A-Za-z0-9_.]+$/.test(value.slice(0, sep)) ? undefined : "%NETVAR reads `%NETVAR <member>: <value>`"
     }
     case "FILE_LINK": {
-      const sp = value.indexOf(" ")
+      const sp = value.search(/[ \t]/)
       return sp > 0 ? stStringProblem(value.slice(sp + 1), "%FILE_LINK", true) : "%FILE_LINK reads `%FILE_LINK <link type> '<path>'`"
     }
     default:
@@ -251,29 +358,4 @@ function stStringProblem(value: string, named: string, nonEmpty: boolean): strin
     return `${named}: '$${e}' is no ST string escape`
   }
   return nonEmpty && inner.length === 0 ? `${named} with an empty string is its absence — remove the line` : undefined
-}
-
-/**
- * The `%`-lines on the lines DIRECTLY under a body's keyword line — `code` opens with the token holding the newline that
- * ends the keyword line — as their texts and the index of the token that ends the last; or undefined. Exactly where the
- * push peels them (`StReader.PeelPropertiesUnder`) and nowhere else: not after a blank line or a comment, not in another
- * case. `%FOLDER` is peeled only in a member's block (`folderAllowed`); under a POU's own line it is code, as the push
- * reads it. Anywhere the push does not peel a line, it pushes it into the IDE as code — so the LSP leaves it in the body,
- * where the parser reports it.
- */
-export function peelProperties(code: readonly Token[], folderAllowed: boolean): { lines: PropertyLine[]; end: number } | undefined {
-  const lines: PropertyLine[] = []
-  let at = 0
-  for (;;) {
-    const newline = code[at]
-    // Only indentation may follow the line's newline in its token: a second newline is a blank line.
-    if (newline?.kind !== "whitespace" || newline.text.slice(newline.text.indexOf("\n") + 1).includes("\n")) break
-    if (at + 1 >= code.length || code[at + 1]!.kind === "eof") break
-    const { text, end } = lineAround(code, at + 1)
-    const key = propertyKeyOf(text)
-    if (key === undefined || (key === "FOLDER" && !folderAllowed)) break
-    lines.push({ text: text.trim(), key, span: joinSpans(code[at + 1]!.span, code[Math.max(at + 1, end - 1)]!.span) })
-    at = end
-  }
-  return lines.length === 0 ? undefined : { lines, end: at }
 }

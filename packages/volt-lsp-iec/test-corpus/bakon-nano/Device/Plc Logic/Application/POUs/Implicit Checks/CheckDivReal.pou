@@ -3,7 +3,7 @@ FUNCTION CheckDivReal : REAL
 VAR_INPUT
 	divisor:REAL;
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 %CLASS CHECK CheckDivReal32
 // Implicitly generated code : Only an Implementation suggestion
 IF divisor = 0 THEN

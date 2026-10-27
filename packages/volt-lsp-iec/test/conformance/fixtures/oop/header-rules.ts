@@ -20,13 +20,13 @@ export const HEADER_RULE_TESTS: readonly LanguageTest[] = [
     feature: "a FUNCTION that EXTENDS a function block (the C0144 note's 'FUNCTION EXTENDS')",
     fromDoc: doc,
     // AS SENT: the parser does not read `FUNCTION … EXTENDS` as a function, so it has no body to mark — the text states
-    // its own IMPLEMENTATION line, and its base is `oop_base`'s FB.
+    // its own %LANGUAGE line, and its base is `oop_base`'s FB.
     asSent: "the parser cannot split `FUNCTION … EXTENDS`; its text is pushed as a workspace file holds it",
     source: `FUNCTION F_LANG_hdr_extends EXTENDS FB_LANG_oop_base : INT
 VAR_INPUT
 	x : INT;
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 F_LANG_hdr_extends := x;
 END_FUNCTION
 `,
@@ -45,7 +45,7 @@ END_FUNCTION
 VAR_INPUT
 	x : INT;
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 F_LANG_hdr_implements := x;
 END_FUNCTION
 `,
@@ -93,7 +93,7 @@ END_METHOD
 VAR_INPUT
 	x : INT;
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 ;
 END_FUNCTION
 `,
@@ -110,7 +110,7 @@ END_FUNCTION
 VAR_INPUT
 	x : INT;
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 ;
 END_FUNCTION
 `,
@@ -133,18 +133,18 @@ END_FUNCTION
     source: `FUNCTION_BLOCK FB_LANG_sig_unknown_word
 VAR
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 ;
 
 END_FUNCTION_BLOCK
 
 METHOD PUBLC Run : BOOL
-IMPLEMENTATION ST
+%LANGUAGE ST
 Run := TRUE;
 END_METHOD
 
 METHOD Run Walk : BOOL
-IMPLEMENTATION ST
+%LANGUAGE ST
 Walk := TRUE;
 END_METHOD
 `,
@@ -164,13 +164,13 @@ END_METHOD
     source: `FUNCTION_BLOCK FB_LANG_sig_empty_type
 VAR
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 ;
 
 END_FUNCTION_BLOCK
 
 METHOD Run :
-IMPLEMENTATION ST
+%LANGUAGE ST
 ;
 END_METHOD
 `,

@@ -102,11 +102,11 @@ test("a Chinese project's DUT, FB with CJK methods and their caller produce no d
   const files: Record<string, string> = {
     "点位绑定信息.dut": "TYPE 点位绑定信息 :\nSTRUCT\n\t点位地址 : INT;\n\t已绑定 : BOOL;\nEND_STRUCT\nEND_TYPE\n",
     "命令队列管理.pou":
-      "FUNCTION_BLOCK 命令队列管理\nVAR\n\t计数 : INT;\n\tbinding : 点位绑定信息;\nEND_VAR\n\nIMPLEMENTATION ST\n计数 := 计数 + 1;\n\n\nEND_FUNCTION_BLOCK\n\n" +
-      "METHOD 从Modbus读取命令 : BOOL\nVAR_INPUT\n\taddress : INT;\nEND_VAR\n\nIMPLEMENTATION ST\nbinding.点位地址 := address;\n从Modbus读取命令 := TRUE;\n\nEND_METHOD\n\n" +
-      "METHOD 区域可占用 : BOOL\n\nIMPLEMENTATION ST\n区域可占用 := NOT binding.已绑定;\n\nEND_METHOD\n",
+      "FUNCTION_BLOCK 命令队列管理\nVAR\n\t计数 : INT;\n\tbinding : 点位绑定信息;\nEND_VAR\n\n%LANGUAGE ST\n计数 := 计数 + 1;\n\n\nEND_FUNCTION_BLOCK\n\n" +
+      "METHOD 从Modbus读取命令 : BOOL\nVAR_INPUT\n\taddress : INT;\nEND_VAR\n\n%LANGUAGE ST\nbinding.点位地址 := address;\n从Modbus读取命令 := TRUE;\n\nEND_METHOD\n\n" +
+      "METHOD 区域可占用 : BOOL\n\n%LANGUAGE ST\n区域可占用 := NOT binding.已绑定;\n\nEND_METHOD\n",
     "VltUni_Caller.pou":
-      "PROGRAM VltUni_Caller\nVAR\n\tfb : 命令队列管理;\n\tfree : BOOL;\n\tread : BOOL;\nEND_VAR\n\nIMPLEMENTATION ST\n" +
+      "PROGRAM VltUni_Caller\nVAR\n\tfb : 命令队列管理;\n\tfree : BOOL;\n\tread : BOOL;\nEND_VAR\n\n%LANGUAGE ST\n" +
       "fb();\nfree := fb.区域可占用();\nread := fb.从Modbus读取命令(address := 3);\n\nEND_PROGRAM\n",
   }
   const parsed = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source, { networkText: true }, "codesys") }))

@@ -48,8 +48,12 @@ export function parseAction(c: Cursor): Action | undefined {
     )
   if (above !== undefined) reportDeclaration(above)
   const under = c.triviaAhead().find(isStoredTrivia)
-  if (under !== undefined && c.opensImplementationLine()) reportDeclaration(under)
+  if (under !== undefined && c.opensLanguageLine()) reportDeclaration(under)
+  // Code above the action's %LANGUAGE line (a VAR section, a statement) is its declaration too, which the push refuses
+  // the same way (`StReader.RefuseActionDeclaration`).
+  const first = c.peek()
   const body = collectBodyUntil(c, "END_ACTION", "action", "member")
+  if (body.languageLine !== undefined && first.span.start < body.languageLine.span.start) reportDeclaration(first)
   return {
     kind: "action",
     name,

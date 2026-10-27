@@ -31,9 +31,9 @@ function syntaxErrors(src: string): string[] {
   return [...parsed.errors, ...bodies.flatMap((b) => bodyStatements(b).errors)].map((e) => e.message)
 }
 
-test("IMPLEMENTATION LD and IMPLEMENTATION FBD select the network-text reader", () => {
+test("%LANGUAGE LD and %LANGUAGE FBD select the network-text reader", () => {
   for (const language of ["LD", "FBD"] as const) {
-    const src = fb(`IMPLEMENTATION ${language}\n${NETWORK}`)
+    const src = fb(`%LANGUAGE ${language}\n${NETWORK}`)
     expect(syntaxErrors(src)).toEqual([]) // the ST parser routes around a graphical body
     const bodies = bodiesOf(src)
     expect(bodies.map(graphicalMarkerLanguage)).toEqual([language])
@@ -45,13 +45,13 @@ test("IMPLEMENTATION LD and IMPLEMENTATION FBD select the network-text reader", 
 })
 
 test("…and ST under LD is read as network text, which refuses it", () => {
-  const bodies = bodiesOf(fb("IMPLEMENTATION LD\nout := a;"))
+  const bodies = bodiesOf(fb("%LANGUAGE LD\nout := a;"))
   expect(bodies.map(graphicalMarkerLanguage)).toEqual(["LD"])
   expect(parseNetworkText(bodies[0]!, STRUCTURE_ONLY, "codesys").diagnostics.length).toBeGreaterThan(0)
 })
 
-test("a member's %FOLDER taken out with its IMPLEMENTATION LD line leaves a network body the reader reads clean", () => {
-  const src = `${fb("IMPLEMENTATION ST\n")}\nMETHOD M\nIMPLEMENTATION LD\n%FOLDER Sub/Deep\n${NETWORK}\nEND_METHOD\n`
+test("a member's %FOLDER taken out with its %LANGUAGE LD line leaves a network body the reader reads clean", () => {
+  const src = `${fb("%LANGUAGE ST\n")}\nMETHOD M\n%LANGUAGE LD\n%FOLDER Sub/Deep\n${NETWORK}\nEND_METHOD\n`
   const method = bodiesOf(src)[1]!
   expect(parseNetworkText(method, STRUCTURE_ONLY, "codesys").diagnostics.map((d) => d.message)).toEqual([])
 })
@@ -60,7 +60,7 @@ const LD = `FUNCTION_BLOCK FB_LD
 VAR
 	a : BOOL; b : BOOL; out : BOOL;
 END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
 out := (a AND b);
 END_NETWORK
@@ -72,14 +72,14 @@ test("network text: an FBD/LD body is detected as graphical, not ST", () => {
   expect(unitBodies(units[0]!).some(isGraphicalBody)).toBe(true)
 })
 
-test("network text: a graphical body is detected by its IMPLEMENTATION line, even with no network", () => {
-  // A body states its language once, on its IMPLEMENTATION line (openspec implementation-keyword). A body with no
-  // network is still graphical; IMPLEMENTATION ST is an ST body's.
+test("network text: a graphical body is detected by its %LANGUAGE line, even with no network", () => {
+  // A body states its language once, on its %LANGUAGE line (openspec implementation-keyword). A body with no
+  // network is still graphical; %LANGUAGE ST is an ST body's.
   const empty = parseSource(`FUNCTION_BLOCK FB_LD
 VAR
 \ta : BOOL;
 END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 END_FUNCTION_BLOCK`, { networkText: true }, "codesys")
   expect(unitBodies(empty.units[0]!).map(graphicalMarkerLanguage)).toEqual(["LD"])
   expect(unitBodies(empty.units[0]!).some(isGraphicalBody)).toBe(true)
@@ -88,7 +88,7 @@ END_FUNCTION_BLOCK`, { networkText: true }, "codesys")
 VAR
 \ta : BOOL;
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 a := TRUE;
 END_FUNCTION_BLOCK`, { networkText: true }, "codesys")
   expect(unitBodies(st.units[0]!).map(graphicalMarkerLanguage)).toEqual([undefined])
@@ -96,22 +96,22 @@ END_FUNCTION_BLOCK`, { networkText: true }, "codesys")
 })
 
 test("network text: a body is graphical by its stated LINE alone, as the bridge classifies it", () => {
-  // The bridge matches the body's whole IMPLEMENTATION line (`ImplementationMarker.LanguageOf`), and nothing else
+  // The bridge matches the body's whole %LANGUAGE line (`PropertyLines.LanguageOf`), and nothing else
   // decides the reader: a line sharing its line with code states no language, and text that LOOKS like a network —
-  // v1's `NETWORK 0 LD` header included — under IMPLEMENTATION ST is ST (which the ST parser refuses), never re-read.
+  // v1's `NETWORK 0 LD` header included — under %LANGUAGE ST is ST (which the ST parser refuses), never re-read.
   const body = (impl: string) => `PROGRAM P
 VAR x : INT; a : INT; END_VAR
 ${impl}
 END_PROGRAM`
   const graphical = (impl: string) => unitBodies(parseSource(body(impl), { networkText: true }, "codesys").units[0]!).some(isGraphicalBody)
 
-  expect(graphical("IMPLEMENTATION FBD x := 1;")).toBe(false)
-  expect(graphical("IMPLEMENTATION ST\n// note\nNETWORK 0 LD\nx := a;")).toBe(false)
-  expect(graphical("IMPLEMENTATION ST\n\nNETWORK 0 LD\nx := a;")).toBe(false)
-  expect(graphical("IMPLEMENTATION ST\nNETWORK\nx := a;\nEND_NETWORK")).toBe(false)
-  expect(graphical("// IMPLEMENTATION FBD\nNETWORK\nx := a;\nEND_NETWORK")).toBe(false)
+  expect(graphical("%LANGUAGE FBD x := 1;")).toBe(false)
+  expect(graphical("%LANGUAGE ST\n// note\nNETWORK 0 LD\nx := a;")).toBe(false)
+  expect(graphical("%LANGUAGE ST\n\nNETWORK 0 LD\nx := a;")).toBe(false)
+  expect(graphical("%LANGUAGE ST\nNETWORK\nx := a;\nEND_NETWORK")).toBe(false)
+  expect(graphical("// %LANGUAGE FBD\nNETWORK\nx := a;\nEND_NETWORK")).toBe(false)
 
   // …and what the line states as graphical is, whatever follows it.
-  expect(graphical("IMPLEMENTATION FBD  \nNETWORK\nx := a;\nEND_NETWORK")).toBe(true)
-  expect(graphical("implementation ld\n\nNETWORK 0 LD\nx := a;")).toBe(true)
+  expect(graphical("%LANGUAGE FBD  \nNETWORK\nx := a;\nEND_NETWORK")).toBe(true)
+  expect(graphical("%LANGUAGE ld\n\nNETWORK 0 LD\nx := a;")).toBe(true)
 })

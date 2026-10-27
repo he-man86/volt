@@ -6,7 +6,7 @@ VAR_INPUT
 	s3	: STRING(255);
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Stu.StrCpyA(
 	pBuffer		:= ADR(CONCAT3),
 	iBufferSize	:= 255,

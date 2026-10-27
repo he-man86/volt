@@ -223,11 +223,11 @@ export function bodyOf(
   name: string | undefined,
   { library = true }: { library?: boolean } = {},
 ): { statements: StatementList } | BodyRefusal {
-  // An abstract member with no code (`IMPLEMENTATION NONE`, openspec abstract-member-push / -parity) runs nothing a
-  // lowering could run — it was lowered as an empty ST body before the pull stated it, which counted an abstract base
-  // calling its own abstract member as reach. Named for what it is; the category is the one a hidden body has.
-  if (body.implementation?.statement.kind === "none")
-    return { code: "graphical-body", message: `${name ?? "the body"} is abstract: it holds no code (IMPLEMENTATION NONE)` }
+  // A member with no body slot (no %LANGUAGE line, openspec language-line) runs nothing a lowering could run — lowered as
+  // an empty ST body, an abstract base calling its own abstract member counted as reach. Named for what it is; the
+  // category is the one a hidden body has.
+  if (body.noSlot !== undefined)
+    return { code: "graphical-body", message: `${name ?? "the body"} has no body slot: it holds no code (no %LANGUAGE line)` }
   if (!isStBody(body)) return { code: "graphical-body", message: name === undefined ? "a body that is not ST is not lowered here" : `${name} has no ST body` }
   const parsed = execBodyStatements(lw.project, unit, body)
   // A body that parses but for a conditional pragma asking what Volt is not given — a project option, a device fact, a

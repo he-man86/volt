@@ -77,13 +77,13 @@ public class ItemKindIsNotRewritableTests
     public void A_function_blocks_text_declaring_a_program_is_written_as_sent()
     {
         var ide = WithFunctionBlock();
-        var resp = Push(ide, "K.pou", "PROGRAM K\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\n\nEND_PROGRAM\n");
+        var resp = Push(ide, "K.pou", "PROGRAM K\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\nx := 1;\n\nEND_PROGRAM\n");
 
         Assert.True(resp.Landed(), string.Join("; ", resp.Conflicts.Select(c => c.Reason)));
         Assert.Equal("PROGRAM K\nVAR\n\tx : INT;\nEND_VAR", ide.WrittenContent["K"].Declaration);
     }
 
-    /// <summary>…while a DUT's text under an FB's name cannot be SPLIT — it has no IMPLEMENTATION line and no END line
+    /// <summary>…while a DUT's text under an FB's name cannot be SPLIT — it has no %LANGUAGE line and no END line
     /// of a POU — so it is refused INVALID_ST for that, and nothing is written.</summary>
     [Fact]
     public void A_function_blocks_text_that_is_a_DUT_cannot_be_split_and_is_refused()
@@ -101,7 +101,7 @@ public class ItemKindIsNotRewritableTests
     {
         // The guard must cost nothing to the case it is not about.
         var ide = WithFunctionBlock();
-        var resp = Push(ide, "K.pou", "FUNCTION_BLOCK K\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := 2;\n\nEND_FUNCTION_BLOCK\n");
+        var resp = Push(ide, "K.pou", "FUNCTION_BLOCK K\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\nx := 2;\n\nEND_FUNCTION_BLOCK\n");
 
         Assert.True(resp.Landed());
         Assert.Contains(ide.Recorded, r => r.StartsWith("writecontent:"));

@@ -23,7 +23,7 @@ function bigFb(name: string): string {
 		const n = String(i).padStart(4, "0")
 		lines.push(`${TAB}nPad${n} : DINT; (* padding ${n} *)`)
 	}
-	lines.push("END_VAR", "IMPLEMENTATION ST", "IF xEnable THEN",
+	lines.push("END_VAR", "%LANGUAGE ST", "IF xEnable THEN",
 		`${TAB}nVltRwCount := nVltRwCount + 1;`,
 		`${TAB}nVltRwExact := 1;`,
 		`${TAB}(* VltRwUnicode “ready” – ‘set’ *)`,
@@ -33,16 +33,16 @@ function bigFb(name: string): string {
 		`${TAB}nVltRwSecondPage := 4;`,
 		"END_IF", "END_FUNCTION_BLOCK")
 	for (let m = 0; m < 8; m++)
-		lines.push("", `METHOD M_VltRwStep${m} : BOOL`, "VAR_INPUT", `${TAB}nIn : DINT;`, "END_VAR", "IMPLEMENTATION ST",
+		lines.push("", `METHOD M_VltRwStep${m} : BOOL`, "VAR_INPUT", `${TAB}nIn : DINT;`, "END_VAR", "%LANGUAGE ST",
 			`${TAB}nVltRwCount := nVltRwCount + 1;`, `${TAB}M_VltRwStep${m} := nIn > ${m};`, "END_METHOD")
-	lines.push("", "PROPERTY P_VltRwCount : DINT", "GET", "IMPLEMENTATION ST", `${TAB}P_VltRwCount := nVltRwCount;`,
+	lines.push("", "PROPERTY P_VltRwCount : DINT", "GET", "%LANGUAGE ST", `${TAB}P_VltRwCount := nVltRwCount;`,
 		"END_GET", "END_PROPERTY")
 	return `${lines.join("\n")}\n`
 }
 
 /** PLC Assist's `smallFunctionBlock(name, eol, false)`. */
 const smallFb = (name: string, eol: string) =>
-	[`FUNCTION_BLOCK ${name}`, "VAR", `${TAB}nVltRwEol : DINT;`, "END_VAR", "IMPLEMENTATION ST", `${TAB}nVltRwEol := 1;`,
+	[`FUNCTION_BLOCK ${name}`, "VAR", `${TAB}nVltRwEol : DINT;`, "END_VAR", "%LANGUAGE ST", `${TAB}nVltRwEol := 1;`,
 		`${TAB}nVltRwEolKeep := 2;`, "END_FUNCTION_BLOCK", ""].join(eol)
 
 /** The rows these texts break, applied: `lf` (CRLF is a line end, fetched LF) and `end-line` (one blank line between

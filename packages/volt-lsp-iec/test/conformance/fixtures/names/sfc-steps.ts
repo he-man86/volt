@@ -1,7 +1,7 @@
 /**
  * SFC STEP NAMES, RULE BY RULE — openspec `lsp-sfc-step-names` 1.1. A POU whose body is SFC puts the names of its
  * chart's steps in scope, each an instance of the IecSfc library's `SFCStepType`, and nothing in the POU's TEXT declares
- * them: Volt materializes the body as `IMPLEMENTATION SFC UNSUPPORTED`, so the chart is not in the file the LSP reads.
+ * them: Volt materializes the body as `%LANGUAGE SFC UNSUPPORTED`, so the chart is not in the file the LSP reads.
  * Seen in the field as `'S_Boot' is no component of 'PRG0_Main'` on a program that builds clean (PLCAssist, 2026-09-30).
  *
  * THE CHART IS CODESYS'S OWN. `record:exec` creates each SFC POU in SFC (`support/fixture-units.ts` `language`), which
@@ -83,7 +83,7 @@ const doc = "openspec lsp-sfc-step-names 1.1; docs/codesys-reference/01-language
 
 /** The refusal `volt push` gives a create whose body is a language Volt cannot author — on both vendors, before any IDE. */
 const NOT_AUTHORABLE =
-  "Volt's push, not the IDE: the item is 'IMPLEMENTATION SFC UNSUPPORTED', a body Volt cannot author — there is no text " +
+  "Volt's push, not the IDE: the item is '%LANGUAGE SFC UNSUPPORTED', a body Volt cannot author — there is no text " +
   "form for it, so it can only be created in the IDE (BodyFormatGuard.RequireAuthorable). record:exec creates the SFC POU itself."
 const REFUSES = { codesys: NOT_AUTHORABLE, twincat: NOT_AUTHORABLE }
 
@@ -116,7 +116,7 @@ function program(
     feature,
     fromDoc: doc,
     source:
-      `PROGRAM ${pouName}\nVAR\n${vars}\nEND_VAR\nIMPLEMENTATION SFC UNSUPPORTED\nEND_PROGRAM\n` +
+      `PROGRAM ${pouName}\nVAR\n${vars}\nEND_VAR\n%LANGUAGE SFC UNSUPPORTED\nEND_PROGRAM\n` +
       (action === "" ? "" : `\nACTION A\n${action}\nEND_ACTION\n`),
     plcPrgVar: plcVars,
     plcPrgBody: `${pouName}();\n${action === "" ? "" : `${pouName}.A();\n`}${plcBody}`,
@@ -137,7 +137,7 @@ function block(name: string, feature: string, vars: string, members: string, plc
     kind: "function_block",
     feature,
     fromDoc: doc,
-    source: `FUNCTION_BLOCK ${pouName}\nVAR\n${vars}\nEND_VAR\nIMPLEMENTATION SFC UNSUPPORTED\nEND_FUNCTION_BLOCK\n\n${members}`,
+    source: `FUNCTION_BLOCK ${pouName}\nVAR\n${vars}\nEND_VAR\n%LANGUAGE SFC UNSUPPORTED\nEND_FUNCTION_BLOCK\n\n${members}`,
     plcPrgVar: `inst : ${pouName};\n${plcVars}`,
     plcPrgBody: `inst();\n${plcBody}`,
     sfcStep: STEP,

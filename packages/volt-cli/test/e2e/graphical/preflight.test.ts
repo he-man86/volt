@@ -44,7 +44,7 @@ describe(`graphical / the push pre-flight (${BASE})`, () => {
 	/** A perfectly ordinary graphical POU — this one must never be the reason a push fails. */
 	const fine = (name: string) =>
 		["PROGRAM " + name, "VAR", "\ta : BOOL;", "\tb : BOOL;", "\tout : BOOL;", "END_VAR",
-		 "IMPLEMENTATION FBD", "NETWORK", "  out := a AND b;", "END_NETWORK", "", "END_PROGRAM", ""].join(NL)
+		 "%LANGUAGE FBD", "NETWORK", "  out := a AND b;", "END_NETWORK", "", "END_PROGRAM", ""].join(NL)
 
 	/**
 	 * …and one holding a tree the vendor stores and does not build: an operator box with EN read through its ENO, its
@@ -53,7 +53,7 @@ describe(`graphical / the push pre-flight (${BASE})`, () => {
 	 */
 	const broken = (name: string) =>
 		["PROGRAM " + name, "VAR", "\ta : BOOL;", "\tx : BOOL;", "END_VAR",
-		 "IMPLEMENTATION FBD", "NETWORK", "  x := MOVE 1 ENO EN a;", "END_NETWORK", "", "END_PROGRAM", ""].join(NL)
+		 "%LANGUAGE FBD", "NETWORK", "  x := MOVE 1 ENO EN a;", "END_NETWORK", "", "END_PROGRAM", ""].join(NL)
 
 	it("a create refused for a shape the vendor does not build leaves the item before it unwritten", async () => {
 		const firstName = id("pf_ok")

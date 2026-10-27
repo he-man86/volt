@@ -8,7 +8,7 @@ VAR
 	L_MC1P_CyclicParameterAccessWrite_0: L_MC1P_CyclicParameterAccessWrite;
 END_VAR
 
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   `SUPER^` : ATD_FQI(ioAxis := ioAxis, DataIO := DataIO);
 END_NETWORK

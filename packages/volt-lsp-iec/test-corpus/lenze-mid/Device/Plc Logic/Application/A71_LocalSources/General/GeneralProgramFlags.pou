@@ -23,7 +23,7 @@ VAR
 	PLC_StartUp_Delay: TON;
 END_VAR
 
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   // Always Off
   AlwaysOff R= AlwaysOff;

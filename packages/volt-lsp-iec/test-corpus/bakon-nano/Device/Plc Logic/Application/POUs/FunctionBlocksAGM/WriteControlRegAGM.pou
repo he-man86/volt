@@ -17,7 +17,7 @@ VAR_INPUT
 	bTestAGM: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 (*de index 2000 het control register wordt beschreven*)
 
 R_TRIG1(CLK:=bStartAGM OR bStopAGM OR bTestAGM);

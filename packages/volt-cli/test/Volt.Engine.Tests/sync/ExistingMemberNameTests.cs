@@ -44,7 +44,7 @@ public class ExistingMemberNameTests
         });
 
     private static string Text(string body, string extra = "") =>
-        Decl + "\nIMPLEMENTATION ST\n" + body + "\nEND_FUNCTION_BLOCK\n\nMETHOD 区域可占用 : BOOL\nIMPLEMENTATION ST\n区域可占用 := TRUE;\nEND_METHOD\n" + extra;
+        Decl + "\n%LANGUAGE ST\n" + body + "\nEND_FUNCTION_BLOCK\n\nMETHOD 区域可占用 : BOOL\n%LANGUAGE ST\n区域可占用 := TRUE;\nEND_METHOD\n" + extra;
 
     /// <summary>Task 1.2, the field bug: patching the body of a POU whose method the IDE holds under a CJK name lands, and
     /// the method is kept. Red before: <c>the IDE refuses to create method '区域可占用' in '命令队列管理'</c>.</summary>
@@ -59,7 +59,7 @@ public class ExistingMemberNameTests
         Assert.Empty(resp.Conflicts ?? new());
         var after = Assert.Single(FetchService.Handle(ide, new FetchRequest { Init = true }).Changed, c => c.Name == "命令队列管理.pou").SourceText;
         Assert.Contains("计数 := 计数 + 2;", after);
-        Assert.Contains("METHOD 区域可占用 : BOOL\nIMPLEMENTATION ST\n区域可占用 := TRUE;", after.Replace("\r\n", "\n"));
+        Assert.Contains("METHOD 区域可占用 : BOOL\n%LANGUAGE ST\n区域可占用 := TRUE;", after.Replace("\r\n", "\n"));
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("create:", System.StringComparison.Ordinal) || r.StartsWith("delete:", System.StringComparison.Ordinal));   // kept, never re-made
     }
 
@@ -77,7 +77,7 @@ public class ExistingMemberNameTests
             {
                 new SetItemOp { Name = "E_A.dut", IfVersion = null, SourceText = "TYPE E_A :\n(\n\ta,\n\tb\n);\nEND_TYPE" },
                 new SetItemOp { Name = "命令队列管理.pou", IfVersion = version, SourceText =
-                    Text(";", "\nMETHOD Log : BOOL\nIMPLEMENTATION ST\nLog := TRUE;\nEND_METHOD\n") },
+                    Text(";", "\nMETHOD Log : BOOL\n%LANGUAGE ST\nLog := TRUE;\nEND_METHOD\n") },
             },
         });
 
@@ -96,7 +96,7 @@ public class ExistingMemberNameTests
     {
         var (ide, version) = WithCjkMethod(items => RefusingNonAscii(items));
 
-        var resp = Update(ide, version, Text(";", "\nACTION 区域可占用\nIMPLEMENTATION ST\n;\nEND_ACTION\n"));
+        var resp = Update(ide, version, Text(";", "\nACTION 区域可占用\n%LANGUAGE ST\n;\nEND_ACTION\n"));
 
         Assert.False(resp.Landed());
         Assert.Contains("action '区域可占用'", Assert.Single(resp.Conflicts!).Reason);

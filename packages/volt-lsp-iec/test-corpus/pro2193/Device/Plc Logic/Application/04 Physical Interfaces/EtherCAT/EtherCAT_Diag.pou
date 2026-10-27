@@ -12,7 +12,7 @@ VAR
 	restartingEtherCAT	: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Do not call EtherCAT_Master() FB!
 
 EtherCATDiagFB(

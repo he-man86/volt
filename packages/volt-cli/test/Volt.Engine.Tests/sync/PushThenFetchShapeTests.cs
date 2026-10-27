@@ -25,19 +25,19 @@ public class PushThenFetchShapeTests
         "FUNCTION_BLOCK FB_Motor\n" +
         "VAR_INPUT\n\txEnable : BOOL;\nEND_VAR\n" +
         "VAR\n\txRunning : BOOL;\nEND_VAR\n" +
-        "IMPLEMENTATION ST\n" +
+        "%LANGUAGE ST\n" +
         "xRunning := xEnable;\n" +
         "END_FUNCTION_BLOCK\n" +
         "\n" +
         "PROPERTY Running : BOOL\n" +
         "GET\n" +
-        "IMPLEMENTATION ST\n" +
+        "%LANGUAGE ST\n" +
         "Running := xRunning;\n" +
         "END_GET\n" +
         "END_PROPERTY\n" +
         "\n" +
         "ACTION Stop\n" +
-        "IMPLEMENTATION ST\n" +
+        "%LANGUAGE ST\n" +
         "xRunning := FALSE;\n" +
         "END_ACTION\n";
 
@@ -52,19 +52,19 @@ public class PushThenFetchShapeTests
         "FUNCTION_BLOCK FB_Motor\n" +
         "VAR_INPUT\n\txEnable : BOOL;\nEND_VAR\n" +
         "VAR\n\txRunning : BOOL;\nEND_VAR\n" +
-        "IMPLEMENTATION ST\n" +
+        "%LANGUAGE ST\n" +
         "xRunning := xEnable;\n" +
         "\n" +
         "END_FUNCTION_BLOCK\n" +
         "\n" +
         "ACTION Stop\n" +
-        "IMPLEMENTATION ST\n" +
+        "%LANGUAGE ST\n" +
         "xRunning := FALSE;\n" +
         "END_ACTION\n" +
         "\n" +
         "PROPERTY Running : BOOL\n" +
         "GET\n" +
-        "IMPLEMENTATION ST\n" +
+        "%LANGUAGE ST\n" +
         "Running := xRunning;\n" +
         "END_GET\n" +
         "END_PROPERTY\n";

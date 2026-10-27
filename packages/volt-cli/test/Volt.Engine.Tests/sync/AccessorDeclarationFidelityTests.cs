@@ -45,7 +45,7 @@ public class AccessorDeclarationFidelityTests
         var text = Materialized(WithMeasuredProperty());
 
         // The getter's block, verbatim: the declaration the IDE reports, then the body.
-        Assert.Contains("GET\nVAR\nEND_VAR\nIMPLEMENTATION ST\nVal := _v;\nEND_GET", text);
+        Assert.Contains("GET\nVAR\nEND_VAR\n%LANGUAGE ST\nVal := _v;\nEND_GET", text);
     }
 
     [Fact]
@@ -53,7 +53,7 @@ public class AccessorDeclarationFidelityTests
     {
         // This half never broke — a three-line declaration was never dropped — and it is here so the PAIR is
         // pinned. The asymmetry it produced (getter bare, setter not) is what made the loss visible to a reader.
-        Assert.Contains("SET\nPRIVATE\nVAR\nEND_VAR\nIMPLEMENTATION ST\n_v := Val;\nEND_SET", Materialized(WithMeasuredProperty()));
+        Assert.Contains("SET\nPRIVATE\nVAR\nEND_VAR\n%LANGUAGE ST\n_v := Val;\nEND_SET", Materialized(WithMeasuredProperty()));
     }
 
     /// <summary>A LEADING newline is content — and so is a trailing one (openspec <c>bridge-one-to-one</c> §1.1, every
@@ -74,7 +74,7 @@ public class AccessorDeclarationFidelityTests
             new FakeIde.Item("Get", ItemKind.PlcPropGet, "", false, "\nVAR\nEND_VAR\n", "Val := _v;", null, null));
 
         // The blank line the vendor holds is between GET and VAR, and its trailing newline the one above the boundary.
-        Assert.Contains("GET\n\nVAR\nEND_VAR\n\nIMPLEMENTATION ST\nVal := _v;\nEND_GET", Materialized(ide));
+        Assert.Contains("GET\n\nVAR\nEND_VAR\n\n%LANGUAGE ST\nVal := _v;\nEND_GET", Materialized(ide));
     }
 
     [Fact]
@@ -88,7 +88,7 @@ public class AccessorDeclarationFidelityTests
                              Children: new[] { "Get" }),
             new FakeIde.Item("Get", ItemKind.PlcPropGet, "", false, null, "Val := _v;", null, null));
 
-        Assert.Contains("GET\nIMPLEMENTATION ST\nVal := _v;\nEND_GET", Materialized(ide));
+        Assert.Contains("GET\n%LANGUAGE ST\nVal := _v;\nEND_GET", Materialized(ide));
     }
 
     /// <summary>A WHITESPACE-ONLY declaration is stored characters, spelled verbatim (openspec <c>bridge-one-to-one</c>
@@ -103,6 +103,6 @@ public class AccessorDeclarationFidelityTests
                              Children: new[] { "Get" }),
             new FakeIde.Item("Get", ItemKind.PlcPropGet, "", false, "   ", "Val := _v;", null, null));
 
-        Assert.Contains("GET\n   \nIMPLEMENTATION ST\nVal := _v;\nEND_GET", Materialized(ide));
+        Assert.Contains("GET\n   \n%LANGUAGE ST\nVal := _v;\nEND_GET", Materialized(ide));
     }
 }

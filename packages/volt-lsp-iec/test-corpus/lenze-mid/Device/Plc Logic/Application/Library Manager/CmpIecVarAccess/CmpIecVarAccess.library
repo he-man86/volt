@@ -3,4 +3,4 @@ NAMESPACE CmpIecVarAccess
 RESOLUTION CmpIecVarAccess, 3.5.17.0 (System)
 PLACEHOLDER true
 DEPENDENCIES CmpIecVarAccess Interfaces, * (System), CmpIecVarAccess Implementation
-MATERIALIZATION 4
+MATERIALIZATION 5

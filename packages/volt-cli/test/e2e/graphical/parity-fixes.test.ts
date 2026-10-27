@@ -51,7 +51,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const name = id("pf_en")
 		const full = fid("pf_en", "pou")
 		const src =
-			`PROGRAM ${name}\nVAR\n\tgo : BOOL;\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\nIMPLEMENTATION FBD\n` +
+			`PROGRAM ${name}\nVAR\n\tgo : BOOL;\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n%LANGUAGE FBD\n` +
 			// The enable is the box's own EN pin, and its value goes to its output pin — this test is about the EN pin.
 			`NETWORK\n  a AND b => out ENO EN go;\nEND_NETWORK\n\n` +
 			`END_PROGRAM\n`
@@ -95,7 +95,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const full = fid("pf_fn", "pou")
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : INT;\n\tb : INT;\n\tout : INT;\nEND_VAR\n` +
-			`IMPLEMENTATION FBD\nNETWORK\n  out := MAX(a, b);\nEND_NETWORK\n\n` +
+			`%LANGUAGE FBD\nNETWORK\n  out := MAX(a, b);\nEND_NETWORK\n\n` +
 			`END_PROGRAM\n`
 
 		const back = await roundTrip(full, src)
@@ -112,7 +112,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const name = id("pf_fnbuild")
 		const src =
 			`FUNCTION_BLOCK ${name}\nVAR\n\ta : INT;\n\tb : INT;\n\tout : INT;\nEND_VAR\n` +
-			`IMPLEMENTATION FBD\nNETWORK\n  out := MAX(a, b);\nEND_NETWORK\n\n` +
+			`%LANGUAGE FBD\nNETWORK\n  out := MAX(a, b);\nEND_NETWORK\n\n` +
 			`END_FUNCTION_BLOCK\n`
 
 		await createItem(fid("pf_fnbuild"), src, await projectRoot())
@@ -133,7 +133,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const full = fid("pf_pins", "pou")
 		const src =
 			`PROGRAM ${name}\nVAR\n\tt1 : TON;\n\tgo : BOOL;\n\tpt : TIME;\nEND_VAR\n` +
-			`IMPLEMENTATION FBD\nNETWORK\n  t1 : TON(IN := go, PT := pt);\nEND_NETWORK\n\n` +
+			`%LANGUAGE FBD\nNETWORK\n  t1 : TON(IN := go, PT := pt);\nEND_NETWORK\n\n` +
 			`END_PROGRAM\n`
 
 		// Create, then edit the PULLED text rather than re-stating the body. The IDE decides its own network
@@ -168,7 +168,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const full = fid("pf_neg", "pou")
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`IMPLEMENTATION LD\nNETWORK\n  out := NOT a AND b;\nEND_NETWORK\n\n` +
+			`%LANGUAGE LD\nNETWORK\n  out := NOT a AND b;\nEND_NETWORK\n\n` +
 			`END_PROGRAM\n`
 
 		const back = await roundTrip(full, src)
@@ -189,7 +189,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const full = fid("pf_set", "pou")
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`IMPLEMENTATION LD\nNETWORK\n  out S= a;\nEND_NETWORK\n\n` +
+			`%LANGUAGE LD\nNETWORK\n  out S= a;\nEND_NETWORK\n\n` +
 			`END_PROGRAM\n`
 
 		const back = await roundTrip(full, src)
@@ -208,7 +208,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const full = fid("pf_fix", "pou")
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`IMPLEMENTATION LD\nNETWORK\n  out S= NOT a AND b;\nEND_NETWORK\n\n` +
+			`%LANGUAGE LD\nNETWORK\n  out S= NOT a AND b;\nEND_NETWORK\n\n` +
 			`END_PROGRAM\n`
 
 		const once = await roundTrip(full, src)
@@ -244,7 +244,7 @@ VAR
 END_VAR
 ` +
 			// Two fan-outs, in two networks, so the test sees both the edited one and its untouched neighbour.
-			`IMPLEMENTATION FBD
+			`%LANGUAGE FBD
 NETWORK
   split0 := a AND b;
   p := split0;
@@ -303,7 +303,7 @@ VAR
 END_VAR
 ` +
 			// Canonical form puts NO blank line between networks — the push gate refuses otherwise, and says so.
-			`IMPLEMENTATION FBD
+			`%LANGUAGE FBD
 NETWORK
   t1 : TON(IN := go, PT := pt);
 END_NETWORK

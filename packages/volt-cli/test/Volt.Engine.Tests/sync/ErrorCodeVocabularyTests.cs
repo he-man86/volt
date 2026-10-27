@@ -64,7 +64,7 @@ public class ErrorCodeVocabularyTests
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>
             {
-                new SetItemOp { Name = "FB_New.pou", SourceText = "FUNCTION_BLOCK FB_New\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n" },
+                new SetItemOp { Name = "FB_New.pou", SourceText = "FUNCTION_BLOCK FB_New\nVAR\nEND_VAR\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK\n" },
             },
         });
 
@@ -162,7 +162,7 @@ public class ErrorCodeVocabularyTests
             Ops = new List<PushOp>
             {
                 new SetItemOp { Name = "Hidden/FB_Broken.pou",
-                                SourceText = "FUNCTION_BLOCK FB_Broken\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n" },
+                                SourceText = "FUNCTION_BLOCK FB_Broken\nVAR\nEND_VAR\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK\n" },
             },
         });
 
@@ -181,7 +181,7 @@ public class ErrorCodeVocabularyTests
     [Fact]
     public void A_forced_update_of_an_item_the_IDE_does_not_return_is_UNREADABLE_naming_delete_then_create()
     {
-        const string fb = "FUNCTION_BLOCK FB_A\nVAR\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\nEND_FUNCTION_BLOCK\n";
+        const string fb = "FUNCTION_BLOCK FB_A\nVAR\nEND_VAR\n%LANGUAGE ST\nx := 1;\nEND_FUNCTION_BLOCK\n";
         var ide = new FakeIde(
             FakeIde.Item.TextualPou("PLC_PRG", Prg, "x := 1;"),
             FakeIde.Item.TextualPou("FB_A", "FUNCTION_BLOCK FB_A\nVAR\nEND_VAR", "x := 0;"));
@@ -221,7 +221,7 @@ public class ErrorCodeVocabularyTests
     [Fact]
     public void An_update_whose_read_the_IDE_answers_with_nothing_is_UNREADABLE_without_the_delete_advice()
     {
-        const string fb = "FUNCTION_BLOCK FB_A\nVAR\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\nEND_FUNCTION_BLOCK\n";
+        const string fb = "FUNCTION_BLOCK FB_A\nVAR\nEND_VAR\n%LANGUAGE ST\nx := 1;\nEND_FUNCTION_BLOCK\n";
         var ide = new FakeIde(
             FakeIde.Item.TextualPou("PLC_PRG", Prg, "x := 1;"),
             FakeIde.Item.TextualPou("FB_A", "FUNCTION_BLOCK FB_A\nVAR\nEND_VAR", "x := 0;"));
@@ -271,7 +271,7 @@ public class ErrorCodeVocabularyTests
     // ── the code an `unreadable` entry carries ──────────────────────────────────────────────────────────────────
 
     /// <summary>A read refused with a code of the `unreadable` channel keeps it: a body whose vendor language is no word
-    /// (<see cref="Volt.Engine.Format.St.ImplementationMarker.VendorLanguage"/>) is UNSUPPORTED — Volt has no line for it —
+    /// (<see cref="Volt.Engine.Format.St.PropertyLines.VendorLanguage"/>) is UNSUPPORTED — Volt has no line for it —
     /// and a read the IDE answered with nothing is UNREADABLE (gate 3c review, finding 6).</summary>
     [Theory]
     [InlineData("vendor-language", BridgeErrorCodes.Unsupported)]
@@ -287,7 +287,7 @@ public class ErrorCodeVocabularyTests
             if (fake.Name(item) != "FB_A") return;
             switch (refusal)
             {
-                case "vendor-language": Volt.Engine.Format.St.ImplementationMarker.VendorLanguage("My Mode"); break;
+                case "vendor-language": Volt.Engine.Format.St.PropertyLines.VendorLanguage("My Mode"); break;
                 case "answered-nothing": throw new BridgeException(BridgeErrorCodes.Unreadable, "the checkout answers no object");
                 default: throw new System.Runtime.InteropServices.COMException("RPC_E_CALL_REJECTED", unchecked((int)0x80010001));
             }

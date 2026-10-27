@@ -62,7 +62,7 @@ VAR
 	out : BOOL;
 END_VAR
 ` +
-			`IMPLEMENTATION LD
+			`%LANGUAGE LD
 NETWORK
   out := a AND b;
 END_NETWORK
@@ -117,7 +117,7 @@ VAR
 	s : BOOL;
 END_VAR
 ` +
-			`IMPLEMENTATION LD
+			`%LANGUAGE LD
 NETWORK
   split0 := a AND b;
   p := split0;
@@ -182,7 +182,7 @@ VAR
 	c : BOOL;
 	out : BOOL;
 END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 ` +
 			// LABEL FIRST, THEN COMMENT — the IDE's own header layout, and the canonical form too. The reader
 			// takes them in either order; a text in another layout is written and comes back canonical

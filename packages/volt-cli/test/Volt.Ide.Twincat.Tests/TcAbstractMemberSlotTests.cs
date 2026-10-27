@@ -7,21 +7,19 @@ using Xunit;
 namespace Volt.Ide.Twincat.Tests;
 
 /// <summary>
-/// A TWINCAT ABSTRACT MEMBER READS THE SAME AS ON CODESYS (openspec <c>abstract-member-parity</c>, DIALECT C2n) — the
-/// TwinCAT twin of <c>CodesysAbstractMemberPushTests</c>.
+/// A TWINCAT ABSTRACT MEMBER HAS A BODY SLOT (openspec <c>language-line</c>, DIALECT C2n) — the TwinCAT twin of
+/// <c>CodesysAbstractMemberPushTests</c>.
 ///
 /// <para>Measured (<c>vendor-facts</c> <c>abstract-member-slot</c> / <c>abstract-member-code</c>, 2026-10-11): a
 /// <c>METHOD ABSTRACT</c> (609) and a <c>PROPERTY ABSTRACT</c>'s GET (613) and SET (614) expose <c>ImplementationText</c>
-/// <c>""</c> — a slot holding nothing — and an empty body written there persists across save/reopen. The DRIVER keeps that
-/// storage fact (an empty body: no stated language); the engine's fold (<see cref="AbstractMemberFold"/>) states it
-/// <c>IMPLEMENTATION NONE</c>, as CODESYS's slotless objects pull. Until this change TwinCAT pulled the same declaration
-/// as <c>IMPLEMENTATION ST</c> — the divergence the owner refused ("they need to be identical on the volt layer"); this
-/// test asserted it as the TwinCAT fact.</para>
+/// <c>""</c> — a slot holding nothing — and an empty body written there persists across save/reopen. So it pulls as every
+/// empty body with a slot does, <c>%LANGUAGE ST</c> with nothing under it; only a member with NO slot (CODESYS's
+/// <c>AbstractPOUMethodObject</c>) has no line.</para>
 /// </summary>
 public class TcAbstractMemberSlotTests
 {
     [Fact]
-    public void An_abstract_method_and_an_abstract_propertys_GET_pull_as_IMPLEMENTATION_NONE_through_the_engine_fold()
+    public void An_abstract_method_and_an_abstract_propertys_GET_pull_with_an_empty_ST_body()
     {
         var getter = new TcHiddenBodyWriteTests.Node("Get", ItemKind.PlcPropGet, "VAR\nEND_VAR", "");
         var pou = new TcHiddenBodyWriteTests.Node("VltA_PushBase", ItemKind.PlcPou,
@@ -33,17 +31,17 @@ public class TcAbstractMemberSlotTests
         Assert.Null(content.Members.Single(m => m.Name == "Pick").Stated);                 // the driver's storage fact: an empty body
         Assert.Null(content.Members.Single(m => m.Name == "Busy").Getter?.Stated);
 
-        var text = StWriter.Write(AbstractMemberFold.Apply(content));
+        var text = StWriter.Write(content);
 
-        Assert.Contains("METHOD ABSTRACT Pick : INT\nIMPLEMENTATION NONE\nEND_METHOD", text);
-        Assert.Contains("GET\nVAR\nEND_VAR\nIMPLEMENTATION NONE\nEND_GET", text);
-        Assert.Contains("FUNCTION_BLOCK ABSTRACT VltA_PushBase\nVAR\nEND_VAR\nIMPLEMENTATION ST\n", text);   // no member site
+        Assert.Contains("METHOD ABSTRACT Pick : INT\n%LANGUAGE ST\nEND_METHOD", text);
+        Assert.Contains("GET\nVAR\nEND_VAR\n%LANGUAGE ST\nEND_GET", text);
+        Assert.Contains("FUNCTION_BLOCK ABSTRACT VltA_PushBase\nVAR\nEND_VAR\n%LANGUAGE ST\n", text);   // no member site
     }
 
-    /// <summary>NONE over an abstract method and GET holding code: <c>""</c> is written at each slot (the driver's ST
-    /// write, <c>ImplementationMarker.Written</c>) — what 1.2 measured persists and pulls back unchanged.</summary>
+    /// <summary>An empty ST body over an abstract method and GET holding code: <c>""</c> is written at each slot — what
+    /// 1.2 measured persists and pulls back unchanged.</summary>
     [Fact]
-    public void NONE_over_an_abstract_method_and_GET_holding_code_writes_an_empty_body()
+    public void An_empty_body_over_an_abstract_method_and_GET_holding_code_is_written_empty()
     {
         var getter = new TcHiddenBodyWriteTests.Node("Get", ItemKind.PlcPropGet, "VAR\nEND_VAR", "Busy := TRUE;");
         var method = new TcHiddenBodyWriteTests.Node("Pick", ItemKind.PlcMethod, "METHOD ABSTRACT Pick : INT", "Pick := 1;");
@@ -54,10 +52,10 @@ public class TcAbstractMemberSlotTests
         TcUntouchablePouTests.BoundDriver().WriteContent(TcRefs.Ref(pou),
             new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK ABSTRACT VltA_PushBase\nVAR\nEND_VAR", null, new List<Member>
             {
-                new(ItemKind.Kinds.Method, "Pick", "METHOD ABSTRACT Pick : INT", ImplementationMarker.NoneLine, ObjectProperties.None,
-                    Stated: StatedLanguage.None),
+                new(ItemKind.Kinds.Method, "Pick", "METHOD ABSTRACT Pick : INT", "", ObjectProperties.None,
+                    Stated: StatedLanguage.St),
                 new(ItemKind.Kinds.Property, "Busy", "PROPERTY ABSTRACT Busy : BOOL", null, ObjectProperties.None,
-                    Getter: new Accessor("VAR\nEND_VAR", ImplementationMarker.NoneLine, Stated: StatedLanguage.None)),
+                    Getter: new Accessor("VAR\nEND_VAR", "", Stated: StatedLanguage.St)),
             }, ObjectProperties.None), System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());
 
         Assert.Equal("", method.ImplementationText);

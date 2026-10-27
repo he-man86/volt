@@ -73,7 +73,7 @@ VAR
 
 END_VAR
 
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK TITLE: "NETWORK 2: Startup delay after emergency stop"
   GenFlags.DelayAfterEmergStop := OnDelayAfterEmergencyStop : TON(IN := NOT iFirstCycle AND iEmergencyUnitOK, PT := iPreDelayAfterEmergStop).Q;
 END_NETWORK

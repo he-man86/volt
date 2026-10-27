@@ -48,7 +48,7 @@ describe(`graphical / fan-out (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;\nEND_VAR\n` +
-			`IMPLEMENTATION FBD\nNETWORK\n  split7 := a AND b;\n  out1 := split7;\n  out2 := split7;\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`%LANGUAGE FBD\nNETWORK\n  split7 := a AND b;\n  out1 := split7;\n  out2 := split7;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: wire, sourceText: src, ifVersion: null }])
 		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
@@ -102,7 +102,7 @@ describe(`graphical / fan-out (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : INT;\n\tb : INT;\n\tn : INT;\n\tsv : INT;\nEND_VAR\n` +
-			`IMPLEMENTATION FBD\nNETWORK\n  split1 := a ADD b;\n  n := split1;\n  sv := split1;\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`%LANGUAGE FBD\nNETWORK\n  split1 := a ADD b;\n  n := split1;\n  sv := split1;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: wire, sourceText: src, ifVersion: null }])
 		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
@@ -136,7 +136,7 @@ describe(`graphical / fan-out (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\tout1 : BOOL;\n\tout2 : BOOL;\nEND_VAR\n` +
-			`IMPLEMENTATION LD\nNETWORK\n  split1 := TRUE;\n  out1 := split1;\n  out2 := split1;\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`%LANGUAGE LD\nNETWORK\n  split1 := TRUE;\n  out1 := split1;\n  out2 := split1;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: wire, sourceText: src, ifVersion: null }])
 		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)

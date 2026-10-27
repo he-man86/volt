@@ -32,7 +32,7 @@ const VARS =
 	"a : BOOL; b : BOOL; c : BOOL; d : BOOL; e : BOOL; go : BOOL; out : BOOL; out1 : BOOL; out2 : BOOL; out3 : BOOL; " +
 	"i1 : INT; i2 : INT; n : INT; t1 : TON; pt : TIME; el : TIME;"
 
-/** The shapes: name → the body under `IMPLEMENTATION <LANG>`. */
+/** The shapes: name → the body under `%LANGUAGE <LANG>`. */
 const SHAPES: Record<string, string> = {
 	single_consumer_branch: "NETWORK\n  split1 := a AND b;\n  out := split1;\nEND_NETWORK\n",
 	fanout_two_coils: "NETWORK\n  split1 := a AND b;\n  out1 := split1;\n  out2 := split1;\nEND_NETWORK\n",
@@ -68,7 +68,7 @@ describe(`graphical / native writer (${BASE})`, () => {
 
 	const fb = (bare: string, lang: string, body: string) =>
 		`FUNCTION_BLOCK ${bare}\nVAR\n${VARS.split(";").filter((v) => v.trim()).map((v) => `\t${v.trim()};`).join("\n")}\nEND_VAR\n` +
-		`IMPLEMENTATION ${lang}\n${body}\nEND_FUNCTION_BLOCK\n`
+		`%LANGUAGE ${lang}\n${body}\nEND_FUNCTION_BLOCK\n`
 
 	const pull = async (item: string): Promise<string | undefined> =>
 		(await bridge.fetch({ knownItems: {}, onlyItems: [item] })).changed.find((i: any) => i.name === item)?.sourceText
@@ -99,7 +99,7 @@ describe(`graphical / native writer (${BASE})`, () => {
 				cases.push({ key: `${shape} ${lang}`, bare, item: rid(`nw_${shape}_${lang}`, "pou"), src: fb(bare, lang, body) })
 			}
 		await clean([...cases.map((c) => c.item), rid("nw_F", "pou")])
-		const fn = `FUNCTION ${FN} : INT\nVAR_INPUT\n\tA : INT;\n\tB : INT;\nEND_VAR\nIMPLEMENTATION ST\n${FN} := A + B;\n\nEND_FUNCTION\n`
+		const fn = `FUNCTION ${FN} : INT\nVAR_INPUT\n\tA : INT;\n\tB : INT;\nEND_VAR\n%LANGUAGE ST\n${FN} := A + B;\n\nEND_FUNCTION\n`
 		const made = await pushOps([{ op: "set", name: rid("nw_F", "pou"), sourceText: fn, ifVersion: null }])
 		expect(landed(made), JSON.stringify(made.conflicts)).toBe(true)
 	})
@@ -186,7 +186,7 @@ describe(`graphical / native writer (${BASE})`, () => {
 		const edited = new Map<string, string>()
 		for (const c of cases) {
 			const refs = (await bridge.refs()).items ?? {}
-			const at = c.src.indexOf("\nIMPLEMENTATION ")
+			const at = c.src.indexOf("\n%LANGUAGE ")
 			const src = c.src.slice(0, at) + c.src.slice(at)
 				.replace(/\bb\b/g, "c")
 				.replace(/\nEND_FUNCTION_BLOCK\n$/, "NETWORK\n  out3 := d OR e;\nEND_NETWORK\n\nEND_FUNCTION_BLOCK\n")

@@ -59,7 +59,7 @@ public class GrepResponse
 
     /// <summary>Every item in scope whose text, or part of it, was not searched, with why: an item <c>fetch</c> ships no
     /// text for (<c>unreadable</c>, the reason <c>refs</c> gives), or one with a body that reads
-    /// <c>IMPLEMENTATION &lt;LANG&gt; UNSUPPORTED</c> (its other lines were searched).</summary>
+    /// <c>%LANGUAGE &lt;LANG&gt; UNSUPPORTED</c> (its other lines were searched).</summary>
     [JsonPropertyName("notSearched")]
     public List<NotSearchedItem> NotSearched { get; set; } = new();
 
@@ -100,7 +100,7 @@ public sealed record NotSearchedItem
     public string Name { get; init; } = "";
 
     /// <summary>The code a client matches (<see cref="BridgeErrorCodes"/>): an unreadable item's own code, as <c>refs</c>
-    /// gives it; <c>UNSUPPORTED</c> for a body that reads <c>IMPLEMENTATION &lt;LANG&gt; UNSUPPORTED</c>.</summary>
+    /// gives it; <c>UNSUPPORTED</c> for a body that reads <c>%LANGUAGE &lt;LANG&gt; UNSUPPORTED</c>.</summary>
     [JsonPropertyName("code")]
     public string Code { get; init; } = "";
 

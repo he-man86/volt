@@ -42,7 +42,7 @@ function network(
     kind: "function_block",
     feature,
     fromDoc: doc,
-    source: `FUNCTION_BLOCK ${pouName}\nVAR\n${vars}\nEND_VAR\n\nIMPLEMENTATION FBD\nNETWORK\n${statements}\nEND_NETWORK\n\nEND_FUNCTION_BLOCK\n`,
+    source: `FUNCTION_BLOCK ${pouName}\nVAR\n${vars}\nEND_VAR\n\n%LANGUAGE FBD\nNETWORK\n${statements}\nEND_NETWORK\n\nEND_FUNCTION_BLOCK\n`,
     plcPrgVar: `inst : ${pouName};`,
     plcPrgBody: "inst();",
     execSkip: NOT_ST,
@@ -56,7 +56,7 @@ export const REMOVED_PUSH_CHECK_TESTS: readonly LanguageTest[] = [
     name: "rcc_st_body_network",
     pouName: "FB_LANG_rcc_st_network",
     kind: "function_block",
-    feature: "an `IMPLEMENTATION ST` body holding NETWORK … END_NETWORK — ST to the build, which reads `NETWORK` as code",
+    feature: "an `%LANGUAGE ST` body holding NETWORK … END_NETWORK — ST to the build, which reads `NETWORK` as code",
     fromDoc: doc,
     asSent,
     source: `FUNCTION_BLOCK FB_LANG_rcc_st_network
@@ -64,7 +64,7 @@ VAR
 	a : BOOL;
 	out : BOOL;
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 NETWORK
   out := a;
 END_NETWORK
@@ -87,7 +87,7 @@ VAR
 	implementation : INT;
 	x : INT;
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 implementation := 3;
 x := implementation;
 END_FUNCTION_BLOCK
@@ -106,12 +106,12 @@ END_FUNCTION_BLOCK
 VAR
 	n : INT;
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 n := implementation();
 END_FUNCTION_BLOCK
 
 METHOD implementation : INT
-IMPLEMENTATION ST
+%LANGUAGE ST
 implementation := 7;
 END_METHOD
 `,
@@ -185,7 +185,7 @@ VAR
 	x : BOOL;
 END_VAR
 
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   x := FUN_LANG_rcc_twice(a, b) ENO;
 END_NETWORK
@@ -234,13 +234,13 @@ END_FUNCTION_BLOCK
 VAR
 	n : INT;
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 (* @volt-x *)
 n := Twice();
 END_FUNCTION_BLOCK
 
 METHOD Twice : INT
-IMPLEMENTATION ST
+%LANGUAGE ST
 (* @volt-implementation ST *)
 Twice := 2;
 END_METHOD
@@ -260,13 +260,13 @@ END_METHOD
     source: `FUNCTION_BLOCK FB_LANG_rcc_prop_untyped
 VAR
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 ;
 END_FUNCTION_BLOCK
 
 PROPERTY Ready
 GET
-IMPLEMENTATION ST
+%LANGUAGE ST
 Ready := TRUE;
 END_GET
 END_PROPERTY
@@ -284,13 +284,13 @@ END_PROPERTY
     source: `FUNCTION_BLOCK FB_LANG_rcc_prop_empty
 VAR
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 ;
 END_FUNCTION_BLOCK
 
 PROPERTY Ready :
 GET
-IMPLEMENTATION ST
+%LANGUAGE ST
 Ready := TRUE;
 END_GET
 END_PROPERTY
@@ -311,12 +311,12 @@ END_PROPERTY
 VAR
 	n : INT;
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 n := 1;
 END_FUNCTION_BLOCK
 
 METHOD \`a b\` : INT
-IMPLEMENTATION ST
+%LANGUAGE ST
 \`a b\` := 3;
 END_METHOD
 `,
@@ -338,12 +338,12 @@ END_METHOD
 VAR
 	n : INT;
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 n := 1;
 END_FUNCTION_BLOCK
 
 METHOD My-Name : BOOL
-IMPLEMENTATION ST
+%LANGUAGE ST
 ;
 END_METHOD
 `,

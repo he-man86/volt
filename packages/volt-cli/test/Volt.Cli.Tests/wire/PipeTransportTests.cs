@@ -616,7 +616,7 @@ public class PipeTransportTests
 
         var frame = RawTerminal(pipe,
             @"{""op"":""push"",""protocol"":1,""body"":{""expectedPlatform"":""codesys"",""expectedProjectName"":""FakeProject"",""ops"":[{""name"":""Q.pou"",""ifVersion"":null," +
-            @"""sourceText"":""PROGRAM Q\nVAR\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\nEND_PROGRAM\n"",""op"":""set""}]}}");
+            @"""sourceText"":""PROGRAM Q\nVAR\nEND_VAR\n%LANGUAGE ST\nx := 1;\nEND_PROGRAM\n"",""op"":""set""}]}}");
 
         Assert.True(frame.TryGetProperty("result", out var result), "expected a result frame, got: " + frame);
         Assert.True(result.TryGetProperty("newProjectVersion", out _) && result.GetProperty("conflicts").GetArrayLength() == 0,

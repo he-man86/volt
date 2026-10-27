@@ -6,7 +6,8 @@ import type { Scope } from "../../../frontend/symbols/index.js"
 import { run } from "../../interp/index.js"
 import type { IrRoutine } from "../../ir/index.js"
 import { Lowering } from "../core/lowering.js"
-import { lowerSource } from "../index.js"
+import { lowerPrepared, lowerSource, prepareProject } from "../index.js"
+import { parseDocument } from "../../../frontend/syntax/index.js"
 import { once } from "./routines.js"
 
 const scope = {} as Scope
@@ -178,15 +179,17 @@ test("a VAR_OUTPUT first stored from a STRING of another capacity keeps its rese
   expect([runner.get("x"), runner.get("c3")]).toEqual(["ab", 0n])
 })
 
-/** AN ABSTRACT MEMBER RUNS NOTHING A LOWERING COULD RUN (openspec abstract-member-push): the pull states an abstract
- *  member with no code `IMPLEMENTATION NONE` (abstract-member-parity: on both vendors), and lowering refuses it by name — it used to be an empty `IMPLEMENTATION ST` body,
- *  which ran an abstract base's call to its own abstract member as nothing (pro2193 `ActuatorWithAlarm_BaseFB`). */
-test("a call to an abstract member (IMPLEMENTATION NONE) is refused by name, never run as an empty body", () => {
-  const r = lowerSource(
-    "FUNCTION_BLOCK ABSTRACT Base\nIMPLEMENTATION ST\nRun();\nEND_FUNCTION_BLOCK\n\nMETHOD PROTECTED ABSTRACT Run\nIMPLEMENTATION NONE\nEND_METHOD\n",
-    "Base",
-  )
+/** A MEMBER WITH NO BODY SLOT RUNS NOTHING A LOWERING COULD RUN (openspec language-line): a workspace file writes it with
+ *  no `%LANGUAGE` line and nothing after its declaration (pro2193's IDE-made abstract methods), and lowering refuses it by
+ *  name — run as an empty ST body, an abstract base's call to its own abstract member ran as nothing
+ *  (pro2193 `ActuatorWithAlarm_BaseFB`). */
+test("a call to a member with no body slot is refused by name, never run as an empty body", () => {
+  const uri = "file:///w/Base.pou"
+  const source = "FUNCTION_BLOCK ABSTRACT Base\n%LANGUAGE ST\nRun();\nEND_FUNCTION_BLOCK\n\nMETHOD PROTECTED ABSTRACT Run\nEND_METHOD\n"
+  const parseResult = parseDocument(uri, source, { networkText: true }, "codesys")
+  expect(parseResult.errors).toEqual([])
+  const r = lowerPrepared(parseResult, "Base", prepareProject([{ uri, parseResult, source }], []))
   expect(r.pou).toBeUndefined()
   const refusal = r.diagnostics.find((d) => d.code === "graphical-body")
-  expect(refusal?.message).toContain("is abstract: it holds no code (IMPLEMENTATION NONE)")
+  expect(refusal?.message).toContain("has no body slot: it holds no code (no %LANGUAGE line)")
 })

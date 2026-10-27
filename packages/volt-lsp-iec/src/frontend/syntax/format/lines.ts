@@ -1,9 +1,9 @@
 /**
- * READING LINES OUT OF A TOKEN STREAM — the Volt file format's rules are about whole lines (the `IMPLEMENTATION` line,
+ * READING LINES OUT OF A TOKEN STREAM — the Volt file format's rules are about whole lines (the `%LANGUAGE` line,
  * `%FOLDER`), while the lexer hands out tokens. These are the shared line readers.
  */
 import type { Span } from "../span.js"
-import { isTrivia, type Token } from "../lex/tokens.js"
+import type { Token } from "../lex/tokens.js"
 
 /** Where a problem with the file format is reported, and what it says. */
 export type ReportAt = (message: string, span: Span) => void
@@ -39,11 +39,4 @@ export function lineAround(tokens: readonly Token[], at: number): { text: string
     after += text
   }
   return { text: before + after, end }
-}
-
-/** The index of the first significant (non-trivia) token at or after `from`. */
-export const nextSignificant = (tokens: readonly Token[], from: number): number => {
-  let i = from
-  while (i < tokens.length && isTrivia(tokens[i]!.kind)) i++
-  return i
 }

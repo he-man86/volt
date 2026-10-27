@@ -1,7 +1,7 @@
 import { test, expect } from "bun:test"
 import { lex } from "../lex/lexer.js"
 import { parseSource } from "./parser.js"
-import { bodyReader } from "../format/implementation-line.js"
+import { bodyReader } from "../format/language-line.js"
 import { unitBodies } from "../format/bodies.js"
 import { bodyStatements } from "./body-parse.js"
 import type { ArrayType, BodySpan, FunctionBlock, Literal, NamedType, StringType, TypeDecl, VarDecl } from "../ast/nodes/index.js"
@@ -212,7 +212,7 @@ test("same for a STRUCT and a UNION field — a field is a declaration, and resy
 test("an unterminated section wants its END_VAR where the declaration part ends, with no cascade (rec_unterminated_var, rec_unterminated_var_before_section, R4)", () => {
   // the four ways a decl list really ends early — each ONE error, quoting the end of the object as '' (both vendors 2026-10-02)
   expect(messages("PROGRAM P\nVAR\n  a : INT;\nEND_PROGRAM\n")).toEqual(["'END_VAR' expected instead of ''"])
-  expect(messages("PROGRAM P\nVAR\n  a : INT;\nIMPLEMENTATION ST\na := 1;\nEND_PROGRAM\n")).toEqual(["'END_VAR' expected instead of ''"])
+  expect(messages("PROGRAM P\nVAR\n  a : INT;\n%LANGUAGE ST\na := 1;\nEND_PROGRAM\n")).toEqual(["'END_VAR' expected instead of ''"])
   expect(messages("PROGRAM P\nVAR\n  a : INT;\nVAR_INPUT\n  b : INT;\nEND_VAR\nEND_PROGRAM\n")).toEqual([
     "Variable declaration expected instead of VAR_INPUT",
     "'END_VAR' expected instead of ''",
@@ -317,14 +317,14 @@ test("a declaration missing its `;` after the type: CODESYS's list of what may f
 
 // ── whether LD/FBD bodies are network text is the CALLER's fact (frontend-conformance P5) ──
 
-const LADDER = "PROGRAM P\nVAR\n  a : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nEND_PROGRAM"
+const LADDER = "PROGRAM P\nVAR\n  a : BOOL;\nEND_VAR\n%LANGUAGE LD\nEND_PROGRAM"
 
 test("a parse is told whether LD/FBD bodies are network text: without the option it refuses by name", () => {
   // @ts-expect-error — the option is required; a parse that is not told must not fill the fact in
   expect(() => parseSource(LADDER)).toThrow(/networkText/)
 })
 
-test("the option decides who reads an IMPLEMENTATION LD body: network text on reads it, off reads it by neither", () => {
+test("the option decides who reads an %LANGUAGE LD body: network text on reads it, off reads it by neither", () => {
   const readers = (networkText: boolean) =>
     parseSource(LADDER, { networkText }, "codesys").units.flatMap(unitBodies).map(bodyReader)
   expect(readers(true)).toEqual(["network"])

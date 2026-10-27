@@ -51,8 +51,8 @@ const GRAPHICAL_LANGUAGES: Record<string, string> = {
 }
 
 /**
- * Hover for a hidden body's line (F.2e) — `IMPLEMENTATION <LANG> UNSUPPORTED`: always for CFC, SFC and IL, and for an
- * LD/FBD body network text cannot represent yet (`syntax/format/implementation-line`). Explains that no implementation is
+ * Hover for a hidden body's line (F.2e) — `%LANGUAGE <LANG> UNSUPPORTED`: always for CFC, SFC and IL, and for an
+ * LD/FBD body network text cannot represent yet (`syntax/format/language-line`). Explains that no implementation is
  * shown and the push never writes it, while the declaration above the line stays editable: the line is what a pull
  * writes for such a body, and the body under it is empty and read by neither parser. Read off the parse, so only a line the splitter took as a body's boundary answers — never
  * a look-alike in a comment.
@@ -61,8 +61,8 @@ export function readOnlyBodyHover(doc: Document, offset: number): Hover | undefi
   const visit = (units: readonly TopLevel[]): Hover | undefined => {
     for (const unit of allUnits(units)) {
       for (const body of unitBodies(unit)) {
-        const line = body.implementation
-        if (line === undefined || line.statement.kind !== "unsupported" || !spanContains(line.span, offset)) continue
+        const line = body.languageLine
+        if (line?.statement?.kind !== "unsupported" || !spanContains(line.span, offset)) continue
         const { language } = line.statement
         const name = GRAPHICAL_LANGUAGES[language] ?? language
         const why = !(language === "LD" || language === "FBD")

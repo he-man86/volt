@@ -2,7 +2,7 @@ namespace Volt.Engine.Format.Body
 {
     /// <summary>
     /// A BODY THE READER CANNOT REPRESENT — thrown by a vendor reader or the network-text writer, and answered with a
-    /// READ-ONLY body: <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c> (<c>ImplementationMarker.Unsupported</c>), its
+    /// READ-ONLY body: <c>%LANGUAGE LD|FBD UNSUPPORTED</c> (<c>PropertyLines.UnsupportedLine</c>), its
     /// <see cref="Reason"/> carried to the pull message.
     ///
     /// <para>The distinction this type exists to keep is the difference between an engineer seeing their POU

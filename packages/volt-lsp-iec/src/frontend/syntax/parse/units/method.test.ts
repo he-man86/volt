@@ -41,20 +41,20 @@ test("OVERRIDE is no modifier: `METHOD OVERRIDE M` is a method NAMED Override", 
 
 test("nothing after the colon but the body's line is the vendors' empty type, not the line read as a type", () => {
   // `sig_empty_type` (openspec bridge-refusal-review 2.4/D10, both vendors 2026-10-03): the IDE holds the declaration
-  // without the IMPLEMENTATION line, so its text ends at the colon — "Type definition expected instead of ''". The line's
-  // IMPLEMENTATION used to be read as the type's name.
+  // without the %LANGUAGE line, so its text ends at the colon — "Type definition expected instead of ''". The
+  // line used to be read as the type's name.
   const r = parseSource(
-    "FUNCTION_BLOCK X\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\nMETHOD Run :\nIMPLEMENTATION ST\n;\nEND_METHOD\n",
+    "FUNCTION_BLOCK X\n%LANGUAGE ST\nEND_FUNCTION_BLOCK\n\nMETHOD Run :\n%LANGUAGE ST\n;\nEND_METHOD\n",
     { networkText: true }, "codesys",
   )
   expect(r.errors.map((e) => e.message)).toEqual(["Type definition expected instead of ''"])
   const m = r.units[1] as Method
-  expect([m.name.text, m.body.implementation?.text]).toEqual(["Run", "IMPLEMENTATION ST"])
+  expect([m.name.text, m.body.languageLine?.text]).toEqual(["Run", "%LANGUAGE ST"])
 })
 
 test("nothing after the colon on an interface member is the same empty type, whatever line follows", () => {
   // Review 4b: the push writes every member header with nothing after its colon as sent, and in each case the IDE's
-  // declaration ends at the colon — the line after it (END_METHOD, END_PROPERTY, GET, SET, IMPLEMENTATION) is one the
+  // declaration ends at the colon — the line after it (END_METHOD, END_PROPERTY, GET, SET, %LANGUAGE) is one the
   // push never writes into a declaration, so the vendors' answer is `sig_empty_type`'s. Those lines used to be read
   // as the type, and a POU property's GET then cascaded.
   const cases = [
@@ -71,8 +71,8 @@ test("nothing after the colon on an interface member is the same empty type, wha
   // the colon. The LSP gives that message and the accessor stays the property's (`property.test.ts`). The SET case
   // reads the same header and is unmeasured on its own.
   const pouProperty = [
-    "FUNCTION_BLOCK X\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\nPROPERTY P :\nGET\nIMPLEMENTATION ST\n;\nEND_GET\nEND_PROPERTY\n",
-    "FUNCTION_BLOCK X\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\nPROPERTY P :\nSET\nIMPLEMENTATION ST\n;\nEND_SET\nEND_PROPERTY\n",
+    "FUNCTION_BLOCK X\n%LANGUAGE ST\nEND_FUNCTION_BLOCK\n\nPROPERTY P :\nGET\n%LANGUAGE ST\n;\nEND_GET\nEND_PROPERTY\n",
+    "FUNCTION_BLOCK X\n%LANGUAGE ST\nEND_FUNCTION_BLOCK\n\nPROPERTY P :\nSET\n%LANGUAGE ST\n;\nEND_SET\nEND_PROPERTY\n",
   ]
   for (const source of pouProperty) {
     const r = parseSource(source, { networkText: true }, "codesys")
@@ -83,12 +83,12 @@ test("nothing after the colon on an interface member is the same empty type, wha
 test("an action's declaration is its ACTION line alone: what the push would drop is reported with its words", () => {
   // Review 4b (volt-cli `ChildSplitterTableTests`): neither vendor stores an action's declaration, so the push refuses a
   // modifier on the line, a comment on it, above it or under it — and the action is still read by the push's name.
-  const fb = "FUNCTION_BLOCK F\nVAR\n\tout : INT;\nEND_VAR\nIMPLEMENTATION ST\nAct();\nEND_FUNCTION_BLOCK\n\n"
+  const fb = "FUNCTION_BLOCK F\nVAR\n\tout : INT;\nEND_VAR\n%LANGUAGE ST\nAct();\nEND_FUNCTION_BLOCK\n\n"
   const read = (action: string) => {
     const r = parseSource(fb + action, { networkText: true }, "codesys")
     return { errors: r.errors.map((e) => e.message), names: r.units.map((u) => `${u.kind}:${"name" in u ? u.name?.text : ""}`) }
   }
-  const body = "IMPLEMENTATION ST\nout := 4;\nEND_ACTION\n"
+  const body = "%LANGUAGE ST\nout := 4;\nEND_ACTION\n"
   const modifier = read(`ACTION PRIVATE Act\n${body}`)
   expect(modifier.names).toEqual(["function_block:F", "action:Act"])
   expect(modifier.errors).toEqual([

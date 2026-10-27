@@ -13,7 +13,7 @@ VAR
 	colorPushed		: enumColorList		:= enumColorList.Black;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Illuminate button while pressed down
 IF button THEN
 	Override();
@@ -46,7 +46,7 @@ END_FUNCTION_BLOCK
 
 METHOD PROTECTED CallTrigger
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Trig_Pushed.Call(CLK := buttonInput OR button);
 
 END_METHOD
@@ -59,7 +59,7 @@ VAR_INPUT
 	colorPushed		: enumColorList		:= enumColorList.Black;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 THIS^.colorOn			:= colorOn;
 THIS^.colorOff			:= colorOff;
 THIS^.colorPushed		:= colorPushed;

@@ -37,7 +37,7 @@ const CLI = newestBuiltCli()
 if (CLI) setBundledCli(CLI)
 
 const KEY = "cyc_"
-const M = "IMPLEMENTATION ST"
+const M = "%LANGUAGE ST"
 
 interface Shape {
 	key: string
@@ -183,7 +183,7 @@ describe.skipIf(CLI === undefined)(`items / kind names through a broken → fixe
 			const body = [`${S("prg")}();`, `c_fb();`, `c_i := ${S("fun")}(c_i) + ${S("gvl")}_g;`]
 			const src = m.sourceText
 				.replace(/\nEND_VAR/, `\n\t${decl.join("\n\t")}\nEND_VAR`)
-				.replace(/IMPLEMENTATION ST\n/, `IMPLEMENTATION ST\n${body.join("\n")}\n`)
+				.replace(/%LANGUAGE ST\n/, `%LANGUAGE ST\n${body.join("\n")}\n`)
 			const r = await bridge.push({ ops: [{ op: "set", name: main, sourceText: src, ifVersion: m.version }] })
 			expect(landed(r), JSON.stringify(r.conflicts)).toBe(true)
 			const errors = ((await drivenBuild()).diagnostics ?? []).filter((d: any) => d.severity === "error")

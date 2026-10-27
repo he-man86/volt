@@ -103,7 +103,7 @@ describe(`lifecycle / disconnect cycle (${BASE})`, () => {
 		await bridge.disconnect()
 
 		const code = await opErrorCode(() =>
-			bridge.push({ ops: [{ op: "set", name, sourceText: "FUNCTION_BLOCK X\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK", ifVersion: null }] }),
+			bridge.push({ ops: [{ op: "set", name, sourceText: "FUNCTION_BLOCK X\n%LANGUAGE ST\nEND_FUNCTION_BLOCK", ifVersion: null }] }),
 		)
 		expect(code).toBe(DISCONNECTED)
 
@@ -114,7 +114,7 @@ describe(`lifecycle / disconnect cycle (${BASE})`, () => {
 	it("work done before disconnecting survives it — no lost edits", async () => {
 		// An engineer disconnects after a session's work. The gate must not roll anything back.
 		const name = fid("disc_survives")
-		const src = "FUNCTION_BLOCK VltE2E_disc_survives\nVAR\n\tkeep : INT := 42;\nEND_VAR\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK"
+		const src = "FUNCTION_BLOCK VltE2E_disc_survives\nVAR\n\tkeep : INT := 42;\nEND_VAR\n%LANGUAGE ST\nEND_FUNCTION_BLOCK"
 		await createItem(name, src, await projectRoot())
 		const versionBefore = itemIn(await bridge.refs(), name)
 

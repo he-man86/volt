@@ -33,7 +33,7 @@ namespace Volt.Engine.Tests;
 /// </summary>
 public class FolderPruneTests
 {
-    private static string Prg(string name) => $"PROGRAM {name}\nVAR\nEND_VAR\nIMPLEMENTATION ST\nn := 0;\n\nEND_PROGRAM\n";
+    private static string Prg(string name) => $"PROGRAM {name}\nVAR\nEND_VAR\n%LANGUAGE ST\nn := 0;\n\nEND_PROGRAM\n";
 
     private static SetItemOp Create(string wireName, string folder) =>
         new() { Name = $"{folder}/{wireName}", SourceText = Prg(Materializer.Bare(wireName)), IfVersion = null };

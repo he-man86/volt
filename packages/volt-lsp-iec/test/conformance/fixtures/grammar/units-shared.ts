@@ -141,9 +141,16 @@ export function method(name: string, feature: string, mods: string): LanguageTes
 export function overridingAsSent(name: string, feature: string, mods: string): LanguageTest {
   return {
     ...fbUnit(name, feature,
-      `FUNCTION_BLOCK FB_LANG_${name} EXTENDS FB_LANG_${name}_base\nVAR\n\tout : INT;\nEND_VAR\nIMPLEMENTATION ST\nout := M();\n` +
-        `END_FUNCTION_BLOCK\n\nMETHOD ${mods} M : INT\nIMPLEMENTATION ST\nM := 7;\nEND_METHOD\n`),
-    asSent: "the parser reads OVERRIDE as the method's name, so it cannot mark the units; the text states its own IMPLEMENTATION lines, as a workspace file does",
+      `FUNCTION_BLOCK FB_LANG_${name} EXTENDS FB_LANG_${name}_base\nVAR\n\tout : INT;\nEND_VAR\n%LANGUAGE ST\nout := M();\n` +
+        `END_FUNCTION_BLOCK\n\nMETHOD ${mods} M : INT\n%LANGUAGE ST\nM := 7;\nEND_METHOD\n`),
+    asSent: "the parser reads OVERRIDE as the method's name, so it cannot mark the units; the text states its own %LANGUAGE lines, as a workspace file does",
+    // The body under the line parses wherever the line stands (openspec language-line), so the noise that used to be
+    // this fixture's only LSP error is gone, and the build's own refusal of the header is not said.
+    deferred: {
+      lsp:
+        "niche: accepted loss (0 occurrences in the corpora — pro2193's one `METHOD PROTECTED Override` names a method Override) — " +
+        "the LSP says nothing where both builds say \"The name used in the signature is not identical to the object name\"",
+    },
   }
 }
 
@@ -177,22 +184,22 @@ export const accessorNameRec: LanguageTest = {
   plcPrgVar: `v_unit_accessor_name_rec : ${REC};`,
 }
 
-/** A getter / setter whose body is `body`, under its IMPLEMENTATION line, as a workspace file holds it. */
-export const getter = (body: string) => `GET\nIMPLEMENTATION ST\n${body}\nEND_GET\n`
+/** A getter / setter whose body is `body`, under its %LANGUAGE line, as a workspace file holds it. */
+export const getter = (body: string) => `GET\n%LANGUAGE ST\n${body}\nEND_GET\n`
 
-export const setter = (body: string) => `SET\nIMPLEMENTATION ST\n${body}\nEND_SET\n`
+export const setter = (body: string) => `SET\n%LANGUAGE ST\n${body}\nEND_SET\n`
 
 /**
  * An FB `FB_LANG_<name>` declaring `decls` beside `out`, with `body`, and a property `P : <type>` holding `accessors` —
- * PUSHED AS SENT: every body states its own IMPLEMENTATION line, as the field file does, because the rule under test
+ * PUSHED AS SENT: every body states its own %LANGUAGE line, as the field file does, because the rule under test
  * starts at that line (a GET/SET after it is text), and the parser's split before the fix would carry its own reading.
  */
 export function accessorName(name: string, feature: string, decls: string, body: string, accessors: string, type = "INT"): LanguageTest {
   return {
     ...fbUnit(name, feature,
-      `FUNCTION_BLOCK FB_LANG_${name}\nVAR\n\tout : INT;\n${decls}END_VAR\nIMPLEMENTATION ST\n${body}\nEND_FUNCTION_BLOCK\n\n` +
+      `FUNCTION_BLOCK FB_LANG_${name}\nVAR\n\tout : INT;\n${decls}END_VAR\n%LANGUAGE ST\n${body}\nEND_FUNCTION_BLOCK\n\n` +
         `PROPERTY P : ${type}\n${accessors}END_PROPERTY\n`),
-    asSent: "GET/SET used as names inside an accessor: the text states its own IMPLEMENTATION lines, as a workspace file does, and the parser's split is the code under test",
+    asSent: "GET/SET used as names inside an accessor: the text states its own %LANGUAGE lines, as a workspace file does, and the parser's split is the code under test",
   }
 }
 
@@ -227,7 +234,7 @@ export function bareType(name: string, feature: string, kind: "dut", source: str
 /** An FB `FB_LANG_<name>` (`out := <body>`) whose object text wraps it as `wrap` says, pushed AS SENT: the text IS the
  *  question, and the parser's split would carry its own reading of the namespace instead. */
 export function namespaced(name: string, feature: string, wrap: (fbText: string) => string, body = "out := 1;"): LanguageTest {
-  const fbText = `FUNCTION_BLOCK FB_LANG_${name}\nVAR\n\tout : INT;\nEND_VAR\nIMPLEMENTATION ST\n${body}\nEND_FUNCTION_BLOCK\n`
+  const fbText = `FUNCTION_BLOCK FB_LANG_${name}\nVAR\n\tout : INT;\nEND_VAR\n%LANGUAGE ST\n${body}\nEND_FUNCTION_BLOCK\n`
   return {
     ...fbUnit(name, feature, wrap(fbText)),
     asSent: "a project holds no namespace object; the namespace is the object's text, pushed as a workspace file holds it",
@@ -252,7 +259,7 @@ export function withRec(t: LanguageTest): LanguageTest {
 }
 
 /**
- * `t` pushed AS SENT: one item, its text as written, with `IMPLEMENTATION ST` stated above the body — for a header
+ * `t` pushed AS SENT: one item, its text as written, with `%LANGUAGE ST` stated above the body — for a header
  * the parser misreads, where its split would put the body's line in the wrong place (or nowhere) and the push would
  * carry the parser's reading instead of the question. One unit only: what it uses is another fixture's.
  */
@@ -264,6 +271,6 @@ export function asSent(t: LanguageTest): LanguageTest {
   return {
     ...t,
     asSent: "the parser misreads this header; its text is pushed as a workspace file holds it",
-    source: `${t.source.slice(0, at)}IMPLEMENTATION ST\n${t.source.slice(at)}`,
+    source: `${t.source.slice(0, at)}%LANGUAGE ST\n${t.source.slice(at)}`,
   }
 }

@@ -25,7 +25,7 @@ public class CaseVariantNameGateTests
 
     [Theory]
     [InlineData("DUTs/e_mode.dut", "DUTs/E_Mode.dut", "TYPE e_mode :\nSTRUCT\n\tb : INT;\nEND_STRUCT\nEND_TYPE")]
-    [InlineData("fb_motor.pou", "FB_Motor.pou", "FUNCTION_BLOCK fb_motor\nVAR\nEND_VAR\nIMPLEMENTATION ST\ny := 2;\nEND_FUNCTION_BLOCK\n")]
+    [InlineData("fb_motor.pou", "FB_Motor.pou", "FUNCTION_BLOCK fb_motor\nVAR\nEND_VAR\n%LANGUAGE ST\ny := 2;\nEND_FUNCTION_BLOCK\n")]
     public void A_create_under_a_case_variant_of_a_live_item_is_refused_item_exists(string name, string live, string text)
     {
         var ide = Ide();

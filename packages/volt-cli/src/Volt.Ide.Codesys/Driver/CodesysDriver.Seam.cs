@@ -46,7 +46,7 @@ public sealed partial class CodesysDriver
         CreateChild(parent, name, ItemKind.CreateCode(kind), FamilyContent.SeedOf(args), FamilyContent.ClassOf(args.Class));
 
     // ── store ──
-    public Content Read(ItemRef item) => FamilyContent.Folded(ReadContent(item));
+    public Content Read(ItemRef item) => FamilyContent.ToContent(ReadContent(item));
 
     public void Write(ItemRef item, Content content, IReadOnlyList<PushedBody> bodies) =>
         WriteContent(item, FamilyContent.ToItemContent(content), PushedNetworkBody.Of(bodies));

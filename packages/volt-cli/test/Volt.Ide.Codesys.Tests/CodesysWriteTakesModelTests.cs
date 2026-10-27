@@ -27,7 +27,7 @@ namespace Volt.Ide.Codesys.Tests
             _3S.CoDeSys.Core.SystemInstances.ObjectMgr = new AnyManager(pou);
             try
             {
-                var content = new ItemContent(ItemKind.Kinds.Pou, Decl, "IMPLEMENTATION FBD\nthis is no network text",
+                var content = new ItemContent(ItemKind.Kinds.Pou, Decl, "%LANGUAGE FBD\nthis is no network text",
                                               new List<Member>(), ObjectProperties.None, Stated: StatedLanguage.Shown("FBD"));
                 var model = new PushedNetworkBody(BodySite.Item,
                     new NetworkBody(BodyLanguage.Fbd, Array.Empty<Network>()), NetworkScope.Empty);
@@ -52,7 +52,7 @@ namespace Volt.Ide.Codesys.Tests
             {
                 var content = new ItemContent(ItemKind.Kinds.Pou, Decl, null, new List<Member>
                 {
-                    new(ItemKind.Kinds.Method, "Step", "METHOD Step : BOOL", "IMPLEMENTATION FBD\nNETWORK\nEND_NETWORK", ObjectProperties.None,
+                    new(ItemKind.Kinds.Method, "Step", "METHOD Step : BOOL", "%LANGUAGE FBD\nNETWORK\nEND_NETWORK", ObjectProperties.None,
                         Stated: StatedLanguage.Shown("FBD")),
                 }, ObjectProperties.None);
 

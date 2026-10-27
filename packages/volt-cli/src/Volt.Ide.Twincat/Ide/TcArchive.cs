@@ -60,11 +60,11 @@ internal static class TcArchive
     /// <c>&lt;SFC&gt;</c> — or null when the body is textual (ST is not XML at all). Asked of a body that is not an
     /// NWL archive with an implementation object (<see cref="Root"/>).
     /// <para>Any other XML root is a graphical body Volt has never seen (or an NWL archive with no implementation
-    /// object), and its line names the root, upper case — <c>IMPLEMENTATION UML UNSUPPORTED</c> — as CODESYS names an
-    /// unknown aspect (<c>CodesysDriver.UnreadLanguage</c>; <see cref="ImplementationMarker.VendorLanguage"/>). Neither
+    /// object), and its line names the root, upper case — <c>%LANGUAGE UML UNSUPPORTED</c> — as CODESYS names an
+    /// unknown aspect (<c>CodesysDriver.UnreadLanguage</c>; <see cref="PropertyLines.VendorLanguage"/>). Neither
     /// a refusal (thrown outside <c>NetworkText.Pulled</c>, it would take the whole POU out of refs and fetch — D27,
     /// openspec bridge-refusal-review 2.34) nor null (the vendor's XML would fall through as TEXT, pulled under
-    /// <c>IMPLEMENTATION ST</c>).</para></summary>
+    /// <c>%LANGUAGE ST</c>).</para></summary>
     public static string? UnreadLanguage(string raw)
     {
         XElement el;
@@ -73,7 +73,7 @@ internal static class TcArchive
         {
             "CFC" => "CFC",
             "SFC" => "SFC",
-            var root => ImplementationMarker.VendorLanguage(root),
+            var root => PropertyLines.VendorLanguage(root),
         };
     }
 

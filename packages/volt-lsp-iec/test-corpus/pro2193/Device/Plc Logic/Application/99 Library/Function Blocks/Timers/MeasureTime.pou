@@ -11,7 +11,7 @@ VAR
 	rStoredTime		: REAL;		// Dynamic - The currently elapsed time while measuring. Resets when a new measurement starts.
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 END_FUNCTION_BLOCK
 
@@ -21,7 +21,7 @@ VAR_INPUT
 	In	: BOOL;	// Measure the time the input remains high
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF (In XOR TON1.IN)				// Triggers the first cycle In is true, and the first cycle In is false. Give output.
 OR (In AND TON1.ET > T#1S)		// Output will start running when timer has been running for more than 1 sec.
 THEN
@@ -50,7 +50,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 ElapsedTime := rStoredTime;
 
 END_GET

@@ -3,7 +3,7 @@ import { landed } from "../harness"
  * A WORKSPACE PULLED FROM A PRODUCTION BRIDGE, PUSHED TO A DEVELOPMENT ONE: the ladder is hidden, never written.
  *
  * <p>A bridge without `VOLT_GRAPHICAL=1` (every shipped one) pulls each LD and FBD body as its line
- * `IMPLEMENTATION LD|FBD UNSUPPORTED` over an empty body. The same workspace pushed at a bridge that HAS network text
+ * `%LANGUAGE LD|FBD UNSUPPORTED` over an empty body. The same workspace pushed at a bridge that HAS network text
  * on — this suite's, `ide.ps1` sets it — states that line over a body the IDE holds as a real ladder. That is the same
  * body, hidden: the push must not be blocked (the ST and declaration edits beside it land) and must never write the
  * ladder (openspec `implementation-keyword` 3c.2 review; `BodyFormatGuard`, offline in `NetworkTextSwitchTests`).</p>
@@ -41,13 +41,13 @@ const itemOf = (lang: string) => rid(`hidnet_${lang.toLowerCase()}`, "pou")
 /** A PROGRAM whose body is one network in `lang` — the shape both vendors create and read back (graphical-kinds). */
 const created = (lang: string) =>
 	`PROGRAM ${bareOf(lang)}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-	`IMPLEMENTATION ${lang}\nNETWORK\n  out := a AND b;\nEND_NETWORK\n\nEND_PROGRAM\n`
+	`%LANGUAGE ${lang}\nNETWORK\n  out := a AND b;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 /** The file as a PRODUCTION pull writes it: the same declaration, the body replaced by its UNSUPPORTED line. */
 function asProductionPull(pulled: string, stated: string): string {
-	const at = pulled.indexOf(`\nIMPLEMENTATION `)
-	if (at < 0) throw new Error(`no IMPLEMENTATION line in:\n${pulled}`)
-	return `${pulled.slice(0, at)}\nIMPLEMENTATION ${stated} UNSUPPORTED\nEND_PROGRAM\n`
+	const at = pulled.indexOf(`\n%LANGUAGE `)
+	if (at < 0) throw new Error(`no %LANGUAGE line in:\n${pulled}`)
+	return `${pulled.slice(0, at)}\n%LANGUAGE ${stated} UNSUPPORTED\nEND_PROGRAM\n`
 }
 
 describe(`graphical / a production workspace's hidden LD/FBD body pushed to a development bridge (${BASE})`, () => {
@@ -114,7 +114,7 @@ describe(`graphical / a production workspace's hidden LD/FBD body pushed to a de
 		it(`an ${lang} body stated UNSUPPORTED is not written, and the declaration edit beside it lands`, async () => {
 			const name = itemOf(lang)
 			const before = (await fetchItem(name)).sourceText as string
-			expect(before).toContain(`\nIMPLEMENTATION ${lang}\nNETWORK\n`)
+			expect(before).toContain(`\n%LANGUAGE ${lang}\nNETWORK\n`)
 			const bytes = await heldBytes(lang)
 
 			// The production file pushed back unchanged: the ordinary no-op.
@@ -146,8 +146,8 @@ describe(`graphical / a production workspace's hidden LD/FBD body pushed to a de
 		const r = await set(name, asProductionPull(before.sourceText, "FBD"))
 		expect(landed(r)).toBe(false)
 		const reason = JSON.stringify(r.conflicts ?? r)
-		expect(reason).toContain("IMPLEMENTATION FBD UNSUPPORTED")
-		expect(reason).toContain("IMPLEMENTATION LD")
+		expect(reason).toContain("%LANGUAGE FBD UNSUPPORTED")
+		expect(reason).toContain("%LANGUAGE LD")
 		const after = await fetchItem(name)
 		expect(after.sourceText).toBe(before.sourceText)
 		expect(after.version).toBe(before.version)
@@ -155,7 +155,7 @@ describe(`graphical / a production workspace's hidden LD/FBD body pushed to a de
 	})
 
 	/** The control that makes every comparison above mean something: a VISIBLE ladder edit — network text pushed under
-	 *  `IMPLEMENTATION LD` — does write the body, and the bytes read back move. A reader that returned the same bytes
+	 *  `%LANGUAGE LD` — does write the body, and the bytes read back move. A reader that returned the same bytes
 	 *  whatever the IDE held would pass every "unchanged" check in this file. The body is put back afterwards. */
 	it("a visible ladder edit moves the held bytes, so the reader sees what the IDE holds", async () => {
 		const name = itemOf("LD")

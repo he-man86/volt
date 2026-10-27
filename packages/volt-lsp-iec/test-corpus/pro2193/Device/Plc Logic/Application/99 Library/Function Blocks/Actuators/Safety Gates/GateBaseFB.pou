@@ -32,7 +32,7 @@ VAR_STAT
 	acknowledgeAllGates			: BOOL;		// Acknowledge all gates for the machine
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^();
 
 CASE eState OF
@@ -108,7 +108,7 @@ END_VAR
 
 //{warning 'todo: xGateAllowedOpen is 1 cycle laag wanneer ser state = Stopping ... ']}
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 CASE eState OF
 	enumGateStates.Opened:		// Machine OFF and gate open
 		IF T_SafetyGateClosed.Set(In := xSafetyGateClosed, Pt := 0.5) THEN
@@ -167,7 +167,7 @@ END_METHOD
 // Maps the actuator to the physical output
 METHOD PUBLIC MapGate : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 MapGate := GateOutput.Map();
 
 END_METHOD
@@ -179,7 +179,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 GateState := eState;
 
 END_GET
@@ -192,7 +192,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 LockButtonPushed := ButtonLock.ButtonPushed OR acknowledgeAllGates;
 
 END_GET

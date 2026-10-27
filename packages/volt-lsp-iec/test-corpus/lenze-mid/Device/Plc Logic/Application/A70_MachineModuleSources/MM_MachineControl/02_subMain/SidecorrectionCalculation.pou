@@ -30,7 +30,7 @@ VAR
 
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 //Read out values for light and dark
 tWhiteValue:=MOVE(iLightValue);
 tBrownValue:=MOVE(iDarkValue);

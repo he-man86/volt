@@ -19,7 +19,7 @@ import { connect, URI, initInDir, tempWorkspace, PRG, ENUM } from "../../../test
 test("server: textDocument/diagnostic pulls the same diagnostics as the push channel", async () => {
   const client = connect()
   await client.sendRequest(InitializeRequest.type, { processId: null, rootUri: null, capabilities: {} })
-  const bad = `FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := b;\nEND_FUNCTION_BLOCK`
+  const bad = `FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\n%LANGUAGE ST\ni := b;\nEND_FUNCTION_BLOCK`
   await client.sendNotification(DidOpenTextDocumentNotification.type, {
     textDocument: { uri: URI, languageId: "iecst", version: 1, text: bad },
   })
@@ -33,7 +33,7 @@ test("server: textDocument/diagnostic pulls the same diagnostics as the push cha
 })
 
 test("server: workspace/diagnostic reports errors in unopened files (eager index)", async () => {
-  const badFb = `FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := b;\nEND_FUNCTION_BLOCK`
+  const badFb = `FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\n%LANGUAGE ST\ni := b;\nEND_FUNCTION_BLOCK`
   const dir = tempWorkspace({ "F.pou": badFb })
   const client = connect()
   await initInDir(client, dir) // crawls F.pou without opening it
@@ -83,10 +83,10 @@ const V1_BODY = `FUNCTION_BLOCK F\nVAR a : BOOL; out : BOOL;\nEND_VAR\n(* @volt-
 const RETIRED_MARKER_BODY = `FUNCTION_BLOCK F\nVAR a : BOOL; out : BOOL;\nEND_VAR\n(* @volt-implementation LD *)\nNETWORK\n  out := a;\nEND_NETWORK\n\nEND_FUNCTION_BLOCK`
 
 /** …and the way format 4 writes it: network text v2 under the line that states its language. */
-const V2_BODY = `FUNCTION_BLOCK F\nVAR a : BOOL; out : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  out := a;\nEND_NETWORK\n\nEND_FUNCTION_BLOCK`
+const V2_BODY = `FUNCTION_BLOCK F\nVAR a : BOOL; out : BOOL;\nEND_VAR\n%LANGUAGE LD\nNETWORK\n  out := a;\nEND_NETWORK\n\nEND_FUNCTION_BLOCK`
 
 /** …and a format-3 body with a network-text finding of its own: a wire used without its VAR_TEMP declaration. */
-const V2_FLAWED_BODY = `FUNCTION_BLOCK F\nVAR a : BOOL; out : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  g5 := a;\n  out := g5;\nEND_NETWORK\n\nEND_FUNCTION_BLOCK`
+const V2_FLAWED_BODY = `FUNCTION_BLOCK F\nVAR a : BOOL; out : BOOL;\nEND_VAR\n%LANGUAGE LD\nNETWORK\n  g5 := a;\n  out := g5;\nEND_NETWORK\n\nEND_FUNCTION_BLOCK`
 
 /** Every diagnostic of a workspace, by file name. */
 async function workspaceDiagnostics(files: Record<string, string>) {
@@ -194,7 +194,7 @@ test("server: a numbered NETWORK header under a stated LD line draws the push's 
   // The shared case `refuse/grammar.cases` header-number pins the phrase on both readers; this pins that the server
   // reports it for a file, and nothing else in its place.
   const diags = await workspaceDiagnostics({
-    "F.pou": V1_BODY.replace("(* @volt-implementation *)", "IMPLEMENTATION LD"),
+    "F.pou": V1_BODY.replace("(* @volt-implementation *)", "%LANGUAGE LD"),
   })
   expect((diags.get("F.pou") ?? []).map((d) => d.message)).toEqual([
     `'0' in a NETWORK header: the header is NETWORK [LABEL: x] [DISABLED] [TITLE: "…"], and it ends at its newline.`,

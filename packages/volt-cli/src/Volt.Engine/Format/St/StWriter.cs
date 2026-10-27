@@ -22,7 +22,7 @@ public static class StWriter
         item = LfContent(item);
         var shape = ItemKind.ShapeOf(item.Kind);
         var layout = IecLayout.Of(item.Kind);
-        // THE OBJECT'S PROPERTIES (openspec bridge-one-to-one §1.2): directly under its IMPLEMENTATION line where it has
+        // THE OBJECT'S PROPERTIES (openspec bridge-one-to-one §1.2): directly under its %LANGUAGE line where it has
         // one, else closing its declaration — a DUT's, a GVL's, an interface's.
         var props = PropertyLines.Write(item.Properties);
         // EVERY TEXT VERBATIM (openspec bridge-one-to-one §1.1 "every character", `trailing-newline-cache`): both vendors
@@ -37,10 +37,12 @@ public static class StWriter
 
         // NOT trimmed: the reader already dropped the ONE blank line this join re-inserts, so a newline still
         // leading the body is the engineer's and has to survive the round trip.
-        // The BOUNDARY LINE, always — see ImplementationMarker. An empty body gets it too: the line records where the
-        // DECLARATION ends and what language the body is in, facts that do not depend on whether code follows it.
-        // A body Volt does not show is its UNSUPPORTED line (IMPLEMENTATION CFC UNSUPPORTED, …) and nothing under it.
-        var (boundary, impl) = ImplementationMarker.Split(item.Body ?? "");
+        // The %LANGUAGE LINE, always — see PropertyLines.Language.cs. An empty body gets it too: the line records where
+        // the DECLARATION ends and what language the body is in, facts that do not depend on whether code follows it.
+        // A body Volt does not show is its UNSUPPORTED line (%LANGUAGE CFC UNSUPPORTED, …) and nothing under it. A POU's
+        // own body always has a slot: one read without is no file the push reads back, and is refused by name.
+        if (shape.Body && item.Stated is { IsNoSlot: true }) throw NoSlotOutsideMember($"the {item.Kind}'s own body");
+        var (boundary, impl) = PropertyLines.SplitBody(item.Body ?? "");
         if (shape.Body) sb.Append('\n').Append(boundary);
         foreach (var line in props) sb.Append('\n').Append(line);
         if (impl.Length > 0)
@@ -76,7 +78,7 @@ public static class StWriter
 
     /// <summary>Where each vendor OBJECT of <paramref name="item"/> stands in <see cref="Write"/>'s text (wire-final-shape
     /// 3.6b): the item's own declaration and ST code, and each METHOD's and ACTION's. A vendor that states a build line
-    /// counts it in its object — the declaration's lines, then the code's, no <c>IMPLEMENTATION</c> line, no
+    /// counts it in its object — the declaration's lines, then the code's, no <c>%LANGUAGE</c> line, no
     /// <c>%</c>-line (DIALECT D36) — and an action has no declaration object. A property is no entry: the vendor counts
     /// inside an accessor the wire does not name. Code that is not ST (network text, a hidden body) is no entry's code.
     /// <c>StWriterLinesTests</c> pins every entry against the written text.</summary>
@@ -89,9 +91,9 @@ public static class StWriter
         if (!layout.Composite) return new[] { new ObjectLines(null, 1, declared, 0, 0) };
 
         var found = new List<ObjectLines>();
-        var (boundary, impl) = ImplementationMarker.Split(item.Body ?? "");
+        var (boundary, impl) = PropertyLines.SplitBody(item.Body ?? "");
         var last = declared + (shape.Body ? 1 : 0) + PropertyLines.Write(item.Properties).Count;
-        var st = shape.Body && impl.Length > 0 && boundary == ImplementationMarker.For(Languages.St);
+        var st = shape.Body && impl.Length > 0 && boundary == PropertyLines.LanguageLine(Languages.St);
         found.Add(new ObjectLines(null, 1, declared, st ? last + 1 : 0, st ? Count(impl) : 0));
         if (impl.Length > 0) last += Count(impl);
 
@@ -105,10 +107,10 @@ public static class StWriter
             var start = last + 2;   // after the blank line
             last = start - 1 + Count(AssembleChild(c, layout));
             if (layout.MembersInside || c.Kind is not (ItemKind.Kinds.Method or ItemKind.Kinds.Action)) continue;
-            var (line, code) = ImplementationMarker.Split(c.Body ?? "");
+            var (line, code) = PropertyLines.SplitBody(c.Body ?? "");
             var decl = Count(c.Declaration);
             var codeStart = start + decl + 1 + PropertyLines.Write(c.Properties, c.Folder).Count;
-            var shown = code.Length > 0 && line == ImplementationMarker.For(Languages.St);
+            var shown = c.Stated is not { IsNoSlot: true } && code.Length > 0 && line == PropertyLines.LanguageLine(Languages.St);
             found.Add(c.Kind == ItemKind.Kinds.Action
                 ? new ObjectLines(c.Name, start, 0, shown ? codeStart : 0, shown ? Count(code) : 0)
                 : new ObjectLines(c.Name, start, decl, shown ? codeStart : 0, shown ? Count(code) : 0));
@@ -177,21 +179,25 @@ public static class StWriter
         _ => 3,
     };
 
-    /// <summary>A member block. Whether it carries the boundary line is its kind's row (<see cref="ItemKind.ShapeOf"/>):
+    /// <summary>A member block. Whether it carries the <c>%LANGUAGE</c> line is its kind's row (<see cref="ItemKind.ShapeOf"/>):
     /// a method's and an action's <c>Body</c>, a property's accessors <c>WithBodies</c> — and none at all inside an owner
     /// whose members sit in its block (<c>MembersInside</c>, an interface), whose members are signatures. That is the
     /// owner's row, the one the reader splits such a block by, so an ACTION inside an interface (0 in the six corpora) is
-    /// written as the reader reads it: unmarked.</summary>
+    /// written as the reader reads it: unmarked. A METHOD with no body slot (<see cref="StatedLanguage.NoSlot"/>) has no
+    /// line either, and its property lines close its declaration.</summary>
     private static string AssembleChild(Member child, IecLayout.Shape owner)
     {
         if (child.Kind is ItemKind.Kinds.Property or ItemKind.Kinds.InterfaceProperty)
             return AssembleProperty(child, owner);
         var decl = child.Declaration;   // verbatim: the boundary line (or the END line) is its separator
-        // The boundary line first, then the property lines (`%CLASS`, `%FOLDER`, the rest: PropertyLines), then the code —
+        // The %LANGUAGE line first, then the property lines (`%CLASS`, `%FOLDER`, the rest: PropertyLines), then the code —
         // an UNSUPPORTED line is that boundary too, so a hidden member's lines follow it; above it, they would be
-        // DECLARATION text and the folder lost. A member with no boundary (an interface's) closes its declaration with them.
-        var (boundary, code) = ImplementationMarker.Split(child.Body ?? "");
-        var impl = Prepend(PropertyLines.Write(child.Properties, child.Folder), code);
+        // DECLARATION text and the folder lost. A member with no line (an interface's, one with no body slot) closes its
+        // declaration with them.
+        var noSlot = child.Stated is { IsNoSlot: true };
+        if (noSlot && child.Kind != ItemKind.Kinds.Method) throw NoSlotOutsideMember($"{child.Kind} '{child.Name}'");
+        var (boundary, code) = PropertyLines.SplitBody(child.Body ?? "");
+        var impl = Prepend(PropertyLines.Write(child.Properties, child.Folder), noSlot ? "" : code);
         var end = child.Kind switch
         {
             // An interface's members are the same ST constructs as a POU's; only the WIRE kind differs.
@@ -200,7 +206,7 @@ public static class StWriter
             _ => throw new BridgeException(BridgeErrorCodes.Unsupported,
                 $"No END keyword for POU child kind '{child.Kind}'"),
         };
-        if (owner.MembersInside || !ItemKind.ShapeOf(child.Kind).Body)
+        if (owner.MembersInside || !ItemKind.ShapeOf(child.Kind).Body || noSlot)
             return impl.Length == 0 ? $"{decl}\n{end}" : $"{decl}\n{impl}\n{end}";
         return impl.Length == 0 ? $"{decl}\n{boundary}\n{end}" : $"{decl}\n{boundary}\n{impl}\n{end}";
     }
@@ -212,25 +218,35 @@ public static class StWriter
         var parts = new List<string> { child.Declaration };   // verbatim, joined to what follows by one newline
         parts.AddRange(PropertyLines.Write(child.Properties, child.Folder));   // closing its declaration: it has no boundary
         // Presence is the object (ItemContent's Accessor): a null accessor is none.
-        if (child.Getter is { } get) parts.Add(AssembleAccessor("GET", get.Declaration, get.Body, marked));
-        if (child.Setter is { } set) parts.Add(AssembleAccessor("SET", set.Declaration, set.Body, marked));
+        if (child.Getter is { } get) parts.Add(AssembleAccessor("GET", get, marked));
+        if (child.Setter is { } set) parts.Add(AssembleAccessor("SET", set, marked));
         parts.Add("END_PROPERTY");
         return string.Join("\n", parts);
     }
 
-    private static string AssembleAccessor(string keyword, string? decl, string? impl, bool marked)
+    private static string AssembleAccessor(string keyword, Accessor accessor, bool marked)
     {
         // NOT trimmed: the declaration travels verbatim, and a LEADING newline is the engineer's blank line (six
         // accessors in pro2193 hold one).
-        var d = decl ?? "";
-        var (boundary, i) = ImplementationMarker.Split(impl ?? "");
+        var d = accessor.Declaration ?? "";
+        // An accessor with no body slot states no line and has no code (an abstract property's GET on CODESYS).
+        var noSlot = accessor.Stated is { IsNoSlot: true };
+        var (boundary, i) = noSlot ? ("", "") : PropertyLines.SplitBody(accessor.Body ?? "");
         var lines = new List<string> { keyword };
         if (d.Length > 0) lines.Add(d);
-        if (marked) lines.Add(boundary);   // an accessor splits the same way, so it is marked the same way
+        if (marked && !noSlot) lines.Add(boundary);   // an accessor splits the same way, so it is marked the same way
         if (i.Length > 0) lines.Add(i);
         lines.Add($"END_{keyword}");
         return string.Join("\n", lines);
     }
+
+    /// <summary>A body with no slot where only a METHOD's or an accessor's can lack one — a POU's own, an action's: the
+    /// file would state no <c>%LANGUAGE</c> line where the push requires one, so no push reads it back. A PULL refusal,
+    /// by name (the item is listed unreadable); 0 such objects measured.</summary>
+    private static BridgeException NoSlotOutsideMember(string what) =>
+        new(BridgeErrorCodes.Unsupported,
+            $"{what} has no body slot in the IDE, and only a METHOD or a property's GET/SET is written without a " +
+            "%LANGUAGE line — the file would not read back on a push, so the item is not pulled.");
 
     /// <summary>Prepend a member's property lines (<c>%CLASS</c>, its <c>%FOLDER</c> — the member's sub-folder within the
     /// POU — and the rest) to its body. The signature line stays a clean identifier; the lines sit at the top of the

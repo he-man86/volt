@@ -217,7 +217,7 @@ describe.skipIf(!served)(`multi-application tree / ${VENDOR} (${BASE})`, () => {
 			const ops = expected.mains.map((p) => ({
 				op: "set",
 				name: p,
-				sourceText: original[p]!.replace(/^IMPLEMENTATION ST$/m, `IMPLEMENTATION ST\n${marker(p)}`),
+				sourceText: original[p]!.replace(/^%LANGUAGE ST$/m, `%LANGUAGE ST\n${marker(p)}`),
 				ifVersion: refs.items?.[p] ?? null,
 			}))
 			const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops })
@@ -317,12 +317,12 @@ describe.skipIf(!served)(`multi-application tree / ${VENDOR} (${BASE})`, () => {
 			const pushed = await pushNow([
 				{ op: "set", name: `${appA}/VltE2EShared.gvl`, sourceText: gvl, ifVersion: null },
 				{ op: "set", name: `${appB}/VltE2EShared.gvl`, sourceText: gvl, ifVersion: null },
-				{ op: "set", name: fbA, sourceText: "FUNCTION_BLOCK VltE2EOnlyA\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := x + 1;\nEND_FUNCTION_BLOCK\n", ifVersion: null },
-				{ op: "set", name: mainA, sourceText: original[mainA]!.replace(/^IMPLEMENTATION ST$/m, "IMPLEMENTATION ST\ngVltShared := 1;"), ifVersion: "current" },
+				{ op: "set", name: fbA, sourceText: "FUNCTION_BLOCK VltE2EOnlyA\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\nx := x + 1;\nEND_FUNCTION_BLOCK\n", ifVersion: null },
+				{ op: "set", name: mainA, sourceText: original[mainA]!.replace(/^%LANGUAGE ST$/m, "%LANGUAGE ST\ngVltShared := 1;"), ifVersion: "current" },
 				{
 					op: "set",
 					name: mainB,
-					sourceText: original[mainB]!.replace(/^VAR$/m, "VAR\n\tvltCross : VltE2EOnlyA;").replace(/^IMPLEMENTATION ST$/m, "IMPLEMENTATION ST\ngVltShared := 2;"),
+					sourceText: original[mainB]!.replace(/^VAR$/m, "VAR\n\tvltCross : VltE2EOnlyA;").replace(/^%LANGUAGE ST$/m, "%LANGUAGE ST\ngVltShared := 2;"),
 					ifVersion: "current",
 				},
 			])
@@ -364,7 +364,7 @@ describe.skipIf(!served)(`multi-application tree / ${VENDOR} (${BASE})`, () => {
 		const p = `${applicationOf(expected.compiled[0]!)}/VltE2EUncalled.pou`
 		try {
 			const pushed = await pushNow([
-				{ op: "set", name: p, sourceText: "PROGRAM VltE2EUncalled\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nzzVltMultiApp := 1;\nEND_PROGRAM\n", ifVersion: null },
+				{ op: "set", name: p, sourceText: "PROGRAM VltE2EUncalled\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE ST\nzzVltMultiApp := 1;\nEND_PROGRAM\n", ifVersion: null },
 			])
 			expect(landedInFull(pushed), JSON.stringify(pushed.conflicts ?? pushed).slice(0, 600)).toBe(true)
 			const r = await bridge.build()
@@ -394,7 +394,7 @@ describe.skipIf(!served)(`multi-application tree / ${VENDOR} (${BASE})`, () => {
 			const ops = expected.mains.map((p) => ({
 				op: "set",
 				name: p,
-				sourceText: original[p]!.replace(/^IMPLEMENTATION ST$/m, `IMPLEMENTATION ST
+				sourceText: original[p]!.replace(/^%LANGUAGE ST$/m, `%LANGUAGE ST
 ${token} := 1;`),
 				ifVersion: refs.items?.[p] ?? null,
 			}))

@@ -272,7 +272,7 @@ public class CalleeDerivationTests
     }
 
     const string Own2 = "VAR\n\tv : INT;\n\ty : INT;\nEND_VAR";
-    static string Body(string statement) => $"IMPLEMENTATION FBD\nNETWORK\n  {statement}\nEND_NETWORK\n";
+    static string Body(string statement) => $"%LANGUAGE FBD\nNETWORK\n  {statement}\nEND_NETWORK\n";
 
     /// <summary>The push's gate derives the names once, for either driver, and its canonical text (the next pull's)
     /// spells them: `AwF(v)` is pushed as the box `AwF(i := v)` the IDE then holds.</summary>

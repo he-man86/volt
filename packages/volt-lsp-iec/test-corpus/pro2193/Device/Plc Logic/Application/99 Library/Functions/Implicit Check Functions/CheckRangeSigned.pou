@@ -4,7 +4,7 @@ VAR_INPUT
 	value, lower, upper : DINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %CLASS CHECK CheckRangeSigned
 IF value >= lower AND value <= upper THEN
 	CheckRangeSigned := value;

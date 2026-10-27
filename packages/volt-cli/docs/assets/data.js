@@ -44,7 +44,7 @@ window.VOLT = {
           "Answers from the bridge\u0027s cached snapshot, never on the IDE thread: it answers while a push or build runs, never reports PLC_DISCONNECTED, and is not gated by \u0060disconnect\u0060 \u2014 while paused every row is \u0060idle\u0060.",
           "Answers on an IDE the bridge cannot serve: \u0060unsupported\u0060 carries the sentence every other op answers IDE_UNSUPPORTED with, and every row is idle. An IDE is refused for what it lacks, never for its version number.",
           "States the bridge identity at top level, rows or not: \u0060productName\u0060, \u0060productVersion\u0060, \u0060productVendor\u0060, \u0060ideVersion\u0060 (the platform under the product) and \u0060bridgeVersion\u0060 (the stamped release, or \u0060(dev) \u003Ccommit\u003E\u0060). Each is absent when its source does not answer, never filled from another.",
-          "States the bridge\u0027s catalog, from its own declarations: \u0060ops\u0060 (every op it answers), \u0060languages\u0060 (every language it writes as \u0060IMPLEMENTATION \u003CLANG\u003E\u0060) and \u0060kinds\u0060 (every item kind, by extension, and whether a push writes it). A value the bridge does not list there is one it never sends.",
+          "States the bridge\u0027s catalog, from its own declarations: \u0060ops\u0060 (every op it answers), \u0060languages\u0060 (every language it writes as \u0060%LANGUAGE \u003CLANG\u003E\u0060) and \u0060kinds\u0060 (every item kind, by extension, and whether a push writes it). A value the bridge does not list there is one it never sends.",
           "A row\u0027s \u0060dirty\u0060 is absent when the IDE did not answer whether the project is saved: unknown, never clean."
         ],
         "result": {
@@ -286,7 +286,7 @@ window.VOLT = {
         "x-outcomes": [
           "ITEM_UNVERIFIED as an error frame (TwinCAT): the Solution Explorer cannot vouch for the PLC project itself, so the walk stops before anything is read. Fix what stops the IDE enumerating it.",
           "BAD_REQUEST, before the walk, for an empty \u0060pattern\u0060, a regular expression that does not compile (the parse error named) or a \u0060limit\u0060 outside 1\u20131000; and, with no partial answer, for a pattern that takes longer than 100 ms on one line.",
-          "What it searches is what \u0060fetch\u0060 ships as text, from the same walk: a matched line is the fetched line at that number. An \u0060unreadable\u0060 item, and a body that reads \u0060IMPLEMENTATION \u003CLANG\u003E UNSUPPORTED\u0060, are in \u0060notSearched\u0060 with a code; libraries are not searched and not listed.",
+          "What it searches is what \u0060fetch\u0060 ships as text, from the same walk: a matched line is the fetched line at that number. An \u0060unreadable\u0060 item, and a body that reads \u0060%LANGUAGE \u003CLANG\u003E UNSUPPORTED\u0060, are in \u0060notSearched\u0060 with a code; libraries are not searched and not listed.",
           "The answer is bounded: at most \u0060limit\u0060 matches, counted up to 10000 in \u0060totalMatches\u0060; \u0060truncated\u0060 when more were found than answered. A line longer than 500 UTF-16 code units is cut, ends in \u0060\u2026\u0060 and carries \u0060cut: true\u0060."
         ],
         "result": {
@@ -2359,6 +2359,26 @@ window.VOLT = {
   ],
   "objectProperties": [
     {
+      "key": "LANGUAGE",
+      "examples": [
+        {
+          "on": "a body Volt shows",
+          "lines": [
+            "%LANGUAGE ST",
+            "%LANGUAGE LD",
+            "%LANGUAGE FBD"
+          ]
+        },
+        {
+          "on": "a body Volt does not show",
+          "lines": [
+            "%LANGUAGE CFC UNSUPPORTED"
+          ]
+        }
+      ],
+      "means": "A body\u0027s language, on the line that ends its declaration and starts the body: ST, LD or FBD for a body Volt shows, \u003CLANG\u003E UNSUPPORTED for one it does not (nothing under it). A METHOD or a property\u0027s GET/SET with no body slot in the IDE has no line and nothing after its declaration."
+    },
+    {
       "key": "CLASS",
       "examples": [
         {
@@ -2549,26 +2569,26 @@ window.VOLT = {
     },
     {
       "id": "pou",
-      "rule": "A POU is its declaration, its IMPLEMENTATION line, its %-lines, then its code.",
-      "example": "FUNCTION_BLOCK a\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n%EXCLUDE_FROM_BUILD\nx := 1;\n\nEND_FUNCTION_BLOCK\n",
+      "rule": "A POU is its declaration, its %LANGUAGE line, its %-lines, then its code.",
+      "example": "FUNCTION_BLOCK a\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\n%EXCLUDE_FROM_BUILD\nx := 1;\n\nEND_FUNCTION_BLOCK\n",
       "ext": "pou",
-      "variant": "FUNCTION_BLOCK a\nVAR\n\tx : INT;\nEND_VAR\n%EXCLUDE_FROM_BUILD\nIMPLEMENTATION ST\nx := 1;\n\nEND_FUNCTION_BLOCK\n",
+      "variant": "FUNCTION_BLOCK a\nVAR\n\tx : INT;\nEND_VAR\n%EXCLUDE_FROM_BUILD\n%LANGUAGE ST\nx := 1;\n\nEND_FUNCTION_BLOCK\n",
       "push": "refused"
     },
     {
       "id": "end-line",
       "rule": "After the code, one blank line, then the END line that mirrors the header (END_PROGRAM, END_FUNCTION_BLOCK, END_FUNCTION).",
-      "example": "PROGRAM b\nIMPLEMENTATION ST\nb := TRUE;\n\nEND_PROGRAM\n",
+      "example": "PROGRAM b\n%LANGUAGE ST\nb := TRUE;\n\nEND_PROGRAM\n",
       "ext": "pou",
-      "variant": "PROGRAM b\nIMPLEMENTATION ST\nb := TRUE;\nEND_PROGRAM\n",
+      "variant": "PROGRAM b\n%LANGUAGE ST\nb := TRUE;\nEND_PROGRAM\n",
       "push": "canonical"
     },
     {
       "id": "members-below",
       "rule": "Each member of a POU follows its END line, after one blank line.",
-      "example": "FUNCTION_BLOCK a\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD m : BOOL\nIMPLEMENTATION ST\nm := TRUE;\nEND_METHOD\n",
+      "example": "FUNCTION_BLOCK a\n%LANGUAGE ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD m : BOOL\n%LANGUAGE ST\nm := TRUE;\nEND_METHOD\n",
       "ext": "pou",
-      "variant": "FUNCTION_BLOCK a\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\nMETHOD m : BOOL\nIMPLEMENTATION ST\nm := TRUE;\nEND_METHOD\n",
+      "variant": "FUNCTION_BLOCK a\n%LANGUAGE ST\n\nEND_FUNCTION_BLOCK\nMETHOD m : BOOL\n%LANGUAGE ST\nm := TRUE;\nEND_METHOD\n",
       "push": "canonical"
     },
     {
@@ -2582,41 +2602,41 @@ window.VOLT = {
     {
       "id": "member-order",
       "rule": "Members are ordered METHOD, ACTION, PROPERTY, and by name (ordinal: uppercase before lowercase) within a kind \u2014 whatever order was pushed.",
-      "example": "FUNCTION_BLOCK a\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD a : BOOL\nIMPLEMENTATION ST\nEND_METHOD\n\nMETHOD b : BOOL\nIMPLEMENTATION ST\nEND_METHOD\n\nACTION x\nIMPLEMENTATION ST\nEND_ACTION\n\nPROPERTY p : BOOL\nGET\nIMPLEMENTATION ST\np := TRUE;\nEND_GET\nEND_PROPERTY\n",
+      "example": "FUNCTION_BLOCK a\n%LANGUAGE ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD a : BOOL\n%LANGUAGE ST\nEND_METHOD\n\nMETHOD b : BOOL\n%LANGUAGE ST\nEND_METHOD\n\nACTION x\n%LANGUAGE ST\nEND_ACTION\n\nPROPERTY p : BOOL\nGET\n%LANGUAGE ST\np := TRUE;\nEND_GET\nEND_PROPERTY\n",
       "ext": "pou",
-      "variant": "FUNCTION_BLOCK a\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD a : BOOL\nIMPLEMENTATION ST\nEND_METHOD\n\nMETHOD b : BOOL\nIMPLEMENTATION ST\nEND_METHOD\n\nPROPERTY p : BOOL\nGET\nIMPLEMENTATION ST\np := TRUE;\nEND_GET\nEND_PROPERTY\n\nACTION x\nIMPLEMENTATION ST\nEND_ACTION\n",
+      "variant": "FUNCTION_BLOCK a\n%LANGUAGE ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD a : BOOL\n%LANGUAGE ST\nEND_METHOD\n\nMETHOD b : BOOL\n%LANGUAGE ST\nEND_METHOD\n\nPROPERTY p : BOOL\nGET\n%LANGUAGE ST\np := TRUE;\nEND_GET\nEND_PROPERTY\n\nACTION x\n%LANGUAGE ST\nEND_ACTION\n",
       "push": "canonical"
     },
     {
       "id": "member",
-      "rule": "A POU\u0027s METHOD or ACTION is its declaration, its IMPLEMENTATION line, its %-lines, its code, then END_METHOD or END_ACTION on the next line: no blank line separates them, so a blank line pushed there is the code\u0027s own last line.",
-      "example": "FUNCTION_BLOCK a\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD m : BOOL\nVAR_INPUT\n\tx : BOOL;\nEND_VAR\nIMPLEMENTATION ST\n%EXCLUDE_FROM_BUILD\nm := x;\nEND_METHOD\n",
+      "rule": "A POU\u0027s METHOD or ACTION is its declaration, its %LANGUAGE line, its %-lines, its code, then END_METHOD or END_ACTION on the next line: no blank line separates them, so a blank line pushed there is the code\u0027s own last line.",
+      "example": "FUNCTION_BLOCK a\n%LANGUAGE ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD m : BOOL\nVAR_INPUT\n\tx : BOOL;\nEND_VAR\n%LANGUAGE ST\n%EXCLUDE_FROM_BUILD\nm := x;\nEND_METHOD\n",
       "ext": "pou",
-      "variant": "FUNCTION_BLOCK a\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD m : BOOL\nVAR_INPUT\n\tx : BOOL;\nEND_VAR\nIMPLEMENTATION ST\n%EXCLUDE_FROM_BUILD\nm := x;\n\nEND_METHOD\n",
+      "variant": "FUNCTION_BLOCK a\n%LANGUAGE ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD m : BOOL\nVAR_INPUT\n\tx : BOOL;\nEND_VAR\n%LANGUAGE ST\n%EXCLUDE_FROM_BUILD\nm := x;\n\nEND_METHOD\n",
       "push": "kept"
     },
     {
       "id": "property",
-      "rule": "A POU\u0027s PROPERTY is its declaration, its %-lines, GET then SET (each: keyword, declaration, IMPLEMENTATION line, code, END_GET / END_SET), then END_PROPERTY.",
-      "example": "FUNCTION_BLOCK a\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\nPROPERTY p : INT\nGET\nVAR\nEND_VAR\nIMPLEMENTATION ST\np := 1;\nEND_GET\nSET\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_SET\nEND_PROPERTY\n",
+      "rule": "A POU\u0027s PROPERTY is its declaration, its %-lines, GET then SET (each: keyword, declaration, %LANGUAGE line, code, END_GET / END_SET), then END_PROPERTY.",
+      "example": "FUNCTION_BLOCK a\n%LANGUAGE ST\n\nEND_FUNCTION_BLOCK\n\nPROPERTY p : INT\nGET\nVAR\nEND_VAR\n%LANGUAGE ST\np := 1;\nEND_GET\nSET\nVAR\nEND_VAR\n%LANGUAGE ST\n;\nEND_SET\nEND_PROPERTY\n",
       "ext": "pou",
-      "variant": "FUNCTION_BLOCK a\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\nPROPERTY p : INT\nSET\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_SET\nGET\nVAR\nEND_VAR\nIMPLEMENTATION ST\np := 1;\nEND_GET\nEND_PROPERTY\n",
+      "variant": "FUNCTION_BLOCK a\n%LANGUAGE ST\n\nEND_FUNCTION_BLOCK\n\nPROPERTY p : INT\nSET\nVAR\nEND_VAR\n%LANGUAGE ST\n;\nEND_SET\nGET\nVAR\nEND_VAR\n%LANGUAGE ST\np := 1;\nEND_GET\nEND_PROPERTY\n",
       "push": "canonical"
     },
     {
       "id": "interface-member",
-      "rule": "An interface\u0027s METHOD is its declaration, its %-lines, then END_METHOD; an interface PROPERTY\u0027s GET and SET are each keyword, declaration, END_GET / END_SET \u2014 no IMPLEMENTATION line and no code in either.",
+      "rule": "An interface\u0027s METHOD is its declaration, its %-lines, then END_METHOD; an interface PROPERTY\u0027s GET and SET are each keyword, declaration, END_GET / END_SET \u2014 no %LANGUAGE line and no code in either.",
       "example": "INTERFACE I\n\nMETHOD m : BOOL\n%EXCLUDE_FROM_BUILD\nEND_METHOD\n\nPROPERTY p : INT\nGET\nEND_GET\nEND_PROPERTY\n\nEND_INTERFACE\n",
       "ext": "itf",
-      "variant": "INTERFACE I\n\nMETHOD m : BOOL\nIMPLEMENTATION ST\n%EXCLUDE_FROM_BUILD\nEND_METHOD\n\nPROPERTY p : INT\nGET\nEND_GET\nEND_PROPERTY\n\nEND_INTERFACE\n",
+      "variant": "INTERFACE I\n\nMETHOD m : BOOL\n%LANGUAGE ST\n%EXCLUDE_FROM_BUILD\nEND_METHOD\n\nPROPERTY p : INT\nGET\nEND_GET\nEND_PROPERTY\n\nEND_INTERFACE\n",
       "push": "refused"
     },
     {
       "id": "verbatim",
       "rule": "Every other character is the item\u0027s own and comes back as pushed: inner blank lines, trailing whitespace, and the trailing newlines a declaration or a body ends with (each then followed by the line the layout puts after it).",
-      "example": "FUNCTION_BLOCK a\n\nIMPLEMENTATION ST\nx := 1;  \n\n\ny := 2;\n\n\nEND_FUNCTION_BLOCK\n",
+      "example": "FUNCTION_BLOCK a\n\n%LANGUAGE ST\nx := 1;  \n\n\ny := 2;\n\n\nEND_FUNCTION_BLOCK\n",
       "ext": "pou",
-      "variant": "FUNCTION_BLOCK a\nIMPLEMENTATION ST\nx := 1;\ny := 2;\n\nEND_FUNCTION_BLOCK\n",
+      "variant": "FUNCTION_BLOCK a\n%LANGUAGE ST\nx := 1;\ny := 2;\n\nEND_FUNCTION_BLOCK\n",
       "push": "kept"
     }
   ],

@@ -59,7 +59,7 @@ VAR_TEMP
 	diForLoop				: DINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF xExecute
 AND NOT xExecute_old THEN
 
@@ -276,7 +276,7 @@ VAR
 	psFind				: POINTER TO STRING(1);
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Internal
 //Load pointer
 psFind := ADR(sFind);
@@ -295,7 +295,7 @@ VAR
 	diForLoop : DINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF sSymbol <> '' THEN
 	//Loop properties of parser
 	FOR diForLoop := LOWER_BOUND(asProperties,1) TO MIN(uiPropertyCount, UPPER_BOUND(asProperties,1)) DO

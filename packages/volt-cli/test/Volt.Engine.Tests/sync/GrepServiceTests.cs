@@ -298,7 +298,7 @@ public class GrepServiceTests
             new FakeIde.Item("PRG_Lamp", ItemKind.PlcPou, "POUs", true, "PROGRAM PRG_Lamp\nVAR\n\tlamp : BOOL;\nEND_VAR",
                              "lamp := start;", "FBD", null));
         var text = Fetched(ide)["POUs/PRG_Lamp.pou"];
-        Assert.Contains("IMPLEMENTATION FBD", text);
+        Assert.Contains("%LANGUAGE FBD", text);
 
         var r = Grep(ide, "lamp := start", q => { q.Literal = true; q.Paths = new List<string> { "POUs/PRG_Lamp.pou" }; });
 
@@ -319,7 +319,7 @@ public class GrepServiceTests
         Assert.Equal(new[] { "\tbelt : BOOL;" }, r.Matches.Select(m => m.Text));
         var entry = r.NotSearched.Single();
         Assert.Equal("POUs/PRG_Conveyor.pou", entry.Name);
-        Assert.Contains("IMPLEMENTATION CFC UNSUPPORTED", entry.Reason);
+        Assert.Contains("%LANGUAGE CFC UNSUPPORTED", entry.Reason);
         Assert.Equal(BridgeErrorCodes.Unsupported, entry.Code);
     }
 
@@ -336,7 +336,7 @@ public class GrepServiceTests
 
         Assert.Equal("FB_Mix.pou", entry.Name);
         Assert.Contains("'Rung'", entry.Reason);
-        Assert.Contains("IMPLEMENTATION LD UNSUPPORTED", entry.Reason);
+        Assert.Contains("%LANGUAGE LD UNSUPPORTED", entry.Reason);
         Assert.Contains("a vendor split point", entry.Reason);
     }
 
@@ -352,7 +352,7 @@ public class GrepServiceTests
             var r = Grep(ide, "lamp");
 
             Assert.Equal(new[] { "\tlamp : BOOL;" }, r.Matches.Select(m => m.Text));
-            Assert.Contains("IMPLEMENTATION LD UNSUPPORTED", r.NotSearched.Single(n => n.Name == "PRG_Rung.pou").Reason);
+            Assert.Contains("%LANGUAGE LD UNSUPPORTED", r.NotSearched.Single(n => n.Name == "PRG_Rung.pou").Reason);
         }
         finally { NetworkTextSwitch.Enabled = was; }
     }

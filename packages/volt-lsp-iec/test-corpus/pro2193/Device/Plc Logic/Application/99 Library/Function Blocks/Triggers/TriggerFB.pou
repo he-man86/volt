@@ -8,7 +8,7 @@ VAR
 	xEdge			: BOOL;	// Memory flag, to detect a change in input
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 END_FUNCTION_BLOCK
 
@@ -18,7 +18,7 @@ VAR_INPUT
 	CLK	: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Call(CLK);
 AnyEdge := Q_Rising OR Q_Falling;
 
@@ -32,7 +32,7 @@ END_VAR
 
 // Use this method if you need the trigger output more than once per PLC cycle.
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 xRisingEdge		:= CLK AND NOT xEdge;
 xFallingEdge	:= NOT CLK AND xEdge;
 xEdge			:= CLK;
@@ -45,7 +45,7 @@ VAR_INPUT
 	CLK	: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Call(CLK);
 Falling := Q_Falling;
 
@@ -57,7 +57,7 @@ VAR_INPUT
 	CLK	: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Call(CLK);
 Rising := Q_Rising;
 
@@ -70,7 +70,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Q_Falling := xFallingEdge;
 
 END_GET
@@ -85,7 +85,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Q_Rising := xRisingEdge;
 
 END_GET

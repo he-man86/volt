@@ -14,7 +14,7 @@ namespace Volt.Ide.Codesys.Tests
     /// found by the <c>vendor-facts</c> probe 2026-10-11).
     ///
     /// <para>CODESYS holds an abstract method as an <c>AbstractPOUMethodObject</c> with NO <c>Implementation</c> aspect.
-    /// The pull reads its body as null, <c>StWriter</c> writes the boundary line <c>IMPLEMENTATION ST</c> for it anyway
+    /// The pull reads its body as null, <c>StWriter</c> writes the boundary line <c>%LANGUAGE ST</c> for it anyway
     /// (an empty body gets the line), <c>StReader</c> reads that back as <c>""</c>, and the push sends <c>""</c> at a
     /// slot the object does not have — which <c>RequireSlot</c> (openspec <c>bridge-refusal-review</c> D26) refuses:
     /// <c>UNSUPPORTED: CODESYS: 'TakePicture' has no Implementation</c>. So no edit of an owner holding an abstract
@@ -22,11 +22,11 @@ namespace Volt.Ide.Codesys.Tests
     /// 7 owner files). D26 names the fix: the PRODUCER, not a driver table. The driver cannot tell today: an empty ST
     /// body and a missing slot both read null.</para>
     ///
-    /// <para><b>The fix</b> (3.2): the pull states <c>IMPLEMENTATION NONE</c> for a member whose object declares
-    /// <c>Implementation</c> and holds null there — measured on every such pro2193 object (<c>vendor-facts</c>
+    /// <para><b>The fix</b> (3.2, openspec <c>language-line</c>): the pull writes NO <c>%LANGUAGE</c> line for a member
+    /// whose object declares <c>Implementation</c> and holds null there (<c>StatedLanguage.NoSlot</c>) — measured on every such pro2193 object (<c>vendor-facts</c>
     /// <c>merged-classes</c>: 10 <c>AbstractPOUMethodObject</c>s and the <c>Busy</c> GET, <c>implementation-declared.*</c>
     /// and <c>implementation.*</c>), which is exactly what the <c>Method(decl, null!)</c> double models — and the push
-    /// writes no body for it (<c>ImplementationMarker.Written</c>). The assertion is the one committed red.</para>
+    /// writes no body for it (<c>PropertyLines.Written</c>). The assertion is the one committed red.</para>
     /// </summary>
     [Collection(NetworkTextSwitchCollection.Name)]   // SystemInstances.ObjectMgr is process-wide
     public class CodesysAbstractMemberPushTests
@@ -48,17 +48,20 @@ namespace Volt.Ide.Codesys.Tests
                                             "METHOD ABSTRACT TakePicture : INT\n// edited in the workspace");
                 Assert.NotEqual(pulled, edited);
 
-                // What the push hands the driver (abstract-member-parity): the member's UNCHANGED body dropped — null,
-                // "leave it alone" (`PushService.OnlyChanged` drops an unchanged body at every member site). A NONE body
-                // is now written as "" (`ImplementationMarker.Written`), so the engine, not the driver, keeps it off a
-                // slotless object; reaching one anyway is the driver's backstop refusal (`RequireSlot`, D26), below.
+                // What the push hands the driver: the member with no slot read back with no body (no %LANGUAGE line), so
+                // its declaration is written alone. A body sent at a slotless object anyway — which the engine's guard
+                // refuses first — is the driver's backstop refusal (`RequireSlot`, D26), below.
                 var pushed = StReader.Read(edited, ItemKind.Kinds.Pou);
-                var sent = pushed with { Members = pushed.Members.Select(m => m with { Body = null }).ToList() };
-                driver.WriteContent(new ItemRef(pou), sent, System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());
+                Assert.Null(pushed.Members.Single(m => m.Name == "TakePicture").Body);
+                driver.WriteContent(new ItemRef(pou), pushed, System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());
 
                 Assert.Contains("// edited in the workspace", method.Object.Interface.TextDocument.Text);
 
-                var ex = Assert.Throws<BridgeException>(() => driver.WriteContent(new ItemRef(pou), pushed,
+                var withBody = pushed with
+                {
+                    Members = pushed.Members.Select(m => m with { Body = "", Stated = StatedLanguage.St }).ToList(),
+                };
+                var ex = Assert.Throws<BridgeException>(() => driver.WriteContent(new ItemRef(pou), withBody,
                     System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>()));
                 Assert.Contains("TakePicture", ex.Message);
                 Assert.Contains("Implementation", ex.Message);
@@ -66,11 +69,12 @@ namespace Volt.Ide.Codesys.Tests
             finally { _3S.CoDeSys.Core.SystemInstances.ObjectMgr = null; }
         }
 
-        /// <summary>The pull states the missing slot — under the abstract method and under the abstract property's GET
-        /// (measured: an <c>InterfacePropertyAccessorObject</c> holding no aspect) — and only there: a method whose ST body
-        /// is EMPTY has a slot and keeps <c>IMPLEMENTATION ST</c> (<c>BodyText</c> is untouched).</summary>
+        /// <summary>The pull states the missing slot by writing no line — under the abstract method and under the
+        /// abstract property's GET (measured: an <c>InterfacePropertyAccessorObject</c> holding no aspect) — and only
+        /// there: a method whose ST body is EMPTY has a slot and keeps <c>%LANGUAGE ST</c> (<c>BodyText</c> is
+        /// untouched).</summary>
         [Fact]
-        public void The_pull_states_IMPLEMENTATION_NONE_only_where_the_object_holds_no_Implementation()
+        public void The_pull_writes_no_line_only_where_the_object_holds_no_Implementation()
         {
             var abstractMethod = new Node("TakePicture", 2, new Method("METHOD ABSTRACT TakePicture : INT", null!));
             var getter = new Node("Get", 4, new AccessorObject("VAR\nEND_VAR", null!));
@@ -84,10 +88,11 @@ namespace Volt.Ide.Codesys.Tests
                 var content = new CodesysDriver(projects: null).ReadContent(new ItemRef(pou));
                 var text = StWriter.Write(content);
 
-                Assert.Contains("METHOD ABSTRACT TakePicture : INT\nIMPLEMENTATION NONE\nEND_METHOD", text);
-                Assert.Contains("GET\nVAR\nEND_VAR\nIMPLEMENTATION NONE\nEND_GET", text);
-                Assert.Contains("METHOD Run : BOOL\nIMPLEMENTATION ST\n", text);
-                Assert.Equal(StatedLanguage.None, content.Members.Single(m => m.Name == "TakePicture").Stated);
+                Assert.Contains("METHOD ABSTRACT TakePicture : INT\nEND_METHOD", text);
+                Assert.Contains("GET\nVAR\nEND_VAR\nEND_GET", text);
+                Assert.Contains("METHOD Run : BOOL\n%LANGUAGE ST\n", text);
+                Assert.Equal(StatedLanguage.NoSlot, content.Members.Single(m => m.Name == "TakePicture").Stated);
+                Assert.Null(content.Members.Single(m => m.Name == "TakePicture").Body);
                 Assert.Null(content.Members.Single(m => m.Name == "Busy").Body);              // a property's own object: no body site
                 Assert.Null(content.Members.Single(m => m.Name == "Run").Stated);            // an empty body, as before
                 Assert.Null(content.Stated);                                                  // the POU's empty ST body too
@@ -95,7 +100,7 @@ namespace Volt.Ide.Codesys.Tests
             finally { _3S.CoDeSys.Core.SystemInstances.ObjectMgr = null; }
         }
 
-        // ── openspec abstract-member-parity: one text for one declaration, whatever the object's class ──────────────
+        // ── a slotted abstract member: an empty body at a slot (script-made, or IDE-made like pro2193's Cyclic) ─────
 
         private static _3S.CoDeSys.STObject.STImplementationObject StBody(string text)
         {
@@ -106,13 +111,12 @@ namespace Volt.Ide.Codesys.Tests
             return body;
         }
 
-        /// <summary>The read rule (step 3): the driver keeps its storage fact and the engine folds the rest. A SLOTTED
-        /// abstract method (<c>POUMethodObject</c> with an empty <c>STImplementationObject</c> — script-made, or IDE-made
-        /// like pro2193's <c>Cyclic</c>) and a slotted abstract property's GET (<c>PropertyAccessorObject</c>) read as an
-        /// empty ST body from the driver, and the engine's fold states them <c>IMPLEMENTATION NONE</c> — the text the
-        /// slotless objects pull, and TwinCAT's. It used to pull <c>IMPLEMENTATION ST</c>.</summary>
+        /// <summary>A SLOTTED abstract method (<c>POUMethodObject</c> with an empty <c>STImplementationObject</c> —
+        /// script-made, or IDE-made like pro2193's <c>Cyclic</c>) and a slotted abstract property's GET
+        /// (<c>PropertyAccessorObject</c>) have a slot: they pull <c>%LANGUAGE ST</c> with an empty body, as TwinCAT's
+        /// abstract members do. Only a slotless object has no line.</summary>
         [Fact]
-        public void A_slotted_abstract_method_and_GET_pull_IMPLEMENTATION_NONE_through_the_engine_fold()
+        public void A_slotted_abstract_method_and_GET_pull_an_empty_ST_body()
         {
             var slotted = new Node("Cyclic", 2, new Method("METHOD PROTECTED ABSTRACT Cyclic", new _3S.CoDeSys.STObject.STImplementationObject()));
             var getter = new Node("Get", 4, new AccessorObject("VAR\nEND_VAR", new _3S.CoDeSys.STObject.STImplementationObject()));
@@ -125,19 +129,19 @@ namespace Volt.Ide.Codesys.Tests
                 var read = new CodesysDriver(projects: null).ReadContent(new ItemRef(pou));
                 Assert.Null(read.Members.Single(m => m.Name == "Cyclic").Stated);              // the driver's storage fact
 
-                var text = StWriter.Write(AbstractMemberFold.Apply(read));
+                var text = StWriter.Write(read);
 
-                Assert.Contains("METHOD PROTECTED ABSTRACT Cyclic\nIMPLEMENTATION NONE\nEND_METHOD", text);
-                Assert.Contains("GET\nVAR\nEND_VAR\nIMPLEMENTATION NONE\nEND_GET", text);
-                Assert.Contains("FUNCTION_BLOCK ABSTRACT FB_Base\nIMPLEMENTATION ST\n", text);      // the FB's own body is no member site
+                Assert.Contains("METHOD PROTECTED ABSTRACT Cyclic\n%LANGUAGE ST\nEND_METHOD", text);
+                Assert.Contains("GET\nVAR\nEND_VAR\n%LANGUAGE ST\nEND_GET", text);
+                Assert.Contains("FUNCTION_BLOCK ABSTRACT FB_Base\n%LANGUAGE ST\n", text);      // the FB's own body is no member site
             }
             finally { _3S.CoDeSys.Core.SystemInstances.ObjectMgr = null; }
         }
 
-        /// <summary>NONE over a slotted abstract method holding code: <c>""</c> is written at its slot (measured to persist
-        /// and pull back as NONE, <c>vendor-facts</c> <c>abstract-member-code</c>).</summary>
+        /// <summary>An empty ST body over a slotted abstract method holding code: <c>""</c> is written at its slot
+        /// (measured to persist, <c>vendor-facts</c> <c>abstract-member-code</c>).</summary>
         [Fact]
-        public void NONE_over_a_slotted_method_holding_code_writes_an_empty_body()
+        public void An_empty_body_over_a_slotted_method_holding_code_is_written_empty()
         {
             var body = StBody("Pick := 1;");
             var method = new Node("Pick", 2, new Method("METHOD ABSTRACT Pick : INT", body));
@@ -150,8 +154,8 @@ namespace Volt.Ide.Codesys.Tests
                 new CodesysDriver(projects: null).WriteContent(new ItemRef(pou),
                     new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK ABSTRACT FB_Base", null, new List<Member>
                     {
-                        new(ItemKind.Kinds.Method, "Pick", "METHOD ABSTRACT Pick : INT", ImplementationMarker.NoneLine, ObjectProperties.None,
-                            Stated: StatedLanguage.None),
+                        new(ItemKind.Kinds.Method, "Pick", "METHOD ABSTRACT Pick : INT", "", ObjectProperties.None,
+                            Stated: StatedLanguage.St),
                     }, ObjectProperties.None), System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());
 
                 Assert.Equal("", body.TextDocument.Text);
@@ -163,11 +167,11 @@ namespace Volt.Ide.Codesys.Tests
             }
         }
 
-        /// <summary>NONE over a member whose body is LD: NONE is an empty ST body to the guard (N24 answers, and CODESYS
-        /// writes it), so the write swaps the aspect to ST and writes <c>""</c> there (<c>BodyFormatGuard.PushedLanguage</c>
-        /// answers ST for NONE) — it used to swap nothing and write <c>""</c> into the network implementation.</summary>
+        /// <summary>An empty ST body over a member whose body is LD: the guard asks the vendor about LD → ST (N24, CODESYS
+        /// writes it), so the write swaps the aspect to ST and writes <c>""</c> there (<c>BodyFormatGuard.PushedLanguage</c>);
+        /// a member with no slot is written in no language at all.</summary>
         [Fact]
-        public void NONE_over_an_LD_member_swaps_the_aspect_to_ST_and_writes_an_empty_body()
+        public void An_empty_ST_body_over_an_LD_member_swaps_the_aspect_to_ST_and_writes_an_empty_body()
         {
             var obj = new CodesysLanguageChangeTests.SwappableMethod("METHOD Step : BOOL", new Nwl.NWLImplementationObject { DefaultViewMode = "Ld" });
             var method = new CodesysLanguageChangeTests.AnyNode("Step", 2, obj);
@@ -179,13 +183,14 @@ namespace Volt.Ide.Codesys.Tests
             {
                 Nwl.TextDocument.ThrowsAfterInsert = false;
                 Assert.Equal(StatedLanguage.St,
-                    Volt.Engine.Format.Body.BodyFormatGuard.PushedLanguage("'Step'", ImplementationMarker.NoneLine, StatedLanguage.None));
+                    Volt.Engine.Format.Body.BodyFormatGuard.PushedLanguage("'Step'", "", null));
+                Assert.Null(Volt.Engine.Format.Body.BodyFormatGuard.PushedLanguage("'Step'", null, StatedLanguage.NoSlot));
 
                 new CodesysDriver(projects: null).WriteContent(new ItemRef(pou),
                     new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK ABSTRACT P", null, new List<Member>
                     {
-                        new(ItemKind.Kinds.Method, "Step", "METHOD ABSTRACT Step : BOOL", ImplementationMarker.NoneLine, ObjectProperties.None,
-                            Stated: StatedLanguage.None),
+                        new(ItemKind.Kinds.Method, "Step", "METHOD ABSTRACT Step : BOOL", "", ObjectProperties.None,
+                            Stated: StatedLanguage.St),
                     }, ObjectProperties.None), System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());
 
                 var st = Assert.IsType<_3S.CoDeSys.STObject.STImplementationObject>(obj.Implementation);
@@ -231,13 +236,13 @@ namespace Volt.Ide.Codesys.Tests
             }
         }
 
-        /// <summary>No object read at all is a READ failure, not a vendor fact — refused, never stated as NONE (which the
-        /// guard would then refuse on every push of the POU as "NONE over a member with a slot"). The declaration read
+        /// <summary>No object read at all is a READ failure, not a vendor fact — refused, never stated as a member with no
+        /// slot (which the guard would then refuse on every push of the POU as a lost line). The declaration read
         /// refuses it first (<c>ReadAspectText</c>), and the site's kind is classified from the same object, so <c>ReadBody</c>
         /// never sees a null object from the IDE: its check is a driver invariant (<c>InvalidOperationException</c>), not a wire
         /// refusal (gate 3 review).</summary>
         [Fact]
-        public void A_body_site_whose_object_cannot_be_read_is_refused_not_stated_NONE()
+        public void A_body_site_whose_object_cannot_be_read_is_refused_not_stated_slotless()
         {
             var pou = new Node("FB_Base", 1, new Pou("FUNCTION_BLOCK FB_Base", new _3S.CoDeSys.STObject.STImplementationObject()));
             _3S.CoDeSys.Core.SystemInstances.ObjectMgr = null;   // ReadObject answers null without an object manager
@@ -249,9 +254,9 @@ namespace Volt.Ide.Codesys.Tests
         }
 
         /// <summary>A type that does not declare <c>Implementation</c> at all was measured on no object (every pro2193
-        /// slotless object declares it and holds null) — refused by name, not stated NONE.</summary>
+        /// slotless object declares it and holds null) — refused by name, not stated a member with no slot.</summary>
         [Fact]
-        public void A_body_site_whose_type_declares_no_Implementation_is_refused_by_name_not_stated_NONE()
+        public void A_body_site_whose_type_declares_no_Implementation_is_refused_by_name_not_stated_slotless()
         {
             var node = new CodesysLanguageChangeTests.AnyNode("FB_A", 1, new CodesysNoSlotTextTests.PouWithoutBody("FUNCTION_BLOCK FB_A"));
             _3S.CoDeSys.Core.SystemInstances.ObjectMgr = new CodesysNoSlotTextTests.CountingManager(node);

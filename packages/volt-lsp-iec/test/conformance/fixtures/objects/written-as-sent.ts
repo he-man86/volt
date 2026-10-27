@@ -8,7 +8,7 @@
  *
  * Every fixture here is `asSent`: its `source` is ONE item's whole text, pushed under `pouName` + the extension of
  * `kind` without being parsed or marked (a never-closed `(*` parses to nothing, so the parser has no unit to split or
- * mark). A POU text therefore states its own `IMPLEMENTATION ST` line, as a workspace file does.
+ * mark). A POU text therefore states its own `%LANGUAGE ST` line, as a workspace file does.
  *
  * Each is REFERENCED from PLC_PRG, because a build reaches only what something references (measured 2026-09-30 on
  * SP21: an unreferenced item is not compiled at all — "The application is up to date", 0 errors, even for `n := ;`).
@@ -81,7 +81,7 @@ END_VAR
     name: "pwh_unclosed_comment_fb",
     pouName: "FB_LANG_pwh_uc_fb",
     kind: "function_block",
-    feature: "a FUNCTION_BLOCK whose opening comment never closes, IMPLEMENTATION line and all",
+    feature: "a FUNCTION_BLOCK whose opening comment never closes, %LANGUAGE line and all",
     fromDoc: doc,
     asSent,
     source: `(* Motor
@@ -90,7 +90,7 @@ FUNCTION_BLOCK FB_LANG_pwh_uc_fb
 VAR
 	n : INT;
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 n := n + 1;
 END_FUNCTION_BLOCK
 `,
@@ -110,7 +110,7 @@ END_FUNCTION_BLOCK
 VAR_OUTPUT
 	n : INT;
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 n := 7;
 END_PROGRAM
 `,
@@ -160,7 +160,7 @@ END_TYPE
     name: "pwh_struct_member_implementation",
     pouName: "DUT_LANG_pwh_implm",
     kind: "dut",
-    feature: "a STRUCT member named IMPLEMENTATION — the word Volt's file format uses for its body line",
+    feature: "a STRUCT member named IMPLEMENTATION — the word Volt's file format once used for its body line",
     fromDoc: doc,
     asSent,
     source: `TYPE DUT_LANG_pwh_implm :
@@ -252,7 +252,7 @@ VAR
 	nPos : INT
 	nSpeed : INT;
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 nSpeed := 1;
 END_FUNCTION_BLOCK
 `,
@@ -355,7 +355,7 @@ END_TYPE
 VAR_OUTPUT
 	n : INT;
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 n := n + 1;
 END_FUNCTION_BLOCK
 `,

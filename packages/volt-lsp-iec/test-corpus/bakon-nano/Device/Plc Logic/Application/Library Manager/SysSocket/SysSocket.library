@@ -3,4 +3,4 @@ NAMESPACE SysSocket
 RESOLUTION SysSocket, 3.5.19.0 (System)
 PLACEHOLDER true
 DEPENDENCIES SysSocket Interfaces, * (System), SysSocket Implementation
-MATERIALIZATION 4
+MATERIALIZATION 5

@@ -77,7 +77,7 @@ export function call(op: string, body?: unknown, pipe: string = pipeName()): Pro
  *
  * WHY: the switch (`VOLT_GRAPHICAL=1`, volt-cli's `NetworkTextSwitch`) is read from the BRIDGE's own process — inside
  * CODESYS, or in the TwinCAT worker — never from this script's, so setting it here does nothing. A bridge the connector
- * started has it off and pulls every LD and FBD body as its `IMPLEMENTATION LD|FBD UNSUPPORTED` line: a corpus
+ * started has it off and pulls every LD and FBD body as its `%LANGUAGE LD|FBD UNSUPPORTED` line: a corpus
  * refreshed through one lost every ladder while the file count it checks still matched, and the LSP gate stayed green
  * (an UNSUPPORTED line draws nothing). The bridge states the languages it shows in `health` (`languages`); ask before
  * anything is pulled or pushed.
@@ -88,7 +88,7 @@ export async function requireNetworkText(pipe: string = pipeName()): Promise<voi
   if (Array.isArray(shown) && shown.includes("LD") && shown.includes("FBD")) return
   throw new Error(
     `LD and FBD network text is OFF in the bridge on pipe ${pipe}, so every LD and FBD body would come back as its ` +
-      "`IMPLEMENTATION LD|FBD UNSUPPORTED` line. The switch is the BRIDGE's environment (VOLT_GRAPHICAL=1), not this " +
+      "`%LANGUAGE LD|FBD UNSUPPORTED` line. The switch is the BRIDGE's environment (VOLT_GRAPHICAL=1), not this " +
       "script's: serve the project with `pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor <vendor>`, which starts the " +
       "IDE with it, instead of the connector.",
   )

@@ -32,7 +32,7 @@ import { parsed, resetParses, THROWS_IN_BIND, THROWS_IN_PARSE } from "./probes.j
 import { tempWorkspace } from "./sources.js"
 
 const PRG = (name: string, body = "i := i + 1;") =>
-  `PROGRAM ${name}\nVAR\n\tb : BOOL;\n\ti : INT;\nEND_VAR\nIMPLEMENTATION ST\n${body}\nEND_PROGRAM\n`
+  `PROGRAM ${name}\nVAR\n\tb : BOOL;\n\ti : INT;\nEND_VAR\n%LANGUAGE ST\n${body}\nEND_PROGRAM\n`
 const BROKEN = PRG("Main", "i := b;") // C0032
 
 const roots: string[] = []

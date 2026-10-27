@@ -7,7 +7,7 @@ END_VAR
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^( ioDataExchange:=ioDataExchange, ioMasterAxis:=ioMasterAxis,ioSlaveAxis:=ioSlaveAxis);
 
 
@@ -33,7 +33,7 @@ END_VAR
 VAR
 	
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 //Selection of the cam. 
 IF Control_Local.SelectBypassCAM THEN 
 	uiSetCamTable := 2;					//Camtable 2 is a zero curve. 

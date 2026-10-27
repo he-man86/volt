@@ -26,7 +26,7 @@ public static class Materializer
         return new WorkspaceItem(link.Driver.ReadManifest(item, kind), FullWireName(name, kind, kinds), Array.Empty<HiddenBody>());
     }
 
-    /// <summary>Every body of the item the host read as HIDDEN (<c>IMPLEMENTATION &lt;LANG&gt; UNSUPPORTED</c>), with its
+    /// <summary>Every body of the item the host read as HIDDEN (<c>%LANGUAGE &lt;LANG&gt; UNSUPPORTED</c>), with its
     /// reason for one in a language this host SHOWS — the one fact about the item its text does not carry in full,
     /// gathered here, where the content is in hand, for the pull message and for <c>grep</c>'s <c>notSearched</c>. A
     /// hidden body of a shown language with no reason, or one of another language with one, is a host that broke the
@@ -53,7 +53,7 @@ public static class Materializer
             var reason = string.IsNullOrEmpty(hidden.Why) ? null : hidden.Why;
             if (link.Catalog.Languages.IsShown(hidden.Language, link.Driver.Vendor) != (reason is not null))
                 throw new VoltInvariantException(
-                    $"the driver read {(member is null ? "the item's body" : $"'{member}'")} as '{ImplementationLine.For(hidden)}' with " +
+                    $"the driver read {(member is null ? "the item's body" : $"'{member}'")} as '{LanguageLine.For(hidden)}' with " +
                     $"{(reason is null ? "no reason" : $"the reason '{reason}'")} — an UNSUPPORTED body and its reason come together");
             found.Add(new HiddenBody(member, hidden.Language, reason));
         }

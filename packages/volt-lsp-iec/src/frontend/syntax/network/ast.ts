@@ -1,9 +1,9 @@
 /**
  * Network-text AST — the textual form of an FBD/LD body (`volt-cli/docs/network-text.html`, openspec ld-fbd-coverage
- * 2R.6b, `v2-spec.md`). A body is network text when its line states it — `IMPLEMENTATION FBD` or `IMPLEMENTATION LD`. One
+ * 2R.6b, `v2-spec.md`). A body is network text when its line states it — `%LANGUAGE FBD` or `%LANGUAGE LD`. One
  * statement per vendor network ITEM, ending with `;`: one tree, written root first, as the vendor holds it.
  *
- *   body      = "IMPLEMENTATION" ( "FBD" | "LD" ) NL , { network }
+ *   body      = "%LANGUAGE" ( "FBD" | "LD" ) NL , { network }
  *   network   = "NETWORK" [LABEL: x] [DISABLED] [TITLE: "…"] NL , { "//" line } , ( unsupported | { item } ) , "END_NETWORK"
  *   item      = [ coil { coil } slot | split := slot | slot ] ";"
  *
@@ -19,7 +19,7 @@ export type NetworkLanguage = "FBD" | "LD"
 
 export interface NetworkTextBody {
   kind: "network_body"
-  /** The language the body's IMPLEMENTATION line states; undefined for a body whose line states no network language. */
+  /** The language the body's %LANGUAGE line states; undefined for a body whose line states no network language. */
   language?: NetworkLanguage
   networks: NetworkTextNetwork[]
   diagnostics: NetworkTextDiagnostic[]

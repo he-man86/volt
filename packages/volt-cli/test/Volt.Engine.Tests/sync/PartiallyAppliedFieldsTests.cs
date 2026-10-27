@@ -25,11 +25,11 @@ namespace Volt.Engine.Tests;
 public class PartiallyAppliedFieldsTests
 {
     private const string Struct = "TYPE ST_B :\nSTRUCT\n\tn : INT;\nEND_STRUCT\nEND_TYPE";
-    private const string Method = "\n\nMETHOD M : BOOL\nIMPLEMENTATION ST\nM := TRUE;\nEND_METHOD\n";
+    private const string Method = "\n\nMETHOD M : BOOL\n%LANGUAGE ST\nM := TRUE;\nEND_METHOD\n";
     private const string FbWithMethod =
-        "FUNCTION_BLOCK F\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK" + Method;
+        "FUNCTION_BLOCK F\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK" + Method;
     private const string FunctionWithMethod =
-        "FUNCTION F : BOOL\nVAR\nEND_VAR\nIMPLEMENTATION ST\nF := TRUE;\nEND_FUNCTION" + Method;
+        "FUNCTION F : BOOL\nVAR\nEND_VAR\n%LANGUAGE ST\nF := TRUE;\nEND_FUNCTION" + Method;
 
     private static System.Exception NotValidName(string name) =>
         new System.InvalidOperationException($"The name '{name}' is not valid for this object.");
@@ -99,7 +99,7 @@ public class PartiallyAppliedFieldsTests
     public void A_member_refusal_of_an_update_under_which_nothing_was_written_carries_no_partially_applied()
     {
         var ide = new FakeIde(FakeIde.Item.TextualPou("K", "FUNCTION K : BOOL\nVAR\nEND_VAR", "K := TRUE;")) { RefusesMembersByText = true };
-        var resp = Push(ide, Update(ide, "K.pou", "FUNCTION K : BOOL\nVAR\nEND_VAR\nIMPLEMENTATION ST\nK := TRUE;\nEND_FUNCTION" + Method));
+        var resp = Push(ide, Update(ide, "K.pou", "FUNCTION K : BOOL\nVAR\nEND_VAR\n%LANGUAGE ST\nK := TRUE;\nEND_FUNCTION" + Method));
 
         var c = Assert.Single(resp.Conflicts!);
         Assert.Contains("nothing of 'K' was written", c.Reason);
@@ -116,7 +116,7 @@ public class PartiallyAppliedFieldsTests
         };
         var resp = Push(ide,
             Create("ST_B.dut", Struct),
-            Update(ide, "K.pou", "FUNCTION_BLOCK K\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK" + Method),
+            Update(ide, "K.pou", "FUNCTION_BLOCK K\nVAR\nEND_VAR\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK" + Method),
             Create("ST_C.dut", Struct.Replace("ST_B", "ST_C")));
 
         Assert.True(resp.Landed(), resp.Conflicts?.FirstOrDefault()?.Reason);
@@ -132,7 +132,7 @@ public class PartiallyAppliedFieldsTests
     public void A_member_refusal_after_the_declaration_was_written_is_partially_applied()
     {
         var ide = new FakeIde(FakeIde.Item.TextualPou("K", "FUNCTION_BLOCK K\nVAR\nEND_VAR", ";")) { RefusesMembersByText = true };
-        var resp = Push(ide, Update(ide, "K.pou", "FUNCTION K : BOOL\nVAR\nEND_VAR\nIMPLEMENTATION ST\nK := TRUE;\nEND_FUNCTION" + Method));
+        var resp = Push(ide, Update(ide, "K.pou", "FUNCTION K : BOOL\nVAR\nEND_VAR\n%LANGUAGE ST\nK := TRUE;\nEND_FUNCTION" + Method));
 
         var c = Assert.Single(resp.Conflicts!);
         Assert.Contains("the declaration of 'K' was written before it and stays", c.Reason);   // as today
@@ -150,9 +150,9 @@ public class PartiallyAppliedFieldsTests
         var a = new FakeIde.Item("A", ItemKind.PlcMethod, "", false, "METHOD A : BOOL\nVAR\nEND_VAR", "A := TRUE;", null, null);
         var ide = new FakeIde(pou, a) { RefusesMembersByText = true };
         // TWO new methods: one dropped and one added of a kind would be the member RENAMED (bridge-one-to-one task 3.4).
-        var resp = Push(ide, Update(ide, "K.pou", "FUNCTION K : BOOL\nVAR\nEND_VAR\nIMPLEMENTATION ST\nK := TRUE;\nEND_FUNCTION\n\n" +
-                                                  "METHOD B : BOOL\nIMPLEMENTATION ST\nB := TRUE;\nEND_METHOD\n\n" +
-                                                  "METHOD C : BOOL\nIMPLEMENTATION ST\nC := TRUE;\nEND_METHOD\n"));
+        var resp = Push(ide, Update(ide, "K.pou", "FUNCTION K : BOOL\nVAR\nEND_VAR\n%LANGUAGE ST\nK := TRUE;\nEND_FUNCTION\n\n" +
+                                                  "METHOD B : BOOL\n%LANGUAGE ST\nB := TRUE;\nEND_METHOD\n\n" +
+                                                  "METHOD C : BOOL\n%LANGUAGE ST\nC := TRUE;\nEND_METHOD\n"));
 
         var c = Assert.Single(resp.Conflicts!);
         Assert.Contains("its method 'A' was deleted before it and stays deleted", c.Reason);
@@ -168,7 +168,7 @@ public class PartiallyAppliedFieldsTests
         {
             FailCreate = (name, kind) => kind == ItemKind.PlcMethod ? NotValidName(name) : null,
         };
-        var resp = Push(ide, Update(ide, "K.pou", "FUNCTION_BLOCK K\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK" + Method));
+        var resp = Push(ide, Update(ide, "K.pou", "FUNCTION_BLOCK K\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK" + Method));
 
         var c = Assert.Single(resp.Conflicts!);
         Assert.Contains("the declaration of 'K' was written before it and stays", c.Reason);
@@ -185,7 +185,7 @@ public class PartiallyAppliedFieldsTests
         {
             RefuseContentWrite = item => ide.Name(item) == "K" ? new System.InvalidOperationException("the IDE could not write 'K'") : null,
         };
-        var resp = Push(ide, Update(ide, "K.pou", "FUNCTION_BLOCK K\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK" + Method));
+        var resp = Push(ide, Update(ide, "K.pou", "FUNCTION_BLOCK K\nVAR\nEND_VAR\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK" + Method));
 
         var c = Assert.Single(resp.Conflicts!);
         Assert.Contains("its method 'M' was created before it and stays", c.Reason);
@@ -200,7 +200,7 @@ public class PartiallyAppliedFieldsTests
         {
             FailMove = name => name == "FB_M" ? new System.InvalidOperationException("the IDE could not move 'FB_M'") : null,
         };
-        var resp = Push(ide, Update(ide, "A/FB_M.pou", "FUNCTION_BLOCK FB_M\nVAR\nEND_VAR\nIMPLEMENTATION ST\nn := 2;\nEND_FUNCTION_BLOCK\n", toFolder: "B"));
+        var resp = Push(ide, Update(ide, "A/FB_M.pou", "FUNCTION_BLOCK FB_M\nVAR\nEND_VAR\n%LANGUAGE ST\nn := 2;\nEND_FUNCTION_BLOCK\n", toFolder: "B"));
 
         var c = Assert.Single(resp.Conflicts!);
         Assert.Contains("the pushed text of 'FB_M' was written before it and stays", c.Reason);
@@ -220,7 +220,7 @@ public class PartiallyAppliedFieldsTests
                 : null,
         };
         var resp = Push(ide, Update(ide, "X.pou",
-            "FUNCTION_BLOCK Y\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK" + Method, toName: "Y.pou"));
+            "FUNCTION_BLOCK Y\nVAR\nEND_VAR\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK" + Method, toName: "Y.pou"));
 
         Assert.True(ide.Exists("Y"), "premise: the native rename ran before the refused write");
         var c = Assert.Single(resp.Conflicts!);
@@ -240,7 +240,7 @@ public class PartiallyAppliedFieldsTests
     {
         var ide = new FakeIde(FakeIde.Item.TextualPou("X", "FUNCTION X : BOOL\nVAR\nEND_VAR", "X := TRUE;")) { RefusesMembersByText = true };
         var resp = Push(ide, Update(ide, "X.pou",
-            "FUNCTION Y : BOOL\nVAR\nEND_VAR\nIMPLEMENTATION ST\nY := TRUE;\nEND_FUNCTION" + Method, toName: "Y.pou"));
+            "FUNCTION Y : BOOL\nVAR\nEND_VAR\n%LANGUAGE ST\nY := TRUE;\nEND_FUNCTION" + Method, toName: "Y.pou"));
 
         Assert.True(ide.Exists("Y"), "premise: the native rename ran before the refused member");
         var c = Assert.Single(resp.Conflicts!);
@@ -282,7 +282,7 @@ public class PartiallyAppliedFieldsTests
                 ? new System.InvalidOperationException("the IDE could not create 'Broken'") : null,
         };
         Push(ide, new SetItemOp { Name = "Data/Broken.pou", SourceText =
-            "FUNCTION_BLOCK Broken\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n" });
+            "FUNCTION_BLOCK Broken\nVAR\nEND_VAR\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK\n" });
         ide.UnopenedItems.Add("Broken");
         failCreate = true;
 
@@ -290,7 +290,7 @@ public class PartiallyAppliedFieldsTests
         {
             Force = true,
             Ops = new List<PushOp> { new SetItemOp { Name = "Data/Broken.pou", SourceText =
-                "FUNCTION_BLOCK Broken\nVAR\nEND_VAR\nIMPLEMENTATION ST\nn := 1;\nEND_FUNCTION_BLOCK\n" } },
+                "FUNCTION_BLOCK Broken\nVAR\nEND_VAR\n%LANGUAGE ST\nn := 1;\nEND_FUNCTION_BLOCK\n" } },
         });
 
         Assert.False(ide.Exists("Broken"), "premise: the replace deleted the original before its create failed");
@@ -417,7 +417,7 @@ public class PartiallyAppliedFieldsTests
     {
         var ide = new FakeIde(FakeIde.Item.TextualPou("X", "FUNCTION_BLOCK X\nVAR\nEND_VAR", ";"));
         ide.HiddenItems.Add("Y");
-        var resp = Push(ide, Update(ide, "X.pou", "FUNCTION_BLOCK Y\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n", toName: "Y.pou"));
+        var resp = Push(ide, Update(ide, "X.pou", "FUNCTION_BLOCK Y\nVAR\nEND_VAR\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK\n", toName: "Y.pou"));
 
         Assert.Contains("rename:X->Y", ide.Recorded);   // premise: the rename ran
         var c = Assert.Single(resp.Conflicts!);
@@ -447,7 +447,7 @@ public class PartiallyAppliedFieldsTests
     public void A_rename_the_IDE_ignored_claims_no_rename()
     {
         var ide = new FakeIde(FakeIde.Item.TextualPou("Calc", "FUNCTION_BLOCK Calc\nVAR\nEND_VAR", ";")) { IgnoreRenames = true };
-        var resp = Push(ide, Update(ide, "Calc.pou", "FUNCTION_BLOCK calc\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n", toName: "calc.pou"));
+        var resp = Push(ide, Update(ide, "Calc.pou", "FUNCTION_BLOCK calc\nVAR\nEND_VAR\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK\n", toName: "calc.pou"));
 
         var c = Assert.Single(resp.Conflicts!);
         Assert.Equal(BridgeErrorCodes.Unsupported, c.Code);

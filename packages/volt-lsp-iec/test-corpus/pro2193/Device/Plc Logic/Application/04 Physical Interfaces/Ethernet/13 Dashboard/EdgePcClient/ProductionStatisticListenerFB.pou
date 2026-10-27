@@ -9,7 +9,7 @@ VAR
 	ProductionCountersConfig	: EdgePcLogging.ProductionCountersPlcDataTypesConfig;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Initialize();
 
 
@@ -21,7 +21,7 @@ VAR_INST
 	initialized	: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF initialized THEN
 	RETURN;
 END_IF
@@ -44,7 +44,7 @@ VAR
 	plcDataType1	: PlcDataType;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Check if we receive the right kind of data
 IF NOT __QUERYINTERFACE(payload, stat) THEN
 	RETURN;

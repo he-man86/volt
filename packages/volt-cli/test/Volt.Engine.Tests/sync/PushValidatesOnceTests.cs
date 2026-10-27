@@ -22,8 +22,8 @@ namespace Volt.Engine.Tests;
 public class PushValidatesOnceTests
 {
     private const string Decl = "FUNCTION_BLOCK FB_N\nVAR\n\ta : BOOL;\n\tq : BOOL;\nEND_VAR";
-    private const string Fbd = "IMPLEMENTATION FBD\nNETWORK\n  q := a;\nEND_NETWORK";
-    private const string FbdEdited = "IMPLEMENTATION FBD\nNETWORK\n  q := NOT a;\nEND_NETWORK";
+    private const string Fbd = "%LANGUAGE FBD\nNETWORK\n  q := a;\nEND_NETWORK";
+    private const string FbdEdited = "%LANGUAGE FBD\nNETWORK\n  q := NOT a;\nEND_NETWORK";
 
     private static string Source(string body, string method = "") =>
         Decl + "\n" + body + "\n\nEND_FUNCTION_BLOCK\n" + method;

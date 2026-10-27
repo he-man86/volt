@@ -11,7 +11,7 @@ VAR
 	sw						: StopwatchFB;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF execute THEN
 	IF NOT busy THEN
 		chunk		:= 0;
@@ -40,7 +40,7 @@ END_VAR
 // It could actually be a Function instead
 // JSON libs received from Lenze and stored here: N:\Software\Automation\Lenze\Libraries\Lenze JSON lib
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Create content
 JSON_builder(
 	xExecute					:= TRUE,
@@ -58,7 +58,7 @@ END_METHOD
 // Enables the FB to recreate the JSON while execute input remains high
 METHOD PUBLIC Reset
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 busy	:= FALSE;
 done	:= FALSE;
 

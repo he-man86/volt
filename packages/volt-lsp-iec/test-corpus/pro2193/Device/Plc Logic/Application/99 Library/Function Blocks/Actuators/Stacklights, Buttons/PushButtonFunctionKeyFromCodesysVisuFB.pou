@@ -28,7 +28,7 @@ END_VAR
 // Implicit Enumeration: The implicit enumeration allows for an easy way to declare a new enumeration variable which is valid only within the local POU.
 // https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_datatype_implicit_enumeration-1853150.html
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^();
 
 IF HeldTrigger.Rising(CLK := HeldTimer.Set(buttonInput, HeldTimeout)) THEN
@@ -48,7 +48,7 @@ VAR_INPUT
 	observer			: IObserver;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Attach := Subject.Attach(observer);
 
 END_METHOD
@@ -59,14 +59,14 @@ VAR_INPUT
 	observer			: IObserver;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Detach := Subject.Detach(observer);
 
 END_METHOD
 
 METHOD PROTECTED HandleHeld
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF FunctionKeyState = Tapped THEN
 	FunctionKeyState := Held;
 
@@ -87,7 +87,7 @@ END_METHOD
 
 METHOD PROTECTED HandlePushed
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^.HandlePushed();
 
 IF FunctionKeyState = Released THEN
@@ -105,7 +105,7 @@ END_METHOD
 
 METHOD PROTECTED HandleReleased
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^.HandleReleased();
 
 
@@ -132,7 +132,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 ObserverCount := Subject.ObserverCount;
 
 END_GET

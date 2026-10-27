@@ -159,7 +159,7 @@ test("a platform integer's hover names the width the project's target gives it",
 
 /** A function block with an LD body that names `name` in a network, parsed and bound in `dialect`. */
 function networkDoc(name: string, dialect: Dialect): { doc: Document; project: ReturnType<typeof build.buildSymbolTable>; at: number } {
-  const src = `FUNCTION_BLOCK F\nVAR a : BOOL; nm : STRING; out : BOOL; END_VAR\nIMPLEMENTATION LD\nNETWORK\nnm := ${name}();\nout := a;\nEND_NETWORK\nEND_FUNCTION_BLOCK`
+  const src = `FUNCTION_BLOCK F\nVAR a : BOOL; nm : STRING; out : BOOL; END_VAR\n%LANGUAGE LD\nNETWORK\nnm := ${name}();\nout := a;\nEND_NETWORK\nEND_FUNCTION_BLOCK`
   const parseResult = parseSource(src, { networkText: true }, dialect)
   const doc: Document = { uri: "file:///F.pou", source: src, parseResult }
   return { doc, project: build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }], [], dialect), at: src.indexOf(name) + 2 }

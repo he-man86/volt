@@ -22,7 +22,7 @@ VAR
 	SetHomePosition : MC_SetPosition;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 
 CASE byStepper OF (*VERVALLEN, KAN NU VIA HOMING IN AXISBASICS: SET HOME -> SM3_Multiturn eronder aanroepen*)

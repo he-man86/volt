@@ -6,7 +6,7 @@ VAR
 	tDisableDrives		: TON;
 	tonStartButton		: TON;
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 (*************************************************************************
  *
  * Application name				: Snijmachine

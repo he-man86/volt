@@ -7,7 +7,7 @@ import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll, setDe
 import { id, fid, cleanup, requireHealthy, expectRoundTrip, ensureCompiles, savePlcPrg, restorePlcPrg, fixPlcPrg, BASE } from "../harness"
 import { fb } from "../fixtures"
 
-const MARK = "IMPLEMENTATION ST"
+const MARK = "%LANGUAGE ST"
 const name = id("akw_fb")
 const src = fb(name, {
 	vars: "VAR\n\tSET : POINTER TO INT;\n\tGET : INT;\n\tstore : INT;\nEND_VAR",

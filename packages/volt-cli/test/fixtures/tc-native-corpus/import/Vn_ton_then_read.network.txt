@@ -1,4 +1,4 @@
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   t1 : TON(IN := a, PT := pt);
   out := t1.Q;

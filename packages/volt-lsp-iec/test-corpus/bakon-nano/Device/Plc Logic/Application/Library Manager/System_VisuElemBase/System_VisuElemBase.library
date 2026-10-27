@@ -4,4 +4,4 @@ RESOLUTION VisuElemBase, * (System)
 PLACEHOLDER true
 SYSTEM true
 REDIRECT System_VisuElemBase VisuElemBase, 4.8.1.0 (System)
-MATERIALIZATION 4
+MATERIALIZATION 5

@@ -14,8 +14,8 @@ public class ThirdVendorContractTests
     private static readonly Catalog Fakecos = Catalog.Of(Fakeco.DeclarationOf());
 
     [Theory]
-    [InlineData(Fakeco.Block, "%RETAIN\n%NOTE 'main drive'\nBLOCK Motor\nIN start\nIMPLEMENTATION FKL\nlamp = start\n")]
-    [InlineData(Fakeco.Block, "BLOCK Chart\nIMPLEMENTATION LAD UNSUPPORTED\n")]
+    [InlineData(Fakeco.Block, "%RETAIN\n%NOTE 'main drive'\nBLOCK Motor\nIN start\n%LANGUAGE FKL\nlamp = start\n")]
+    [InlineData(Fakeco.Block, "BLOCK Chart\n%LANGUAGE LAD UNSUPPORTED\n")]
     [InlineData(Fakeco.Type, "%NOTE 'rpm'\nTYPE Speed\nFIELD rpm\n")]
     public void The_vendors_own_format_reads_and_writes_its_text_back_byte_for_byte(string kind, string text)
     {
@@ -27,7 +27,7 @@ public class ThirdVendorContractTests
     [Fact]
     public void Its_keys_and_its_hidden_body_are_facts_not_text()
     {
-        var block = Fakeco.Format.Read("%RETAIN\nBLOCK Chart\nIMPLEMENTATION LAD UNSUPPORTED\n", Fakeco.Block, "Chart", Fakecos, Fakeco.Id);
+        var block = Fakeco.Format.Read("%RETAIN\nBLOCK Chart\n%LANGUAGE LAD UNSUPPORTED\n", Fakeco.Block, "Chart", Fakecos, Fakeco.Id);
 
         Assert.Equal(new[] { new Property("RETAIN", null) }, block.Properties.Items);
         Assert.Equal(BodyText.Hidden("LAD", ""), block.Body);
@@ -35,11 +35,11 @@ public class ThirdVendorContractTests
     }
 
     [Theory]
-    [InlineData(Fakeco.Block, "BLOCK Motor\nIMPLEMENTATION ST\nx := 1;\n", "shows no ST body (it shows FKL)")]
+    [InlineData(Fakeco.Block, "BLOCK Motor\n%LANGUAGE ST\nx := 1;\n", "shows no ST body (it shows FKL)")]
     [InlineData(Fakeco.Block, "BLOCK Motor\nlamp = start\n", "has none")]
-    [InlineData(Fakeco.Block, "%EXCLUDE_FROM_BUILD\nBLOCK Motor\nIMPLEMENTATION FKL\n", "%EXCLUDE_FROM_BUILD is no property key a host declared")]
-    [InlineData(Fakeco.Type, "TYPE Speed\nIMPLEMENTATION FKL\n", "a type has no body")]
-    [InlineData(Fakeco.Block, "BLOCK Chart\nIMPLEMENTATION LAD UNSUPPORTED\nx\n", "code follows it")]
+    [InlineData(Fakeco.Block, "%EXCLUDE_FROM_BUILD\nBLOCK Motor\n%LANGUAGE FKL\n", "%EXCLUDE_FROM_BUILD is no property key a host declared")]
+    [InlineData(Fakeco.Type, "TYPE Speed\n%LANGUAGE FKL\n", "a type has no body")]
+    [InlineData(Fakeco.Block, "BLOCK Chart\n%LANGUAGE LAD UNSUPPORTED\nx\n", "code follows it")]
     public void A_text_the_vendor_cannot_hold_is_refused_by_name(string kind, string text, string why)
     {
         var ex = Assert.Throws<BridgeException>(() => Fakeco.Format.Read(text, kind, "X", Fakecos, Fakeco.Id));

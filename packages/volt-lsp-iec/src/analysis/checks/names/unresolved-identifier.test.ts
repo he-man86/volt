@@ -442,7 +442,7 @@ FUNCTION_BLOCK Fb_a\nVAR\nn : INT;\nEND_VAR\nn := Dut_s.nope;\nn := I_x.nope;\nn
 
 // ─── SFC steps (openspec lsp-sfc-step-names 2.1, fixtures `names/sfc-steps.ts`, CODESYS 2026-10-03) ────────────────
 // A POU whose body is SFC has its chart's steps in scope, each an `IecSfc.SFCStepType` (x, t, _x, _t). The chart is not in
-// the text (`IMPLEMENTATION SFC UNSUPPORTED`), so the LSP BETS: a name read WITH A MEMBER inside an SFC POU (or through its
+// the text (`%LANGUAGE SFC UNSUPPORTED`), so the LSP BETS: a name read WITH A MEMBER inside an SFC POU (or through its
 // program or instance), that the POU does not declare and that names nothing else with members, is a step
 // (`types/infer/sfc-step`, DIALECT D40).
 
@@ -458,7 +458,7 @@ function sfcDiag(files: Record<string, string>): string[] {
 
 /** An SFC PROGRAM `P` declaring `vars`, with ACTION `A` holding `action`. */
 const sfcProgram = (vars: string, action: string): string =>
-  `PROGRAM P\nVAR\n${vars}\nEND_VAR\nIMPLEMENTATION SFC UNSUPPORTED\nEND_PROGRAM\n\nACTION A\n${action}\nEND_ACTION\n`
+  `PROGRAM P\nVAR\n${vars}\nEND_VAR\n%LANGUAGE SFC UNSUPPORTED\nEND_PROGRAM\n\nACTION A\n${action}\nEND_ACTION\n`
 
 test("SFC S1/S2/S5: a step's .x, .t, ._x, ._t read in an action of its SFC program are the step's — BOOL and TIME, no error", () => {
   expect(sfcDiag({ "P.pou": sfcProgram("\tbx : BOOL;\n\ttOk : BOOL;", "bx := S_Boot.x;\ntOk := S_Boot.t >= T#0MS;\nbx := S_Boot._x;\ntOk := S_Boot._t >= T#0MS;\nbx := S_BOOT.X;") })).toEqual([])
@@ -467,15 +467,15 @@ test("SFC S1/S2/S5: a step's .x, .t, ._x, ._t read in an action of its SFC progr
 test("SFC S3/S4: the step through its program, through an SFC FB's instance, and in the FB's method", () => {
   expect(sfcDiag({
     "P.pou": sfcProgram("", ""),
-    "FB.pou": "FUNCTION_BLOCK FB\nVAR\n\tbx : BOOL;\nEND_VAR\nIMPLEMENTATION SFC UNSUPPORTED\nEND_FUNCTION_BLOCK\n\nMETHOD M\nbx := S_Boot.x;\nEND_METHOD\n",
-    "Q.pou": "PROGRAM Q\nVAR\n\tinst : FB;\n\tbx : BOOL;\n\ttOk : BOOL;\nEND_VAR\nIMPLEMENTATION ST\nbx := P.S_Boot.x;\ntOk := P.S_Boot._t >= T#0MS;\nbx := inst.S_Boot.x;\nEND_PROGRAM\n",
+    "FB.pou": "FUNCTION_BLOCK FB\nVAR\n\tbx : BOOL;\nEND_VAR\n%LANGUAGE SFC UNSUPPORTED\nEND_FUNCTION_BLOCK\n\nMETHOD M\nbx := S_Boot.x;\nEND_METHOD\n",
+    "Q.pou": "PROGRAM Q\nVAR\n\tinst : FB;\n\tbx : BOOL;\n\ttOk : BOOL;\nEND_VAR\n%LANGUAGE ST\nbx := P.S_Boot.x;\ntOk := P.S_Boot._t >= T#0MS;\nbx := inst.S_Boot.x;\nEND_PROGRAM\n",
   })).toEqual([])
 })
 
 test("SFC S6: a step's flag written inside its POU builds; written through its program it is no input of it", () => {
   expect(sfcDiag({
     "P.pou": sfcProgram("", "S_Boot.x := TRUE;\nS_Boot.t := T#1S;"),
-    "Q.pou": "PROGRAM Q\nIMPLEMENTATION ST\nP.S_Boot.x := TRUE;\nEND_PROGRAM\n",
+    "Q.pou": "PROGRAM Q\n%LANGUAGE ST\nP.S_Boot.x := TRUE;\nEND_PROGRAM\n",
   })).toEqual(["external-non-input-write: 'S_Boot' is no input of 'P'"])
 })
 
@@ -489,13 +489,13 @@ test("SFC S7: a step is an SFCStepType — an unknown member is no component of 
 })
 
 test("SFC S9: a step's name outside every SFC POU is the unknown name it is there", () => {
-  expect(sfcDiag({ "P.pou": sfcProgram("", ""), "Q.pou": "PROGRAM Q\nVAR\n\tbx : BOOL;\nEND_VAR\nIMPLEMENTATION ST\nbx := S_Boot.x;\nEND_PROGRAM\n" }))
+  expect(sfcDiag({ "P.pou": sfcProgram("", ""), "Q.pou": "PROGRAM Q\nVAR\n\tbx : BOOL;\nEND_VAR\n%LANGUAGE ST\nbx := S_Boot.x;\nEND_PROGRAM\n" }))
     .toEqual(["unresolved-identifier: Identifier 'S_Boot' not defined", "unknown-source: Cannot convert type 'Unknown type: 'S_Boot.x'' to type 'BOOL'"])
 })
 
 test("SFC: a name the SFC POU declares is its variable, never a step — and in an ST POU nothing is a step", () => {
   expect(sfcDiag({ "P.pou": sfcProgram("\tv : INT;\n\tbx : BOOL;", "bx := v.x;") })).toEqual([])
-  expect(sfcDiag({ "Q.pou": "PROGRAM Q\nVAR\n\tbx : BOOL;\nEND_VAR\nIMPLEMENTATION ST\nbx := S_Boot.x;\nEND_PROGRAM\n" }))
+  expect(sfcDiag({ "Q.pou": "PROGRAM Q\nVAR\n\tbx : BOOL;\nEND_VAR\n%LANGUAGE ST\nbx := S_Boot.x;\nEND_PROGRAM\n" }))
     .toEqual(["unresolved-identifier: Identifier 'S_Boot' not defined", "unknown-source: Cannot convert type 'Unknown type: 'S_Boot.x'' to type 'BOOL'"])
 })
 
@@ -545,7 +545,7 @@ test("SFC: a bit or partial access on an elementary global is the global's, neve
   const gvl = "VAR_GLOBAL\n\tgw : WORD;\nEND_VAR\n"
   for (const lang of ["SFC UNSUPPORTED", "ST"]) {
     const prg = (vars: string, action: string): string =>
-      `PROGRAM P\nVAR\n${vars}\nEND_VAR\nIMPLEMENTATION ${lang}\nEND_PROGRAM\n\nACTION A\n${action}\nEND_ACTION\n`
+      `PROGRAM P\nVAR\n${vars}\nEND_VAR\n%LANGUAGE ${lang}\nEND_PROGRAM\n\nACTION A\n${action}\nEND_ACTION\n`
     expect(sfcDiag({ "GVL.gvl": gvl, "P.pou": prg("\tbx : BOOL;\n\tk : INT;", "bx := gw.3;\nk := gw.3;\ngw.3 := TRUE;\nbx := gw.%X3;") })).toEqual([])
     expect(sfcDiag({ "GVL.gvl": gvl, "P.pou": prg("\tbx : BOOL;", "bx := gw.17;") })).toEqual(["invalid-bit-number: '17' is no valid bit number for 'gw'"])
   }
@@ -560,7 +560,7 @@ test("SFC: a bit numbered by a CONSTANT is the global's, never a step's — as i
   const gvl = "VAR_GLOBAL\n\tgw : WORD;\nEND_VAR\nVAR_GLOBAL CONSTANT\n\tcBit : INT := 3;\nEND_VAR\n"
   for (const lang of ["SFC UNSUPPORTED", "ST"]) {
     const prg = (vars: string, action: string): string =>
-      `PROGRAM P\nVAR\n${vars}\nEND_VAR\nIMPLEMENTATION ${lang}\nEND_PROGRAM\n\nACTION A\n${action}\nEND_ACTION\n`
+      `PROGRAM P\nVAR\n${vars}\nEND_VAR\n%LANGUAGE ${lang}\nEND_PROGRAM\n\nACTION A\n${action}\nEND_ACTION\n`
     expect(sfcDiag({ "GVL.gvl": gvl, "P.pou": prg("\tbx : BOOL;", "gw.cBit := TRUE;\nbx := gw.cBit;") })).toEqual([])
     expect(sfcDiag({ "GVL.gvl": gvl, "P.pou": prg("\tbx : BOOL;\nEND_VAR\nVAR CONSTANT\n\tcL : INT := 2;", "gw.cL := TRUE;\nbx := gw.cL;") })).toEqual([])
     expect(sfcDiag({ "GVL.gvl": gvl, "P.pou": prg("\tbx : BOOL;", "gw.GVL.cBit := TRUE;\nbx := gw.GVL.cBit;") })).toEqual([])
@@ -571,7 +571,7 @@ test("SFC: a bit numbered by a CONSTANT is the global's, never a step's — as i
 // CODESYS 2026-10-03: builds, TRUE) — no "is no input of" (gate step 2 review)
 test("SFC: an SFC FB writing its own step through THIS^ writes its own member", () => {
   expect(sfcDiag({
-    "FB.pou": "FUNCTION_BLOCK FB\nVAR\n\tbx : BOOL;\nEND_VAR\nIMPLEMENTATION SFC UNSUPPORTED\nEND_FUNCTION_BLOCK\n\nMETHOD M\nTHIS^.S_Boot.x := TRUE;\nbx := THIS^.S_Boot.x;\nEND_METHOD\n",
+    "FB.pou": "FUNCTION_BLOCK FB\nVAR\n\tbx : BOOL;\nEND_VAR\n%LANGUAGE SFC UNSUPPORTED\nEND_FUNCTION_BLOCK\n\nMETHOD M\nTHIS^.S_Boot.x := TRUE;\nbx := THIS^.S_Boot.x;\nEND_METHOD\n",
   })).toEqual([])
 })
 

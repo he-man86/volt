@@ -13,7 +13,7 @@ namespace Volt.Engine.Tests;
 /// <para>A top-level item's kind is its wire name's extension, so its header is never read, never checked against
 /// the extension and never a reason to refuse: the text is written as sent, and the IDE's build reports what is
 /// wrong with it. A DUT or a GVL is not read at all. A POU is read for exactly two things — its
-/// <c>IMPLEMENTATION</c> line (declaration/body split) and its CHILD elements (METHOD, ACTION, PROPERTY and its
+/// <c>%LANGUAGE</c> line (declaration/body split) and its CHILD elements (METHOD, ACTION, PROPERTY and its
 /// GET/SET), which have no extension, so their header line is what names and delimits them.</para>
 ///
 /// <para>It came up in a PLCAssist chat (<c>c802b74d</c>): a DUT whose opening comment was never closed (<c>*</c>
@@ -70,15 +70,15 @@ public class PushWithoutHeaderCheckTests
         AssertWrittenAsSent(ide, Create(ide, "GVL_Main.gvl", text), "GVL_Main", text);
     }
 
-    /// <summary>A POU is read for its IMPLEMENTATION line and its children — and a comment that never closes cannot
+    /// <summary>A POU is read for its %LANGUAGE line and its children — and a comment that never closes cannot
     /// hide either: a <c>(*</c> with no <c>*)</c> after it opens no comment the structure is read through. The
     /// declaration still carries it verbatim, so the IDE's build reports it.</summary>
     [Fact]
     public void A_function_block_whose_opening_comment_never_closes_pushes_as_written()
     {
         const string decl = "(* Motor control\n *\nFUNCTION_BLOCK FB_Motor\nVAR\n\tn : INT; (* count *)\nEND_VAR";
-        const string text = decl + "\nIMPLEMENTATION ST\nn := n + 1;\nEND_FUNCTION_BLOCK\n\n" +
-                            "METHOD Reset\nIMPLEMENTATION ST\nn := 0;\nEND_METHOD\n";
+        const string text = decl + "\n%LANGUAGE ST\nn := n + 1;\nEND_FUNCTION_BLOCK\n\n" +
+                            "METHOD Reset\n%LANGUAGE ST\nn := 0;\nEND_METHOD\n";
         var ide = Project();
         var resp = Create(ide, "FB_Motor.pou", text);
 
@@ -111,7 +111,7 @@ public class PushWithoutHeaderCheckTests
     {
         const string decl = "PROGRAM FB_X\nVAR\n\tn : INT;\nEND_VAR";
         var ide = Project();
-        var resp = Create(ide, "FB_X.pou", decl + "\nIMPLEMENTATION ST\nn := 1;\nEND_PROGRAM\n");
+        var resp = Create(ide, "FB_X.pou", decl + "\n%LANGUAGE ST\nn := 1;\nEND_PROGRAM\n");
 
         AssertWrittenAsSent(ide, resp, "FB_X", decl);
         Assert.Contains("create:FB_X", ide.Recorded);
@@ -164,8 +164,8 @@ public class PushWithoutHeaderCheckTests
     [Fact]
     public void A_child_whose_header_cannot_be_read_is_refused_naming_the_item_and_the_line()
     {
-        const string text = "FUNCTION_BLOCK FB_A\nVAR\nEND_VAR\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\n" +
-                            "METHOD : INT\nIMPLEMENTATION ST\nEND_METHOD\n";
+        const string text = "FUNCTION_BLOCK FB_A\nVAR\nEND_VAR\n%LANGUAGE ST\nEND_FUNCTION_BLOCK\n\n" +
+                            "METHOD : INT\n%LANGUAGE ST\nEND_METHOD\n";
         var ide = Project();
         var resp = Create(ide, "FB_A.pou", text);
 
@@ -182,8 +182,8 @@ public class PushWithoutHeaderCheckTests
     [Fact]
     public void Text_after_the_pou_that_opens_no_child_is_refused_naming_the_item_and_the_line()
     {
-        const string text = "FUNCTION_BLOCK FB_B\nVAR\nEND_VAR\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\n" +
-                            "(* resets the count\n *\nMETHOD Reset\nIMPLEMENTATION ST\nEND_METHOD\n";
+        const string text = "FUNCTION_BLOCK FB_B\nVAR\nEND_VAR\n%LANGUAGE ST\nEND_FUNCTION_BLOCK\n\n" +
+                            "(* resets the count\n *\nMETHOD Reset\n%LANGUAGE ST\nEND_METHOD\n";
         var ide = Project();
         var resp = Create(ide, "FB_B.pou", text);
 

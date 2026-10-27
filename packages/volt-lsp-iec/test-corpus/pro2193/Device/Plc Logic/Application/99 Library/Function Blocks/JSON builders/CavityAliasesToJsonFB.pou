@@ -5,7 +5,7 @@ VAR_IN_OUT
 	JSON					: STRING(2000);
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^();
 
 IF busy THEN
@@ -25,7 +25,7 @@ VAR_INST
 	asProperties		: ARRAY[GVL_Constants.CavityStartIndex..GVL_Constants.CavityEndIndex, 0..1] OF STRING(20);
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Fill data
 FOR chunk := GVL_Constants.CavityStartIndex TO GVL_Constants.CavityEndIndex DO
 	asProperties[chunk, 0]			:= TO_STRING(chunk);

@@ -7,7 +7,7 @@
  * frontend-conformance P5): every parse the server makes passes this as `ParseOptions.networkText`.
  *
  * WHY: network text is not ready to ship. A production bridge pulls every LD and FBD body as its UNSUPPORTED line; a
- * production editor reads nothing under an `IMPLEMENTATION LD|FBD` line either (one pulled from a development bridge,
+ * production editor reads nothing under a `%LANGUAGE LD|FBD` line either (one pulled from a development bridge,
  * or written by hand) — no network finding and no refusal, because whether a push accepts it is the BRIDGE's answer,
  * from its own environment, which this process cannot see. Read ONCE: one answer for the server's life. Development
  * turns it on in the editor's environment, and the test suite in `bunfig.toml`.

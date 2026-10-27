@@ -33,7 +33,7 @@ public class TcStructuralEditTests
             .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting);
 
     private static NetworkBody Pushed(params string[] statements) =>
-        NetworkText.Validate("IMPLEMENTATION LD\nNETWORK\n" +
+        NetworkText.Validate("%LANGUAGE LD\nNETWORK\n" +
                              string.Concat(statements.Select(s => "  " + s + "\n")) + "END_NETWORK\n", Scope);
 
     private static XElement NeverImported(Network n, NetworkScope scope) =>
@@ -206,7 +206,7 @@ public class TcStructuralEditTests
             .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting);
         var scope = NetworkScope.FromDeclarations("PROGRAM VltProbe_Max\nVAR\n  a : INT;\n  b : INT;\n  n : INT;\nEND_VAR",
                                                   _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName, Volt.Tests.Shared.Scopes.NoLibrary);
-        var pushed = NetworkText.Validate("IMPLEMENTATION FBD\nNETWORK\n  n := MAX(a, b);\nEND_NETWORK\n", scope);
+        var pushed = NetworkText.Validate("%LANGUAGE FBD\nNETWORK\n  n := MAX(a, b);\nEND_NETWORK\n", scope);
 
         var ex = Assert.Throws<UnsupportedException>(() => TcNetworkWriter.Apply(xml, pushed, scope));
         Assert.Contains("'In1'", ex.Message);
@@ -222,7 +222,7 @@ public class TcStructuralEditTests
     {
         var scope = NetworkScope.FromDeclarations("PROGRAM VltProbe_Max\nVAR\n  a : INT;\n  b : INT;\n  n : INT;\nEND_VAR",
                                                   _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName, Volt.Tests.Shared.Scopes.NoLibrary);
-        var pushed = NetworkText.Validate("IMPLEMENTATION FBD\nNETWORK\n  n := MAX(a, b);\nEND_NETWORK\n", scope);
+        var pushed = NetworkText.Validate("%LANGUAGE FBD\nNETWORK\n  n := MAX(a, b);\nEND_NETWORK\n", scope);
 
         var built = TcArchiveBuilder.Body(pushed, scope);
 

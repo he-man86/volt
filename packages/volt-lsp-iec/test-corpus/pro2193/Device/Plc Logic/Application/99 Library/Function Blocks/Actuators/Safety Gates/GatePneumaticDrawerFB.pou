@@ -8,7 +8,7 @@ END_VAR
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^();
 
 
@@ -21,7 +21,7 @@ VAR_INST
 	Blinker				: BLINK;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^.Cyclic();
 
 // Get drawer hardware control and prevent other actions on the drawer

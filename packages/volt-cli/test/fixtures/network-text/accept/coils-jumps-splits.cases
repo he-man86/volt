@@ -1,6 +1,6 @@
 #### jump-coil — a jump is a coil the rung drives, `JMP Done := a AND b;`
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   JMP Done := a AND b;
 END_NETWORK
@@ -15,7 +15,7 @@ NETWORK label:Done
 
 #### jump-rail — a jump nothing drives: its value is the empty slot, `JMP Done := ;` (C11)
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   JMP Done := ;
 END_NETWORK
@@ -30,7 +30,7 @@ NETWORK label:Done
 
 #### return-coil — a conditional return, `RETURN := NOT xReady;`
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   RETURN := NOT xReady;
 END_NETWORK
@@ -40,7 +40,7 @@ NETWORK
 
 #### return-rail — `RETURN := ;`
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   RETURN := ;
 END_NETWORK
@@ -50,7 +50,7 @@ NETWORK
 
 #### coil-and-jump — a coil and a jump on one rung, in stored order
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x1 := JMP Done := c;
   x2 := RETURN := c;
@@ -67,7 +67,7 @@ NETWORK label:Done
 
 #### two-jumps — two jumps on one rung, in stored order
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   JMP L1 := JMP L2 := c;
 END_NETWORK
@@ -87,7 +87,7 @@ NETWORK label:L2
 
 #### jump-set — a jump and a return take S=
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   JMP Done S= c;
   RETURN S= c;
@@ -104,7 +104,7 @@ NETWORK label:Done
 
 #### nested-jump — a jump nests like any coil
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   y := (JMP Done := c);
 END_NETWORK
@@ -119,7 +119,7 @@ NETWORK label:Done
 
 #### nested-assign — a nested assignment is bracketed: `y := (x := a);` is one coil fed by another
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   y := (x := a AND b);
 END_NETWORK
@@ -129,7 +129,7 @@ NETWORK
 
 #### multi-coil — `y := x := a;` is ONE assignment with two coils, in stored order
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   y := x := a;
 END_NETWORK
@@ -139,7 +139,7 @@ NETWORK
 
 #### set-reset-chain — S= and R= are coils; on one variable the last stored wins (11)
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   a := b S= c R= value;
   lamp S= lamp R= c;
@@ -153,7 +153,7 @@ NETWORK
 
 #### coil-on-rail — a coil nothing drives, `x R= ;`
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   FirstCycle R= ;
 END_NETWORK
@@ -163,7 +163,7 @@ NETWORK
 
 #### negated-coil — a coil's negation stands before it, `NOT xn := c;`
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   NOT xn := c;
 END_NETWORK
@@ -173,7 +173,7 @@ NETWORK
 
 #### edge-coils — an edge stands before the coil, before its NOT
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   R_EDGE xe := c;
   F_EDGE xf := c;
@@ -187,7 +187,7 @@ NETWORK
 
 #### negated-empty-value — a negation on the empty slot, `x := NOT;` (it writes TRUE)
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := NOT;
 END_NETWORK
@@ -197,7 +197,7 @@ NETWORK
 
 #### split-defined-and-read — a split is its VarId, defined once, read anywhere in its network
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   split175 := TRUE;
   split176 := split175 AND RunAuto;
@@ -213,7 +213,7 @@ NETWORK
 
 #### split-of-a-box — a split's type is its feeder's: nothing written
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   split12 := a ADD b;
   x := split12;
@@ -225,7 +225,7 @@ NETWORK
 
 #### split-in-en — a split read by an EN
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   split174 := TRUE;
   MOVE 0 => t ENO EN split174;
@@ -239,7 +239,7 @@ NETWORK
 === scope
 name split1
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   split1 := a;
   x := split1;
@@ -253,7 +253,7 @@ NETWORK
 
 #### split-before-definition — a split read above its definition, in the stored order (it reads the previous scan)
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := split1;
   split1 := a AND b;
@@ -267,7 +267,7 @@ NETWORK
 
 #### split-nested-definition — a split defined below the top level, bracketed
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := (split1 := a AND b);
   y := split1 AND c;

@@ -40,7 +40,7 @@ public class LibraryFunctionReadTests
     public void A_body_with_no_library_call_reads_no_library()
     {
         var reads = 0;
-        var gate = NetworkTextGate.Validate("IMPLEMENTATION FBD\nNETWORK\n  y := y ADD 1;\nEND_NETWORK\n",
+        var gate = NetworkTextGate.Validate("%LANGUAGE FBD\nNETWORK\n  y := y ADD 1;\nEND_NETWORK\n",
             Declarations(() => ++reads).ScopeFor(Own, PushedDeclarations.None));
         Assert.True(gate.Ok, string.Join("\n", gate.Diagnostics.Select(d => d.Message)));
         Assert.Equal(0, reads);

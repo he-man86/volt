@@ -20,14 +20,15 @@ const flagged = (properties: readonly string[] | undefined): boolean => properti
 /** Whether a unit's own property lines carry the flag. */
 function ownFlag(u: TopLevel): boolean {
   if (u.kind === "namespace") return false // a library's namespace, which no file's text spells
-  // a POU, a method and an action: under the IMPLEMENTATION line; a property, an interface, a DUT, a GVL: closing the declaration
+  // a POU, a method and an action: under the %LANGUAGE line (a method with no body slot: closing its declaration); a
+  // property, an interface, a DUT, a GVL: closing the declaration
   if (u.kind === "property" || u.kind === "interface" || u.kind === "type_decl" || u.kind === "global_var_list")
     return flagged(u.objectProperties)
-  return flagged(u.body.implementation?.objectProperties)
+  return flagged(u.body.languageLine?.objectProperties ?? u.body.noSlot?.objectProperties)
 }
 
 /** The spans of the members inside a unit that carry their own flag: an interface's methods and properties. (A
- *  property's accessor has no property lines: the push peels none under its IMPLEMENTATION line.) */
+ *  property's accessor has no property lines: the push peels none under its %LANGUAGE line.) */
 function flaggedInside(u: TopLevel): Span[] {
   if (u.kind === "interface") return [...u.methods, ...u.properties].filter((m) => flagged(m.objectProperties)).map((m) => m.span)
   return []

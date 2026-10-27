@@ -19,7 +19,7 @@ VAR
 	sensorDetected			: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF NOT enable THEN
 	leftWindow		:= FALSE;
 	productDetected	:= FALSE;

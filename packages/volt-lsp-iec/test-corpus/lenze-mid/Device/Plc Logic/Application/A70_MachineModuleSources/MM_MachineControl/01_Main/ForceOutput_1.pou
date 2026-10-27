@@ -2,7 +2,7 @@ PROGRAM ForceOutput_1
 VAR
 END_VAR
 
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   split2 := NOT HMI_Var.ForceOutputs;
   LST_InputsOutputs.Serv_QB100.0 := split2 AND LST_InputsOutputs.Q100_0_Pilot_light_Alarm_green_;

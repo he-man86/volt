@@ -177,7 +177,7 @@ async function direction(name: string, cliExe: string, cliPkg: string, own: Serv
 		const file = join(dirname(join(src, anyPou)), "VltE2E_Mx.pou")
 		const rel = (f: string) => f.slice(root.length + 1).replace(/\\/g, "/")
 		const g = (...a: string[]) => spawnSync("git", a, { cwd: root, env: { ...process.env, ...GIT_ENV }, encoding: "utf8" })
-		writeFileSync(file, "FUNCTION_BLOCK VltE2E_Mx\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := x + 1;\nEND_FUNCTION_BLOCK\n")
+		writeFileSync(file, "FUNCTION_BLOCK VltE2E_Mx\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\nx := x + 1;\nEND_FUNCTION_BLOCK\n")
 		g("add", "--", rel(file)); g("commit", "-q", "-m", "mixed-version: create")
 		const created = await call("push (create)", ["push", "--json"], root, other.pipe, true)
 		g("rm", "-q", "--", created.status === 0 ? rel(file) : rel(join(src, anyPou))); g("commit", "-q", "-m", "mixed-version: delete")

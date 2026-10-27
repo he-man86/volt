@@ -63,13 +63,13 @@ public class StFormatRoundTripTests
 
         { "a network-text body",
           new ItemContent(ItemKind.Kinds.Pou, "PROGRAM P\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR",
-              "IMPLEMENTATION FBD\nNETWORK\n  out := NOT (a);\nEND_NETWORK", new(), ObjectProperties.None) },
+              "%LANGUAGE FBD\nNETWORK\n  out := NOT (a);\nEND_NETWORK", new(), ObjectProperties.None) },
 
         { "a hidden CFC body",
-          new ItemContent(ItemKind.Kinds.Pou, "PROGRAM P\nVAR\nEND_VAR", "IMPLEMENTATION CFC UNSUPPORTED", new(), ObjectProperties.None) },
+          new ItemContent(ItemKind.Kinds.Pou, "PROGRAM P\nVAR\nEND_VAR", "%LANGUAGE CFC UNSUPPORTED", new(), ObjectProperties.None) },
 
         { "a hidden LD body network text cannot represent",
-          new ItemContent(ItemKind.Kinds.Pou, "PROGRAM P\nVAR\nEND_VAR", "IMPLEMENTATION LD UNSUPPORTED", new(), ObjectProperties.None) },
+          new ItemContent(ItemKind.Kinds.Pou, "PROGRAM P\nVAR\nEND_VAR", "%LANGUAGE LD UNSUPPORTED", new(), ObjectProperties.None) },
 
         { "DUT — declaration only",
           new ItemContent(ItemKind.Kinds.Dut, "TYPE D :\nSTRUCT\n\tn : INT;\nEND_STRUCT\nEND_TYPE", null, new(), ObjectProperties.None) },

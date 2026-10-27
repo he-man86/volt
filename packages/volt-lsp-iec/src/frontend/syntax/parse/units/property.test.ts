@@ -69,7 +69,7 @@ test("an accessor's modifier on the keyword's own line is refused; on the line u
     "'SET PUBLIC FINAL': the push reads an accessor's modifier from the line under SET, as the pull writes it, and drops SET's own line — it would reach the IDE as 'SET'. Move the modifier to the next line.",
   ])
   // the pulled form: the modifier opens the accessor's declaration
-  const pulled = accessors("GET\nPUBLIC\nVAR\nEND_VAR\nIMPLEMENTATION ST\nP := stored;\nEND_GET\n")
+  const pulled = accessors("GET\nPUBLIC\nVAR\nEND_VAR\n%LANGUAGE ST\nP := stored;\nEND_GET\n")
   expect([pulled.errors, pulled.unit.getter?.modifiers]).toEqual([[], ["PUBLIC"]])
 })
 
@@ -94,7 +94,7 @@ test("an accessor without END_GET/END_SET is bare: code under it is refused, the
 test("a modifier under a bare accessor is code under an open accessor: refused, as the push drops its line", () => {
   // `StReader.ReadProperty` closes the bare GET at its own line and the property's declaration ends before it, so the
   // PUBLIC line belongs to nothing
-  expect(accessors("GET\nPUBLIC\nSET\nIMPLEMENTATION ST\nstored := P;\nEND_SET\n").errors).toEqual([
+  expect(accessors("GET\nPUBLIC\nSET\n%LANGUAGE ST\nstored := P;\nEND_SET\n").errors).toEqual([
     "'GET' is not closed by 'END_GET': an accessor without its END_GET is bodiless, and the push drops what stands under it. Close it with END_GET.",
   ])
 })
@@ -111,16 +111,16 @@ test("an accessor keyword stands alone on its line: one that shares it is refuse
     `'${keyword}' does not start its line (after '${before}'): the push reads GET, SET, END_GET and END_SET only at the start of a line, so it would not see this one and the accessor's text is lost. Put '${keyword}' on a line of its own.`
   const trailing = (keyword: string, after: string) =>
     `'${after}' shares the line of '${keyword}': the push drops the rest of an accessor's keyword line. Move it to the next line.`
-  expect(accessors("GET\nIMPLEMENTATION ST\nP := stored; END_GET\n").errors).toEqual([notFirst("END_GET", ";")])
+  expect(accessors("GET\n%LANGUAGE ST\nP := stored; END_GET\n").errors).toEqual([notFirst("END_GET", ";")])
   expect(
-    accessors("GET\nIMPLEMENTATION ST\nP := 1;\nEND_GET SET\nIMPLEMENTATION ST\nstored := P;\nEND_SET\n").errors,
+    accessors("GET\n%LANGUAGE ST\nP := 1;\nEND_GET SET\n%LANGUAGE ST\nstored := P;\nEND_SET\n").errors,
   ).toEqual([notFirst("SET", "END_GET")])
-  expect(accessors("SET\nIMPLEMENTATION ST\nstored := P; END_SET\n").errors).toEqual([notFirst("END_SET", ";")])
+  expect(accessors("SET\n%LANGUAGE ST\nstored := P; END_SET\n").errors).toEqual([notFirst("END_SET", ";")])
   expect(accessors("GET P := stored;\nEND_GET\n").errors).toEqual([trailing("GET", "P")])
   expect(accessors("GET END_GET\n").errors).toEqual([notFirst("END_GET", "GET")])
   // each on a line of its own (trailing comments are no content) is accepted
   expect(
-    accessors("GET // the getter\nIMPLEMENTATION ST\nP := stored;\nEND_GET (* end *)\nSET\nEND_SET\n").errors,
+    accessors("GET // the getter\n%LANGUAGE ST\nP := stored;\nEND_GET (* end *)\nSET\nEND_SET\n").errors,
   ).toEqual([])
 })
 
@@ -147,14 +147,14 @@ test("a header ending at its colon is the build's \"Type definition expected ins
 
 /**
  * GET AND SET ARE NAMES INSIDE AN ACCESSOR'S BODY AND ITS VAR BLOCKS (openspec lsp-accessor-keyword-at-line-start; the
- * push's `StReader.ReadProperty` reads the same, `AccessorKeywordOperandTests`). A body runs from its IMPLEMENTATION line
+ * push's `StReader.ReadProperty` reads the same, `AccessorKeywordOperandTests`). A body runs from its %LANGUAGE line
  * to its own END keyword, as every element's does, so a GET or SET there — at a line start or mid-line — is an operand.
  * The field FB (PLCAssist, 2026-10-10) declared `SET : POINTER TO <struct>` and got 33 "'GET' is not closed by 'END_GET'"
  * from a build that was clean; the `unit_accessor_name_*` fixtures (grammar/units.ts) build clean on both vendors.
  */
 const named = (decls: string, text: string, type = "INT") => {
   const r = parseSource(
-    `FUNCTION_BLOCK X\nVAR\n${decls}END_VAR\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\nPROPERTY P : ${type}\n${text}END_PROPERTY\n`,
+    `FUNCTION_BLOCK X\nVAR\n${decls}END_VAR\n%LANGUAGE ST\nEND_FUNCTION_BLOCK\n\nPROPERTY P : ${type}\n${text}END_PROPERTY\n`,
     { networkText: true }, "codesys",
   )
   return { errors: r.errors.map((e) => e.message), unit: r.units[1] as Property }
@@ -180,7 +180,7 @@ test("GET/SET as an operand in an accessor's body, at a line start or mid-line, 
   ]
   for (const [decls, kind, body] of cases) {
     const kw = kind === "get" ? "GET" : "SET"
-    const r = named(decls, `${kw}\nIMPLEMENTATION ST\n${body}\nEND_${kw}\n`)
+    const r = named(decls, `${kw}\n%LANGUAGE ST\n${body}\nEND_${kw}\n`)
     const accessor = kind === "get" ? r.unit.getter : r.unit.setter
     expect([body, r.errors, bodyText(accessor), kind === "get" ? r.unit.setter : r.unit.getter]).toEqual([
       body,
@@ -190,16 +190,16 @@ test("GET/SET as an operand in an accessor's body, at a line start or mid-line, 
     ])
   }
   // mid-line, in a getter returning a pointer, and both accessors together
-  expect(named("\tSET : POINTER TO R;\n", "GET\nIMPLEMENTATION ST\nP := ADR(SET^.x);\nEND_GET\n", "POINTER TO INT").errors).toEqual([])
+  expect(named("\tSET : POINTER TO R;\n", "GET\n%LANGUAGE ST\nP := ADR(SET^.x);\nEND_GET\n", "POINTER TO INT").errors).toEqual([])
   const both = named(
     "\tSET : POINTER TO INT;\n",
-    "GET\nIMPLEMENTATION ST\nP := SET^;\nEND_GET\nSET\nIMPLEMENTATION ST\nSET^ := P;\nEND_SET\n",
+    "GET\n%LANGUAGE ST\nP := SET^;\nEND_GET\nSET\n%LANGUAGE ST\nSET^ := P;\nEND_SET\n",
   )
   expect([both.errors, bodyText(both.unit.getter), bodyText(both.unit.setter)]).toEqual([[], "P := SET^;", "SET^ := P;"])
 })
 
 test("SET declared in an accessor's own VAR block is a declaration, and an operand in its body", () => {
-  const r = named("", "GET\nVAR\n\tSET : INT;\nEND_VAR\nIMPLEMENTATION ST\nSET := 7;\nP := SET;\nEND_GET\n")
+  const r = named("", "GET\nVAR\n\tSET : INT;\nEND_VAR\n%LANGUAGE ST\nSET := 7;\nP := SET;\nEND_GET\n")
   expect([r.errors, r.unit.getter?.varSections.length, bodyText(r.unit.getter), r.unit.setter]).toEqual([
     [],
     1,
@@ -210,22 +210,22 @@ test("SET declared in an accessor's own VAR block is a declaration, and an opera
 
 test("an accessor body that reaches END_PROPERTY or the other accessor's END before its own is not closed, as today", () => {
   // inside a body only its own END closes it: the SET line is body text, so the getter's END is END_SET's place — and
-  // the setter's IMPLEMENTATION line is a second one in the getter's body, reported where it stands (the spec's "naming
+  // the setter's %LANGUAGE line is a second one in the getter's body, reported where it stands (the spec's "naming
   // both lines": the GET that is not closed, and the line under it that was meant to open another body)
-  expect(named("", "GET\nIMPLEMENTATION ST\nP := 1;\n").errors).toEqual([unclosedAccessor("GET", "END_GET")])
+  expect(named("", "GET\n%LANGUAGE ST\nP := 1;\n").errors).toEqual([unclosedAccessor("GET", "END_GET")])
   expect(
-    named("\tx : INT;\n", "GET\nIMPLEMENTATION ST\nP := 1;\nSET\nIMPLEMENTATION ST\nx := P;\nEND_SET\n").errors,
+    named("\tx : INT;\n", "GET\n%LANGUAGE ST\nP := 1;\nSET\n%LANGUAGE ST\nx := P;\nEND_SET\n").errors,
   ).toEqual([
-    "a second IMPLEMENTATION line inside a body: 'IMPLEMENTATION ST'. A body states its language once, on the line that opens it.",
+    "a second %LANGUAGE line inside a body: '%LANGUAGE ST'. A body states its language once, on the line that opens it.",
     unclosedAccessor("GET", "END_GET"),
   ])
-  expect(named("\tx : INT;\n", "SET\nIMPLEMENTATION ST\nx := P;\nEND_GET\n").errors).toEqual([unclosedAccessor("SET", "END_SET")])
+  expect(named("\tx : INT;\n", "SET\n%LANGUAGE ST\nx := P;\nEND_GET\n").errors).toEqual([unclosedAccessor("SET", "END_SET")])
 })
 
 test("real accessor keyword lines keep their refusals: a bare GET is closed by the next SET, text on the keyword line is refused", () => {
-  const bare = named("\tx : INT;\n", "GET\nSET\nIMPLEMENTATION ST\nx := P;\nEND_SET\n")
+  const bare = named("\tx : INT;\n", "GET\nSET\n%LANGUAGE ST\nx := P;\nEND_SET\n")
   expect([bare.errors, bodyText(bare.unit.getter), bodyText(bare.unit.setter)]).toEqual([[], "", "x := P;"])
-  expect(named("", "GET PUBLIC\nIMPLEMENTATION ST\nP := 1;\nEND_GET\n").errors).toEqual([
+  expect(named("", "GET PUBLIC\n%LANGUAGE ST\nP := 1;\nEND_GET\n").errors).toEqual([
     "'GET PUBLIC': the push reads an accessor's modifier from the line under GET, as the pull writes it, and drops GET's own line — it would reach the IDE as 'GET'. Move the modifier to the next line.",
   ])
 })

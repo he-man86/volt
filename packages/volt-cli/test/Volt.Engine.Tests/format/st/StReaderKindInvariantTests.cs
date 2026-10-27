@@ -25,7 +25,7 @@ public class StReaderKindInvariantTests
     public void A_kind_with_no_composite_shape_is_an_argument_fault_not_invalid_ST(string kind)
     {
         var ex = Assert.ThrowsAny<ArgumentException>(() =>
-            StReader.Read("FUNCTION_BLOCK F\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n", kind, "F"));
+            StReader.Read("FUNCTION_BLOCK F\n%LANGUAGE ST\nEND_FUNCTION_BLOCK\n", kind, "F"));
 
         Assert.IsNotAssignableFrom<ICodedError>(ex);
         Assert.Contains(kind, ex.Message);

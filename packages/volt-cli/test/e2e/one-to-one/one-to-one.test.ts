@@ -79,17 +79,17 @@ describe.skipIf(!authored)(`bridge one-to-one / CODESYS (${BASE})`, () => {
 	// finding 1: the class
 	it("a check function pulls its class (%CLASS CHECK CheckDivInt32)", async () => {
 		const text = (await fetchItem("CheckDivDInt.pou")).sourceText
-		expect(after(text, "IMPLEMENTATION ST", 1)).toEqual(["%CLASS CHECK CheckDivInt32"])
+		expect(after(text, "%LANGUAGE ST", 1)).toEqual(["%CLASS CHECK CheckDivInt32"])
 	})
 
 	it("a check function created from its spelled text is made as its class", async () => {
 		const name = `${PREFIX}_OtoCheck`
 		made.push(`${name}.pou`)
 		const src =
-			`FUNCTION ${name} : LINT\nVAR_INPUT\n\tdivisor : LINT;\nEND_VAR\nIMPLEMENTATION ST\n%CLASS CHECK CheckDivInt64\n` +
+			`FUNCTION ${name} : LINT\nVAR_INPUT\n\tdivisor : LINT;\nEND_VAR\n%LANGUAGE ST\n%CLASS CHECK CheckDivInt64\n` +
 			`${name} := divisor;\n\nEND_FUNCTION\n`
 		expect(landedInFull(await create(`${name}.pou`, src))).toBe(true)
-		expect(after((await fetchItem(`${name}.pou`)).sourceText, "IMPLEMENTATION ST", 1)).toEqual(["%CLASS CHECK CheckDivInt64"])
+		expect(after((await fetchItem(`${name}.pou`)).sourceText, "%LANGUAGE ST", 1)).toEqual(["%CLASS CHECK CheckDivInt64"])
 		// The CLASS, as the IDE serializes it: a check function archives its SpecialFunc (`export_native`); text the push
 		// wrote into a plain POU's body would read back the same in the pull, so the pull alone proves nothing here.
 		expect(await codesysNativeExport(name)).toMatch(/Name="SpecialFunc"[^>]*>CheckDivInt64</)
@@ -134,7 +134,7 @@ describe.skipIf(!authored)(`bridge one-to-one / CODESYS (${BASE})`, () => {
 
 	// finding 3: object properties
 	it("an excluded POU pulls %EXCLUDE_FROM_BUILD under its implementation line", async () => {
-		expect(after((await fetchItem("VltOto_Excluded.pou")).sourceText, "IMPLEMENTATION ST", 1)).toEqual(["%EXCLUDE_FROM_BUILD"])
+		expect(after((await fetchItem("VltOto_Excluded.pou")).sourceText, "%LANGUAGE ST", 1)).toEqual(["%EXCLUDE_FROM_BUILD"])
 	})
 
 	// finding 4: the task
@@ -195,7 +195,7 @@ describe.skipIf(VENDOR !== "twincat")(`bridge one-to-one / TwinCAT (${BASE})`, (
 		made.push(`${name}.pou`)
 		const r = await create(
 			`${name}.pou`,
-			`FUNCTION ${name} : DINT\nVAR_INPUT\n\tdivisor : DINT;\nEND_VAR\nIMPLEMENTATION ST\n%CLASS CHECK CheckDivInt32\n${name} := divisor;\n\nEND_FUNCTION\n`,
+			`FUNCTION ${name} : DINT\nVAR_INPUT\n\tdivisor : DINT;\nEND_VAR\n%LANGUAGE ST\n%CLASS CHECK CheckDivInt32\n${name} := divisor;\n\nEND_FUNCTION\n`,
 		)
 		expect(landedInFull(r)).toBe(false)
 		expect(reasons(r)).toContain("%CLASS")
@@ -205,7 +205,7 @@ describe.skipIf(VENDOR !== "twincat")(`bridge one-to-one / TwinCAT (${BASE})`, (
 	it("%EXCLUDE_FROM_BUILD creates an excluded POU, and removing the line builds it again", async () => {
 		const name = `${PREFIX}_OtoExcluded`
 		made.push(`${name}.pou`)
-		const excluded = `FUNCTION_BLOCK ${name}\nVAR\nEND_VAR\nIMPLEMENTATION ST\n%EXCLUDE_FROM_BUILD\nx := 1;\n\nEND_FUNCTION_BLOCK\n`
+		const excluded = `FUNCTION_BLOCK ${name}\nVAR\nEND_VAR\n%LANGUAGE ST\n%EXCLUDE_FROM_BUILD\nx := 1;\n\nEND_FUNCTION_BLOCK\n`
 		expect(landedInFull(await create(`${name}.pou`, excluded))).toBe(true)
 		const pulled = await fetchItem(`${name}.pou`)
 		expect(lf(pulled.sourceText)).toBe(excluded)
@@ -235,8 +235,8 @@ describe.skipIf(VENDOR !== "twincat")(`bridge one-to-one / TwinCAT (${BASE})`, (
 		const name = `${PREFIX}_OtoBuildProps`
 		made.push(`${name}.pou`)
 		const src =
-			`FUNCTION_BLOCK ${name}\nVAR\nEND_VAR\nIMPLEMENTATION ST\n%LINK_ALWAYS\n%EXTERNAL\n%COMPILER_DEFINES 'SIM, X:=2'\nx := 1;\n\nEND_FUNCTION_BLOCK\n\n` +
-			`METHOD Run : BOOL\nIMPLEMENTATION ST\n%LINK_ALWAYS\nRun := TRUE;\nEND_METHOD\n`
+			`FUNCTION_BLOCK ${name}\nVAR\nEND_VAR\n%LANGUAGE ST\n%LINK_ALWAYS\n%EXTERNAL\n%COMPILER_DEFINES 'SIM, X:=2'\nx := 1;\n\nEND_FUNCTION_BLOCK\n\n` +
+			`METHOD Run : BOOL\n%LANGUAGE ST\n%LINK_ALWAYS\nRun := TRUE;\nEND_METHOD\n`
 		expect(landedInFull(await create(`${name}.pou`, src))).toBe(true)
 		expect(lf((await fetchItem(`${name}.pou`)).sourceText)).toBe(src)
 	})
@@ -246,7 +246,7 @@ describe.skipIf(VENDOR !== "twincat")(`bridge one-to-one / TwinCAT (${BASE})`, (
 		made.push(`${name}.pou`)
 		const r = await create(
 			`${name}.pou`,
-			`FUNCTION_BLOCK ${name}\nVAR\nEND_VAR\nIMPLEMENTATION ST\n%ENABLE_SYSTEM_CALL\n\nEND_FUNCTION_BLOCK\n`,
+			`FUNCTION_BLOCK ${name}\nVAR\nEND_VAR\n%LANGUAGE ST\n%ENABLE_SYSTEM_CALL\n\nEND_FUNCTION_BLOCK\n`,
 		)
 		expect(landedInFull(r)).toBe(false)
 		expect(reasons(r)).toContain("%ENABLE_SYSTEM_CALL")

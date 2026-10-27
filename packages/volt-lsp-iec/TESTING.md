@@ -102,7 +102,7 @@ test/
                              holds both ceilings files to their history)
   lsp/                       the server as a client sees it: the black-box suites that drive the whole server over its
                              protocol (capability-matrix, diagnostic-identity, navigation-golden, network-text-switch,
-                             implementation-keyword-diagnostics, the scheduling suites diagnostics-pull, disk-sync and
+                             language-line-diagnostics, the scheduling suites diagnostics-pull, disk-sync and
                              server-robustness, input-nobody-types — generated input past
                              the stack, on the node bundle and bun — the opt-in latency bench); harness.ts — the LSP client they and
                              src/server's colocated tests drive, sources.ts — the documents and steps they share,

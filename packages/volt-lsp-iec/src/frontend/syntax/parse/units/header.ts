@@ -13,18 +13,20 @@ import { parseTypeExpression } from "../type-expr.js"
 /** A header's return-type clause, as the unit node spreads it: the type, or that one was written and refused, or neither. */
 type ReturnTypeClause = { returnType: TypeExpr } | { returnTypeRefused: true } | Record<string, never>
 
-/** A `: ReturnType` at the cursor, or nothing when no `:` stands there. */
-export function parseReturnTypeClause(c: Cursor): ReturnTypeClause {
+/** A `: ReturnType` at the cursor, or nothing when no `:` stands there. `closers`: the unit's END lines the push never
+ *  writes into its declaration (a METHOD with no body slot ends at its END_METHOD). */
+export function parseReturnTypeClause(c: Cursor, closers: readonly Keyword[] = []): ReturnTypeClause {
   const colon = c.eatPunct(":")
   if (colon === undefined) return {}
-  if (refusedEmptyType(c, colon.span, [])) return { returnTypeRefused: true }
+  if (refusedEmptyType(c, colon.span, closers)) return { returnTypeRefused: true }
   const returnType = parseTypeExpression(c)
   return returnType !== undefined ? { returnType } : { returnTypeRefused: true }
 }
 
 /**
- * NOTHING AFTER A MEMBER'S COLON BUT A LINE THE PUSH NEVER WRITES INTO A DECLARATION — the body's IMPLEMENTATION line, or
- * one of `closers` (an interface member's END_METHOD / END_PROPERTY, an interface property's GET / SET): the IDE holds
+ * NOTHING AFTER A MEMBER'S COLON BUT A LINE THE PUSH NEVER WRITES INTO A DECLARATION — the body's %LANGUAGE line, or
+ * one of `closers` (an interface member's END_METHOD / END_PROPERTY, an interface property's GET / SET, a POU method's
+ * END_METHOD when it has no body slot): the IDE holds
  * the declaration without that line, so its text ends at the colon — "Type definition expected instead of ''" on both
  * vendors (`sig_empty_type`, openspec bridge-refusal-review 2.4/D10, 2026-10-03; review 4b for the closers). Reported at
  * the colon, and true; read as the type, that line was taken for a type name. False, with nothing reported, otherwise.
@@ -32,7 +34,7 @@ export function parseReturnTypeClause(c: Cursor): ReturnTypeClause {
  */
 export function refusedEmptyType(c: Cursor, colon: Span, closers: readonly Keyword[]): boolean {
   const next = c.peek()
-  const ends = c.opensImplementationLine() || (next.kind === "keyword" && closers.includes(next.keyword!))
+  const ends = c.opensLanguageLine() || (next.kind === "keyword" && closers.includes(next.keyword!))
   if (ends) c.pushError("Type definition expected instead of ''", colon)
   return ends
 }
@@ -48,8 +50,8 @@ export function emptyType(colon: Span): NamedType {
  * PROGRAM's (`PROGRAM P;` builds on both vendors, `unit_program_trailing_semicolon`; its return type is C0182's).
  * The `;` MUST be consumed or `collectVarSections` stops at it and drops every local.
  */
-export function parseOptionalReturnType(c: Cursor): ReturnTypeClause {
-  const clause = parseReturnTypeClause(c)
+export function parseOptionalReturnType(c: Cursor, closers: readonly Keyword[] = []): ReturnTypeClause {
+  const clause = parseReturnTypeClause(c, closers)
   c.eatPunct(";")
   return clause
 }

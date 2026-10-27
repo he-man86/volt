@@ -65,7 +65,7 @@ describe.skipIf(!served)(`a POU with CJK-named methods / CODESYS (${BASE})`, () 
 
 	it("a NEW method named in CJK is created: the IDE takes it (its project has Unicode identifiers on)", async () => {
 		const now = await fetchItem(FB)
-		const added = lf(now.sourceText) + "\nMETHOD 读取命令 : BOOL\n\nIMPLEMENTATION ST\n读取命令 := TRUE;\n\nEND_METHOD\n"
+		const added = lf(now.sourceText) + "\nMETHOD 读取命令 : BOOL\n\n%LANGUAGE ST\n读取命令 := TRUE;\n\nEND_METHOD\n"
 		const r = await pushOps([{ op: "set", name: await pathOf(FB), sourceText: added, ifVersion: now.version }])
 		expect(landedInFull(r), reasons(r)).toBe(true)
 		expect(member((await fetchItem(FB)).sourceText, "读取命令")).toContain("读取命令 := TRUE;")
@@ -75,7 +75,7 @@ describe.skipIf(!served)(`a POU with CJK-named methods / CODESYS (${BASE})`, () 
 		// A leading digit before CJK: refused by SP21 with Unicode identifiers on (DIALECT C28b) — the IDE's verdict, not
 		// a pre-flight guess, so it arrives as the IDE words it.
 		const now = await fetchItem(FB)
-		const bad = lf(now.sourceText) + "\nMETHOD 1点 : BOOL\n\nIMPLEMENTATION ST\n\nEND_METHOD\n"
+		const bad = lf(now.sourceText) + "\nMETHOD 1点 : BOOL\n\n%LANGUAGE ST\n\nEND_METHOD\n"
 		const r = await pushOps([{ op: "set", name: await pathOf(FB), sourceText: bad, ifVersion: now.version }])
 		expect(landedInFull(r)).toBe(false)
 		expect(reasons(r)).toContain("The name '1点' is not valid for this object.")

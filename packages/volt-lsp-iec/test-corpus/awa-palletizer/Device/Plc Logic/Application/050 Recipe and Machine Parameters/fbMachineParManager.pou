@@ -29,7 +29,7 @@ VAR
 	HMI_stRecipeManagercmd	: dutRecipeManagerCmd;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 GetDateAndTime(
 xExecute:= HMI_stRecipeManagercmd.xSave, 
 dtDateAndTime=> dtDateAndTIme );

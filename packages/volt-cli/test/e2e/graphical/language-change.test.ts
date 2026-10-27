@@ -53,14 +53,14 @@ VAR
 	a : BOOL;
 	q : BOOL;
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 q := a;
 
 END_FUNCTION_BLOCK
 `
 		await createItem(fid("lang_pou"), st, await projectRoot())
 		const pulledSt = (await fetchItem(full)).sourceText
-		const ld = pulledSt.replace("IMPLEMENTATION ST\nq := a;\n", "IMPLEMENTATION LD\nNETWORK\n  q := a;\nEND_NETWORK\n")
+		const ld = pulledSt.replace("%LANGUAGE ST\nq := a;\n", "%LANGUAGE LD\nNETWORK\n  q := a;\nEND_NETWORK\n")
 		expect(ld, "the edit did not apply").not.toBe(pulledSt)
 
 		const before = await fetchItem(full)
@@ -85,13 +85,13 @@ VAR
 	a : BOOL;
 	q : BOOL;
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 Step();
 
 END_FUNCTION_BLOCK
 
 METHOD Step : BOOL
-IMPLEMENTATION ST
+%LANGUAGE ST
 q := a;
 
 END_METHOD
@@ -100,8 +100,8 @@ END_METHOD
 		const pulledSt = (await fetchItem(full)).sourceText
 		// The ST body's trailing newlines are its own (held verbatim, openspec bridge-one-to-one §1.1); a network body ends
 		// at its END_NETWORK, so the edit replaces them with the network.
-		const fbd = pulledSt.replace(/(METHOD Step : BOOL\n(?:.*\n)*?)IMPLEMENTATION ST\nq := a;\n\n*/,
-		                             "$1IMPLEMENTATION FBD\nNETWORK\n  q := a;\nEND_NETWORK\n")
+		const fbd = pulledSt.replace(/(METHOD Step : BOOL\n(?:.*\n)*?)%LANGUAGE ST\nq := a;\n\n*/,
+		                             "$1%LANGUAGE FBD\nNETWORK\n  q := a;\nEND_NETWORK\n")
 		expect(fbd, "the edit did not apply").not.toBe(pulledSt)
 
 		const before = await fetchItem(full)
@@ -129,21 +129,21 @@ VAR
 	a : BOOL;
 	q : BOOL;
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 Act();
 
 END_FUNCTION_BLOCK
 
 ACTION Act
-IMPLEMENTATION ST
+%LANGUAGE ST
 q := a;
 
 END_ACTION
 `
 		await createItem(fid("lang_act"), st, await projectRoot())
 		const pulledSt = (await fetchItem(full)).sourceText
-		const ld = pulledSt.replace(/(ACTION Act\n(?:.*\n)*?)IMPLEMENTATION ST\nq := a;\n\n*/,
-		                            "$1IMPLEMENTATION LD\nNETWORK\n  q := a;\nEND_NETWORK\n")
+		const ld = pulledSt.replace(/(ACTION Act\n(?:.*\n)*?)%LANGUAGE ST\nq := a;\n\n*/,
+		                            "$1%LANGUAGE LD\nNETWORK\n  q := a;\nEND_NETWORK\n")
 		expect(ld, "the edit did not apply").not.toBe(pulledSt)
 
 		const before = await fetchItem(full)
@@ -168,19 +168,19 @@ VAR
 	a : BOOL;
 	q : BOOL;
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 Ready := a;
 
 END_FUNCTION_BLOCK
 
 PROPERTY Ready : BOOL
 GET
-IMPLEMENTATION ST
+%LANGUAGE ST
 Ready := a;
 
 END_GET
 SET
-IMPLEMENTATION ST
+%LANGUAGE ST
 q := Ready;
 
 END_SET
@@ -189,9 +189,9 @@ END_PROPERTY
 		await createItem(fid("lang_prop"), st, await projectRoot())
 		const pulledSt = (await fetchItem(full)).sourceText
 		const ld = pulledSt
-			.replace(/(\nGET\n(?:.*\n)*?)IMPLEMENTATION ST\nReady := a;\n\n*/, "$1IMPLEMENTATION LD\nNETWORK\n  Ready := a;\nEND_NETWORK\n")
-			.replace(/(\nSET\n(?:.*\n)*?)IMPLEMENTATION ST\nq := Ready;\n\n*/, "$1IMPLEMENTATION LD\nNETWORK\n  q := Ready;\nEND_NETWORK\n")
-		expect((ld.match(/IMPLEMENTATION LD/g) ?? []).length, `the edit did not apply:\n${pulledSt}`).toBe(2)
+			.replace(/(\nGET\n(?:.*\n)*?)%LANGUAGE ST\nReady := a;\n\n*/, "$1%LANGUAGE LD\nNETWORK\n  Ready := a;\nEND_NETWORK\n")
+			.replace(/(\nSET\n(?:.*\n)*?)%LANGUAGE ST\nq := Ready;\n\n*/, "$1%LANGUAGE LD\nNETWORK\n  q := Ready;\nEND_NETWORK\n")
+		expect((ld.match(/%LANGUAGE LD/g) ?? []).length, `the edit did not apply:\n${pulledSt}`).toBe(2)
 
 		const before = await fetchItem(full)
 		const toLd = await pushOver(full, ld)

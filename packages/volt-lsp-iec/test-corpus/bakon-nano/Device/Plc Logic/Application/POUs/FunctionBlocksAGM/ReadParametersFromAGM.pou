@@ -24,7 +24,7 @@ VAR_IN_OUT
 	Q_dwAGM_ID				: DWORD;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 (*Create toggle for reading the parameters*)
 BLINK1		(ENABLE:=I_bEnable ,
 				 TIMELOW:=t#6s ,

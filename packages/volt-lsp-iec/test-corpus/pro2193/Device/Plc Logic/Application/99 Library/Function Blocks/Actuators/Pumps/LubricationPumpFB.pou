@@ -33,7 +33,7 @@ VAR CONSTANT
 	rLubricationPumpLength	: REAL := 2 * 60;		// Lubrication pump will run for this time after each interval. Default is 2 minutes.
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^();
 
 xPumpRunning			:= Pump.Map();
@@ -94,13 +94,13 @@ END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 END_METHOD
 
 // Maps the actuator to the physical output
 METHOD PUBLIC Map : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Map := Pump.Map();
 
 END_METHOD
@@ -108,7 +108,7 @@ END_METHOD
 // Reset the output (=False)
 METHOD PUBLIC Reset
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Pump.Reset();
 
 END_METHOD
@@ -116,7 +116,7 @@ END_METHOD
 {attribute 'hide'}
 METHOD PUBLIC Set : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // no implementation
 END_METHOD
 
@@ -126,6 +126,6 @@ VAR_INPUT
 	xValue	: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // no implementation
 END_METHOD

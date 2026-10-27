@@ -90,7 +90,7 @@ public class FetchedItem
     [JsonPropertyName("version")]
     public string Version { get; set; } = "";
 
-    /// <summary>Every body of this item that reads as <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c>, with WHY — or null
+    /// <summary>Every body of this item that reads as <c>%LANGUAGE LD|FBD UNSUPPORTED</c>, with WHY — or null
     /// when it has none. The file states only that such a body is read-only; the reason is this, for the pull message
     /// to name (openspec <c>implementation-keyword</c> 2b).</summary>
     [JsonPropertyName("unsupported")]

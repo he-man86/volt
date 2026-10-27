@@ -10,13 +10,13 @@ import { referencesAnywhere, renameAnywhere } from "./index.js"
 const FB = `FUNCTION_BLOCK Capture
 VAR_INPUT xEnable : BOOL; END_VAR
 VAR_OUTPUT xBusy : BOOL; tElapsed : TIME; END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 xBusy := xEnable;
 END_FUNCTION_BLOCK
 `
 const PRG = `PROGRAM P
 VAR cap : Capture; go : BOOL; elapsed : TIME; END_VAR
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   elapsed := cap : Capture(xEnable := go).tElapsed;
 END_NETWORK

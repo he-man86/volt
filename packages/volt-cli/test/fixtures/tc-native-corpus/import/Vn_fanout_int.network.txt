@@ -1,4 +1,4 @@
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   split1 := i1 ADD i2;
   n := split1;

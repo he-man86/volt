@@ -29,7 +29,7 @@ namespace Volt.Ide.Codesys.Tests
     /// CODESYS twin of <c>TcHiddenBodyWriteTests</c>.
     ///
     /// <para>A CFC, SFC or IL body, and an LD/FBD body network text cannot represent, is its
-    /// <c>IMPLEMENTATION &lt;LANG&gt; UNSUPPORTED</c> line in the workspace. Its DECLARATION is editable and is pushed; its
+    /// <c>%LANGUAGE &lt;LANG&gt; UNSUPPORTED</c> line in the workspace. Its DECLARATION is editable and is pushed; its
     /// body must not be: a CFC aspect has no text document at all, so writing the line into it fails after the
     /// declaration committed, and an aspect that has one would store the line over the diagram. This drives
     /// <see cref="CodesysDriver.WriteContent"/> — the POU, a method and a property accessor, each hidden — through the
@@ -129,7 +129,7 @@ namespace Volt.Ide.Codesys.Tests
         [InlineData("FBD")]
         public void A_pushed_declaration_lands_and_no_hidden_body_is_written(string language)
         {
-            var line = $"IMPLEMENTATION {language} UNSUPPORTED";
+            var line = $"%LANGUAGE {language} UNSUPPORTED";
             var getter = new Node("Get", 4, new AccessorObject("VAR\nEND_VAR", new DiagramAspect("the getter's chart")));
             var property = new Node("Ready", 3, new Property("PROPERTY Ready : BOOL"), getter);
             var method = new Node("Step", 2, new Method("METHOD Step : BOOL", new DiagramAspect("the method's ladder")));

@@ -4,4 +4,4 @@ RESOLUTION VisuInputs, 4.7.0.0 (System)
 PLACEHOLDER true
 SYSTEM true
 REDIRECT System_VisuInputs VisuInputs, 4.2.0.0 (System)
-MATERIALIZATION 4
+MATERIALIZATION 5

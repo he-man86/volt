@@ -73,7 +73,7 @@ describe("grep oracle", () => {
 
 	it("notSearched: unreadable items in scope (never a library), and items whose text has an UNSUPPORTED body", () => {
 		const p = project(
-			{ "A.pou": "PROGRAM A\nIMPLEMENTATION CFC UNSUPPORTED\nEND_PROGRAM", "B.pou": "PROGRAM B" },
+			{ "A.pou": "PROGRAM A\n%LANGUAGE CFC UNSUPPORTED\nEND_PROGRAM", "B.pou": "PROGRAM B" },
 			{ unreadable: [{ name: "C.pou", reason: "read failed" }, { name: "L.library", reason: "x" }] },
 		)
 		const want = oracle(p, { pattern: "PROGRAM" })
@@ -81,9 +81,9 @@ describe("grep oracle", () => {
 		expect(want.notSearched.unreadable).toEqual([{ name: "C.pou", reason: "read failed" }])
 		expect(want.notSearched.hidden.map((h) => h.name)).toEqual(["A.pou"])
 		const answer = (notSearched: unknown) => ({ ...want, notSearched })
-		expect(differences(answer([{ name: "A.pou", reason: "its body reads IMPLEMENTATION CFC UNSUPPORTED" }, { name: "C.pou", reason: "read failed" }]), want)).toEqual([])
+		expect(differences(answer([{ name: "A.pou", reason: "its body reads %LANGUAGE CFC UNSUPPORTED" }, { name: "C.pou", reason: "read failed" }]), want)).toEqual([])
 		expect(differences(answer([{ name: "C.pou", reason: "read failed" }]), want)).toHaveLength(1)
-		expect(differences(answer([{ name: "A.pou", reason: "its body reads IMPLEMENTATION CFC UNSUPPORTED" }, { name: "B.pou", reason: "?" }, { name: "C.pou", reason: "read failed" }]), want)).toHaveLength(1)
+		expect(differences(answer([{ name: "A.pou", reason: "its body reads %LANGUAGE CFC UNSUPPORTED" }, { name: "B.pou", reason: "?" }, { name: "C.pou", reason: "read failed" }]), want)).toHaveLength(1)
 	})
 
 	it("differences names a match that differs, and nothing for an identical answer", () => {

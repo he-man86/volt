@@ -15,7 +15,7 @@ namespace Volt.Engine.Format.St;
 /// nothing: <c>ToItemContent(ToContent(x))</c> is <c>x</c> (<c>FamilyContentTests</c>, over the whole corpus).
 ///
 /// <para><b>A body</b>: its language is the <see cref="StatedLanguage"/> fact, its code the text under its line
-/// (<see cref="ImplementationMarker.Split"/> / <see cref="ImplementationMarker.Join"/>, the layout's one rule: an ST body is
+/// (<see cref="PropertyLines.SplitBody"/> / <see cref="PropertyLines.JoinBody"/>, the layout's one rule: an ST body is
 /// its code, an LD/FBD body opens with its line), a hidden body's reason its <see cref="BodyText.Why"/>. A body whose text
 /// does not come back from its fact is not converted with a guess: it is refused as Volt's bug, naming it.</para>
 ///
@@ -41,9 +41,6 @@ public static class FamilyContent
                 m.ReturnType ?? m.DataType)).ToList(),
             ToPropertySet(c.Properties));
     }
-
-    /// <summary>A host's read of the IEC record, FOLDED as every engine read of it is (<see cref="AbstractMemberFold"/>).</summary>
-    public static Content Folded(ItemContent c) => ToContent(AbstractMemberFold.Apply(c));
 
     /// <summary>The ONE value a family host's create takes: a signature member's declared type, else the body language — null
     /// for ST, which the family hosts create by default.</summary>
@@ -98,14 +95,18 @@ public static class FamilyContent
 
     private static BodyText? ContractBody(string? body, StatedLanguage? stated, string? why, string what)
     {
+        // A member with no body slot has no body text and states that fact (no %LANGUAGE line).
+        if (stated is { IsNoSlot: true })
+            return body is null && why is null ? BodyText.NoSlot
+                : throw new BridgeException(BridgeErrorCodes.InternalError,
+                    $"{what} states no body slot and carries {(body is null ? $"the reason '{why}'" : $"the body '{Shorten(body)}'")}");
         if (body is null) return null;
         if (stated is null || (why is not null && !stated.Hidden))
             throw new BridgeException(BridgeErrorCodes.InternalError, stated is null
                 ? $"{what} reached the contract with no stated language: a body's language is a fact its reader states"
                 : $"{what} is stated '{stated}' and carries the reason '{why}': only a hidden body has one");
-        var text = stated.IsNone ? BodyText.Abstract
-            : stated.Hidden ? new BodyText(stated.Language, "", BodyForm.Hidden, why)
-            : BodyText.Shown(stated.Language, Languages.IsNetwork(stated.Language) ? ImplementationMarker.Split(body).Code : body);
+        var text = stated.Hidden ? new BodyText(stated.Language, "", BodyForm.Hidden, why)
+            : BodyText.Shown(stated.Language, Languages.IsNetwork(stated.Language) ? PropertyLines.SplitBody(body).Code : body);
         if (RecordBody(text).Body != body)
             throw new BridgeException(BridgeErrorCodes.InternalError,
                 $"{what} is '{Shorten(body)}', which its stated language ({stated}) does not spell back");
@@ -116,10 +117,11 @@ public static class FamilyContent
     {
         null => (null, null, null),
         // A network body opens with its line in the IEC record; every other shown body is its code alone.
-        { Form: BodyForm.Shown } => (Languages.IsNetwork(b.Language) ? ImplementationMarker.Join(ImplementationMarker.For(b.Language), b.Code) : b.Code,
+        { Form: BodyForm.Shown } => (Languages.IsNetwork(b.Language) ? PropertyLines.JoinBody(PropertyLines.LanguageLine(b.Language), b.Code) : b.Code,
                                      StatedLanguage.Shown(b.Language), null),
-        { Form: BodyForm.Hidden } => (ImplementationMarker.Unsupported(b.Language), StatedLanguage.HiddenIn(b.Language), b.Why),
-        _ => (ImplementationMarker.NoneLine, StatedLanguage.None, null),
+        { Form: BodyForm.Hidden } => (PropertyLines.UnsupportedLine(b.Language), StatedLanguage.HiddenIn(b.Language), b.Why),
+        { Form: BodyForm.NoSlot } => (null, StatedLanguage.NoSlot, null),
+        _ => throw new ArgumentOutOfRangeException(nameof(b)),
     };
 
     private static string Shorten(string s) => s.Length <= 60 ? s : s.Substring(0, 60) + "…";

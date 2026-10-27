@@ -17,7 +17,7 @@ VAR
 	hardwareF2Pushed		: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF manualControlEnabled THEN
 	minTrigger.Call(CLK := minButton OR hardwareF1Pushed);
 	plusTrigger.Call(CLK := plusButton OR hardwareF2Pushed);
@@ -64,7 +64,6 @@ VAR_INPUT
 	plusButtonPushed		: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 END_VAR
 
-IMPLEMENTATION NONE
 END_METHOD
 
 // The Update method is called when subjects have a new state
@@ -76,7 +75,7 @@ VAR
 	hwButtonPayload : ISubjectHWButtonsPayload;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF __QUERYINTERFACE(payload, hwButtonPayload) THEN
 
 	CASE hwButtonPayload.ButtonType OF

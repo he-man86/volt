@@ -24,7 +24,7 @@ VAR
 	moveRollDownAfterTimer		: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^(
 	AxisRef				:= AxisRef,
 	DataBrink			:= DataBrink,
@@ -39,7 +39,7 @@ VAR_INST
 	SetError					: ARRAY[1..2] OF SetErrorFB;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SetError[1](
 	moduleHandler	:= ModuleHandler,
 	textRefId		:= StickerUnit_Errors,
@@ -72,7 +72,7 @@ VAR_INST
 	tryAgainCounter				: SINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -151,7 +151,7 @@ VAR_INST
 	MoveRollDown		: BTON;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Drive.config.virtualMode	:= NOT PersistentVars.RecipeVars.EnableSticker;
 
 TouchProbe(
@@ -245,7 +245,7 @@ END_METHOD
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT Drive.config.virtualMode THEN
 	Drive.Quickstop(TRUE);
@@ -262,7 +262,7 @@ END_METHOD
 
 METHOD PUBLIC Initialize
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^.Initialize();
 
 Drive.config.axisBlockedAlarmMaxTorque	:= 0.5;
@@ -288,7 +288,7 @@ VAR_INST
 	result				: UINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -326,7 +326,7 @@ END_METHOD
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 TouchProbe.Execute	:= FALSE;
 
@@ -350,7 +350,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 CycleLength := SEL(ReadMachineData.xValid, -1, TO_DINT(ReadMachineData.lrCycleLength));
 
 END_GET

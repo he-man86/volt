@@ -20,7 +20,7 @@
 import type { BodySpan } from "../ast/nodes/index.js"
 import type { Dialect } from "../lex/vocabulary.js"
 import { graphicalMarkerLanguage } from "../format/bodies.js"
-import { implementationLine } from "../format/implementation-line.js"
+import { languageLine } from "../format/object-properties.js"
 import type { NetworkLanguage, NetworkName, NetworkSplit, NetworkTextBody, NetworkTextNetwork, NetworkTextStatement } from "./ast.js"
 import { walkValues } from "./ast.js"
 import { EMPTY_SCOPE, ParseError, type NetworkScopeView } from "./cursor.js"
@@ -54,7 +54,7 @@ class Parser extends ValueReader {
       span: this.body.span,
     })
 
-    // The body's language is the one its IMPLEMENTATION line STATES: the line is not in the body's tokens, and the text
+    // The body's language is the one its %LANGUAGE line STATES: the line is not in the body's tokens, and the text
     // below it is all network text.
     this.language = graphicalMarkerLanguage(this.body)
     if (this.language === undefined) {
@@ -88,8 +88,8 @@ class Parser extends ValueReader {
 
   /** A body whose line states no network language: the bridge reader's messages (`NetworkTextReader.ParseBody`). */
   private refuseUnstated(): void {
-    const opens = `${implementationLine("FBD")} or ${implementationLine("LD")}`
-    const line = this.body.implementation
+    const opens = `${languageLine("FBD")} or ${languageLine("LD")}`
+    const line = this.body.languageLine
     const message =
       line === undefined
         ? `a graphical body opens with the line stating its language, ${opens}, on its first line.`

@@ -15,7 +15,7 @@ public sealed record BodyContext(string? Declaration, PushedDeclarations Pushed)
     public static BodyContext Bare(string? declaration) => new(declaration, PushedDeclarations.None);
 }
 
-/// <summary>A shown language's reader: validates the code under its <c>IMPLEMENTATION &lt;LANG&gt;</c> line and returns the
+/// <summary>A shown language's reader: validates the code under its <c>%LANGUAGE &lt;LANG&gt;</c> line and returns the
 /// model a host writes from (<see cref="PushedBody.Model"/>) — or throws the coded refusal, naming what does not read.
 /// Network text's reader returns its network model; a plain-text language returns the code itself.</summary>
 public interface IBodyReader
@@ -32,7 +32,7 @@ public sealed class PlainTextReader : IBodyReader
 }
 
 /// <summary>One body language as a vendor declares it: with a <see cref="Reader"/> the vendor SHOWS it (its line is
-/// <c>IMPLEMENTATION &lt;Name&gt;</c>, the body editable), without one it only HIDES it (<c>IMPLEMENTATION &lt;Name&gt; UNSUPPORTED</c>).</summary>
+/// <c>%LANGUAGE &lt;Name&gt;</c>, the body editable), without one it only HIDES it (<c>%LANGUAGE &lt;Name&gt; UNSUPPORTED</c>).</summary>
 public sealed record LanguageRow(string Name, IBodyReader? Reader)
 {
     public static LanguageRow Shown(string name, IBodyReader reader) =>
@@ -42,17 +42,16 @@ public sealed record LanguageRow(string Name, IBodyReader? Reader)
 }
 
 /// <summary>
-/// THE body languages (vendor-neutrality S2): the <c>IMPLEMENTATION &lt;LANG&gt;</c> line keeps ONE grammar
-/// (<see cref="ImplementationLine"/>), and which languages are shown comes from the readers the hosts register.
-/// <para>A language NAME is one grammar across vendors — <c>IMPLEMENTATION FBD</c> means network text wherever it is
+/// THE body languages (vendor-neutrality S2): the <c>%LANGUAGE &lt;LANG&gt;</c> line keeps ONE grammar
+/// (<see cref="LanguageLine"/>), and which languages are shown comes from the readers the hosts register.
+/// <para>A language NAME is one grammar across vendors — <c>%LANGUAGE FBD</c> means network text wherever it is
 /// read — so two hosts registering two different readers under one name are refused. Whether a vendor SHOWS a language
 /// is its own: one vendor may show <c>FBD</c> while another only hides it.</para>
 /// </summary>
 public sealed class LanguageRegistry
 {
-    /// <summary>The words the line reserves: an abstract member's <c>IMPLEMENTATION NONE</c>, and the hidden marker.</summary>
-    public const string NoneWord = "NONE";
-    public const string UnsupportedWord = "UNSUPPORTED";
+    /// <summary>The word the line reserves: the hidden marker.</summary>
+    public const string UnsupportedWord = Volt.Engine.Format.St.PropertyLines.UnsupportedWord;
 
     private static readonly Regex Word = new("^[A-Z][A-Z0-9_]*$", RegexOptions.CultureInvariant);
 
@@ -62,7 +61,7 @@ public sealed class LanguageRegistry
 
     /// <summary>Is <paramref name="name"/> a word the line can state as a language?</summary>
     public static bool IsLanguageWord(string? name) =>
-        name is not null && Word.IsMatch(name) && name != NoneWord && name != UnsupportedWord;
+        name is not null && Word.IsMatch(name) && name != UnsupportedWord;
 
     public void Register(string vendor, IEnumerable<LanguageRow> rows)
     {
@@ -76,7 +75,7 @@ public sealed class LanguageRegistry
         if (!IsLanguageWord(row.Name))
             throw new VoltInvariantException(
                 $"vendor '{vendor}' cannot register the language '{row.Name}': a language is an upper-case word, and " +
-                $"{NoneWord} and {UnsupportedWord} are the line's own words");
+                $"{UnsupportedWord} is the line's own word");
         if (!_readers.TryGetValue(row.Name, out var held)) _readers[row.Name] = null;
         if (row.Reader is { } reader)
         {

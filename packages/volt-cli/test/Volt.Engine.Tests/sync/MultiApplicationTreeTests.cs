@@ -25,7 +25,7 @@ public class MultiApplicationTreeTests
     private const string AppA = "Device/Plc Logic/Application";
     private const string AppB = "Device_1/Plc Logic/Application";
 
-    private static string Prg(string body) => $"PROGRAM PLC_PRG\nVAR\nEND_VAR\nIMPLEMENTATION ST\n{body}\nEND_PROGRAM\n";
+    private static string Prg(string body) => $"PROGRAM PLC_PRG\nVAR\nEND_VAR\n%LANGUAGE ST\n{body}\nEND_PROGRAM\n";
 
     private static FakeIde TwoDevices()
     {
@@ -150,7 +150,7 @@ public class MultiApplicationTreeTests
     {
         var ide = TwoDevices();
         var refs = RefsService.Handle(ide);
-        var fb = "FUNCTION_BLOCK FB_New\nVAR\nEND_VAR\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n";
+        var fb = "FUNCTION_BLOCK FB_New\nVAR\nEND_VAR\n%LANGUAGE ST\nEND_FUNCTION_BLOCK\n";
 
         var first = BoundWrite.Push(ide, new PushRequest
         {

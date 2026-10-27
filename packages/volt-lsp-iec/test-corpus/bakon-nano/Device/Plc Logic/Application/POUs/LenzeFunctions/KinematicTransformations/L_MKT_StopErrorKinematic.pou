@@ -27,7 +27,7 @@ VAR
 	
 	byStepper				: BYTE:=0;
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 (****************************************************************************************************************)
 (* INITIALISIRUNG FB																							*)

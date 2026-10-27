@@ -23,14 +23,12 @@ export function parseMethod(c: Cursor): Method | undefined {
   if (start === undefined) return undefined
 
   // A modifier keyword is only a modifier if a name (or further modifiers) follow it. Otherwise it IS the method name —
-  // e.g. `METHOD PROTECTED Override`, where `Override` (the OVERRIDE keyword) names the method. The `IMPLEMENTATION`
-  // line is an identifier token but never a name: it ends the declaration, and a method with no return type and no VAR
-  // puts it straight under the header (`METHOD PROTECTED Override`, then the line).
+  // e.g. `METHOD PROTECTED Override`, where `Override` (the OVERRIDE keyword) names the method.
   const written = readModifiers(
     c,
     MEMBER_MODIFIERS,
     (after) =>
-      (after.kind === "identifier" && !c.opensImplementationLine(1)) ||
+      after.kind === "identifier" ||
       (after.kind === "keyword" &&
         after.keyword !== undefined &&
         // another modifier, or a keyword that is a name here (GET, SET, OVERRIDE — `SOFT_NAME_KEYWORDS`)
@@ -44,7 +42,7 @@ export function parseMethod(c: Cursor): Method | undefined {
   if (nameTok === undefined) return undefined
   const name = identFromToken(nameTok)
 
-  const returnType = parseOptionalReturnType(c)
+  const returnType = parseOptionalReturnType(c, ["END_METHOD"])
 
   const varSections = collectVarSections(c)
   const body = collectBodyUntil(c, "END_METHOD", "method", "member")

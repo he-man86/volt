@@ -1,4 +1,4 @@
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   split1 := a AND b;
   out1 := split1;

@@ -14,7 +14,7 @@ VAR_IN_OUT
 	ioAxis: AXIS_REF;
 	DataIO: sUDT_FQIComm_Drive;;
 END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK TITLE: "Return when virtual axis"
   RETURN := ioAxis.xVirtual;
 END_NETWORK

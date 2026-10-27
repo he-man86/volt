@@ -71,11 +71,12 @@ public sealed record ObjectClass(string Word, string? Argument)
     public const string TextListEnum = "TEXTLIST_ENUM";
     public const string Nvl = "NVL";
 
-    /// <summary>The vendor's ABSTRACT METHOD class — NEVER SPELLED (no <c>%CLASS</c> line takes it): it is derived from
-    /// the TEXT, a <c>METHOD ABSTRACT</c> stated <c>IMPLEMENTATION NONE</c> (design §1.1 <c>AbstractPOUMethodObject</c>,
-    /// <c>abstract-member-equivalence</c>), and passed only to <c>IVendorTree.CreateChild</c>, so the create makes the class
-    /// the text states (CODESYS: the constructed <c>AbstractPOUMethodObject</c>, C2r; TwinCAT has one method class, C2n —
-    /// ABSTRACT is its text alone). The push derives it in one place (<c>PushService.CreateClass</c>).</summary>
+    /// <summary>The vendor's ABSTRACT METHOD class with NO BODY SLOT — NEVER SPELLED (no <c>%CLASS</c> line takes it): it
+    /// is derived from the TEXT, a <c>METHOD ABSTRACT</c> that states no <c>%LANGUAGE</c> line (openspec
+    /// <c>language-line</c>, DIALECT C2n), and passed only to <c>IVendorTree.CreateChild</c>, so the create makes the
+    /// object the text states: CODESYS constructs its <c>AbstractPOUMethodObject</c> (C2r); TwinCAT has one method class,
+    /// always with a slot (C2n), and refuses it by name. The push derives it in one place
+    /// (<c>PushService.CreateClass</c>).</summary>
     public const string AbstractMethod = "ABSTRACT";
 
     /// <summary>The one <see cref="AbstractMethod"/> value.</summary>

@@ -6,7 +6,7 @@ VAR
 	{attribute 'symbol' := 'read'}	OutputReverse			: ActuatorFB;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^(profile := profile);
 
 // Instantiate the output
@@ -17,7 +17,7 @@ END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 NotRunningAlarm(
 	moduleHandler	:= moduleHandler,
 	textRefId		:= textRefId,
@@ -36,7 +36,7 @@ VAR_INPUT
 	plusButtonPushed		: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF plusButtonPushed THEN
 	IF Output.Map() THEN	// Conveyor moving forward
 		Reset();
@@ -58,7 +58,7 @@ END_METHOD
 // Maps the actuator to start conveyor in reverse
 METHOD MapReverse : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 MapReverse := OutputReverse.Map();
 
 END_METHOD
@@ -66,7 +66,7 @@ END_METHOD
 // Reset the output (=False)
 METHOD Reset
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^.Reset();
 OutputReverse.Reset();
 
@@ -76,7 +76,7 @@ METHOD Reverse : BOOL
 VAR_INPUT
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^.Set();
 OutputReverse.Set();
 
@@ -85,7 +85,7 @@ END_METHOD
 // Set the output (=True)
 METHOD Set : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^.Set();
 OutputReverse.Reset();
 

@@ -30,7 +30,7 @@ function fb(name: string, lang: "FBD" | "LD", networks: readonly string[], vars 
 	return (
 		`FUNCTION_BLOCK ${name}\nVAR\n\tc : BOOL;\n\td : BOOL;\n\tone : BOOL := TRUE;\n\tx : BOOL;\n\tx1 : BOOL;\n\ty : BOOL;\n` +
 		`\tlamp : BOOL;\n\ta : BOOL;\n\tb : BOOL;\n\ti : INT;\n\tj : INT;\n\tv : INT := 50;\n${vars}END_VAR\n` +
-		`IMPLEMENTATION ${lang}\n${body}\nEND_FUNCTION_BLOCK\n`
+		`%LANGUAGE ${lang}\n${body}\nEND_FUNCTION_BLOCK\n`
 	)
 }
 

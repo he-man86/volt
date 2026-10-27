@@ -1369,10 +1369,7 @@ public static class PushService
                                               PushedDeclarations pushedDeclarations, string wireKind, ItemRef? existing)
     {
         var name = ItemPath.BareOf(path);
-        // Throws InvalidSt when the text cannot be split into what the push writes — read by the kind's own FORMAT. The
-        // IEC layout reads it FOLDED as the IDE's content is (openspec abstract-member-parity): a file pulled before the
-        // fold states `IMPLEMENTATION ST` with an empty body under an ABSTRACT member, which is the same content as
-        // `IMPLEMENTATION NONE`.
+        // Throws InvalidSt when the text cannot be split into what the push writes — read by the kind's own FORMAT.
         var split = link.Catalog.Kinds.Require(wireKind).Format!.Read(src, wireKind, name, link.Catalog, link.Driver.Vendor);
 
         // A NAME THE IDE REFUSES, from the word alone (openspec `push-keeps-what-landed` 3.1). Both vendors refuse a POU
@@ -1416,7 +1413,7 @@ public static class PushService
         var bodies = ReadBodies(link, split, pushedDeclarations);
 
         // AND A CREATE'S UNSUPPORTED REFUSAL, text-decidable the same way: an UNSUPPORTED line
-        // (`IMPLEMENTATION CFC UNSUPPORTED`) over an EXISTING item is the ordinary no-op, but on a create it can only land
+        // (`%LANGUAGE CFC UNSUPPORTED`) over an EXISTING item is the ordinary no-op, but on a create it can only land
         // an empty POU. Whether it is a create is decided by the caller from the walk (`WillCreate`), never guessed: an
         // UPDATE carrying the line must pass, or no project containing a CFC POU could be pushed.
         if (isCreate) BodyFormatGuard.RequireAuthorable(FamilyContent.BodiesOf(split), kind => ShapeOf(link, kind));
@@ -1665,7 +1662,10 @@ public static class PushService
             // already in hand (`live`, read for the format guard), so it costs no extra IDE round trip.
             RequireUnchanged(link, name, folder, live, ifVersion);
 
-            BodyFormatGuard.RequireWritable(FamilyContent.BodiesOf(live), FamilyContent.BodiesOf(split),
+            // Against the live members AS THE RECONCILE WILL LEAVE THEM: a renamed member is the vendor's rename of the live
+            // object (`RenamePairs`), body and slot kept, so the guard reads it as that object under its new name and not
+            // as a create — or a member with no body slot could never be renamed (a create makes a slot).
+            BodyFormatGuard.RequireWritable(FamilyContent.BodiesOf(AsRenamed(live, split)), FamilyContent.BodiesOf(split),
                                             link.Driver.RefusedLanguageChange, kind => ShapeOf(link, kind));
         }
 
@@ -1714,7 +1714,7 @@ public static class PushService
 
             // ONE call, for create and update alike: declaration, body, members and accessors together.
             // A member the reconcile RENAMED is the live member under its new name (task 3.4): compared as that, so an
-            // unchanged body — an abstract method's `IMPLEMENTATION NONE` on an object with no slot — is not written.
+            // unchanged body — a member's with no body slot included — is not written.
             link.Driver.Write(pou, OnlyChanged(AfterRenames(link, live, changes), split), source.Bodies);
         }
         catch when (createdParent is { } parent && Rollback(link, parent, name, outcome))
@@ -1866,23 +1866,15 @@ public static class PushService
         return false;
     }
 
-    /// <summary><paramref name="live"/> as the IDE holds it after the reconcile: each renamed member under its new name,
-    /// and each member it CREATED as the abstract method class (<see cref="CreateClass"/>) as that object stands — no body
-    /// slot, which reads <c>IMPLEMENTATION NONE</c>, its declaration the create's seed (unknown here, so it differs and is
-    /// written). So the write sends such a member its declaration and NOT its NONE body: the object has no slot to take
-    /// one (the drivers' <c>RequireSlot</c>, D26), and NONE is exactly what it holds. Everything else as it was.</summary>
+    /// <summary><paramref name="live"/> as the IDE holds it after the reconcile: each renamed member under its new name.
+    /// Everything else as it was.</summary>
     private static Content AfterRenames(HostLink link, Content live, MemberChanges changes)
     {
-        var createdAbstract = changes.Created
-            .Where(m => CreateClass(m) == ObjectClass.AbstractMethod && PropertyKeyRegistry.ClassOf(m.Properties) is null)
-            .Select(m => m with { Declaration = "" })
-            .ToList();
-        if (changes.Renamed.Count == 0 && createdAbstract.Count == 0) return live;
+        if (changes.Renamed.Count == 0) return live;
         return live with
         {
             Members = live.Members.Select(m => changes.Renamed.FirstOrDefault(r => ReferenceEquals(r.From, m)) is { From: not null } r
-                    ? m with { Name = r.To } : m)
-                .Concat(createdAbstract).ToList(),
+                    ? m with { Name = r.To } : m).ToList(),
         };
     }
 
@@ -1914,10 +1906,9 @@ public static class PushService
         var byName = new Dictionary<string, ContentMember>(ItemPath.Addressed);
         foreach (var m in live.Members) byName[m.Name] = m;
 
-        // …AND EVERY MEMBER AND ACCESSOR BODY TOO (openspec abstract-member-parity): an unchanged body of a member whose
-        // declaration changed is dropped the same way (null), so an unchanged `IMPLEMENTATION NONE` never reaches a driver — a
-        // live member with no body slot always reads NONE, so NONE reaches a driver only over live code or on a create,
-        // and both have a slot.
+        // …AND EVERY MEMBER AND ACCESSOR BODY TOO: an unchanged body of a member whose declaration changed is dropped the
+        // same way (null), so a member with no body slot never reaches a driver with a body — the guard has refused every
+        // other pairing of a slot and none (`BodyFormatGuard`).
         var changed = pushed.Members
             .Where(m => !byName.TryGetValue(m.Name, out var was) || !Same(was, m))
             .Select(m => byName.TryGetValue(m.Name, out var was) && was.Kind == m.Kind ? WithoutUnchangedBodies(was, m) : m)
@@ -2035,7 +2026,7 @@ public static class PushService
             // declaration has already been shown to the IDE. ONLY the vendor's own refusal, which the driver recognises
             // (ChildRefusedException): any other failure — a stale handle, a transport fault — is not the text's doing
             // and propagates as the fault it is, the create still rolled back by the filter above.
-            try { link.Driver.CreateChild(site, m.Name, m.Kind, CreateArgsOf(link, m) with { Class = CreateClass(m) }); }
+            try { link.Driver.CreateChild(site, m.Name, m.Kind, CreateArgsOf(link, m)); }
             catch (ChildRefusedException ex)
             {
                 // The declaration hint only where it is TRUE: a refused KIND follows the declaration (C2k); a refused NAME
@@ -2110,6 +2101,18 @@ public static class PushService
         return mutated;
     }
 
+    /// <summary><paramref name="live"/> with each member <see cref="RenamePairs"/> pairs under the name the push gives it.</summary>
+    private static Content AsRenamed(Content live, Content pushed)
+    {
+        var pairs = RenamePairs(live, pushed);
+        if (pairs.Count == 0) return live;
+        return live with
+        {
+            Members = live.Members.Select(m => pairs.FirstOrDefault(p => ReferenceEquals(p.From, m)) is { From: not null } p
+                ? m with { Name = p.To.Name } : m).ToList(),
+        };
+    }
+
     /// <summary>The members a push RENAMES (task 3.4): per member kind, the one live member the text dropped paired with
     /// the one it added — and none for a kind with more than one on either side (no pairing is guessed).</summary>
     private static List<(ContentMember From, ContentMember To)> RenamePairs(Content live, Content pushed)
@@ -2121,27 +2124,29 @@ public static class PushService
         {
             var dropped = live.Members.Where(m => m.Kind == kind && !want.Contains(m.Name)).ToList();
             var added = pushed.Members.Where(m => m.Kind == kind && !have.Contains(m.Name)).ToList();
-            // NOT ACROSS THE BODY SLOT. The vendor's rename keeps the CLASS, and an abstract method's class is not
-            // spelled — it follows the text (§1.1 `AbstractPOUMethodObject`): `IMPLEMENTATION NONE` on one side and a body
-            // on the other would carry the wrong class over (no slot for the code, or a slot the text no longer states).
-            // Such a pair stays a delete and a create, which makes the class the text states (`CreateClass`). A
-            // PROPERTY's slots are its accessors' (an abstract property's GET is the slotless
-            // `InterfacePropertyAccessorObject`), so each accessor's slot is compared too.
+            // NOT ACROSS THE BODY SLOT. The vendor's rename keeps the CLASS, and whether an object has a body slot is its
+            // class (§1.1 `AbstractPOUMethodObject`): no %LANGUAGE line on one side and a body on the other would carry
+            // the wrong class over (no slot for the code, or a slot the text no longer states). Such a pair stays a delete
+            // and a create, which the create rule judges (`BodyFormatGuard.RequireAuthorable`). A PROPERTY's slots are its
+            // accessors' (an abstract property's GET is the slotless `InterfacePropertyAccessorObject`), so each
+            // accessor's slot is compared too.
             if (dropped.Count == 1 && added.Count == 1 && Slots(dropped[0]) == Slots(added[0])) pairs.Add((dropped[0], added[0]));
         }
         return pairs;
 
-        static (bool, bool, bool) Slots(ContentMember m) => (IsNone(m.Body), IsNone(m.Get?.Body), IsNone(m.Set?.Body));
-        static bool IsNone(BodyText? b) => b?.Form == BodyForm.Abstract;
+        static (bool, bool, bool) Slots(ContentMember m) => (NoSlot(m.Body), NoSlot(m.Get?.Body), NoSlot(m.Set?.Body));
+        static bool NoSlot(BodyText? b) => b?.Form == BodyForm.NoSlot;
     }
 
-    /// <summary>The CLASS a member is created as: the one its <c>%CLASS</c> line spells, else — for a METHOD stated
-    /// <c>IMPLEMENTATION NONE</c> (an ABSTRACT method with no code, after <see cref="AbstractMemberFold"/>) — the vendor's
-    /// abstract method class, which the text states without a line (design §1.1 <c>AbstractPOUMethodObject</c>: "a create of
-    /// METHOD ABSTRACT with no code makes the vendor's abstract class").</summary>
+    /// <summary>The CLASS a member is created as: the one its <c>%CLASS</c> line spells, else — for a METHOD that states no
+    /// <c>%LANGUAGE</c> line, a member with no body slot (openspec <c>language-line</c>) — the vendor's abstract method
+    /// class, which the text states without a line (<see cref="ObjectClass.AbstractMethod"/>: CODESYS constructs its
+    /// <c>AbstractPOUMethodObject</c>, C2r; TwinCAT refuses it by name, C2n). The guard has refused that form under a
+    /// declaration that is not ABSTRACT (<c>BodyFormatGuard.RequireAuthorable</c>). Asked by the pre-flight
+    /// (<c>IVendorStore.RefusedMemberCreate</c>) and the create alike, through <see cref="CreateArgsOf"/>.</summary>
     private static string? CreateClass(ContentMember m) =>
         PropertyKeyRegistry.ClassOf(m.Properties)
-        ?? (m.Kind == ItemKind.Kinds.Method && m.Body?.Form == BodyForm.Abstract ? ObjectClass.AbstractMethod : null);
+        ?? (m.Kind == ItemKind.Kinds.Method && m.Body?.Form == BodyForm.NoSlot ? ObjectClass.AbstractMethod : null);
 
     /// <summary>Find the item at <paramref name="path"/> (its wire path: folder, bare name and kind) again after a step that may have
     /// replaced its handle, or refuse with IDE_LOST_ITEM and <paramref name="lost"/>: the step reported success, so the
@@ -2232,10 +2237,10 @@ public static class PushService
     /// object" for none. A signature member has no body, so the two never compete.</para></summary>
     private static CreateArgs CreateArgsOf(HostLink link, ContentMember m) =>
         ShapeOf(link, m.Kind).Signature
-            ? new CreateArgs(Signature: m.Signature)
+            ? new CreateArgs(Signature: m.Signature, Class: CreateClass(m))
             // A PROPERTY HAS NO BODY OF ITS OWN — its ACCESSORS carry the code, and with it the language: an accessor
             // created as ST is an `STImplementationObject`, which has no `NetworkList` for a graphical body.
-            : new CreateArgs(Language: CreateLanguage(link, m.Body, m.Get?.Body, m.Set?.Body));
+            : new CreateArgs(Language: CreateLanguage(link, m.Body, m.Get?.Body, m.Set?.Body), Class: CreateClass(m));
 
     /// <summary>The language a create is made in: the first SHOWN body whose language is no plain text (a body the host
     /// must create as its own kind of object), else the first shown body's — a text body creates as the host's default.</summary>

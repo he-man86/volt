@@ -9,7 +9,7 @@ VAR
 	{attribute 'symbol' := 'read'}	DriveBrakeLogic				: ServoDriveBrakeLogicFB;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^(
 	AxisRef				:= AxisRef,
 	DataBrink			:= DataBrink,

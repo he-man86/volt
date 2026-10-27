@@ -2,7 +2,7 @@ import { landed } from "../harness"
 /**
  * A HIDDEN BODY'S DECLARATION IS EDITABLE, AND THE IDE'S BODY IS NEVER WRITTEN (openspec `implementation-keyword` 3b).
  *
- * <p>A CFC or SFC body pulls as `IMPLEMENTATION CFC|SFC UNSUPPORTED` over an empty body: Volt shows no implementation
+ * <p>A CFC or SFC body pulls as `%LANGUAGE CFC|SFC UNSUPPORTED` over an empty body: Volt shows no implementation
  * code for it. The item's DECLARATION stays editable and is pushed as usual — so this suite gives each committed
  * diagram fixture (`VltFixtureCfc`, `VltFixtureSfc`, authored by each IDE itself; see `unsupported.test.ts`) a new
  * `VAR_INPUT`, pushes it, and asserts on the live IDE that the push was not blocked, the declaration landed, the item
@@ -71,10 +71,10 @@ describe(`graphical / a hidden body's declaration is pushed and its body never w
 	const heldBody = (path: string) => heldImplementations(path, project)
 
 	for (const [lang, bare] of CASES) {
-		it(`a ${lang} POU pulls as IMPLEMENTATION ${lang} UNSUPPORTED, and its edited declaration is pushed while its body is untouched`, async () => {
+		it(`a ${lang} POU pulls as %LANGUAGE ${lang} UNSUPPORTED, and its edited declaration is pushed while its body is untouched`, async () => {
 			const name = wire.get(bare)!
 			const pulled = (await fetchItem(name)).sourceText as string
-			expect(pulled).toContain(`\nIMPLEMENTATION ${lang} UNSUPPORTED\n`)
+			expect(pulled).toContain(`\n%LANGUAGE ${lang} UNSUPPORTED\n`)
 			expect(pulled).not.toContain("XmlArchive")
 
 			// The bytes BEFORE ANY PUSH — the body as the served project holds it now. Taking the baseline after a push
@@ -92,7 +92,7 @@ describe(`graphical / a hidden body's declaration is pushed and its body never w
 
 				const after = (await fetchItem(name)).sourceText as string
 				expect(after).toContain("bVoltHiddenProbe : BOOL;")             // the declaration landed
-				expect(after).toContain(`\nIMPLEMENTATION ${lang} UNSUPPORTED\n`) // still the same hidden body
+				expect(after).toContain(`\n%LANGUAGE ${lang} UNSUPPORTED\n`) // still the same hidden body
 				expect(after).toBe(edited)
 				expect(await heldBody(name)).toEqual(before)                           // and not one byte of it moved
 				// …read from a file that DID take this push: the saved declaration carries the probe, so the bytes compared

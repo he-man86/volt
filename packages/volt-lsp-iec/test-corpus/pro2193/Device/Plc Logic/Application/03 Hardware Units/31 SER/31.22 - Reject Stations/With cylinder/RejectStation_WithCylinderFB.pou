@@ -15,7 +15,7 @@ END_VAR
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^(Data := Data);
 
 
@@ -28,7 +28,7 @@ VAR
 	i		: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^.Cyclic();
 
 FOR i := 1 TO GVL_Constants.ChainProductsForReject DO
@@ -54,7 +54,7 @@ VAR
 	i		: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 FOR i := 1 TO GVL_Constants.ChainProductsForReject DO
 	Cylinder[i].Reset();
@@ -74,7 +74,7 @@ VAR_INST
 	Timer						: BTON;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -119,7 +119,7 @@ VAR
 	i		: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 FOR i := 1 TO GVL_Constants.ChainProductsForReject DO
 	Cylinder[i].Reset();
@@ -135,7 +135,7 @@ VAR
 	i		: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 FOR i := 1 TO GVL_Constants.ChainProductsForReject DO
 	Cylinder[i].Reset();
@@ -154,7 +154,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 InSafePosForChain := Cylinder[1].IsIn; //AND Cylinder[2].IsIn;
 
 END_GET

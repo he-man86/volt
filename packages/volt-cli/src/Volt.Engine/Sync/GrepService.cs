@@ -19,7 +19,7 @@ namespace Volt.Engine.Sync;
 /// <para><b>What is searched is what <c>fetch</c> ships as text</b>, from the same walk (<see cref="ProjectSnapshot"/>)
 /// and the same materialization: an item's text here IS its <c>sourceText</c> there and the text its <c>refs</c> version
 /// hashes, so a matched line is the fetched line at that number. No list of kinds or languages decides it: a network-text
-/// body is searched because the bridge ships it as text, and a body that reads <c>IMPLEMENTATION &lt;LANG&gt;
+/// body is searched because the bridge ships it as text, and a body that reads <c>%LANGUAGE &lt;LANG&gt;
 /// UNSUPPORTED</c> is named in <c>notSearched</c> because its line is all the text there is. Libraries are out of scope —
 /// a <c>.library</c> item and the signatures a fetch renders for it.</para></summary>
 public static class GrepService
@@ -165,6 +165,6 @@ public static class GrepService
     }
 
     private static string Hidden(HiddenBody h) =>
-        $"{(h.Member is null ? "its body" : $"the body of '{h.Member}'")} reads IMPLEMENTATION {h.Language} UNSUPPORTED" +
+        $"{(h.Member is null ? "its body" : $"the body of '{h.Member}'")} reads {Volt.Engine.Format.St.PropertyLines.UnsupportedLine(h.Language)}" +
         (h.Reason is { } why ? $" ({why})" : "");
 }

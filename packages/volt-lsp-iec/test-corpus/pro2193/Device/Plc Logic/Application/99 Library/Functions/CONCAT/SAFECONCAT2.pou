@@ -6,7 +6,7 @@ VAR_INPUT
 	bufferSize	: INT;					// bufferSize of s1
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SAFECONCAT2 := StrConcatA(pstFrom := ADR(s2), pstTo := s1, iBufferSize := bufferSize);
 
 

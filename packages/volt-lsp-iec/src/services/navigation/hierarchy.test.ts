@@ -121,15 +121,15 @@ const BREADTH_CALLS = `FUNCTION_BLOCK FB_Worker
 VAR
 \tn : INT;
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 n := n + 1;
 END_FUNCTION_BLOCK
 FUNCTION_BLOCK FB_Derived EXTENDS FB_Worker
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^();
 END_FUNCTION_BLOCK
 PROGRAM PRG_Tick
-IMPLEMENTATION ST
+%LANGUAGE ST
 ;
 END_PROGRAM
 PROGRAM PRG_Main
@@ -137,7 +137,7 @@ VAR
 \tone : FB_Worker;
 \tmany : ARRAY[1..2] OF FB_Worker;
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 one();
 many[1]();
 PRG_Tick();
@@ -149,7 +149,7 @@ test("B1/B2/B4: a call of an FB instance, of an array element instance, of SUPER
   const doc = docs[0]!
   const worker = prepareCallHierarchy(doc, project, offsetOf(BREADTH_CALLS, "FB_Worker\nVAR"))!
   expect(callIncoming(docs, project, worker.sym).map((c) => [c.item.name, c.ranges.length]).sort()).toEqual([["FB_Derived", 1], ["PRG_Main", 2]])
-  const tick = prepareCallHierarchy(doc, project, offsetOf(BREADTH_CALLS, "PRG_Tick\nIMPLEMENTATION"))
+  const tick = prepareCallHierarchy(doc, project, offsetOf(BREADTH_CALLS, "PRG_Tick\n%LANGUAGE"))
   expect(tick?.item.name).toBe("PRG_Tick")
   expect(callIncoming(docs, project, tick!.sym).map((c) => c.item.name)).toEqual(["PRG_Main"])
   const main = prepareCallHierarchy(doc, project, offsetOf(BREADTH_CALLS, "PRG_Main"))!
@@ -157,14 +157,14 @@ test("B1/B2/B4: a call of an FB instance, of an array element instance, of SUPER
 })
 
 const PROPERTY = `FUNCTION F_Seven : INT
-IMPLEMENTATION ST
+%LANGUAGE ST
 F_Seven := 7;
 END_FUNCTION
 FUNCTION_BLOCK FB_P
 END_FUNCTION_BLOCK
 PROPERTY Level : INT
 GET
-IMPLEMENTATION ST
+%LANGUAGE ST
 Level := F_Seven();
 END_GET
 END_PROPERTY

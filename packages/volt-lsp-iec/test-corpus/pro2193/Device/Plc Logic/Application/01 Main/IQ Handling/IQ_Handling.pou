@@ -72,7 +72,7 @@ VAR
 	OutputControl			: ARRAY[GVL_IQ.OutputSliceStart..GVL_IQ.OutputSliceEnd] OF MapperOutputs;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 {IF defined (IsSimulationMode)}
 	//RETURN;
 {END_IF}
@@ -100,7 +100,7 @@ VAR
 	i, i0, index			: UINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Methods
 // Copy homing sensors of all servo motors
 FOR i := 1 TO GlobalVars.fbModuleManager.servoDrivesCount DO
@@ -157,7 +157,7 @@ END_METHOD
 
 METHOD PRIVATE CopyPilzSafetyStatus
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Methods
 // Onderstaande code is tijdelijk!!! dit moet mooier.
 
@@ -213,7 +213,7 @@ VAR CONSTANT
 	maxLength		: INT := 1000;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Methods
 sliceDictionary		:= '{';
 
@@ -246,7 +246,7 @@ VAR_INST
 	xInitialized	: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Methods
 IF xInitialized THEN
 	RETURN;
@@ -268,7 +268,7 @@ VAR
 	i							: UINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Methods
 // When forcing outputs is enabled, copy the current state of the output to the force button
 IF selectedSliceForceTrigger.Rising(CLK := selectedSliceForce) THEN
@@ -324,7 +324,7 @@ END_IF
 END_METHOD
 
 ACTION G1_mapping
-IMPLEMENTATION ST
+%LANGUAGE ST
 InputControl[IQSlices.DI_10](
 	sliceNumber	:= IQSlices.DI_10,
 	slice		:= DI_10,
@@ -634,7 +634,7 @@ OutputControl[IQSlices.DQ_20](
 END_ACTION
 
 ACTION G3_Mapping
-IMPLEMENTATION ST
+%LANGUAGE ST
 InputControl[IQSlices.DI_30](
 	sliceNumber	:= IQSlices.DI_30,
 	slice		:= DI_30,
@@ -781,7 +781,7 @@ OutputControl[IQSlices.DQ_36](
 END_ACTION
 
 ACTION G4_Mapping
-IMPLEMENTATION ST
+%LANGUAGE ST
 InputControl[IQSlices.DI_40](
 	sliceNumber	:= IQSlices.DI_40,
 	slice		:= DI_40,
@@ -954,7 +954,7 @@ OutputControl[IQSlices.DQ_46](
 END_ACTION
 
 ACTION G5_Mapping
-IMPLEMENTATION ST
+%LANGUAGE ST
 InputControl[IQSlices.DI_50](
 	sliceNumber	:= IQSlices.DI_50,
 	slice		:= DI_50,

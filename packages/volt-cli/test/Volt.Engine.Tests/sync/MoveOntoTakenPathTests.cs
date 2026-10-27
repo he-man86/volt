@@ -23,7 +23,7 @@ public class MoveOntoTakenPathTests
         $"FUNCTION_BLOCK {name}\nVAR\nEND_VAR\n", "n := 0;\n", folder);
 
     private static string Src(string name, string body = "n := 1;") =>
-        $"FUNCTION_BLOCK {name}\nVAR\nEND_VAR\nIMPLEMENTATION ST\n{body}\n\nEND_FUNCTION_BLOCK\n";
+        $"FUNCTION_BLOCK {name}\nVAR\nEND_VAR\n%LANGUAGE ST\n{body}\n\nEND_FUNCTION_BLOCK\n";
 
     private static FakeIde ThreeFbs() => new(Fb("FB_A", "POUs"), Fb("FB_B", "POUs"), Fb("FB_C", "POUs"));
 
@@ -137,7 +137,7 @@ public class MoveOntoTakenPathTests
     /// <summary>A CREATE onto a name its application holds in another folder or kind is the same IDE state (C38: the IDE
     /// refuses the create, which reached the apply as INTERNAL_ERROR) — ITEM_EXISTS naming the holder, force or not.</summary>
     [Theory]
-    [InlineData("Other/FB_X.pou", "FUNCTION_BLOCK FB_X\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n")]
+    [InlineData("Other/FB_X.pou", "FUNCTION_BLOCK FB_X\nVAR\nEND_VAR\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK\n")]
     [InlineData("Other/FB_X.dut", "TYPE FB_X :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE\n")]
     [InlineData("POUs/fb_x.gvl", "VAR_GLOBAL\n\tg : INT;\nEND_VAR\n")]
     public void A_create_onto_a_name_the_application_holds_is_ITEM_EXISTS(string name, string text)

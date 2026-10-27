@@ -12,7 +12,7 @@ VAR
 END_VAR
 
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 (*************************************************************************
  *
  * Application name				: Snijmachine Quintens

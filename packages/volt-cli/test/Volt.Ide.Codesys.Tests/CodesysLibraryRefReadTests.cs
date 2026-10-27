@@ -202,7 +202,7 @@ namespace Volt.Ide.Codesys.Tests
             Assert.Equal(
                 $"LIBRARY {NichePlaceholder}\nNAMESPACE Niche\nRESOLUTION " +
                 $"{Volt.Tests.Shared.WireParityCases.LibraryName}, {Volt.Tests.Shared.WireParityCases.LibraryVersion} " +
-                $"({Volt.Tests.Shared.WireParityCases.LibraryDistributor})\nPLACEHOLDER true\n" + lines + "MATERIALIZATION 4\n",
+                $"({Volt.Tests.Shared.WireParityCases.LibraryDistributor})\nPLACEHOLDER true\n" + lines + "MATERIALIZATION 5\n",
                 manifest);
         }
     }

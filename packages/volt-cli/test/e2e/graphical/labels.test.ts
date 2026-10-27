@@ -55,7 +55,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 		// that lives on the network object rather than in the statements.
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;\nEND_VAR\n` +
-			`IMPLEMENTATION FBD\nNETWORK\n  out1 := a AND b;\nEND_NETWORK\n` +
+			`%LANGUAGE FBD\nNETWORK\n  out1 := a AND b;\nEND_NETWORK\n` +
 			`NETWORK LABEL: Done\n  out2 := a OR b;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
@@ -92,7 +92,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`IMPLEMENTATION FBD\nNETWORK\n  JMP Done := a;\nEND_NETWORK\n` +
+			`%LANGUAGE FBD\nNETWORK\n  JMP Done := a;\nEND_NETWORK\n` +
 			`NETWORK LABEL: Done\n  out := a OR b;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
@@ -133,7 +133,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`IMPLEMENTATION FBD\nNETWORK\n  RETURN := a;\nEND_NETWORK\n` +
+			`%LANGUAGE FBD\nNETWORK\n  RETURN := a;\nEND_NETWORK\n` +
 			`NETWORK\n  out := a AND b;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
@@ -175,7 +175,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`IMPLEMENTATION FBD\nNETWORK\n  out := a AND b;\nEND_NETWORK\n` +
+			`%LANGUAGE FBD\nNETWORK\n  out := a AND b;\nEND_NETWORK\n` +
 			`NETWORK\n  RETURN := ;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
@@ -199,7 +199,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`IMPLEMENTATION FBD\nNETWORK\n  JMP Done := ;\nEND_NETWORK\n` +
+			`%LANGUAGE FBD\nNETWORK\n  JMP Done := ;\nEND_NETWORK\n` +
 			`NETWORK LABEL: Done\n  out := a AND b;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
@@ -235,7 +235,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 			await removeItem(item)
 			const src =
 				`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\n\tq : BOOL;\nEND_VAR\n` +
-				`IMPLEMENTATION FBD\n${nets}\nEND_PROGRAM\n`
+				`%LANGUAGE FBD\n${nets}\nEND_PROGRAM\n`
 			await expectRoundTrip(item, src)
 			await removeItem(item)
 		})

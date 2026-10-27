@@ -1,6 +1,6 @@
 #### branch-fed — `feed BRANCH (a, b, …)`: the branches in stored order; the editor's Sequential mode written as nothing
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   lamp := start BRANCH (a, b AND (speed LE 40), c);
 END_NETWORK
@@ -10,7 +10,7 @@ NETWORK
 
 #### branch-shortcircuit — the old short-circuit mode says so after the list
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   lamp := start BRANCH (a, b) SHORTCIRCUIT;
 END_NETWORK
@@ -20,7 +20,7 @@ NETWORK
 
 #### branch-unfed — an unfed parallel is `BRANCH (a, b)`, nothing before BRANCH
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   lamp := BRANCH (a, b);
 END_NETWORK
@@ -30,7 +30,7 @@ NETWORK
 
 #### branch-nested — a parallel in a branch is a slot's value: no brackets
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   lamp := start BRANCH (a, c BRANCH (b, go));
 END_NETWORK
@@ -40,7 +40,7 @@ NETWORK
 
 #### branch-as-operand — a parallel as a word's operand stands in brackets
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   MOVE speed => t ENO EN (run BRANCH (NOT low, speed LE 40 EN low)) AND NOT cleaning;
 END_NETWORK
@@ -50,7 +50,7 @@ NETWORK
 
 #### branch-word-feed — a feed that is a box is bracketed
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := (s AND sync) BRANCH (a, b);
 END_NETWORK
@@ -60,7 +60,7 @@ NETWORK
 
 #### branch-negated-feed — `NOT s BRANCH (a, b)` negates the feed
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := NOT s BRANCH (a, b);
 END_NETWORK
@@ -70,7 +70,7 @@ NETWORK
 
 #### branch-as-en-source — EN's source is a slot: a parallel there takes no brackets
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   MOVE 1 => x ENO EN go BRANCH (a, b);
 END_NETWORK
@@ -80,7 +80,7 @@ NETWORK
 
 #### branch-of-enabled-comparisons — enabled comparisons as branches: slots, no brackets
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   cam := enable BRANCH (pos LE stop EN pos GE start EN, start GT stop EN) SHORTCIRCUIT;
 END_NETWORK
@@ -88,7 +88,7 @@ END_NETWORK
 NETWORK
   (:= cam (par sc enable (LE pos stop en:(GE pos start en:_ conn:0) conn:0) (GT start stop en:_ conn:0)))
 === canonical
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   cam := enable BRANCH (pos LE stop EN
                           pos GE start EN,
@@ -97,7 +97,7 @@ END_NETWORK
 
 #### branch-per-line — a branch holding a chain: the writer puts one branch per line, aligned
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   lamp := start BRANCH (a,
                         MOVE 1 => t ENO EN
@@ -110,7 +110,7 @@ NETWORK
 
 #### branch-per-line-read-on-one — the same tree on one line reads alike, and comes back laid out
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   lamp := start BRANCH (a, MOVE 1 => t ENO EN MOVE 2 => u ENO EN c, d);
 END_NETWORK
@@ -118,7 +118,7 @@ END_NETWORK
 NETWORK
   (:= lamp (par seq start a (MOVE 1 =>1:t en:(MOVE 2 =>1:u en:c conn:0 eno:1) conn:0 eno:1) d))
 === canonical
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   lamp := start BRANCH (a,
                         MOVE 1 => t ENO EN
@@ -128,7 +128,7 @@ END_NETWORK
 
 #### empty-branch — an empty branch (a shorted branch) is nothing between its commas
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := s BRANCH (a, , b);
   y := s BRANCH (a, );
@@ -140,7 +140,7 @@ NETWORK
 
 #### eno-feeds-a-branch — a box read through ENO as a parallel's feed is bracketed (10)
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := (MOVE 1 => t ENO EN c) BRANCH (d, e);
 END_NETWORK

@@ -262,7 +262,7 @@ public static class FetchService
     }
 
 
-    /// <summary>The item's <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c> bodies with why — the wire's <c>unsupported</c>, or
+    /// <summary>The item's <c>%LANGUAGE LD|FBD UNSUPPORTED</c> bodies with why — the wire's <c>unsupported</c>, or
     /// null when it has none. A CFC, SFC or IL body is hidden too, and carries no reason: its line says it all.</summary>
     private static List<UnsupportedBody>? UnsupportedOf(WorkspaceItem mat)
     {

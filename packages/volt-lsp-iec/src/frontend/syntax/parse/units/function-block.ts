@@ -23,14 +23,12 @@ export function parseFunctionBlock(c: Cursor): FunctionBlock | undefined {
   if (start === undefined) return undefined
 
   // A modifier keyword is a modifier only when a name (or another modifier) follows it; otherwise it IS the name
-  // (`FUNCTION_BLOCK PUBLIC Final`). The `IMPLEMENTATION` line is an identifier token but never a name — it ends the
-  // declaration, and an FB with no VAR puts it straight under the header — so it does not count as one. Eating
-  // greedily named such an FB `IMPLEMENTATION` (the method header's twin, `parseMethod`).
+  // (`FUNCTION_BLOCK PUBLIC Final`).
   const written = readModifiers(
     c,
     FB_MODIFIERS,
     (after) =>
-      (after.kind === "identifier" && !c.opensImplementationLine(1)) ||
+      after.kind === "identifier" ||
       (after.kind === "keyword" && after.keyword !== undefined && FB_MODIFIERS.includes(after.keyword)),
   )
   // An access modifier after another one leaves no FB declared, and no message about it on either vendor.

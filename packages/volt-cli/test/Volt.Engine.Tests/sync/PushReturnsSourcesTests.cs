@@ -26,19 +26,19 @@ public class PushReturnsSourcesTests
         "FUNCTION_BLOCK FB_Motor\n" +
         "VAR_INPUT\n\txEnable : BOOL;\nEND_VAR\n" +
         "VAR\n\txRunning : BOOL;\nEND_VAR\n" +
-        "IMPLEMENTATION ST\n" +
+        "%LANGUAGE ST\n" +
         "xRunning := xEnable;\n" +
         "END_FUNCTION_BLOCK\n" +
         "\n" +
         "PROPERTY Running : BOOL\n" +
         "GET\n" +
-        "IMPLEMENTATION ST\n" +
+        "%LANGUAGE ST\n" +
         "Running := xRunning;\n" +
         "END_GET\n" +
         "END_PROPERTY\n" +
         "\n" +
         "ACTION Stop\n" +
-        "IMPLEMENTATION ST\n" +
+        "%LANGUAGE ST\n" +
         "xRunning := FALSE;\n" +
         "END_ACTION\n";
 
@@ -148,7 +148,7 @@ public class PushReturnsSourcesTests
         var push = Push(ide, true, new SetItemOp
         {
             Name = "FB_Old.pou", To = "FB_New.pou", IfVersion = refs.Items["FB_Old.pou"],
-            SourceText = "FUNCTION_BLOCK FB_New\nVAR\nEND_VAR\nIMPLEMENTATION ST\ny := 2;\nEND_FUNCTION_BLOCK\n",
+            SourceText = "FUNCTION_BLOCK FB_New\nVAR\nEND_VAR\n%LANGUAGE ST\ny := 2;\nEND_FUNCTION_BLOCK\n",
         });
 
         Assert.True(push.Landed(), push.Conflicts?.FirstOrDefault()?.Reason);
@@ -241,8 +241,8 @@ public class PushReturnsSourcesTests
             new SetItemOp
             {
                 Name = "X.pou", To = "Y.pou", IfVersion = refs.Items["X.pou"],
-                SourceText = "FUNCTION_BLOCK Y\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK" +
-                             "\n\nMETHOD M : BOOL\nIMPLEMENTATION ST\nM := TRUE;\nEND_METHOD\n",
+                SourceText = "FUNCTION_BLOCK Y\nVAR\nEND_VAR\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK" +
+                             "\n\nMETHOD M : BOOL\n%LANGUAGE ST\nM := TRUE;\nEND_METHOD\n",
             });
 
         Assert.True(push.Landed(), push.Conflicts?.FirstOrDefault()?.Reason);
@@ -308,8 +308,8 @@ public class PushReturnsSourcesTests
             new SetItemOp
             {
                 Name = "K.pou", IfVersion = version,
-                SourceText = "FUNCTION K : BOOL\nVAR\nEND_VAR\nIMPLEMENTATION ST\nK := TRUE;\nEND_FUNCTION" +
-                             "\n\nMETHOD M : BOOL\nIMPLEMENTATION ST\nM := TRUE;\nEND_METHOD\n",
+                SourceText = "FUNCTION K : BOOL\nVAR\nEND_VAR\n%LANGUAGE ST\nK := TRUE;\nEND_FUNCTION" +
+                             "\n\nMETHOD M : BOOL\n%LANGUAGE ST\nM := TRUE;\nEND_METHOD\n",
             });
 
         Assert.True(push.Landed(), push.Conflicts?.FirstOrDefault()?.Reason);
@@ -334,8 +334,8 @@ public class PushReturnsSourcesTests
             new SetItemOp
             {
                 Name = "K.pou", IfVersion = version,
-                SourceText = "FUNCTION K : BOOL\nVAR\nEND_VAR\nIMPLEMENTATION ST\nK := TRUE;\nEND_FUNCTION" +
-                             "\n\nMETHOD M : BOOL\nIMPLEMENTATION ST\nM := TRUE;\nEND_METHOD\n",
+                SourceText = "FUNCTION K : BOOL\nVAR\nEND_VAR\n%LANGUAGE ST\nK := TRUE;\nEND_FUNCTION" +
+                             "\n\nMETHOD M : BOOL\n%LANGUAGE ST\nM := TRUE;\nEND_METHOD\n",
             });
 
         Assert.True(push.Landed(), push.Conflicts?.FirstOrDefault()?.Reason);
@@ -369,8 +369,8 @@ public class PushReturnsSourcesTests
     {
         var ide = new FakeIde { RefusesMembersByText = true };
         const string functionWithMethod =
-            "FUNCTION F : BOOL\nVAR\nEND_VAR\nIMPLEMENTATION ST\nF := TRUE;\nEND_FUNCTION" +
-            "\n\nMETHOD M : BOOL\nIMPLEMENTATION ST\nM := TRUE;\nEND_METHOD\n";
+            "FUNCTION F : BOOL\nVAR\nEND_VAR\n%LANGUAGE ST\nF := TRUE;\nEND_FUNCTION" +
+            "\n\nMETHOD M : BOOL\n%LANGUAGE ST\nM := TRUE;\nEND_METHOD\n";
 
         var push = Push(ide, true, Create("E_Mode.dut", Enum), Create("ST_Drive.dut", Struct), Create("F.pou", functionWithMethod));
 
@@ -448,7 +448,7 @@ public class PushReturnsSourcesTests
     {
         var ide = new FakeIde();
 
-        var push = Push(ide, true, Create("Good.pou", "PROGRAM Good\nIMPLEMENTATION ST\nEND_PROGRAM\n"), Create("Bad.pou", "not a POU at all"));
+        var push = Push(ide, true, Create("Good.pou", "PROGRAM Good\n%LANGUAGE ST\nEND_PROGRAM\n"), Create("Bad.pou", "not a POU at all"));
 
         Assert.False(push.Landed());
         Assert.Null(push.NewSources);

@@ -267,7 +267,7 @@ public class VendorCapabilityParityTests
         Assert.True(
             files.Values.Any(t => t.Contains("NetworkText.Pulled(")),
             vendor + " never reads an LD or FBD body through NetworkText.Pulled, so a body its reader cannot represent " +
-            "removes the whole POU from the workspace and from git instead of reading as IMPLEMENTATION LD|FBD " +
+            "removes the whole POU from the workspace and from git instead of reading as %LANGUAGE LD|FBD " +
             "UNSUPPORTED — and the production switch does not reach it either. Read the body through NetworkText.Pulled.");
 
         var outside = new List<string>();
@@ -324,7 +324,7 @@ public class VendorCapabilityParityTests
     /// in an "N unreadable" tally instead of a file.</para>
     ///
     /// <para><c>UnrepresentableBodyException</c> is the same refusal with a reason attached, and both drivers
-    /// catch it — so the POU appears, its body read-only (<c>IMPLEMENTATION LD|FBD UNSUPPORTED</c>) and the reason in
+    /// catch it — so the POU appears, its body read-only (<c>%LANGUAGE LD|FBD UNSUPPORTED</c>) and the reason in
     /// the pull message. The distinction is invisible
     /// at the throw site, which is why it is gated here rather than left to review: four refusals across the two
     /// readers were the bare kind, and the one that was NOT was the only one anybody had looked at.</para></summary>

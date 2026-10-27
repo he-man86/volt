@@ -53,7 +53,7 @@ VAR_TEMP
 	uiPropertyIndex				: UINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF xExecute AND NOT xExecute_old THEN
 
 	//Set outputs
@@ -249,7 +249,7 @@ VAR
 	pByte				: POINTER TO BYTE;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Internal
 pByte := psContent;		// Set pointer to start of string
 
@@ -273,7 +273,7 @@ VAR_INPUT
 	psContent	: POINTER TO STRING(5);	//Max length is 5 (FALSE/false)
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Internal
 //Check for BOOLEAN value (Text or Number)
 IF psContent^ = 'TRUE'
@@ -297,7 +297,7 @@ VAR
 	pByte				: POINTER TO BYTE;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Internal
 _mCheckType_Number := TRUE;
 
@@ -322,7 +322,7 @@ VAR_INPUT
 	sConcat		: STRING(1);
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Internal
 //Concat content
 StrConcatA(pstFrom := ADR(sConcat), pstTo := psJSON, iBufferSize := TO_INT(udiJSONStringLength));

@@ -14,7 +14,7 @@ VAR
 	TriggerHomingStarted		: RisingTriggerFB;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF NOT __ISVALIDREF(AxisRef) THEN
 	ThrowException('The ServoDriveBrakeLogicFB is not connected to an axis!');
 END_IF
@@ -63,7 +63,7 @@ VAR_INST
 	WriteParameter	: L_MC1P.MC_WriteParameter;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 WriteParameter(
 	Axis						:= AxisRef,
 	Execute						:= TRUE,
@@ -96,7 +96,7 @@ VAR_INST
 	WriteParameter	: L_MC1P.MC_WriteBoolParameter;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 WriteParameter(
 	Axis						:= AxisRef,
 	Execute						:= TRUE,
@@ -131,7 +131,7 @@ VAR_INST
 	lrStopJerk: LREAL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 CASE state OF
 0:	// Read / write parameters from drive every 10 seconds..
 	Increment.AnyInt(state, 1, T_Interval.Set(AxisRef.xAxisAvailable, 10));

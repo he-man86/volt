@@ -4,7 +4,7 @@ VAR_INPUT
 	divisor		: LREAL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %CLASS CHECK CheckDivReal64
 IF divisor <> 0 THEN
 	CheckDivLReal := divisor;

@@ -32,7 +32,7 @@ VAR CONSTANT
 //	OptionFirstCycleWithoutLabelsAllowed			: BOOL	:= TRUE;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^();
 
 // Enable manual control of magazine when Xi Unit is in safe position.
@@ -46,7 +46,7 @@ VAR_INPUT
 	iParameter : INT := 1;	// 0: Invalid, 1: Takeover Pos 1, etc.
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF xiUnit.HasPayload = enumPayload._All THEN
 	CheckIfTransferIsNeeded					:= FALSE;	// No need for transfer, there are still labels on the inlay-core
 	RETURN;
@@ -81,7 +81,7 @@ END_METHOD
 
 METHOD PROTECTED Cyclic
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 State(actState	:= ActState);
 
 END_METHOD
@@ -89,7 +89,7 @@ END_METHOD
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 CommandLock.ForceRelease();
 
 ActState	:= StateNone;
@@ -103,7 +103,7 @@ VAR_INPUT
 	iParameter : INT := 1;	// 0: Invalid, 1: Takeover Pos 1, etc.
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
 END_IF
@@ -133,7 +133,7 @@ END_VAR
 // Magazine type: ***
 // Magazine hardware version: 1.1
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 CASE ActState OF
 	StateNone:
 		;
@@ -224,7 +224,7 @@ END_METHOD
 // Command to stop a module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 CommandLock.ForceRelease();
 
 ActState	:= StateNone;
@@ -240,7 +240,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 TransferBusy	:= ActState <> StateNone;
 
 END_GET

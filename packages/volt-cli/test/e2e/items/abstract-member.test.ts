@@ -1,18 +1,19 @@
 import { landed } from "../harness"
 /**
- * AN ABSTRACT MEMBER READS AND PUSHES THE SAME ON BOTH VENDORS (openspec `abstract-member-push` 3.2,
- * `abstract-member-parity` 3.3, DIALECT C2n) — live.
+ * A MEMBER WITH NO BODY SLOT HAS NO `%LANGUAGE` LINE (openspec `language-line`, DIALECT C2n) — live.
  *
- * <p>The text is decided by the DECLARATION, never by the IDE object's class or slot: an `ABSTRACT` member with no code
- * is `IMPLEMENTATION NONE` — CODESYS's slotless `AbstractPOUMethodObject` / `InterfacePropertyAccessorObject` (pro2193),
- * a CODESYS slotted `POUMethodObject` / `PropertyAccessorObject`, and every TwinCAT abstract member (609 / 613 / 614)
- * alike. A push of NONE writes no body where the object has no slot and `""` where it has one.</p>
+ * <p>CODESYS holds an IDE-made abstract method as an `AbstractPOUMethodObject` and an abstract property's GET as an
+ * `InterfacePropertyAccessorObject` (pro2193), neither with a body slot: the pull writes them with no line and nothing after
+ * the declaration. Every other member has a slot — every TwinCAT abstract member (609 / 613 / 614), and every member a
+ * push creates but an ABSTRACT METHOD stating no line — and pulls `%LANGUAGE ST`, with nothing under it when it holds no
+ * code.</p>
  *
  * <p>Two parts:</p>
  * <ul>
- * <li><b>the migration</b> — any fixture, either vendor: a pro2193-shaped owner holding `IMPLEMENTATION NONE` is CREATED
- * (refused before `abstract-member-parity`, which cost pro2193's 7 owner files on a cross-vendor or blank-project
- * migration), and pulls back unchanged;</li>
+ * <li><b>the migration</b> — any fixture, either vendor: a pro2193-shaped owner whose abstract members state an empty
+ * `%LANGUAGE ST` is CREATED and pulls back unchanged. Its abstract METHOD stating no line is created on CODESYS as the
+ * vendor's `AbstractPOUMethodObject` (C2r) and pulls back unchanged, and refused by name on TwinCAT (no method without a
+ * slot, C2n); its GET stating no line is refused on both (no measured create of a slotless accessor);</li>
  * <li><b>pro2193 itself</b> — CODESYS, against the committed pro2193 copy, which holds the slotless members; on any other
  * project it skips, loudly.</li>
  * </ul>
@@ -31,36 +32,64 @@ setDefaultTimeout(600_000)
 const lf = (s: string) => s.replace(/\r\n/g, "\n")
 const items = (await bridge.refs()).items ?? {}
 
-// ── the migration: a NONE owner created into a project that does not hold it ─────────────────────────────
+// ── the migration: a pro2193-shaped owner created into a project that does not hold it ──────────────────────
 
 const MIGRATED = `${PREFIX}_AbsMigrated.pou`
 const migratedBare = MIGRATED.replace(/\.pou$/, "")
-/** pro2193's shapes (`VisionSystem_BaseFB`): an abstract method and an abstract property's GET, NONE, beside a concrete
- *  method — the owner a blank-project migration used to refuse by name. Its members in the order both IDEs hand them
- *  back (measured: the same order on both vendors). */
-const MIGRATED_SRC =
-	`FUNCTION_BLOCK ABSTRACT ${migratedBare}\nVAR\n\tbusy : BOOL;\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\n` +
-	`METHOD Run : BOOL\nIMPLEMENTATION ST\nRun := busy;\nEND_METHOD\n\n` +
-	`METHOD ABSTRACT TakePicture : INT\nIMPLEMENTATION NONE\nEND_METHOD\n\n` +
-	`PROPERTY PUBLIC ABSTRACT Busy : BOOL\nGET\nIMPLEMENTATION NONE\nEND_GET\nEND_PROPERTY\n`
+/** pro2193's shapes (`VisionSystem_BaseFB`): an abstract method and an abstract property's GET beside a concrete method,
+ *  their members in the order both IDEs hand them back (measured: the same order on both vendors). `methodBody` and
+ *  `getBody` are what the abstract method and the abstract GET state under their declaration. */
+const migratedSrc = (methodBody: string, getBody: string) =>
+	`FUNCTION_BLOCK ABSTRACT ${migratedBare}\nVAR\n\tbusy : BOOL;\nEND_VAR\n%LANGUAGE ST\n\nEND_FUNCTION_BLOCK\n\n` +
+	`METHOD Run : BOOL\n%LANGUAGE ST\nRun := busy;\nEND_METHOD\n\n` +
+	`METHOD ABSTRACT TakePicture : INT\n${methodBody}END_METHOD\n\n` +
+	`PROPERTY PUBLIC ABSTRACT Busy : BOOL\nGET\n${getBody}END_GET\nEND_PROPERTY\n`
+const ST = "%LANGUAGE ST\n"
+
+/** A create of `src`, refused: the reason, and nothing created. */
+async function refusedCreate(src: string): Promise<string> {
+	await removeItem(MIGRATED)
+	const r = await bridge.push({
+		expectedProjectVersion: (await bridge.refs()).projectVersion,
+		ops: [{ op: "set", name: MIGRATED, sourceText: src, ifVersion: null }],
+	})
+	expect(landed(r)).toBe(false)
+	expect(pathIn((await bridge.refs()).items ?? {}, MIGRATED)).toBeUndefined()   // nothing created
+	return String((r.conflicts ?? [])[0]?.reason ?? "")
+}
 
 describe(`abstract member migration / ${MIGRATED} (${BASE})`, () => {
 	afterAll(async () => {
 		await removeItem(MIGRATED)
 	})
 
-	it("a pro2193-shaped owner holding IMPLEMENTATION NONE is created, and pulls back unchanged", async () => {
-		await removeItem(MIGRATED)
-		await createItem(MIGRATED, MIGRATED_SRC)
+	it("its GET stating no line is refused: a push creates no accessor without a slot", async () => {
+		expect(await refusedCreate(migratedSrc(ST, ""))).toContain("creates no accessor without one")
+	})
 
-		expect(lf((await fetchItem(MIGRATED)).sourceText)).toBe(MIGRATED_SRC)
+	it.skipIf(VENDOR !== "twincat")("TwinCAT: its abstract method stating no line is refused: no method without a slot", async () => {
+		expect(await refusedCreate(migratedSrc("", ST))).toContain("no METHOD without a body slot")
+	})
+
+	it.skipIf(VENDOR !== "codesys")("CODESYS: its abstract method stating no line is created without a slot, and pulls back unchanged", async () => {
+		await removeItem(MIGRATED)
+		await createItem(MIGRATED, migratedSrc("", ST))
+
+		expect(lf((await fetchItem(MIGRATED)).sourceText)).toBe(migratedSrc("", ST))
+	})
+
+	it("the owner with an empty %LANGUAGE ST body at its abstract members is created, and pulls back unchanged", async () => {
+		await removeItem(MIGRATED)
+		await createItem(MIGRATED, migratedSrc(ST, ST))
+
+		expect(lf((await fetchItem(MIGRATED)).sourceText)).toBe(migratedSrc(ST, ST))
 	})
 
 	it("code under its abstract method is refused before any write, naming the member and the IDE's words", async () => {
 		const before = await fetchItem(MIGRATED)
 		const withCode = lf(before.sourceText).replace(
-			"METHOD ABSTRACT TakePicture : INT\nIMPLEMENTATION NONE",
-			"METHOD ABSTRACT TakePicture : INT\nIMPLEMENTATION ST\nTakePicture := 1;",
+			"METHOD ABSTRACT TakePicture : INT\n%LANGUAGE ST\nEND_METHOD",
+			"METHOD ABSTRACT TakePicture : INT\n%LANGUAGE ST\nTakePicture := 1;\nEND_METHOD",
 		)
 		expect(withCode).not.toBe(lf(before.sourceText))
 
@@ -83,6 +112,13 @@ const OWNER = "VisionSystem_BaseFB.pou"
 const SIGNATURE = "METHOD ABSTRACT TakePicture : enumResultTakePicture"
 const ADDED = "// volt e2e: a declaration line beside an abstract member"
 
+/** The text of the member block that opens with `head`, up to and including its END line. */
+const block = (text: string, head: string, end: string) => {
+	const at = text.indexOf(head)
+	if (at < 0) throw new Error(`no '${head}' in:\n${text}`)
+	return text.slice(at, text.indexOf(end, at) + end.length)
+}
+
 const served = VENDOR === "codesys" && pathIn(items, OWNER) !== undefined
 if (!served) console.warn(`[abstract-member] pro2193 part skipped: ${BASE} serves no ${OWNER} on CODESYS — serve the committed pro2193 copy`)
 
@@ -100,15 +136,17 @@ describe.skipIf(!served)(`abstract member / ${OWNER} (${BASE})`, () => {
 		if (!landedInFull(r)) throw new Error(`${OWNER} could not be restored: ${JSON.stringify(r.conflicts ?? r)}`)
 	})
 
-	it("pulls IMPLEMENTATION NONE under the abstract method and the abstract property's GET, and nowhere else", () => {
+	it("pulls no %LANGUAGE line under the abstract method and the abstract property's GET, their %FOLDER closing the declaration", () => {
 		const text = lf(original.sourceText)
-		// The member's %FOLDER directive stands under its line (`StWriter`).
-		expect(text).toContain(`${SIGNATURE}\nIMPLEMENTATION NONE\n%FOLDER Commands\nEND_METHOD`)
-		expect(text).toContain("PROPERTY PUBLIC ABSTRACT Busy : BOOL\n%FOLDER Properties\nGET\nIMPLEMENTATION NONE\nEND_GET")
-		expect(text.split("\n").filter((l) => l === "IMPLEMENTATION NONE")).toHaveLength(2)
+		const method = block(text, SIGNATURE, "END_METHOD")
+		expect(method).not.toContain("%LANGUAGE")
+		expect(method).toEndWith("\n%FOLDER Commands\nEND_METHOD")
+		const property = block(text, "PROPERTY PUBLIC ABSTRACT Busy : BOOL", "END_PROPERTY")
+		expect(property).toContain("%FOLDER Properties\nGET\n")
+		expect(property).not.toContain("%LANGUAGE")
 	})
 
-	it("a declaration line beside it pushes back, lands, and the member still pulls NONE (its object is kept)", async () => {
+	it("a declaration line beside it pushes back, lands, and the member still pulls with no line (its object is kept)", async () => {
 		const edited = lf(original.sourceText).replace(SIGNATURE, `${SIGNATURE}\n${ADDED}`)
 		expect(edited).not.toBe(lf(original.sourceText))
 
@@ -118,17 +156,15 @@ describe.skipIf(!served)(`abstract member / ${OWNER} (${BASE})`, () => {
 		expect(lf((await fetchItem(OWNER)).sourceText)).toBe(edited)
 	})
 
-	// A file pulled before abstract-member-parity states `IMPLEMENTATION ST` with nothing under it: the same content as
-	// NONE — accepted, no body written at the missing slot, and the member still pulls NONE. (It was refused here while
-	// the text depended on the slot.)
-	it("an empty IMPLEMENTATION ST under it is the same content as NONE: accepted, and it still pulls NONE", async () => {
+	// A stated language over a member with no slot has nowhere to go: refused by name, nothing written.
+	it("an empty %LANGUAGE ST under it is refused: the IDE holds the member with no body slot", async () => {
 		const before = await fetchItem(OWNER)
-		const stale = lf(before.sourceText).replace(`${SIGNATURE}\n${ADDED}\nIMPLEMENTATION NONE`, `${SIGNATURE}\nIMPLEMENTATION ST`)
-		expect(stale).toContain(`${SIGNATURE}\nIMPLEMENTATION ST\n%FOLDER Commands\nEND_METHOD`)
+		const stated = lf(before.sourceText).replace(`${SIGNATURE}\n${ADDED}`, `${SIGNATURE}\n${ADDED}\n%LANGUAGE ST`)
+		expect(stated).not.toBe(lf(before.sourceText))
 
-		const r = await pushOps([{ op: "set", name: await pathOf(OWNER), sourceText: stale, ifVersion: before.version }])
-		expect({ landed: landedInFull(r), conflicts: r.conflicts ?? [] }).toEqual({ landed: true, conflicts: [] })
-
-		expect(lf((await fetchItem(OWNER)).sourceText)).toBe(lf(original.sourceText))
+		const r = await pushOps([{ op: "set", name: await pathOf(OWNER), sourceText: stated, ifVersion: before.version }])
+		expect(landedInFull(r)).toBe(false)
+		expect(String((r.conflicts ?? [])[0]?.reason ?? "")).toContain("no body slot")
+		expect((await fetchItem(OWNER)).version).toBe(before.version)
 	})
 })

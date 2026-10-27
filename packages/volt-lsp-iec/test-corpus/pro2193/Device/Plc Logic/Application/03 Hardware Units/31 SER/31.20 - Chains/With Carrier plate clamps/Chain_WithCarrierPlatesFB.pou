@@ -20,7 +20,7 @@ VAR CONSTANT
 	MaxOpenProductCarriersReject	: USINT		:= 1;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^(
 	Data				:= Data,
 	AxisRef				:= AxisRef,
@@ -40,7 +40,7 @@ VAR
 	i		: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^.Cyclic();
 
 FOR i := 1 TO MaxOpenProductCarriersXu DO
@@ -93,7 +93,7 @@ END_METHOD
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 XuCloseProductCarriers();
 ZCloseProductCarriers();
@@ -108,7 +108,7 @@ VAR
 	i	: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IsSafeToMove	:= SUPER^.IsSafeToMove();
 
 FOR i := 1 TO MaxOpenProductCarriersXu DO
@@ -140,7 +140,7 @@ VAR
 	i	: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 FOR i := 1 TO MaxOpenProductCarriersReject DO
 	OpenProductCarrierReject[i].GoIn();
@@ -162,7 +162,7 @@ VAR
 	i	: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 FOR i := 1 TO MaxOpenProductCarriersReject DO
 	OpenProductCarrierReject[i].GoOut();
@@ -181,7 +181,7 @@ END_METHOD
 // Command to reset the module. Servodrives are homed.
 METHOD PUBLIC Reset : BOOL	// Returns true when homing done
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 Reset	:=   XuCloseProductCarriers()
 	AND_THEN ZCloseProductCarriers()
@@ -196,7 +196,7 @@ VAR_INST
 	result		: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 XuCloseProductCarriers();
 ZCloseProductCarriers();
@@ -209,7 +209,7 @@ END_METHOD
 // Closes all Xu product carrier plates
 METHOD PUBLIC XuCloseProductCarriers : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 XuCloseProductCarriers	:=  OpenProductCarrierXu[1].GoIn()
 						AND OpenProductCarrierXu[2].GoIn()
@@ -230,7 +230,7 @@ END_METHOD
 // Opens all Xu product carrier plates
 METHOD PUBLIC XuOpenProductCarriers : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 XuOpenProductCarriers	:=  OpenProductCarrierXu[1].GoOut()
 						AND OpenProductCarrierXu[2].GoOut()
@@ -254,7 +254,7 @@ VAR
 	i	: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 ZCloseProductCarriers		:= TRUE;
 
@@ -273,7 +273,7 @@ VAR
 	i						: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 ZOpenProductCarriers			:= TRUE;
 FOR i := 1 TO MaxOpenProductCarriersZ DO

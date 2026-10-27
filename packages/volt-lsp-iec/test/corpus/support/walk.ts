@@ -62,15 +62,16 @@ export function astKey(value: unknown): string {
     if (Array.isArray(x)) return x.map(norm)
     if (x !== null && typeof x === "object") {
       const obj = x as Record<string, unknown>
-      // A body's `IMPLEMENTATION` line and a member's `%FOLDER` stand outside its tokens, so they are compared here too:
+      // A body's `%LANGUAGE` line and a member's `%FOLDER` stand outside its tokens, so they are compared here too:
       // comparing the statements alone passed a printer that deleted both from every file.
       if (obj.kind === "body") {
         // So is what stands between the declaration and the line (`leading`), out of the tokens for the same reason (its
         // line endings are layout, which the printer writes as `\n`).
-        const line = (obj as { implementation?: { statement: unknown; folder?: string; leading?: string } }).implementation
+        const line = (obj as { noSlot?: unknown; languageLine?: { statement: unknown; folder?: string; leading?: string } }).languageLine
         return {
           kind: "body",
-          implementation: line === undefined ? null : norm({ statement: line.statement, folder: line.folder ?? null, leading: line.leading?.replace(/\r\n/g, "\n") ?? null }),
+          noSlot: norm((obj as { noSlot?: unknown }).noSlot ?? null),
+          languageLine: line === undefined ? null : norm({ statement: line.statement, folder: line.folder ?? null, leading: line.leading?.replace(/\r\n/g, "\n") ?? null }),
           st: norm(sourceStatements(obj as never).statements), // as written: every conditional branch
         }
       }
@@ -240,7 +241,7 @@ function readFile(p: Pass, { file, source, parseResult }: { file: string; source
   for (const u of parseResult.units)
     for (const body of bodiesOf(u)) {
       if (body.tokens.length === 0) continue
-      // Which parser reads a body is what its IMPLEMENTATION line states (`isGraphicalBody`/`isStBody`), the one
+      // Which parser reads a body is what its %LANGUAGE line states (`isGraphicalBody`/`isStBody`), the one
       // signal the push reads too — never the text's first token. A read-only body (CFC/SFC/IL, LD|FBD
       // UNSUPPORTED) is read by neither and counted by neither.
       if (isGraphicalBody(body)) {

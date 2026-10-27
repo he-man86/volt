@@ -45,7 +45,7 @@ namespace Volt.Ide.Codesys.Tests
         {
             var content = Read(new Nwl.NWLImplementationObject { DefaultViewMode = "Sequence" });
 
-            Assert.Equal("IMPLEMENTATION SEQUENCE UNSUPPORTED", content.Body);
+            Assert.Equal("%LANGUAGE SEQUENCE UNSUPPORTED", content.Body);
             Assert.Equal("FUNCTION_BLOCK FB_Odd\nVAR\n\tx : BOOL;\nEND_VAR", content.Declaration);
             Assert.Null(content.Unsupported);   // the line states the language, which is the whole reason (as for CFC)
         }
@@ -58,7 +58,7 @@ namespace Volt.Ide.Codesys.Tests
         {
             var content = Read(new Nwl.NWLImplementationObject { DefaultViewMode = null });
 
-            Assert.Equal("IMPLEMENTATION NWL UNSUPPORTED", content.Body);
+            Assert.Equal("%LANGUAGE NWL UNSUPPORTED", content.Body);
         }
 
         /// <summary>A network aspect whose TYPE has no <c>DefaultViewMode</c> member at all is not "no view": SP21's
@@ -81,19 +81,19 @@ namespace Volt.Ide.Codesys.Tests
         {
             var content = Read(new UMLImplementationObject());
 
-            Assert.Equal("IMPLEMENTATION UML UNSUPPORTED", content.Body);
+            Assert.Equal("%LANGUAGE UML UNSUPPORTED", content.Body);
             Assert.Equal("FUNCTION_BLOCK FB_Odd\nVAR\n\tx : BOOL;\nEND_VAR", content.Declaration);
         }
 
         /// <summary>An aspect NAMED like a language Volt reads, but not its NWL aspect, is the vendor's fact — hidden as an
-        /// LD body Volt cannot represent is (<c>IMPLEMENTATION LD UNSUPPORTED</c>). It was an InvalidOperationException, "a
+        /// LD body Volt cannot represent is (<c>%LANGUAGE LD UNSUPPORTED</c>). It was an InvalidOperationException, "a
         /// Volt bug", thrown on the read path, which took the whole POU out of refs and fetch (review 2e+2g, low).</summary>
         [Fact]
         public void An_aspect_named_like_a_read_language_is_its_hidden_line()
         {
             var content = Read(new LDImplementationObject());
 
-            Assert.Equal("IMPLEMENTATION LD UNSUPPORTED", content.Body);
+            Assert.Equal("%LANGUAGE LD UNSUPPORTED", content.Body);
             Assert.Equal("FUNCTION_BLOCK FB_Odd\nVAR\n\tx : BOOL;\nEND_VAR", content.Declaration);
         }
     }

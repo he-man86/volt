@@ -169,7 +169,7 @@ public class PartialPushCommandTests
             var text = File.ReadAllText(motor).Replace("\r\n", "\n");
             Assert.Contains("VAR\nEND_VAR", text);
             File.WriteAllText(motor, text.Replace("VAR\nEND_VAR", "VAR\n\tn : INT;\nEND_VAR").TrimEnd('\n') +
-                                     "\n\nMETHOD M_Go : BOOL\nIMPLEMENTATION ST\nM_Go := TRUE;\nEND_METHOD\n");
+                                     "\n\nMETHOD M_Go : BOOL\n%LANGUAGE ST\nM_Go := TRUE;\nEND_METHOD\n");
 
             var r = Commands.Push(root, client);
 
@@ -237,7 +237,7 @@ public class PartialPushCommandTests
     [Fact]
     public void A_hand_layout_landing_beside_a_refused_op_is_adopted_and_not_reported_as_another_program()
     {
-        const string canonical = "IMPLEMENTATION LD\nNETWORK\n  t1 : TON(IN := a, PT := pt);\nEND_NETWORK";
+        const string canonical = "%LANGUAGE LD\nNETWORK\n  t1 : TON(IN := a, PT := pt);\nEND_NETWORK";
         var refuse = true;
         FakeIde ide = null!;
         ide = new FakeIde(
@@ -299,7 +299,7 @@ public class PartialPushCommandTests
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
             Assert.False(File.Exists(Path.Combine(root, "src", "Broken.pou")), "premise: an unopened item is not materialized");
             Edit(root, "A_First.pou", "x := 1;", "x := 2;");
-            File.WriteAllText(Path.Combine(root, "src", "Broken.pou"), "PROGRAM Broken\nVAR\nEND_VAR\nIMPLEMENTATION ST\nx := 5;\nEND_PROGRAM\n");
+            File.WriteAllText(Path.Combine(root, "src", "Broken.pou"), "PROGRAM Broken\nVAR\nEND_VAR\n%LANGUAGE ST\nx := 5;\nEND_PROGRAM\n");
             failCreate = true;
 
             var r = Commands.Push(root, client, force: true);
@@ -320,7 +320,7 @@ public class PartialPushCommandTests
     [Fact]
     public void A_partial_push_writes_the_ide_ref_and_the_baseline_before_it_moves_the_working_tree()
     {
-        const string canonical = "IMPLEMENTATION LD\nNETWORK\n  t1 : TON(IN := a, PT := pt);\nEND_NETWORK";
+        const string canonical = "%LANGUAGE LD\nNETWORK\n  t1 : TON(IN := a, PT := pt);\nEND_NETWORK";
         FakeIde ide = null!;
         ide = new FakeIde(
             new FakeIde.Item("A_Prg", ItemKind.PlcPou, "", true,

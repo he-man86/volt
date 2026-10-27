@@ -16,7 +16,7 @@ namespace Volt.Tests.Shared;
 /// <code>
 ///   #### name — one line: what the case pins, and the rule (B1 … B8, P1 … P13)
 ///   === scope            optional: `instance t1 TON`, `pou f`, `name x` — the declarations the body sees
-///   === text             the body, its IMPLEMENTATION line first
+///   === text             the body, its %LANGUAGE line first
 ///   === model            accept: the model it reads to (NetworkModelDump)
 ///   === canonical        accept, optional: the text the writer gives back where the case's text is not it
 ///   === refused          refuse: `CODE phrase` — the code and a phrase the refusal's message holds

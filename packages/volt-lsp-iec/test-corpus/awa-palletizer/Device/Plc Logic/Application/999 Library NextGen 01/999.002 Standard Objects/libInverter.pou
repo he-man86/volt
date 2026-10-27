@@ -82,7 +82,7 @@ VAR
 	iState: INT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // ### LOGIC ###
 {region}
 	IF (xInit) THEN

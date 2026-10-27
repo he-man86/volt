@@ -19,7 +19,7 @@ VAR
 	
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 
 l1 := settings.knifeAxis;

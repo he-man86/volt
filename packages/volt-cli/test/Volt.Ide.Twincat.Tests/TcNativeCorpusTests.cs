@@ -37,7 +37,7 @@ public sealed class TcNativeCorpusTests
         "c1 : CTU; rt : R_TRIG; sr1 : SR; w : WORD; dw : DWORD; x : REAL; y : REAL; s1 : STRING; s2 : STRING; tm : TIME; " +
         "fb1 : FB_Custom; rs1 : RS; ft : F_TRIG; ctd1 : CTD; ctud1 : CTUD; tp1 : TP; li : LINT; ui : UINT; by : BYTE;";
 
-    /// <summary>Network-text shapes: name, then the body under <c>IMPLEMENTATION FBD</c>.</summary>
+    /// <summary>Network-text shapes: name, then the body under <c>%LANGUAGE FBD</c>.</summary>
     public static readonly (string Name, string Body)[] FbdShapes =
     {
         ("leaf_assign", "NETWORK\n  out := a;\nEND_NETWORK\n"),
@@ -215,7 +215,7 @@ public sealed class TcNativeCorpusTests
     /// <summary>A shape's network text read as the push reads it.</summary>
     internal static NetworkBody Model(string body, string lang = "FBD")
     {
-        var read = NetworkTextReader.Read($"IMPLEMENTATION {lang}\n" + body, Scope);
+        var read = NetworkTextReader.Read($"%LANGUAGE {lang}\n" + body, Scope);
         if (!read.Ok) throw new InvalidOperationException(string.Join("\n", read.Diagnostics.Select(d => d.Message)));
         return read.Body!;
     }
@@ -271,7 +271,7 @@ public sealed class TcNativeCorpusTests
             var name = "Vn_" + shape;
             if (refused.Contains(name)) continue;
             Assert.True(File.Exists(Path.Combine(Import, name + ".plcopen.xml")), $"{name}: no committed document");
-            Assert.Equal("IMPLEMENTATION FBD\n" + body, File.ReadAllText(Path.Combine(Import, name + ".network.txt")).Replace("\r\n", "\n"));
+            Assert.Equal("%LANGUAGE FBD\n" + body, File.ReadAllText(Path.Combine(Import, name + ".network.txt")).Replace("\r\n", "\n"));
         }
     }
 

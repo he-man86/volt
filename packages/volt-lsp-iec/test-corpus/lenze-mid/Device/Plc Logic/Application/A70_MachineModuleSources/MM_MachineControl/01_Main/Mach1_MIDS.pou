@@ -66,7 +66,7 @@ VAR
 	IDB_Dryer: Dryer;
 	IDB_TrayFiller: TrayFiller;
 END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK TITLE: "DONE Network 1: Activating/deactivating MID-S/Trayfiller"
   split0 := TRUE;
   split1 := split0 AND NOT Mach1_Safety.Status.Custom_ATF_Disabled;

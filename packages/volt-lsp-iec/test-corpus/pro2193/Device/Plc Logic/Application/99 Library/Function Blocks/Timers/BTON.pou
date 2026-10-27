@@ -8,14 +8,14 @@ END_VAR
 
 // Use methods to interact with the FB.
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 END_FUNCTION_BLOCK
 
 // Reset the timer.
 METHOD PUBLIC Reset
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 TON1(IN := FALSE);
 
 END_METHOD
@@ -27,7 +27,7 @@ VAR_INPUT
 	Pt	: REAL;	// Time to pass (in sec.), before Q is set
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 TON1(
 	IN := In,
 	PT := TO_TIME(Pt * 1000),
@@ -46,7 +46,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Q := TON1.Q;
 
 END_GET

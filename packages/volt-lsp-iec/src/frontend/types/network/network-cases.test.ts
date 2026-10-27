@@ -7,7 +7,7 @@
  *
  *   #### name — one line: what the case pins, and the rule
  *   === scope            optional: `instance t1 TON`, `pou f`, `name x` — the declarations the body sees
- *   === text             the body, its IMPLEMENTATION line first
+ *   === text             the body, its %LANGUAGE line first
  *   === model            accept: the model it reads to — the bridge compares it whole, this side its SHAPE (below)
  *   === canonical        accept, optional: the text the writer gives back
  *   === refused          refuse: `CODE phrase`

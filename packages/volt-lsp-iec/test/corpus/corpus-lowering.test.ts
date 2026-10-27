@@ -31,12 +31,12 @@ import { hasCorpus, LOWERING_TIMEOUT, fromPou, pass } from "./support/walk.js"
 // (`SetErrorFB`) and an FBD body network text cannot spell (`Cylinder_53ValveFB.SetAlarm`). Before the change each
 // pulled as the retired boundary comment over a `(* @volt-graphical: … *)` comment, which this gate read as an ST
 // body holding one comment — so lowering ran a chart as an EMPTY body and counted the POU that calls it
-// (`EjectorCorePullerFB`) as reach. Pulled now as `IMPLEMENTATION CFC|FBD UNSUPPORTED`, neither parser reads them and
-// lowering refuses `graphical-body` where it truly stops. Measured: stating those two bodies `IMPLEMENTATION ST` again
+// (`EjectorCorePullerFB`) as reach. Pulled now as `%LANGUAGE CFC|FBD UNSUPPORTED`, neither parser reads them and
+// lowering refuses `graphical-body` where it truly stops. Measured: stating those two bodies `%LANGUAGE ST` again
 // restores 55 / 20 / 78 exactly, so nothing else moved.
 // 54 -> 53 on 2026-10-11, DOWN and the same correction (openspec abstract-member-push): pro2193's 10
 // `AbstractPOUMethodObject`s and its abstract property's GET hold no body slot, and the pull now states each
-// `IMPLEMENTATION NONE` instead of an empty `IMPLEMENTATION ST` body (the corpus re-pulled live, exactly those 11 lines
+// no `%LANGUAGE` line (a member with no body slot) instead of an empty `%LANGUAGE ST` body (the corpus re-pulled live, exactly those 11 lines
 // in 7 files). `ActuatorWithAlarm_BaseFB` (an abstract base) "lowered" only by running its own abstract `Alarms` as an
 // empty body; now it is refused `graphical-body` ("is abstract: it holds no code"). Measured per POU with
 // the since-deleted `probe-lowering-refusals.ts` (`git show 0db2d45fcd:packages/volt-lsp-iec/scripts/probe-lowering-refusals.ts`) before and after the 7 files: that is the only verdict that moved — four other
@@ -81,7 +81,7 @@ const REACH = { bodies: 301, lowered: 54 }
 // 20 -> 14 on 2026-09-28, the same correction as REACH: six routines were reached only past the chart and the FBD body
 // that lowered as empty ST.
 // 14 -> 13 on 2026-10-11, the same correction as REACH (openspec abstract-member-push): the routine was
-// `ActuatorWithAlarm_BaseFB.Alarms`, an abstract method (`IMPLEMENTATION NONE` now) its abstract owner's body
+// `ActuatorWithAlarm_BaseFB.Alarms`, an abstract method with no body slot (no `%LANGUAGE` line) its abstract owner's body
 // (`Alarms();`, nothing else) ran as an empty body.
 const ROUTINES = { routines: 13, routinesFromRunning: 13 }
 

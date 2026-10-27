@@ -33,7 +33,7 @@ public class TcCalleeDerivationTests
         var scope = NetworkScope.FromDeclarations(Own, n => Items.TryGetValue(n, out var d) ? d : null,
             () => Array.Empty<string>(), n => Items.ContainsKey(n) ? ItemKind.Kinds.Pou : null, Scopes.RefusedPouName, Scopes.NoLibrary);
         // As the push validates it (NetworkTextGate: the input names are derived there, for either driver).
-        var read = NetworkTextGate.Validate($"IMPLEMENTATION FBD\nNETWORK\n  {statement}\nEND_NETWORK\n", scope);
+        var read = NetworkTextGate.Validate($"%LANGUAGE FBD\nNETWORK\n  {statement}\nEND_NETWORK\n", scope);
         Assert.True(read.Ok, string.Join("\n", read.Diagnostics.Select(d => d.Message)));
         var impl = TcArchive.Root(TcArchiveBuilder.Body(read.Body!, scope))!;
         return impl.Descendants("o").First(o => TcArchive.Str(o, "BoxType") is not null);

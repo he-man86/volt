@@ -78,14 +78,14 @@ public sealed partial class CodesysDriver
         {
             // Textual: declaration and body ride one GetObjectToModify/SetObject transaction.
             //
-            // AN UNSUPPORTED BODY is never written back (`ImplementationMarker.Written`). Restating its line is the ordinary no-op that keeps a POU with
+            // AN UNSUPPORTED BODY is never written back (`PropertyLines.Written`). Restating its line is the ordinary no-op that keeps a POU with
             // a CFC/SFC body pushable at all - `volt pull` writes the line to disk and the next push restates every
             // file it has - so the body is dropped and the declaration still lands. WriteMembers
             // has said this since it was written; only the top-level path had not, and a CFC POU has no
             // TextDocument on its Implementation aspect, so the write failed loudly with
             // "the write would be accepted and land nothing" and a whole project holding one diagram could
             // never be pushed again.
-            var written = ImplementationMarker.Written(content.Body);
+            var written = PropertyLines.Written(content.Body);
             _om.WriteSourceText(item.Native, content.Declaration, written,
                                 NewBodyAspect(item.Native, KindOf(item), written, content.Stated));
         }
@@ -156,22 +156,22 @@ public sealed partial class CodesysDriver
     /// (271 ST, 1 CFC in one project; 38 ST, 36 NWL in another).</summary>
     /// <param name="declaration">The declarations the body resolves against, innermost first
     /// (<see cref="SourceScopes.Scope"/>) — a graphical body is written against its <see cref="NetworkScope"/>.</param>
-    /// <returns>The body as workspace text, and — for an LD or FBD body that reads as <c>IMPLEMENTATION LD|FBD
+    /// <returns>The body as workspace text, and — for an LD or FBD body that reads as <c>%LANGUAGE LD|FBD
     /// UNSUPPORTED</c> (network text is off, or cannot represent it: <see cref="NetworkText.Pulled"/>) — why, for the
     /// pull to report; null for every other body — and the language the body's line states, from the aspect
     /// (<see cref="StatedLanguage"/>, D6), null exactly where there is no body text.</returns>
     /// <param name="bodySite">How the site is named when its kind's row HAS a body (<see cref="ItemKind.ShapeOf"/>: a
     /// POU, a method or action in a POU, a property accessor in a POU), or null where it has none — an interface, its
     /// members, a property's own object — which hold no <c>Implementation</c> aspect and are written with no line.
-    /// <para><b>NO BODY SLOT</b> (openspec <c>abstract-member-push</c>, DIALECT C2n): at a body site, an object whose type
-    /// DECLARES <c>Implementation</c> and holds null there is the member with no slot, and its body IS the line
-    /// <c>IMPLEMENTATION NONE</c>. Measured (<c>vendor-facts</c> <c>merged-classes</c>, <c>implementation-declared.*</c>
+    /// <para><b>NO BODY SLOT</b> (openspec <c>abstract-member-push</c>, <c>language-line</c>, DIALECT C2n): at a body
+    /// site, an object whose type DECLARES <c>Implementation</c> and holds null there is the member with no slot: no body,
+    /// stated <see cref="StatedLanguage.NoSlot"/>, written with no <c>%LANGUAGE</c> line. Measured (<c>vendor-facts</c> <c>merged-classes</c>, <c>implementation-declared.*</c>
     /// and <c>implementation.*</c>): pro2193's 10 <c>AbstractPOUMethodObject</c>s and the abstract property's
     /// <c>InterfacePropertyAccessorObject</c> GET all declare the member and hold null; every object with a body holds an
     /// aspect, an empty ST body included. Two other facts would fold into the same null and are refused by name
     /// instead: no object read at all (a driver bug — the site's kind came from that object), and a type that does not declare the member
     /// (measured on no object — another or unpinned assembly, <see cref="NwlInterop.Declared"/>). An empty ST body stays
-    /// null (<see cref="BodyText"/>): only the missing slot is NONE.</para></param>
+    /// null (<see cref="BodyText"/>): only the missing slot is no slot.</para></param>
     private (string? Body, string? Unsupported, StatedLanguage? Stated) ReadBody(object iobj, string? declaration,
                                                                                  string? bodySite)
     {
@@ -180,7 +180,7 @@ public sealed partial class CodesysDriver
         {
             if (bodySite is null) return (null, null, null);
             if (NwlInterop.Has(iobj, "Implementation"))
-                return (ImplementationMarker.NoneLine, null, StatedLanguage.None);
+                return (null, null, StatedLanguage.NoSlot);
             throw new BridgeException(BridgeErrorCodes.Unsupported,
                 $"{bodySite}: its CODESYS object ({iobj.GetType().Name}) declares no Implementation member at all — a " +
                 "shape Volt has not measured (another or unpinned vendor assembly), so it is stated neither as an empty " +
@@ -197,7 +197,7 @@ public sealed partial class CodesysDriver
                 // ST, in memory, carries no line — so a keyword-shaped line in its text is refused here, where the
                 // language is known, rather than read back from the file as the language it states.
                 return BodyText(CodesysObjectModel.ReadAspectText(iobj, "Implementation")) is { } st
-                    ? (ImplementationMarker.RequireStBody(st), null, StatedLanguage.St)
+                    ? (PropertyLines.RequireStBody(st), null, StatedLanguage.St)
                     : (null, null, null);
             }
 
@@ -207,14 +207,14 @@ public sealed partial class CodesysDriver
                 // the UNSUPPORTED arm below. The view read must not THROW for it: Versioning.SafeVersion would swallow
                 // the throw to UNREADABLE, and one IL-view method inside an ordinary ST function block would take the
                 // ENTIRE POU, declaration and every sibling method with it, out of refs and fetch. IL is unsupported,
-                // which is exactly what the UNSUPPORTED line is for: `IMPLEMENTATION IL UNSUPPORTED`. A view Volt has
-                // never seen, or none, gets the same answer under its own name (`IMPLEMENTATION <VIEW> UNSUPPORTED`,
-                // `IMPLEMENTATION NWL UNSUPPORTED`: NetworkText.ViewLanguage, D27, openspec bridge-refusal-review 2.23).
+                // which is exactly what the UNSUPPORTED line is for: `%LANGUAGE IL UNSUPPORTED`. A view Volt has
+                // never seen, or none, gets the same answer under its own name (`%LANGUAGE <VIEW> UNSUPPORTED`,
+                // `%LANGUAGE NWL UNSUPPORTED`: NetworkText.ViewLanguage, D27, openspec bridge-refusal-review 2.23).
                 var stated = NetworkText.ViewLanguage(ViewModeText(impl));
                 if (NetworkText.LanguageNamed(stated) is not { } view)
-                    return (ImplementationMarker.Unsupported(stated), null, StatedLanguage.HiddenIn(stated));
+                    return (PropertyLines.UnsupportedLine(stated), null, StatedLanguage.HiddenIn(stated));
 
-                // A BODY THE READER CANNOT REPRESENT IS `IMPLEMENTATION LD|FBD UNSUPPORTED`, NOT A MISSING POU — and so
+                // A BODY THE READER CANNOT REPRESENT IS `%LANGUAGE LD|FBD UNSUPPORTED`, NOT A MISSING POU — and so
                 // is every LD and FBD body while network text is off in this process. `NetworkText.Pulled` decides both,
                 // for both vendors: the switch first, then whatever the reader or the writer refuses.
                 //
@@ -242,11 +242,11 @@ public sealed partial class CodesysDriver
 
             default:
                 // CFC, SFC, and an aspect Volt has never seen: a language Volt does not read, so the body is its
-                // UNSUPPORTED line (`IMPLEMENTATION CFC UNSUPPORTED`) and an engineer gets a file that says so rather than
+                // UNSUPPORTED line (`%LANGUAGE CFC UNSUPPORTED`) and an engineer gets a file that says so rather than
                 // an editable-looking approximation of a diagram.
             {
                 var language = UnreadLanguage(impl.GetType().Name);
-                return (ImplementationMarker.Unsupported(language), null, StatedLanguage.HiddenIn(language));
+                return (PropertyLines.UnsupportedLine(language), null, StatedLanguage.HiddenIn(language));
             }
         }
     }
@@ -272,7 +272,7 @@ public sealed partial class CodesysDriver
             : aspectTypeName;
         return name.ToUpperInvariant() is Languages.Cfc or Languages.Sfc
             ? name.ToUpperInvariant()
-            : ImplementationMarker.VendorLanguage(name);
+            : PropertyLines.VendorLanguage(name);
     }
 
     // ── members ───────────────────────────────────────────────────────────────────────────────────
@@ -468,7 +468,7 @@ public sealed partial class CodesysDriver
             var graph = PushedNetworkBody.At(bodies, new BodySite(m.Name, m.Kind, null), m.Body);
             if (graph is null)
             {
-                var written = ImplementationMarker.Written(m.Body);   // an UNSUPPORTED body is never written back
+                var written = PropertyLines.Written(m.Body);   // an UNSUPPORTED body is never written back
                 _om.WriteSourceText(target.Native,
                     m.Kind == ItemKind.Kinds.Action ? null : m.Declaration,
                     written,
@@ -574,7 +574,7 @@ public sealed partial class CodesysDriver
                 // A NULL BODY IS "LEAVE IT ALONE" (openspec abstract-member-parity), as for a member's body and as on
                 // TwinCAT: the push drops an unchanged accessor body (`PushService.OnlyChanged`) and writes the
                 // declaration alone. Writing `Accessor.Code` ("" for null) here would have cleared the GET's code.
-                var written = ImplementationMarker.Written(accessor.Body);
+                var written = PropertyLines.Written(accessor.Body);
                 _om.WriteSourceText(child.Native, accessor.Declaration, written,
                                     NewBodyAspect(child.Native, AccessorSite(code), written, accessor.Stated));
                 return;

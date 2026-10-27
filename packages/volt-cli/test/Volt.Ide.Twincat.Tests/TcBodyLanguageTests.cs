@@ -39,11 +39,11 @@ public class TcBodyLanguageTests
         Assert.Equal(stated, NetworkText.ViewLanguage(TcArchive.ViewMode(XElement.Parse(Nwl(mode)).Element("o")!)));
     }
 
-    /// <summary>IL is a view Volt does not read: <c>IMPLEMENTATION IL UNSUPPORTED</c>.</summary>
+    /// <summary>IL is a view Volt does not read: <c>%LANGUAGE IL UNSUPPORTED</c>.</summary>
     [Fact]
     public void An_IL_view_is_the_IL_UNSUPPORTED_line()
     {
-        Assert.Equal("IMPLEMENTATION IL UNSUPPORTED", Read(Nwl("IL")).Body);
+        Assert.Equal("%LANGUAGE IL UNSUPPORTED", Read(Nwl("IL")).Body);
     }
 
     /// <summary>2.29: no view at all is NOT IL (it once shared IL's answer, a language the body is not known to have) and
@@ -53,7 +53,7 @@ public class TcBodyLanguageTests
     {
         var content = Read(Nwl(null));
 
-        Assert.Equal("IMPLEMENTATION NWL UNSUPPORTED", content.Body);
+        Assert.Equal("%LANGUAGE NWL UNSUPPORTED", content.Body);
         Assert.Equal("FUNCTION_BLOCK FB_Odd\nVAR\n\tx : BOOL;\nEND_VAR", content.Declaration);
         Assert.Null(content.Unsupported);
     }
@@ -62,7 +62,7 @@ public class TcBodyLanguageTests
     [Fact]
     public void An_unknown_view_is_the_UNSUPPORTED_line_naming_it()
     {
-        Assert.Equal("IMPLEMENTATION SEQUENCE UNSUPPORTED", Read(Nwl("Sequence")).Body);
+        Assert.Equal("%LANGUAGE SEQUENCE UNSUPPORTED", Read(Nwl("Sequence")).Body);
     }
 
     [Theory]
@@ -83,14 +83,14 @@ public class TcBodyLanguageTests
 
     /// <summary>2.34: a graphical body whose root Volt has never seen is its UNSUPPORTED line under that root's name —
     /// pulled whole, where a refusal took the POU out of refs and fetch (and, before that, its XML fell through as TEXT
-    /// and pulled under <c>IMPLEMENTATION ST</c>).</summary>
+    /// and pulled under <c>%LANGUAGE ST</c>).</summary>
     [Theory]
-    [InlineData("<UML><state/></UML>", "IMPLEMENTATION UML UNSUPPORTED")]
-    [InlineData("<NWL><o t=\"Other\"/></NWL>", "IMPLEMENTATION NWL UNSUPPORTED")]
+    [InlineData("<UML><state/></UML>", "%LANGUAGE UML UNSUPPORTED")]
+    [InlineData("<NWL><o t=\"Other\"/></NWL>", "%LANGUAGE NWL UNSUPPORTED")]
     // A root that names a language Volt READS, in a form it does not (no NWL archive): a vendor fact, the hidden LD/FBD
     // body line — never a "Volt bug" thrown on the read path, which took the POU out of refs (review 2e+2g, low).
-    [InlineData("<LD><x/></LD>", "IMPLEMENTATION LD UNSUPPORTED")]
-    [InlineData("<Fbd><x/></Fbd>", "IMPLEMENTATION FBD UNSUPPORTED")]
+    [InlineData("<LD><x/></LD>", "%LANGUAGE LD UNSUPPORTED")]
+    [InlineData("<Fbd><x/></Fbd>", "%LANGUAGE FBD UNSUPPORTED")]
     public void An_unknown_graphical_root_is_the_UNSUPPORTED_line_naming_it(string raw, string line)
     {
         var content = Read(raw);

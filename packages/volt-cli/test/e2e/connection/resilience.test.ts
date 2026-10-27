@@ -63,7 +63,7 @@ describe(`resilience / lifecycle chaos (${BASE})`, () => {
 
 	it("work created before a disconnect storm survives it — no lost edits, no corruption", async () => {
 		const name = fid("chaos_survives")
-		await createItem(name, "FUNCTION_BLOCK VltE2E_chaos_survives\nVAR\n\tkeep : INT := 7;\nEND_VAR\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK")
+		await createItem(name, "FUNCTION_BLOCK VltE2E_chaos_survives\nVAR\n\tkeep : INT := 7;\nEND_VAR\n%LANGUAGE ST\nEND_FUNCTION_BLOCK")
 		for (let i = 0; i < 4; i++) { await bridge.disconnect(); await resume() }
 		expect(await fetchSource(name)).toContain("keep : INT := 7")
 	})
@@ -72,7 +72,7 @@ describe(`resilience / lifecycle chaos (${BASE})`, () => {
 		const name = inFolder(await projectRoot(), fid("chaos_nowrite"))
 		await bridge.disconnect()
 		const code = await opErrorCode(() =>
-			bridge.push({ ops: [{ op: "set", name, sourceText: "FUNCTION_BLOCK X\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK", ifVersion: null }] }))
+			bridge.push({ ops: [{ op: "set", name, sourceText: "FUNCTION_BLOCK X\n%LANGUAGE ST\nEND_FUNCTION_BLOCK", ifVersion: null }] }))
 		expect(code).toBe(DISCONNECTED)
 		await resume()
 		expect(itemIn(await bridge.refs(), name)).toBeUndefined()
@@ -94,7 +94,7 @@ describe(`resilience / lifecycle chaos (${BASE})`, () => {
 		const name = fid("iso_only_in_a")
 		try {
 			await selectStable(a)
-			await createItem(name, "FUNCTION_BLOCK VltE2E_iso_only_in_a\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK")
+			await createItem(name, "FUNCTION_BLOCK VltE2E_iso_only_in_a\n%LANGUAGE ST\nEND_FUNCTION_BLOCK")
 			await selectStable(b)
 			expect(itemIn(await bridge.refs(), name)).toBeUndefined()   // B must NOT see A's item — the whole point
 			await selectStable(a)

@@ -21,7 +21,7 @@ namespace Volt.Engine.Tests;
 public class UnopenedItemTests
 {
     private static string Fb(string name) =>
-        $"FUNCTION_BLOCK {name}\nVAR\nEND_VAR\nIMPLEMENTATION ST\nn := 0;\n\nEND_FUNCTION_BLOCK\n";
+        $"FUNCTION_BLOCK {name}\nVAR\nEND_VAR\n%LANGUAGE ST\nn := 0;\n\nEND_FUNCTION_BLOCK\n";
 
     /// <summary>A, Data/B and Data/Broken (all function blocks); Broken is then made un-openable.</summary>
     private static (FakeIde Ide, RefsResponse Baseline) Project()

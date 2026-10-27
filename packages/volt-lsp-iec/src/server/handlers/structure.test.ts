@@ -98,7 +98,7 @@ describe("a range's ends are clamped (lsp-same-standard finding R7b)", () => {
    */
   const URI = "file:///P.pou"
 
-  const SRC = `FUNCTION F : INT\nVAR_INPUT\n\ta : INT;\nEND_VAR\nIMPLEMENTATION ST\nF := a;\nEND_FUNCTION\nPROGRAM P\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := F(1);\nEND_PROGRAM`
+  const SRC = `FUNCTION F : INT\nVAR_INPUT\n\ta : INT;\nEND_VAR\n%LANGUAGE ST\nF := a;\nEND_FUNCTION\nPROGRAM P\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE ST\nn := F(1);\nEND_PROGRAM`
 
   const PAST_THE_END = { start: { line: 0, character: 0 }, end: { line: 999, character: 0 } }
 

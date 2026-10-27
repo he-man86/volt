@@ -55,7 +55,7 @@ public class CodesysClassCreateTests
         Assert.Contains("dymmattributecount", ex.Message);
     }
 
-    /// <summary>A <c>METHOD ABSTRACT</c> with no code is created as the vendor's abstract class (§1.1, C2r: constructed, as
+    /// <summary>A <c>METHOD ABSTRACT</c> stating no <c>%LANGUAGE</c> line is created as the vendor's abstract class (§1.1, C2r: constructed, as
     /// <c>create-each-class</c> measured) — never the scripting create's plain <c>POUMethodObject</c>. Outside a live IDE the
     /// class is not loaded, so the create is refused naming it (gate review of step 3, finding 7a).</summary>
     [Fact]

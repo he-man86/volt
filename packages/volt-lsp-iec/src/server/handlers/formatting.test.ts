@@ -34,7 +34,7 @@ describe("on-type formatting (lsp-same-standard finding R2)", () => {
   const URI = "file:///P.pou"
 
   // unformatted on purpose (`i:=1;`): a reprint would show as an edit
-  const SRC = `PROGRAM P\nVAR\n  i : INT;\nEND_VAR\nIMPLEMENTATION ST\nFOR i:=0 TO 10 DO\n\nEND_FOR\ni:=1;\nEND_PROGRAM\n`
+  const SRC = `PROGRAM P\nVAR\n  i : INT;\nEND_VAR\n%LANGUAGE ST\nFOR i:=0 TO 10 DO\n\nEND_FOR\ni:=1;\nEND_PROGRAM\n`
 
   async function onType(ch: string, line: number, character: number): Promise<unknown> {
     const client = connectToServer("codesys")

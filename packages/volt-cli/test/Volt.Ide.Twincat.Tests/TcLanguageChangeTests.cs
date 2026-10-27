@@ -53,10 +53,10 @@ public class TcLanguageChangeTests
         const string decl = "FUNCTION_BLOCK FB_S\nVAR\n\ta, q : BOOL;\nEND_VAR";
         var pou = new TcHiddenBodyWriteTests.Node("FB_S", ItemKind.PlcPou, decl, "q := a;");
         var driver = TcUntouchablePouTests.BoundDriver();
-        var content = new ItemContent(ItemKind.Kinds.Pou, decl, "IMPLEMENTATION LD\nNETWORK\n  q := a;\nEND_NETWORK",
+        var content = new ItemContent(ItemKind.Kinds.Pou, decl, "%LANGUAGE LD\nNETWORK\n  q := a;\nEND_NETWORK",
                                       new List<Member>(), ObjectProperties.None, Stated: StatedLanguage.Shown("LD"));
         // The bodies as the push pre-flight hands them over (D8): read once, by the language's reader the host declares.
-        var shown = Volt.Engine.Format.St.FamilyContent.Folded(content).Body!;
+        var shown = Volt.Engine.Format.St.FamilyContent.ToContent(content).Body!;
         var model = new Volt.Engine.Format.Network.NetworkBodyReader("LD", driver.NetworkScopeFor)
             .Read(shown.Code, Volt.Engine.Seam.BodyContext.Bare(decl));
         var bodies = Volt.Engine.Ide.PushedNetworkBody.Of(

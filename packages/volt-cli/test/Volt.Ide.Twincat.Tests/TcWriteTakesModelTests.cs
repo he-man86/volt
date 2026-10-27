@@ -34,7 +34,7 @@ public class TcWriteTakesModelTests
 
         const string decl = "PROGRAM VltProbe_Max\nVAR\nEND_VAR";
         var pou = new TcHiddenBodyWriteTests.Node("VltProbe_Max", ItemKind.PlcPou, decl, xml);
-        var content = new ItemContent(ItemKind.Kinds.Pou, decl, "IMPLEMENTATION LD\nthis is no network text",
+        var content = new ItemContent(ItemKind.Kinds.Pou, decl, "%LANGUAGE LD\nthis is no network text",
                                       new List<Member>(), ObjectProperties.None, Stated: StatedLanguage.Shown("LD"));
 
         TcUntouchablePouTests.BoundDriver().WriteContent(TcRefs.Ref(pou), content,
@@ -49,7 +49,7 @@ public class TcWriteTakesModelTests
     {
         const string decl = "PROGRAM P\nVAR\nEND_VAR";
         var pou = new TcHiddenBodyWriteTests.Node("P", ItemKind.PlcPou, decl, "");
-        var content = new ItemContent(ItemKind.Kinds.Pou, decl, "IMPLEMENTATION LD\nNETWORK\nEND_NETWORK",
+        var content = new ItemContent(ItemKind.Kinds.Pou, decl, "%LANGUAGE LD\nNETWORK\nEND_NETWORK",
                                       new List<Member>(), ObjectProperties.None, Stated: StatedLanguage.Shown("LD"));
 
         var ex = Assert.Throws<VoltInvariantException>(() =>

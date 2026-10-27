@@ -51,7 +51,7 @@ VAR
     tonUnsuspending : TON;
     tTmpTime        : TIME;
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 // ---------------------------------------------------------------------------
 // Mode determination
 // ---------------------------------------------------------------------------

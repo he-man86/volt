@@ -11,7 +11,7 @@ END_VAR
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^(
 	Data			:= Data,
 	GripperStatus	:= GripperStatus

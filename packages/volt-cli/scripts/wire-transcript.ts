@@ -37,7 +37,7 @@ function need(name: string): string {
 
 const PREFIX = "VltE2E_Wt"
 const fb = (name: string, body = "x := x + 1;") =>
-	`FUNCTION_BLOCK ${name}\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n${body}\nEND_FUNCTION_BLOCK\n`
+	`FUNCTION_BLOCK ${name}\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\n${body}\nEND_FUNCTION_BLOCK\n`
 const dut = (name: string) => `TYPE ${name} :\nSTRUCT\n\ta : INT;\n\tb : BOOL;\nEND_STRUCT\nEND_TYPE\n`
 
 export async function record(vendor: "codesys" | "twincat", instance: string): Promise<Step[]> {

@@ -72,10 +72,10 @@ public static class NwlDisposition
 
     public static readonly IReadOnlyList<NwlRule> Rules = new[]
     {
-        R("NWLImplementationObject", "DefaultViewMode", NwlCode.S, "IMPLEMENTATION LD|FBD"),
+        R("NWLImplementationObject", "DefaultViewMode", NwlCode.S, "%LANGUAGE LD|FBD"),
         R("NWLImplementationObject", "NetworkList", NwlCode.S, "the NETWORK … END_NETWORK blocks, in order"),
-        R("NWLImplementationObject", "NetworkListComment", NwlCode.D, "\"\"; else {NetworkListComment := '…'} on the IMPLEMENTATION line"),
-        R("NWLImplementationObject", "BranchCounter", NwlCode.R, "no derivation found; a pragma on the IMPLEMENTATION line unless a cache", "nwl-branch-counter"),
+        R("NWLImplementationObject", "NetworkListComment", NwlCode.D, "\"\"; else {NetworkListComment := '…'} on the %LANGUAGE line"),
+        R("NWLImplementationObject", "BranchCounter", NwlCode.R, "no derivation found; a pragma on the %LANGUAGE line unless a cache", "nwl-branch-counter"),
         R("NWLImplementationObject", "ValidIds", NwlCode.D, "true; else pragma"),
 
         R("Network", "Label", NwlCode.S, "LABEL: x"),

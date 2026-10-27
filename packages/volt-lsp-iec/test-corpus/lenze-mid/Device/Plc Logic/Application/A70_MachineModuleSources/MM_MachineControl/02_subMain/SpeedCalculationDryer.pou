@@ -18,7 +18,7 @@ VAR
 	
 END_VAR
 
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK TITLE: "NETWORK 1 : Speed control transport system dryer"
   split185 := True;
   MOVE 0 => TempI ENO EN split185;

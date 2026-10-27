@@ -16,7 +16,7 @@ VAR_IN_OUT
 	ioCamControl	: UDT_CamControl;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 ioCamControl.MachinePos_HMI:=iMachinePosition;
 fc_CamC_CC_Base(

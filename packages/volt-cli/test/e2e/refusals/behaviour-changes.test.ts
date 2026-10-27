@@ -14,7 +14,7 @@ import { landed } from "../harness"
  * the items the push names, alone and with its caller in the same push (each vendor's own rename differs, DIALECT
  * C2o/C2p; the push puts back what it did not name), and the two vendors leave byte-identical refs and texts.</p>
  *
- * <p>Not live, and why: D27's UNKNOWN view mode / language (a vendor-named marker, `IMPLEMENTATION UML UNSUPPORTED`)
+ * <p>Not live, and why: D27's UNKNOWN view mode / language (a vendor-named marker, `%LANGUAGE UML UNSUPPORTED`)
  * needs an object no fixture holds and SP21 cannot author without an add-on; `CodesysUnknownBodyLanguageTests` and
  * `TcBodyLanguageTests` pin it offline. The CFC row below is the same code path (`NetworkText.ViewLanguage` /
  * `ImplementationMarker.VendorLanguage`) with a language the IDE names.</p>
@@ -62,7 +62,7 @@ async function buildReferencing(b: Bridge, ref: { decl?: string; body?: string }
 	if (!m) throw new Error(`${b.vendor}: the fixture has no ${main}`)
 	let src: string = m.sourceText
 	if (ref.decl) src = src.replace(/\nEND_VAR/, `\n\t${ref.decl}\nEND_VAR`)
-	if (ref.body) src = src.replace(/IMPLEMENTATION ST\n/, `IMPLEMENTATION ST\n${ref.body}\n`)
+	if (ref.body) src = src.replace(/%LANGUAGE ST\n/, `%LANGUAGE ST\n${ref.body}\n`)
 	const r = await b.call("push", { ops: [{ op: "set", name: main, sourceText: src, ifVersion: m.version }] })
 	try {
 		expect(landed(r) && !(r.conflicts ?? []).length, `${b.vendor}: could not reference from ${main}: ${JSON.stringify(r.conflicts)}`).toBe(true)
@@ -97,7 +97,7 @@ const ROWS: Row[] = [
 			expect(noBlanks((await fetchOne(b, b.path(`${bare}.pou`))).sourceText)).toBe(noBlanks(text))
 			const errs = await buildReferencing(b, { decl: `v : ${bare};`, body: "v();" })
 			console.log(`[behaviour ${b.vendor}] 1.1 build:`, JSON.stringify(errs))
-			expect(errorsOf(errs, bare).length, `${b.vendor}: the build reported nothing at ${bare} for NETWORK under IMPLEMENTATION ST`).toBeGreaterThan(0)
+			expect(errorsOf(errs, bare).length, `${b.vendor}: the build reported nothing at ${bare} for NETWORK under %LANGUAGE ST`).toBeGreaterThan(0)
 			return { text: noBlanks((await fetchOne(b, b.path(`${bare}.pou`))).sourceText) }
 		},
 	},
@@ -146,11 +146,11 @@ const ROWS: Row[] = [
 	{
 		key: "4.26",
 		// MEASURED 2026-10-04 on both vendors: no wire text reaches a slotless item AS a body. The reader sends a GVL's
-		// whole text as its declaration and a null body (`NoBodySlotIsNullTests`), so a body after an `IMPLEMENTATION ST`
+		// whole text as its declaration and a null body (`NoBodySlotIsNullTests`), so a body after an `%LANGUAGE ST`
 		// line is not dropped — it is written as sent, and the build reports it. The drivers' own `RequireSlot` refusal
 		// (CodesysNoSlotTextTests, TcNoSlotTextTests) guards every other caller and is unreachable from the wire; the
 		// silent drop this row was written for (TwinCAT's kind table dropped the body) cannot happen from a push.
-		title: "4.26 a GVL text with a body after IMPLEMENTATION ST is written whole (nothing dropped); the build reports it",
+		title: "4.26 a GVL text with a body after %LANGUAGE ST is written whole (nothing dropped); the build reports it",
 		run: async (b) => {
 			const bare = n("gvl_body")
 			const name = b.path(`${bare}.gvl`)
@@ -201,13 +201,13 @@ const ROWS: Row[] = [
 			expect(cfc, `${b.vendor}: the committed CFC fixture POU is missing from refs`).toBeDefined()
 			expect((refs.unreadable ?? []).map((u: { name: string }) => fileOf(u.name))).not.toContain("VltFixtureCfc.pou")
 			const text = (await fetchOne(b, cfc!)).sourceText as string
-			expect(text).toContain("\nIMPLEMENTATION CFC UNSUPPORTED\n")
+			expect(text).toContain("\n%LANGUAGE CFC UNSUPPORTED\n")
 			// Whole: the declaration (its header and its VAR block) stands above the marker — a marker alone is the drop
 			// D27 rules out. The KIND is each fixture's own (CODESYS authored a FUNCTION_BLOCK, TwinCAT a PROGRAM).
-			const decl = text.slice(0, text.indexOf("\nIMPLEMENTATION CFC UNSUPPORTED\n"))
+			const decl = text.slice(0, text.indexOf("\n%LANGUAGE CFC UNSUPPORTED\n"))
 			expect(decl, `${b.vendor}: the CFC POU pulled without its declaration header`).toMatch(/^\s*(PROGRAM|FUNCTION_BLOCK) VltFixtureCfc\b/m)
 			expect(decl, `${b.vendor}: the CFC POU pulled without its VAR block`).toMatch(/\nEND_VAR\s*$/)
-			return { marker: text.split("\n").find((l) => l.startsWith("IMPLEMENTATION")) }
+			return { marker: text.split("\n").find((l) => l.startsWith("%LANGUAGE")) }
 		},
 	},
 	{

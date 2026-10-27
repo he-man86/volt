@@ -33,7 +33,7 @@ public static class WireParityCases
         "NAMESPACE Util\n" +
         "RESOLUTION Util, 3.5.17.0 (System)\n" +
         "PLACEHOLDER true\n" +
-        "MATERIALIZATION 4\n";
+        "MATERIALIZATION 5\n";
 
     /// <summary>The OTHER half of that decision, CODESYS's alone (TwinCAT has no system flag): a reference whose
     /// <c>SystemLibrary</c> is TRUE (142 of the census's 264) keeps its <c>SYSTEM true</c> line, in
@@ -45,7 +45,7 @@ public static class WireParityCases
         "RESOLUTION Util, 3.5.17.0 (System)\n" +
         "PLACEHOLDER true\n" +
         "SYSTEM true\n" +
-        "MATERIALIZATION 4\n";
+        "MATERIALIZATION 5\n";
 
     /// <summary>The placeholder reference's facts both doubles carry.</summary>
     public const string LibraryName = "Util";
@@ -66,7 +66,7 @@ public static class WireParityCases
         "FUNCTION_BLOCK FB_X\n" +
         "VAR\n" +
         "END_VAR\n" +
-        "IMPLEMENTATION ST\n" +
+        "%LANGUAGE ST\n" +
         "%EXCLUDE_FROM_BUILD\n" +
         "x := 1;\n" +
         "\n" +
@@ -80,7 +80,7 @@ public static class WireParityCases
         "FUNCTION_BLOCK FB_X\n" +
         "VAR\n" +
         "END_VAR\n" +
-        "IMPLEMENTATION ST\n" +
+        "%LANGUAGE ST\n" +
         "%LINK_ALWAYS\n" +
         "%EXTERNAL\n" +
         "%COMPILER_DEFINES 'SIM, X:=2'\n" +

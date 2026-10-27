@@ -16,7 +16,7 @@ VAR
 	{attribute 'symbol' := 'read'}	BFU_State					: PACK_ML.State;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Initialize();
 
 ButtonEnableDrives();
@@ -55,7 +55,7 @@ VAR_INST
 	xInitialized	: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF xInitialized THEN
 	RETURN;
 END_IF

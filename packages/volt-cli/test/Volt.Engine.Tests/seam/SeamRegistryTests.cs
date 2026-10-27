@@ -193,7 +193,6 @@ public class SeamRegistryTests
 
     [Theory]
     [InlineData("st")]
-    [InlineData("NONE")]
     [InlineData("UNSUPPORTED")]
     [InlineData("S T")]
     public void A_language_name_that_is_no_upper_case_word_or_is_the_lines_own_word_is_refused(string name) =>
@@ -205,17 +204,20 @@ public class SeamRegistryTests
         var langs = new LanguageRegistry();
         langs.Register("fakeco", new[] { LanguageRow.Shown("FKL", PlainTextReader.Instance), LanguageRow.Hidden("LAD") });
 
-        Assert.Equal(BodyText.Shown("FKL", ""), ImplementationLine.Parse("implementation fkl", langs, "fakeco"));
-        Assert.Equal(BodyText.Hidden("STL", ""), ImplementationLine.Parse("IMPLEMENTATION STL UNSUPPORTED", langs, "fakeco"));
-        Assert.Equal(BodyText.Abstract, ImplementationLine.Parse("IMPLEMENTATION NONE", langs, "fakeco"));
+        Assert.Equal(BodyText.Shown("FKL", ""), LanguageLine.Parse("%LANGUAGE fkl", langs, "fakeco"));
+        Assert.Equal(BodyText.Hidden("STL", ""), LanguageLine.Parse("%LANGUAGE STL UNSUPPORTED", langs, "fakeco"));
+        Assert.Equal(BodyText.Hidden("NONE", ""), LanguageLine.Parse("%LANGUAGE NONE UNSUPPORTED", langs, "fakeco"));   // no reserved word
 
-        var ex = Assert.Throws<BridgeException>(() => ImplementationLine.Parse("IMPLEMENTATION LAD", langs, "fakeco"));
+        var ex = Assert.Throws<BridgeException>(() => LanguageLine.Parse("%LANGUAGE LAD", langs, "fakeco"));
         Assert.Equal("INVALID_ST", ex.ErrorCode);
         Assert.Contains("shows no LAD body (it shows FKL)", ex.Message);
-        Assert.Equal("INVALID_ST", Assert.Throws<BridgeException>(() => ImplementationLine.Parse("IMPLEMENTATION", langs, "fakeco")).ErrorCode);
+        Assert.Equal("INVALID_ST", Assert.Throws<BridgeException>(() => LanguageLine.Parse("%LANGUAGE", langs, "fakeco")).ErrorCode);
+        Assert.Equal("INVALID_ST", Assert.Throws<BridgeException>(() => LanguageLine.Parse("IMPLEMENTATION FKL", langs, "fakeco")).ErrorCode);
 
-        foreach (var body in new[] { BodyText.Shown("FKL", "x"), BodyText.Hidden("LAD", "why"), BodyText.Abstract })
-            Assert.Equal(body.Form, ImplementationLine.Parse(ImplementationLine.For(body), langs, "fakeco").Form);
+        foreach (var body in new[] { BodyText.Shown("FKL", "x"), BodyText.Hidden("LAD", "why") })
+            Assert.Equal(body.Form, LanguageLine.Parse(LanguageLine.For(body), langs, "fakeco").Form);
+        // A member with no body slot states no line at all.
+        Assert.Throws<VoltInvariantException>(() => LanguageLine.For(BodyText.NoSlot));
     }
 
     // ── %-keys ──

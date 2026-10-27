@@ -5,9 +5,9 @@
   "injectionSelector": "L:source.structured-text -comment -string",
   "patterns": [
     {
-      "comment": "A body whose IMPLEMENTATION line states LD or FBD — the ONE place networks are read (openspec implementation-keyword: the stated language decides how a body is read, never its content). ST may hold `NETWORK := TRUE;` (a variable named NETWORK), so sniffing a NETWORK line would paint the rest of an ST file as network text; an UNSUPPORTED body holds nothing. The line itself is coloured with the main grammar`s implementation-line names, since this injection wins the line. Ends, by lookahead, at the closing keyword of the unit that owns the body, which the main grammar then colours.",
+      "comment": "A body whose %LANGUAGE line states LD or FBD — the ONE place networks are read (openspec language-line: the stated language decides how a body is read, never its content). ST may hold `NETWORK := TRUE;` (a variable named NETWORK), so sniffing a NETWORK line would paint the rest of an ST file as network text; an UNSUPPORTED body holds nothing. The line itself is coloured with the main grammar`s language-line names, since this injection wins the line. Ends, by lookahead, at the closing keyword of the unit that owns the body, which the main grammar then colours.",
       "name": "meta.body.network.vg",
-      "begin": "(?i)^\\s*(IMPLEMENTATION)[ \\t]+(LD|FBD)[ \\t]*$",
+      "begin": "(?i)^\\s*(%LANGUAGE)[ \\t]+(LD|FBD)[ \\t]*$",
       "beginCaptures": {
         "1": {
           "name": "keyword.other.implementation.structured-text"

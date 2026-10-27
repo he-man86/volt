@@ -5,7 +5,7 @@ VAR
 	f_trig			: Standard.F_TRIG;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 END_FUNCTION_BLOCK
 
@@ -17,7 +17,7 @@ END_VAR
 
 // Use this method if you need the trigger output more than once per PLC cycle.
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 f_trig(
 	CLK	:= CLK,
 	Q   => );
@@ -30,7 +30,7 @@ VAR_INPUT
 	CLK	: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Call(CLK);
 Falling := Q;
 
@@ -45,7 +45,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Q := f_trig.Q;
 
 END_GET

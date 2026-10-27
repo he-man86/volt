@@ -59,8 +59,8 @@ internal static class NetworkModels
 
     // ── source text ─────────────────────────────────────────────────────────────────────────────
 
-    public const string FbdMarker = "IMPLEMENTATION FBD\n";
-    public const string LdMarker = "IMPLEMENTATION LD\n";
+    public const string FbdMarker = "%LANGUAGE FBD\n";
+    public const string LdMarker = "%LANGUAGE LD\n";
 
     /// <summary>A one-network FBD body holding exactly these statement lines, in the page's layout (two-space
     /// statement indentation).</summary>

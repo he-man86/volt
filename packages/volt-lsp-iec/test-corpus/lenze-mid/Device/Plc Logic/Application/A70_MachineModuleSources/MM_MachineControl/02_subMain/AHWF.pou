@@ -13,7 +13,7 @@ END_VAR
 VAR 
 	IDB_WSM: WSM;
 END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK TITLE: "Network 1: Detection of wrapper (set and reset)"
   split10 := True;
   Mach1_AuxData.MemWrapperPassedUnderTheSensor S= split10 AND LST_InputsOutputs.I101_0_Wrapper_present;

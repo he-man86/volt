@@ -41,7 +41,7 @@ namespace Volt.Ide.Codesys
                     "be written into it.");
 
             // THE VIEW IS WRITTEN (openspec bridge-refusal-review 2.22, D7). Network text states FBD or LD once, on
-            // the body's IMPLEMENTATION line — the sole textual difference between the two — and the view is one
+            // the body's %LANGUAGE line — the sole textual difference between the two — and the view is one
             // writable string member of the aspect, as TwinCAT writes the same member through its archive — so a
             // marker-only edit is written on both vendors.
             // ...but only when there IS one. A body that is not graphical YET — a freshly created accessor, whose
@@ -131,7 +131,7 @@ namespace Volt.Ide.Codesys
             var live = NetworkText.LanguageNamed(stated)
                 ?? throw new VoltInvariantException(
                     $"CODESYS: a graphical body reached the write over a body whose view is '{view}' " +
-                    $"('{Volt.Engine.Format.St.ImplementationMarker.Unsupported(stated)}'), which the push's body guard " +
+                    $"('{Volt.Engine.Format.St.PropertyLines.UnsupportedLine(stated)}'), which the push's body guard " +
                     "refuses before any write. This is a Volt bug.");
             if (live == pushed) return;
             NwlInterop.Set(impl, "DefaultViewMode", pushed == BodyLanguage.Ld ? "Ld" : "Fbd");

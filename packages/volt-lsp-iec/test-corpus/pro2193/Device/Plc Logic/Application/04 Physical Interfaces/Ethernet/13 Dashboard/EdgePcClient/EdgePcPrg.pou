@@ -15,7 +15,7 @@ VAR
 
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 __TRY
 taskInfo	:= TaskGetInfo();
 
@@ -56,7 +56,7 @@ VAR_INST
 	initialized	: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF initialized THEN
 	Initialize		:= TRUE;
 	RETURN;

@@ -113,7 +113,7 @@ test("describePull: a conflict carries the CLI's UNSUPPORTED note — the bodies
   // A conflicting pull can also bring bodies the CLI shows as UNSUPPORTED; its note names them and where they are
   // edited, and the toast must not drop that sentence.
   const note =
-    "1 body(ies) are IMPLEMENTATION LD|FBD UNSUPPORTED — no code is shown for them, each for the reason named below. " +
+    "1 body(ies) are %LANGUAGE LD|FBD UNSUPPORTED — no code is shown for them, each for the reason named below. " +
     "Their declarations stay editable here and push as usual; the push never writes these bodies. Edit them in the IDE:\n" +
     "  A.pou (LD): a shape network text does not spell"
   const conflict = describePull({ kind: "conflict", paths: ["A.pou"], message: note })

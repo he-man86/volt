@@ -18,7 +18,7 @@ VAR
 	ReadActualError				: ReadActualErrorFB;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF NOT _initialized THEN
 	Initialize();
 	_initialized := TRUE;
@@ -46,7 +46,7 @@ END_PROGRAM
 
 METHOD PROTECTED Initialize
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Connect Lenze module handlers to this base module handler
 
 GlobalVars.fbModuleManager.ModuleHandler.SetParent(

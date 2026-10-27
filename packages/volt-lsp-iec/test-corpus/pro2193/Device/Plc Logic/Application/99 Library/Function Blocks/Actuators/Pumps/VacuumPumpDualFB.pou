@@ -35,7 +35,7 @@ VAR
 	TotalNumberOfStarts2		: UDINT;	// Not used
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 HighVacuumPump(
 	moduleHandler				:= moduleHandler,
 	textRefId					:= textRefId,
@@ -95,21 +95,21 @@ END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 END_METHOD
 
 // Maps the actuator to the physical output
 {attribute 'hide'}
 METHOD PUBLIC Map : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // no implementation
 END_METHOD
 
 // Maps the actuator to the physical output
 METHOD PUBLIC MapHigh : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 MapHigh := HighVacuumPump.Map();
 
 END_METHOD
@@ -117,7 +117,7 @@ END_METHOD
 // Maps the actuator to the physical output
 METHOD PUBLIC MapLow : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 MapLow := LowVacuumPump.Map();
 
 END_METHOD
@@ -125,7 +125,7 @@ END_METHOD
 // Maps the actuator to the physical output
 METHOD PUBLIC MapSwitchTanks : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 MapSwitchTanks := LowVacuumPump.MapSwitchTanks();
 
 END_METHOD
@@ -133,7 +133,7 @@ END_METHOD
 // Reset the output (=False)
 METHOD PUBLIC Reset
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 HighVacuumPump.Reset();
 LowVacuumPump.Reset();
 
@@ -142,7 +142,7 @@ END_METHOD
 {attribute 'hide'}
 METHOD PUBLIC Set : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // no implementation
 END_METHOD
 
@@ -152,6 +152,6 @@ VAR_INPUT
 	xValue	: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // no implementation
 END_METHOD

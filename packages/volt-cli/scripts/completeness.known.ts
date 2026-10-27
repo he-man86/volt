@@ -61,7 +61,7 @@ export const KNOWN: Known = {
   },
   "codesys:POUObject.POUObject.$create — create refused: UNSUPPORTED": {
     subjects: ["CodesysOneToOne/VltFixtureCfc.pou","CodesysOneToOne/VltFixtureMembers.pou","Pro2193/SetErrorFB.pou"],
-    why: "create refused: refused: UNSUPPORTED: 'CfcStep' is 'IMPLEMENTATION CFC UNSUPPORTED', a body Volt cannot author — there is no text form for it, so it can only be created in the IDE. Remove it from this push.",
+    why: "create refused: refused: UNSUPPORTED: 'CfcStep' is '%LANGUAGE CFC UNSUPPORTED', a body Volt cannot author — there is no text form for it, so it can only be created in the IDE. Remove it from this push.",
   },
   "codesys:POUObject.POUObject.$pull — pull refused": {
     subjects: ["CodesysOneToOne/VltFixtureSfc.pou","Pro2193/MagazineMotors_TurnAroundFB.pou","Pro2193/MagazineMotors_WrapFB.pou","Pro2193/MagazinePeeling_BeursFB.pou","Pro2193/RemoveStackStatusBFU.pou","Pro2193/ShiftStackStatusFB.pou"],
@@ -137,10 +137,10 @@ export const KNOWN: Known = {
   },
   "twincat:TcPOU.POU.TcPlcObject/POU[]/Action[]/ObjectProperties#xml — held but not refused": {
     subjects: ["Project14/VltFixtureMembers.pou"],
-    why: "niche: accepted loss (0 occurrences in the corpora beyond the two authored SFC fixtures, VltFixtureSfc and VltFixtureMembers.SfcRun) — a TwinCAT SFC body's ObjectProperties block is held, not refused; SFC bodies are IMPLEMENTATION SFC UNSUPPORTED (an update keeps the block, a create is refused), so no push writes it (bridge-one-to-one 4.2)",
+    why: "niche: accepted loss (0 occurrences in the corpora beyond the two authored SFC fixtures, VltFixtureSfc and VltFixtureMembers.SfcRun) — a TwinCAT SFC body's ObjectProperties block is held, not refused; SFC bodies are %LANGUAGE SFC UNSUPPORTED (an update keeps the block, a create is refused), so no push writes it (bridge-one-to-one 4.2)",
   },
   "twincat:TcPOU.POU.TcPlcObject/POU[]/ObjectProperties#xml — held but not refused": {
     subjects: ["Project14/VltFixtureSfc.pou"],
-    why: "niche: accepted loss (0 occurrences in the corpora beyond the two authored SFC fixtures, VltFixtureSfc and VltFixtureMembers.SfcRun) — a TwinCAT SFC body's ObjectProperties block is held, not refused; SFC bodies are IMPLEMENTATION SFC UNSUPPORTED (an update keeps the block, a create is refused), so no push writes it (bridge-one-to-one 4.2)",
+    why: "niche: accepted loss (0 occurrences in the corpora beyond the two authored SFC fixtures, VltFixtureSfc and VltFixtureMembers.SfcRun) — a TwinCAT SFC body's ObjectProperties block is held, not refused; SFC bodies are %LANGUAGE SFC UNSUPPORTED (an update keeps the block, a create is refused), so no push writes it (bridge-one-to-one 4.2)",
   },
 }

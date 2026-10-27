@@ -37,7 +37,7 @@ public class NoBodySlotIsNullTests
     public void A_property_has_no_body_its_accessors_do()
     {
         var item = StReader.Read(
-            "FUNCTION_BLOCK FB_A\nVAR\nEND_VAR\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\nPROPERTY Ready : BOOL\nGET\nIMPLEMENTATION ST\nReady := TRUE;\nEND_GET\nEND_PROPERTY",
+            "FUNCTION_BLOCK FB_A\nVAR\nEND_VAR\n%LANGUAGE ST\nEND_FUNCTION_BLOCK\n\nPROPERTY Ready : BOOL\nGET\n%LANGUAGE ST\nReady := TRUE;\nEND_GET\nEND_PROPERTY",
             ItemKind.Kinds.Pou);
 
         var ready = item.Members.Single();

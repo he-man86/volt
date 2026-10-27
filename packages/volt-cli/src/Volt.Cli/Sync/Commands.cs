@@ -1044,7 +1044,7 @@ public static class Commands
         return bytes is not null ? (bytes, null, false) : (null, $"{rel} not found at {@ref}", true);
     }
 
-    /// <summary>Every body the fetch brought in as <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c>, by file and member, with
+    /// <summary>Every body the fetch brought in as <c>%LANGUAGE LD|FBD UNSUPPORTED</c>, by file and member, with
     /// what network text has no spelling for — or null when there is none.
     ///
     /// <para>The file says only that Volt shows no code for such a body. WHY used to be written into it, as the comment
@@ -1066,7 +1066,7 @@ public static class Commands
         // Each line carries its body's OWN reason; the lead claims none. Network text having no spelling for a shape is one
         // reason, a build with network text off (`NetworkTextSwitch.DisabledReason`) another, and a lead that asserted the
         // first told an engineer on a production build something false about every body it listed.
-        return $"{lines.Count} body(ies) are IMPLEMENTATION LD|FBD UNSUPPORTED — no code is shown for them, each for the " +
+        return $"{lines.Count} body(ies) are %LANGUAGE LD|FBD UNSUPPORTED — no code is shown for them, each for the " +
                "reason named below. Their declarations stay editable here and push as usual; the push never writes these " +
                "bodies. Edit them in the IDE:\n" + string.Join("\n", lines);
     }

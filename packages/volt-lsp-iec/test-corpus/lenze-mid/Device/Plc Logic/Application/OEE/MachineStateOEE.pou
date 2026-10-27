@@ -2,7 +2,7 @@ PROGRAM MachineStateOEE
 VAR
 END_VAR
 
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK TITLE: "DONE NETWORK 49: State of the machine"
   split22 := TRUE;
   MOVE eStates.Aborted => GVL_OEE_Var.eStatus_States ENO EN split22 AND (Mach1.GenFlags.MajorAlarm OR Mach1.GenFlags.MinorAlarm);

@@ -161,12 +161,12 @@ export const SCOPE_RULE_TESTS: readonly LanguageTest[] = [
   pushRefuses({
     ...fb("sym_namespace_block_unit_checked", "Y17 — an FB inside `NAMESPACE N … END_NAMESPACE` whose body reads its own field: scoped and analysed as one outside",
       "\tf : INT := 4;\n\tout : INT;", "out := f;"),
-    source: "NAMESPACE NS_LANG_sym_namespace_block_unit_checked\nFUNCTION_BLOCK FB_LANG_sym_namespace_block_unit_checked\nVAR\n\tf : INT := 4;\n\tout : INT;\nEND_VAR\nIMPLEMENTATION ST\nout := f;\nEND_FUNCTION_BLOCK\nEND_NAMESPACE\n",
+    source: "NAMESPACE NS_LANG_sym_namespace_block_unit_checked\nFUNCTION_BLOCK FB_LANG_sym_namespace_block_unit_checked\nVAR\n\tf : INT := 4;\n\tout : INT;\nEND_VAR\n%LANGUAGE ST\nout := f;\nEND_FUNCTION_BLOCK\nEND_NAMESPACE\n",
   }, "'FB_LANG_sym_namespace_block_unit_checked', line 10: expected METHOD/ACTION/PROPERTY, got: END_NAMESPACE"),
   pushRefuses({
     ...fb("sym_namespace_method_parents_to_fb", "Y18 — an FB and its METHOD inside one NAMESPACE: the METHOD reads the FB's field",
       "\tout : INT;", "out := M();"),
-    source: "NAMESPACE NS_LANG_sym_namespace_method_parents_to_fb\nFUNCTION_BLOCK FB_LANG_sym_namespace_method_parents_to_fb\nVAR\n\tf : INT := 4;\n\tout : INT;\nEND_VAR\nIMPLEMENTATION ST\nout := M();\nEND_FUNCTION_BLOCK\n\nMETHOD M : INT\nIMPLEMENTATION ST\nM := f;\nEND_METHOD\nEND_NAMESPACE\n",
+    source: "NAMESPACE NS_LANG_sym_namespace_method_parents_to_fb\nFUNCTION_BLOCK FB_LANG_sym_namespace_method_parents_to_fb\nVAR\n\tf : INT := 4;\n\tout : INT;\nEND_VAR\n%LANGUAGE ST\nout := M();\nEND_FUNCTION_BLOCK\n\nMETHOD M : INT\n%LANGUAGE ST\nM := f;\nEND_METHOD\nEND_NAMESPACE\n",
   }, "'FB_LANG_sym_namespace_method_parents_to_fb', line 15: expected METHOD/ACTION/PROPERTY, got: END_NAMESPACE"),
 
   // ─── Y9–Y14 global variable lists (task 3.1.3) ──────────────────────────────────────────────────────────────────

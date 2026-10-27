@@ -365,7 +365,7 @@ test("store: an edit rebinds into its own application's table, and a pool docume
   expect([has(inA, "g_a"), has(inA, "g_b"), has(inB, "g_b"), has(inB, "g_a")]).toEqual([true, false, true, false])
 
   store.upsertDisk(gvlA, "VAR_GLOBAL\n\tg_a : INT;\n\tg_a2 : INT;\nEND_VAR\n")
-  store.upsertDisk(pool, "FUNCTION_BLOCK FB_Pool\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n")
+  store.upsertDisk(pool, "FUNCTION_BLOCK FB_Pool\n%LANGUAGE ST\nEND_FUNCTION_BLOCK\n")
   expect([has(inA, "g_a2"), has(inB, "g_a2"), has(inA, "fb_pool"), has(inB, "fb_pool")]).toEqual([true, false, true, true])
   expect(store.workspace(inB).map((d) => d.uri).sort()).toEqual([pool, uri(resolve(appB, "GVL.gvl"))].sort())
 })

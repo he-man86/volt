@@ -89,7 +89,7 @@ public class DocDataTests
             + "`ideVersion` (the platform under the product) and `bridgeVersion` (the stamped release, or `(dev) <commit>`). "
             + "Each is absent when its source does not answer, never filled from another.",
             "States the bridge's catalog, from its own declarations: `ops` (every op it answers), `languages` (every language "
-            + "it writes as `IMPLEMENTATION <LANG>`) and `kinds` (every item kind, by extension, and whether a push writes it). "
+            + "it writes as `%LANGUAGE <LANG>`) and `kinds` (every item kind, by extension, and whether a push writes it). "
             + "A value the bridge does not list there is one it never sends.",
             "A row's `dirty` is absent when the IDE did not answer whether the project is saved: unknown, never clean.",
         }),
@@ -170,7 +170,7 @@ public class DocDataTests
             + "error named) or a `limit` outside 1–1000; and, with no partial answer, for a pattern that takes longer than "
             + "100 ms on one line.",
             "What it searches is what `fetch` ships as text, from the same walk: a matched line is the fetched line at that "
-            + "number. An `unreadable` item, and a body that reads `IMPLEMENTATION <LANG> UNSUPPORTED`, are in `notSearched` "
+            + "number. An `unreadable` item, and a body that reads `%LANGUAGE <LANG> UNSUPPORTED`, are in `notSearched` "
             + "with a code; libraries are not searched and not listed.",
             "The answer is bounded: at most `limit` matches, counted up to 10000 in `totalMatches`; `truncated` when more "
             + "were found than answered. A line longer than 500 UTF-16 code units is cut, ends in `…` and carries `cut: true`.",
@@ -723,6 +723,9 @@ public class DocDataTests
     /// The vendor member each one reads is named, so the page answers "what in the IDE is this?".</summary>
     private static readonly Dictionary<string, string> PropertyMeanings = new(StringComparer.Ordinal)
     {
+        ["LANGUAGE"] = "A body's language, on the line that ends its declaration and starts the body: ST, LD or FBD for a "
+            + "body Volt shows, <LANG> UNSUPPORTED for one it does not (nothing under it). A METHOD or a property's GET/SET "
+            + "with no body slot in the IDE has no line and nothing after its declaration.",
         ["CLASS"] = "The vendor class the text cannot tell: CHECK <check> (a CODESYS implicit-check function, "
             + "POUObjectCheckFunction), PERSISTENT (a persistent variable list), TEXTLIST_ENUM (a text-list-backed "
             + "enumeration), NVL (a receiving network variable list). Made at the create, never changed in place.",
@@ -770,6 +773,22 @@ public class DocDataTests
         new("a GVL linked to a file", ObjectProperties.None with { FileLink = new FileLink("ExportBeforeCompile", @"C:\io\gvl.txt") }),
     };
 
+    /// <summary>The <c>%LANGUAGE</c> lines a body states, in the writer's spelling: they come from the body, not from the
+    /// object's properties.</summary>
+    private static readonly (string On, List<string> Lines)[] LanguageExamples =
+    {
+        ("a body Volt shows", new List<string>
+        {
+            Volt.Engine.Format.St.PropertyLines.LanguageLine(Volt.Engine.Format.Body.Languages.St),
+            Volt.Engine.Format.St.PropertyLines.LanguageLine(Volt.Engine.Format.Body.Languages.Ld),
+            Volt.Engine.Format.St.PropertyLines.LanguageLine(Volt.Engine.Format.Body.Languages.Fbd),
+        }),
+        ("a body Volt does not show", new List<string>
+        {
+            Volt.Engine.Format.St.PropertyLines.UnsupportedLine(Volt.Engine.Format.Body.Languages.Cfc),
+        }),
+    };
+
     /// <summary>Whether a vendor read can produce <paramref name="p"/> — the class rule of the CODESYS driver's
     /// <c>ReadClass</c>: network-variable settings and a file link belong to a variable list (no class, <c>PERSISTENT</c>,
     /// <c>NVL</c>), the parameter-list flag to a plain GVL only; a check function, a text-list enumeration and an abstract
@@ -792,7 +811,8 @@ public class DocDataTests
             ["examples"] = new JsonArray(PropertyExamples
                 .Select(e => (e.On, Lines: Volt.Engine.Format.St.PropertyLines.Write(e.Props, e.Folder)
                                                 .Where(l => Volt.Engine.Format.St.PropertyLines.KeyOf(l) == key).ToList()))
-                .Where(e => e.Lines.Count > 0)
+                .Concat(LanguageExamples)
+                .Where(e => e.Lines.Count > 0 && e.Lines.All(l => Volt.Engine.Format.St.PropertyLines.KeyOf(l) == key))
                 .Select(e => (JsonNode?)new JsonObject
                 {
                     ["on"] = e.On,
@@ -1022,7 +1042,7 @@ public class DocDataTests
 
     /// <summary>The protocol number and the hash of the generated <c>volt-bridge.openrpc.json</c> it was decided for.</summary>
     private const int PinnedProtocol = 1;
-    private const string PinnedWireShape = "45202c778688352d003ced18f1146c405d3d9c4f2212230fb1c99cfbef06c0b3";
+    private const string PinnedWireShape = "fae60cac7c2c8f13f66ae7661a16d598848789e7f55e0cc7c67b183c22cf6d19";
 
     /// <summary>The document names the protocol it describes, and <c>health</c> states it: every bridge writes
     /// <c>protocol</c>, so the schema requires it (C# reads it as <c>int?</c> only so the connector can still read a bridge

@@ -20,7 +20,7 @@ VAR
 	lastInd				: INT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 //Check if the input values are valid
 IF I_lastIndex < I_firstIndex THEN

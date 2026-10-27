@@ -14,17 +14,18 @@ namespace Volt.Engine.Format.St;
 /// LSP's <c>frontend/syntax/format/object-properties.ts</c>.
 ///
 /// <para><b>What a property line is.</b> ONLY a line that opens with <c>%</c> followed by one of the CLOSED keys
-/// (<see cref="Keys"/>), the key ending at a space or the line's end — exactly how <c>%FOLDER</c> was told apart. Every
+/// (<see cref="Keys"/>), the key ending at a space, a tab or the line's end — exactly how <c>%FOLDER</c> was told apart. Every
 /// other line that opens with <c>%</c> is CODE: a direct-address assignment (<c>%QB1 := x;</c>, 4 in the corpora) can
 /// stand exactly where properties are peeled, and no IEC address collides with a key (<c>%I</c> / <c>%Q</c> / <c>%M</c>
 /// + a size letter or a digit). So there is no "unknown key" refusal: <c>%class</c> and <c>%CLASSIC</c> are code.</para>
 ///
-/// <para><b>One canonical spelling.</b> <c>%CLASS</c> first, then a member's <c>%FOLDER</c>, then the keys in
-/// <see cref="Keys"/>' order, each at most once except <c>%UNDEFINE</c> and <c>%NETVAR</c>, which repeat in vendor
-/// order. The writer emits exactly that; the reader refuses another order, a repeated key, a value on a flag and a
-/// valued key with none — each naming the key and the line.</para>
+/// <para><b>One canonical spelling.</b> A body's <c>%LANGUAGE</c> line first (<c>PropertyLines.Language.cs</c>: it is
+/// the body's boundary, so the reader finds it before it peels the rest), then <c>%CLASS</c>, then a member's
+/// <c>%FOLDER</c>, then the keys in <see cref="Keys"/>' order, each at most once except <c>%UNDEFINE</c> and
+/// <c>%NETVAR</c>, which repeat in vendor order. The writer emits exactly that; the reader refuses another order, a
+/// repeated key, a value on a flag and a valued key with none — each naming the key and the line.</para>
 /// </summary>
-public static class PropertyLines
+public static partial class PropertyLines
 {
     public const string ClassKey = "CLASS";
     public const string FolderKey = "FOLDER";
@@ -40,10 +41,10 @@ public static class PropertyLines
     public const string NetVarKey = "NETVAR";
     public const string FileLinkKey = "FILE_LINK";
 
-    /// <summary>The closed key list, in canonical order (<c>FOLDER</c> a member's alone).</summary>
+    /// <summary>The closed key list, in canonical order (<c>LANGUAGE</c> a body's alone, <c>FOLDER</c> a member's alone).</summary>
     public static readonly IReadOnlyList<string> Keys = new[]
     {
-        ClassKey, FolderKey, ExcludeFromBuildKey, LinkAlwaysKey, ExternalKey, EnableSystemCallKey, OnlineChangeReserveKey,
+        LanguageKey, ClassKey, FolderKey, ExcludeFromBuildKey, LinkAlwaysKey, ExternalKey, EnableSystemCallKey, OnlineChangeReserveKey,
         CompilerDefinesKey, UndefineKey, CommentKey, ParameterListKey, NetVarKey, FileLinkKey,
     };
 
@@ -58,14 +59,19 @@ public static class PropertyLines
     private static readonly HashSet<string> ClassWords = new(StringComparer.Ordinal)
         { ObjectClass.Check, ObjectClass.Persistent, ObjectClass.TextListEnum, ObjectClass.Nvl };
 
+    /// <summary>What separates the words of a line, the key from its value and a value's words from each other
+    /// (<c>%CLASS CHECK &lt;check&gt;</c>, <c>%FILE_LINK &lt;type&gt; '&lt;path&gt;'</c>, <c>%LANGUAGE &lt;LANG&gt;
+    /// UNSUPPORTED</c>): a space or a tab, alike.</summary>
+    private static readonly char[] KeyEnd = { ' ', '\t' };
+
     /// <summary>The key <paramref name="line"/> opens with, when it is a property line — <c>%</c>, a closed key, then a
-    /// space or the line's end — or null for every other line (code). <c>%FOLDER</c> counts only as the push has always
+    /// space, a tab or the line's end — or null for every other line (code). <c>%FOLDER</c> counts only as the push has always
     /// read it: <c>%FOLDER &lt;path&gt;</c> (<c>StReader.FolderOn</c>).</summary>
     public static string? KeyOf(string line)
     {
         var t = line.Trim();
         if (t.Length < 2 || t[0] != '%') return null;
-        var sp = t.IndexOf(' ');
+        var sp = t.IndexOfAny(KeyEnd);
         var key = sp < 0 ? t.Substring(1) : t.Substring(1, sp - 1);
         if (key == FolderKey) return sp < 0 || t.Substring(sp + 1).Trim().Length == 0 ? null : FolderKey;
         return Keys.Contains(key, StringComparer.Ordinal) ? key : null;
@@ -139,8 +145,11 @@ public static class PropertyLines
             var value = t.Length > key.Length + 1 ? t.Substring(key.Length + 2) : null;
             var named = $"%{key}";
 
+            if (key == LanguageKey)
+                throw Refuse(at, t, $"{named} opens a body, so it stands only where one starts — never among the lines " +
+                                    "that close a declaration");
             if (key == FolderKey && !folderAllowed)
-                throw Refuse(at, t, $"{named} stands only in a member's block (directly under its IMPLEMENTATION line, or " +
+                throw Refuse(at, t, $"{named} stands only in a member's block (directly under its %{LanguageKey} line, or " +
                                     "closing its declaration); an item's folder is its file's place");
             var rank = Keys.ToList().IndexOf(key);
             if (rank < last || (rank == last && !Repeating.Contains(key)))
@@ -189,7 +198,7 @@ public static class PropertyLines
 
     private static ObjectClass ReadClass(string value, string at, string line)
     {
-        var words = value.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+        var words = value.Split(KeyEnd, StringSplitOptions.RemoveEmptyEntries);
         if (words.Length == 0 || !ClassWords.Contains(words[0]))
             throw Refuse(at, line, $"%{ClassKey} names one of {string.Join(", ", ClassWords.OrderBy(w => w, StringComparer.Ordinal))}");
         if (words[0] == ObjectClass.Check)
@@ -214,7 +223,7 @@ public static class PropertyLines
 
     private static FileLink ReadFileLink(string value, string at, string line)
     {
-        var sp = value.IndexOf(' ');
+        var sp = value.IndexOfAny(KeyEnd);
         if (sp <= 0) throw Refuse(at, line, $"%{FileLinkKey} reads `%{FileLinkKey} <link type> '<path>'`");
         return new FileLink(value.Substring(0, sp), ReadNonEmptyString(value.Substring(sp + 1), at, line, "%" + FileLinkKey));
     }

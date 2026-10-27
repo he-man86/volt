@@ -61,7 +61,7 @@ export function tempWorkspace(files: Record<string, string>): string {
   return dir
 }
 
-export const PRG = `PROGRAM PLC_PRG\nVAR\n\tmode : E_Mode;\nEND_VAR\nIMPLEMENTATION ST\nmode := E_Mode.Idle;\nEND_PROGRAM`
+export const PRG = `PROGRAM PLC_PRG\nVAR\n\tmode : E_Mode;\nEND_VAR\n%LANGUAGE ST\nmode := E_Mode.Idle;\nEND_PROGRAM`
 
 export const ENUM = `TYPE E_Mode : (Idle, Run); END_TYPE`
 

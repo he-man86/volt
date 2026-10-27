@@ -22,7 +22,7 @@ test("server: didOpen pushes diagnostics (type mismatch)", async () => {
     client.onNotification(PublishDiagnosticsNotification.type, (p) => resolve(p as never))
   })
   await client.sendRequest(InitializeRequest.type, { processId: null, rootUri: null, capabilities: {} })
-  const bad = `FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := b;\nEND_FUNCTION_BLOCK`
+  const bad = `FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\n%LANGUAGE ST\ni := b;\nEND_FUNCTION_BLOCK`
   await client.sendNotification(DidOpenTextDocumentNotification.type, {
     textDocument: { uri: URI, languageId: "iecst", version: 1, text: bad },
   })
@@ -43,7 +43,7 @@ test("server: a pull-capable client gets NO push (avoids double diagnostics)", a
     rootUri: null,
     capabilities: { textDocument: { diagnostic: { dynamicRegistration: false } } },
   })
-  const bad = `FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := b;\nEND_FUNCTION_BLOCK`
+  const bad = `FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\n%LANGUAGE ST\ni := b;\nEND_FUNCTION_BLOCK`
   await client.sendNotification(DidOpenTextDocumentNotification.type, {
     textDocument: { uri: URI, languageId: "iecst", version: 1, text: bad },
   })
@@ -63,7 +63,7 @@ test("server: didOpen pushes network-text diagnostics for a graphical body", asy
     client.onNotification(PublishDiagnosticsNotification.type, (p) => resolve(p as never))
   })
   await client.sendRequest(InitializeRequest.type, { processId: null, rootUri: null, capabilities: {} })
-  const vg = `FUNCTION_BLOCK F\nVAR out : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\nout := TRUE;\nEND_FUNCTION_BLOCK` // no END_NETWORK
+  const vg = `FUNCTION_BLOCK F\nVAR out : BOOL;\nEND_VAR\n%LANGUAGE LD\nNETWORK\nout := TRUE;\nEND_FUNCTION_BLOCK` // no END_NETWORK
   await client.sendNotification(DidOpenTextDocumentNotification.type, {
     textDocument: { uri: URI, languageId: "iecst", version: 1, text: vg },
   })
@@ -75,8 +75,8 @@ test("server: didOpen pushes network-text diagnostics for a graphical body", asy
 test("server: a dead FB's diagnostics are suppressed by default, emitted with diagnoseDeadCode", async () => {
   // FB_Dead is never called/instantiated by the PROGRAM → structurally dead. Its genuine type error must
   // NOT surface by default (matches the compiler, which never compiles it).
-  const mainSrc = `PROGRAM Main\nIMPLEMENTATION ST\nx := 1;\nEND_PROGRAM`
-  const deadSrc = `FUNCTION_BLOCK FB_Dead\nVAR b : BOOL; i : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := b;\nEND_FUNCTION_BLOCK`
+  const mainSrc = `PROGRAM Main\n%LANGUAGE ST\nx := 1;\nEND_PROGRAM`
+  const deadSrc = `FUNCTION_BLOCK FB_Dead\nVAR b : BOOL; i : INT;\nEND_VAR\n%LANGUAGE ST\ni := b;\nEND_FUNCTION_BLOCK`
   const deadUri = "file:///FB_Dead.pou"
 
   async function diagsFor(diagnoseDeadCode: boolean): Promise<{ code?: unknown }[]> {

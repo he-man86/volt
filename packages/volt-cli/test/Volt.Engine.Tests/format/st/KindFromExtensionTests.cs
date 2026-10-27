@@ -21,8 +21,8 @@ namespace Volt.Engine.Tests;
 /// </summary>
 public class KindFromExtensionTests
 {
-    private const string ProgramText = "PROGRAM KindTest\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := n + 1;\nEND_PROGRAM";
-    private const string FbText = "FUNCTION_BLOCK KindTest\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := n + 1;\nEND_FUNCTION_BLOCK";
+    private const string ProgramText = "PROGRAM KindTest\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE ST\nn := n + 1;\nEND_PROGRAM";
+    private const string FbText = "FUNCTION_BLOCK KindTest\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE ST\nn := n + 1;\nEND_FUNCTION_BLOCK";
 
     [Fact]
     public void The_wire_name_decides_the_kind_not_the_text()
@@ -45,7 +45,9 @@ public class KindFromExtensionTests
 
     /// <summary>`.dut` hands the reader the DUT kind, and the text is a DUT's one declaration handed over as sent —
     /// even when it is not a DUT at all: the IDE's build judges it. Premise changed by the owner (openspec
-    /// `push-without-header-check` 5.P): this walked the four subtype names; every DUT is `.dut` now.</summary>
+    /// `push-without-header-check` 5.P): this walked the four subtype names; every DUT is `.dut` now. Only its
+    /// property lines are Volt's (openspec `language-line`: a `%LANGUAGE` line is one of them, and a DUT has no body to
+    /// open, so the PROGRAM text here states none).</summary>
     [Fact]
     public void A_DUT_is_the_DUT_kind_and_its_text_is_not_read()
     {
@@ -53,8 +55,9 @@ public class KindFromExtensionTests
         const string name = "DUT_X.dut";
         Assert.Equal(ItemKind.Kinds.Dut, ItemKind.KindForWireName(name));
         Assert.Equal(st, StReader.Read(st, ItemKind.KindForWireName(name)!).Declaration);
-        var program = StReader.Read(ProgramText, ItemKind.KindForWireName(name)!);
+        const string programText = "PROGRAM KindTest\nVAR\n\tn : INT;\nEND_VAR\nn := n + 1;\nEND_PROGRAM";
+        var program = StReader.Read(programText, ItemKind.KindForWireName(name)!);
         Assert.Equal(ItemKind.Kinds.Dut, program.Kind);
-        Assert.Equal(ProgramText, program.Declaration);
+        Assert.Equal(programText, program.Declaration);
     }
 }

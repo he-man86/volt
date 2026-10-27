@@ -76,7 +76,7 @@ electron-builder), `--upload-only` (publish the already-built installer; what `r
 **The product ships with LD and FBD off.** Network text is on only in a process whose environment holds
 `VOLT_GRAPHICAL=1`, and nothing on this path sets it — not `build-payload.ts`, not `build-installer.ts`, not
 `installer/Volt.iss`, not `build-cli.ps1` — so an installed bridge pulls every LD and FBD body as
-`IMPLEMENTATION LD|FBD UNSUPPORTED`. Development turns it on: `ide.ps1`, the test suites, the e2e and recording
+`%LANGUAGE LD|FBD UNSUPPORTED`. Development turns it on: `ide.ps1`, the test suites, the e2e and recording
 scripts (`packages/volt-cli/README.md`, "LD and FBD are off unless `VOLT_GRAPHICAL=1`"). To try a shipped build with
 it on, set it in the environment of the process that runs the bridge (CODESYS, or the TwinCAT worker), and of the
 editor for the LSP's own switch. `Volt.Repo.Gates/NetworkTextSwitchTests` fails if a shipping step starts setting it.

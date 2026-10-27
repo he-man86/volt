@@ -212,7 +212,7 @@ describe("create refused by name — a vendor refusal the LSP does not make", ()
  * THE LINE, where a recording carries one — openspec bridge-refusal-review 5.2 (review 5+6). The agreement replay
  * compares `[severity] message` and never a line, so it cannot back a claim of line parity. CODESYS records every line
  * as 0. TwinCAT records an ST body's line as its declaration's lines plus the body's own line — the file's line minus
- * one, since the push takes the IMPLEMENTATION line off. A NETWORK body's lines are the vendor's own numbering, no text
+ * one, since the push takes the %LANGUAGE line off. A NETWORK body's lines are the vendor's own numbering, no text
  * line (`rcc_network_undeclared_wire_shape`: 6 and 7 for the one statement on file line 8), so none is compared there.
  *
  * Pinned for this change's ST row. Three of its four lines agree; the fourth, "';' expected instead of end of POU", the
@@ -229,7 +229,7 @@ describe("lines — TwinCAT's, for this change's ST row", () => {
     const at = (ds: readonly { severity: string; message: string; line: number }[]) =>
       ds.filter((d) => d.severity === "error" || d.severity === "warning").map((d) => `[${d.severity}] ${comparable(d.message)} @${d.line}`)
     const lsp = computeDiagnostics({ uri: `file:///w/${t.pouName}.pou`, parseResult: pr, source: t.source, project, config: resolveConfig({ vendor: "twincat" }) })
-    // the file's 1-based line, less the IMPLEMENTATION line the push takes off
+    // the file's 1-based line, less the %LANGUAGE line the push takes off
     return {
       lsp: at(lsp.map((d) => ({ severity: d.severity, message: d.message, line: d.span.startLine - 1 }))),
       ide: at(BUILDS.twincat.tests[name]!.diagnostics),

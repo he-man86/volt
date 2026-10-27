@@ -9,7 +9,7 @@ VAR
 	state			: enumLedState;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 CASE state OF
 	enumLedState.Off, enumLedState.ForcedOff:
 		Output.Reset();
@@ -40,7 +40,7 @@ END_FUNCTION_BLOCK
 // Start flashing the led
 METHOD PUBLIC Flash
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF state <> enumLedState.ForcedOn AND state <> enumLedState.ForcedOff THEN
 	state := enumLedState.Flashing;
 END_IF
@@ -50,7 +50,7 @@ END_METHOD
 // Force turn the led off
 METHOD PUBLIC LedTestOff
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 state := enumLedState.ForcedOff;
 
 END_METHOD
@@ -58,7 +58,7 @@ END_METHOD
 // Force turn the led on
 METHOD PUBLIC LedTestOn
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 state := enumLedState.ForcedOn;
 
 END_METHOD
@@ -66,7 +66,7 @@ END_METHOD
 // Stop forcing the led state
 METHOD PUBLIC LedTestStop
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 state := enumLedState.Off;
 
 END_METHOD
@@ -74,7 +74,7 @@ END_METHOD
 // Maps the actuator to the physical output
 METHOD PUBLIC Map : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Map := Output.Map();
 
 END_METHOD
@@ -82,7 +82,7 @@ END_METHOD
 // Turn the led off
 METHOD PUBLIC Off
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF state <> enumLedState.ForcedOn AND state <> enumLedState.ForcedOff THEN
 	state := enumLedState.Off;
 END_IF
@@ -92,7 +92,7 @@ END_METHOD
 // When button is pressed, set the led output without changing the state
 METHOD PROTECTED Override
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 THIS^.xOverride := TRUE;
 
 END_METHOD
@@ -101,7 +101,7 @@ END_METHOD
 {attribute 'hide'}
 METHOD Reset
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Off();
 END_METHOD
 
@@ -109,7 +109,7 @@ END_METHOD
 {attribute 'hide'}
 METHOD Set : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Solid();
 END_METHOD
 
@@ -118,7 +118,7 @@ VAR_INPUT
 	Value		: BOOL;		// Call with False to use (default) 0.5 sec. blinker. Call with True to use fast 0.2 sec. blinker.
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 FrequencySelect		:= Value;
 
 END_METHOD
@@ -129,7 +129,7 @@ VAR_INPUT
 	xValue	: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF xValue THEN
 	state := enumLedState.Solid;
 ELSE
@@ -141,7 +141,7 @@ END_METHOD
 // Turn the led on
 METHOD PUBLIC Solid
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF state <> enumLedState.ForcedOn AND state <> enumLedState.ForcedOff THEN
 	state := enumLedState.Solid;
 END_IF

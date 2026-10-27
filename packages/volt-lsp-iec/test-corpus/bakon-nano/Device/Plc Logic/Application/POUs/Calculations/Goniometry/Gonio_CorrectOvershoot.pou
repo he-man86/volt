@@ -35,7 +35,7 @@ VAR
 	dRight			: REAL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 //Check if the left and right margins make any sense
 IF settings.marginXMax <= settings.marginXMin THEN

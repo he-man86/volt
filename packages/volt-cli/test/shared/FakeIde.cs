@@ -53,11 +53,11 @@ public sealed class FakeIde : VendorDriverBase, IVendorDriver, IIecTree
 
         // `Unsupported`: the IDE holds an LD/FBD body (`BodyLang`) that network text cannot represent, and this is the
         // fact the writer refuses — what a real driver catches as `UnrepresentableBodyException` and reads back as
-        // `IMPLEMENTATION LD|FBD UNSUPPORTED`, with this as the reason the pull reports.
+        // `%LANGUAGE LD|FBD UNSUPPORTED`, with this as the reason the pull reports.
 
         /// <summary>The object has NO body slot — CODESYS's <c>AbstractPOUMethodObject</c> and an abstract property's GET
-        /// (DIALECT C2n, openspec <c>abstract-member-push</c>). Read as the CODESYS driver reads one, <c>IMPLEMENTATION
-        /// NONE</c>; a body written at it is refused as the driver's <c>RequireSlot</c> (D26) refuses one. Kept on every
+        /// (DIALECT C2n, openspec <c>abstract-member-push</c>). Read as the CODESYS driver reads one, with no
+        /// <c>%LANGUAGE</c> line (<c>StatedLanguage.NoSlot</c>); a body written at it is refused as the driver's <c>RequireSlot</c> (D26) refuses one. Kept on every
         /// write that sends no body.</summary>
         public bool NoSlot { get; init; }
 
@@ -422,7 +422,7 @@ public sealed class FakeIde : VendorDriverBase, IVendorDriver, IIecTree
     public ItemRef CreateChild(ItemRef parent, string name, string kind, CreateArgs args) =>
         CreateChild(parent, name, ItemKind.CreateCode(kind), FamilyContent.SeedOf(args), FamilyContent.ClassOf(args.Class));
 
-    public Content Read(ItemRef item) => FamilyContent.Folded(ReadContent(item));
+    public Content Read(ItemRef item) => FamilyContent.ToContent(ReadContent(item));
 
     public void Write(ItemRef item, Content content, IReadOnlyList<PushedBody> bodies) =>
         WriteContent(item, FamilyContent.ToItemContent(content), Volt.Engine.Ide.PushedNetworkBody.Of(bodies));
@@ -1070,14 +1070,14 @@ public sealed class FakeIde : VendorDriverBase, IVendorDriver, IIecTree
         ?? throw new System.InvalidOperationException($"FakeIde: unmapped item code {it.KindCode} for '{it.Name}'");
 
     /// <summary>An item's body AS A DRIVER WOULD RETURN IT. A language Volt cannot author has no text form, so
-    /// a real driver materializes it as its UNSUPPORTED line (<c>IMPLEMENTATION CFC UNSUPPORTED</c>, and <c>IMPLEMENTATION LD
+    /// a real driver materializes it as its UNSUPPORTED line (<c>%LANGUAGE CFC UNSUPPORTED</c>, and <c>%LANGUAGE LD
     /// UNSUPPORTED</c> for a network body the text cannot represent); a fake that returned the raw stored text instead
     /// would let a textual push sail past the body-format guard here and be refused only against a live IDE.
     /// <para><c>BodyLang</c> models what the IDE holds. It is deliberately NOT the same thing as the body text:
     /// that separation is exactly what the guard exists to check.</para></summary>
     private static string? BodyTextOf(Item it) => BodyOf(it).Body;
 
-    /// <summary>Why a body the fake returns as <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c> is hidden — what a driver
+    /// <summary>Why a body the fake returns as <c>%LANGUAGE LD|FBD UNSUPPORTED</c> is hidden — what a driver
     /// hands up with it — and null for every other body.</summary>
     private static string? UnsupportedOf(Item it) => BodyOf(it).Unsupported;
 
@@ -1091,7 +1091,7 @@ public sealed class FakeIde : VendorDriverBase, IVendorDriver, IIecTree
     /// fake exactly as they reach a vendor.</summary>
     private static (string? Body, string? Unsupported, StatedLanguage? Stated) BodyOf(Item it)
     {
-        if (it.NoSlot) return (Volt.Engine.Format.St.ImplementationMarker.NoneLine, null, StatedLanguage.None);
+        if (it.NoSlot) return (null, null, StatedLanguage.NoSlot);
         // No `BodyLang` is ST — or a network body this fake stored from a push, which it keeps as its network text
         // (`WriteContent` records no language). ST goes up the drivers' ST arm: a keyword-shaped line in it is refused.
         if (it.BodyLang is not { } lang)
@@ -1099,11 +1099,11 @@ public sealed class FakeIde : VendorDriverBase, IVendorDriver, IIecTree
             if (it.Implementation is not { } text) return (null, null, null);
             if (Volt.Engine.Format.Network.NetworkText.LanguageOf(text) is { } stored)
                 return Pulled(stored, () => text);
-            return (Volt.Engine.Format.St.ImplementationMarker.RequireStBody(text), null, StatedLanguage.St);
+            return (Volt.Engine.Format.St.PropertyLines.RequireStBody(text), null, StatedLanguage.St);
         }
         // A language Volt cannot author has no text form at all.
         if (!Volt.Engine.Format.Body.Languages.IsNetwork(lang))
-            return (Volt.Engine.Format.St.ImplementationMarker.Unsupported(lang), null, StatedLanguage.HiddenIn(lang));
+            return (Volt.Engine.Format.St.PropertyLines.UnsupportedLine(lang), null, StatedLanguage.HiddenIn(lang));
         // An FBD/LD body comes back as NETWORK TEXT. A fixture that sets BodyLang but stores plain text is
         // describing "the IDE holds a diagram", so render one — returning the raw text would make a graphical
         // body look textual to the format guard, and the guard would wave through the very overwrite it exists
@@ -1114,7 +1114,7 @@ public sealed class FakeIde : VendorDriverBase, IVendorDriver, IIecTree
             var impl = it.Implementation ?? "";
             return Volt.Engine.Format.Network.NetworkText.Is(impl)
                 ? impl
-                : $"{Volt.Engine.Format.St.ImplementationMarker.For(lang)}\nNETWORK\n  {impl.Trim()}\nEND_NETWORK\n";
+                : $"{Volt.Engine.Format.St.PropertyLines.LanguageLine(lang)}\nNETWORK\n  {impl.Trim()}\nEND_NETWORK\n";
         });
     }
 
@@ -1250,9 +1250,9 @@ public sealed class FakeIde : VendorDriverBase, IVendorDriver, IIecTree
         WrittenBodies[name] = bodies;
 
         var owner = FindOrNull(item);
-        if (owner is not null) RequireSlot(owner, Volt.Engine.Format.St.ImplementationMarker.Written(content.Body));
+        if (owner is not null) RequireSlot(owner, Volt.Engine.Format.St.PropertyLines.Written(content.Body));
         foreach (var m in content.Members)
-            if (FindOrNull(Ref(m.Name)) is { } target) RequireSlot(target, Volt.Engine.Format.St.ImplementationMarker.Written(m.Body));
+            if (FindOrNull(Ref(m.Name)) is { } target) RequireSlot(target, Volt.Engine.Format.St.PropertyLines.Written(m.Body));
         if (owner is not null)
             _items[_items.IndexOf(owner)] = owner with
             {
@@ -1261,13 +1261,13 @@ public sealed class FakeIde : VendorDriverBase, IVendorDriver, IIecTree
                 // The object's properties as the push states them — written in place, the class excepted (it never
                 // changes in place, C2l: the push refuses a class change before it writes, and a create makes it).
                 Properties = WrittenProperties(owner, content.Properties),
-                Implementation = Held(Volt.Engine.Format.St.ImplementationMarker.Written(content.Body), bodies,
+                Implementation = Held(Volt.Engine.Format.St.PropertyLines.Written(content.Body), bodies,
                                       Volt.Engine.Ide.BodySite.Item) ?? owner.Implementation,
                 // A WRITTEN body is held as written, in the language written (a POU's body may change language where
                 // the driver writes it: `RefusesLanguageChange`, openspec bridge-refusal-review D7). A body not written
                 // (none, or its UNSUPPORTED line) keeps the IDE's language and why it is hidden.
-                BodyLang = Volt.Engine.Format.St.ImplementationMarker.Written(content.Body) is null ? owner.BodyLang : null,
-                Unsupported = Volt.Engine.Format.St.ImplementationMarker.Written(content.Body) is null ? owner.Unsupported : null,
+                BodyLang = Volt.Engine.Format.St.PropertyLines.Written(content.Body) is null ? owner.BodyLang : null,
+                Unsupported = Volt.Engine.Format.St.PropertyLines.Written(content.Body) is null ? owner.Unsupported : null,
                 // The member SET is not this call's to change: `CreateChild` adds a member and `Delete` removes one,
                 // as on both drivers, and a member absent from `content` is one the push LEFT ALONE (PushService's
                 // `OnlyChanged` drops the unchanged). Replacing the list with the written members made every
@@ -1291,12 +1291,12 @@ public sealed class FakeIde : VendorDriverBase, IVendorDriver, IIecTree
             // An UNSUPPORTED body is never written, and a null body is "leave it alone" (the push drops an unchanged body,
             // `PushService.OnlyChanged`) — both drivers skip it (`Written` is null for it) and write the declaration
             // alone — so the member keeps the body the IDE holds (its language, what made it UNSUPPORTED, its missing
-            // slot). `IMPLEMENTATION NONE` is written as "" (`Written`, openspec abstract-member-parity).
-            var member = existing is not null && Volt.Engine.Format.St.ImplementationMarker.Written(m.Body) is null
+            // slot).
+            var member = existing is not null && Volt.Engine.Format.St.PropertyLines.Written(m.Body) is null
                 ? existing with { KindCode = KindCodeOf(m.Kind), Folder = folder, Declaration = m.Declaration,
                                   Properties = WrittenProperties(existing, m.Properties) }
                 : new Item(m.Name, KindCodeOf(m.Kind), folder, false, m.Declaration,
-                           Held(Volt.Engine.Format.St.ImplementationMarker.Written(m.Body), bodies,
+                           Held(Volt.Engine.Format.St.PropertyLines.Written(m.Body), bodies,
                                 new Volt.Engine.Ide.BodySite(m.Name, m.Kind, null)),
                            null, null)
                   {
@@ -1348,7 +1348,7 @@ public sealed class FakeIde : VendorDriverBase, IVendorDriver, IIecTree
     ///
     /// <para><b>Through <see cref="Held"/>, as every other body write here</b>: both drivers build a graphical GET/SET
     /// from the validated model (<c>WriteGraph</c>), so it reads back in the canonical layout, not as pushed. An
-    /// UNSUPPORTED body is never written (<c>ImplementationMarker.Written</c>) and the accessor keeps its own.</para>
+    /// UNSUPPORTED body is never written (<c>PropertyLines.Written</c>) and the accessor keeps its own.</para>
     ///
     /// <para><b>An INTERFACE accessor takes its declaration and never a body.</b> Neither vendor has a body slot there
     /// (DIALECT D21/D41). CODESYS writes the declaration (a changed one; an unchanged one reads the same either way).
@@ -1371,8 +1371,8 @@ public sealed class FakeIde : VendorDriverBase, IVendorDriver, IIecTree
                 return;
             }
             // A null body is "leave it alone" — the push drops an unchanged accessor body (`PushService.OnlyChanged`),
-            // and both drivers skip writing it (openspec abstract-member-parity).
-            var written = Volt.Engine.Format.St.ImplementationMarker.Written(pushed.Body);
+            // and both drivers skip writing it.
+            var written = Volt.Engine.Format.St.PropertyLines.Written(pushed.Body);
             RequireSlot(acc, written);
             _items[_items.IndexOf(acc)] = acc with
             {

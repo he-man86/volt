@@ -242,7 +242,7 @@ namespace Volt.Ide.Codesys.Tests
             finally { _3S.CoDeSys.Core.SystemInstances.ObjectMgr = null; }
         }
 
-        /// <summary>A whitespace-only ST body is stored characters: spelled under <c>IMPLEMENTATION ST</c>, never read as
+        /// <summary>A whitespace-only ST body is stored characters: spelled under <c>%LANGUAGE ST</c>, never read as
         /// "no body" (<c>BodyText</c>).</summary>
         [Fact]
         public void A_whitespace_only_body_is_spelled_not_read_as_none()

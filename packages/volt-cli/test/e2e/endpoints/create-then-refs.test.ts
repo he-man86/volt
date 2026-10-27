@@ -11,8 +11,8 @@ import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bu
 import { bridge, id, fid, at, cleanup, requireHealthy, pushOps, landed, BASE } from "../harness"
 
 const SHAPES: [string, (n: string) => string][] = [
-	["an FB with a type error", (n) => `FUNCTION_BLOCK ${n}\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := TRUE;\nEND_FUNCTION_BLOCK\n`],
-	["a PROGRAM naming a DUT no one created", (n) => `PROGRAM ${n}\nVAR\n\td : ${n}_NoSuchDut;\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_PROGRAM\n`],
+	["an FB with a type error", (n) => `FUNCTION_BLOCK ${n}\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\nx := TRUE;\nEND_FUNCTION_BLOCK\n`],
+	["a PROGRAM naming a DUT no one created", (n) => `PROGRAM ${n}\nVAR\n\td : ${n}_NoSuchDut;\nEND_VAR\n%LANGUAGE ST\n;\nEND_PROGRAM\n`],
 ]
 const ROUNDS = 5
 

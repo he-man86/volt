@@ -1,7 +1,7 @@
 /**
  * A CODESYS body BYTE FOR BYTE — the CODESYS twin of `tc-files.ts`.
  *
- * Nothing on the wire carries a body Volt does not show (`IMPLEMENTATION <LANG> UNSUPPORTED`), and CODESYS saves no
+ * Nothing on the wire carries a body Volt does not show (`%LANGUAGE <LANG> UNSUPPORTED`), and CODESYS saves no
  * file on push, so a test that must prove a push never wrote a hidden body asks the IDE for its OWN serialization of
  * the object: `export_native`, whose `<Single Name="Implementation">` elements are the bodies as the IDE holds them
  * (chart elements, NWL element ids and all). The export runs inside the served IDE, through the harness launcher's

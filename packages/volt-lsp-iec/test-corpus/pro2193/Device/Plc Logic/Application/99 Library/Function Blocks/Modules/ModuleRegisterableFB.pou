@@ -27,7 +27,7 @@ VAR_STAT
 	moduleCurrentlyExecuting	: STRING(80);		// For debugging: In case of exception check this string to see what module is currently executing
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF NOT _initialized THEN
 	_initialized := TRUE;
 	Initialize();
@@ -46,7 +46,7 @@ END_FUNCTION_BLOCK
 
 METHOD PROTECTED Cyclic
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 END_METHOD
 
 //FB_Exit must be implemented explicitly. If there is an implementation, then the
@@ -57,7 +57,7 @@ VAR_INPUT
 	bInCopyCode: BOOL;  // TRUE: the exit method is called in order to leave the instance which will be copied afterwards (online change).
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF THIS^.ModuleManager <> 0 THEN
 	THIS^.ModuleManager.Unregister(THIS^);
 END_IF
@@ -80,7 +80,7 @@ VAR_INPUT
 	moduleParent	: L_IMHP.L_IMHP_IModuleHandler;	// (Optional) Give parent of this module. Use zero to use SER or BFU as parent.
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 THIS^.ModuleManager		:= moduleManager;
 
 IF moduleManager = 0 THEN
@@ -114,7 +114,7 @@ END_METHOD
 
 METHOD PROTECTED Initialize
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 ModuleHandler.SetParent(
 					ModuleHandlerParent	:= ModuleParent,
 					RelationShip		:= L_IMHP.L_IMHP_RelationshipID.ApplicationView);
@@ -129,7 +129,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 InstanceName := _instanceName;
 
 END_GET
@@ -145,7 +145,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 InstanceNo := _instanceNo;
 
 END_GET
@@ -159,7 +159,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 {IF defined (IsSimulationMode)}
 	MemoryAddress := DWORD_TO_HEXSTRING(TO_DWORD(ADR(THIS^)));
 {ELSE}

@@ -114,7 +114,7 @@ public class CodesysNetworkPairingTests
         Assert.DoesNotContain(impl.NetworkList[1], nets);
         Assert.Equal(new[] { "RemoveNetwork(3)", "InsertNetwork(1)" }, impl.Calls);
         var after = NetworkTextWriter.WritePulled(CodesysNetworkReader.ReadShown(impl, BodyLanguage.Fbd), NetworkScope.Empty);
-        Assert.Equal("IMPLEMENTATION FBD\n" + Net("o1 := a;") + Net("o5 := e;") + Net("o2 := b;") + Net("o4 := e;"), after);
+        Assert.Equal("%LANGUAGE FBD\n" + Net("o1 := a;") + Net("o5 := e;") + Net("o2 := b;") + Net("o4 := e;"), after);
     }
 
     /// <summary>S4 is spelled `.xErrorActive` on pull, and an UNCHANGED S4 network is kept — even when a network is
@@ -127,7 +127,7 @@ public class CodesysNetworkPairingTests
         {
             // The call's whole output list is its pragma (ld-fbd-coverage 2.3), the connection its `.name`.
             Assert.Contains("out := fbCap : L_FirstFASTErrCapture(xEnable := src).xErrorActive;", t);
-            return t.Replace("IMPLEMENTATION FBD\n", "IMPLEMENTATION FBD\n" + Net("o5 := e;"));
+            return t.Replace("%LANGUAGE FBD\n", "%LANGUAGE FBD\n" + Net("o5 := e;"));
         });
         Write(impl, pushed);
 
@@ -191,7 +191,7 @@ public class CodesysNetworkPairingTests
         var commented = new Nwl.BoxTreeAssign { RValue = new Nwl.BoxTreeOperand { Operand = new Nwl.Operand { OperandExpr = "a", StoredSymbolComment = "c" } } };
         commented.Outputs.List.Add(new Nwl.Operand { OperandExpr = "o1", IsLValue = true });
         var (impl, nets) = Live(commented, Rung("o2", "b"));
-        var pushed = Pushed(impl, t => "IMPLEMENTATION FBD\n" + Net("o2 := b;") + Net(edited ? "o1 := c;" : "o1 := a;"));
+        var pushed = Pushed(impl, t => "%LANGUAGE FBD\n" + Net("o2 := b;") + Net(edited ? "o1 := c;" : "o1 := a;"));
 
         var ex = Assert.Throws<NetworkTextException>(() => Write(impl, pushed));
         Assert.Equal(ConflictCodes.NetworkUnsupported, ex.Code);
@@ -228,8 +228,8 @@ public class CodesysNetworkPairingTests
         var pushed = Pushed(impl, t =>
         {
             var block = Net(LineOf(t).TrimStart());
-            Assert.Equal("IMPLEMENTATION FBD\n" + block + block, t);
-            return "IMPLEMENTATION FBD\n" + block;
+            Assert.Equal("%LANGUAGE FBD\n" + block + block, t);
+            return "%LANGUAGE FBD\n" + block;
         });
         var ex = Assert.Throws<NetworkTextException>(() => Write(impl, pushed));
         Assert.Contains("the same text", ex.Message);

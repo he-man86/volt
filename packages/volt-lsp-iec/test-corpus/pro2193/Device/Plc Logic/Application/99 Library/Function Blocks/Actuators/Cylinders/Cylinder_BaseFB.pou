@@ -28,7 +28,7 @@ VAR CONSTANT
 	tAdjustFrequency		: TIME	:= T#2S;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^();
 
 IF adjustTrigger.Rising(CLK := adjustButton) THEN
@@ -53,7 +53,7 @@ VAR_INPUT
 	plcDataTypeOut	: PlcDataType;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF errorId_SensorOut <> 0 THEN
 	MeasureMaxTimeIn.SetMonitoring(		itfAddLog, plcDataTypeIn);
 END_IF
@@ -69,7 +69,7 @@ VAR_INPUT
 	xSet	: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SensorInAlarm(
 	moduleHandler	:= moduleHandler,
 	textRefId		:= textRefId,
@@ -94,7 +94,7 @@ VAR_INPUT
 	xSet	: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SensorOutAlarm(
 	moduleHandler	:= moduleHandler,
 	textRefId		:= textRefId,
@@ -121,7 +121,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IsIn := inputIn AND NOT inputOut;
 END_GET
 END_PROPERTY
@@ -133,7 +133,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IsOut := inputOut AND NOT inputIn;
 END_GET
 END_PROPERTY

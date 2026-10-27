@@ -4,4 +4,4 @@ RESOLUTION VisuElemTrace, 4.8.0.0 (System)
 PLACEHOLDER true
 SYSTEM true
 REDIRECT System_VisuElemTrace VisuElemTrace, 4.4.0.0 (System)
-MATERIALIZATION 4
+MATERIALIZATION 5

@@ -4,4 +4,4 @@ RESOLUTION VisuElemTextEditor, 4.8.0.0 (System)
 PLACEHOLDER true
 SYSTEM true
 REDIRECT System_VisuElemTextEditor VisuElemTextEditor, 4.4.0.0 (System)
-MATERIALIZATION 4
+MATERIALIZATION 5

@@ -28,21 +28,21 @@ namespace Volt.Engine.Tests;
 public class AccessorPreflightTests
 {
     /// <summary>Canonical FBD — what a pull produces, and what the gate accepts unchanged.</summary>
-    private const string Canonical = "IMPLEMENTATION FBD\nNETWORK\n  out := a;\nEND_NETWORK";
+    private const string Canonical = "%LANGUAGE FBD\nNETWORK\n  out := a;\nEND_NETWORK";
 
     /// <summary>A network the reader refuses: a statement without its <c>;</c> (NETWORK_PARSE). This probe was a body in
     /// a non-canonical spelling, refused NETWORK_NOT_CANONICAL; canonical form is no refusal any more (openspec
     /// <c>bridge-refusal-review</c> 2.12), so the pre-flight's reach into accessors is proved with a body it refuses.</summary>
-    private const string NonCanonical = "IMPLEMENTATION FBD\nNETWORK\n  out := a\nEND_NETWORK";
+    private const string NonCanonical = "%LANGUAGE FBD\nNETWORK\n  out := a\nEND_NETWORK";
 
     private static string Fb(string name, string accessorBody) =>
-        $"FUNCTION_BLOCK {name}\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\n" +
+        $"FUNCTION_BLOCK {name}\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR\n%LANGUAGE ST\nEND_FUNCTION_BLOCK\n\n" +
         $"PROPERTY Ready : BOOL\nGET\n{accessorBody}\nEND_GET\nEND_PROPERTY\n";
 
-    private static string Prg(string name) => $"PROGRAM {name}\nVAR\nEND_VAR\nIMPLEMENTATION ST\nn := 0;\n\nEND_PROGRAM\n";
+    private static string Prg(string name) => $"PROGRAM {name}\nVAR\nEND_VAR\n%LANGUAGE ST\nn := 0;\n\nEND_PROGRAM\n";
 
     /// <summary>A POU whose body Volt cannot author — what a CFC POU materializes as in the workspace.</summary>
-    private const string Cfc = "FUNCTION_BLOCK FB_Cfc\nIMPLEMENTATION CFC UNSUPPORTED\n\nEND_FUNCTION_BLOCK\n";
+    private const string Cfc = "FUNCTION_BLOCK FB_Cfc\n%LANGUAGE CFC UNSUPPORTED\n\nEND_FUNCTION_BLOCK\n";
 
     private static PushResponse Push(FakeIde ide, params PushOp[] ops)
     {
@@ -91,7 +91,7 @@ public class AccessorPreflightTests
     public void A_non_canonical_SET_body_is_refused_before_the_first_write()
     {
         var ide = new FakeIde();
-        var src = "FUNCTION_BLOCK FB_Axis\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\n" +
+        var src = "FUNCTION_BLOCK FB_Axis\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR\n%LANGUAGE ST\nEND_FUNCTION_BLOCK\n\n" +
                   $"PROPERTY Ready : BOOL\nSET\n{NonCanonical}\nEND_SET\nEND_PROPERTY\n";
 
         var res = Push(ide, Set("First.pou", Prg("First")), Set("FB_Axis.pou", src));
@@ -102,7 +102,7 @@ public class AccessorPreflightTests
     /// <summary>A CREATE WHOSE BODY IS A MARKER IS REFUSED BEFORE THE FIRST WRITE TOO — the same defect one
     /// guard over.
     ///
-    /// <para>A body Volt cannot author materializes as <c>IMPLEMENTATION CFC UNSUPPORTED</c> over an empty body. Pushing that at an
+    /// <para>A body Volt cannot author materializes as <c>%LANGUAGE CFC UNSUPPORTED</c> over an empty body. Pushing that at an
     /// EXISTING item is the ordinary no-op (the splice leaves the body alone); pushing it at an item that does
     /// not exist yet can only land an empty POU, so <c>BodyFormatGuard.RequireAuthorable</c> refuses it — but it
     /// did so from inside <c>WriteItemFromSource</c>'s create arm, after the earlier ops of the batch had

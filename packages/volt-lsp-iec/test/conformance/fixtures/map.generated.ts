@@ -15,19 +15,19 @@
  *
  *   evidence
  *     confirmed     3169
- *     refused       2108
+ *     refused       2106
  *     not-lowered    385
- *     lsp-gap         88
+ *     lsp-gap         90
  *     diverges         5
  *     unaskable      152
  *
  *   tier                     lowered    clean
- *     decl                    842      842
+ *     decl                    844      844
  *     arith                  1651     1651
  *     control                 171      160
  *     aggregate               158      158
  *     call                    373      373
- *     indirect                431      431
+ *     indirect                433      433
  *
  *   surviving lints (a lint listed here is work, not policy — 12 allowed ones are named with their reasons)
  *     unreachable_patterns                       7
@@ -52,11 +52,11 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         3399
+ *     agree         3402
  *     disagree         0
- *     not-run        227
+ *     not-run        228
  *       not-run: reaches the platform's libm (pow, ln, sin…)     77
- *       not-run: no elementary variable to seed or compare       73
+ *       not-run: no elementary variable to seed or compare       74
  *       not-run: the emitted Rust does not build                 71
  *       not-run: the interpreter's loop guard gives up on every variant     6
  *       agree,   1/8 unanswered (the interpreter's loop guard): cc3_empty_and_noop
@@ -94,7 +94,7 @@
  *     tr_a10_string_to_dint_underscore_sign_edges   10.8
  *     tr_a10_string_to_int_literal_forms            10.8
  *
- *   shape — 1975 distinct emission shapes over 3626 lowered fixtures, 2234 distinct constructs.
+ *   shape — 1976 distinct emission shapes over 3630 lowered fixtures, 2234 distinct constructs.
  *   20 constructs carry a review note (`NOTES`): 37 fixtures are improvable, 23 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  *   Notes per owning task (openspec transpile-restructure; a merged note counts once under each owner of its items;
@@ -4267,7 +4267,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   rcc_implementation_method: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.2, shape: "c19bf2911c" },
   rcc_implementation_variable: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "dd164fb363" },
   rcc_member_backtick_name: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.1, shape: "7f327e5fec" },
-  rcc_member_name_not_identifier: { evidence: "unaskable" },
+  rcc_member_name_not_identifier: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.1, shape: "7f327e5fec" },
   rcc_network_eno_function_without_en: { evidence: "unaskable" },
   rcc_network_eno_without_en: { evidence: "unaskable" },
   rcc_network_located_wire_shape: { evidence: "unaskable" },
@@ -4677,7 +4677,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   shift_negative_count: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 4.2, shape: "1e1d3592bf" },
   shift_signed_operand: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 4.7, shape: "dd308d2375" },
   sig_empty_type: { evidence: "refused" },
-  sig_unknown_word: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  sig_unknown_word: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "not-run", size: 1.7, shape: "c2ac48a9d4", diverges: { codesys: "known", twincat: "known" } },
   sign_change_sint_to_uint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 2.5, shape: "e03317600a" },
   signed_overflow: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 4, shape: "aa65b32e9f" },
   signed_unsigned_comparison: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 5, shape: "1a25ea05d2" },
@@ -5390,9 +5390,9 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   unit_method_final_private_order: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
   unit_method_internal: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "c19bf2911c" },
   unit_method_modifier_twice: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "c19bf2911c" },
-  unit_method_override: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  unit_method_override: { evidence: "lsp-gap", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2.2, shape: "762cbbe558", diverges: { codesys: "known", twincat: "known" } },
   unit_method_override_base: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "4b70673805" },
-  unit_method_override_public_order: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  unit_method_override_public_order: { evidence: "lsp-gap", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2.2, shape: "762cbbe558", diverges: { codesys: "known", twincat: "known" } },
   unit_method_override_public_order_base: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "4b70673805" },
   unit_method_private: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "c19bf2911c" },
   unit_method_protected: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "c19bf2911c" },

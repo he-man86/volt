@@ -7,7 +7,7 @@ VAR
 	Trigger			: TriggerFB;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Trigger.Call(CLK := SensorInput = NOT _isInverted);
 
 
@@ -20,7 +20,7 @@ PUBLIC
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Falling := Trigger.Q_Falling;
 
 END_GET
@@ -33,7 +33,7 @@ PUBLIC
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Rising := Trigger.Q_Rising;
 
 END_GET

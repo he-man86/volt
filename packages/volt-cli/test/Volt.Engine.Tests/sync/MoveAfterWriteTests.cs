@@ -51,7 +51,7 @@ public class MoveAfterWriteTests
                 {
                     Name = "FB_A.pou",
                     To = "POUs/FB_A.pou",
-                    SourceText = "FUNCTION_BLOCK FB_A\nVAR\nEND_VAR\nIMPLEMENTATION ST\ny := 2;\nEND_FUNCTION_BLOCK\n",
+                    SourceText = "FUNCTION_BLOCK FB_A\nVAR\nEND_VAR\n%LANGUAGE ST\ny := 2;\nEND_FUNCTION_BLOCK\n",
                     IfVersion = refs.Items["FB_A.pou"],
                 },
             },

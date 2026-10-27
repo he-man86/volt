@@ -11,7 +11,7 @@ VAR
 	Trig_Pushed				: TriggerFB;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 CallTrigger();
 
 IF ButtonPushed THEN
@@ -33,14 +33,14 @@ END_FUNCTION_BLOCK
 
 METHOD PROTECTED CallTrigger
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Trig_Pushed.Call(CLK := buttonInput);
 
 END_METHOD
 
 METHOD PROTECTED HandlePushed
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 //savedState := State;
 //Solid();
 
@@ -48,7 +48,7 @@ END_METHOD
 
 METHOD PROTECTED HandleReleased
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 //State := savedState;
 
 END_METHOD
@@ -60,7 +60,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 ButtonPushed := Trig_Pushed.Q_Rising;
 
 END_GET
@@ -73,7 +73,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 ButtonReleased := Trig_Pushed.Q_Falling;
 
 END_GET

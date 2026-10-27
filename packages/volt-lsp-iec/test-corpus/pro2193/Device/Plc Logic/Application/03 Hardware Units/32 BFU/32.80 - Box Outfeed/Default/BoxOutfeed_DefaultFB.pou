@@ -14,7 +14,7 @@ VAR
 	emptyBeltTimeout			: REAL := 8.0;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %ONLINE_CHANGE_RESERVE 200
 SUPER^();
 
@@ -26,7 +26,7 @@ VAR_INST
 	SetError					: ARRAY[1..2] OF SetErrorFB;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SetError[1](
 	moduleHandler	:= ModuleHandler,
 	textRefId		:= BoxOutfeed_Errors,
@@ -58,7 +58,7 @@ VAR_INST
 	calibrateStart				: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 BoxOutputConveyor(
 	moduleHandler		:= ModuleHandler,
 	textRefId			:= Conveyor_Errors,
@@ -98,7 +98,7 @@ END_METHOD
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 CommandLock.ForceRelease();
 
@@ -117,7 +117,7 @@ VAR_INST
 	Timer				: BTON;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -154,7 +154,7 @@ VAR_INST
 	localState			: SINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -175,7 +175,7 @@ END_METHOD
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 CommandLock.ForceRelease();		// Steal the lock from any command that may be active
 
@@ -194,7 +194,7 @@ VAR_INST
 	Timer				: BTON;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;

@@ -24,7 +24,7 @@ VAR
 	iSlotAxis: INT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 //'L_SetIntQspRamp_i700'
 //
 //04.2016

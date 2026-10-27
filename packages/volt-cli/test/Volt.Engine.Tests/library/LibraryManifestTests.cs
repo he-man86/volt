@@ -21,7 +21,7 @@ public class LibraryManifestTests
             "PLACEHOLDER true\n" +
             // SYSTEM is a flag spelled only where it is TRUE (openspec bridge-one-to-one §2.R): `SYSTEM false` is gone.
             "DEPENDENCIES CAA Types, CAA Async Manager\n" +
-            "MATERIALIZATION 4\n",
+            "MATERIALIZATION 5\n",
             m);
     }
 
@@ -45,7 +45,7 @@ public class LibraryManifestTests
             "DEPENDENCIES Tc2_Standard\n" +
             "PARAMETER Tc2_System PARAM.TABLE_UPPER_BOUND := 15\n" +
             "PARAMETER Tc2_System PARAM.TABLE_SHOW_VALID_ITEMS := FALSE\n" +
-            "MATERIALIZATION 4\n",
+            "MATERIALIZATION 5\n",
             m);
     }
 
@@ -73,7 +73,7 @@ public class LibraryManifestTests
             "OPTIONAL\n" +
             "HIDEWHENREFERENCEDASDEPENDENCY\n" +
             "PUBLISHSYMBOLSINCONTAINER\n" +
-            "MATERIALIZATION 4\n",
+            "MATERIALIZATION 5\n",
             m);
     }
 
@@ -88,7 +88,7 @@ public class LibraryManifestTests
 
         Assert.Equal(plain, defaults);
         Assert.Equal(
-            "LIBRARY Standard\nNAMESPACE Standard\nRESOLUTION Standard, * (System)\nPLACEHOLDER true\nMATERIALIZATION 4\n",
+            "LIBRARY Standard\nNAMESPACE Standard\nRESOLUTION Standard, * (System)\nPLACEHOLDER true\nMATERIALIZATION 5\n",
             defaults);
     }
 
@@ -112,7 +112,7 @@ public class LibraryManifestTests
             "RESOLUTION Tc2_Standard, * (Beckhoff Automation GmbH)\n" +
             "PLACEHOLDER true\n" +
             "SYSTEM true\n" +
-            "MATERIALIZATION 4\n",
+            "MATERIALIZATION 5\n",
             m);
     }
 }

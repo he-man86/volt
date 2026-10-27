@@ -10,8 +10,8 @@ import { join } from "node:path"
 import { fileUri, harness, until, type Harness } from "../../test/lsp/harness.js"
 import { tempWorkspace } from "../../test/lsp/sources.js"
 
-const MAIN = `PROGRAM Main\nVAR\n\tn : FB_N;\nEND_VAR\nIMPLEMENTATION ST\nn();\nEND_PROGRAM\n`
-const FB_N = `FUNCTION_BLOCK FB_N\nVAR\n\ti : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := i + 1;\nEND_FUNCTION_BLOCK\n`
+const MAIN = `PROGRAM Main\nVAR\n\tn : FB_N;\nEND_VAR\n%LANGUAGE ST\nn();\nEND_PROGRAM\n`
+const FB_N = `FUNCTION_BLOCK FB_N\nVAR\n\ti : INT;\nEND_VAR\n%LANGUAGE ST\ni := i + 1;\nEND_FUNCTION_BLOCK\n`
 const UNKNOWN = "Unknown type: 'FB_N'"
 
 const roots: string[] = []

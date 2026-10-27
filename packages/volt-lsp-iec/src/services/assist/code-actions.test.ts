@@ -182,7 +182,7 @@ for (const t of ABSENT) {
 
 /** The actions on every finding of `code` in a CODESYS document: an FB `body` over `vars`, then the units `after`. */
 function offeredOn(vars: string, body: string, code: string, after = ""): { doc: Document; actions: CodeAction[] } {
-  const source = `FUNCTION_BLOCK FB\nVAR\n${vars}\nEND_VAR\nIMPLEMENTATION ST\n${body}\nEND_FUNCTION_BLOCK\n${after}`
+  const source = `FUNCTION_BLOCK FB\nVAR\n${vars}\nEND_VAR\n%LANGUAGE ST\n${body}\nEND_FUNCTION_BLOCK\n${after}`
   const parseResult = parseSource(source, { networkText: true }, "codesys")
   const project = build.buildSymbolTable([{ uri: "FB.pou", parseResult, source }], [], "codesys")
   const doc: Document = { uri: uriFor(parseResult), source, parseResult }
@@ -299,7 +299,7 @@ test("code-actions: a chained C0032 is reported per link, and only the innermost
 
 test("code-actions: a chain's C0032 names each link's own pair", () => {
   const found = (vars: string, body: string) => {
-    const source = `FUNCTION_BLOCK FB\nVAR\n${vars}\nEND_VAR\nIMPLEMENTATION ST\n${body}\nEND_FUNCTION_BLOCK\n`
+    const source = `FUNCTION_BLOCK FB\nVAR\n${vars}\nEND_VAR\n%LANGUAGE ST\n${body}\nEND_FUNCTION_BLOCK\n`
     const parseResult = parseSource(source, { networkText: true }, "codesys")
     const project = build.buildSymbolTable([{ uri: "FB.pou", parseResult, source }], [], "codesys")
     return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source, project, config: resolveConfig({ vendor: "codesys" }) })
@@ -326,31 +326,31 @@ function offeredIn(source: string, code: string): { doc: Document; actions: Code
 
 // `IF a b THEN` is "'THEN' expected instead of 'b'" — a stray token BEFORE a later THEN, which another THEN does not cure
 test("code-actions: no 'Insert THEN' where a THEN stands further on", () => {
-  const { actions } = offeredIn("FUNCTION_BLOCK FB\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\to : INT;\nEND_VAR\nIMPLEMENTATION ST\nIF a b THEN\n\to := 1;\nEND_IF\nEND_FUNCTION_BLOCK\n", "C0002")
+  const { actions } = offeredIn("FUNCTION_BLOCK FB\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\to : INT;\nEND_VAR\n%LANGUAGE ST\nIF a b THEN\n\to := 1;\nEND_IF\nEND_FUNCTION_BLOCK\n", "C0002")
   expect(actions.map((x) => x.title).filter((t) => t.includes("THEN"))).toEqual([])
 })
 
 // a REPEAT that never reached its UNTIL lacks more than its closer: END_REPEAT alone is no repair
 test("code-actions: no 'Insert END_REPEAT' on a REPEAT left before its UNTIL", () => {
-  const { actions } = offeredIn("FUNCTION_BLOCK FB\nVAR\n\to : INT;\nEND_VAR\nIMPLEMENTATION ST\nREPEAT\n\to := o + 1;\nEND_FUNCTION_BLOCK\n", "C0002")
+  const { actions } = offeredIn("FUNCTION_BLOCK FB\nVAR\n\to : INT;\nEND_VAR\n%LANGUAGE ST\nREPEAT\n\to := o + 1;\nEND_FUNCTION_BLOCK\n", "C0002")
   expect(actions.map((x) => x.title)).not.toContain("Insert 'END_REPEAT'")
 })
 
 // a near-miss name: a LOCAL beats a name of the same distance further out, and the name itself is never offered
 test("code-actions: C0046's near misses — the local first, the declare beside them", () => {
-  const { actions } = offeredIn("FUNCTION_BLOCK FB\nVAR\n\tcounter : INT;\nEND_VAR\nIMPLEMENTATION ST\ncountr := counter + 1;\nEND_FUNCTION_BLOCK\n", "C0046")
+  const { actions } = offeredIn("FUNCTION_BLOCK FB\nVAR\n\tcounter : INT;\nEND_VAR\n%LANGUAGE ST\ncountr := counter + 1;\nEND_FUNCTION_BLOCK\n", "C0046")
   expect(actions.map((x) => x.title)).toEqual(["Change to 'counter'", "Declare 'countr' : INT"])
 })
 
 // C0142 between declarations of SEVERAL names (`a, level : INT`): removing the declaration would take the other name too
 test("code-actions: no C0142 remove where a declaration declares other names besides", () => {
-  const { actions } = offeredIn("FUNCTION_BLOCK FB\nVAR\n\tlevel : INT;\n\tother, level : INT;\nEND_VAR\nIMPLEMENTATION ST\nlevel := other;\nEND_FUNCTION_BLOCK\n", "C0142")
+  const { actions } = offeredIn("FUNCTION_BLOCK FB\nVAR\n\tlevel : INT;\n\tother, level : INT;\nEND_VAR\n%LANGUAGE ST\nlevel := other;\nEND_FUNCTION_BLOCK\n", "C0142")
   expect(actions.map((x) => x.title)).toEqual([])
 })
 
 // C0119 where FB_Init's inputs are not a prefix of the required pair (`x : INT` first): the fix would have to move an input
 test("code-actions: no C0119 input added where FB_Init holds an input of its own", () => {
-  const src = "FUNCTION_BLOCK FB\nVAR\n\tc : INT;\nEND_VAR\nIMPLEMENTATION ST\nc := 1;\nEND_FUNCTION_BLOCK\nMETHOD FB_Init : BOOL\nVAR_INPUT\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nc := 0;\nEND_METHOD\n"
+  const src = "FUNCTION_BLOCK FB\nVAR\n\tc : INT;\nEND_VAR\n%LANGUAGE ST\nc := 1;\nEND_FUNCTION_BLOCK\nMETHOD FB_Init : BOOL\nVAR_INPUT\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\nc := 0;\nEND_METHOD\n"
   expect(offeredIn(src, "C0119").actions.map((x) => x.title)).toEqual([])
 })
 
@@ -364,7 +364,7 @@ function fixAllIn(source: string, only?: string[]) {
   const all = computeDiagnostics({ uri: doc.uri, parseResult, source, project, config: resolveConfig({ vendor: "codesys" }) }).map(toLspDiagnostic)
   return { doc, all, actions: (at: readonly typeof all[number][]) => codeActions(doc, at, () => all, only) }
 }
-const TWO_NARROWINGS = "FUNCTION_BLOCK FB\nVAR\n\twide : LREAL;\n\tn1 : REAL;\n\tn2 : REAL;\nEND_VAR\nIMPLEMENTATION ST\nn1 := wide;\nn2 := wide * 2.0;\nEND_FUNCTION_BLOCK\n"
+const TWO_NARROWINGS = "FUNCTION_BLOCK FB\nVAR\n\twide : LREAL;\n\tn1 : REAL;\n\tn2 : REAL;\nEND_VAR\n%LANGUAGE ST\nn1 := wide;\nn2 := wide * 2.0;\nEND_FUNCTION_BLOCK\n"
 
 test("code-actions: beside a preferred wrap, 'Fix all' wraps every one of its kind in the file", () => {
   const { doc, all, actions } = fixAllIn(TWO_NARROWINGS)
@@ -386,9 +386,9 @@ test("code-actions: source.fixAll.volt applies every fix-all fix of the file, as
 })
 
 test("code-actions: no fix-all for one finding, nor for a fix that is not safe beside the others (C0032's wrap)", () => {
-  const one = fixAllIn("FUNCTION_BLOCK FB\nVAR\n\twide : LREAL;\n\tn1 : REAL;\nEND_VAR\nIMPLEMENTATION ST\nn1 := wide;\nEND_FUNCTION_BLOCK\n")
+  const one = fixAllIn("FUNCTION_BLOCK FB\nVAR\n\twide : LREAL;\n\tn1 : REAL;\nEND_VAR\n%LANGUAGE ST\nn1 := wide;\nEND_FUNCTION_BLOCK\n")
   expect(one.actions(one.all.filter((d) => d.code === "C0197")).map((a) => a.title)).toEqual(["Wrap in TO_REAL(…)"])
-  const errors = fixAllIn("FUNCTION_BLOCK FB\nVAR\n\tf : BOOL;\n\ta : INT;\n\tb : INT;\nEND_VAR\nIMPLEMENTATION ST\na := f;\nb := f;\nEND_FUNCTION_BLOCK\n")
+  const errors = fixAllIn("FUNCTION_BLOCK FB\nVAR\n\tf : BOOL;\n\ta : INT;\n\tb : INT;\nEND_VAR\n%LANGUAGE ST\na := f;\nb := f;\nEND_FUNCTION_BLOCK\n")
   expect(errors.actions(errors.all.filter((d) => d.code === "C0032").slice(0, 1)).map((a) => a.title)).toEqual(["Wrap in TO_INT(…)"])
 })
 
@@ -410,7 +410,7 @@ const titles = (o: { actions: readonly CodeAction[] }): string[] => o.actions.ma
 // F4: the OUTER block of one left open is not missing its own closer — inserting a second one adds errors
 test("code-actions: an inner block left open names ITS closer; the outer block, which only leaves with it, names none", () => {
   const src = (inner: string) =>
-    `FUNCTION_BLOCK FB\nVAR\n\tx : INT;\n\ta : BOOL;\nEND_VAR\nIMPLEMENTATION ST\nFOR x := 1 TO 2 DO\n${inner}END_FOR\nEND_FUNCTION_BLOCK\n`
+    `FUNCTION_BLOCK FB\nVAR\n\tx : INT;\n\ta : BOOL;\nEND_VAR\n%LANGUAGE ST\nFOR x := 1 TO 2 DO\n${inner}END_FOR\nEND_FUNCTION_BLOCK\n`
   const whileOpen = offeredIn(src("\tWHILE a DO\n\t\ta := FALSE;\n"), "C0002")
   expect(titles(whileOpen)).toEqual(["Insert 'END_WHILE'"])
   expect(errorsAfter(whileOpen.doc, whileOpen.actions, "Insert 'END_WHILE'")).toEqual([])
@@ -419,13 +419,13 @@ test("code-actions: an inner block left open names ITS closer; the outer block, 
 
 // F4: `IF a END_IF` with a THEN is an empty branch — an error of its own
 test("code-actions: no 'Insert THEN' before an empty branch", () => {
-  const { actions } = offeredIn("FUNCTION_BLOCK FB\nVAR\n\ta : BOOL;\nEND_VAR\nIMPLEMENTATION ST\nIF a\nEND_IF\nEND_FUNCTION_BLOCK\n", "C0002")
+  const { actions } = offeredIn("FUNCTION_BLOCK FB\nVAR\n\ta : BOOL;\nEND_VAR\n%LANGUAGE ST\nIF a\nEND_IF\nEND_FUNCTION_BLOCK\n", "C0002")
   expect(actions.map((x) => x.title)).not.toContain("Insert 'THEN'")
 })
 
 // F1: a value holding an error of its own on the SAME span (the operand's) keeps it inside the wrap
 test("code-actions: a wrap whose value holds another error on the same span is withdrawn — argument and initial value", () => {
-  const F_R = "FUNCTION F_R : REAL\nVAR_INPUT\n\tv : REAL;\nEND_VAR\nIMPLEMENTATION ST\nF_R := v;\nEND_FUNCTION\n"
+  const F_R = "FUNCTION F_R : REAL\nVAR_INPUT\n\tv : REAL;\nEND_VAR\n%LANGUAGE ST\nF_R := v;\nEND_FUNCTION\n"
   const arg = offeredOn("\tlr : LREAL;\n\tb : BOOL;\n\toutv : REAL;", "outv := F_R(v := lr + b);", "C0197", F_R)
   expect(titles(arg)).toEqual([])
   const init = offeredOn("\tlr : LREAL;\n\tb : BOOL;\n\toutv : REAL := lr + b;", "outv := outv;", "C0197")
@@ -435,10 +435,10 @@ test("code-actions: a wrap whose value holds another error on the same span is w
 // F3: a near miss must be able to stand where the name is written — its kind fits the use
 test("code-actions: C0046/C0004 near misses fit the use — no FUNCTION or PROGRAM read, no variable called, no METHOD read, no output written", () => {
   const units =
-    "FUNCTION Counter : INT\nVAR_INPUT\nEND_VAR\nIMPLEMENTATION ST\nCounter := 1;\nEND_FUNCTION\n" +
-    "PROGRAM PRG_Main\nVAR\n\tz : INT;\nEND_VAR\nIMPLEMENTATION ST\nz := 1;\nEND_PROGRAM\n" +
-    "FUNCTION_BLOCK FB_Inner\nVAR_OUTPUT\n\toutp : INT;\nEND_VAR\nIMPLEMENTATION ST\noutp := 1;\nEND_FUNCTION_BLOCK\n" +
-    "METHOD Execute : INT\nIMPLEMENTATION ST\nExecute := 1;\nEND_METHOD\n"
+    "FUNCTION Counter : INT\nVAR_INPUT\nEND_VAR\n%LANGUAGE ST\nCounter := 1;\nEND_FUNCTION\n" +
+    "PROGRAM PRG_Main\nVAR\n\tz : INT;\nEND_VAR\n%LANGUAGE ST\nz := 1;\nEND_PROGRAM\n" +
+    "FUNCTION_BLOCK FB_Inner\nVAR_OUTPUT\n\toutp : INT;\nEND_VAR\n%LANGUAGE ST\noutp := 1;\nEND_FUNCTION_BLOCK\n" +
+    "METHOD Execute : INT\n%LANGUAGE ST\nExecute := 1;\nEND_METHOD\n"
   const vars = "\ttotal : INT;\n\tcounter : INT;\n\tf : FB_Inner;\n\tv : INT;"
   const changes = (body: string, code: string) => titles(offeredOn(vars, body, code, units)).filter((t) => t.startsWith("Change"))
   expect(changes("total := Countr;", "C0046")).not.toContain("Change to 'Counter'")
@@ -453,7 +453,7 @@ test("code-actions: C0046/C0004 near misses fit the use — no FUNCTION or PROGR
 
 // F9: the rename is recorded on an FB; a FUNCTION stores its result under its own name, which a header rename orphans
 test("code-actions: no 'Rename to' on a FUNCTION whose object is named otherwise", () => {
-  const source = "FUNCTION F : INT\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nF := x;\nEND_FUNCTION\n"
+  const source = "FUNCTION F : INT\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\nF := x;\nEND_FUNCTION\n"
   const parseResult = parseSource(source, { networkText: true }, "codesys")
   const uri = "file:///proj/FB.pou"
   const project = build.buildSymbolTable([{ uri, parseResult, source }], [], "codesys")
@@ -464,28 +464,28 @@ test("code-actions: no 'Rename to' on a FUNCTION whose object is named otherwise
 
 // F1: an ERROR's argument may be the wrong variable — its wrap is offered, never preferred, never fix-all (as C0032's)
 test("code-actions: the wrap of a call-argument-type is neither preferred nor fix-all", () => {
-  const F_Half = "FUNCTION F_Half : INT\nVAR_INPUT\n\tv : INT;\nEND_VAR\nIMPLEMENTATION ST\nF_Half := v;\nEND_FUNCTION\n"
+  const F_Half = "FUNCTION F_Half : INT\nVAR_INPUT\n\tv : INT;\nEND_VAR\n%LANGUAGE ST\nF_Half := v;\nEND_FUNCTION\n"
   const { actions } = offeredOn("\tname : STRING;\n\toutv : INT;", "outv := F_Half(v := name);", "call-argument-type", F_Half)
   expect(actions.map((a) => [a.title, a.isPreferred === true])).toEqual([["Wrap in TO_INT(…)", false]])
-  const all = fixAllIn(`FUNCTION_BLOCK FB\nVAR\n\tname : STRING;\n\toutv : INT;\nEND_VAR\nIMPLEMENTATION ST\noutv := F_Half(v := name);\noutv := F_Half(v := name);\nEND_FUNCTION_BLOCK\n${F_Half}`, ["source.fixAll"])
+  const all = fixAllIn(`FUNCTION_BLOCK FB\nVAR\n\tname : STRING;\n\toutv : INT;\nEND_VAR\n%LANGUAGE ST\noutv := F_Half(v := name);\noutv := F_Half(v := name);\nEND_FUNCTION_BLOCK\n${F_Half}`, ["source.fixAll"])
   expect(all.actions([])).toEqual([])
 })
 
 // F3: a BIT local is refused outside an FB and a struct (C0203) — no "Declare … : BIT"
 test("code-actions: no 'Declare' of a BIT", () => {
-  const src = "TYPE ST_Bits :\nSTRUCT\n\tb0 : BIT;\nEND_STRUCT\nEND_TYPE\nPROGRAM P\nVAR\n\tbits : ST_Bits;\nEND_VAR\nIMPLEMENTATION ST\nbits.b0 := flg;\nEND_PROGRAM\n"
+  const src = "TYPE ST_Bits :\nSTRUCT\n\tb0 : BIT;\nEND_STRUCT\nEND_TYPE\nPROGRAM P\nVAR\n\tbits : ST_Bits;\nEND_VAR\n%LANGUAGE ST\nbits.b0 := flg;\nEND_PROGRAM\n"
   expect(titles(offeredIn(src, "C0046")).filter((t) => t.startsWith("Declare"))).toEqual([])
 })
 
 // F10: a removal that changes an input into a local, or a constant into a variable, is a choice — not preferred
 test("code-actions: C0142/C0097's remove is preferred only between sections of one kind and qualifiers", () => {
   const preferred = (o: { actions: readonly CodeAction[] }) => o.actions.filter((a) => a.isPreferred === true).map((a) => a.title)
-  const fb = (sections: string, body: string, after = "") => `FUNCTION_BLOCK FB\n${sections}IMPLEMENTATION ST\n${body}\nEND_FUNCTION_BLOCK\n${after}`
+  const fb = (sections: string, body: string, after = "") => `FUNCTION_BLOCK FB\n${sections}%LANGUAGE ST\n${body}\nEND_FUNCTION_BLOCK\n${after}`
   expect(preferred(offeredIn(fb("VAR_INPUT\n\tx : INT;\nEND_VAR\nVAR\n\tx : INT;\nEND_VAR\n", "x := 1;"), "C0142"))).toEqual([])
   expect(preferred(offeredIn(fb("VAR CONSTANT\n\tx : INT := 1;\nEND_VAR\nVAR\n\tx : INT := 1;\nEND_VAR\n", ";"), "C0142"))).toEqual([])
   expect(preferred(offeredIn(fb("VAR\n\tx : INT;\nEND_VAR\nVAR\n\tx : INT;\nEND_VAR\n", "x := 1;"), "C0142"))).toEqual(["Remove the second declaration of 'x'"])
-  const base = "FUNCTION_BLOCK FB_Base\nVAR_INPUT\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\nEND_FUNCTION_BLOCK\n"
-  const derived = `FUNCTION_BLOCK FB EXTENDS FB_Base\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\nEND_FUNCTION_BLOCK\n${base}`
+  const base = "FUNCTION_BLOCK FB_Base\nVAR_INPUT\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\nx := 1;\nEND_FUNCTION_BLOCK\n"
+  const derived = `FUNCTION_BLOCK FB EXTENDS FB_Base\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\nx := 1;\nEND_FUNCTION_BLOCK\n${base}`
   const c0097 = offeredIn(derived, "C0097")
   expect(titles(c0097).length).toBe(1)
   expect(preferred(c0097)).toEqual([])
@@ -493,10 +493,10 @@ test("code-actions: C0142/C0097's remove is preferred only between sections of o
 
 // F8/F9: a keyword named in a COMMENT is not the keyword; ABSTRACT beside FINAL is abstract-and-final
 test("code-actions: 'Remove RETAIN' removes the keyword, not the word in a comment; no 'Add ABSTRACT' on a FINAL FB", () => {
-  const retain = offeredIn("FUNCTION F : INT\nVAR RETAIN (* keep RETAIN here *)\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nF := x;\nEND_FUNCTION\n", "C0175")
+  const retain = offeredIn("FUNCTION F : INT\nVAR RETAIN (* keep RETAIN here *)\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\nF := x;\nEND_FUNCTION\n", "C0175")
   const remove = retain.actions.find((a) => a.title.includes("RETAIN"))
   expect(remove).toBeDefined()
   expect(applyEdits(retain.doc.source, editsOn(remove!, retain.doc.uri))).toContain("VAR (* keep RETAIN here *)")
-  const abstract = offeredIn("{attribute 'abstract'}\nFUNCTION_BLOCK FINAL FB\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\nEND_FUNCTION_BLOCK\n", "abstract-keyword-missing")
+  const abstract = offeredIn("{attribute 'abstract'}\nFUNCTION_BLOCK FINAL FB\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\nx := 1;\nEND_FUNCTION_BLOCK\n", "abstract-keyword-missing")
   expect(titles(abstract)).toEqual([])
 })

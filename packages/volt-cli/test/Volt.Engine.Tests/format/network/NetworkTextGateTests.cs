@@ -89,7 +89,7 @@ public class NetworkTextGateTests
     public void A_body_without_its_graphical_marker()
     {
         Refused("NETWORK_PARSE", 1, "NETWORK\n  out := a;\nEND_NETWORK\n");
-        Refused("NETWORK_PARSE", 1, "IMPLEMENTATION ST\nNETWORK\n  out := a;\nEND_NETWORK\n");
+        Refused("NETWORK_PARSE", 1, "%LANGUAGE ST\nNETWORK\n  out := a;\nEND_NETWORK\n");
     }
 
     [Fact]

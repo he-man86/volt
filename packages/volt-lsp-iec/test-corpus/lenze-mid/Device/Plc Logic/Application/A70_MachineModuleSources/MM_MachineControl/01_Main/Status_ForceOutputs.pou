@@ -2,7 +2,7 @@ PROGRAM Status_ForceOutputs
 VAR
 END_VAR
 
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   split9 := TRUE;
   MOVE %IB26 => LST_InputsOutputs.Serv_IB100 ENO EN split9;

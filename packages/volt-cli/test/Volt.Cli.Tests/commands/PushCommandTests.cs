@@ -44,7 +44,7 @@ public class PushCommandTests
 
     /// <summary>Spec (implementation-keyword 3b), "the declaration of a hidden body is edited" and "nothing in the IDE is
     /// overwritten", end to end through the CLI: a project holding a CFC POU and a POU whose method is an LD body network
-    /// text cannot represent pulls with both as <c>IMPLEMENTATION … UNSUPPORTED</c>; each gains a <c>VAR_INPUT</c>; the
+    /// text cannot represent pulls with both as <c>%LANGUAGE … UNSUPPORTED</c>; each gains a <c>VAR_INPUT</c>; the
     /// push is NOT blocked, both declarations land, the bodies the IDE holds are untouched, and the workspace is in sync
     /// afterwards.</summary>
     [Fact]
@@ -66,8 +66,8 @@ public class PushCommandTests
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
             var chartFile = Path.Combine(root, "src", "FB_Chart.pou");
             var motorFile = Path.Combine(root, "src", "FB_Motor.pou");
-            Assert.Contains("IMPLEMENTATION CFC UNSUPPORTED", File.ReadAllText(chartFile));
-            Assert.Contains("IMPLEMENTATION LD UNSUPPORTED", File.ReadAllText(motorFile));
+            Assert.Contains("%LANGUAGE CFC UNSUPPORTED", File.ReadAllText(chartFile));
+            Assert.Contains("%LANGUAGE LD UNSUPPORTED", File.ReadAllText(motorFile));
             File.WriteAllText(chartFile, File.ReadAllText(chartFile)
                 .Replace("FUNCTION_BLOCK FB_Chart\n", "FUNCTION_BLOCK FB_Chart\nVAR_INPUT\n\tbStart : BOOL;\nEND_VAR\n"));
             File.WriteAllText(motorFile, File.ReadAllText(motorFile)
@@ -94,7 +94,7 @@ public class PushCommandTests
     [Fact]
     public void A_hand_wrapped_graphical_call_is_adopted_in_the_IDEs_layout_after_the_push()
     {
-        const string canonical = "IMPLEMENTATION LD\nNETWORK\n  t1 : TON(IN := a, PT := pt);\nEND_NETWORK";
+        const string canonical = "%LANGUAGE LD\nNETWORK\n  t1 : TON(IN := a, PT := pt);\nEND_NETWORK";
         var ide = ConnectedIde(new FakeIde.Item("PLC_PRG", Volt.Engine.Item.ItemKind.PlcPou, "", true,
             "PROGRAM PLC_PRG\nVAR\n  t1 : TON;\n  a : BOOL;\n  pt : TIME;\nEND_VAR", canonical, "LD", null));
         var (root, host, client) = Bound(ide);
@@ -130,7 +130,7 @@ public class PushCommandTests
     [Fact]
     public void A_pushed_body_the_IDE_holds_as_other_tokens_is_not_adopted_as_a_layout()
     {
-        const string canonical = "IMPLEMENTATION LD\nNETWORK\n  t1 : TON(IN := a, PT := pt);\nEND_NETWORK";
+        const string canonical = "%LANGUAGE LD\nNETWORK\n  t1 : TON(IN := a, PT := pt);\nEND_NETWORK";
         var ide = new FakeIde(new FakeIde.Item("PLC_PRG", Volt.Engine.Item.ItemKind.PlcPou, "", true,
             "PROGRAM PLC_PRG\nVAR\n  t1 : TON;\n  a : BOOL;\n  pt : TIME;\n  b : BOOL;\nEND_VAR", canonical, "LD", null))
         {
@@ -166,7 +166,7 @@ public class PushCommandTests
     [Fact]
     public void A_pushed_item_whose_text_the_IDE_does_not_give_back_is_not_claimed_as_another_program()
     {
-        const string canonical = "IMPLEMENTATION LD\nNETWORK\n  t1 : TON(IN := a, PT := pt);\nEND_NETWORK";
+        const string canonical = "%LANGUAGE LD\nNETWORK\n  t1 : TON(IN := a, PT := pt);\nEND_NETWORK";
         var ide = new FakeIde(new FakeIde.Item("PLC_PRG", Volt.Engine.Item.ItemKind.PlcPou, "", true,
             "PROGRAM PLC_PRG\nVAR\n  t1 : TON;\n  a : BOOL;\n  pt : TIME;\n  b : BOOL;\nEND_VAR", canonical, "LD", null))
         {
@@ -523,7 +523,7 @@ public class PushCommandTests
             // Nothing of the old text survives, so git cannot call it a rename.
             File.WriteAllText(Path.Combine(root, "src", "Drives", "FB_Motor.pou"),
                 "FUNCTION_BLOCK FB_Motor\nVAR_INPUT\n\tbEnable : BOOL;\n\tnSpeedSetpoint : DINT;\nEND_VAR\n" +
-                "VAR_OUTPUT\n\tbRunning : BOOL;\nEND_VAR\nIMPLEMENTATION ST\nbRunning := bEnable AND nSpeedSetpoint > 0;\n" +
+                "VAR_OUTPUT\n\tbRunning : BOOL;\nEND_VAR\n%LANGUAGE ST\nbRunning := bEnable AND nSpeedSetpoint > 0;\n" +
                 "END_FUNCTION_BLOCK\n");
 
             var r = Commands.Push(root, client);
@@ -631,7 +631,7 @@ public class PushCommandTests
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
             var dir = Path.Combine(root, "src");
             var file = Path.Combine(dir, "X.pou");
-            File.WriteAllText(file, "PROGRAM X\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := 6;\nEND_PROGRAM\n");
+            File.WriteAllText(file, "PROGRAM X\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE ST\nn := 6;\nEND_PROGRAM\n");
 
             var r = Commands.Push(root, client);
 

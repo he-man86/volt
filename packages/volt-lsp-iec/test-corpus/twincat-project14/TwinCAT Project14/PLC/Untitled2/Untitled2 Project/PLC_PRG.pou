@@ -32,7 +32,7 @@ VAR
     udiBadCount     : UDINT;
     udiTotalCount   : UDINT;
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 // ---------------------------------------------------------------------------
 // Drive the PackML unit
 // ---------------------------------------------------------------------------

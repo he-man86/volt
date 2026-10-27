@@ -1,7 +1,7 @@
 /**
  * The TwinCAT project files the SERVED XAE saves — the one place a hidden body can be read byte for byte.
  *
- * Nothing on the wire carries a body Volt does not show (`IMPLEMENTATION <LANG> UNSUPPORTED`): that is the point of
+ * Nothing on the wire carries a body Volt does not show (`%LANGUAGE <LANG> UNSUPPORTED`): that is the point of
  * hiding it. A POU's `<Implementation>` elements in its `.TcPOU` ARE its bodies; Volt saves nothing, so a test that must
  * prove a push never wrote a hidden body saves as the engineer would (`tc-engineer.ts`) and reads them before and after. CODESYS saves no file on push; its bodies are read through the served IDE's native export
  * (`codesys-native.ts`), and `held-body.ts` picks the vendor's source.

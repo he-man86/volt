@@ -9,12 +9,9 @@ namespace Volt.Engine.Format.St;
 
 /// <summary>
 /// THE IEC LAYOUT as a source kind's file format (design "New Ide/ contract": the layout is not the body language):
-/// <c>PROGRAM … END_PROGRAM</c>, member blocks, the <c>%</c>-lines under each <c>IMPLEMENTATION</c> line — what
+/// <c>PROGRAM … END_PROGRAM</c>, member blocks, the <c>%</c>-lines under each <c>%LANGUAGE</c> line — what
 /// <see cref="StReader"/> reads and <see cref="StWriter"/> writes, over the layout's own record (<see cref="FamilyContent"/>).
 /// The kinds of the CODESYS family name it in their rows (<c>pou</c>, <c>itf</c>, <c>gvl</c>, <c>dut</c>).
-///
-/// <para>A read is FOLDED (<see cref="AbstractMemberFold"/>), as a host's read is: an ABSTRACT member with no code is
-/// <c>IMPLEMENTATION NONE</c>, whoever made it, so a file and the IDE agree on one text for one declaration.</para>
 ///
 /// <para><see cref="Write"/> refuses what a pull must not write (openspec <c>push-without-header-check</c> 5.E.1, 5.Q.5,
 /// <c>bridge-one-to-one</c> 3.5), naming the item: a member whose class and text disagree, a POU with no header, and a
@@ -68,7 +65,7 @@ public sealed class IecFormat : IItemFormat
     public string Name => "iec";
 
     public Content Read(string text, string kind, string name, Catalog catalog, string vendor) =>
-        FamilyContent.ToContent(AbstractMemberFold.Apply(StReader.Read(text, kind, name)));
+        FamilyContent.ToContent(StReader.Read(text, kind, name));
 
     /// <summary>Through <see cref="StWriter.Lines"/> over the text read back, and only when that content writes this very
     /// text — anything else is no certain place.</summary>

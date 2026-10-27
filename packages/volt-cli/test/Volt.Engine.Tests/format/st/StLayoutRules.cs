@@ -78,11 +78,11 @@ public static class StLayoutRules
             Push: PushOutcome.Refused),
 
         new("pou",
-            "A POU is its declaration, its IMPLEMENTATION line, its %-lines, then its code.",
+            "A POU is its declaration, its %LANGUAGE line, its %-lines, then its code.",
             new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK a\nVAR\n\tx : INT;\nEND_VAR", "x := 1;", new(), Excluded),
-            t => Lines(t) is var l && At(l, "IMPLEMENTATION ST") is var i and > 0
+            t => Lines(t) is var l && At(l, "%LANGUAGE ST") is var i and > 0
                  && l[i - 1] == "END_VAR" && l[i + 1] == "%EXCLUDE_FROM_BUILD" && l[i + 2] == "x := 1;",
-            t => t.Replace("IMPLEMENTATION ST\n%EXCLUDE_FROM_BUILD", "%EXCLUDE_FROM_BUILD\nIMPLEMENTATION ST"),
+            t => t.Replace("%LANGUAGE ST\n%EXCLUDE_FROM_BUILD", "%EXCLUDE_FROM_BUILD\n%LANGUAGE ST"),
             Push: PushOutcome.Refused),
 
         new("end-line",
@@ -127,29 +127,29 @@ public static class StLayoutRules
             Push: PushOutcome.Canonical),
 
         new("member",
-            "A POU's METHOD or ACTION is its declaration, its IMPLEMENTATION line, its %-lines, its code, then END_METHOD or END_ACTION on the next line: no blank line separates them, so a blank line pushed there is the code's own last line.",
+            "A POU's METHOD or ACTION is its declaration, its %LANGUAGE line, its %-lines, its code, then END_METHOD or END_ACTION on the next line: no blank line separates them, so a blank line pushed there is the code's own last line.",
             Fb("FUNCTION_BLOCK a", "",
                 new Member(ItemKind.Kinds.Method, "m", "METHOD m : BOOL\nVAR_INPUT\n\tx : BOOL;\nEND_VAR", "m := x;", Excluded)),
-            t => t.EndsWith("METHOD m : BOOL\nVAR_INPUT\n\tx : BOOL;\nEND_VAR\nIMPLEMENTATION ST\n%EXCLUDE_FROM_BUILD\nm := x;\nEND_METHOD\n",
+            t => t.EndsWith("METHOD m : BOOL\nVAR_INPUT\n\tx : BOOL;\nEND_VAR\n%LANGUAGE ST\n%EXCLUDE_FROM_BUILD\nm := x;\nEND_METHOD\n",
                 StringComparison.Ordinal),
             t => t.Replace("m := x;\nEND_METHOD", "m := x;\n\nEND_METHOD"),
             Push: PushOutcome.Kept),
 
         new("property",
-            "A POU's PROPERTY is its declaration, its %-lines, GET then SET (each: keyword, declaration, IMPLEMENTATION line, code, END_GET / END_SET), then END_PROPERTY.",
+            "A POU's PROPERTY is its declaration, its %-lines, GET then SET (each: keyword, declaration, %LANGUAGE line, code, END_GET / END_SET), then END_PROPERTY.",
             Fb("FUNCTION_BLOCK a", "",
                 new Member(ItemKind.Kinds.Property, "p", "PROPERTY p : INT", null, ObjectProperties.None,
                     Getter: new Accessor("VAR\nEND_VAR", "p := 1;"), Setter: new Accessor("VAR\nEND_VAR", ";"))),
             t => Lines(t) is var l && At(l, "PROPERTY p : INT") is var p and > 0
                  && l[p + 1] == "GET" && At(l, "END_GET") is var g && l[g + 1] == "SET"
                  && At(l, "END_SET") is var s && l[s + 1] == "END_PROPERTY"
-                 && l[p + 2] == "VAR" && l[p + 4] == "IMPLEMENTATION ST" && l[p + 5] == "p := 1;",
-            t => t.Replace("GET\nVAR\nEND_VAR\nIMPLEMENTATION ST\np := 1;\nEND_GET\nSET\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_SET",
-                "SET\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_SET\nGET\nVAR\nEND_VAR\nIMPLEMENTATION ST\np := 1;\nEND_GET"),
+                 && l[p + 2] == "VAR" && l[p + 4] == "%LANGUAGE ST" && l[p + 5] == "p := 1;",
+            t => t.Replace("GET\nVAR\nEND_VAR\n%LANGUAGE ST\np := 1;\nEND_GET\nSET\nVAR\nEND_VAR\n%LANGUAGE ST\n;\nEND_SET",
+                "SET\nVAR\nEND_VAR\n%LANGUAGE ST\n;\nEND_SET\nGET\nVAR\nEND_VAR\n%LANGUAGE ST\np := 1;\nEND_GET"),
             Push: PushOutcome.Canonical),
 
         new("interface-member",
-            "An interface's METHOD is its declaration, its %-lines, then END_METHOD; an interface PROPERTY's GET and SET are each keyword, declaration, END_GET / END_SET — no IMPLEMENTATION line and no code in either.",
+            "An interface's METHOD is its declaration, its %-lines, then END_METHOD; an interface PROPERTY's GET and SET are each keyword, declaration, END_GET / END_SET — no %LANGUAGE line and no code in either.",
             new ItemContent(ItemKind.Kinds.Interface, "INTERFACE I", null,
                 new()
                 {
@@ -161,13 +161,13 @@ public static class StLayoutRules
                 },
                 ObjectProperties.None),
             t => t == "INTERFACE I\n\nMETHOD m : BOOL\n%EXCLUDE_FROM_BUILD\nEND_METHOD\n\nPROPERTY p : INT\nGET\nEND_GET\nEND_PROPERTY\n\nEND_INTERFACE\n",
-            t => t.Replace("METHOD m : BOOL\n", "METHOD m : BOOL\nIMPLEMENTATION ST\n"),
+            t => t.Replace("METHOD m : BOOL\n", "METHOD m : BOOL\n%LANGUAGE ST\n"),
             Push: PushOutcome.Refused),
 
         new("verbatim",
             "Every other character is the item's own and comes back as pushed: inner blank lines, trailing whitespace, and the trailing newlines a declaration or a body ends with (each then followed by the line the layout puts after it).",
             Fb("FUNCTION_BLOCK a\n", "x := 1;  \n\n\ny := 2;\n"),
-            t => t == "FUNCTION_BLOCK a\n\nIMPLEMENTATION ST\nx := 1;  \n\n\ny := 2;\n\n\nEND_FUNCTION_BLOCK\n",
+            t => t == "FUNCTION_BLOCK a\n\n%LANGUAGE ST\nx := 1;  \n\n\ny := 2;\n\n\nEND_FUNCTION_BLOCK\n",
             t => t.Replace("FUNCTION_BLOCK a\n\n", "FUNCTION_BLOCK a\n").Replace("x := 1;  \n\n\ny := 2;\n\n", "x := 1;\ny := 2;\n"),
             Push: PushOutcome.Kept),
     };

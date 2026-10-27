@@ -70,12 +70,12 @@ public class GitTests
                 ("100644", "src/P.pou", "PROGRAM P\r\nVAR\r\nEND_VAR\r\n"),          // CRLF, not normalized
                 ("100644", "src/Uni.st", "// ünïcödé\nVAR y : REAL; END_VAR\n"),      // UTF-8 multibyte
                 ("100644", "src/NoNl.st", "END_FUNCTION_BLOCK"),                     // no trailing newline
-                ("100644", "src/Plc Logic/010 PC01/pgMain.pou", "PROGRAM pgMain\nIMPLEMENTATION ST\nEND_PROGRAM\n"), // spaced path
+                ("100644", "src/Plc Logic/010 PC01/pgMain.pou", "PROGRAM pgMain\n%LANGUAGE ST\nEND_PROGRAM\n"), // spaced path
                 // A NON-ASCII PATH, not merely non-ASCII content (src/Uni.st above already covers that).
                 // `core.quotepath` is ON by default, so any porcelain reader without -z gets this path back as
                 // the octal-escaped, DOUBLE-QUOTED token "src/W\\303\\244rme/FB_X.pou".
                 // German folder names are ordinary in this market, and folder names are free text.
-                ("100644", "src/W\u00e4rme/FB_X.pou", "FUNCTION_BLOCK FB_X\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n"),
+                ("100644", "src/W\u00e4rme/FB_X.pou", "FUNCTION_BLOCK FB_X\n%LANGUAGE ST\nEND_FUNCTION_BLOCK\n"),
             };
             var existing = Git.WriteBlob(gitDir, "unchanged-object\n");
             var byRef = new[] { new IndexEntry("100644", existing, "src/Kept.pou") };
@@ -107,10 +107,10 @@ public class GitTests
             var gitDir = Git.ResolveGitDir(root);
             var files = new (string Path, string Content)[]
             {
-                ("src/FB_A.pou", "FUNCTION_BLOCK FB_A\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n"),
-                ("src/P.pou", "PROGRAM P\r\nIMPLEMENTATION ST\nEND_PROGRAM\r\n"),          // CRLF — must return raw
+                ("src/FB_A.pou", "FUNCTION_BLOCK FB_A\n%LANGUAGE ST\nEND_FUNCTION_BLOCK\n"),
+                ("src/P.pou", "PROGRAM P\r\n%LANGUAGE ST\nEND_PROGRAM\r\n"),          // CRLF — must return raw
                 ("src/Uni.st", "// ünïcödé comment\n"),                  // UTF-8 multibyte
-                ("src/Plc Logic/x.pou", "PROGRAM x\nIMPLEMENTATION ST\nEND_PROGRAM\n"),     // spaced path
+                ("src/Plc Logic/x.pou", "PROGRAM x\n%LANGUAGE ST\nEND_PROGRAM\n"),     // spaced path
             };
             var entries = files.Select(f => new IndexEntry("100644", Git.WriteBlob(gitDir, f.Content), f.Path)).ToArray();
             var commit = Git.CommitTree(gitDir, Git.BuildTree(gitDir, entries), Array.Empty<string>(), "c");

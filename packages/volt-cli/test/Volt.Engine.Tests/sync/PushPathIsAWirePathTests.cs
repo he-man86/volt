@@ -22,7 +22,7 @@ namespace Volt.Engine.Tests;
 /// </summary>
 public class PushPathIsAWirePathTests
 {
-    private const string Prg = "PROGRAM {0}\nVAR\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\n\nEND_PROGRAM\n";
+    private const string Prg = "PROGRAM {0}\nVAR\nEND_VAR\n%LANGUAGE ST\nx := 1;\n\nEND_PROGRAM\n";
 
     private static FakeIde Ide() => new(
         FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;", "POUs"));

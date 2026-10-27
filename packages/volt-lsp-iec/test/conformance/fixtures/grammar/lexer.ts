@@ -116,11 +116,11 @@ export const LEXER_TESTS: readonly LanguageTest[] = [
       "FUNCTION_BLOCK FB_LANG_lex_crlf_body\nVAR\n\tn : INT; // CRLF after a line comment\n\tm : INT; (* a block comment\n\tacross a CRLF *)\nEND_VAR\nn := 1;\nm := 2;\nEND_FUNCTION_BLOCK\n",
     ),
   },
-  // L4: the Volt `IMPLEMENTATION ST` line terminated by CRLF, stated by the fixture itself (the recorder adds none).
+  // L4: the Volt `%LANGUAGE ST` line terminated by CRLF, stated by the fixture itself (the recorder adds none).
   {
-    ...fb("lex_crlf_implementation_line", "L4 — CRLF line endings around a stated `IMPLEMENTATION ST` line", "\tn : INT;", "n := 1;"),
+    ...fb("lex_crlf_implementation_line", "L4 — CRLF line endings around a stated `%LANGUAGE ST` line", "\tn : INT;", "n := 1;"),
     source: crlf(
-      "FUNCTION_BLOCK FB_LANG_lex_crlf_implementation_line\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := 1;\nEND_FUNCTION_BLOCK\n",
+      "FUNCTION_BLOCK FB_LANG_lex_crlf_implementation_line\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE ST\nn := 1;\nEND_FUNCTION_BLOCK\n",
     ),
   },
 

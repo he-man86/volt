@@ -10,11 +10,11 @@ using Volt.Engine.Sync;
 namespace Volt.Engine.Tests;
 
 /// <summary>
-/// A BODY VOLT DOES NOT SHOW IS <c>IMPLEMENTATION &lt;LANG&gt; UNSUPPORTED</c>, AND NOTHING ELSE (openspec
+/// A BODY VOLT DOES NOT SHOW IS <c>%LANGUAGE &lt;LANG&gt; UNSUPPORTED</c>, AND NOTHING ELSE (openspec
 /// <c>implementation-keyword</c>, sections 2b and 3b — owner decisions 2026-09-28).
 ///
 /// <para>A CFC, SFC or IL body, and an LD/FBD body network text has no spelling for, pulls as
-/// <c>IMPLEMENTATION CFC|SFC|IL|LD|FBD UNSUPPORTED</c> over an EMPTY body: Volt shows no implementation code for it.
+/// <c>%LANGUAGE CFC|SFC|IL|LD|FBD UNSUPPORTED</c> over an EMPTY body: Volt shows no implementation code for it.
 /// The item's DECLARATION stays fully editable and is pushed as usual, and the IDE's body is NEVER written — a push that
 /// touches such an item leaves the body the IDE holds exactly as it was. Neither pull nor push is blocked by one. A bare
 /// <c>IMPLEMENTATION CFC</c> (section 2b's spelling, reversed by 3b) is no line a body can state, and is refused by
@@ -43,7 +43,7 @@ public class ReadOnlyBodyTests
             null, unsupported);
 
     /// <summary>The one line a hidden body pulls as, whatever its language (section 3b).</summary>
-    private static string Line(string language) => $"IMPLEMENTATION {language} UNSUPPORTED";
+    private static string Line(string language) => $"%LANGUAGE {language} UNSUPPORTED";
 
     private static string Pulled(FakeIde ide) =>
         Materializer.Materialize(ide, "FB_Chart", ItemKind.Kinds.Pou, new ItemRef("FB_Chart")).Text;
@@ -150,11 +150,11 @@ public class ReadOnlyBodyTests
         Assert.Equal(text, Pulled(ide));
     }
 
-    /// <summary>The same no-op with the line spelled as an engineer might retype it — spacing and case are free, as
-    /// for every keyword line.</summary>
+    /// <summary>The same no-op with the line spelled as an engineer might retype it — the spacing and the case of its
+    /// words are free.</summary>
     [Theory]
-    [InlineData("LD", "a vendor split point", "  implementation   ld   unsupported ")]
-    [InlineData("CFC", null, "Implementation\tcfc Unsupported")]
+    [InlineData("LD", "a vendor split point", "  %LANGUAGE   ld   unsupported ")]
+    [InlineData("CFC", null, "%LANGUAGE Cfc  Unsupported")]
     public void An_UNSUPPORTED_line_is_matched_in_any_case_and_spacing(string language, string? unsupported, string typed)
     {
         var ide = new FakeIde(Pou(language, unsupported));
@@ -216,7 +216,7 @@ public class ReadOnlyBodyTests
     {
         var ide = new FakeIde(Pou(null, null, "Step"), Method("Step", language, unsupported));
         var text = Pulled(ide);
-        var edited = text.Replace($"{Decl}\nIMPLEMENTATION ST\n", $"{Decl}\nIMPLEMENTATION ST\nx := 1;");
+        var edited = text.Replace($"{Decl}\n%LANGUAGE ST\n", $"{Decl}\n%LANGUAGE ST\nx := 1;");
         Assert.NotEqual(text, edited);
 
         var resp = Update(ide, edited);
@@ -292,7 +292,7 @@ public class ReadOnlyBodyTests
     public void A_bare_CFC_SFC_or_IL_line_is_refused_naming_it_and_the_UNSUPPORTED_line(string language)
     {
         var ide = new FakeIde(Pou(language, null, "Step"), Method("Step", language));
-        var bare = $"IMPLEMENTATION {language}";
+        var bare = $"%LANGUAGE {language}";
 
         var pou = Reason(Update(ide, $"{Decl}\n{bare}\n\nEND_FUNCTION_BLOCK\n\nMETHOD Step : BOOL\n{Line(language)}\nEND_METHOD\n"));
         Assert.Contains("FB_Chart", pou);
@@ -340,7 +340,7 @@ public class ReadOnlyBodyTests
     {
         var ide = new FakeIde(Pou(null, null, "Sequence"), Method("Sequence", language, unsupported));
         var line = Line(language);
-        var src = $"{Decl}\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD Sequence : BOOL\n{line}\nSequence := TRUE;\nEND_METHOD\n";
+        var src = $"{Decl}\n%LANGUAGE ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD Sequence : BOOL\n{line}\nSequence := TRUE;\nEND_METHOD\n";
 
         var reason = Reason(Update(ide, src));
 
@@ -352,7 +352,7 @@ public class ReadOnlyBodyTests
     /// <summary>An ST body is always shown: <c>UNSUPPORTED</c> after <c>ST</c> states nothing a body can be, and neither
     /// does the word without a language. Each is refused naming the line.</summary>
     [Theory]
-    [InlineData("IMPLEMENTATION ST UNSUPPORTED")]
+    [InlineData("%LANGUAGE ST UNSUPPORTED")]
     [InlineData("IMPLEMENTATION UNSUPPORTED")]
     public void UNSUPPORTED_after_ST_or_alone_is_refused_naming_the_line(string line)
     {
@@ -439,7 +439,7 @@ public class ReadOnlyBodyTests
     /// is written.</summary>
     [Theory]
     [InlineData("FUNCTION_BLOCK FB_Chart\nVAR\n\tx : INT;\nEND_VAR\n(* @volt-graphical: CFC *)\n\nEND_FUNCTION_BLOCK\n")]
-    [InlineData("FUNCTION_BLOCK FB_Chart\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD Step : BOOL\n(* @volt-graphical: SFC *)\nEND_METHOD\n")]
+    [InlineData("FUNCTION_BLOCK FB_Chart\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD Step : BOOL\n(* @volt-graphical: SFC *)\nEND_METHOD\n")]
     [InlineData("FUNCTION_BLOCK FB_Chart\nVAR\n\tx : INT;\nEND_VAR\n(* @volt-implementation *)\nx := 1;\n\nEND_FUNCTION_BLOCK\n")]
     public void A_pushed_file_with_no_boundary_holding_a_volt_comment_is_refused_naming_volt_pull(string source)
     {
@@ -455,10 +455,10 @@ public class ReadOnlyBodyTests
     /// comment like any other — in a declaration, an ST body, nested in a comment of the engineer's. It used to be
     /// refused anywhere (section 2b): a scan over the code, not a condition of the split.</summary>
     [Theory]
-    [InlineData("FUNCTION_BLOCK FB_Chart\n(* @volt-graphical: kept *)\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\n\nEND_FUNCTION_BLOCK\n\nMETHOD Step : BOOL\nIMPLEMENTATION SFC UNSUPPORTED\nEND_METHOD\n")]
-    [InlineData("FUNCTION_BLOCK FB_Chart\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := 1; (*@volt-note*)\n\nEND_FUNCTION_BLOCK\n\nMETHOD Step : BOOL\nIMPLEMENTATION SFC UNSUPPORTED\nEND_METHOD\n")]
-    [InlineData("FUNCTION_BLOCK FB_Chart\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n(* note (* @volt-graphical: CFC *) *)\nx := 1;\n\nEND_FUNCTION_BLOCK\n\nMETHOD Step : BOOL\nIMPLEMENTATION SFC UNSUPPORTED\nEND_METHOD\n")]
-    [InlineData("FUNCTION_BLOCK FB_Chart\nVAR\n\tx : INT; (* a\n\t(* b (* @volt-note *) *)\n\t*)\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\n\nEND_FUNCTION_BLOCK\n\nMETHOD Step : BOOL\nIMPLEMENTATION SFC UNSUPPORTED\nEND_METHOD\n")]
+    [InlineData("FUNCTION_BLOCK FB_Chart\n(* @volt-graphical: kept *)\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\nx := 1;\n\nEND_FUNCTION_BLOCK\n\nMETHOD Step : BOOL\n%LANGUAGE SFC UNSUPPORTED\nEND_METHOD\n")]
+    [InlineData("FUNCTION_BLOCK FB_Chart\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\nx := 1; (*@volt-note*)\n\nEND_FUNCTION_BLOCK\n\nMETHOD Step : BOOL\n%LANGUAGE SFC UNSUPPORTED\nEND_METHOD\n")]
+    [InlineData("FUNCTION_BLOCK FB_Chart\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\n(* note (* @volt-graphical: CFC *) *)\nx := 1;\n\nEND_FUNCTION_BLOCK\n\nMETHOD Step : BOOL\n%LANGUAGE SFC UNSUPPORTED\nEND_METHOD\n")]
+    [InlineData("FUNCTION_BLOCK FB_Chart\nVAR\n\tx : INT; (* a\n\t(* b (* @volt-note *) *)\n\t*)\nEND_VAR\n%LANGUAGE ST\nx := 1;\n\nEND_FUNCTION_BLOCK\n\nMETHOD Step : BOOL\n%LANGUAGE SFC UNSUPPORTED\nEND_METHOD\n")]
     public void A_pushed_file_with_its_boundary_lines_holding_a_volt_comment_is_written(string source)
     {
         var ide = new FakeIde(Pou(null, null, "Step"), Method("Step", "SFC"));
@@ -486,7 +486,7 @@ public class ReadOnlyBodyTests
     [InlineData("x := 1; // (* @volt-graphical: CFC *)")]
     public void The_same_text_in_a_string_or_a_line_comment_is_no_volt_comment(string code)
     {
-        var src = $"FUNCTION_BLOCK FB_S\nVAR\n\ts : STRING;\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n{code}\n\nEND_FUNCTION_BLOCK\n";
+        var src = $"FUNCTION_BLOCK FB_S\nVAR\n\ts : STRING;\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\n{code}\n\nEND_FUNCTION_BLOCK\n";
 
         var item = StReader.Read(src, ItemKind.Kinds.Pou, "FB_S");
 
@@ -495,26 +495,26 @@ public class ReadOnlyBodyTests
 
     // ── a hidden member NEW to an existing POU ───────────────────────────────────────────────────
 
-    /// <summary>An UNSUPPORTED line on a member the IDE does not hold under that name and kind — a rename, a retype
-    /// (which is a delete and a create), a member added by hand — is a CREATE of that member, and a create has no
-    /// body to keep: the member would land as an empty ST body while the IDE lost the diagram it held. The item-level
-    /// create was guarded (<see cref="CreateUnauthorableBodyTests"/>); the member level is guarded the same way,
-    /// before anything is deleted or created.</summary>
+    /// <summary>An UNSUPPORTED line on a member the IDE does not hold under that name and kind — a retype (which is a
+    /// delete and a create), a member added by hand — is a CREATE of that member, and a create has no body to keep: the
+    /// member would land as an empty ST body while the IDE lost the diagram it held. The item-level create was guarded
+    /// (<see cref="CreateUnauthorableBodyTests"/>); the member level is guarded the same way, before anything is deleted
+    /// or created. A RENAME is no create: it is the vendor's rename of the object (openspec <c>bridge-one-to-one</c> 3.4),
+    /// which keeps the diagram, so the guard reads the renamed object's body — the ordinary no-op.</summary>
     [Theory]
     [MemberData(nameof(HiddenBodies))]
-    public void Renaming_a_hidden_member_is_refused_naming_it_and_the_IDE_keeps_its_body(string language, string? unsupported)
+    public void Renaming_a_hidden_member_is_the_vendors_rename_and_the_IDE_keeps_its_body(string language, string? unsupported)
     {
         var ide = new FakeIde(Pou(null, null, "Seq"), Method("Seq", language, unsupported));
         var text = Pulled(ide);
+        var renamed = text.Replace("METHOD Seq : BOOL", "METHOD Seq2 : BOOL");
 
-        var reason = Reason(Update(ide, text.Replace("METHOD Seq : BOOL", "METHOD Seq2 : BOOL")));
+        var resp = Update(ide, renamed);
 
-        Assert.Contains("Seq2", reason);
+        Assert.True(resp.Landed(), string.Join("; ", (resp.Conflicts ?? []).Select(c => c.Reason)));
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("create:") || r.StartsWith("delete:"));
-        Assert.Empty(ide.WrittenContent);
-        Assert.True(ide.Exists("Seq"));
-        Assert.False(ide.Exists("Seq2"));
-        Assert.Equal(text, Pulled(ide));
+        Assert.Contains(ide.Recorded, r => r.StartsWith("rename:Seq->Seq2", System.StringComparison.Ordinal));
+        Assert.Equal(renamed, Pulled(ide));
     }
 
     [Theory]
@@ -576,18 +576,18 @@ public class ReadOnlyBodyTests
     /// <summary>An ST body the IDE holds whose text has a BOUNDARY line (outside every comment) cannot be written into a
     /// file: the file would read that line as the body's boundary — a hidden body, a network body, or a second
     /// boundary — so the body would come back in a language it is not. The driver knows the body is ST and refuses it
-    /// by name (<see cref="ImplementationMarker.RequireStBody"/>) rather than hand the pull a text that states the wrong
+    /// by name (<see cref="PropertyLines.RequireStBody"/>) rather than hand the pull a text that states the wrong
     /// language. (A line that only LOOKS like one is code, D9: below.)</summary>
     [Theory]
-    [InlineData("IMPLEMENTATION CFC UNSUPPORTED")]
-    [InlineData("IMPLEMENTATION LD UNSUPPORTED")]
-    [InlineData("x := 1;\nIMPLEMENTATION ST\ny := 2;")]
+    [InlineData("%LANGUAGE CFC UNSUPPORTED")]
+    [InlineData("%LANGUAGE LD UNSUPPORTED")]
+    [InlineData("x := 1;\n%LANGUAGE ST\ny := 2;")]
     public void An_ST_body_holding_a_keyword_line_is_refused_on_pull_not_relabelled(string body)
     {
         var ide = new FakeIde(new FakeIde.Item("FB_Chart", ItemKind.PlcPou, "", true, Decl, body, null, null));
 
         var ex = Assert.Throws<BridgeException>(() => Pulled(ide));
-        Assert.Contains("IMPLEMENTATION", ex.Message);
+        Assert.Contains("%LANGUAGE", ex.Message);
 
         var fetch = FetchService.Handle(ide, new FetchRequest { Init = true });
         Assert.Empty(fetch.Changed);
@@ -609,7 +609,7 @@ public class ReadOnlyBodyTests
         var ide = new FakeIde(new FakeIde.Item("FB_Chart", ItemKind.PlcPou, "", true, decl, body, null, null));
 
         var text = Pulled(ide);
-        Assert.Equal($"{decl}\nIMPLEMENTATION ST\n{body}\n\nEND_FUNCTION_BLOCK\n", text);
+        Assert.Equal($"{decl}\n%LANGUAGE ST\n{body}\n\nEND_FUNCTION_BLOCK\n", text);
 
         var refs = RefsService.Handle(ide);
         var resp = BoundWrite.Push(ide, new PushRequest
@@ -626,8 +626,8 @@ public class ReadOnlyBodyTests
     public void An_ST_body_with_the_keyword_in_a_comment_pulls_as_ST()
     {
         var ide = new FakeIde(new FakeIde.Item("FB_Chart", ItemKind.PlcPou, "", true, Decl,
-                                               "(*\nIMPLEMENTATION CFC UNSUPPORTED\n*)\nx := 1;", null, null));
+                                               "(*\n%LANGUAGE CFC UNSUPPORTED\n*)\nx := 1;", null, null));
 
-        Assert.Equal($"{Decl}\nIMPLEMENTATION ST\n(*\nIMPLEMENTATION CFC UNSUPPORTED\n*)\nx := 1;\n\nEND_FUNCTION_BLOCK\n", Pulled(ide));
+        Assert.Equal($"{Decl}\n%LANGUAGE ST\n(*\n%LANGUAGE CFC UNSUPPORTED\n*)\nx := 1;\n\nEND_FUNCTION_BLOCK\n", Pulled(ide));
     }
 }

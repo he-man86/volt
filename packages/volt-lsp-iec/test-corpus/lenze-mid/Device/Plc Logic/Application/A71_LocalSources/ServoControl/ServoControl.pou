@@ -34,7 +34,7 @@ VAR CONSTANT
 	ctCurveIs0To0: INT := 1;
 	ctCurveIsSpeed: INT := 2;
 END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK TITLE: "Network 2 : Initialise with STATE HomePosNotOK"
   split8 := NOT STATE_Prehoming AND NOT STATE_HomePosNOK AND NOT STATE_HomePOSOK AND NOT STATE_WaitingForEnable AND NOT STATE_Synchronising;
   STATE_Prehoming R= split8;

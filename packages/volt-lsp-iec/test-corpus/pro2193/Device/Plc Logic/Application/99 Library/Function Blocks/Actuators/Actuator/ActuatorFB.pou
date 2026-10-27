@@ -9,7 +9,7 @@ VAR
 	TimeOfLastSwitch		: DT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Counters();
 
 
@@ -17,7 +17,7 @@ END_FUNCTION_BLOCK
 
 METHOD PRIVATE Counters
 
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   // Calculate the on-time and the number of switches of the output
   MeasureOnTime : ONTIME(In := output);
@@ -31,7 +31,7 @@ END_METHOD
 // Maps the actuator to the physical output
 METHOD PUBLIC Map : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Map := output;
 
 END_METHOD
@@ -39,14 +39,14 @@ END_METHOD
 // Reset the output (=False)
 METHOD PUBLIC Reset
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 output := FALSE;
 END_METHOD
 
 // Set the output (=True)
 METHOD PUBLIC Set : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 output := TRUE;
 END_METHOD
 
@@ -56,6 +56,6 @@ VAR_INPUT
 	xValue	: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 output := xValue;
 END_METHOD

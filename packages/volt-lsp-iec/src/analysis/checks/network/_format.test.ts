@@ -6,7 +6,7 @@ import { test, expect } from "bun:test"
 import { vgDiags } from "../../../../test/support/network-docs.js"
 
 const fb = (networks: string) =>
-  `FUNCTION_BLOCK F\nVAR a : BOOL; b : BOOL; x : BOOL; y : BOOL; i : INT; END_VAR\nIMPLEMENTATION LD\n${networks}END_FUNCTION_BLOCK`
+  `FUNCTION_BLOCK F\nVAR a : BOOL; b : BOOL; x : BOOL; y : BOOL; i : INT; END_VAR\n%LANGUAGE LD\n${networks}END_FUNCTION_BLOCK`
 const of = (src: string, code: string) => vgDiags(src).filter((d) => d.code === code)
 
 test("network text: a split defined in two networks of one body is a warning on the second (P9)", () => {

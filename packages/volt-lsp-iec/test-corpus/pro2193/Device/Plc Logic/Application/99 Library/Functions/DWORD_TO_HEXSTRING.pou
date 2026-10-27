@@ -22,7 +22,7 @@ The lowest order Character will be on the right and the high order Character on 
 
 *)
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 pt	:= ADR(DWORD_TO_HEXSTRING) + 8;					// Read output adress to pointer
 pt^	:= 0;											// Write the closing byte (terminator) for the string
 

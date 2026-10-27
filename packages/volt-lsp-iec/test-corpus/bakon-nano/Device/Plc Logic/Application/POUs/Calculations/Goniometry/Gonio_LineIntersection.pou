@@ -14,7 +14,7 @@ VAR
 	numeratorY	: REAL;	
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 
 

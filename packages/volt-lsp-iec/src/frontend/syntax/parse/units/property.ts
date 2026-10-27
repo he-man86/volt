@@ -12,7 +12,7 @@
  * line under `GET`, as the pull writes it; one on the keyword's own line is refused the same way, and one under a bare
  * keyword is refused as code under it is. The push sees GET, SET, END_GET and END_SET only at the START of a line and
  * drops the rest of an accessor's keyword line, so each stands alone on its line (0 otherwise in the six corpora).
- * Under an accessor's IMPLEMENTATION line, and in its VAR blocks, GET and SET are NAMES (`SOFT_NAME_KEYWORDS`): a body
+ * Under an accessor's %LANGUAGE line, and in its VAR blocks, GET and SET are NAMES (`SOFT_NAME_KEYWORDS`): a body
  * runs to its own END keyword (`collectAccessorBody`, openspec lsp-accessor-keyword-at-line-start).
  */
 import type { Property, TypeExpr } from "../../ast/nodes/index.js"
@@ -32,10 +32,10 @@ import { collectAccessorBody } from "../body.js"
 /** The keywords that end a property header no type follows — the push never writes them into the declaration. */
 const UNTYPED_CLOSERS: readonly Keyword[] = ["GET", "SET", "END_PROPERTY"]
 
-/** The header ends where it stands: the body's IMPLEMENTATION line or one of `UNTYPED_CLOSERS` is next. */
+/** The header ends where it stands: the body's %LANGUAGE line or one of `UNTYPED_CLOSERS` is next. */
 function endsUntyped(c: Cursor): boolean {
   const next = c.peek()
-  return c.opensImplementationLine() || (next.kind === "keyword" && UNTYPED_CLOSERS.includes(next.keyword!))
+  return c.opensLanguageLine() || (next.kind === "keyword" && UNTYPED_CLOSERS.includes(next.keyword!))
 }
 
 export function parseProperty(c: Cursor): Property | undefined {
@@ -193,7 +193,7 @@ function parseInlineAccessor(c: Cursor): Property["getter"] | undefined {
   // Two acceptable termination patterns:
   //   1. Proper IEC-61131 form:  GET … END_GET   /  SET … END_SET
   //      We CONSUME the END_GET / END_SET as the accessor's closer.
-  //   2. The BARE form: before any IMPLEMENTATION line, the next GET/SET/END_PROPERTY closes it
+  //   2. The BARE form: before any %LANGUAGE line, the next GET/SET/END_PROPERTY closes it
   //      (under that line a GET/SET is an operand, and only END_PROPERTY or the other END stops it — not closed).
   //      We STOP there WITHOUT consuming, so the outer parseProperty
   //      loop can dispatch on it — and refuse what stands under it,
@@ -212,7 +212,7 @@ function parseInlineAccessor(c: Cursor): Property["getter"] | undefined {
     (underIt ||
       body.tokens.some((t) => t.kind !== "whitespace" && t.kind !== "eof") ||
       varSections.length > 0 ||
-      body.implementation !== undefined)
+      body.languageLine !== undefined)
   )
     c.pushError(
       `'${kw.keyword}' is not closed by '${endAccessor}': an accessor without its ${endAccessor} is bodiless, and the push drops what stands under it. Close it with ${endAccessor}.`,

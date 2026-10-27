@@ -10,7 +10,7 @@ VAR_INPUT
 	s7	: STRING(255);
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Stu.StrCpyA(
 	pBuffer		:= ADR(CONCAT7),
 	iBufferSize	:= 255,

@@ -8,7 +8,7 @@ VAR
 	iCoordSystemId: INT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Detect when to load the offsets.
 
 IF (UN01_HMI.CoordSystemOffset_HMI.iCoordSystemId > 0) AND (UN01_HMI.CoordSystemOffset_HMI.iCoordSystemId < 4) AND (iCoordSystemId <> UN01_HMI.CoordSystemOffset_HMI.iCoordSystemId) THEN

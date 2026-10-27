@@ -86,21 +86,21 @@ public class WireVocabularyTests
             ("Volt.Wire/PipeServer.cs", 3))),   // +1 a request frame that is JSON null, no envelope (wire-final-shape 4.1); +1 a request frame over MaxFrameBytes (volt-cli-rework 1.0 bug b)
         new("the IDE, or a documented Volt limit on a vendor shape, will not take it", "change the TEXT, or do it in the IDE",
             "UNSUPPORTED", At(
-            ("Volt.Engine/Format/Body/BodyFormatGuard.cs", 12),
+            ("Volt.Engine/Format/Body/BodyFormatGuard.cs", 12),   // language-line: the NONE/ABSTRACT builders are gone; no slot off a member site, on a create (an accessor; a method not declared ABSTRACT), over a slot, a body over none
             ("Volt.Engine/Ide/ExcludedFolder.cs", 2),   // wire-final-shape §4: an unreadable entry's code — an excluded folder, and each item under it
             ("Volt.Ide.Codesys/Driver/CodesysDriver.Tree.cs", 3),   // wire-final-shape §4: an unreadable entry's code — a container holding what no text spells, the library manager's unspelled content  // abstract-member-parity: the NONE/ABSTRACT refusals as named builders (NONE off a member site, NONE without ABSTRACT, ABSTRACT dropped over NONE, statements under ABSTRACT) + a body over NONE at an item site, over a slotless concrete member, and a comment over NONE
             ("Volt.Engine/Format/Network/NetworkText.cs", 1),
             ("Volt.Engine/Format/St/FamilyContent.cs", 1),   // volt-cli-rework step 5: a %-key the IEC layout's object record has no field for
             ("Volt.Engine/Format/St/IecFormat.cs", 4),   // moved from Materializer (volt-cli-rework step 5): what a pull must not write
-            ("Volt.Engine/Format/St/ImplementationMarker.cs", 3),
+            ("Volt.Engine/Format/St/PropertyLines.Language.cs", 3),   // a vendor language the line cannot state (no word, ST); an ST body holding a %LANGUAGE line
             ("Volt.Engine/Format/St/StReader.cs", 3),
             ("Volt.Engine/Format/St/PropertyLines.cs", 1),   // gate review of step 3, finding 8: a %NETVAR value the line cannot carry
-            ("Volt.Engine/Format/St/StWriter.cs", 3),
+            ("Volt.Engine/Format/St/StWriter.cs", 4),   // +1 language-line: a body with no slot at a POU or an action, which no push reads back
             ("Volt.Engine/Ide/InterfaceAccessorGuard.cs", 2),
             ("Volt.Engine/Ide/MemberSites.cs", 1),   // bridge-one-to-one §3: a transition, refused by name
             ("Volt.Engine/Item/ItemKind.cs", 1),
             ("Volt.Engine/Library/LibraryFetch.cs", 1),
-            ("Volt.Engine/Sync/GrepService.cs", 1),   // wire-final-shape 3.7: a notSearched entry's code — a body that reads IMPLEMENTATION <LANG> UNSUPPORTED
+            ("Volt.Engine/Sync/GrepService.cs", 1),   // wire-final-shape 3.7: a notSearched entry's code — a body that reads %LANGUAGE <LANG> UNSUPPORTED
             ("Volt.Engine/Sync/PushService.cs", 9),
             ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 4),   // +1: a body site whose type declares no Implementation (abstract-member-push); +1 a create carrying %NETVAR / %PARAMETER_LIST (gate review of step 3, 7c); +1 a create of %CLASS PERSISTENT / NVL (second review of step 3, finding 5)
             ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Descriptors.cs", 3),   // +1 a device member that is not there (gate review of step 3, 10); +1 a node without the facet a read or create needs (3c review 8)
@@ -126,7 +126,7 @@ public class WireVocabularyTests
             ("Volt.Ide.Twincat/Ide/TcNetworkWriter.cs", 3),   // wire-final-shape 3c: coded at the throw
             ("Volt.Ide.Twincat/Ide/TcUnmeasured.cs", 2))),   // wire-final-shape 3c: coded at the throw
         new("Volt's own broken invariant, or a refusal nobody coded", "report a bug; code the refusal", "INTERNAL_ERROR", At(
-            ("Volt.Engine/Format/St/FamilyContent.cs", 2),   // volt-cli-rework step 5: a body with no stated language, or one its stated language does not spell back
+            ("Volt.Engine/Format/St/FamilyContent.cs", 3),   // volt-cli-rework step 5: a body with no stated language, or one its stated language does not spell back; language-line: a no-slot claim carrying a body
             ("Volt.Engine/Item/ItemKind.cs", 1),
             ("Volt.Engine/Sync/ProjectSnapshot.cs", 1),
             ("Volt.Engine/Sync/PushService.cs", 8),   // +1 ConflictFor logs a Volt bug whole (3c review 7); -1 PouKindToCode's default arm (gone: a create names the host's kind); +1 a kind the host declared with no shape (volt-cli-rework step 5)
@@ -151,8 +151,9 @@ public class WireVocabularyTests
             ("Volt.Engine/Sync/PushService.cs", 1))),
         new("the text cannot be split into what the push writes", "fix the body", "INVALID_ST", At(
             ("Volt.Engine/Format/St/PropertyLines.cs", 1),   // bridge-one-to-one §3: the %-line grammar (one Refuse builder)
-            ("Volt.Engine/Format/St/StReader.cs", 20),   // +1: code under IMPLEMENTATION NONE (abstract-member-push)
-            // The new contract (volt-cli-rework step 3): the one IMPLEMENTATION line grammar (no line, no language, a
+            ("Volt.Engine/Format/St/PropertyLines.Language.cs", 1),   // language-line: the retired IMPLEMENTATION line, refused saying to pull again
+            ("Volt.Engine/Format/St/StReader.cs", 20),   // language-line: a line that states no body, two lines, no line at a POU/action, code after a slotless member
+            // The new contract (volt-cli-rework step 3): the one %LANGUAGE line grammar (no line, no language, a
             // language the vendor does not show) and the declared %-keys (no %-line, an undeclared key, a value its grammar
             // refuses, a key stated twice) — the layout code, as vendor-neutrality W6 names it.
             ("Volt.Engine/Seam/ItemFormat.cs", 3),
@@ -486,6 +487,7 @@ public class WireVocabularyTests
         ("Volt.Engine/Format/Task/TaskDescriptorFormat.cs", 1),  // call comments not index-aligned with the calls
         ("Volt.Engine/Ide/SourceScopes.cs", 1),                  // a network body written with no validated model
         ("Volt.Engine/Seam/KindRegistry.cs", 1),                 // the registries refuse a conflicting host declaration, at start
+        ("Volt.Engine/Seam/ItemFormat.cs", 1),                   // the line of a member with no body slot, which states none
         ("Volt.Engine/Seam/LanguageRegistry.cs", 2),
         ("Volt.Engine/Seam/PropertyKeyRegistry.cs", 2),
         ("Volt.Engine/Seam/VendorRegistry.cs", 3),

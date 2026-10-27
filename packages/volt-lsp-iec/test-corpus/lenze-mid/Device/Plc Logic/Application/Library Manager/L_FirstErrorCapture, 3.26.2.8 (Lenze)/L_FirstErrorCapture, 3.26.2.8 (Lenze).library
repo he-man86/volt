@@ -3,4 +3,4 @@ NAMESPACE L_FECA
 RESOLUTION L_FirstErrorCapture, 3.26.2.8 (Lenze)
 PLACEHOLDER false
 DEPENDENCIES Standard, L_IE1P_ApplicationErrors, L_IMHP_ModuleHandler, CAA File, CAA Memory
-MATERIALIZATION 4
+MATERIALIZATION 5

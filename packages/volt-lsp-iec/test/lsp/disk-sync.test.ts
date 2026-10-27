@@ -29,16 +29,16 @@ VAR
 \tc : FB_B;
 \tx : BOOL;
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 a();
 c();
 x := Dev1.xOk;
 END_PROGRAM
 `
 const fb = (name: string) =>
-  `FUNCTION_BLOCK ${name}\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := n + 1;\nEND_FUNCTION_BLOCK\n`
+  `FUNCTION_BLOCK ${name}\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE ST\nn := n + 1;\nEND_FUNCTION_BLOCK\n`
 /** A PROGRAM no task calls is dead, and its findings are quiet — until a `.task` calls it. */
-const P2 = `PROGRAM P2\nVAR\n\tb : BOOL;\n\ti : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := b;\nEND_PROGRAM\n`
+const P2 = `PROGRAM P2\nVAR\n\tb : BOOL;\n\ti : INT;\nEND_VAR\n%LANGUAGE ST\ni := b;\nEND_PROGRAM\n`
 const TASK = (calls: string) => `Type: Cyclic\nInterval: T#10ms\nCalls: ${calls}\n`
 
 const roots: string[] = []
@@ -302,7 +302,7 @@ test("a deleted file's own findings leave the workspace pull", async () => {
 test("a `.projectsettings` change re-resolves the project's configuration", async () => {
   // C0139 ("the code has no effect") is a warning the project can switch off; `b;` is such a statement.
   const root = tempWorkspace({
-    "Prog.pou": `PROGRAM Prog\nVAR\n\tb : BOOL;\nEND_VAR\nIMPLEMENTATION ST\nb;\nEND_PROGRAM\n`,
+    "Prog.pou": `PROGRAM Prog\nVAR\n\tb : BOOL;\nEND_VAR\n%LANGUAGE ST\nb;\nEND_PROGRAM\n`,
     "Project Settings.projectsettings": "Disabled warnings: \n",
   })
   roots.push(root)
@@ -319,7 +319,7 @@ test("a `.projectsettings` change re-resolves the project's configuration", asyn
 
 test("each PLC project's documents are judged by that project's own `.projectsettings`", async () => {
   // A TwinCAT solution holds one Project Settings per PLC project, at the project's own node. `b;` is C0139.
-  const prog = (name: string) => `PROGRAM ${name}\nVAR\n\tb : BOOL;\nEND_VAR\nIMPLEMENTATION ST\nb;\nEND_PROGRAM\n`
+  const prog = (name: string) => `PROGRAM ${name}\nVAR\n\tb : BOOL;\nEND_VAR\n%LANGUAGE ST\nb;\nEND_PROGRAM\n`
   const root = tempWorkspace({
     "PLC/A/A Project/Project Settings.projectsettings": "Disabled warnings: C0139\n",
     "PLC/A/A Project/POUs/ProgA.pou": prog("ProgA"),
@@ -391,7 +391,7 @@ test("a watched batch that moves several sources relinks the project once", asyn
 test("a reference file the re-scan cannot read (EBUSY) keeps the last references, is logged, and is re-read at the next batch", async () => {
   // C0139 ("the code has no effect") is switched off by the project; `b;` is such a statement.
   const root = tempWorkspace({
-    "Prog.pou": `PROGRAM Prog\nVAR\n\tb : BOOL;\nEND_VAR\nIMPLEMENTATION ST\nb;\nEND_PROGRAM\n`,
+    "Prog.pou": `PROGRAM Prog\nVAR\n\tb : BOOL;\nEND_VAR\n%LANGUAGE ST\nb;\nEND_PROGRAM\n`,
     "Project Settings.projectsettings": "Disabled warnings: C0139\n",
     "Task.task": TASK("Prog"),
     "Other.pou": fb("FB_Other"),

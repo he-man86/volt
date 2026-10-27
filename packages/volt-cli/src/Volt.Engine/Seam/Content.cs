@@ -3,19 +3,19 @@ using System.Collections.Generic;
 
 namespace Volt.Engine.Seam;
 
-/// <summary>How a body is stated on its <c>IMPLEMENTATION</c> line.</summary>
+/// <summary>How a body is stated on its <c>%LANGUAGE</c> line — or that there is none.</summary>
 public enum BodyForm
 {
-    /// <summary><c>IMPLEMENTATION &lt;LANG&gt;</c>: the code is shown and editable.</summary>
+    /// <summary><c>%LANGUAGE &lt;LANG&gt;</c>: the code is shown and editable.</summary>
     Shown,
-    /// <summary><c>IMPLEMENTATION &lt;LANG&gt; UNSUPPORTED</c>: the IDE holds a body Volt does not show; no code.</summary>
+    /// <summary><c>%LANGUAGE &lt;LANG&gt; UNSUPPORTED</c>: the IDE holds a body Volt does not show; no code.</summary>
     Hidden,
-    /// <summary><c>IMPLEMENTATION NONE</c>: an abstract member with no code; no language.</summary>
-    Abstract,
+    /// <summary>No line: a member whose IDE object has no body slot (DIALECT C2n); no language, no code.</summary>
+    NoSlot,
 }
 
 /// <summary>A body as a FACT, keyed by its language (vendor-neutrality S2): the language its line states, the code under
-/// the line (empty for a hidden or abstract body), how it is stated, and — for a hidden body only — why the host hides it.
+/// the line (empty for a hidden body or a member with no slot), how it is stated, and — for a hidden body only — why the host hides it.
 /// The code never encodes its language; there is no "ST unless the first line says otherwise".</summary>
 public sealed record BodyText(string Language, string Code, BodyForm Form, string? Why = null)
 {
@@ -23,7 +23,7 @@ public sealed record BodyText(string Language, string Code, BodyForm Form, strin
 
     public static BodyText Hidden(string language, string why) => new(language, "", BodyForm.Hidden, why);
 
-    public static readonly BodyText Abstract = new(LanguageRegistry.NoneWord, "", BodyForm.Abstract);
+    public static readonly BodyText NoSlot = new("", "", BodyForm.NoSlot);
 }
 
 /// <summary>ONE model for an item's content, both directions, as the contract speaks it: what a host's

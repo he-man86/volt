@@ -4,7 +4,7 @@ import { landed } from "../harness"
  * `implementation-keyword` 3c, task 4.1).
  *
  * <p>Network text is a development feature: a bridge without the variable shows every ST body and hides every LD and
- * FBD body behind its line `IMPLEMENTATION LD|FBD UNSUPPORTED`, naming the reason in the fetch. Hidden is not blocked:
+ * FBD body behind its line `%LANGUAGE LD|FBD UNSUPPORTED`, naming the reason in the fetch. Hidden is not blocked:
  * the item's declaration stays editable and pushes as usual, and the IDE's body is never written. The offline suites
  * prove each rule against doubles (`NetworkTextSwitchTests`, `TcNetworkTextSwitchTests`,
  * `CodesysNetworkTextSwitchTests`); this proves the switch is actually off in a bridge started the way a customer's is,
@@ -43,7 +43,7 @@ describe.skipIf(!production)(`production / a bridge without VOLT_GRAPHICAL (${BA
 
 	/** Every LD/FBD line in a file: [language, hidden?]. */
 	const networkLines = (src: string) =>
-		[...src.matchAll(/^IMPLEMENTATION (LD|FBD)( UNSUPPORTED)?\r?$/gm)].map((m) => ({ language: m[1]!, hidden: !!m[2] }))
+		[...src.matchAll(/^%LANGUAGE (LD|FBD)( UNSUPPORTED)?\r?$/gm)].map((m) => ({ language: m[1]!, hidden: !!m[2] }))
 
 	beforeAll(async () => {
 		project = servedProject(health)
@@ -70,7 +70,7 @@ describe.skipIf(!production)(`production / a bridge without VOLT_GRAPHICAL (${BA
 		console.log(`  [production] ${withNetwork.length} item(s) hide ${withNetwork.reduce((n, i) => n + networkLines(i.sourceText).length, 0)} LD/FBD bod(ies)`)
 
 		// ST untouched by the switch: bodies stated ST, with their code under them.
-		const st = all.filter((i) => /^IMPLEMENTATION ST\r?\n[ \t]*\S/m.test(i.sourceText))
+		const st = all.filter((i) => /^%LANGUAGE ST\r?\n[ \t]*\S/m.test(i.sourceText))
 		expect(st.length).toBeGreaterThan(0)
 	})
 
@@ -78,7 +78,7 @@ describe.skipIf(!production)(`production / a bridge without VOLT_GRAPHICAL (${BA
 		const name = inFolder(await projectRoot(), fid("prod_ld", "pou"))
 		const src =
 			`PROGRAM ${id("prod_ld")}\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`IMPLEMENTATION LD\nNETWORK\n  out := a;\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`%LANGUAGE LD\nNETWORK\n  out := a;\nEND_NETWORK\n\nEND_PROGRAM\n`
 		const r = await pushOps([{ op: "set", name, sourceText: src, ifVersion: null }])
 		expect(landed(r)).toBe(false)
 		expect(JSON.stringify(r.conflicts ?? r)).toContain(DISABLED)
@@ -87,15 +87,15 @@ describe.skipIf(!production)(`production / a bridge without VOLT_GRAPHICAL (${BA
 
 	it("an item with a hidden LD/FBD body takes a declaration push, and its bodies are never written", async () => {
 		// A PROGRAM or FUNCTION_BLOCK holding a hidden LD/FBD body — its own or a member's. The new input goes directly
-		// above the POU's OWN `IMPLEMENTATION` line (the first one in the file), i.e. after its last VAR block, which
+		// above the POU's OWN `%LANGUAGE` line (the first one in the file), i.e. after its last VAR block, which
 		// holds whatever precedes the header (attributes, comments) and a header wrapped over lines (`IMPLEMENTS`).
 		const target = all.find((i) => /\.(prg|fb)$/.test(i.name) && networkLines(i.sourceText).length > 0)
 		if (!target) throw new Error(`no PROGRAM or FUNCTION_BLOCK with a hidden LD/FBD body in '${project}'`)
 		const name: string = target.name
 		const bare = fileOf(name).split(".")[0]!
 		const pulled: string = target.sourceText
-		const own = /^IMPLEMENTATION [A-Z]+( UNSUPPORTED)?\r?$/m.exec(pulled)
-		if (!own) throw new Error(`${name} has no IMPLEMENTATION line`)
+		const own = /^%LANGUAGE [A-Z]+( UNSUPPORTED)?\r?$/m.exec(pulled)
+		if (!own) throw new Error(`${name} has no %LANGUAGE line`)
 		const edited = pulled.slice(0, own.index) + ADDED + pulled.slice(own.index)
 		console.log(`  [production] declaration push over ${name}`)
 

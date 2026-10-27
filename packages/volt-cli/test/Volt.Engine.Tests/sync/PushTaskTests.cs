@@ -89,7 +89,7 @@ public class PushTaskTests
         var (v, pv) = Ver(ide, "Device/Plc Logic/Application/Task Configuration/MainTask.task");
 
         var resp = Push(ide, pv,
-            new SetItemOp { Name = "PRG_A.pou", IfVersion = null, SourceText = "PROGRAM PRG_A\nVAR\nEND_VAR\nIMPLEMENTATION ST\nx := 2;\nEND_PROGRAM\n" },
+            new SetItemOp { Name = "PRG_A.pou", IfVersion = null, SourceText = "PROGRAM PRG_A\nVAR\nEND_VAR\n%LANGUAGE ST\nx := 2;\nEND_PROGRAM\n" },
             new SetItemOp { Name = "Device/Plc Logic/Application/Task Configuration/MainTask.task", IfVersion = v, SourceText = Body.Replace("Cyclic", "Cyclicc") });
 
         Assert.False(resp.Landed());

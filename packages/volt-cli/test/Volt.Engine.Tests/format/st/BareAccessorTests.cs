@@ -15,15 +15,16 @@ namespace Volt.Engine.Tests;
 /// the engineer's getter — because a null accessor means "this property has no getter". Silent data loss, from a
 /// shape `volt-lsp-iec` documents as valid (`units/interface.ts`: "a bare keyword OR a full GET … END_GET
 /// block"). `StWriter` only ever emits the block form, so nothing in the round-trip suite could reach it.</para>
-/// <para>The distinction under test is the one the whole accessor model turns on: <c>null</c> = no such accessor
-/// (remove it), <c>""</c> = present but bodiless (keep it).</para>
+/// <para>The distinction under test is the one the whole accessor model turns on: a <c>null</c> accessor = no such
+/// accessor (remove it), an accessor object = present (keep it). A bare keyword in a POU states no <c>%LANGUAGE</c>
+/// line, so it is an accessor with no body slot (openspec <c>language-line</c>): present, no body.</para>
 /// </summary>
 public class BareAccessorTests
 {
     private static Member OnlyChild(string src) =>
         StReader.Read(src, ItemKind.Kinds.Pou).Members.Single();
 
-    private const string Fb = "FUNCTION_BLOCK K\nVAR\nEND_VAR\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\n";
+    private const string Fb = "FUNCTION_BLOCK K\nVAR\nEND_VAR\n%LANGUAGE ST\nEND_FUNCTION_BLOCK\n\n";
 
     [Theory]
     [InlineData("GET")]
@@ -34,7 +35,8 @@ public class BareAccessorTests
 
         var acc = keyword == "GET" ? child.Getter : child.Setter;
         Assert.NotNull(acc);                       // present — NOT null, which would delete it on push
-        Assert.Equal("", acc!.Body);     // …and empty, which is what bodiless means
+        Assert.Null(acc!.Body);                    // …with no body: no line states one
+        Assert.Equal(StatedLanguage.NoSlot, acc.Stated);
         Assert.DoesNotContain(keyword, child.Declaration);   // …and not swallowed into the declaration
     }
 
@@ -53,7 +55,7 @@ public class BareAccessorTests
     [Fact]
     public void The_block_form_still_carries_its_body()
     {
-        var child = OnlyChild(Fb + "PROPERTY P : INT\nGET\nIMPLEMENTATION ST\nP := 1;\nEND_GET\nEND_PROPERTY\n");
+        var child = OnlyChild(Fb + "PROPERTY P : INT\nGET\n%LANGUAGE ST\nP := 1;\nEND_GET\nEND_PROPERTY\n");
 
         Assert.Equal("P := 1;", child.Getter!.Body.Trim());
         Assert.Null(child.Setter);                 // absent stays absent

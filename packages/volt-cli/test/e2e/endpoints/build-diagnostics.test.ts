@@ -26,7 +26,7 @@ describe(`endpoints / build diagnostics (${BASE})`, () => {
 
 	it("healthy project builds successfully", async () => {
 		const name = id("b_ok")
-		await createItem(fid("b_ok"), `FUNCTION_BLOCK ${name}\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := x + 1;\nEND_FUNCTION_BLOCK\n`)
+		await createItem(fid("b_ok"), `FUNCTION_BLOCK ${name}\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\nx := x + 1;\nEND_FUNCTION_BLOCK\n`)
 		await instantiateInPlcPrg(name)
 
 		const r = await drivenBuild()
@@ -36,7 +36,7 @@ describe(`endpoints / build diagnostics (${BASE})`, () => {
 
 	it("detects undeclared variable", async () => {
 		const name = id("b_undef")
-		const src = `FUNCTION_BLOCK ${name}\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\ny := 1;\nEND_FUNCTION_BLOCK\n`
+		const src = `FUNCTION_BLOCK ${name}\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\ny := 1;\nEND_FUNCTION_BLOCK\n`
 		await createItem(fid("b_undef"), src)
 		await instantiateInPlcPrg(name)
 
@@ -55,7 +55,7 @@ describe(`endpoints / build diagnostics (${BASE})`, () => {
 
 	it("detects duplicate variable declaration", async () => {
 		const name = id("b_dup")
-		const src = `FUNCTION_BLOCK ${name}\nVAR\n\tx : INT;\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\nEND_FUNCTION_BLOCK\n`
+		const src = `FUNCTION_BLOCK ${name}\nVAR\n\tx : INT;\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\nx := 1;\nEND_FUNCTION_BLOCK\n`
 		await createItem(fid("b_dup"), src)
 		await instantiateInPlcPrg(name)
 
@@ -75,7 +75,7 @@ describe(`endpoints / build diagnostics (${BASE})`, () => {
 	it("detects type mismatch", async () => {
 		const name = id("b_type")
 		// x is declared INT but assigned a BOOL literal — valid syntax, semantic error
-		const src = `FUNCTION_BLOCK ${name}\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := TRUE;\nEND_FUNCTION_BLOCK\n`
+		const src = `FUNCTION_BLOCK ${name}\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\nx := TRUE;\nEND_FUNCTION_BLOCK\n`
 		await createItem(fid("b_type"), src)
 		await instantiateInPlcPrg(name)
 
@@ -168,7 +168,7 @@ describe(`endpoints / build diagnostics (${BASE})`, () => {
 	// column never comes without a line.
 	it("no diagnostic carries a 0 position, nor a column without a line", async () => {
 		const name = id("b_col")
-		const src = `FUNCTION_BLOCK ${name}\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\ny := 1;\nEND_FUNCTION_BLOCK\n`
+		const src = `FUNCTION_BLOCK ${name}\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\ny := 1;\nEND_FUNCTION_BLOCK\n`
 		await createItem(fid("b_col"), src)
 		await instantiateInPlcPrg(name)
 
@@ -182,7 +182,7 @@ describe(`endpoints / build diagnostics (${BASE})`, () => {
 
 	// ONE COORDINATE SYSTEM FOR EVERY LINE ON THE WIRE (wire-final-shape 3.6b): a diagnostic's `line` is the line of the
 	// item's FETCHED text that holds the fault — in the item's own body and in a METHOD's — never the vendor's count inside
-	// its object (TwinCAT counts the object's declaration and code, no IMPLEMENTATION line: DIALECT D36). CODESYS states
+	// its object (TwinCAT counts the object's declaration and code, no %LANGUAGE line: DIALECT D36). CODESYS states
 	// no position at all (DIALECT C27), so there the line is absent.
 	it("a line is the fetched text's line holding the fault, in the body and in a METHOD", async () => {
 		const name = id("b_line"), wire = await at(fid("b_line"))

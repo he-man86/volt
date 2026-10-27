@@ -99,7 +99,7 @@ export interface LanguageTest {
   execSkip?: string
   /**
    * THE STEP OF THE SFC CHART this fixture's SFC POU is recorded with — required of a fixture whose POU states
-   * `IMPLEMENTATION SFC UNSUPPORTED`, refused on any other. The text holds no chart (Volt does not materialize one), so
+   * `%LANGUAGE SFC UNSUPPORTED`, refused on any other. The text holds no chart (Volt does not materialize one), so
    * `record:exec` creates the POU in SFC, which gives the chart CODESYS makes for a new SFC POU — one initial step `Init`, a
    * TRUE transition, a jump back — and, where this names another step, renames that one step through CODESYS's own
    * PLCopen export and import (measured 2026-10-03, SP21). Nothing else of the chart changes, and nothing is drawn.
@@ -216,12 +216,12 @@ export interface LanguageTest {
   }
   /**
    * THE SOURCE IS ONE ITEM'S TEXT, PUSHED AS SENT — the reason, in its own words. Without it the recorder PARSES the
-   * source into one item per top-level unit and writes an `IMPLEMENTATION ST` line where the parser says each body
+   * source into one item per top-level unit and writes an `%LANGUAGE ST` line where the parser says each body
    * starts; with it the whole `source` is pushed verbatim as ONE item named `pouName` (a GVL: `gvlNames[0]`) under
    * the extension of `kind` — the push takes the kind from the extension and never reads the header
    * (`openspec/changes/push-without-header-check`). It exists for a text the parser cannot split, because the text IS
    * the question: a never-closed `(*`, an empty or prose text, a text of another kind than its extension. Such a
-   * text states its own `IMPLEMENTATION ST` line where it has a body, as a workspace file does.
+   * text states its own `%LANGUAGE ST` line where it has a body, as a workspace file does.
    */
   asSent?: string
   /**

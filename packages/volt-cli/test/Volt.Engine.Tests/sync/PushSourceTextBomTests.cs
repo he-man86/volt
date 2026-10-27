@@ -16,7 +16,7 @@ namespace Volt.Engine.Tests;
 /// </summary>
 public class PushSourceTextBomTests
 {
-    private const string Fb = "FUNCTION_BLOCK Motor\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\nEND_FUNCTION_BLOCK\n";
+    private const string Fb = "FUNCTION_BLOCK Motor\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\nx := 1;\nEND_FUNCTION_BLOCK\n";
 
     [Theory]
     [InlineData(true)]    // a create

@@ -194,8 +194,8 @@ export function corpusSeverity(severity: number | undefined): string {
   if (name === undefined) throw new Error(`a corpus diagnostic with no severity (${String(severity)})`)
   return name
 }
-/** The server's finding for a body with no `IMPLEMENTATION` line (`analysis/checks/syntax/missing-language.ts`, codeless on the wire). */
-const MISSING_LANGUAGE = /^'[^']*' states no language: its body opens with no 'IMPLEMENTATION <ST\|LD\|FBD>' line/
+/** The server's finding for a body with no `%LANGUAGE` line (`analysis/checks/syntax/missing-language.ts`, codeless on the wire). */
+const MISSING_LANGUAGE = /^'[^']*' states no language: /
 /**
  * A server diagnostic's census key: its code, or — for the one finding the server gives without one — its name: a body
  * that states no language (`server:missing-language`). Any other codeless finding is refused by name. (A parse error

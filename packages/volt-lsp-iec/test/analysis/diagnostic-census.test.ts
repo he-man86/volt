@@ -89,7 +89,7 @@ describe("attribution is a fact, never a guess", () => {
     expect(corpusSeverity(2)).toBe("warning")
     const noCode = (message: string) => ({ message })
     expect(
-      corpusCode(noCode("'FB_X' states no language: its body opens with no 'IMPLEMENTATION <ST|LD|FBD>' line, so the file …")),
+      corpusCode(noCode("'FB_X' states no language: its body opens with no '%LANGUAGE <ST|LD|FBD>' line, so the file …")),
     ).toBe("server:missing-language")
     // a parse error reaches the server's output with its code only (2.5): a codeless one is no longer a known finding
     expect(() => corpusCode(noCode("';' expected instead of 'x'"))).toThrow(/codeless server finding/)

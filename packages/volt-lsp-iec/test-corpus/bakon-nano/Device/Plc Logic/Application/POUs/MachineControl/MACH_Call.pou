@@ -1,7 +1,7 @@
 PROGRAM MACH_Call
 VAR
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 (*************************************************************************
  *
  * Application name			: Snijmachine

@@ -6,7 +6,7 @@ VAR
 	tStepTimer			: TOF;
 	rt_PressStartToInit	: R_TRIG;
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
  (*************************************************************************
  *
  * Application name				: Snijmachine

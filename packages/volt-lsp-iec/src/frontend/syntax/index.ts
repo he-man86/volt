@@ -97,14 +97,8 @@ export { directiveOf } from "./pragmas/conditional.js"
 export type { CompileEnvironment, ConditionNames, ConditionWorld, DeviceFacts, Target } from "./pragmas/condition-eval.js"
 
 // the Volt workspace file format
-export {
-  bodyReader,
-  IMPLEMENTATION_KEYWORD,
-  implementationLine,
-  implementationWords,
-  lookalikeLine,
-  statedLine,
-} from "./format/implementation-line.js"
+export { bodyReader, languageLineWords, retiredLine, statedLine } from "./format/language-line.js"
+export { LANGUAGE_KEY, languageLine, retiredLineMessage } from "./format/object-properties.js"
 export { objectNameOf, sourceObjectOf } from "./format/source-object.js"
 export { graphicalBodies, graphicalMarkerLanguage, isGraphicalBody, isStBody, unitBodies } from "./format/bodies.js"
 

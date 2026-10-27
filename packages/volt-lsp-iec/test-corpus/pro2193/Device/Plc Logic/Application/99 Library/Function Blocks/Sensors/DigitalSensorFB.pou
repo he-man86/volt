@@ -11,7 +11,7 @@ VAR
 	_isInverted		: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 END_FUNCTION_BLOCK
 
@@ -28,7 +28,7 @@ VAR_INPUT
 	invert			: BOOL;	// Sensor or photocell signal should be inverted
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 _isInverted := invert;
 
 END_METHOD
@@ -42,7 +42,7 @@ PUBLIC
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IsActive := SensorInput = NOT _isInverted;
 
 END_GET
@@ -57,7 +57,7 @@ PUBLIC
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IsInactive := NOT IsActive;
 
 END_GET

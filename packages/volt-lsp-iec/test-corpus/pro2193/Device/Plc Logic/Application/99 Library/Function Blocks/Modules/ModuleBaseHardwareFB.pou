@@ -8,7 +8,7 @@ VAR
 	ProcessCommandLock			: LockFB;		// External lock from the process. So a process can claim a hardware unit for itself
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^();
 
 Alarms();	// Handle custom alarms that are not defined in the FB's called in Cyclic()
@@ -18,7 +18,7 @@ END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
@@ -48,7 +48,7 @@ EStop := TRUE;
 
  *)
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 CommandLock.ForceRelease();
 ProcessCommandLock.ForceRelease();
 
@@ -59,7 +59,7 @@ END_METHOD
 // Force releasing the lock
 METHOD LockForceRelease
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 ProcessCommandLock.ForceRelease();
 
 END_METHOD
@@ -70,7 +70,7 @@ VAR_INPUT
 	locker		: STRING(80);		// The module that is releasing the lock
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 LockRelease		:= ProcessCommandLock.Release(locker);
 
 END_METHOD
@@ -81,7 +81,7 @@ VAR_INPUT
 	locker		: STRING(80);		// The module that is requesting the lock
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 LockRequest		:= ProcessCommandLock.Request(locker);
 
 END_METHOD
@@ -89,7 +89,7 @@ END_METHOD
 // Command to stop a module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 CommandLock.ForceRelease();
 ProcessCommandLock.ForceRelease();
 

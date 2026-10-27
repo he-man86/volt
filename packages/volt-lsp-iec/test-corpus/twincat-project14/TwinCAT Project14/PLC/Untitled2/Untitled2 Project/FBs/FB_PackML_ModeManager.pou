@@ -28,7 +28,7 @@ END_VAR
 VAR
     xAbortPending   : BOOL;
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF xAbort THEN
     xAbortPending := TRUE;
 END_IF

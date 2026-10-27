@@ -31,7 +31,7 @@ public class PushedTextTests
     public void A_graphical_body_is_compared_by_its_tokens(string statement, bool same)
     {
         static string Prg(string s) =>
-            "PROGRAM P\nVAR\n  a, b, out : BOOL;\nEND_VAR\nIMPLEMENTATION FBD\nNETWORK\n" + s + "\nEND_NETWORK\nEND_PROGRAM\n";
+            "PROGRAM P\nVAR\n  a, b, out : BOOL;\nEND_VAR\n%LANGUAGE FBD\nNETWORK\n" + s + "\nEND_NETWORK\nEND_PROGRAM\n";
         Assert.Equal(same, PushedText.SameExceptLayout("P.pou", Prg("  out := a AND b;"), Prg(statement)));
     }
 
@@ -46,7 +46,7 @@ public class PushedTextTests
     public void An_elementary_typed_variable_named_like_a_construct_is_no_instance(string x, string y, bool same)
     {
         static string Prg(string s) =>
-            "PROGRAM P\nVAR\n  R_EDGE : BOOL;\n  a, b, out : BOOL;\nEND_VAR\nIMPLEMENTATION FBD\nNETWORK\n" + s +
+            "PROGRAM P\nVAR\n  R_EDGE : BOOL;\n  a, b, out : BOOL;\nEND_VAR\n%LANGUAGE FBD\nNETWORK\n" + s +
             "\nEND_NETWORK\nEND_PROGRAM\n";
         Assert.Equal(same, PushedText.SameExceptLayout("P.pou", Prg(x), Prg(y)));
     }
@@ -57,7 +57,7 @@ public class PushedTextTests
     [Fact]
     public void An_item_is_read_at_its_wire_kind()
     {
-        const string prg = "PROGRAM P\nVAR\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\nEND_PROGRAM\n";
+        const string prg = "PROGRAM P\nVAR\nEND_VAR\n%LANGUAGE ST\nx := 1;\nEND_PROGRAM\n";
         Assert.True(PushedText.SameExceptLayout("P.pou", prg, prg));
         Assert.False(PushedText.SameExceptLayout("P.pou", prg, prg.Replace("x := 1;", "x := 2;")));
     }
@@ -90,7 +90,7 @@ public class PushedTextTests
     [Fact]
     public void The_outer_END_keyword_is_a_token_not_layout()
     {
-        const string pushed = "PROGRAM X\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := 6;\nEND_PROGRAM\n";
+        const string pushed = "PROGRAM X\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE ST\nn := 6;\nEND_PROGRAM\n";
         Assert.False(PushedText.SameExceptLayout("X.pou", pushed, pushed.Replace("END_PROGRAM", "END_FUNCTION_BLOCK")));
         Assert.True(PushedText.SameExceptLayout("X.pou", pushed, pushed.Replace("END_PROGRAM", "end_program")));
     }
@@ -112,7 +112,7 @@ public class PushedTextTests
     public void A_positional_function_call_held_with_its_derived_names_is_the_same_item(string pushed, string held, bool same)
     {
         static string Prg(string s) =>
-            "PROGRAM P\nVAR\n  n, m, r : INT;\nEND_VAR\nIMPLEMENTATION FBD\nNETWORK\n  " + s + "\nEND_NETWORK\nEND_PROGRAM\n";
+            "PROGRAM P\nVAR\n  n, m, r : INT;\nEND_VAR\n%LANGUAGE FBD\nNETWORK\n  " + s + "\nEND_NETWORK\nEND_PROGRAM\n";
         Assert.Equal(same, PushedText.SameExceptLayout("P.pou", Prg(pushed), Prg(held)));
     }
 }

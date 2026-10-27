@@ -20,7 +20,7 @@ VAR
 	GateStatus					: enumGateStates;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Tr_AcknowledgementRequest(CLK := xAcknowledgement);
 T_SafetyGateRelay.Set(xSafetyGateRelay, 0.5);
 

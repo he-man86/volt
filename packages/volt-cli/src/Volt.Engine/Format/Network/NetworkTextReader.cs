@@ -19,7 +19,7 @@ namespace Volt.Engine.Format.Network;
 /// </summary>
 public static class NetworkTextReader
 {
-    /// <summary>Read <paramref name="text"/>, a whole graphical body starting with its <c>IMPLEMENTATION LD|FBD</c> line.</summary>
+    /// <summary>Read <paramref name="text"/>, a whole graphical body starting with its <c>%LANGUAGE LD|FBD</c> line.</summary>
     public static NetworkReadResult Read(string text, NetworkScope scope) => ReadTokens(text, scope).Result;
 
     internal static (NetworkReadResult Result, ReadTrace Trace) ReadTokens(string text, NetworkScope scope)
@@ -131,13 +131,10 @@ public static class NetworkTextReader
             var marked = NetworkText.LanguageOf(first);
             if (marked is null)
             {
-                string message;
-                if (St.ImplementationMarker.Stated(first) is { } stated)
-                    message = $"the body states '{first.Trim()}' — a network-text body opens with IMPLEMENTATION FBD or " +
-                              "IMPLEMENTATION LD" + (stated.Length == 0 ? "; this line states no language." : ".");
-                else
-                    message = "a graphical body opens with the line stating its language, IMPLEMENTATION FBD or " +
-                              "IMPLEMENTATION LD, on its first line.";
+                var message = St.PropertyLines.IsLanguageLine(first)
+                    ? $"the body states '{first.Trim()}' — a network-text body opens with %LANGUAGE FBD or %LANGUAGE LD."
+                    : "a graphical body opens with the line stating its language, %LANGUAGE FBD or %LANGUAGE LD, on its " +
+                      "first line.";
                 Diagnostics.Add(Diag(ConflictCodes.NetworkParse, message, start, Math.Max(1, first.Length)));
                 return null;
             }

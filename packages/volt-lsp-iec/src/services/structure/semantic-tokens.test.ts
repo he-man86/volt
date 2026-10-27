@@ -30,7 +30,7 @@ const GRAPHICAL = `FUNCTION_BLOCK FB
 VAR
 \ta : BOOL; out : BOOL; g2 : BOOL; st : INT;
 END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK DISABLED TITLE: "A title"
   split1 := R_EDGE a;
   out S= split1 BRANCH (g2, a);
@@ -112,7 +112,7 @@ VAR
 \tExecute : Inner;
 END_VAR
 
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   Execute(x := TRUE);
 END_NETWORK
@@ -216,7 +216,7 @@ END_FUNCTION_BLOCK`
 VAR
 	a : BOOL; b : BOOL; out : BOOL;
 END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
 out := (a AND b);
 END_NETWORK
@@ -249,7 +249,7 @@ END_FUNCTION_BLOCK`
 
 describe("the implementation keyword", () => {
   /**
-   * The implementation keyword in the structure services (openspec `implementation-keyword`): `IMPLEMENTATION` and the
+   * The implementation keyword in the structure services (openspec `language-line`): `%LANGUAGE` and the
    * language it states colour as keywords, and a body stated `LD`/`FBD` folds per NETWORK like any graphical body.
    */
   /** `line:text → semantic type` for every token on `lines`. */
@@ -275,7 +275,7 @@ describe("the implementation keyword", () => {
 VAR
 \tx : INT;
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 x := 1;
 END_FUNCTION_BLOCK
 `
@@ -284,7 +284,7 @@ END_FUNCTION_BLOCK
 VAR
 \ta : BOOL; b : BOOL; out : BOOL;
 END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
 out := (a AND b);
 END_NETWORK
@@ -293,23 +293,24 @@ out := (a OR b);
 END_NETWORK
 END_FUNCTION_BLOCK`
 
-  test("semantic tokens: IMPLEMENTATION and its stated language colour as keywords", () => {
-    expect(typesOn(ST_FB, [4])).toEqual({ "4:IMPLEMENTATION": "keyword", "4:ST": "keyword" })
-    expect(typesOn(LD_FB, [4])).toEqual({ "4:IMPLEMENTATION": "keyword", "4:LD": "keyword" })
-    expect(typesOn(LD_FB.replace("IMPLEMENTATION LD", "IMPLEMENTATION FBD"), [4])).toEqual({
-      "4:IMPLEMENTATION": "keyword",
+  test("semantic tokens: %LANGUAGE and its stated language colour as keywords", () => {
+    expect(typesOn(ST_FB, [4])).toEqual({ "4:%": "keyword", "4:LANGUAGE": "keyword", "4:ST": "keyword" })
+    expect(typesOn(LD_FB, [4])).toEqual({ "4:%": "keyword", "4:LANGUAGE": "keyword", "4:LD": "keyword" })
+    expect(typesOn(LD_FB.replace("%LANGUAGE LD", "%LANGUAGE FBD"), [4])).toEqual({
+      "4:%": "keyword",
+      "4:LANGUAGE": "keyword",
       "4:FBD": "keyword",
     })
   })
 
-  test("semantic tokens: the body after IMPLEMENTATION ST still colours as ST", () => {
+  test("semantic tokens: the body after %LANGUAGE ST still colours as ST", () => {
     expect(typesOn(ST_FB, [5])["5:x"]).toBe("variable")
   })
 
   test("semantic tokens: an UNSUPPORTED line colours every word it states, and a look-alike in a comment none", () => {
-    const ro = ST_FB.replace("IMPLEMENTATION ST\nx := 1;", "IMPLEMENTATION LD UNSUPPORTED\n")
-    expect(typesOn(ro, [4])).toEqual({ "4:IMPLEMENTATION": "keyword", "4:LD": "keyword", "4:UNSUPPORTED": "keyword" })
-    const commented = ST_FB.replace("END_VAR\n", "END_VAR\n// IMPLEMENTATION LD\n")
-    expect(typesOn(commented, [4])).toEqual({ "4:// IMPLEMENTATION LD": "comment" })
+    const ro = ST_FB.replace("%LANGUAGE ST\nx := 1;", "%LANGUAGE LD UNSUPPORTED\n")
+    expect(typesOn(ro, [4])).toEqual({ "4:%": "keyword", "4:LANGUAGE": "keyword", "4:LD": "keyword", "4:UNSUPPORTED": "keyword" })
+    const commented = ST_FB.replace("END_VAR\n", "END_VAR\n// %LANGUAGE LD\n")
+    expect(typesOn(commented, [4])).toEqual({ "4:// %LANGUAGE LD": "comment" })
   })
 })

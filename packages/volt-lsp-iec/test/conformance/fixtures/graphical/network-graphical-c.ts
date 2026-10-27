@@ -18,7 +18,7 @@ const naryDoc = "network-text.html#operator-group--operand-op-operand-op-operand
 function threeFb(name: string, statement: string): string {
   return (
     `FUNCTION_BLOCK ${name}\nVAR\n\tj : INT := 7;\n\tk : INT := 3;\n\tm : INT := 2;\n\ti : INT;\n\tout : BOOL;\nEND_VAR\n\n` +
-    `IMPLEMENTATION FBD\nNETWORK\n  ${statement}\nEND_NETWORK\n\nEND_FUNCTION_BLOCK\n`
+    `%LANGUAGE FBD\nNETWORK\n  ${statement}\nEND_NETWORK\n\nEND_FUNCTION_BLOCK\n`
   )
 }
 

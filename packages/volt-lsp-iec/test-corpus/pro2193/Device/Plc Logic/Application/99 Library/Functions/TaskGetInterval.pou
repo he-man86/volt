@@ -10,7 +10,7 @@ VAR
 	pIecTaskInfo	: POINTER TO CmpIecTask.Task_Info2;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 handle				:= CmpIecTask.IecTaskGetCurrent(ADR(iecResult));			// Function to get own task handle
 
 IF handle = SysTypes.RTS_INVALID_HANDLE THEN RETURN; END_IF

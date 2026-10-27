@@ -22,7 +22,7 @@ const project = (d: ReturnType<typeof doc>): Scope => build.buildSymbolTable([d]
 function splitTypes(statements: string): Record<string, string | undefined> {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; b : BOOL; i : INT; j : INT; END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
 ${statements}
 END_NETWORK
@@ -58,7 +58,7 @@ test("network text: an element of an array of FBs heads its FB's call", () => {
   const read = (decl: string, head = "fbs[1]", type = "FB_C"): string[] => {
     const src = `FUNCTION_BLOCK F
 VAR ${decl} go : BOOL; n : WORD; END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   \`${head}\` : ${type}(CU := go, PV := 10, CV => n);
 END_NETWORK

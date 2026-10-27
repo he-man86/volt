@@ -11,7 +11,7 @@ VAR CONSTANT
 	emptyStack				: StackStatusType	:= (Present := FALSE, Initialized := TRUE);
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 END_PROGRAM
 
@@ -21,7 +21,7 @@ VAR_IN_OUT
 	aProducts			: ARRAY[*] OF ProductType;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 lower	:= LOWER_BOUND(aProducts, 1);
 upper	:= UPPER_BOUND(aProducts, 1);
 
@@ -37,7 +37,7 @@ VAR_IN_OUT
 	aProducts			: ARRAY[*,*] OF ProductType;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 lower	:= LOWER_BOUND(aProducts, 1);
 upper	:= UPPER_BOUND(aProducts, 1);
 
@@ -58,7 +58,7 @@ VAR
 	k					: DINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 FOR k := 1 TO GVL_Constants.MaxMouldLevels DO
 	Array2D(aProducts[k]);
 END_FOR
@@ -71,7 +71,7 @@ VAR_IN_OUT
 	Product				: ProductType;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Product	:= emptyProduct;
 
 END_METHOD
@@ -82,7 +82,7 @@ VAR_INPUT
 	clearStack			: REFERENCE TO StackStatusType;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF __ISVALIDREF(clearStack) THEN
 	clearStack	:= emptyStack;
 END_IF
@@ -95,7 +95,7 @@ VAR_IN_OUT
 	aStacks			: ARRAY[*] OF StackStatusType;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 lower	:= LOWER_BOUND(aStacks, 1);
 upper	:= UPPER_BOUND(aStacks, 1);
 
@@ -111,7 +111,7 @@ VAR_IN_OUT
 	aStacks			: ARRAY[*,*] OF StackStatusType;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 lower	:= LOWER_BOUND(aStacks, 1);
 upper	:= UPPER_BOUND(aStacks, 1);
 

@@ -6,9 +6,9 @@ namespace Volt.Engine.Format.Network;
 /// build does not set it, and development (<c>ide.ps1</c>, the test suites, the e2e and recording scripts) does.
 ///
 /// <para><b>Why a switch.</b> Network text is not ready to ship, and ST is. Off, every LD and FBD body is what a body
-/// the text cannot spell already is — <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c>, with <see cref="DisabledReason"/> in the
+/// the text cannot spell already is — <c>%LANGUAGE LD|FBD UNSUPPORTED</c>, with <see cref="DisabledReason"/> in the
 /// pull message (<see cref="NetworkText.Pulled"/>) — so the item's declaration stays editable, pull and push are never
-/// blocked, and the IDE's ladder is never written (<c>ImplementationMarker.Written</c>). Network text pushed at such a
+/// blocked, and the IDE's ladder is never written (<c>PropertyLines.Written</c>). Network text pushed at such a
 /// bridge is refused by name (<see cref="NetworkText.Validate"/>). Nothing new had to be built for "off": it is the
 /// hidden-body path section 3b already holds to "nothing in the IDE is overwritten".</para>
 ///
@@ -23,7 +23,7 @@ namespace Volt.Engine.Format.Network;
 /// the variable in its OWN process would not turn on.</para>
 ///
 /// <para><b>Off never blocks a push.</b> A workspace pulled while this was off states its ladders
-/// <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c>; pushed at a bridge with it on, that line over the same ladder is the same
+/// <c>%LANGUAGE LD|FBD UNSUPPORTED</c>; pushed at a bridge with it on, that line over the same ladder is the same
 /// body hidden, never written (<c>BodyFormatGuard</c>), so the ST and declaration edits beside it land.</para>
 /// </summary>
 public static class NetworkTextSwitch

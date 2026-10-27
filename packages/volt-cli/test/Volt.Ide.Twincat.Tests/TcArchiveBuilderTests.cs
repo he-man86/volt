@@ -195,7 +195,7 @@ public sealed class TcArchiveBuilderTests(Xunit.Abstractions.ITestOutputHelper o
         var built = TcArchiveBuilder.Body(model, TcNativeCorpusTests.Scope);
         var scope = TcNativeCorpusTests.Scope;
         // The shapes are written as a pull writes them, so the live suite (native-writer.test.ts) can compare by text.
-        Assert.Equal($"IMPLEMENTATION {language}\n" + body, NetworkTextWriter.Write(model, scope));
+        Assert.Equal($"%LANGUAGE {language}\n" + body, NetworkTextWriter.Write(model, scope));
         Assert.Equal(NetworkTextWriter.Write(model, scope), NetworkTextWriter.Write(ReadBack(built), scope));
         // And the text TwinCAT will hold is the vendor's layout, by the identity gate's own writer.
         Assert.Equal(built, TcArchiveWriter.WriteBody(Graph(built)));

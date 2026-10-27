@@ -7,7 +7,7 @@ VAR_INPUT
 	{attribute 'symbol' := 'read'}	input2					: BOOL;				// Second vacuum sensor
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^();
 
 
@@ -17,7 +17,7 @@ METHOD PROTECTED Alarms
 
 // This method wil override the original method in the base FB
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 NoVacuumAlarm(
 	moduleHandler	:= moduleHandler,
 	textRefId		:= textRefId,
@@ -41,7 +41,7 @@ METHOD PROTECTED SetVacuumHighTimer
 VAR_INPUT
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 VacuumHighTimer.Set(
 			In := input1 AND input2,
 			Pt := SEL(__ISVALIDREF(refVacuumHighTime), 0, refVacuumHighTime));

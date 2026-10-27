@@ -54,7 +54,7 @@ public class InitCommandTests
         finally { host.Dispose(); TestUtil.ForceDelete(parent); }
     }
 
-    /// <summary>The seed is a pull like any other: every body it brings in as <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c> is
+    /// <summary>The seed is a pull like any other: every body it brings in as <c>%LANGUAGE LD|FBD UNSUPPORTED</c> is
     /// named, with its reason, in what init reports.</summary>
     [Fact]
     public void Init_names_every_UNSUPPORTED_body_and_its_reason()

@@ -6,7 +6,7 @@ VAR_INPUT
 	rValue		: REAL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 PositionReachedValue	:= ABS(rActPos - rSetPos) <= rValue;
 
 

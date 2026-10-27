@@ -3,7 +3,7 @@
  * the formatter. Declarations (units · VAR sections · DUT bodies) and statement trees are re-emitted
  * with tab indentation; expressions/types reuse the layer-C renderers (`exprText`/`renderTypeExpr`),
  * the one home for that. A body that is not ST, or doesn't parse cleanly, is preserved VERBATIM from its
- * tokens — trivially round-trip-safe — under its `IMPLEMENTATION` line (and a member's `%FOLDER`), printed from the AST.
+ * tokens — trivially round-trip-safe — under its `%LANGUAGE` line (and a member's `%FOLDER`), printed from the AST.
  *
  * The requests (document, range, on-type) are `format.ts`. Contract (closes A.3): `parse(format(src)) ≡ parse(src)` —
  * formatting never changes the AST. Comments
@@ -140,19 +140,21 @@ function initText(init: VarDecl["init"]): string {
 // ─── bodies ──────────────────────────────────────────────────────────────────
 
 /**
- * A body: its `IMPLEMENTATION` line and the `%`-lines under it, then its code. The line and the folder are NOT in
- * `body.tokens` (`splitImplementation` takes them out — they are no code), so they are printed from where the parser
+ * A body: its `%LANGUAGE` line and the `%`-lines under it, then its code — or, for a member with no body slot, its code
+ * (trivia) and the `%`-lines closing its declaration. The line and the folder are NOT in `body.tokens`
+ * (`format/language-line` takes them out — they are no code), so they are printed from where the parser
  * keeps them. Rebuilt from the tokens alone, formatting deleted both from every file: an LD body lost the line that
  * states its language and read as ST, and a member lost its folder, which the next push took for "none".
  *
  * Only a body the ST parser reads is re-printed as ST; any other (network text, a hidden body) is kept verbatim.
  */
 function printBody(body: BodySpan): string {
-  return implementationHead(body) + printCode(body)
+  if (body.noSlot !== undefined) return verbatim(body) + propertyLines(body.noSlot)
+  return languageHead(body) + printCode(body)
 }
 
-function implementationHead(body: BodySpan): string {
-  const line = body.implementation
+function languageHead(body: BodySpan): string {
+  const line = body.languageLine
   if (line === undefined) return ""
   const leading = line.leading === undefined ? "" : `${verbatimText(line.leading)}\n`
   return `${leading}${statedLine(line)}\n${propertyLines(line)}`
@@ -190,7 +192,7 @@ function verbatim(body: BodySpan): string {
 }
 
 /** Source text kept as written, in the printer's line ending. A body's tokens open with the newline that ends its
- *  `IMPLEMENTATION` line (or a member's `%FOLDER`); left as `\r\n` in a CRLF file, it survived the strip of leading
+ *  `%LANGUAGE` line (or a member's `%FOLDER`); left as `\r\n` in a CRLF file, it survived the strip of leading
  *  newlines and stood under the `\n` the head prints — a blank line the push writes into the IDE body, in a file of
  *  mixed line endings. */
 export function verbatimText(text: string): string {

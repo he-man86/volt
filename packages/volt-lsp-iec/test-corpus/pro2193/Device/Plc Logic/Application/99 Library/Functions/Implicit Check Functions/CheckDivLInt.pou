@@ -4,7 +4,7 @@ VAR_INPUT
 	divisor		: LINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %CLASS CHECK CheckDivInt64
 IF divisor <> 0 THEN
 	CheckDivLInt := divisor;

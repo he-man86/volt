@@ -2,4 +2,4 @@ LIBRARY Alarm Manager Internal Interfaces, * (Intern)
 NAMESPACE AlarmManagerInternal_Interfaces
 RESOLUTION Alarm Manager Internal Interfaces, * (Intern)
 PLACEHOLDER false
-MATERIALIZATION 4
+MATERIALIZATION 5

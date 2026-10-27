@@ -87,9 +87,9 @@ describe(`graphical / hidden members beside written ones keep their bodies (${BA
 	})
 
 	it("pulls the CFC method and the SFC action as UNSUPPORTED lines, the ST members as ST", () => {
-		expect(pulled).toMatch(/\nMETHOD CfcStep : BOOL\n[\s\S]*?\nIMPLEMENTATION CFC UNSUPPORTED\nEND_METHOD\n/)
-		expect(pulled).toMatch(/\nACTION SfcRun\nIMPLEMENTATION SFC UNSUPPORTED\nEND_ACTION\n/)
-		expect(pulled).toMatch(/\nMETHOD Visible : BOOL\n[\s\S]*?\nIMPLEMENTATION ST\nVisible := bIn;\nEND_METHOD\n/)
+		expect(pulled).toMatch(/\nMETHOD CfcStep : BOOL\n[\s\S]*?\n%LANGUAGE CFC UNSUPPORTED\nEND_METHOD\n/)
+		expect(pulled).toMatch(/\nACTION SfcRun\n%LANGUAGE SFC UNSUPPORTED\nEND_ACTION\n/)
+		expect(pulled).toMatch(/\nMETHOD Visible : BOOL\n[\s\S]*?\n%LANGUAGE ST\nVisible := bIn;\nEND_METHOD\n/)
 		expect(pulled).not.toContain("XmlArchive")
 	})
 
@@ -116,7 +116,7 @@ describe(`graphical / hidden members beside written ones keep their bodies (${BA
 
 	it("an LD member added and edited beside the hidden members (TwinCAT: a whole-POU re-import) moves no hidden body", async () => {
 		const ld = (coil: string) =>
-			`\nMETHOD VltE2E_Ld : BOOL\nVAR_INPUT\n\tp : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  ${coil} := p AND bGo;\nEND_NETWORK\nEND_METHOD\n`
+			`\nMETHOD VltE2E_Ld : BOOL\nVAR_INPUT\n\tp : BOOL;\nEND_VAR\n%LANGUAGE LD\nNETWORK\n  ${coil} := p AND bGo;\nEND_NETWORK\nEND_METHOD\n`
 		const added = pulled + ld("VltE2E_Ld")
 		const bodies = (await heldImplementations(name, project)).length
 		await push(added)
@@ -125,7 +125,7 @@ describe(`graphical / hidden members beside written ones keep their bodies (${BA
 		expect((await heldImplementations(name, project)).length).toBe(bodies + 1)
 		const got = (await fetchItem(name)).sourceText as string
 		expect(got).toContain("METHOD VltE2E_Ld : BOOL")
-		expect(got).toContain("IMPLEMENTATION LD\nNETWORK")
+		expect(got).toContain("%LANGUAGE LD\nNETWORK")
 		expect(await hidden()).toEqual(before)
 
 		// The graphical member EDIT is `SetMemberBodies` on TwinCAT — the path that re-imports the whole document.
@@ -135,7 +135,7 @@ describe(`graphical / hidden members beside written ones keep their bodies (${BA
 	})
 
 	it("a hidden member moved into a folder and back (TwinCAT: MoveMember) keeps its body", async () => {
-		const into = pulled.replace("IMPLEMENTATION CFC UNSUPPORTED\n", "IMPLEMENTATION CFC UNSUPPORTED\n%FOLDER VltE2E_HiddenMove\n")
+		const into = pulled.replace("%LANGUAGE CFC UNSUPPORTED\n", "%LANGUAGE CFC UNSUPPORTED\n%FOLDER VltE2E_HiddenMove\n")
 		expect(into).not.toBe(pulled)
 		await push(into)
 		expect((await fetchItem(name)).sourceText).toBe(into)

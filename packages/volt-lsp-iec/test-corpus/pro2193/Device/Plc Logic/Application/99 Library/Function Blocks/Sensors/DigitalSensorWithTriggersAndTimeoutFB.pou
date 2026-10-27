@@ -13,7 +13,7 @@ VAR
 	SignalTimeout		: SignalTimeoutFB;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^();
 
 SignalTimeout(
@@ -33,7 +33,7 @@ PUBLIC
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IsActive := SignalTimeout.GetValue(TRUE);
 
 END_GET
@@ -48,7 +48,7 @@ PUBLIC
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IsInactive := SignalTimeout.GetValue(FALSE);
 
 END_GET

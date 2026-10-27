@@ -84,7 +84,7 @@ public class ProjectSettingsReadOnlyPushTests
                 new SetItemOp
                 {
                     Name = "PLC_PRG.pou", IfVersion = refs.Items["PLC_PRG.pou"],
-                    SourceText = "PROGRAM PLC_PRG\nVAR\nEND_VAR\nIMPLEMENTATION ST\nx := 2;\nEND_PROGRAM\n",
+                    SourceText = "PROGRAM PLC_PRG\nVAR\nEND_VAR\n%LANGUAGE ST\nx := 2;\nEND_PROGRAM\n",
                 },
                 new DeleteItemOp { Name = wireName, IfVersion = refs.Items[wireName] },
             },

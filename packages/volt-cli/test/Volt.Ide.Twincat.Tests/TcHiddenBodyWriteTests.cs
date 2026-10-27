@@ -14,7 +14,7 @@ namespace Volt.Ide.Twincat.Tests;
 /// THE TWINCAT WRITER NEVER WRITES A BODY VOLT DOES NOT SHOW (openspec <c>implementation-keyword</c> 3b).
 ///
 /// <para>A CFC, SFC or IL body, and an LD/FBD body network text cannot represent, is its
-/// <c>IMPLEMENTATION &lt;LANG&gt; UNSUPPORTED</c> line in the workspace. Its DECLARATION is editable and is pushed; its
+/// <c>%LANGUAGE &lt;LANG&gt; UNSUPPORTED</c> line in the workspace. Its DECLARATION is editable and is pushed; its
 /// body must not be: the line has no text form, and <c>ImplementationText</c> would store the words of the line over
 /// the engineer's chart. This drives <see cref="BeckhoffDriver.WriteContent"/> itself — the POU, a method and a property
 /// accessor, each hidden — against nodes that COUNT every implementation write, and asserts the declarations land and
@@ -87,7 +87,7 @@ public class TcHiddenBodyWriteTests
     [InlineData("FBD")]
     public void A_pushed_declaration_lands_and_no_hidden_body_is_written(string language)
     {
-        var line = $"IMPLEMENTATION {language} UNSUPPORTED";
+        var line = $"%LANGUAGE {language} UNSUPPORTED";
         var getter = new Node("Get", ItemKind.PlcPropGet, "VAR\nEND_VAR", GetterArchive);
         var property = new Node("Ready", ItemKind.PlcProp, "PROPERTY Ready : BOOL", "", getter);
         var method = new Node("Step", ItemKind.PlcMethod, "METHOD Step : BOOL", LadderArchive);

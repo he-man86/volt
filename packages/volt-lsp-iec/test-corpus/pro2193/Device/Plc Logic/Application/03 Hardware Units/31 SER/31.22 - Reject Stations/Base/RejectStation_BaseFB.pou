@@ -24,7 +24,7 @@ VAR
 	stopConveyorAfterTimer		: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^();
 
 
@@ -37,7 +37,7 @@ VAR_INPUT
 	product			: ProductType;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 productNo						:= LIMIT(1, productNo,		TO_INT(GVL_Constants.ChainProductsForReject));
 LastProductInShute[productNo]	:= product;
@@ -46,7 +46,7 @@ END_METHOD
 
 METHOD PROTECTED Cyclic
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Conveyor(
 	moduleHandler			:= ModuleHandler,
 	manualControlEnabled	:= SER.ManualControlEnabled,
@@ -73,7 +73,7 @@ END_METHOD
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 Conveyor.Reset();
 stopConveyorAfterTimer := FALSE;
@@ -88,14 +88,13 @@ VAR_INPUT
 	vacuumIndex		: WORD;	// 0: All vacuums, bit 1: Vacuum 1, bit 2: Vacuum 2, etc.
 END_VAR
 
-IMPLEMENTATION NONE
 %FOLDER Commands
 END_METHOD
 
 // Start command for the conveyor to move the stacks
 METHOD PUBLIC MoveStep : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -117,7 +116,7 @@ VAR_INST
 	localState					: SINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -139,7 +138,7 @@ END_METHOD
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 Conveyor.Reset();
 stopConveyorAfterTimer := FALSE;
@@ -154,7 +153,7 @@ VAR_INPUT
 	iParameter : INT := 0;	// Number indicates which transfer is completed
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 Conveyor.Set();
 
@@ -176,7 +175,7 @@ PROTECTED
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 ExternalManualControlEnabled := manualControlEnabled;
 
 END_GET
@@ -184,7 +183,7 @@ SET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 manualControlEnabled := ExternalManualControlEnabled;
 
 END_SET

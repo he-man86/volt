@@ -66,7 +66,7 @@ after the source file beside it but the topic suites it lists with their reason)
 
 Plus `lsp/` — THE SERVER AS A CLIENT SEES IT (openspec lsp-server-tests-layout): the suites that drive the whole server
 over its protocol and are no unit test of one file — `capability-matrix`, `diagnostic-identity`, `navigation-golden`,
-`network-text-switch`, `implementation-keyword-diagnostics`, the scheduling suites (openspec lsp-server-scheduling:
+`network-text-switch`, `language-line-diagnostics`, the scheduling suites (openspec lsp-server-scheduling:
 `diagnostics-pull` — an idle pull answers `unchanged`; `disk-sync` — a file event costs one file; `server-robustness` —
 cancellation, progress, a throwing parse, the lifecycle; they count work with `probes.ts`, delegating mocks of the parse,
 the findings compute and the file read), `input-nobody-types` (openspec lsp-size-fuzz: generated deep, chained and long

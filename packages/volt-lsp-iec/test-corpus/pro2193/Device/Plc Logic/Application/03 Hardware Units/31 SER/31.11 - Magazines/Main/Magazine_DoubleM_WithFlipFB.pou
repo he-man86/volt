@@ -9,7 +9,7 @@ VAR_INPUT
 	{attribute 'symbol' := 'readwrite'}	FlipLabel		: Cylinder_53ValveFB;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %ONLINE_CHANGE_RESERVE 200
 SUPER^(Data	:= Data);
 
@@ -20,7 +20,7 @@ METHOD PROTECTED Cyclic
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^.Cyclic();
 
 FlipLabel(
@@ -43,7 +43,7 @@ END_METHOD
 // Command to reset the module (ActStatemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 FlipLabel.Reset();
 EStop	:= SUPER^.EStop();
@@ -53,7 +53,7 @@ END_METHOD
 // Gate open button is pushed. Safety gate is requesting to open (trigger signal)
 METHOD PUBLIC GateOpenRequested
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Gate Requests
 FlipLabel.GoIn();
 SUPER^.GateOpenRequested();
@@ -67,7 +67,7 @@ VAR_INPUT
 	drawer	: enumDrawer;	// Choose which drawer (or other label stockpile) to get labels from
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Magazine Supply
 IF FlipLabel.GoIn() THEN
 	GetNewLabels	:= SUPER^.GetNewLabels(drawer);
@@ -80,7 +80,7 @@ END_METHOD
 // Move to a Waiting position.
 METHOD PUBLIC MoveToSafeDistanceAboveDrawer : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Magazine
 MoveToSafeDistanceAboveDrawer	:= FlipLabel.GoIn() AND_THEN SUPER^.MoveToSafeDistanceAboveDrawer();
 
@@ -92,7 +92,7 @@ VAR_INPUT
 	takeOverPos	: USINT;	// 0: Invalid, 1: Takeover Pos 1, etc.
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Magazine
 // TEST! In case of lower drawer, the Flip can be set sooner.
 IF  _activeDrawer = enumDrawer.Lower
@@ -122,7 +122,7 @@ END_METHOD
 // Move to waiting position.
 METHOD PUBLIC MoveToWaitingPos : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Magazine
 // TEST! In case of lower drawer, the Flip can be set sooner.
 IF  _activeDrawer = enumDrawer.Lower
@@ -152,7 +152,7 @@ END_METHOD
 // Command to reset the module. Servodrives are homed.
 METHOD PUBLIC Reset : BOOL	// Returns true when homing done
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 Reset	:= FlipLabel.GoIn() AND_THEN SUPER^.Reset();
 
@@ -161,7 +161,7 @@ END_METHOD
 // Command to reset the module (ActStatemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 FlipLabel.GoIn();
 Stop	:= SUPER^.Stop();
@@ -174,7 +174,7 @@ VAR_INPUT
 	iParameter : INT := 0;	// Number indicates which transfer is completed
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Magazine Transfer
 TransferComplete	:= FlipLabel.GoIn() AND_THEN SUPER^.TransferComplete();
 

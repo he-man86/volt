@@ -15,7 +15,7 @@ VAR
 	CylinderStuckAlarm		: SetErrorFB;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^();
 
 CASE eState OF
@@ -48,7 +48,7 @@ END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SensorMissingAlarm(
 	moduleHandler	:= moduleHandler,
 	textRefId		:= textRefId,
@@ -75,7 +75,7 @@ METHOD PUBLIC GetCylinderStuckTime : REAL
 VAR_INPUT
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 GetCylinderStuckTime := CylinderStuckAlarm.elapsedTime;
 
 END_METHOD
@@ -84,7 +84,7 @@ METHOD PUBLIC GetSensorMissingTime : REAL
 VAR_INPUT
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 GetSensorMissingTime := SensorMissingAlarm.elapsedTime;
 
 END_METHOD
@@ -95,7 +95,7 @@ VAR_INPUT
 	plusButtonPushed		: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF plusButtonPushed THEN
 	Set();
 END_IF
@@ -109,7 +109,7 @@ END_METHOD
 // Maps the actuator to the physical output
 METHOD Map : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Map := Output.Map();
 
 END_METHOD
@@ -117,14 +117,14 @@ END_METHOD
 // Reset the output (=False)
 METHOD Reset
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 eState := enumVacuumCylinderState.Off;
 END_METHOD
 
 // Set the output (=True)
 METHOD Set : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF eState = enumVacuumCylinderState.Off THEN
 	eState := enumVacuumCylinderState.SwitchOn;
 END_IF
@@ -137,7 +137,7 @@ VAR_INPUT
 	xSetOrReset	: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF xSetOrReset THEN
 	Set();
 ELSE
@@ -153,7 +153,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 HasProduct := eState = enumVacuumCylinderState.InWithProduct;
 END_GET
 END_PROPERTY
@@ -165,7 +165,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IsBack := xInputBack;
 END_GET
 END_PROPERTY

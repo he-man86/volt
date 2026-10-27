@@ -15,7 +15,7 @@ VAR
 	ResetProgramAlarms			: L_IE1P_ResetErrorGlobal;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 //UNITS - Start/Stop
 {region}
 	//State control
@@ -121,7 +121,7 @@ IMPLEMENTATION ST
 END_FUNCTION_BLOCK
 
 ACTION _Safety
-IMPLEMENTATION ST
+%LANGUAGE ST
 //
 // Safety communication.
 //

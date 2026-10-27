@@ -27,7 +27,7 @@ VAR CONSTANT
 	udiOffset					: UDINT := 20;			// Time in ms. Add this constant offset to the waiting time.
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Calculation duration between drive move start towards waiting position, and start of deceleration
 udiMoveDuration						:= MeasureMove.Monitor(in := xDriveMoving) / 1000;
 

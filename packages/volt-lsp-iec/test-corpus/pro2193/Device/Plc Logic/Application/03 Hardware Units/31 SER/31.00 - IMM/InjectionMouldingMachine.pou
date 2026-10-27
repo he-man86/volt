@@ -15,7 +15,7 @@ VAR RETAIN PERSISTENT
 	{attribute 'symbol' := 'readwrite'}	Data						: IMM_Data;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Unit(
 	Data	:= Data);
 

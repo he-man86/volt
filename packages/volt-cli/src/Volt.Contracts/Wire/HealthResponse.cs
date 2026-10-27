@@ -31,10 +31,10 @@ public class HealthResponse
     [JsonPropertyName("projects")]
     public List<ProjectEntry> Projects { get; set; } = new();
 
-    /// <summary>Every body language this bridge SHOWS — writes as <c>IMPLEMENTATION &lt;LANG&gt;</c> and reads back on a
+    /// <summary>Every body language this bridge SHOWS — writes as <c>%LANGUAGE &lt;LANG&gt;</c> and reads back on a
     /// push — in ordinal order: its host's declared shown set as this process's network-text switch leaves it (<c>ST</c>
     /// in the shipped build; <c>FBD</c>, <c>LD</c>, <c>ST</c> with network text switched on). A body of any other language
-    /// is its <c>IMPLEMENTATION &lt;LANG&gt; UNSUPPORTED</c> line: read-only. A client shows a body as editable only if its
+    /// is its <c>%LANGUAGE &lt;LANG&gt; UNSUPPORTED</c> line: read-only. A client shows a body as editable only if its
     /// language is listed.</summary>
     [JsonPropertyName("languages")]
     public List<string> Languages { get; set; } = new();

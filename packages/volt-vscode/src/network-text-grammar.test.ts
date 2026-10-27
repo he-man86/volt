@@ -92,17 +92,18 @@ test("networks are read only under a line stating LD or FBD — never by sniffin
 	// Only the body region stands at the top: ST that names a variable NETWORK (`NETWORK := TRUE;`) opens nothing.
 	expect(grammar.patterns.map((p) => p.name)).toEqual(["meta.body.network.vg"])
 	const opens = (line: string): boolean => re(body.begin!).test(line)
-	expect(opens("IMPLEMENTATION LD")).toBe(true)
-	expect(opens("  implementation fbd  ")).toBe(true)
-	expect(opens("IMPLEMENTATION ST")).toBe(false)
-	expect(opens("IMPLEMENTATION LD UNSUPPORTED")).toBe(false)
-	expect(opens("IMPLEMENTATION CFC UNSUPPORTED")).toBe(false)
-	expect(opens("x := IMPLEMENTATION LD;")).toBe(false)
+	expect(opens("%LANGUAGE LD")).toBe(true)
+	expect(opens("  %LANGUAGE fbd  ")).toBe(true)
+	expect(opens("%LANGUAGE ST")).toBe(false)
+	expect(opens("%LANGUAGE LD UNSUPPORTED")).toBe(false)
+	expect(opens("%LANGUAGE CFC UNSUPPORTED")).toBe(false)
+	expect(opens("x := %LANGUAGE LD;")).toBe(false)
+	expect(opens("IMPLEMENTATION LD")).toBe(false) // the retired line
 	// The line is coloured exactly as the main grammar colours it — the injection wins the line, so it must.
 	const main = JSON.parse(
 		readFileSync(join(import.meta.dir, "..", "languages", "structured-text", "syntax.tmLanguage.json"), "utf8"),
 	) as { repository: Record<string, { captures: Record<string, { name: string }> }> }
-	const line = main.repository["implementation-line"]!.captures
+	const line = main.repository["language-line"]!.captures
 	expect(body.beginCaptures!["1"]!.name).toBe(line["1"]!.name)
 	expect(body.beginCaptures!["2"]!.name).toBe(line["3"]!.name)
 })

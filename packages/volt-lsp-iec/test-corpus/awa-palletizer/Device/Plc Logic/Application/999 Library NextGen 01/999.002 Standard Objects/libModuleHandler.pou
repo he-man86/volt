@@ -23,7 +23,7 @@ VAR
 	ALM_Error : L_IE1P_SetErrorSingle;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 //------------------------------------------------------------------------------------------
 // General object definition.
 //

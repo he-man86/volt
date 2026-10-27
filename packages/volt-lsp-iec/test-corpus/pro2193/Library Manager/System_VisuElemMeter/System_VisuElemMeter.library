@@ -4,4 +4,4 @@ RESOLUTION VisuElemMeter, 4.7.0.0 (System)
 PLACEHOLDER true
 SYSTEM true
 REDIRECT System_VisuElemMeter VisuElemMeter, 4.3.0.0 (System)
-MATERIALIZATION 4
+MATERIALIZATION 5

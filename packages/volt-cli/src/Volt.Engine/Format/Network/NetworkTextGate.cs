@@ -86,7 +86,7 @@ public static class NetworkTextGate
         var eol = text.IndexOf('\n', start);
         if (eol < 0) eol = text.Length;
         var first = text.Substring(start, eol - start).TrimEnd('\r');
-        var keys = new List<(TokKind, string)> { (TokKind.Marker, St.ImplementationMarker.LanguageOf(first) ?? first) };
+        var keys = new List<(TokKind, string)> { (TokKind.Marker, St.PropertyLines.LanguageOf(first) ?? first) };
 
         var walk = new NetworkLexer.Walk(new NetworkLexer(text, eol));
         for (var t = walk.Next(); t.Kind != TokKind.Eof; t = walk.Next())

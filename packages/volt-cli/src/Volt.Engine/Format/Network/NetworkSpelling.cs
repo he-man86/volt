@@ -49,7 +49,7 @@ internal static class NetworkSpelling
     public static bool IsReserved(string t) => TextWords.Contains(t) || SplitShape.IsMatch(t);
 
     /// <summary>The word of a network's one line where the text has no spelling for its trees.</summary>
-    public const string UnsupportedWord = St.ImplementationMarker.UnsupportedWord;
+    public const string UnsupportedWord = St.PropertyLines.UnsupportedWord;
 
     /// <summary>What may follow <see cref="UnsupportedWord"/>: the refusal's shape name, words separated by one space.</summary>
     public static readonly Regex UnsupportedShape = new(@"^[A-Za-z0-9_]+( [A-Za-z0-9_]+)*$", RegexOptions.CultureInvariant);

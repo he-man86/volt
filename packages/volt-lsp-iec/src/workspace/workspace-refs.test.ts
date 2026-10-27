@@ -117,7 +117,7 @@ test("the workspace scan reads a file saved with a BOM as the push sends it — 
   try {
     writeFileSync(
       join(dir, "PLC_PRG.pou"),
-      "﻿PROGRAM PLC_PRG\nVAR\n\tv : DUT_A;\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := v.nPos + g;\nEND_PROGRAM\n",
+      "﻿PROGRAM PLC_PRG\nVAR\n\tv : DUT_A;\n\tn : INT;\nEND_VAR\n%LANGUAGE ST\nn := v.nPos + g;\nEND_PROGRAM\n",
     )
     writeFileSync(join(dir, "DUT_A.dut"), "﻿TYPE DUT_A :\nSTRUCT\n\tnPos : INT;\nEND_STRUCT\nEND_TYPE\n")
     writeFileSync(join(dir, "GVL.gvl"), "﻿VAR_GLOBAL\n\tg : INT;\nEND_VAR\n")
@@ -179,7 +179,7 @@ test("a disabled warning in .projectsettings actually suppresses the diagnostic,
     return n
   }
   try {
-    writeFileSync(join(dir, "Main.pou"), "PROGRAM Main\nVAR\n  n : INT;\nEND_VAR\nIMPLEMENTATION ST\nn;\nEND_PROGRAM\n")
+    writeFileSync(join(dir, "Main.pou"), "PROGRAM Main\nVAR\n  n : INT;\nEND_VAR\n%LANGUAGE ST\nn;\nEND_PROGRAM\n")
     expect(noOpCount(), "without settings it must fire, or this test proves nothing").toBe(1)
 
     writeFileSync(join(dir, "Project.projectsettings"), "Disabled warnings:     C0139\n")
@@ -209,7 +209,7 @@ test("each PLC project's .projectsettings governs its own documents, and none re
     for (const [p, disabled] of [[a, "C0139"], [b, "C0371"]] as const) {
       mkdirSync(join(p, "POUs"), { recursive: true })
       writeFileSync(join(p, "Project Settings.projectsettings"), `Disabled warnings:     ${disabled}\n`)
-      writeFileSync(join(p, "POUs", "Prog.pou"), "PROGRAM Prog\nVAR\n  n : INT;\nEND_VAR\nIMPLEMENTATION ST\nn;\nEND_PROGRAM\n")
+      writeFileSync(join(p, "POUs", "Prog.pou"), "PROGRAM Prog\nVAR\n  n : INT;\nEND_VAR\n%LANGUAGE ST\nn;\nEND_PROGRAM\n")
     }
     const scan = scanWorkspace(dir)
     expect(scan.projectSettings).toEqual([

@@ -12,7 +12,7 @@
 import { isTrivia, type Token } from "../lex/tokens.js"
 import type { Span } from "../span.js"
 import type { ParseError } from "../ast/nodes/index.js"
-import { opensKeywordLine } from "../format/implementation-line.js"
+import { opensLanguageLine as opensLanguageLineAt } from "../format/language-line.js"
 import { type Dialect, type Keyword } from "../lex/vocabulary.js"
 import {
   DECL_LIST_ENDERS,
@@ -131,9 +131,9 @@ export class Cursor {
     return this.tokens[this.tokens.length - 1]
   }
 
-  /** Does the `offset`-th meaningful token open an `IMPLEMENTATION <LANG>` line? That line is where a declaration
-   *  ENDS, so a header lookahead that asks "does a name follow?" must not take it for one (`parseMethod`). */
-  opensImplementationLine(offset = 0): boolean {
+  /** Does the `offset`-th meaningful token open a `%LANGUAGE` line? That line is where a declaration ENDS
+   *  (`format/language-line`), so a declaration list read up to it stops there. */
+  opensLanguageLine(offset = 0): boolean {
     let i = this.pos
     let seen = 0
     for (; i < this.tokens.length; i++) {
@@ -141,7 +141,7 @@ export class Cursor {
       if (seen === offset) break
       seen += 1
     }
-    return i < this.tokens.length && opensKeywordLine(this.tokens, i)
+    return i < this.tokens.length && opensLanguageLineAt(this.tokens, i)
   }
 
   /** The PRAGMA tokens in the trivia before the next meaningful token, in order — where a statement may start, the

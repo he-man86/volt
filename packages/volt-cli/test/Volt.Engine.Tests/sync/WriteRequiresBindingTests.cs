@@ -22,7 +22,7 @@ public class WriteRequiresBindingTests
     private static PushRequest Push(string? platform, string? project) => new()
     {
         ExpectedPlatform = platform, ExpectedProjectName = project,
-        Ops = new List<PushOp> { new SetItemOp { Name = "P.pou", SourceText = "PROGRAM P\nVAR\nEND_VAR\nIMPLEMENTATION ST\ny := 2;\nEND_PROGRAM\n" } },
+        Ops = new List<PushOp> { new SetItemOp { Name = "P.pou", SourceText = "PROGRAM P\nVAR\nEND_VAR\n%LANGUAGE ST\ny := 2;\nEND_PROGRAM\n" } },
         Force = true,
     };
 

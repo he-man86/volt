@@ -31,9 +31,8 @@ public class FallbackRefusalTests
         Assert.Contains("P_NoHeader", ex.Message);
     }
 
-    /// <summary><c>AbstractMemberFold</c> NARROWED (§1.1 classes, gate 1): a whitespace-only body stored in an abstract
-    /// method's ST slot is stored characters, spelled verbatim under <c>IMPLEMENTATION ST</c> — never folded to
-    /// <c>IMPLEMENTATION NONE</c>, which erases them. (A null or EMPTY body stays NONE: the measured equivalence.)</summary>
+    /// <summary>A whitespace-only body stored in an abstract method's ST slot is stored characters (§1.1 classes, gate 1),
+    /// spelled verbatim under <c>%LANGUAGE ST</c> — never read as "no body", which erases them.</summary>
     [Fact]
     public void An_abstract_methods_whitespace_body_is_spelled_not_folded_to_none()
     {
@@ -43,13 +42,13 @@ public class FallbackRefusalTests
             new FakeIde.Item("Run", ItemKind.PlcMethod, "", false, "METHOD ABSTRACT Run : BOOL", "\n\n", null, null));
         var text = Pulled(ide, "FB_Base.pou");
         var block = text.Substring(text.IndexOf("METHOD ABSTRACT Run", StringComparison.Ordinal));
-        Assert.Equal("IMPLEMENTATION ST", After(block, "METHOD ABSTRACT Run : BOOL", 1)[0]);
+        Assert.Equal("%LANGUAGE ST", After(block, "METHOD ABSTRACT Run : BOOL", 1)[0]);
     }
 
-    /// <summary>GREEN today, and it must stay green: the measured equivalence (<c>abstract-member-equivalence</c>) — an
-    /// abstract method with an EMPTY body pulls <c>IMPLEMENTATION NONE</c>, whichever class holds it.</summary>
+    /// <summary>An abstract method with an EMPTY body at a slot pulls <c>%LANGUAGE ST</c> with nothing under it (openspec
+    /// <c>language-line</c>): only a member with no slot has no line, and an empty slot is a slot.</summary>
     [Fact]
-    public void An_abstract_methods_empty_body_still_pulls_as_none()
+    public void An_abstract_methods_empty_body_at_a_slot_pulls_as_an_empty_ST_body()
     {
         var ide = new FakeIde(
             new FakeIde.Item("FB_Base", ItemKind.PlcPou, "", true, "FUNCTION_BLOCK ABSTRACT FB_Base\nVAR\nEND_VAR", ";", null, null,
@@ -57,7 +56,7 @@ public class FallbackRefusalTests
             new FakeIde.Item("Run", ItemKind.PlcMethod, "", false, "METHOD ABSTRACT Run : BOOL", "", null, null));
         var text = Pulled(ide, "FB_Base.pou");
         var block = text.Substring(text.IndexOf("METHOD ABSTRACT Run", StringComparison.Ordinal));
-        Assert.Equal("IMPLEMENTATION NONE", After(block, "METHOD ABSTRACT Run : BOOL", 1)[0]);
+        Assert.Equal(new[] { "%LANGUAGE ST", "END_METHOD" }, After(block, "METHOD ABSTRACT Run : BOOL", 2));
     }
 
     /// <summary>A member with no declaration is a missing fact, not "not abstract": the abstract rule refuses it loudly

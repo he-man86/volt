@@ -50,7 +50,7 @@ public class ItemContentIsFullyCarriedTests
             "reader DERIVES it from the declaration rather than carrying it, so it is not a field the text lost.",
         [$"{nameof(Member)}.{nameof(Member.DataType)}"] =
             "Same as ReturnType — derived from the declaration by the reader, never stored in the text.",
-        // WHY a body is IMPLEMENTATION LD|FBD UNSUPPORTED left the file on purpose (openspec implementation-keyword 2b,
+        // WHY a body is %LANGUAGE LD|FBD UNSUPPORTED left the file on purpose (openspec implementation-keyword 2b,
         // owner decision): the line says the body is read-only and the reason goes to the pull message. The driver sets
         // it on a READ and a file never carries it — ReadOnlyBodyTests pins both halves.
         [$"{nameof(ItemContent)}.{nameof(ItemContent.Unsupported)}"] = UnsupportedIsNotInTheFile,

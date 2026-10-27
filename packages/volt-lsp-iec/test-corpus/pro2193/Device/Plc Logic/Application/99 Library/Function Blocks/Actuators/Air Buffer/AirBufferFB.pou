@@ -18,7 +18,7 @@ VAR CONSTANT
 	rKeepBufferOn			: REAL	:= 10.0;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^();
 
 xAnyVacuumOn := Arrays.Vacuum_Any(
@@ -48,7 +48,7 @@ END_FUNCTION_BLOCK
 
 METHOD Set : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 xOutputWasSet	:= TRUE;
 SUPER^.Set();
 

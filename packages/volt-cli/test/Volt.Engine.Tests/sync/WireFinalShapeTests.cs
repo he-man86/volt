@@ -19,7 +19,7 @@ namespace Volt.Engine.Tests;
 /// </summary>
 public class WireFinalShapeTests
 {
-    private const string Prg = "PROGRAM {0}\nVAR\nEND_VAR\nIMPLEMENTATION ST\nx := {1};\nEND_PROGRAM\n";
+    private const string Prg = "PROGRAM {0}\nVAR\nEND_VAR\n%LANGUAGE ST\nx := {1};\nEND_PROGRAM\n";
 
     private static FakeIde Project() => new(
         FakeIde.Item.TextualPou("A", "PROGRAM A\nVAR\nEND_VAR", "x := 1;"),
@@ -382,8 +382,8 @@ public class WireFinalShapeTests
                 new SetItemOp
                 {
                     Name = "Dir/K.pou", IfVersion = refs.Items["Dir/K.pou"],
-                    SourceText = "FUNCTION_BLOCK K\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n\n" +
-                                 "METHOD M : BOOL\nIMPLEMENTATION ST\nM := TRUE;\nEND_METHOD\n",
+                    SourceText = "FUNCTION_BLOCK K\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK\n\n" +
+                                 "METHOD M : BOOL\n%LANGUAGE ST\nM := TRUE;\nEND_METHOD\n",
                 },
             },
         });

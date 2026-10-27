@@ -50,7 +50,7 @@ public sealed partial class BeckhoffDriver
         CreateChild(parent, name, ItemKind.CreateCode(kind), FamilyContent.SeedOf(args), FamilyContent.ClassOf(args.Class));
 
     // ── store ──
-    public Content Read(ItemRef item) => FamilyContent.Folded(ReadContent(item));
+    public Content Read(ItemRef item) => FamilyContent.ToContent(ReadContent(item));
 
     public void Write(ItemRef item, Content content, IReadOnlyList<PushedBody> bodies) =>
         WriteContent(item, FamilyContent.ToItemContent(content), PushedNetworkBody.Of(bodies));
@@ -66,7 +66,9 @@ public sealed partial class BeckhoffDriver
     }
 
     public override string? RefusedMemberCreate(string memberKind, string name, CreateArgs args) =>
-        RefusedMemberCreate(memberKind, name, FamilyContent.SeedOf(args));
+        FamilyContent.ClassOf(args.Class) is { Word: ObjectClass.AbstractMethod }
+            ? SlotlessMethodRefusal
+            : RefusedMemberCreate(memberKind, name, FamilyContent.SeedOf(args));
 
     /// <summary>An INTERFACE property's accessors are refused by their text (<see cref="ValidateInterfaceAccessor"/>);
     /// no other accessor is.</summary>

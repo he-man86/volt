@@ -33,6 +33,24 @@ public class PropertyLinesTests
     public void A_closed_key_ending_at_a_space_or_the_line_end_is_a_property_line(string line, string key) =>
         Assert.Equal(key, PropertyLines.KeyOf(line));
 
+    /// <summary>Whitespace — a space or a tab — separates the words of a line, the key's and the value's alike.</summary>
+    [Theory]
+    [InlineData("%CLASS\tCHECK CheckBounds")]
+    [InlineData("%CLASS CHECK\tCheckBounds")]
+    [InlineData("%CLASS CHECK \t CheckBounds")]
+    public void A_tab_separates_a_values_words_as_a_space_does(string line)
+    {
+        var (props, _) = PropertyLines.Read(new[] { line }, "'X'", 1, folderAllowed: false);
+        Assert.Equal(new ObjectClass(ObjectClass.Check, "CheckBounds"), props.Class);
+    }
+
+    [Fact]
+    public void A_tab_separates_a_file_links_type_from_its_path()
+    {
+        var (props, _) = PropertyLines.Read(new[] { "%FILE_LINK ExportBeforeCompile\t'C:\\io\\gvl.txt'" }, "'X'", 1, folderAllowed: false);
+        Assert.Equal(new FileLink("ExportBeforeCompile", @"C:\io\gvl.txt"), props.FileLink);
+    }
+
     /// <summary>Every other line opening with <c>%</c> is CODE: a direct address (4 in the corpora), a key in another
     /// case, a key that runs on, a bare <c>%FOLDER</c> with no path (as the push always read it).</summary>
     [Theory]
@@ -155,7 +173,7 @@ public class PropertyLinesTests
     {
         yield return new object[] { "pou",
             new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK F\nVAR\nEND_VAR", "x := 1;", new List<Member>(), Excluded),
-            "FUNCTION_BLOCK F\nVAR\nEND_VAR\nIMPLEMENTATION ST\n%EXCLUDE_FROM_BUILD\n%COMMENT 'doc'\nx := 1;\n\nEND_FUNCTION_BLOCK\n" };
+            "FUNCTION_BLOCK F\nVAR\nEND_VAR\n%LANGUAGE ST\n%EXCLUDE_FROM_BUILD\n%COMMENT 'doc'\nx := 1;\n\nEND_FUNCTION_BLOCK\n" };
         yield return new object[] { "dut",
             new ItemContent(ItemKind.Kinds.Dut, "TYPE E :\n(\n\tA\n);\nEND_TYPE", null, new List<Member>(),
                             P(cls: new ObjectClass(ObjectClass.TextListEnum, null))),
@@ -175,9 +193,9 @@ public class PropertyLinesTests
                 new(ItemKind.Kinds.Property, "P", "PROPERTY P : INT", null, P(exclude: true), "Props",
                     new Accessor("", "P := 1;"), null),
             }, ObjectProperties.None),
-            "FUNCTION_BLOCK F\nVAR\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\n" +
-            "METHOD M : BOOL\nIMPLEMENTATION ST\n%FOLDER Sub\n%EXCLUDE_FROM_BUILD\nM := TRUE;\nEND_METHOD\n\n" +
-            "PROPERTY P : INT\n%FOLDER Props\n%EXCLUDE_FROM_BUILD\nGET\nIMPLEMENTATION ST\nP := 1;\nEND_GET\nEND_PROPERTY\n" };
+            "FUNCTION_BLOCK F\nVAR\nEND_VAR\n%LANGUAGE ST\n\nEND_FUNCTION_BLOCK\n\n" +
+            "METHOD M : BOOL\n%LANGUAGE ST\n%FOLDER Sub\n%EXCLUDE_FROM_BUILD\nM := TRUE;\nEND_METHOD\n\n" +
+            "PROPERTY P : INT\n%FOLDER Props\n%EXCLUDE_FROM_BUILD\nGET\n%LANGUAGE ST\nP := 1;\nEND_GET\nEND_PROPERTY\n" };
     }
 
     [Theory]

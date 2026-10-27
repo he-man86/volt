@@ -69,7 +69,7 @@ describe(`graphical / importer grouping (${BASE})`, () => {
 			// outlives its own test is exactly the shape that produces that.
 			try {
 
-				const src = `PROGRAM ${name}\nVAR\n${vars}\nEND_VAR\nIMPLEMENTATION FBD\nNETWORK\n${body}\nEND_NETWORK\n\nEND_PROGRAM\n`
+				const src = `PROGRAM ${name}\nVAR\n${vars}\nEND_VAR\n%LANGUAGE FBD\nNETWORK\n${body}\nEND_NETWORK\n\nEND_PROGRAM\n`
 				const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
 
 				if (!landed(created)) {

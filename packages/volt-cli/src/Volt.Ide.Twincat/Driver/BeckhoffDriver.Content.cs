@@ -456,7 +456,7 @@ public sealed partial class BeckhoffDriver
     // ── body ──────────────────────────────────────────────────────────────────────────────────────
 
     /// <summary>An item's body as workspace text: ST verbatim, a graphical body as network text, a body Volt
-    /// does not show as its UNSUPPORTED line (<c>IMPLEMENTATION CFC UNSUPPORTED</c>, <c>IMPLEMENTATION LD UNSUPPORTED</c>).</summary>
+    /// does not show as its UNSUPPORTED line (<c>%LANGUAGE CFC UNSUPPORTED</c>, <c>%LANGUAGE LD UNSUPPORTED</c>).</summary>
     /// <param name="declaration">The declarations the body resolves against, innermost first
     /// (<see cref="SourceScopes.Scope"/>) — a graphical body is written against its <see cref="NetworkScope"/>.</param>
     /// <returns>The body, and — for an LD or FBD body that reads as its UNSUPPORTED line (network text is off, or cannot
@@ -464,18 +464,18 @@ public sealed partial class BeckhoffDriver
     private (string? Body, string? Unsupported, StatedLanguage? Stated) ReadBody(ItemRef item, string? declaration)
     {
         var raw = _om.ReadImplementation(Com(item));
-        // Only NO text is no body: a whitespace-only one is stored characters, spelled under `IMPLEMENTATION ST` (openspec
+        // Only NO text is no body: a whitespace-only one is stored characters, spelled under `%LANGUAGE ST` (openspec
         // bridge-one-to-one finding 8, task 3.5) — it was read as "no body", and a push then wrote the body empty.
         if (raw.Length == 0) return (null, null, null);
 
         if (TcArchive.Root(raw) is { } impl)
         {
             // IL, a view Volt has never seen, or none at all is the body's UNSUPPORTED line under that name
-            // (`IMPLEMENTATION IL|<VIEW>|NWL UNSUPPORTED`: NetworkText.ViewLanguage, the one answer CODESYS gives too).
+            // (`%LANGUAGE IL|<VIEW>|NWL UNSUPPORTED`: NetworkText.ViewLanguage, the one answer CODESYS gives too).
             // An unknown or missing view threw here, outside `Pulled`, which took the whole POU out of refs and fetch
             // (D27, openspec bridge-refusal-review 2.29).
             var stated = NetworkText.ViewLanguage(TcArchive.ViewMode(impl));
-            if (NetworkText.LanguageNamed(stated) is not { } view) return (ImplementationMarker.Unsupported(stated), null, StatedLanguage.HiddenIn(stated));
+            if (NetworkText.LanguageNamed(stated) is not { } view) return (PropertyLines.UnsupportedLine(stated), null, StatedLanguage.HiddenIn(stated));
 
             // EVERY LD AND FBD BODY GOES THROUGH `NetworkText.Pulled`, as on CODESYS: while network text is off in this
             // process it is the UNSUPPORTED line with the switch's reason, and nothing below is read; on, it is network
@@ -517,14 +517,14 @@ public sealed partial class BeckhoffDriver
                     .TrimEnd('\n'));
         }
 
-        // CFC and SFC are graphical and unsupported: each is its UNSUPPORTED line (`IMPLEMENTATION CFC UNSUPPORTED`), so an engineer
+        // CFC and SFC are graphical and unsupported: each is its UNSUPPORTED line (`%LANGUAGE CFC UNSUPPORTED`), so an engineer
         // gets a file that says so rather than an editable-looking approximation of a diagram they would then push back.
         var lang = TcArchive.UnreadLanguage(raw);
-        if (lang != null) return (ImplementationMarker.Unsupported(lang), null, StatedLanguage.HiddenIn(lang));
+        if (lang != null) return (PropertyLines.UnsupportedLine(lang), null, StatedLanguage.HiddenIn(lang));
 
         // ST, in memory, carries no line — so a keyword-shaped line in its text is refused here, where the language is
         // known, rather than read back from the file as the language it states.
-        return (ImplementationMarker.RequireStBody(raw), null, StatedLanguage.St);   // verbatim
+        return (PropertyLines.RequireStBody(raw), null, StatedLanguage.St);   // verbatim
     }
 
     private void WriteOne(ItemRef item, string kind, string? declaration, string? body,
@@ -544,12 +544,12 @@ public sealed partial class BeckhoffDriver
             return;
         }
 
-        // An UNSUPPORTED body is never written back over the live one (`ImplementationMarker.Written`).
+        // An UNSUPPORTED body is never written back over the live one (`PropertyLines.Written`).
         // A kind with no implementation slot (a DUT, a GVL, an interface, a property, an interface member) arrives
         // with NO body — the reader sends null for it (StReader) — and a text sent at a slot the object does not
         // expose is refused by name in `WriteText`, which asks the OBJECT (openspec bridge-refusal-review D26). The kind
         // table that decided this here (`HasBodySlot`) dropped such a body in silence; it is deleted.
-        var written = ImplementationMarker.Written(body);
+        var written = PropertyLines.Written(body);
         if (written is not null) RefuseLanguageChange(kind, _om.ReadImplementation(Com(item)), Languages.St);
         _om.WriteText(Com(item), declaration, written);
     }

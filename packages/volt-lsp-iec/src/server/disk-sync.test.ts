@@ -12,7 +12,7 @@ import { fileUri, harness } from "../../test/lsp/harness.js"
 import { parsed, resetParses } from "../../test/lsp/probes.js"
 import { tempWorkspace } from "../../test/lsp/sources.js"
 
-const FB = `FUNCTION_BLOCK FB_A\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := n + 1;\nEND_FUNCTION_BLOCK\n`
+const FB = `FUNCTION_BLOCK FB_A\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE ST\nn := n + 1;\nEND_FUNCTION_BLOCK\n`
 
 const roots: string[] = []
 afterAll(() => {

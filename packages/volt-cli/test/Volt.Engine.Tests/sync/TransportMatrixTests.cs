@@ -22,9 +22,9 @@ namespace Volt.Engine.Tests;
 public class TransportMatrixTests
 {
     // ── the kinds, and a minimal valid canonical source for each ────────────────────────────────────
-    private const string FbSrc  = "FUNCTION_BLOCK K\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := 1;\n\nEND_FUNCTION_BLOCK\n";
-    private const string PrgSrc = "PROGRAM K\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := 1;\n\nEND_PROGRAM\n";
-    private const string FunSrc = "FUNCTION K : INT\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nK := 1;\n\nEND_FUNCTION\n";
+    private const string FbSrc  = "FUNCTION_BLOCK K\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE ST\nn := 1;\n\nEND_FUNCTION_BLOCK\n";
+    private const string PrgSrc = "PROGRAM K\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE ST\nn := 1;\n\nEND_PROGRAM\n";
+    private const string FunSrc = "FUNCTION K : INT\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE ST\nK := 1;\n\nEND_FUNCTION\n";
     private const string ItfSrc = "INTERFACE K\n\nMETHOD M : BOOL\nEND_METHOD\n\nEND_INTERFACE\n";
     private const string DutSrc = "TYPE K :\nSTRUCT\n\tn : INT;\nEND_STRUCT\nEND_TYPE\n";
     private const string GvlSrc = "VAR_GLOBAL\n\tn : INT;\nEND_VAR\n";
@@ -61,7 +61,7 @@ public class TransportMatrixTests
     };
 
     /// <summary>What the IDE holds as K's declaration: the text above the boundary line. The IDE never stores Volt's
-    /// <c>IMPLEMENTATION</c> line, or the body under it, in a declaration — a fixture that did described a project
+    /// <c>%LANGUAGE</c> line, or the body under it, in a declaration — a fixture that did described a project
     /// whose pulled file does not read back, which the pull refuses (5.E.1).</summary>
     private static string IdeDeclaration(string src)
     {
@@ -178,9 +178,9 @@ public class TransportMatrixTests
         var recorded = Apply(ide, new SetItemOp
         {
             Name = "K.pou",
-            SourceText = "FUNCTION_BLOCK K\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := 1;\n\nEND_FUNCTION_BLOCK\n\n"
-                       + "METHOD A : BOOL\nIMPLEMENTATION ST\nA := TRUE;\nEND_METHOD\n\nMETHOD B : BOOL\nIMPLEMENTATION ST\nB := TRUE;\nEND_METHOD\n\n"
-                       + "ACTION Act\nIMPLEMENTATION ST\nn := 1;\nEND_ACTION\n",
+            SourceText = "FUNCTION_BLOCK K\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE ST\nn := 1;\n\nEND_FUNCTION_BLOCK\n\n"
+                       + "METHOD A : BOOL\n%LANGUAGE ST\nA := TRUE;\nEND_METHOD\n\nMETHOD B : BOOL\n%LANGUAGE ST\nB := TRUE;\nEND_METHOD\n\n"
+                       + "ACTION Act\n%LANGUAGE ST\nn := 1;\nEND_ACTION\n",
         });
 
         // The declaration is written FIRST, alone, so the IDE judges the members against the text that was sent
@@ -223,8 +223,8 @@ public class TransportMatrixTests
     public void No_per_child_or_accessor_interaction_survives_a_write(int code, string ext, string src, string[] onUpdate, string[] onCreate)
     {
         _ = (onUpdate, onCreate);
-        var withMembers = src.Replace("END_FUNCTION_BLOCK\n", "END_FUNCTION_BLOCK\n\nMETHOD M : BOOL\nIMPLEMENTATION ST\nM := TRUE;\nEND_METHOD\n")
-                             .Replace("END_PROGRAM\n", "END_PROGRAM\n\nACTION A\nIMPLEMENTATION ST\nn := 1;\nEND_ACTION\n")
+        var withMembers = src.Replace("END_FUNCTION_BLOCK\n", "END_FUNCTION_BLOCK\n\nMETHOD M : BOOL\n%LANGUAGE ST\nM := TRUE;\nEND_METHOD\n")
+                             .Replace("END_PROGRAM\n", "END_PROGRAM\n\nACTION A\n%LANGUAGE ST\nn := 1;\nEND_ACTION\n")
                              .Replace("END_FUNCTION\n", "END_FUNCTION\n");
         // The members must ALREADY exist, or the create below is the engine legitimately adding them.
         var declared = new List<(string, int)>();
@@ -287,9 +287,9 @@ public class TransportMatrixTests
         {
             Name = "K.pou",
             IfVersion = refs.Items["K.pou"],
-            SourceText = "FUNCTION_BLOCK K\nVAR\nEND_VAR\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\n"
-                       + "METHOD A : BOOL\nIMPLEMENTATION ST\nA := FALSE;\nEND_METHOD\n\nMETHOD B : BOOL\nIMPLEMENTATION ST\nB := TRUE;\nEND_METHOD\n\n"
-                       + "METHOD C : BOOL\nIMPLEMENTATION ST\nC := TRUE;\nEND_METHOD\n",
+            SourceText = "FUNCTION_BLOCK K\nVAR\nEND_VAR\n%LANGUAGE ST\nEND_FUNCTION_BLOCK\n\n"
+                       + "METHOD A : BOOL\n%LANGUAGE ST\nA := FALSE;\nEND_METHOD\n\nMETHOD B : BOOL\n%LANGUAGE ST\nB := TRUE;\nEND_METHOD\n\n"
+                       + "METHOD C : BOOL\n%LANGUAGE ST\nC := TRUE;\nEND_METHOD\n",
         });
 
         Assert.Equal(new[] { "writecontent:K" }, recorded.ToArray());
@@ -317,8 +317,8 @@ public class TransportMatrixTests
             {
                 Name = "K.pou",
                 IfVersion = refs.Items["K.pou"],
-                SourceText = "FUNCTION_BLOCK K\nVAR\nEND_VAR\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\n"
-                           + "METHOD M : BOOL\nIMPLEMENTATION ST\n%FOLDER Nested/Deep\nM := TRUE;\nEND_METHOD\n",
+                SourceText = "FUNCTION_BLOCK K\nVAR\nEND_VAR\n%LANGUAGE ST\nEND_FUNCTION_BLOCK\n\n"
+                           + "METHOD M : BOOL\n%LANGUAGE ST\n%FOLDER Nested/Deep\nM := TRUE;\nEND_METHOD\n",
             } },
         });
 

@@ -17,7 +17,7 @@ END_VAR
 // if the valiue on IN changes more then D from the last value it will generate trigger and display the difference in output D.
 // the trigger will only be active for one cycle.
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 D := IN - LAST_IN;
 Q := ABS(D) > RES;
 IF Q THEN

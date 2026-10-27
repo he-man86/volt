@@ -12,7 +12,7 @@ END_VAR
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Both regular safety sensors for mould open detection are not in use for Kreuwel machines.
 sensorMouldOpen			:= xMouldOpen;
 sensorIntermediateOpen	:= xMouldOpen OR xIntermediateOpen;
@@ -27,7 +27,7 @@ VAR_INST
 	SetError		: ARRAY[1..2] OF SetErrorFB;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^.Alarms();
 
 SetError[1](
@@ -49,7 +49,7 @@ METHOD PUBLIC EjectShot : BOOL	// Returns true when the ejectors are in the Fron
 VAR_INPUT
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF SER.OperationMode = SER_OperationModeType.SemiAuto THEN
 	EjectShot := TRUE;
 	RETURN;
@@ -62,7 +62,7 @@ END_METHOD
 // Command to reset the module. Servodrives are homed.
 METHOD PUBLIC Reset : BOOL	// Returns true when homing done
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Reset := SUPER^.Reset()
 		AND (S1_MouldAlmostOpen OR Arrays.AllUnitsAreInSafePosition(YUnits.itfYUnitsSafe));
 
@@ -71,7 +71,7 @@ END_METHOD
 // Check if the mould closes every cycle
 METHOD PROTECTED SetMouldWasClosed
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF NOT SER.InAutomaticOperation THEN
 	mouldWasClosed			:= FALSE;
 	ShotCounter				:= 0;
@@ -95,7 +95,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 RequestFullMouldOpen := SUPER^.RequestFullMouldOpen;
 
 END_GET
@@ -109,7 +109,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 RequestMouldEntry := SUPER^.RequestMouldEntry AND S1_MouldAlmostOpen;
 
 END_GET

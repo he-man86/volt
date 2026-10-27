@@ -15,7 +15,7 @@ namespace Volt.Tests.Shared;
 /// <summary>
 /// THE THIRD TEST VENDOR (openspec <c>volt-cli-rework</c> design step 4): a vendor OUTSIDE the CODESYS family that
 /// implements ONLY the new contract (<see cref="IVendorDriver"/>). Its own kinds (<c>.blk</c> a block with a body,
-/// <c>.typ</c> a type, <c>.stn</c> a read-only station descriptor), its own text language (<c>IMPLEMENTATION FKL</c>,
+/// <c>.typ</c> a type, <c>.stn</c> a read-only station descriptor), its own text language (<c>%LANGUAGE FKL</c>,
 /// plain text) and a hidden one (<c>LAD</c>), its own property keys (<c>%RETAIN</c>, <c>%NOTE</c>), its own file layout
 /// (<see cref="FakecoFormat"/>), an in-memory tree — and no NWL, no numeric kind code, no IEC header anywhere.
 ///
@@ -243,12 +243,12 @@ public sealed class Fakeco : VendorDriverBase, IVendorDriver
 }
 
 /// <summary>Fakeco's own FILE layout — not the IEC one. Property lines first, then the declaration verbatim, then (for a
-/// kind with a body) the <c>IMPLEMENTATION</c> line and the code verbatim:
+/// kind with a body) the <c>%LANGUAGE</c> line and the code verbatim:
 /// <code>
 /// %RETAIN
 /// BLOCK Motor
 /// IN start
-/// IMPLEMENTATION FKL
+/// %LANGUAGE FKL
 /// lamp = start
 /// </code>
 /// A kind with no body ends with one newline after its declaration. One line grammar (<see cref="ImplementationLine"/>),
@@ -257,14 +257,14 @@ public sealed class FakecoFormat : IItemFormat
 {
     public string Name => "fakeco";
 
-    /// <summary>Its layout: property lines, the declaration, the <c>IMPLEMENTATION</c> line, the code. An object line counts
+    /// <summary>Its layout: property lines, the declaration, the <c>%LANGUAGE</c> line, the code. An object line counts
     /// the declaration's lines, then the code's; Fakeco has no members.</summary>
     public int? LineOf(string text, string kind, string name, string? member, int objectLine)
     {
         if (member is not null || objectLine < 1) return null;
         var lines = text.Split('\n');
-        var props = lines.TakeWhile(l => l.StartsWith("%", StringComparison.Ordinal)).Count();
-        var marker = Array.FindIndex(lines, props, ImplementationLine.Is);
+        var props = lines.TakeWhile(l => l.StartsWith("%", StringComparison.Ordinal) && !LanguageLine.Is(l)).Count();
+        var marker = Array.FindIndex(lines, props, LanguageLine.Is);
         var declared = (marker < 0 ? lines.Length - 1 : marker) - props;
         if (objectLine <= declared) return props + objectLine;
         if (marker < 0) return null;
@@ -277,7 +277,7 @@ public sealed class FakecoFormat : IItemFormat
         var sb = new StringBuilder();
         foreach (var p in content.Properties.Items) sb.Append(p).Append('\n');
         sb.Append(content.Declaration);
-        if (content.Body is { } body) sb.Append('\n').Append(ImplementationLine.For(body)).Append('\n').Append(body.Code);
+        if (content.Body is { } body) sb.Append('\n').Append(LanguageLine.For(body)).Append('\n').Append(body.Code);
         else sb.Append('\n');
         return sb.ToString();
     }
@@ -288,25 +288,25 @@ public sealed class FakecoFormat : IItemFormat
         var lines = text.Split('\n');
         var at = 0;
         var props = new List<string>();
-        while (at < lines.Length && lines[at].StartsWith("%", StringComparison.Ordinal)) props.Add(lines[at++]);
+        while (at < lines.Length && lines[at].StartsWith("%", StringComparison.Ordinal) && !LanguageLine.Is(lines[at])) props.Add(lines[at++]);
         var properties = catalog.PropertyKeys.ParseAll(props);
         var rest = lines.Skip(at).ToList();
-        var marker = rest.FindIndex(ImplementationLine.Is);
+        var marker = rest.FindIndex(LanguageLine.Is);
 
         if (!shape.Body)
         {
             if (marker >= 0)
-                throw new BridgeException(BridgeErrorCodes.InvalidSt, $"'{name}': line {at + marker + 1}: a {kind} has no body, so no {ImplementationLine.Keyword} line");
+                throw new BridgeException(BridgeErrorCodes.InvalidSt, $"'{name}': line {at + marker + 1}: a {kind} has no body, so no %LANGUAGE line");
             var declaration = string.Join("\n", rest);
             if (declaration.EndsWith("\n", StringComparison.Ordinal)) declaration = declaration.Substring(0, declaration.Length - 1);
             return Content.Of(kind, declaration, null, properties);
         }
 
         if (marker < 0)
-            throw new BridgeException(BridgeErrorCodes.InvalidSt, $"'{name}': a {kind} states its body's language on an {ImplementationLine.Keyword} line, and this text has none");
-        var stated = ImplementationLine.Parse(rest[marker], catalog.Languages, vendor);
+            throw new BridgeException(BridgeErrorCodes.InvalidSt, $"'{name}': a {kind} states its body's language on a %LANGUAGE line, and this text has none");
+        var stated = LanguageLine.Parse(rest[marker], catalog.Languages, vendor);
         var code = string.Join("\n", rest.Skip(marker + 1));
-        if (rest.Skip(marker + 1).Any(ImplementationLine.Is))
+        if (rest.Skip(marker + 1).Any(LanguageLine.Is))
             throw new BridgeException(BridgeErrorCodes.InvalidSt, $"'{name}': a {kind} has one body, and this text states two");
         if (stated.Form != BodyForm.Shown && code.Length > 0)
             throw new BridgeException(BridgeErrorCodes.InvalidSt, $"'{name}': '{rest[marker].Trim()}' states a body Volt does not show, and code follows it");

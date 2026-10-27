@@ -30,7 +30,7 @@ VAR CONSTANT
 	NumberOfTakeoverPositions	: USINT	:= 4;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 FOR i := 1 TO usiNumberOfUnits DO
 	Unit[i](
 		xEnableServoDrive	:= GlobalVars.EnableServoDrives,

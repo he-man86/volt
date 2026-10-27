@@ -89,7 +89,7 @@ public class EndpointParityTests
         {
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new() { new SetItemOp { Name = fb, IfVersion = refs.Items[fb], SourceText =
-                "FUNCTION_BLOCK CM_Carrier\nVAR\n\tnStep : INT;\nEND_VAR\nIMPLEMENTATION ST\nnStep := 2;\nEND_FUNCTION_BLOCK\n" } },
+                "FUNCTION_BLOCK CM_Carrier\nVAR\n\tnStep : INT;\nEND_VAR\n%LANGUAGE ST\nnStep := 2;\nEND_FUNCTION_BLOCK\n" } },
         });
 
         var after = RefsService.Handle(ide);

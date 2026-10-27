@@ -63,7 +63,7 @@ internal static class TcNetworkWriter
             ?? throw Refuse("replaces a " + doc.Name.LocalName + " body with a graphical one");
 
         // THE VIEW IS WRITTEN (openspec bridge-refusal-review 2.31, D7), as CODESYS writes its aspect's member.
-        // Network text states FBD or LD once, on the body's IMPLEMENTATION line, and the view is the archive's
+        // Network text states FBD or LD once, on the body's %LANGUAGE line, and the view is the archive's
         // `DefaultViewMode` slot.
         var viewChanged = WriteView(impl, body.Language);
         TcUnmeasured.RefuseEdgeOrder(body);
@@ -353,7 +353,7 @@ internal static class TcNetworkWriter
         var live = NetworkText.LanguageNamed(stated)
             ?? throw new VoltInvariantException(
                 $"TwinCAT: a graphical body reached the write over a body whose view is '{view ?? "(none)"}' " +
-                $"('{Volt.Engine.Format.St.ImplementationMarker.Unsupported(stated)}'), which the push's body guard " +
+                $"('{Volt.Engine.Format.St.PropertyLines.UnsupportedLine(stated)}'), which the push's body guard " +
                 "refuses before any write. This is a Volt bug.");
         if (live == pushed) return false;
         return SetString(impl, "DefaultViewMode", pushed == BodyLanguage.Ld ? "Ld" : "Fbd");

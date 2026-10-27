@@ -16,7 +16,7 @@ VAR CONSTANT
 	NegativeLimit		: SINT := -35;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Cyclic();
 
 
@@ -28,7 +28,7 @@ VAR_INPUT
 	addition	: SINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 CASE motor OF
 	enumMotorsType.X1:	ActualPositionX1	:= ActualPositionX1	+ addition;
 	enumMotorsType.X2:	ActualPositionX2	:= ActualPositionX2	+ addition;
@@ -42,7 +42,7 @@ VAR_INPUT
 	PositionChanges : CassettePosition;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 TargetPositionX1	:= TargetPositionX1 + PositionChanges.X1;
 TargetPositionX2	:= TargetPositionX2 + PositionChanges.X2;
 TargetPositionY		:= TargetPositionY	+ PositionChanges.Y;
@@ -51,7 +51,7 @@ END_METHOD
 
 METHOD PRIVATE CheckLimits
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Private
 IF HomingState = enumCassetteHomingState.Homed THEN
 	PositiveLimitReachedX1	:= ActualPositionX1 >= PositiveLimit;
@@ -67,7 +67,7 @@ END_METHOD
 
 METHOD PRIVATE Cyclic
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Private
 CheckLimits();
 END_METHOD
@@ -84,7 +84,7 @@ VAR
 	AdjustNeededForX1,	AdjustNeededForX2,	AdjustNeededForY	: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Copy id info to the profile
 GetAdjustmentProfile.Drawer		:= Drawer;
 GetAdjustmentProfile.Cassette	:= Cassette;
@@ -161,7 +161,7 @@ END_METHOD
 
 METHOD PUBLIC NextHomingState
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 CASE HomingState OF
 	enumCassetteHomingState.StopHoming:		HomingState := enumCassetteHomingState.NotHomed;
 	enumCassetteHomingState.StartHoming:	HomingState := enumCassetteHomingState.HomingStep1;
@@ -176,7 +176,7 @@ END_METHOD
 
 METHOD ResetLimits
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 PositiveLimitReachedX1	:= FALSE;
 PositiveLimitReachedX2	:= FALSE;
 PositiveLimitReachedY	:= FALSE;
@@ -188,7 +188,7 @@ END_METHOD
 
 METHOD StartHoming
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 ResetLimits();
 HomingState := enumCassetteHomingState.StartHoming;
 
@@ -202,14 +202,14 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 ActualPositionX1 := _ActualPosition.X1;
 END_GET
 SET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 _ActualPosition.X1	:= ActualPositionX1;
 
 Increment.AnyInt(_SwitchCount[enumMotorsType.X1]);
@@ -225,14 +225,14 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 ActualPositionX2 := _ActualPosition.X2;
 END_GET
 SET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 _ActualPosition.X2	:= ActualPositionX2;
 
 Increment.AnyInt(_SwitchCount[enumMotorsType.X2]);
@@ -248,14 +248,14 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 ActualPositionY := _ActualPosition.Y;
 END_GET
 SET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 _ActualPosition.Y	:= ActualPositionY;
 
 Increment.AnyInt(_SwitchCount[enumMotorsType.Y]);
@@ -271,7 +271,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 AdjustmentNeeded := (		(ActualPositionX1	> TargetPositionX1	AND NOT NegativeLimitReachedX1)
 						OR	(ActualPositionX2	> TargetPositionX2	AND NOT NegativeLimitReachedX2)
 						OR	(ActualPositionY	> TargetPositionY	AND NOT NegativeLimitReachedY)
@@ -291,14 +291,14 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 HomingState := _HomingState;
 END_GET
 SET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 _HomingState := HomingState;
 END_SET
 END_PROPERTY
@@ -311,14 +311,14 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 LastRotateMotor := _LastRotateMotor;
 END_GET
 SET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 _LastRotateMotor := LastRotateMotor;
 END_SET
 END_PROPERTY
@@ -331,7 +331,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 NegativeLimitReachedX1 := _NegativeLimitReached[enumMotorsType.X1] AND HomingState = enumCassetteHomingState.Homed;
 END_GET
 SET
@@ -339,7 +339,7 @@ PRIVATE
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 _NegativeLimitReached[enumMotorsType.X1] := NegativeLimitReachedX1;
 END_SET
 END_PROPERTY
@@ -352,7 +352,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 NegativeLimitReachedX2 := _NegativeLimitReached[enumMotorsType.X2] AND HomingState = enumCassetteHomingState.Homed;
 END_GET
 SET
@@ -360,7 +360,7 @@ PRIVATE
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 _NegativeLimitReached[enumMotorsType.X2] := NegativeLimitReachedX2;
 END_SET
 END_PROPERTY
@@ -373,7 +373,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 NegativeLimitReachedY := _NegativeLimitReached[enumMotorsType.Y] AND HomingState = enumCassetteHomingState.Homed;
 END_GET
 SET
@@ -381,7 +381,7 @@ PRIVATE
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 _NegativeLimitReached[enumMotorsType.Y] := NegativeLimitReachedY;
 END_SET
 END_PROPERTY
@@ -394,7 +394,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 PositiveLimitReachedX1 := _PositiveLimitReached[enumMotorsType.X1] AND HomingState = enumCassetteHomingState.Homed;
 END_GET
 SET
@@ -402,7 +402,7 @@ PRIVATE
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 _PositiveLimitReached[enumMotorsType.X1] := PositiveLimitReachedX1;
 END_SET
 END_PROPERTY
@@ -415,7 +415,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 PositiveLimitReachedX2 := _PositiveLimitReached[enumMotorsType.X2] AND HomingState = enumCassetteHomingState.Homed;
 END_GET
 SET
@@ -423,7 +423,7 @@ PRIVATE
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 _PositiveLimitReached[enumMotorsType.X2] := PositiveLimitReachedX2;
 END_SET
 END_PROPERTY
@@ -436,7 +436,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 PositiveLimitReachedY := _PositiveLimitReached[enumMotorsType.Y];
 END_GET
 SET
@@ -444,7 +444,7 @@ PRIVATE
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 _PositiveLimitReached[enumMotorsType.Y] := PositiveLimitReachedY;
 END_SET
 END_PROPERTY
@@ -457,14 +457,14 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 TargetPositionX1 := _TargetPosition.X1;
 END_GET
 SET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 _TargetPosition.X1 := TargetPositionX1;
 END_SET
 END_PROPERTY
@@ -477,14 +477,14 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 TargetPositionX2 := _TargetPosition.X2;
 END_GET
 SET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 _TargetPosition.X2 := TargetPositionX2;
 END_SET
 END_PROPERTY
@@ -497,14 +497,14 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 TargetPositionY := _TargetPosition.Y;
 END_GET
 SET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 _TargetPosition.Y := TargetPositionY;
 END_SET
 END_PROPERTY

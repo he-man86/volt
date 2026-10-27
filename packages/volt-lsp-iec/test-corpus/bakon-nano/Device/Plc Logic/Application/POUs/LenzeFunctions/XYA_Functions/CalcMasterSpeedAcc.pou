@@ -31,7 +31,7 @@ VAR_IN_OUT
 	Axis:AXIS_REF;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF rGearingRatio <> 0 THEN
 	rVelocity:=Axis.scPar.MaxVelocity / ABS(rGearingRatio);
 	rAcceleration:=Axis.scPar.MaxAcceleration   / ABS(rGearingRatio);

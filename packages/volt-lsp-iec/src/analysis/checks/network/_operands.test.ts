@@ -20,7 +20,7 @@ const vgUndeclared = (src: string, manifests: readonly LibraryManifest[] = []): 
 test("network text: an operand declared nowhere IS flagged, byte-identical to the compiler", () => {
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
 out := nope;
 END_NETWORK
@@ -31,7 +31,7 @@ END_FUNCTION_BLOCK`
 test("network text: declared vars and splits resolve (no undeclared diagnostic)", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; b : BOOL; out : BOOL; END_VAR
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
 split1 := a AND b;
 out := split1;
@@ -44,7 +44,7 @@ test("network text: R_EDGE / F_EDGE are flags on their operand, not calls of som
   // An edge is a prefix, `R_EDGE x`: a flag with no ST reading, so no word of the text ever reaches the undeclared check.
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; a : BOOL; END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
 out := R_EDGE a;
 out := F_EDGE NOT a;
@@ -57,7 +57,7 @@ END_FUNCTION_BLOCK`
 test("network text: a referenced library's namespace resolves when its manifest is bound", () => {
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
 out := PACK_ML.gFlag;
 END_NETWORK
@@ -73,7 +73,7 @@ test("network text: an unknown struct member IS flagged; a real one stays quiet 
   const src = `TYPE Pt : STRUCT x : INT; END_STRUCT END_TYPE
 FUNCTION_BLOCK F
 VAR p : Pt; out : INT; END_VAR
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
 out := p.x;
 out := p.nope;
@@ -90,7 +90,7 @@ test("network text: a qualified_only GVL chain does NOT false-positive (lenze Ma
     "file:///Mach1.gvl": `{attribute 'qualified_only'}\nVAR_GLOBAL\n\tGenflags : UDT_GeneralFlags;\nEND_VAR`,
     "file:///HMI.gvl": `{attribute 'qualified_only'}\nVAR_GLOBAL\n\tMach1 : sUDT_HMIVar_Mach1;\nEND_VAR`,
     "file:///Types.dut": `TYPE UDT_GeneralFlags : STRUCT bReady : BOOL; END_STRUCT END_TYPE\nTYPE sUDT_HMIVar_Mach1 : STRUCT other : BOOL; END_STRUCT END_TYPE`,
-    "file:///FB_User.pou": `FUNCTION_BLOCK FB_User\nVAR x : BOOL; END_VAR\nIMPLEMENTATION FBD
+    "file:///FB_User.pou": `FUNCTION_BLOCK FB_User\nVAR x : BOOL; END_VAR\n%LANGUAGE FBD
 NETWORK\nx := Mach1.Genflags.bReady;\nEND_NETWORK\nEND_FUNCTION_BLOCK`,
   }
   const docs = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source, { networkText: true }, "codesys") }))
@@ -107,7 +107,7 @@ NETWORK\nx := Mach1.Genflags.bReady;\nEND_NETWORK\nEND_FUNCTION_BLOCK`,
 test("network text: a conversion-arg operand that sign-changes (UINT_TO_WORD of an INT) warns like ST", () => {
   const src = `FUNCTION_BLOCK F
 VAR w : WORD; i : INT; END_VAR
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
 w := UINT_TO_WORD(i);
 END_NETWORK
@@ -120,7 +120,7 @@ END_FUNCTION_BLOCK`
 test("network text: a bad binary operand (MOD on REAL) is flagged like ST", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : REAL; b : REAL; out : REAL; END_VAR
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
 out := a MOD b;
 END_NETWORK
@@ -133,7 +133,7 @@ test("network text: an undeclared name of the old wire shape is a compiler messa
   // `rcc_network_undeclared_wire_shape` (2026-10-04): "Identifier 'g7' not defined" and the hole it leaves. (P12: the
   // old `g<n>` wires fail as what they are now, an undeclared variable.)
   const fb = (statement: string) =>
-    `FUNCTION_BLOCK FB\nVAR out : BOOL; x : BOOL; END_VAR\nIMPLEMENTATION LD\nNETWORK\n  ${statement}\nEND_NETWORK\nEND_FUNCTION_BLOCK`
+    `FUNCTION_BLOCK FB\nVAR out : BOOL; x : BOOL; END_VAR\n%LANGUAGE LD\nNETWORK\n  ${statement}\nEND_NETWORK\nEND_FUNCTION_BLOCK`
   expect(vgDiags(fb("out := g5;")).map((d) => d.message).sort()).toEqual([
     "Cannot convert type 'Unknown type: 'g5'' to type 'BOOL'",
     "Identifier 'g5' not defined",

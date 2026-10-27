@@ -68,11 +68,11 @@ async function survivesOrIsRefused(fullName: string, src: string): Promise<"roun
 }
 
 /** A PROGRAM wrapping one network body, with the declarations the shapes below reference. Network text v2 states
- *  the body's language once, on its IMPLEMENTATION line. */
+ *  the body's language once, on its %LANGUAGE line. */
 function program(name: string, lang: "FBD" | "LD", networks: string): string {
 	return (
 		`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\n\tout2 : BOOL;\n\tn : INT;\n\tm : INT;\n` +
-		`\tt1 : TON;\n\tgo : BOOL;\n\tpt : TIME;\nEND_VAR\nIMPLEMENTATION ${lang}\n` +
+		`\tt1 : TON;\n\tgo : BOOL;\n\tpt : TIME;\nEND_VAR\n%LANGUAGE ${lang}\n` +
 		networks +
 		`\nEND_PROGRAM\n`
 	)

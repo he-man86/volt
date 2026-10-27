@@ -16,7 +16,7 @@ VAR
 	beltStopped				: BTOF;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^();
 
 // Instantiate the output
@@ -29,7 +29,7 @@ END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 NotRunningAlarm(
 	moduleHandler	:= moduleHandler,
 	textRefId		:= textRefId,
@@ -48,7 +48,7 @@ VAR_INPUT
 	plusButtonPushed		: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF plusButtonPushed THEN
 	Set();
 END_IF
@@ -62,7 +62,7 @@ END_METHOD
 // Maps the actuator to the physical output
 METHOD Map : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Map := Output.Map();
 
 END_METHOD
@@ -70,7 +70,7 @@ END_METHOD
 // Reset the output (=False)
 METHOD Reset
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Output.Reset();
 
 UpdateTimers();
@@ -80,7 +80,7 @@ END_METHOD
 // Set the output (=True)
 METHOD Set : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Output.Set();
 
 UpdateTimers();
@@ -93,7 +93,7 @@ VAR_INPUT
 	xValue	: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Output.SetOrReset(xValue);
 
 UpdateTimers();
@@ -102,7 +102,7 @@ END_METHOD
 
 METHOD PRIVATE UpdateTimers
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 beltStarted.Set(Output.Map(), profile.rAcc);
 beltStopped.Set(Output.Map(), profile.rDec);
 
@@ -115,7 +115,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF NOT beltStopped.Q THEN
 	ConveyorState	:= enumConveyorRunning_State.Standstill;
 ELSIF beltStarted.Q THEN

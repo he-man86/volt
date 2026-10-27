@@ -13,7 +13,7 @@ namespace Volt.Engine.Tests;
 /// ONE COORDINATE SYSTEM FOR EVERY LINE ON THE WIRE (wire-final-shape 3.6b, owner principle after the PLC Assist report of
 /// 2026-10-24): a build diagnostic's <c>line</c> is the 1-based line of its item's FETCHED text, the coordinates <c>grep</c>
 /// uses, never the vendor's own count. A vendor counts a line inside the object it names — the declaration's lines, then
-/// the code's, no <c>IMPLEMENTATION</c> line; an action has no declaration (DIALECT D36) — and the bridge places it in the
+/// the code's, no <c>%LANGUAGE</c> line; an action has no declaration (DIALECT D36) — and the bridge places it in the
 /// text. A line it cannot place with certainty is absent, and its column with it.
 /// <para>Each expectation is the line of the fetched text that holds the faulty statement, found in that text.</para>
 /// </summary>

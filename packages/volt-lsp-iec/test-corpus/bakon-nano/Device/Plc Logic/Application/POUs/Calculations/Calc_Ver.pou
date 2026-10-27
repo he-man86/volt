@@ -52,7 +52,7 @@ VAR
 	nLastWastePosFirstTray	: INT;
 	
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 (* Calc_Ver, Positions when knife vertical (= 90 degrees = loodrecht op bediener) *)
 
 (************************************************************************************************************************************

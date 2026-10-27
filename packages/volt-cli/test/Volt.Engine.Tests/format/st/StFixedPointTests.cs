@@ -142,9 +142,9 @@ public class StFixedPointTests
     public void A_property_signatures_trailing_comment_is_not_part_of_its_type()
     {
         var item = StReader.Read(
-            "FUNCTION_BLOCK Machine\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\n\nEND_FUNCTION_BLOCK\n\n" +
+            "FUNCTION_BLOCK Machine\nVAR\nEND_VAR\n%LANGUAGE ST\n;\n\nEND_FUNCTION_BLOCK\n\n" +
             "PROPERTY PUBLIC Ready : BOOL\t// TRUE once every axis has homed\n" +
-            "GET\nIMPLEMENTATION ST\nReady := TRUE;\nEND_GET\n" +
+            "GET\n%LANGUAGE ST\nReady := TRUE;\nEND_GET\n" +
             "END_PROPERTY\n", ItemKind.Kinds.Pou);
 
         var ready = item.Members.Single(m => m.Name == "Ready");
@@ -181,7 +181,7 @@ public class StFixedPointTests
         const string text =
             "FUNCTION_BLOCK Machine\nVAR\n\tstep\t: INT;\nEND_VAR\n" +
             "// this comment sits against END_VAR, with no blank line under it\n" +
-            "IMPLEMENTATION ST\nstep := 0;\n\nEND_FUNCTION_BLOCK\n";
+            "%LANGUAGE ST\nstep := 0;\n\nEND_FUNCTION_BLOCK\n";
 
         Assert.Equal(text, StWriter.Write(StReader.Read(text, ItemKind.Kinds.Pou)));
     }

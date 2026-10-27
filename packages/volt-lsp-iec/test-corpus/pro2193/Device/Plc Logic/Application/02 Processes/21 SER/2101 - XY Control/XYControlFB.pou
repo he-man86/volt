@@ -74,7 +74,7 @@ VAR
 	) DINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^();
 
 
@@ -86,7 +86,7 @@ VAR_INST
 	savedState					: DINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SetError[1](
 	moduleHandler	:= ModuleHandler,
 	textRefId		:= SER_Errors,
@@ -139,7 +139,7 @@ END_METHOD
 
 METHOD PROTECTED Cyclic
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 State(actState	:= ActState);
 
 ButtonSampleShot();
@@ -164,7 +164,7 @@ END_METHOD
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 CommandLock.ForceRelease();
 
@@ -176,7 +176,7 @@ END_METHOD
 // After a state change, this method is called to execute the current state
 METHOD PROTECTED Execute
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF State.Changed THEN
 	Arrays.Bool_Reset(result);
 END_IF
@@ -200,7 +200,7 @@ END_METHOD
 
 METHOD PROTECTED Execute_Sequence1
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // SingleCavSingleTakeover
 CASE ActState OF
 	StateNone:	;
@@ -249,7 +249,7 @@ END_METHOD
 
 METHOD PROTECTED Execute_Sequence2
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %EXCLUDE_FROM_BUILD
 // FourCavDualTakeover
 CASE ActState OF
@@ -277,7 +277,7 @@ END_METHOD
 
 METHOD PROTECTED Execute_Sequence3
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %EXCLUDE_FROM_BUILD
 // FourCavDualTakeover
 CASE ActState OF
@@ -305,7 +305,7 @@ END_METHOD
 
 METHOD PUBLIC GetSampleShotRequest : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 GetSampleShotRequest	:= xSampleshotBusy;
 xSampleshotBusy			:= FALSE;
@@ -318,7 +318,7 @@ VAR_INPUT
 	operationMode : SER_OperationModeType;	// Indicate the mode in which the SER is started.
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 // Only start automatic cycle when X/Y control is enabled.
 IF NOT Data.Enable THEN
@@ -344,7 +344,7 @@ END_METHOD
 // Start automatic operations now! Returns true when module is started.
 METHOD StartCycle : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -382,7 +382,7 @@ END_METHOD
 // Command to stop a module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 CommandLock.ForceRelease();
 
@@ -394,7 +394,7 @@ END_METHOD
 // Cycle stop request. Returns true when module finished its active cycle.
 METHOD StopCycle : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 StopCycle				:= ActState = StateNone;
 
@@ -406,7 +406,7 @@ VAR_INST
 	transferLabelsRequired		: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 IF State.Changed THEN
 	transferProductsRequired	:= transferProducts.CheckIfTransferIsNeeded(1);
@@ -436,7 +436,7 @@ END_METHOD
 
 METHOD PROTECTED Takeover1PosCheck : enumResultGeneric
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 IF transferProducts.CheckIfTransferIsNeeded(1)
 OR (transferLabels.CheckIfTransferIsNeeded(1) AND yUnit.IsLabelTakeoutEqual = 1)
@@ -450,7 +450,7 @@ END_METHOD
 
 METHOD PROTECTED Takeover1PosCheck_Sequence2 : enumResultGeneric
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 %EXCLUDE_FROM_BUILD
 IF transferProducts.CheckIfTransferIsNeeded(1)
@@ -465,7 +465,7 @@ END_METHOD
 
 METHOD PROTECTED Takeover1PosCheck_Sequence3 : enumResultGeneric
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 %EXCLUDE_FROM_BUILD
 IF transferProducts.CheckIfTransferIsNeeded(1) THEN
@@ -481,7 +481,7 @@ VAR
 	prepareTransfer	: IModuleTransferExecuteWithPrepare;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 IF State.Changed THEN
 	IF __QUERYINTERFACE(transferProducts, prepareTransfer)
@@ -512,7 +512,7 @@ VAR_INST
 	transferLabelsRequired		: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 IF State.Changed THEN
 	transferProductsRequired	:= transferProducts.CheckIfTransferIsNeeded(2);
@@ -542,7 +542,7 @@ END_METHOD
 
 METHOD PROTECTED Takeover2PosCheck : enumResultGeneric
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 IF transferProducts.CheckIfTransferIsNeeded(2)
 OR (transferLabels.CheckIfTransferIsNeeded(1) AND yUnit.IsLabelTakeoutEqual = 2)
@@ -559,7 +559,7 @@ VAR
 	prepareTransfer	: IModuleTransferExecuteWithPrepare;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 IF State.Changed THEN
 	IF __QUERYINTERFACE(transferProducts, prepareTransfer)
@@ -590,7 +590,7 @@ VAR_INST
 	transferLabelsRequired		: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 IF State.Changed THEN
 	transferProductsRequired	:= transferProducts.CheckIfTransferIsNeeded(3);
@@ -620,7 +620,7 @@ END_METHOD
 
 METHOD PROTECTED Takeover3PosCheck : enumResultGeneric
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 IF transferProducts.CheckIfTransferIsNeeded(3)
 OR (transferLabels.CheckIfTransferIsNeeded(1) AND yUnit.IsLabelTakeoutEqual = 3)
@@ -637,7 +637,7 @@ VAR
 	prepareTransfer	: IModuleTransferExecuteWithPrepare;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 IF State.Changed THEN
 	IF __QUERYINTERFACE(transferProducts, prepareTransfer)
@@ -664,7 +664,7 @@ END_METHOD
 
 METHOD PROTECTED Takeover4PosActions : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 IF State.Changed THEN
 	;
@@ -680,7 +680,7 @@ END_METHOD
 
 METHOD PROTECTED Takeover4PosCheck : enumResultGeneric
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 IF transferToRejectShute.CheckIfTransferIsNeeded(3) THEN
 	Takeover4PosCheck := enumResultGeneric.Success;
@@ -692,7 +692,7 @@ END_METHOD
 
 METHOD PROTECTED Takeover4PosMove : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 IF State.Changed THEN
 	;
@@ -709,7 +709,7 @@ END_METHOD
 
 METHOD PROTECTED Takeover5PosActions : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 IF State.Changed THEN
 	;
@@ -725,7 +725,7 @@ END_METHOD
 
 METHOD PROTECTED Takeover5PosCheck : enumResultGeneric
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 IF transferToRejectShute.CheckIfTransferIsNeeded(2) THEN
 	Takeover5PosCheck := enumResultGeneric.Success;
@@ -737,7 +737,7 @@ END_METHOD
 
 METHOD PROTECTED Takeover5PosMove : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 IF State.Changed THEN
 	;
@@ -754,7 +754,7 @@ END_METHOD
 
 METHOD PROTECTED Takeover6PosActions : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 IF State.Changed THEN
 	;
@@ -770,7 +770,7 @@ END_METHOD
 
 METHOD PROTECTED Takeover6PosCheck : enumResultGeneric
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 IF transferToRejectShute.CheckIfTransferIsNeeded(1) THEN
 	Takeover6PosCheck := enumResultGeneric.Success;
@@ -782,7 +782,7 @@ END_METHOD
 
 METHOD PROTECTED Takeover6PosMove : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 IF State.Changed THEN
 	;
@@ -799,7 +799,7 @@ END_METHOD
 
 METHOD PROTECTED TakeoverLabelPosActions : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 IF (result[1] OR_ELSE (result[1] := transferLabels.ExecuteTransfer(1)))
 AND SER.SemiAutoNextStep
@@ -811,7 +811,7 @@ END_METHOD
 
 METHOD PROTECTED TakeoverLabelPosCheck : enumResultGeneric
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 IF transferLabels.CheckIfTransferIsNeeded(1) AND yUnit.IsLabelTakeoutEqual = 0 THEN
 	TakeoverLabelPosCheck := enumResultGeneric.Success;
@@ -826,7 +826,7 @@ VAR
 	prepareTransfer	: IModuleTransferExecuteWithPrepare;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 IF State.Changed THEN
 	IF __QUERYINTERFACE(transferLabels, prepareTransfer)
@@ -847,7 +847,7 @@ END_METHOD
 
 METHOD PROTECTED WaitForMouldClosed : enumResultGeneric
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 // Stop automatic cycle when cleaning mode is active.
 IF SER.OperationMode = SER_OperationModeType.CleaningMode THEN
@@ -872,7 +872,7 @@ VAR
 	xuUnitExtended				: IXuUnit_Default_Commands;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 // Do not start moving towards mould if any X axes is not in position
 IF NOT xiUnit.InSafePos OR NOT xuUnit.InSafePos THEN
@@ -909,7 +909,7 @@ VAR_INST
 	allowLabelsInCavities	: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 IF State.Changed THEN
 	// Only move Xi unit when it has labels
@@ -979,7 +979,7 @@ END_METHOD
 
 METHOD PROTECTED XUnitsToParking : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 IF  (result[1] OR_ELSE (result[1] := xiUnit.MoveToParking()))
 AND (result[2] OR_ELSE (result[2] := xuUnit.MoveToParking()))
@@ -994,7 +994,7 @@ END_METHOD
 
 METHOD PROTECTED YUnitEnterMouldArea : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 IF State.Changed THEN
 	IMM.InhibitMouldClosing();	// Let the IMM know we're coming in.
@@ -1013,7 +1013,7 @@ END_METHOD
 
 METHOD PROTECTED YUnitInPositionInMouldArea : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 // Xu Unit moves to halfway position during movement of Y Unit.
 result[1]	:= result[1] OR_ELSE takeoutFromMould.StartCommand(0);
@@ -1028,7 +1028,7 @@ END_METHOD
 
 METHOD PROTECTED YUnitLeaveMouldArea : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 // Do not start moving if any X axes is not in position
 IF NOT xiUnit.InSafePos OR NOT xuUnit.InSafePos THEN
@@ -1062,7 +1062,7 @@ VAR
 	xuUnitExtended				: IXuUnit_Default_Commands;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 IF State.Changed THEN
 	// Copy the product status to the Xu axis now. This is the moment we know that this was the last shot.

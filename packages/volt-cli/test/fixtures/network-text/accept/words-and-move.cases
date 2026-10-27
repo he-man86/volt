@@ -1,6 +1,6 @@
 #### add-coil — an ADD box is its word, between its inputs; a consumer reads its value
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   x := a ADD b;
 END_NETWORK
@@ -10,7 +10,7 @@ NETWORK
 
 #### every-word — the fourteen words, each one box; a bit operator stores no connection slot
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   b1 := a AND b;
   b2 := a OR b;
@@ -46,7 +46,7 @@ NETWORK
 
 #### one-word-three-inputs — one word is one box: `a ADD b ADD c` is one ADD with three inputs
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   x := a ADD b ADD c;
 END_NETWORK
@@ -56,7 +56,7 @@ NETWORK
 
 #### brackets-separate-boxes — a box that is another word's operand is bracketed
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   x := a ADD (b ADD c);
   y := (a ADD b) MUL c;
@@ -70,7 +70,7 @@ NETWORK
 
 #### and-nine-inputs — AND and OR take as many inputs as drawn
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   q := a AND b AND c AND d AND e AND f AND g AND h AND i;
 END_NETWORK
@@ -80,7 +80,7 @@ NETWORK
 
 #### top-level-word-with-output — a box nothing consumes writes its value to an output pin, `a ADD b => x;`
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   a ADD b => x;
 END_NETWORK
@@ -90,7 +90,7 @@ NETWORK
 
 #### lowercase-word — the word as the box type stores it: `a and b` is a box of type `and`
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   x := a and b;
 END_NETWORK
@@ -100,7 +100,7 @@ NETWORK
 
 #### empty-operand — an unconnected input is written as nothing between its words, `MUL m MUL 6`
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   x := MUL m MUL 6;
   y := a ADD ADD c;
@@ -112,7 +112,7 @@ NETWORK
 
 #### negated-box — a modifier on a box: the box stands in brackets after it
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := NOT (a AND b);
   y := R_EDGE (a AND b);
@@ -124,7 +124,7 @@ NETWORK
 
 #### word-operand-call — a call is an operand of a word without brackets
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   x := a ADD f(IN := b);
 END_NETWORK
@@ -136,7 +136,7 @@ NETWORK
 === scope
 instance t1 TON
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   q := t1 : TON(IN := a AND b, PT := T#1S).Q;
 END_NETWORK
@@ -146,7 +146,7 @@ NETWORK
 
 #### move-to — MOVE writes its target as an output pin, `MOVE b => a`
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   MOVE b => a;
 END_NETWORK
@@ -156,7 +156,7 @@ NETWORK
 
 #### move-then-coil — `a := MOVE b;` is a MOVE box, then a coil
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   a := MOVE b;
 END_NETWORK
@@ -166,7 +166,7 @@ NETWORK
 
 #### coil-no-box — `a := b;` is a coil fed by a leaf
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   a := b;
 END_NETWORK
@@ -176,7 +176,7 @@ NETWORK
 
 #### move-two-targets — MOVE writes to as many targets as drawn, in slot order
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   MOVE 0 => a => b;
 END_NETWORK
@@ -186,7 +186,7 @@ NETWORK
 
 #### move-empty-operand — MOVE with its input unconnected, `MOVE => x`
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   MOVE => x;
 END_NETWORK
@@ -196,7 +196,7 @@ NETWORK
 
 #### move-operand-bracketed — a box as MOVE's operand stands in brackets
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   MOVE (a ADD b) => x;
 END_NETWORK
@@ -206,7 +206,7 @@ NETWORK
 
 #### not-box — the NOT box is its backticked word with its pin, `` `NOT`(a) ``
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   x := `NOT`(a);
 END_NETWORK
@@ -216,7 +216,7 @@ NETWORK
 
 #### not-box-empty — the NOT box with its one input unconnected names the pin
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   x := `NOT`(IN := );
 END_NETWORK
@@ -226,7 +226,7 @@ NETWORK
 
 #### negated-pin-call-form — a word box with a flagged pin is its backticked call, its pins named
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   x := `AND`(IN1 := a, IN2 := b, NOT IN3 := c);
 END_NETWORK
@@ -236,7 +236,7 @@ NETWORK
 
 #### rising-pin-call-form — an edge on an operator's pin, before the pin's name
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := `AND`(R_EDGE IN1 := c, IN2 := one);
 END_NETWORK
@@ -248,7 +248,7 @@ NETWORK
 === scope
 instance t1 TON
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   t1 : TON(R_EDGE NOT IN := v, PT := T#1S);
 END_NETWORK

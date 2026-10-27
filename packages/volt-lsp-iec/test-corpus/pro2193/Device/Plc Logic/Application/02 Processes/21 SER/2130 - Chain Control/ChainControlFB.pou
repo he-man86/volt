@@ -28,7 +28,7 @@ VAR CONSTANT
 	OnTheFlyTriggerOffset		: UINT := 1;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^();
 
 
@@ -39,7 +39,7 @@ VAR_INST
 	result				: ARRAY[1..4] OF BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 IF State.Changed THEN
 	Arrays.Bool_Reset(result);
@@ -72,7 +72,7 @@ VAR
 	i				: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 IF State.Changed THEN
 	IF chain.ZUnitIsAfterReject THEN
@@ -114,7 +114,7 @@ END_METHOD
 
 METHOD PROTECTED CameraTakingPicture
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 ActState := StateAwaitingCameraResult;
 
@@ -123,7 +123,7 @@ END_METHOD
 // Image buffer must be empty at least once every 30 seconds
 METHOD PROTECTED CheckImageBuffer : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Methods
 IF State.Changed THEN
 	IF NOT chain.StopToCheckImageBuffer THEN
@@ -143,7 +143,7 @@ END_METHOD
 
 METHOD PROTECTED Cyclic
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 State(actState	:= ActState);
 
 HandleCameraTrigger();
@@ -155,7 +155,7 @@ END_METHOD
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 CommandLock.ForceRelease();
 
@@ -170,7 +170,7 @@ END_METHOD
 // After a state change, this method is called to execute the current state
 METHOD PROTECTED Execute
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
 	enumExchangeSets.Default:
 		Execute_Sequence1();
@@ -190,7 +190,7 @@ METHOD PROTECTED Execute_Sequence1
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 CASE ActState OF
 	StateNone:							;
 	StateCameraTakingPicture:			CameraTakingPicture();
@@ -211,7 +211,7 @@ VAR
 	i						: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Methods
 // Wait for vision system to have a result ready
 IF NOT camera.CameraResultReady THEN
@@ -254,7 +254,7 @@ END_VAR
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Methods
 sensorValidTrigger.Call(CLK:= Chain.TriggerSensorValid);
 
@@ -317,7 +317,7 @@ VAR_INST
 	setProductsNeededOnce		: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Methods
 IF State.Changed THEN
 	setProductsNeededOnce		:= TRUE;
@@ -361,7 +361,7 @@ VAR_INST
 	result				: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Methods
 IF State.Changed THEN
 	transferRequired	:= transferProducts.CheckIfTransferIsNeeded();
@@ -394,7 +394,7 @@ VAR_INST
 	result				: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Methods
 IF State.Changed THEN
 	transferRequired	:= transferRejects.CheckIfTransferIsNeeded();
@@ -420,7 +420,7 @@ VAR_INST
 	product					: REFERENCE TO ProductType;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 IF State.Changed THEN
 	product						REF= chain.ReturnProduct(position := MAX(PersistentVars.RecipeVars.chainPos_Camera, 1));
@@ -441,7 +441,7 @@ VAR_INPUT
 	operationMode : SER_OperationModeType;	// Indicate the mode in which the SER is started.
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 CASE operationMode OF
 	SER_OperationModeType.Production:			ShouldStart := TRUE;
@@ -467,7 +467,7 @@ END_METHOD
 // This module will start some operations when the automatic cycle is started on the SER
 METHOD StartCycle : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -487,7 +487,7 @@ END_METHOD
 // Command to stop a module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 CommandLock.ForceRelease();
 
@@ -502,7 +502,7 @@ END_METHOD
 // Cycle stop request. Returns true when module finished its active cycle.
 METHOD StopCycle : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF ActState = StateNone AND NOT chain.HasPayload THEN
 	automaticOperationStarted	:= FALSE;

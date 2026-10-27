@@ -23,7 +23,7 @@ public class ThirdVendorTransportTests
     private const string MotorPath = "Station1/Blocks/Motor.blk";
     private const string SpeedPath = "Station1/Types/Speed.typ";
     private const string StationPath = "Station1/Station1.stn";
-    private const string MotorText = "BLOCK Motor\nIN start\nOUT lamp\nIMPLEMENTATION FKL\nlamp = start\n";
+    private const string MotorText = "BLOCK Motor\nIN start\nOUT lamp\n%LANGUAGE FKL\nlamp = start\n";
 
     private static (Fakeco Ide, BridgePipeHost Host, PipeClient Client) Serve()
     {
@@ -88,7 +88,7 @@ public class ThirdVendorTransportTests
         using (host)
         {
             var refs = client.Call("refs");
-            const string retained = "%RETAIN\n%NOTE 'main drive'\nBLOCK Motor\nIN start\nOUT lamp\nIMPLEMENTATION FKL\nlamp = start\n";
+            const string retained = "%RETAIN\n%NOTE 'main drive'\nBLOCK Motor\nIN start\nOUT lamp\n%LANGUAGE FKL\nlamp = start\n";
 
             var result = client.Call("push", Push(refs.GetProperty("projectVersion").GetString()!,
                 Set(MotorPath, Items(refs)[MotorPath], retained)));
@@ -109,8 +109,8 @@ public class ThirdVendorTransportTests
         {
             var refs = client.Call("refs");
             var items = Items(refs);
-            const string edited = "BLOCK Motor\nIN start\nOUT lamp\nIMPLEMENTATION FKL\nlamp = start AND NOT stop\n";
-            const string created = "BLOCK Pump\nIN run\nIMPLEMENTATION FKL\nrun = run\n";
+            const string edited = "BLOCK Motor\nIN start\nOUT lamp\n%LANGUAGE FKL\nlamp = start AND NOT stop\n";
+            const string created = "BLOCK Pump\nIN run\n%LANGUAGE FKL\nrun = run\n";
 
             var result = client.Call("push", Push(refs.GetProperty("projectVersion").GetString()!,
                 Set(MotorPath, items[MotorPath], edited),
@@ -145,7 +145,7 @@ public class ThirdVendorTransportTests
         {
             var refs = client.Call("refs");
             var result = client.Call("push", Push(refs.GetProperty("projectVersion").GetString()!,
-                Set(MotorPath, Items(refs)[MotorPath], "BLOCK Motor\nIMPLEMENTATION ST\nlamp := start;\n")));
+                Set(MotorPath, Items(refs)[MotorPath], "BLOCK Motor\n%LANGUAGE ST\nlamp := start;\n")));
 
             Assert.False(result.TryGetProperty("newProjectVersion", out _), result.ToString());   // nothing landed
             var conflict = Assert.Single(result.GetProperty("conflicts").EnumerateArray().ToList());
@@ -184,7 +184,7 @@ public class ThirdVendorTransportTests
         {
             var refs = client.Call("refs");
             var result = client.Call("push", Push(refs.GetProperty("projectVersion").GetString()!,
-                Set("Station1/Blocks/Valve.pou", null, "FUNCTION_BLOCK Valve\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n")));
+                Set("Station1/Blocks/Valve.pou", null, "FUNCTION_BLOCK Valve\n%LANGUAGE ST\n\nEND_FUNCTION_BLOCK\n")));
 
             var conflict = Assert.Single(result.GetProperty("conflicts").EnumerateArray().ToList());
             Assert.Equal("BAD_REQUEST", conflict.GetProperty("code").GetString());

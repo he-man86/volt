@@ -20,7 +20,7 @@ VAR
 	TimeOut_TIME: TIME := T#5S;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 //------------------------------------------------------------------------------------------
 // This function is a watchdog.
 //

@@ -29,7 +29,7 @@ VAR
 						);
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 END_FUNCTION_BLOCK
 
@@ -45,7 +45,7 @@ VAR_INPUT
 	name			: STRING(12);					// Give name of module manager (For example SER or BFU)
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 THIS^._name						:= name;
 THIS^._moduleHandler.CompName	:= name;
 
@@ -59,7 +59,7 @@ VAR_INPUT
 	module			: IAbleToRegister;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 LogPlc.Debug(
 	CONCAT9(
 		Name,
@@ -91,7 +91,7 @@ VAR
 	thingMatchedAnyInterface : BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF thingToRegister = 0 THEN
 	LogPlc.Fatal('Null reference exception! Interface does not exist.');
 	RETURN;
@@ -176,7 +176,7 @@ VAR
 	thingMatchedAnyInterface : BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF thingToRegister = 0 THEN
 	LogPlc.Fatal('Null reference exception! Interface does not exist.');
 	RETURN;
@@ -308,7 +308,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 ModuleHandler	:= _moduleHandler;
 
 END_GET
@@ -320,7 +320,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Name	:= _name;
 
 // This does not work because CompName has no Getter. Maybe change in the future when Lenze changes library

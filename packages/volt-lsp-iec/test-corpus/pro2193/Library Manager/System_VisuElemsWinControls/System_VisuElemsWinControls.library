@@ -4,4 +4,4 @@ RESOLUTION VisuElemsWinControls, 4.8.1.0 (System)
 PLACEHOLDER true
 SYSTEM true
 REDIRECT System_VisuElemsWinControls VisuElemsWinControls, 4.4.0.0 (System)
-MATERIALIZATION 4
+MATERIALIZATION 5

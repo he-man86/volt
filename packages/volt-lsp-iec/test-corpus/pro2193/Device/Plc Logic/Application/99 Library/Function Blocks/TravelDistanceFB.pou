@@ -15,7 +15,7 @@ VAR
 	init			: BOOL	:= TRUE;	// Flag for first execution
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF init OR NOT enable THEN		// make sure the first cycle works correctly
 	oldPos				:= actPos;
 	init				:= FALSE;
@@ -38,7 +38,7 @@ END_FUNCTION_BLOCK
 // Reset total distance counter
 METHOD PUBLIC Reset
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 totalDistance		:= 0;
 travelDistance		:= 0.0;
 oldPos				:= actPos;

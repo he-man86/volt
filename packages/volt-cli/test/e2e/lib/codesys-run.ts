@@ -63,7 +63,7 @@ export async function runCalled(programs: readonly string[], paths: readonly str
 		if (!main) throw new Error("the fixture has no main program to call the test programs from")
 		const item = await fetchItem(main)
 		const lines: string[] = item.sourceText.split("\n")
-		const at = lines.findIndex((l) => l.trim() === "IMPLEMENTATION ST")
+		const at = lines.findIndex((l) => l.trim() === "%LANGUAGE ST")
 		if (at === -1) throw new Error(`${main} has no ST body to call ${programs.join(", ")} from`)
 		lines.splice(at + 1, 0, ...programs.map((p) => `${p}();`))
 		const r = await pushOps([{ op: "set", name: main, sourceText: lines.join("\n"), ifVersion: item.version }])

@@ -9,7 +9,7 @@
  *  Every builder below that has an implementation emits it, because that is what a pulled file looks like
  *  and a push without it is refused. A GVL, a DUT and an INTERFACE carry none: they have no implementation
  *  to separate. */
-export const MARK = "IMPLEMENTATION ST"
+export const MARK = "%LANGUAGE ST"
 
 // ── top-level kinds ───────────────────────────────────────────────────────────
 export const fb = (name: string, opts: { vars?: string; body?: string; children?: string } = {}) =>
@@ -31,13 +31,13 @@ export const ACTION = (n: string, body = "x := 1;") => `\nACTION ${n}\n${MARK}\n
 export const PROPERTY = (n: string, get = true, set = true) =>
 	`\nPROPERTY ${n} : INT\n` + (get ? `GET\n${MARK}\n\t${n} := x;\nEND_GET\n` : "") + (set ? `SET\n${MARK}\n\tx := ${n};\nEND_SET\n` : "") + `END_PROPERTY\n`
 
-/** An ABSTRACT function block and its abstract members with no code — `IMPLEMENTATION NONE` on both vendors, whoever
- *  made the object (openspec `abstract-member-parity`). `line` states the member bodies: `IMPLEMENTATION NONE`, or a
- *  file pulled before the fold (`IMPLEMENTATION ST`, nothing under it), which is the same content. */
+/** An ABSTRACT function block and its abstract members with no code — `%LANGUAGE ST` with nothing under it: a member
+ *  the push creates has a body slot on both vendors (openspec `language-line`); only an IDE-made slotless member has no
+ *  line. `line` states the member bodies. */
 export const abstractFb = (name: string, children: string) =>
 	`FUNCTION_BLOCK ABSTRACT ${name}\nVAR\n\tx : INT;\nEND_VAR\n${MARK}\nx := x + 1;\nEND_FUNCTION_BLOCK\n${children}`
-export const ABSTRACT_METHOD = (n: string, line = "IMPLEMENTATION NONE") => `\nMETHOD ABSTRACT ${n} : INT\n${line}\nEND_METHOD\n`
-export const ABSTRACT_PROPERTY = (n: string, line = "IMPLEMENTATION NONE") =>
+export const ABSTRACT_METHOD = (n: string, line = "%LANGUAGE ST") => `\nMETHOD ABSTRACT ${n} : INT\n${line}\nEND_METHOD\n`
+export const ABSTRACT_PROPERTY = (n: string, line = "%LANGUAGE ST") =>
 	`\nPROPERTY PUBLIC ABSTRACT ${n} : BOOL\nGET\n${line}\nEND_GET\nSET\n${line}\nEND_SET\nEND_PROPERTY\n`
 
 /** An INTERFACE property: same shape, BODILESS accessors. In IEC 61131-3 an interface declares the signature and

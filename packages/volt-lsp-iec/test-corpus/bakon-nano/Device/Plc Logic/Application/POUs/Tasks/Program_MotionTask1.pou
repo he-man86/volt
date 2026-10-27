@@ -7,7 +7,7 @@ VAR
 	initializeArrays : BOOL := true;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 IF initializeArrays THEN
 	Stack_Init_CuttingPos(IQ_dataArray:=g_aCuttingPositions, IQ_dataArrayInfo := g_sCuttingPositionsInfo);

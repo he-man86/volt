@@ -48,7 +48,7 @@ function stOfSameKind(fullName: string, heldText: string): string {
 	const kw = /^\s*(PROGRAM|FUNCTION_BLOCK|FUNCTION)\b/m.exec(heldText)?.[1]
 	if (!kw) throw new Error(`${fullName} holds no PROGRAM / FUNCTION_BLOCK / FUNCTION header to match`)
 	const head = kw === "FUNCTION" ? `${kw} ${bare} : INT` : `${kw} ${bare}`
-	return `${head}\nVAR\n\tnHacked : INT;\nEND_VAR\nIMPLEMENTATION ST\nnHacked := 1;\nEND_${kw}\n`
+	return `${head}\nVAR\n\tnHacked : INT;\nEND_VAR\n%LANGUAGE ST\nnHacked := 1;\nEND_${kw}\n`
 }
 
 describe(`graphical / unsupported bodies are never overwritten (${BASE})`, () => {
@@ -69,11 +69,11 @@ describe(`graphical / unsupported bodies are never overwritten (${BASE})`, () =>
 	})
 
 	for (const [lang, bare] of CASES) {
-		it(`a ${lang} body materializes as its IMPLEMENTATION ${lang} UNSUPPORTED line, not as source`, async () => {
+		it(`a ${lang} body materializes as its %LANGUAGE ${lang} UNSUPPORTED line, not as source`, async () => {
 			const it0 = await fetchItem(nameOf(bare))
 			// The line is a FILE FORMAT — it lands in the user's git history — so it is matched literally: alone on
 			// its line, and with nothing under it but the POU's END keyword (no implementation is shown).
-			expect(it0.sourceText).toMatch(new RegExp(String.raw`\nIMPLEMENTATION ${lang} UNSUPPORTED\r?\n\s*END_(PROGRAM|FUNCTION_BLOCK|FUNCTION)\b`))
+			expect(it0.sourceText).toMatch(new RegExp(String.raw`\n%LANGUAGE ${lang} UNSUPPORTED\r?\n\s*END_(PROGRAM|FUNCTION_BLOCK|FUNCTION)\b`))
 			// And it carries none of the diagram. An engineer must not be handed an editable-looking file: that
 			// is the exact failure IL caused, materializing as its raw source and being rewritten as ST.
 			expect(it0.sourceText).not.toContain("NETWORK")

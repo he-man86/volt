@@ -61,12 +61,12 @@ const isSyntaxMessage = (message: string): boolean =>
   !NAME_OR_TYPE_MESSAGES.test(message)
 
 /**
- * A fixture whose body is NETWORK TEXT (`IMPLEMENTATION LD|FBD`) is read by the network-text reader, not the ST parser this
+ * A fixture whose body is NETWORK TEXT (`%LANGUAGE LD|FBD`) is read by the network-text reader, not the ST parser this
  * census measures: its refusals ("Expression expected instead of '?'" for an unnamed pin — `network_unnamed_*`) are the
  * reader's and `network-analysis`'s, where the conformance suite holds them. Its declarations are still the parser's, so
  * only the other direction — a refusal the parser does not share — skips it (frontend-conformance 2.8.3).
  */
-const hasNetworkBody = (source: string): boolean => /^\s*IMPLEMENTATION\s+(LD|FBD)\b/im.test(source)
+const hasNetworkBody = (source: string): boolean => /^\s*%LANGUAGE\s+(LD|FBD)\b/im.test(source)
 
 /** The build's messages as a multiset: each recorded copy matches ONE LSP parse error. */
 const recordedPool = (b: RecordedBuild | undefined) => messagePool((b?.diagnostics ?? []).map((d) => d.message))

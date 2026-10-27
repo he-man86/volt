@@ -11,7 +11,7 @@ VAR
 	{attribute 'symbol' := 'read'}		moveMiddleDuration		: REAL;		// The amount of time elapsed when cylinder moves
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Execute base cylinder fb
 SUPER^();
 
@@ -20,7 +20,7 @@ END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Set the extra alarm message
 SUPER^.Alarms();
 SetSensorMiddleAlarm(	(OutputIn.Map() = OutputOut.Map()) XOR xSensorMiddle);
@@ -32,7 +32,7 @@ VAR_INPUT
 	xSet	: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SensorMiddleAlarm(
 	moduleHandler	:= moduleHandler,
 	textRefId		:= textRefId,
@@ -56,7 +56,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IsIn := inputIn AND NOT inputOut AND NOT xSensorMiddle;
 END_GET
 END_PROPERTY
@@ -68,7 +68,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IsMiddle := NOT inputOut AND NOT inputIn AND xSensorMiddle;
 END_GET
 END_PROPERTY
@@ -80,7 +80,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IsOut := inputOut AND NOT inputIn AND NOT xSensorMiddle;
 END_GET
 END_PROPERTY

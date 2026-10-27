@@ -26,7 +26,7 @@ VAR CONSTANT
 	tAdjustFrequency		: TIME	:= T#2S;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Execute base fb
 SUPER^();
 
@@ -54,7 +54,7 @@ END_FUNCTION_BLOCK
 // The cylinder moves in. Returns true when cylinder is in.
 METHOD PUBLIC FINAL GoIn : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Reset();
 
 GoIn := IsIn;
@@ -64,7 +64,7 @@ END_METHOD
 // The cylinder moves out. Returns true when cylinder is out.
 METHOD PUBLIC FINAL GoOut : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Set();
 
 GoOut := IsOut;
@@ -77,7 +77,7 @@ VAR_INPUT
 	plusButtonPushed		: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF inAdjustMode THEN
 	SetOrReset(Blinker.OUT);
 ELSIF plusButtonPushed THEN
@@ -91,7 +91,7 @@ END_METHOD
 // Maps the actuator to the physical output
 METHOD Map : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Map := Output.Map();
 
 END_METHOD
@@ -99,7 +99,7 @@ END_METHOD
 // Reset the output (=False)
 METHOD Reset
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Output.Reset();
 
 END_METHOD
@@ -107,7 +107,7 @@ END_METHOD
 // Set the output (=True)
 METHOD Set : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Output.Set();
 
 END_METHOD
@@ -118,7 +118,7 @@ VAR_INPUT
 	xValue	: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Output.SetOrReset(xValue);
 
 END_METHOD
@@ -130,7 +130,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IsIn := timeGoIn.Q;
 END_GET
 END_PROPERTY
@@ -142,7 +142,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IsOut := timeGoOut.Q;
 END_GET
 END_PROPERTY

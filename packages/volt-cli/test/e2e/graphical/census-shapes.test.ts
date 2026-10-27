@@ -27,7 +27,7 @@ setDefaultTimeout(120_000)
 function fb(name: string, lang: "FBD" | "LD", statements: string, header = `FUNCTION_BLOCK ${name}`): string {
 	return (
 		`${header}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tgo : BOOL;\n\tout : BOOL;\n\tout2 : BOOL;\n\tt1 : TON;\n\tpt : TIME;\nEND_VAR\n` +
-		`IMPLEMENTATION ${lang}\nNETWORK\n${statements}\nEND_NETWORK\n\nEND_FUNCTION_BLOCK\n`
+		`%LANGUAGE ${lang}\nNETWORK\n${statements}\nEND_NETWORK\n\nEND_FUNCTION_BLOCK\n`
 	)
 }
 
@@ -76,7 +76,7 @@ describe(`graphical / census shapes, ld-fbd-coverage 2.3 (${BASE})`, () => {
 		const base = id("s5base")
 		beforeAll(async () => {
 			await removeItem(fid("s5base", "pou"))
-			await createItem(fid("s5base", "pou"), `FUNCTION_BLOCK ${base}\nVAR_INPUT\n\tx : BOOL;\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n`)
+			await createItem(fid("s5base", "pou"), `FUNCTION_BLOCK ${base}\nVAR_INPUT\n\tx : BOOL;\nEND_VAR\n%LANGUAGE ST\n\nEND_FUNCTION_BLOCK\n`)
 		})
 		afterAll(async () => {
 			await removeItem(fid("s5base", "pou"))

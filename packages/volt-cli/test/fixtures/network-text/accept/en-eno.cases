@@ -1,6 +1,6 @@
 #### move-enabled — EN after the box's outputs, its source after the word; no ENO written = the box has no ENO pin
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   MOVE b => a EN c;
 END_NETWORK
@@ -10,7 +10,7 @@ NETWORK
 
 #### move-enabled-eno — `ENO` after the outputs: the box has its ENO pin, connected to nothing at the top level
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   MOVE 0 => x ENO EN c;
 END_NETWORK
@@ -20,7 +20,7 @@ NETWORK
 
 #### add-enabled-two-targets — the data outputs fill the slots after ENO, in order
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x ADD 5 => x => y ENO EN c;
 END_NETWORK
@@ -30,7 +30,7 @@ NETWORK
 
 #### empty-enable — `EN` with nothing after it: the enable wired to nothing
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x ADD 1 => x ENO EN;
 END_NETWORK
@@ -40,7 +40,7 @@ NETWORK
 
 #### en-source-is-a-slot — EN's source runs to the end of its slot: one box, unbracketed
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   MOVE 6 => t ENO EN ready AND btn;
   x ADD f(IN := b) => y ENO EN c;
@@ -52,7 +52,7 @@ NETWORK
 
 #### read-through-eno — a box that shows ENO is read through it (X10): `lamp := MOVE 1 => t ENO EN c;`
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   lamp := MOVE 1 => t ENO EN c;
 END_NETWORK
@@ -62,7 +62,7 @@ NETWORK
 
 #### enabled-value — EN without ENO: a consumer reads the box's value (measurement 5, 6)
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   y := MOVE k EN c;
   sum := a ADD b EN c;
@@ -78,7 +78,7 @@ NETWORK
 
 #### enabled-value-as-operand — an enabled box as another word's operand is bracketed
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := a AND (b GT 40 EN c);
   y := (MOVE 1 => t ENO EN c) AND (MOVE 2 => u ENO EN d);
@@ -90,7 +90,7 @@ NETWORK
 
 #### enabled-call-in-pin — a pin is a slot: an enabled box there takes no brackets
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   done R= fc(iEN := MOVE stop => start ENO EN go, iPos := pos);
 END_NETWORK
@@ -100,7 +100,7 @@ NETWORK
 
 #### chain — a box in the EN slot of another runs first; the writer lays the chain out as a staircase
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   lamp := MOVE 3 => c ENO EN
             MOVE 2 => b ENO EN
@@ -112,7 +112,7 @@ NETWORK
 
 #### chain-top-level — a chain nothing reads: its last box shows its ENO pin, connected to nothing
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   MOVE 2 => b ENO EN
     MOVE 1 => a ENO EN start;
@@ -123,7 +123,7 @@ NETWORK
 
 #### chain-one-line — layout is the writer's: the chain on one line reads to the same tree
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   lamp := MOVE 3 => c ENO EN MOVE 2 => b ENO EN MOVE 1 => a ENO EN start;
 END_NETWORK
@@ -131,7 +131,7 @@ END_NETWORK
 NETWORK
   (:= lamp (MOVE 3 =>1:c en:(MOVE 2 =>1:b en:(MOVE 1 =>1:a en:start conn:0 eno:1) conn:0 eno:1) conn:0 eno:1))
 === canonical
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   lamp := MOVE 3 => c ENO EN
             MOVE 2 => b ENO EN
@@ -140,7 +140,7 @@ END_NETWORK
 
 #### chain-odd-indentation — any indentation deeper than the item's first line reads to the same tree
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   lamp := MOVE 3 => c ENO EN
      MOVE 2 => b ENO EN
@@ -150,7 +150,7 @@ END_NETWORK
 NETWORK
   (:= lamp (MOVE 3 =>1:c en:(MOVE 2 =>1:b en:(MOVE 1 =>1:a en:start conn:0 eno:1) conn:0 eno:1) conn:0 eno:1))
 === canonical
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   lamp := MOVE 3 => c ENO EN
             MOVE 2 => b ENO EN
@@ -159,7 +159,7 @@ END_NETWORK
 
 #### chain-in-brackets — the staircase inside a bracket
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := a AND (MOVE 1 => t ENO EN
                 MOVE 2 => u ENO EN c);
@@ -170,7 +170,7 @@ NETWORK
 
 #### en-slot-and-input-box — a box in the EN slot and one in an input: both run before their consumer, the EN slot first (1d)
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   MOVE (MOVE 2 => t ENO EN d) => x ENO EN
     MOVE 1 => s ENO EN c;
@@ -181,7 +181,7 @@ NETWORK
 
 #### split-in-en-slot — a split defined in the EN slot and read by an input, the stored slots (measurement 2)
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   y := MOVE split1 => t ENO EN (split1 := a AND b);
 END_NETWORK
@@ -191,7 +191,7 @@ NETWORK
 
 #### eno-into-split — a box read through ENO twice: CODESYS stores a split there
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   split21 := MOVE 860 => speed ENO EN go;
   a := split21;
@@ -205,7 +205,7 @@ NETWORK
 
 #### eno-jump — a jump fed through a box's ENO
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   JMP Done := MOVE 1 => x ENO EN c;
 END_NETWORK
@@ -220,7 +220,7 @@ NETWORK label:Done
 
 #### eno-modifier — a modifier on a box read through ENO is the box's flag (measurement 8)
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   lamp := NOT (MOVE 1 => t ENO EN c);
   edge := R_EDGE (MOVE 2 => u ENO EN c);
@@ -232,7 +232,7 @@ NETWORK
 
 #### eno-wired-top-level — `ENO => v`: the ENO pin wired to a variable, at the top level (7a: it stores and builds; the LSP warns it never writes v)
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   MOVE 7 => x ENO => lamp EN c;
 END_NETWORK
@@ -242,7 +242,7 @@ NETWORK
 
 #### negated-en-pin — `NOT EN c` negates the EN pin; `EN NOT c` the contact feeding it
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   MOVE 5 => y ENO NOT EN c;
   MOVE 5 => z ENO EN NOT c;
@@ -256,7 +256,7 @@ NETWORK
 === scope
 instance t1 TON
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := t1 : TON(IN := a, PT := T#1S).Q;
 END_NETWORK
@@ -268,7 +268,7 @@ NETWORK
 === scope
 instance d1 Dryer
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   ready := d1 : Dryer(iOn := on);
 END_NETWORK
@@ -281,7 +281,7 @@ NETWORK
 instance c1 CTU
 instance c2 CTU
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   c1 : CTU(CU := a, PV := 10, CV => n) ENO EN go;
   lamp := (c2 : CTU(CU := a, PV := 10, CV => n) ENO EN c) AND d;
@@ -295,7 +295,7 @@ NETWORK
 === scope
 instance t1 TON
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := t1 : TON(IN := a, PT := T#1S).Q EN c;
 END_NETWORK
@@ -305,7 +305,7 @@ NETWORK
 
 #### call-enabled — a call keeps its output pins inside its brackets, ENO and EN after them
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   LIMIT(MN := 0, IN := v, MX := 100, => y) ENO EN c;
 END_NETWORK
@@ -315,7 +315,7 @@ NETWORK
 
 #### function-eno-without-en — a function's box shows its ENO without EN, and is read through it (recorded: it builds on both vendors)
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := f(IN := a) ENO;
   f(IN := b) ENO;
@@ -327,7 +327,7 @@ NETWORK
 
 #### call-read-through-eno — a call read through its ENO with no output wired (a PROGRAM call's box has none)
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   lamp := (Drive() ENO EN TRUE) AND running;
 END_NETWORK

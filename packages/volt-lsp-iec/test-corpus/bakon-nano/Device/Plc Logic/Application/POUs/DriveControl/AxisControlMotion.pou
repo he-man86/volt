@@ -19,7 +19,7 @@ VAR
 	
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 //Set limits X
 fbSetSWLimits_X(
 	Axis:= X_Axis, 

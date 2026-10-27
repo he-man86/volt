@@ -2,13 +2,13 @@ PROGRAM ErrorHandling
 VAR
 	dummy	: BOOL;
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 END_PROGRAM
 
 METHOD PROTECTED Initialize
 // Connect Lenze module handlers to this base module handler
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 GlobalVars.fbModuleManager.ModuleHandler.SetParent(
 	ModuleHandlerParent	:= ModuleHandler);

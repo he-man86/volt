@@ -10,7 +10,7 @@ VAR
 	upper, lower, di	: DINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 lower		:= LOWER_BOUND(str, 1);
 upper		:= UPPER_BOUND(str, 1);
 

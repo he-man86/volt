@@ -22,7 +22,7 @@ import { itemVersion } from "../lib/versions"
 /** The fetched text's line `n` (1-based), without its line ending. */
 const lineOf = (text: string, n: number) => text.split("\n")[n - 1].replace(/\r$/, "")
 
-const HIDDEN = /^IMPLEMENTATION (\w+) UNSUPPORTED$/m
+const HIDDEN = /^%LANGUAGE (\w+) UNSUPPORTED$/m
 
 describe(`endpoints / grep (${BASE})`, () => {
 	setDefaultTimeout(180_000)
@@ -91,7 +91,7 @@ describe(`endpoints / grep (${BASE})`, () => {
 		expect(member[0].line - 1).toBeGreaterThan(lines.findIndex((l) => l.replace(/\r$/, "") === "END_FUNCTION_BLOCK"))
 	})
 
-	it("2.6: a body reading IMPLEMENTATION <LANG> UNSUPPORTED is named not searched, its declaration still matched", async () => {
+	it("2.6: a body reading %LANGUAGE <LANG> UNSUPPORTED is named not searched, its declaration still matched", async () => {
 		const fetched = await bridge.init()
 		const hidden = fetched.changed.find((c: any) => c.name.endsWith(".pou") && HIDDEN.test(c.sourceText) && fetched.items[c.name])
 		expect(hidden, "the fixture holds an item with a body Volt does not show (VltFixtureCfc/Sfc)").toBeDefined()
@@ -101,7 +101,7 @@ describe(`endpoints / grep (${BASE})`, () => {
 
 		expect(r.matches).toEqual([{ name: hidden.name, line: 1, text: header }])
 		const entry = r.notSearched.find((n: any) => n.name === hidden.name)
-		expect(entry?.reason).toContain(`IMPLEMENTATION ${HIDDEN.exec(hidden.sourceText)![1]} UNSUPPORTED`)
+		expect(entry?.reason).toContain(`%LANGUAGE ${HIDDEN.exec(hidden.sourceText)![1]} UNSUPPORTED`)
 	})
 
 	// A version that cannot take an LD/FBD body from Volt (DIALECT V2) ends this case in that named refusal.
@@ -109,11 +109,11 @@ describe(`endpoints / grep (${BASE})`, () => {
 		const name = id("g_fbd")
 		await createItem(fid("g_fbd"),
 			`PROGRAM ${name}\nVAR\n\tstart : BOOL;\n\tstop : BOOL;\n\tlamp : BOOL;\nEND_VAR\n` +
-			`IMPLEMENTATION FBD\nNETWORK\n  lamp := start AND stop;\nEND_NETWORK\n\nEND_PROGRAM\n`)
+			`%LANGUAGE FBD\nNETWORK\n  lamp := start AND stop;\nEND_NETWORK\n\nEND_PROGRAM\n`)
 		const path = await pathOf(fid("g_fbd"))
 		const text = await fetchSource(fid("g_fbd"))
 		const lines = text.split("\n").map((l: string) => l.replace(/\r$/, ""))
-		const at = lines.indexOf("IMPLEMENTATION FBD") + 1
+		const at = lines.indexOf("%LANGUAGE FBD") + 1
 		expect(at, `the bridge ships the FBD body as network text:\n${text}`).toBeGreaterThan(0)
 		// The stop gate for a network-text body too: the text refs hashes is the text fetch ships.
 		expect(itemVersion(path, text)).toBe((await bridge.refs()).items[path])

@@ -3,4 +3,4 @@ NAMESPACE Component_Manager
 RESOLUTION Component Manager, 3.5.17.0 (System)
 PLACEHOLDER true
 DEPENDENCIES CmpEventMgr, CmpApp, SysTypes2 Interfaces, * (System)
-MATERIALIZATION 4
+MATERIALIZATION 5

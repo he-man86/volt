@@ -7,7 +7,7 @@ VAR_IN_OUT
 	JSON					: STRING(14000);
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^();
 
 IF busy THEN
@@ -29,7 +29,7 @@ VAR_INST
 	asProperties		: ARRAY[0..10, 0..1] OF STRING(10);
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Fill data
 asProperties[0, 0]			:= 'bx';	asProperties[0, 1]			:= TO_STRING(boxSettings.BoxSize.rPosX);
 asProperties[1, 0]			:= 'by';	asProperties[1, 1]			:= TO_STRING(boxSettings.BoxSize.rPosY);
@@ -58,7 +58,7 @@ VAR_INST
 	localJSON			: STRING(14000);
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 sw.Reset();
 
 CASE chunk OF
@@ -110,7 +110,7 @@ VAR_INST
 	asProperties		: ARRAY[0..13, 0..1] OF STRING(10);
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Fill data
 asProperties[0, 0]			:= 's';		asProperties[0, 1]			:= TO_STRING(stacks[stack].StackNumber);
 asProperties[1, 0]			:= 'x';		asProperties[1, 1]			:= TO_STRING(stacks[stack].PlacePosition.rPosX);

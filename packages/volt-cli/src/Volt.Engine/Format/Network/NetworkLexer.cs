@@ -7,7 +7,7 @@ namespace Volt.Engine.Format.Network;
 
 internal enum TokKind
 {
-    Marker,     // the body's IMPLEMENTATION line; Text = FBD | LD
+    Marker,     // the body's %LANGUAGE line; Text = FBD | LD
     Word,       // an identifier or dotted path
     Number,     // 5, 1.5, -1 (the minus touching the digit, P14)
     Typed,      // T#1S, 16#FF

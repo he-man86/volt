@@ -37,7 +37,7 @@ const LD = `FUNCTION_BLOCK FB_LD
 VAR
 	a : BOOL; b : BOOL; out : BOOL;
 END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
 out := a AND b;
 END_NETWORK
@@ -64,7 +64,7 @@ test("network text: a single LD network with a coil parses clean", () => {
 test("network text: a split keeps its name, VarId and feeder", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; b : BOOL; out : BOOL; END_VAR
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
 split1 := a AND b;
 out := split1;
@@ -87,7 +87,7 @@ END_FUNCTION_BLOCK`
 test("network text: the header parses the named LABEL/TITLE fields and DISABLED", () => {
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK LABEL: skipRest DISABLED TITLE: "my title"
 out := FALSE;
 END_NETWORK
@@ -103,7 +103,7 @@ END_FUNCTION_BLOCK`
 test("network text: the header's fields stand in one order, LABEL DISABLED TITLE (P10)", () => {
   const swapped = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK TITLE: "t" LABEL: skipRest
 out := FALSE;
 END_NETWORK
@@ -118,7 +118,7 @@ END_FUNCTION_BLOCK`
 test("network text: DISABLED inside the title does not disable the network", () => {
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK TITLE: "DISABLED during commissioning"
 out := FALSE;
 END_NETWORK
@@ -129,7 +129,7 @@ END_FUNCTION_BLOCK`
 test("network text: a bare `name:` line is not a label — the label lives on the header", () => {
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
 Loop:
 out := TRUE;
@@ -141,7 +141,7 @@ END_FUNCTION_BLOCK`
 test("network text: an unclosed network reports NETWORK_NOT_CLOSED", () => {
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
 out := TRUE;
 END_FUNCTION_BLOCK`
@@ -152,7 +152,7 @@ END_FUNCTION_BLOCK`
 test("network text: a split defined twice reports NETWORK_DUPLICATE_NAME", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; out : BOOL; END_VAR
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
 split1 := a AND a;
 split1 := a OR a;
@@ -167,7 +167,7 @@ test("network text: a statement before any network reports NETWORK_PARSE", () =>
   // hand-built body tokens: `out := TRUE;` with no NETWORK — force via a raw graphical-looking body.
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
 out := TRUE;
 END_NETWORK
@@ -180,7 +180,7 @@ END_FUNCTION_BLOCK`
 test("network text: an FB-instance call whose output goes nowhere is a value statement", () => {
   const src = `FUNCTION_BLOCK F
 VAR tmr : TON; t : TIME; on : BOOL; END_VAR
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
 tmr(IN := on, PT := t);
 END_NETWORK
@@ -195,7 +195,7 @@ END_FUNCTION_BLOCK`
 test("network text: label, JMP and RETURN are recognised, one item each — a jump and a return are coils", () => {
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK LABEL: Loop
 out := TRUE;
 JMP Loop := ;
@@ -210,7 +210,7 @@ END_FUNCTION_BLOCK`
 test("network text: a colon in a title is not a label, and a single-quoted title is no title", () => {
   const src = (title: string) => `FUNCTION_BLOCK F
 VAR a : BOOL; END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK TITLE: ${title}
   a := a;
 END_NETWORK
@@ -223,7 +223,7 @@ END_FUNCTION_BLOCK`
 test("network text: DISABLED stands before the title", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; END_VAR
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK DISABLED TITLE: "T"
   a := a;
 END_NETWORK

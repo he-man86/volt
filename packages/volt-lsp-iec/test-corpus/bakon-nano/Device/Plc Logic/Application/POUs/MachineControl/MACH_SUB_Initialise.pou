@@ -11,7 +11,7 @@ VAR_INPUT
 	I_rY_InfeedPosition		: REAL;
 	I_rY_InfeedPrePosition	: REAL;
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 (*************************************************************************
  *
  * Application name				: Snijmachine

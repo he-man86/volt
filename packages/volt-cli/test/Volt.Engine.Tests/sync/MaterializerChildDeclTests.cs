@@ -45,7 +45,7 @@ public class MaterializerChildDeclTests
 
         // The child block carries the METHOD signature and its UNSUPPORTED keyword line.
         Assert.Contains("METHOD PRIVATE DoWork : BOOL", text);
-        Assert.Contains("IMPLEMENTATION CFC UNSUPPORTED", text);
+        Assert.Contains("%LANGUAGE CFC UNSUPPORTED", text);
         Assert.Contains("END_METHOD", text);
         // The parent's declaration appears ONCE (its own header) — never re-emitted as the child's decl.
         Assert.Equal(1, CountOccurrences(text, "FUNCTION_BLOCK P"));

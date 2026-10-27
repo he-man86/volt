@@ -21,7 +21,7 @@ VAR
 	rPosFirstCam: REAL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 rtSensor(CLK := I_bSensor);
 
 IF	I_bStartCheck

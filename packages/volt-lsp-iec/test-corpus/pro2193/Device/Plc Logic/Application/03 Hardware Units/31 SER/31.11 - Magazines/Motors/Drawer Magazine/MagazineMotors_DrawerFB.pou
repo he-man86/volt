@@ -72,7 +72,7 @@ VAR
 	serviceModeAutoPos			: ARRAY[PickPlaceAxesNames.A1..PickPlaceAxesNames.A2, 1..ServiceMode.maxNumberOfServicePos] OF ServiceModePosType := [(xEnable := TRUE), (xEnable := TRUE)];
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^();
 waarhangikuit:=1;
 
@@ -84,7 +84,7 @@ METHOD Abort : BOOL
 VAR_INPUT
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Methods/Start%2FStop%2FResume
 TM_PickPlace.xAbort			:= TRUE;
 
@@ -95,7 +95,7 @@ END_METHOD
 // Check if all references are valid.
 METHOD PRIVATE CheckValidRefs : BOOL;
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Methods/Private
 IF NOT __ISVALIDREF(A1Axis) THEN
 	ThrowException('The ServoDriveFB M1Axis is not connected to an axis!');
@@ -119,7 +119,7 @@ VAR
 	i	: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Methods/Private
 FOR i := 1 TO 10 BY 1 DO
 	TM_PickPlace.scPar.ascProfilePar[i].lrXPos				:= 0;
@@ -147,7 +147,7 @@ VAR_INST
 	guardPosition					: ARRAY[1..4] OF GuardRealFB(									moduleHandler	:= ModuleHandler);
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Immediately give Stop() command to axis for 100MS after xQuickStop turns on.
 // After this time the power is cut from the drive and it cannnot slow down anymore.
 TP_QuickStopActive(	IN := xQuickStop, PT := T#100MS);
@@ -557,7 +557,7 @@ END_METHOD
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 Quickstop(FALSE);
 
@@ -575,7 +575,7 @@ VAR_INPUT
 	tolerance	: REAL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 CASE position OF
 	MagazineMotors_Positions.getNewLabelsPos:
@@ -638,7 +638,7 @@ VAR_INPUT
 	tolerance	: REAL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 InPositionAtPos	:=	PositionReachedValue(actXPos, XPos, tolerance)
 				AND PositionReachedValue(actZPos, ZPos, tolerance);
@@ -647,7 +647,7 @@ END_METHOD
 
 METHOD PROTECTED Initialize
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^.Initialize();
 
 CheckValidRefs();
@@ -664,7 +664,7 @@ END_METHOD
 // Stops the movement on the path. Only possible when state is MOVE_PP
 METHOD Interrupt : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Methods/Start%2FStop%2FResume
 TM_PickPlace.xPathInterrupt	:= TRUE;
 
@@ -677,7 +677,7 @@ VAR
 	point	: REFERENCE TO L_TT1P_scProfilePar;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Profiles
 // Clear all points
 ClearProfilePoints();
@@ -706,7 +706,7 @@ VAR
 	point	: REFERENCE TO L_TT1P_scProfilePar;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Profiles
 // Clear all points
 ClearProfilePoints();
@@ -736,7 +736,7 @@ VAR
 	point	: REFERENCE TO L_TT1P_scProfilePar;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Profiles
 // Clear all points
 ClearProfilePoints();
@@ -798,7 +798,7 @@ VAR
 	pointNumber	: INT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Profiles
 // Clear all points
 ClearProfilePoints();
@@ -882,7 +882,7 @@ VAR_INPUT
 	requireRehomingDrive	: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Methods/Start%2FStop%2FResume
 TM_PickPlace.xStopALL		:= TRUE;
 
@@ -896,7 +896,7 @@ VAR_INPUT
 	Axis : REFERENCE TO AXIS_REF;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Methods/Private
 ReadDigitalInput := L_MC1P.L_MC1P_GetDigInputsFromDrive(Axis) = 2#0001_0000_0000_0000_0000;		// bit 16 = digital input 1
 
@@ -909,7 +909,7 @@ VAR_INST
 	ui							: UINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -1013,7 +1013,7 @@ END_METHOD
 
 METHOD Resume : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Methods/Start%2FStop%2FResume
 TM_PickPlace.xPathInterrupt	:= FALSE;
 
@@ -1034,7 +1034,7 @@ VAR CONSTANT
 	maxNumberOfServicePos		: USINT := 2;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Methods/Private
 // TODO: Test and finish this.
 RETURN;
@@ -1080,7 +1080,7 @@ END_METHOD
 
 METHOD PUBLIC SetDefaultData
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 // DataBrink.rVel						:= 350;
 // DataBrink.rAcc						:= 3500;
@@ -1128,7 +1128,7 @@ VAR_INST
 	wasBusy		: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 // Path hold means that a profile is still active in the TM. This happens after a Stop() command.
 // I think I just want to start the movement anyways, and continue the path
@@ -1149,7 +1149,7 @@ END_METHOD
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 TM_PickPlace.xPathHalt := TRUE;
 
@@ -1178,7 +1178,7 @@ VAR
 	functionKeyPayload : ISubjectFunctionKeyPayload;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Do nothing when manual control is not enabled
 IF NOT SER.ManualControlEnabled
 OR NOT AxisEnabled
@@ -1247,7 +1247,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 AxisEnabled	:=  TM_PickPlace.xAxesEnabled
 			AND TM_PickPlace.scStatusAGBC.ascStatusABC[PickPlaceAxesNames.A1].xAxisEnabled
 			AND TM_PickPlace.scStatusAGBC.ascStatusABC[PickPlaceAxesNames.A2].xAxisEnabled;
@@ -1264,7 +1264,7 @@ SET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 manualControlEnabled := ExternalManualControlEnabled;
 
 END_SET
@@ -1279,7 +1279,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 HomingSensorM1	:= NOT ReadDigitalInput(A1Axis);
 
 END_GET
@@ -1294,7 +1294,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 HomingSensorM2	:= NOT ReadDigitalInput(A2Axis);
 
 END_GET
@@ -1309,7 +1309,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 InSafePos	:= actXPos > GVL_Constants.ArmLength - 40
 			OR actZPos < Data.getNewLabelsUpperPos.value - Data.SafeDistanceAboveDrawers + 1;
 
@@ -1325,7 +1325,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IsHomed := TM_PickPlace.xAxesGroupHomed;
 
 END_GET
@@ -1339,7 +1339,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IsInterrupted := TM_PickPlace.eTMState = L_TT1P_States.PATH_INTERRUPT AND TM_PickPlace.xPathHold;
 
 END_GET
@@ -1353,7 +1353,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IsMoving := TM_PickPlace.eTMState = L_TT1P_States.MOVE_PP;
 
 END_GET
@@ -1368,7 +1368,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Standstill	:= TM_PickPlace.eTMState = L_TT1P_States.STOP OR TM_PickPlace.eTMState = L_TT1P_States.READY;
 
 END_GET

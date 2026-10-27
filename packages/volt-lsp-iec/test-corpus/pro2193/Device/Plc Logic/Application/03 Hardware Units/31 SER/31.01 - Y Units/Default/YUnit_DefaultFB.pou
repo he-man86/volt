@@ -25,7 +25,7 @@ VAR CONSTANT
 	NumberOfTakeoverPositions	: USINT	:= YUnits.NumberOfTakeoverPositions;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^(
 	AxisRef				:= AxisRef,
 	DataBrink			:= DataBrink,
@@ -40,7 +40,7 @@ VAR_INST
 	SetError					: ARRAY[1..2] OF SetErrorFB;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SetError[1](
 	moduleHandler	:= ModuleHandler,
 	textRefId		:= YUnit_Errors,
@@ -81,7 +81,7 @@ VAR
 	i		: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Start the fan on the Y Drive when axis is enabled.
 MotorCooling(
 	manualControlEnabled	:= FALSE);
@@ -142,7 +142,7 @@ END_METHOD
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT Drive.config.virtualMode THEN
 	Drive.Quickstop(TRUE);
@@ -156,7 +156,7 @@ END_METHOD
 
 METHOD PROTECTED Initialize
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^.Initialize();
 
 Drive.config.maxVelocity				:= 10;
@@ -171,7 +171,7 @@ END_METHOD
 // Make the Y drive go to the takeout position inside the mould area
 METHOD PUBLIC MoveInMould : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -193,7 +193,7 @@ VAR_INPUT
 	takeoverPosition		: USINT	:= 0;	// 0: Parameter not in use, 1: Label Takeover pos 1, etc.
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -218,7 +218,7 @@ VAR_INST
 	monitorDeceleration		: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -263,7 +263,7 @@ END_METHOD
 // Make the Y drive go to the parking position on start of program
 METHOD PUBLIC MoveToWaiting : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -318,7 +318,7 @@ VAR_INST
 	localState			: SINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -354,7 +354,7 @@ END_METHOD
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT GlobalVars.Reset AND Drive.AxisEnabled AND NOT Drive.config.virtualMode THEN
 	Drive.Halt();
@@ -375,7 +375,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 InSafePos := xClearMould AND Drive.PosSmallerOrEqual(Data.Waiting.Pos.value);
 
 END_GET
@@ -391,7 +391,7 @@ VAR
 	i	: INT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 InSafePosForXUnits		:= PositionReachedValue(Drive.actPos, Data.Takeout.Pos.value, 10);
 FOR i := 1 TO NumberOfTakeoverPositions DO
 	InSafePosForXUnits	S= PositionReachedValue(Drive.actPos, Data.Takeover[i].Pos.value, 10);
@@ -407,7 +407,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IsDecelerating	:= Drive.AxisBasicControl.xDecelerating;
 
 END_GET
@@ -424,7 +424,7 @@ VAR
 	i	: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IsLabelTakeoutEqual				:= 0;
 FOR i := 1 TO NumberOfTakeoverPositions DO
 	IF ABS(Data.Takeover[i].Pos.value - Data.LabelTakeover.Pos.value) <= 0.001 THEN
@@ -445,7 +445,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IsOnTakeoutPos := NOT xClearMould AND Drive.PosReached(Data.Takeout.Pos.value);
 
 END_GET

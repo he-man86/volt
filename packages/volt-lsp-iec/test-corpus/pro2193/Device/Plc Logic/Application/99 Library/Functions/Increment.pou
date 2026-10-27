@@ -6,7 +6,7 @@ VAR
 	uInput		: PointerSizesUnion;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 END_PROGRAM
 
@@ -18,7 +18,7 @@ VAR_INPUT
 	condition	: BOOL		:= TRUE;	// Only increment when the condition is true (optional)
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF NOT condition THEN
 	RETURN;
 END_IF
@@ -42,7 +42,7 @@ VAR_INPUT
 	condition	: BOOL		:= TRUE;	// Only increment when the condition is true (optional)
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF NOT condition THEN
 	RETURN;
 END_IF
@@ -66,7 +66,7 @@ VAR_INPUT
 	condition	: BOOL		:= TRUE;	// Only increment when the condition is true (optional)
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF NOT condition THEN
 	RETURN;
 END_IF
@@ -100,7 +100,7 @@ VAR_INPUT
 	newState	: DINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF NOT condition THEN
 	RETURN;
 END_IF
@@ -125,7 +125,7 @@ VAR_INPUT
 	newErrorState	: DINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF condition = enumResultGeneric.NoResult THEN
 	RETURN;
 END_IF
@@ -153,7 +153,7 @@ END_VAR
 
 // (Method is needed because subrange type numbers are not part of ANY_INT. That is why we need input of type ANY)
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF input.TypeClass <> TYPE_CLASS.TYPE_SUBRANGE THEN
 	RETURN;
 END_IF

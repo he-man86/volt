@@ -26,7 +26,7 @@ VAR CONSTANT
 	EnableEarlyProductRelease	: BOOL	:= FALSE;	// Products are released on a position during movement of Xu drive
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^(
 	AxisRef				:= AxisRef,
 	DataBrink			:= DataBrink,
@@ -41,7 +41,7 @@ VAR_INST
 	SetError					: ARRAY[1..1] OF SetErrorFB;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SetError[1](
 	moduleHandler	:= ModuleHandler,
 	textRefId		:= XuUnit_Errors,
@@ -65,7 +65,7 @@ VAR
 	i		: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 FOR i := 1 TO MaxVacuums DO
 	Vacuum[i](
 		moduleHandler			:= ModuleHandler,
@@ -137,7 +137,7 @@ END_METHOD
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 Drive.Quickstop(TRUE);
 
@@ -154,7 +154,7 @@ END_METHOD
 // Releases all locks
 METHOD ForceReleaseLock
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 CommandLock.ForceRelease();
 
@@ -166,7 +166,7 @@ VAR_INPUT
 	vacuumIndex		: WORD;	// 0: All vacuums, bit 1: Vacuum 1, bit 2: Vacuum 2, etc.
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Transfer
 IF vacuumIndex = AllVacuums THEN
 	HasVacuumHigh	:= HasPayload = enumPayload._All;
@@ -189,7 +189,7 @@ VAR
 	i		: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^.Initialize();
 
 // Set interfaces to correct vacuum instances
@@ -202,7 +202,7 @@ END_METHOD
 // Takeout the shot of products from the mould
 METHOD PUBLIC MoveBackFromMould : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Takeout from mould
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -247,7 +247,7 @@ METHOD MoveToHalfway : BOOL
 VAR_INPUT
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Shared
 IF NOT EnableHalfwayPosition THEN
 	RETURN;
@@ -277,7 +277,7 @@ VAR_OUTPUT
 	almostSafe		: BOOL;		// Drive almost arrived in position
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Shared
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -301,7 +301,7 @@ VAR_INPUT
 	takeoverPosition		: INT;	// 0: invalid, 1: Takeover pos 1, etc.
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Shared
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -333,7 +333,7 @@ VAR
 	i						: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Takeout from mould
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -384,7 +384,7 @@ VAR
 	inY				: UINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Transfer
 product0	:= product - 1;	// Get zero based product number, needed for modulo calculation.
 
@@ -417,7 +417,7 @@ VAR_INPUT
 	ProductsInMould	: ARRAY[1..GVL_Constants.MaxProductsInX, 1..GVL_Constants.MaxProductsInY] OF ProductType;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Takeout from mould
 THIS^.ProductsInGripper	:= ProductsInMould;
 
@@ -429,7 +429,7 @@ VAR_INPUT
 	vacuumIndex		: WORD;	// 0: All vacuums, bit 1: Vacuum 1, bit 2: Vacuum 2, etc.
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Transfer
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -458,7 +458,7 @@ VAR_INST
 	i					: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -516,7 +516,7 @@ END_METHOD
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT GlobalVars.Reset AND Drive.AxisEnabled AND NOT Drive.config.virtualMode THEN
 	Drive.Halt();
@@ -537,7 +537,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 EnableVacuums := _enableVacuums;
 
 END_GET
@@ -545,7 +545,7 @@ SET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 _enableVacuums := EnableVacuums;
 
 END_SET
@@ -560,7 +560,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF Arrays.Vacuum_Enabled_All(
 							vacuumArray	:= itfVacuums,
 							bitMask		:= EnableVacuums,
@@ -595,7 +595,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 InSafePos := NOT Drive.HomingSensor AND Drive.PosSmallerOrEqual(Data.ParkingPos.value);
 
 END_GET
@@ -610,7 +610,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 InSafePosForMouldEntry := InSafePos AND HasPayload = enumPayload.None;
 
 END_GET
@@ -625,7 +625,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IsOnTakeoutPos := Drive.HomingSensor AND Drive.PosReached(Data.Takeout.Pos.value);
 
 END_GET

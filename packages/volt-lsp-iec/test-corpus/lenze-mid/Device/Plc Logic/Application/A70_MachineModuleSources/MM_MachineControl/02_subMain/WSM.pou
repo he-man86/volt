@@ -58,7 +58,7 @@ VAR RETAIN PERSISTENT
 	stPhotocellWrapperFault: BOOL;
 	stFeedForward: BOOL;
 END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK TITLE: "DONE Network 2: State: Initialise"
   split8 := iInit OR NOT iTest_Prod OR iCleaning OR ioManualStartSupply;
   stRestposition S= split8;

@@ -14,7 +14,7 @@ VAR
 	errorTestPulseAlarm		: SetErrorFB;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^();
 
 switchEnabledOut := switchEnabled;

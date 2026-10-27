@@ -2,4 +2,4 @@ LIBRARY SysTypes2 Interfaces, * (System)
 NAMESPACE SysTypes_Interfaces
 RESOLUTION SysTypes2 Interfaces, * (System)
 PLACEHOLDER false
-MATERIALIZATION 4
+MATERIALIZATION 5

@@ -9,17 +9,17 @@ import { missingLanguage, unstatedBodies } from "./missing-language.js"
 
 const parse = (source: string) => parseDocument("file:///F.pou", source, { networkText: true }, "codesys").units
 
-test("a body with no IMPLEMENTATION line is unstated; one with it is not", () => {
+test("a body with no %LANGUAGE line is unstated; one with it is not", () => {
   const units = parse(
     "FUNCTION_BLOCK F\nVAR\n\ti : INT;\nEND_VAR\ni := 1;\nEND_FUNCTION_BLOCK\n" +
-      "METHOD M\nIMPLEMENTATION ST\ni := 2;\nEND_METHOD\n",
+      "METHOD M\n%LANGUAGE ST\ni := 2;\nEND_METHOD\n",
   )
   expect(unstatedBodies(units).map((u) => u.what)).toEqual(["F"])
 })
 
 test("a property's accessors are named by their role", () => {
   const units = parse(
-    "FUNCTION_BLOCK F\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\nPROPERTY P : INT\nGET\nVAR\nEND_VAR\nP := 1;\nEND_GET\nEND_PROPERTY\n",
+    "FUNCTION_BLOCK F\n%LANGUAGE ST\nEND_FUNCTION_BLOCK\nPROPERTY P : INT\nGET\nVAR\nEND_VAR\nP := 1;\nEND_GET\nEND_PROPERTY\n",
   )
   expect(unstatedBodies(units).map((u) => u.what)).toEqual(["P's getter"])
 })
@@ -32,6 +32,6 @@ test("the finding stands on the body's first line of code, an error with the slu
     severity: "error",
     line: 5,
   })
-  expect(finding.message).toStartWith("'F' states no language: its body opens with no 'IMPLEMENTATION <ST|LD|FBD>' line")
+  expect(finding.message).toStartWith("'F' states no language: its body opens with no '%LANGUAGE <ST|LD|FBD>' line")
   expect(finding.message).toEndWith("Run `volt pull` once to rewrite the workspace in the current format.")
 })

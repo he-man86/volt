@@ -50,7 +50,7 @@ public class FetchExclusionTests
             new Volt.Engine.Library.LibVar[0], new Volt.Engine.Library.LibVar[0],
             new Volt.Engine.Library.LibVar[0], new Volt.Engine.Library.LibVar[0], null, null, "__XWORD");
         var ide = new FakeIde(
-            FakeIde.Item.TextualPou("User", "FUNCTION_BLOCK User\nIMPLEMENTATION ST\nVAR h : HANDLE; END_VAR\nEND_FUNCTION_BLOCK", ""),
+            FakeIde.Item.TextualPou("User", "FUNCTION_BLOCK User\n%LANGUAGE ST\nVAR h : HANDLE; END_VAR\nEND_FUNCTION_BLOCK", ""),
             FakeIde.Item.Library("CAA Types", manifest, "Library Manager"))
         { LibSignatures = new[] { handle } };
 
@@ -71,7 +71,7 @@ public class FetchExclusionTests
             new Volt.Engine.Library.LibVar[0], new Volt.Engine.Library.LibVar[0],
             new Volt.Engine.Library.LibVar[0], new Volt.Engine.Library.LibVar[0], null, null);
         var ide = new FakeIde(
-            FakeIde.Item.TextualPou("User", "FUNCTION_BLOCK User\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK", ""),
+            FakeIde.Item.TextualPou("User", "FUNCTION_BLOCK User\n%LANGUAGE ST\nEND_FUNCTION_BLOCK", ""),
             FakeIde.Item.Library("CAA Types", manifest, "Library Manager"))
         { LibSignatures = new[] { orphan } };
 

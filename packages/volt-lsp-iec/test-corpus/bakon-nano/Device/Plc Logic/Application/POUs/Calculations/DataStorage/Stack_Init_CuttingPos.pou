@@ -8,7 +8,7 @@ END_VAR
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 
 IQ_dataArrayInfo.index		:= DINT_TO_INT(LOWER_BOUND(IQ_dataArray, 1));

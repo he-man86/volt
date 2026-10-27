@@ -45,19 +45,35 @@ export function syntaxMessages({ tc }: VendorWording): SyntaxMessages {
 
 /**
  * A body that states no language (`checks/syntax/missing-language.ts`) — the push's own refusal of the file
- * (`StReader.Unmarked`), Volt's text and no compiler's, so a plain builder beside the slice (see `workspace.ts`). Its
- * hint is the push's: a line that looks like the boundary and what it lacks, else the re-pull.
+ * (`StReader.Unmarked`, `StReader.DeclarationOnly`), Volt's text and no compiler's, so a plain builder beside the slice
+ * (see `workspace.ts`). A file written before the line was renamed holds the retired `IMPLEMENTATION` line (`retired`),
+ * and is told to pull again; a member's code with no line is told the line to state.
  */
 export function missingLanguageMessage(
   what: string,
-  keyword: string,
-  lookalike: { text: string; lacks: string } | undefined,
+  member: boolean,
+  line: { key: string; st: string; retired: string | undefined; hasCode: boolean },
 ): string {
+  const head = `'${what}' states no language: `
+  if (line.retired !== undefined) return head + line.retired
+  if (member && line.hasCode)
+    return (
+      head +
+      `code stands after its declaration and no '${line.key} <ST|LD|FBD>' line opens it, so neither reader reads it. ` +
+      `State '${line.st}' above the code, or run \`volt pull\` to get the line the IDE's member has (only a member ` +
+      "with no body slot has no line, and nothing after its declaration)."
+    )
+  if (member)
+    return (
+      head +
+      `no '${line.key} <ST|LD|FBD>' line opens its body, and only a member with no body slot has none — a CODESYS ` +
+      "ABSTRACT method, or an accessor of a CODESYS ABSTRACT property; the push refuses any other without one. State " +
+      `'${line.st}' (an empty body is an empty member's), or run \`volt pull\` to get the line the IDE's member has.`
+    )
   return (
-    `'${what}' states no language: its body opens with no '${keyword} <ST|LD|FBD>' line, so the file ` +
-    "does not say where its declaration ends or what language its body is in, and neither reader reads it. " +
-    (lookalike !== undefined
-      ? `It holds '${lookalike.text}', ${lookalike.lacks}`
-      : "Run `volt pull` once to rewrite the workspace in the current format.")
+    head +
+    `its body opens with no '${line.key} <ST|LD|FBD>' line, so the file does not say where its declaration ends or ` +
+    "what language its body is in, and neither reader reads it. Run `volt pull` once to rewrite the workspace in the " +
+    "current format."
   )
 }

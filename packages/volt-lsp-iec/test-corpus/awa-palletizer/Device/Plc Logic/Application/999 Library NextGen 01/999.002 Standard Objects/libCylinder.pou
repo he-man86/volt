@@ -61,7 +61,7 @@ VAR
 	xInterlocked: BOOL := FALSE;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 //------------------------------------------------------------------------------------------
 // This function controls a Cylinder object. 
 //

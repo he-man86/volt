@@ -59,7 +59,7 @@ public class TcNetworkPairingTests
 
     private static string FirstNetworkText(string body) =>
         NetworkTextWriter.WritePulled(Shown(body), ScopeOf(Shown(body))).Split(new[] { "END_NETWORK\n" }, StringSplitOptions.None)[0]
-            .Substring("IMPLEMENTATION FBD\n".Length) + "END_NETWORK\n";
+            .Substring("%LANGUAGE FBD\n".Length) + "END_NETWORK\n";
 
     private static Func<Network, NetworkScope, XElement> Never => (n, _) => throw new Xunit.Sdk.XunitException($"the import was reached for network {n.Order + 1}");
 
@@ -73,7 +73,7 @@ public class TcNetworkPairingTests
         var first = FirstNetworkText(body);
         var operand = TcArchive.List(Networks(XElement.Parse(body))[0], "NetworkItems")
             .Descendants().First(e => (string?)e.Attribute("n") == "Operand" && e.Name == "v").Value.Trim('"');
-        var pushed = Pushed(body, t => t.Replace("IMPLEMENTATION FBD\n", "IMPLEMENTATION FBD\n" + first.Replace(operand, "inserted_op")));
+        var pushed = Pushed(body, t => t.Replace("%LANGUAGE FBD\n", "%LANGUAGE FBD\n" + first.Replace(operand, "inserted_op")));
 
         var imported = new List<Network>();
         var written = TcNetworkWriter.Apply(body, pushed.Body, pushed.Scope, (n, _) =>
@@ -139,8 +139,8 @@ public class TcNetworkPairingTests
             var line = System.Text.RegularExpressions.Regex.Match(t, "  UNSUPPORTED \"a flag on a box input pin\" #[0-9a-f]{8};\n").Value;
             Assert.NotEqual("", line);
             if (edit == "emptied") return t.Replace(line, "");
-            var parts = t.Substring("IMPLEMENTATION FBD\n".Length).Split(new[] { "END_NETWORK\n" }, StringSplitOptions.RemoveEmptyEntries);
-            return "IMPLEMENTATION FBD\n" + parts[1] + "END_NETWORK\n" + parts[0] + "END_NETWORK\n";
+            var parts = t.Substring("%LANGUAGE FBD\n".Length).Split(new[] { "END_NETWORK\n" }, StringSplitOptions.RemoveEmptyEntries);
+            return "%LANGUAGE FBD\n" + parts[1] + "END_NETWORK\n" + parts[0] + "END_NETWORK\n";
         });
 
         var ex = Assert.Throws<NetworkTextException>(() => TcNetworkWriter.Apply(body, pushed.Body, pushed.Scope, Never));

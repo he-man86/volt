@@ -40,13 +40,13 @@ async function remove(names: readonly string[]): Promise<void> {
 	if (ops.length > 0) await pushOps(ops)
 }
 
-const program = (n: string) => `PROGRAM ${n}\nVAR\n\tx : BOOL;\nEND_VAR\nIMPLEMENTATION ST\nx := TRUE;\n\nEND_PROGRAM\n`
-const fun = (n: string) => `FUNCTION ${n} : INT\nVAR_INPUT\n\ta : INT;\nEND_VAR\nIMPLEMENTATION ST\n${n} := a + 1;\n\nEND_FUNCTION\n`
+const program = (n: string) => `PROGRAM ${n}\nVAR\n\tx : BOOL;\nEND_VAR\n%LANGUAGE ST\nx := TRUE;\n\nEND_PROGRAM\n`
+const fun = (n: string) => `FUNCTION ${n} : INT\nVAR_INPUT\n\ta : INT;\nEND_VAR\n%LANGUAGE ST\n${n} := a + 1;\n\nEND_FUNCTION\n`
 // A FUNCTION's positional pins are pushed NAMED: the push gives a function box its input names from the declaration
 // (openspec ld-fbd-coverage 2R.4, DIALECT N40 — CODESYS builds no function box without them), so `f(n)` is the box
 // `f(a := n)` and pulls back so (`pulls`); the CLI adopts that text as the IDE's (graphical/positional-call-cli).
 const caller = (n: string, lang: "FBD" | "LD", vars: string, net: string) =>
-	`PROGRAM ${n}\nVAR\n${vars}\nEND_VAR\nIMPLEMENTATION ${lang}\nNETWORK\n  ${net}\nEND_NETWORK\n\nEND_PROGRAM\n`
+	`PROGRAM ${n}\nVAR\n${vars}\nEND_VAR\n%LANGUAGE ${lang}\nNETWORK\n  ${net}\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 interface Case {
 	readonly what: string

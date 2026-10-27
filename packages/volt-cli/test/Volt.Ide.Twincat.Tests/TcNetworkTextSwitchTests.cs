@@ -16,7 +16,7 @@ public sealed class NetworkTextSwitchCollection
 /// <summary>
 /// THE TWINCAT READ OBEYS THE PRODUCTION SWITCH (openspec <c>implementation-keyword</c> 3c): with <c>VOLT_GRAPHICAL</c>
 /// unset, <see cref="BeckhoffDriver.ReadContent"/> hands up a ladder the text COULD spell as
-/// <c>IMPLEMENTATION LD UNSUPPORTED</c>, with the switch's reason — the driver asks the engine
+/// <c>%LANGUAGE LD UNSUPPORTED</c>, with the switch's reason — the driver asks the engine
 /// (<see cref="NetworkText.Pulled"/>) before it reads a single network. With the switch on, the same archive is network
 /// text. Driven through the driver itself, over a plain node <c>dynamic</c> binds to as it binds to the COM object
 /// (<see cref="TcHiddenBodyWriteTests.Node"/>), holding the vendor's own archive.
@@ -42,7 +42,7 @@ public class TcNetworkTextSwitchTests
         {
             var content = Read();
 
-            Assert.Equal("IMPLEMENTATION LD UNSUPPORTED", content.Body);
+            Assert.Equal("%LANGUAGE LD UNSUPPORTED", content.Body);
             Assert.Equal("LD and FBD are not enabled in this build", content.Unsupported);
         }
         finally { NetworkTextSwitch.Enabled = was; }
@@ -53,7 +53,7 @@ public class TcNetworkTextSwitchTests
     {
         var content = Read();
 
-        Assert.StartsWith("IMPLEMENTATION LD\nNETWORK", content.Body);
+        Assert.StartsWith("%LANGUAGE LD\nNETWORK", content.Body);
         Assert.Null(content.Unsupported);
     }
 }

@@ -8,7 +8,7 @@ VAR
 	AssistUnlock			: ActuatorFB;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^();
 
 
@@ -20,7 +20,7 @@ VAR_INST
 	T_DoorOpenAssist		: BTON;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^.Cyclic();
 
 AssistOpenGate();
@@ -57,7 +57,7 @@ END_METHOD
 // Maps the actuator to the physical output
 METHOD PUBLIC MapAssistCloseGate : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 MapAssistCloseGate := AssistCloseGate.Map();
 
 END_METHOD
@@ -65,7 +65,7 @@ END_METHOD
 // Maps the actuator to the physical output
 METHOD PUBLIC MapAssistOpenGate : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 MapAssistOpenGate := AssistOpenGate.Map();
 
 END_METHOD
@@ -73,7 +73,7 @@ END_METHOD
 // Maps the actuator to the physical output
 METHOD PUBLIC MapAssistUnlock : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 MapAssistUnlock := AssistUnlock.Map();
 
 END_METHOD

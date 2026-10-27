@@ -26,14 +26,15 @@ namespace Volt.Engine.Format.St;
 ///   FUNCTION_BLOCK Name [EXTENDS B] [IMPLEMENTS I,J]
 ///   VAR_INPUT … END_VAR
 ///   VAR … END_VAR
-///   IMPLEMENTATION ST
+///   %LANGUAGE ST
 ///   {impl body}
 ///
 ///   END_FUNCTION_BLOCK
 ///
-///   {pragmas} METHOD … IMPLEMENTATION LD … END_METHOD
-///   ACTION … IMPLEMENTATION ST … END_ACTION
-///   PROPERTY … {GET … IMPLEMENTATION ST … END_GET} {SET … END_SET} END_PROPERTY
+///   {pragmas} METHOD … %LANGUAGE LD … END_METHOD
+///   ACTION … %LANGUAGE ST … END_ACTION
+///   PROPERTY … {GET … %LANGUAGE ST … END_GET} {SET … END_SET} END_PROPERTY
+///   METHOD ABSTRACT … END_METHOD   (no line: a member with no body slot)
 ///
 /// Same format for PROGRAM (END_PROGRAM), FUNCTION (END_FUNCTION).
 /// INTERFACE (END_INTERFACE) is special: its method/property/action
@@ -48,7 +49,7 @@ namespace Volt.Engine.Format.St;
 ///   1. the STRUCTURE — where each member block opens and closes, and each
 ///      member's signature line, which is the only place its name exists;
 ///   2. the BOUNDARY and the body's LANGUAGE — and those are not read, they
-///      are STATED, by `IMPLEMENTATION ST|LD|FBD` (see ImplementationMarker).
+///      are STATED, by `%LANGUAGE ST|LD|FBD` (see PropertyLines.Language.cs).
 /// The KIND comes from the wire name's extension; the item's own header is
 /// never read (see the `kind` parameter of Read).
 ///
@@ -81,12 +82,12 @@ public static class StReader
 	/// GVL is therefore not read at ALL: it is one declaration, handed over verbatim, empty or not.</para>
 	///
 	/// <para>A POU or an interface is read for what performing the push needs and nothing else: its
-	/// <c>IMPLEMENTATION</c> line (the declaration/body split) and its CHILD elements — METHOD, ACTION, PROPERTY and
+	/// <c>%LANGUAGE</c> line (the declaration/body split) and its CHILD elements — METHOD, ACTION, PROPERTY and
 	/// its GET/SET — which have no extension of their own, so their header line is what names and delimits them. A
 	/// child whose header cannot be read is refused naming the item and the line.</para>
 	///
 	/// <para><b>A comment that never closes hides no structure.</b> A <c>(*</c> with no <c>*)</c> after it is a
-	/// compile error the IDE reports; read as a comment it swallowed the <c>IMPLEMENTATION</c> line, the END line and
+	/// compile error the IDE reports; read as a comment it swallowed the <c>%LANGUAGE</c> line, the END line and
 	/// every member below it, so the push refused the file as one Volt had not written — or, when only a member's
 	/// doc comment was left open, dropped that member without a word. The structure is read as if such a <c>(*</c>
 	/// opened nothing; the text itself is carried unchanged.</para>
@@ -120,7 +121,7 @@ public static class StReader
 		// An EMPTY or blank POU or interface text has no outer block, so it is refused as every text without one is
 		// (FindOuterBlock: "Missing END_FUNCTION_BLOCK / END_PROGRAM / END_FUNCTION", or END_INTERFACE) — one condition, one
 		// message, right for both composite kinds (openspec bridge-refusal-review D9). Its own branch said an interface
-		// "holds its IMPLEMENTATION line", which an interface has not.
+		// "holds its %LANGUAGE line", which an interface has not.
 		var what = name is null ? $"this {kind}" : $"'{name}'";
 		var original = NormalizeLines(sourceText);
 
@@ -345,9 +346,8 @@ public static class StReader
 
 	/// <summary>Does a MEMBER's declaration say <c>ABSTRACT</c> — among the modifiers between its keyword (METHOD /
 	/// PROPERTY) and its name, on its first line of code (read through <see cref="StTrivia.Code"/>, so a commented
-	/// <c>ABSTRACT</c> is none)? Read by the engine's fold of an abstract member with no code into <c>IMPLEMENTATION
-	/// NONE</c> (<see cref="AbstractMemberFold"/>) and by the push's guard (openspec <c>abstract-member-push</c>,
-	/// <c>abstract-member-parity</c>). It answers true for <c>FUNCTION_BLOCK ABSTRACT</c> too, so a caller picks the member
+	/// <c>ABSTRACT</c> is none)? Read by the push's guard (openspec <c>abstract-member-push</c>): an ABSTRACT member holds
+	/// no statements. It answers true for <c>FUNCTION_BLOCK ABSTRACT</c> too, so a caller picks the member
 	/// site by kind before it asks. Any case. Every member carries its declaration, so a null one is refused, never read as
 	/// "not abstract".</summary>
 	public static bool MemberHeaderIsAbstract(string declaration)
@@ -605,44 +605,37 @@ public static class StReader
 
 	// ─── POU decl/impl split ─────────────────────────────────────────
 
-	/// <summary>Split at the boundary line: everything above it is the declaration, everything below the
-	/// implementation, and the line itself belongs to neither. No trivia is classified and no keyword is looked for
-	/// in the declaration — that is the whole point of stating it (see <see cref="ImplementationMarker"/>).
-	///
-	/// <para>The line is returned too, because it also states the body's LANGUAGE: the caller checks the body
-	/// against it and joins the two (<see cref="Body"/>) once any <c>%FOLDER</c> directive is peeled off the text
-	/// under it.</para></summary>
-	private static (string decl, string impl, string line) SplitAtBoundary(IList<string> lines, string what) =>
-		SplitAtBoundaryAt(lines, what, bodySeparator: false) is var (d, i, l, _) ? (d, i, l) : default;
-
 	/// <summary>A text minus exactly ONE trailing newline — the layout's separator the writer adds after a verbatim text
 	/// (<see cref="StWriter"/>), and nothing else: every other trailing newline is the vendor's.</summary>
 	internal static string StripSeparator(string text) =>
 		text.EndsWith("\n", StringComparison.Ordinal) ? text.Substring(0, text.Length - 1) : text;
 
-	/// <summary><see cref="SplitAtBoundary"/>, and the index of the boundary line in <paramref name="lines"/> — where the
-	/// property lines under it start counting from.</summary>
-	private static (string decl, string impl, string line, int at) SplitAtBoundaryAt(IList<string> lines, string what,
-	                                                                                 bool bodySeparator)
+	/// <summary>Split a region at its <c>%LANGUAGE</c> line: everything above it is the declaration, everything below the
+	/// implementation, and the line itself belongs to neither. No trivia is classified and no keyword is looked for in the
+	/// declaration — that is the whole point of stating it (see <c>PropertyLines.Language.cs</c>). Null when the region
+	/// states no line: its caller decides — a member with no body slot (<see cref="DeclarationOnly"/>), or a refusal
+	/// (<see cref="Unmarked"/>).
+	///
+	/// <para>ONE line per region. Two are refused NAMING BOTH, before either is taken as the boundary: the text alone cannot
+	/// say which one the engineer meant (a member pasted with its line). A <c>%LANGUAGE</c> line is never code, so one that
+	/// states no body is refused by name, saying what it lacks.</para>
+	///
+	/// <para>Both halves VERBATIM (openspec bridge-one-to-one §1.1 "every character", <c>trailing-newline-cache</c>): the
+	/// vendor keeps a text's trailing newlines, so the file spells them, and the reader strips only the layout's own
+	/// separator — none between a declaration and its line (the line itself separates them), and for a body the one blank
+	/// line the writer puts before a POU's END line (<paramref name="bodySeparator"/>).</para></summary>
+	private static (string decl, string impl, string line, int at)? SplitAtLanguageLine(IList<string> lines, string what,
+	                                                                                  bool bodySeparator)
 	{
-		// ONE boundary line per region (ImplementationMarker.Is). Two are refused NAMING BOTH, before either is taken as the
-		// boundary: the text alone cannot say which one the engineer meant. One may be a name in a wrapped declaration
-		// (`implementation ST` on its own line of a VAR list), the other the real boundary — taking the first as the
-		// boundary told the engineer to remove the REAL one. Or both are boundaries (a member pasted with its line),
-		// and dropping either would guess.
-		var stated = ImplementationMarker.StatedLinesIn(lines);
+		var stated = PropertyLines.LanguageLinesIn(lines);
 		if (stated.Count > 1)
 			throw new BridgeException(BridgeErrorCodes.InvalidSt,
-				$"{what} holds more than one {ImplementationMarker.Keyword} line: '{lines[stated[0]].Trim()}' and, below " +
-				$"it, '{lines[stated[1]].Trim()}'. A body has ONE, the line that opens it. {ImplementationMarker.Keyword} " +
-				"is reserved, so if the other one names something, rename it; otherwise remove it.");
-		if (stated.Count == 0) throw Unmarked(what, lines);
+				$"{what} holds more than one %{PropertyLines.LanguageKey} line: '{lines[stated[0]].Trim()}' and, below it, " +
+				$"'{lines[stated[1]].Trim()}'. A body has ONE, the line that opens it; remove the other.");
+		if (stated.Count == 0) return null;
 		int at = stated[0];
-		// Both halves VERBATIM (openspec bridge-one-to-one §1.1 "every character", `trailing-newline-cache`): the vendor
-		// keeps a text's trailing newlines, so the file spells them, and the reader strips only the layout's own separator —
-		// none between a declaration and its boundary line (the line itself separates them), and for a body the one blank
-		// line the writer puts before a POU's END line (<paramref name="bodySeparator"/>). Trimming more would pull
-		// `…END_VAR\n\n\n` and `…END_VAR` identically, and a push would write the vendor's newlines away.
+		if (PropertyLines.LanguageLineProblem(lines[at]) is { } problem)
+			throw new BridgeException(BridgeErrorCodes.InvalidSt, $"{what} holds '{lines[at].Trim()}': {problem}.");
 		var decl = string.Join("\n", SliceLines(lines, 0, at - 1));
 		var impl = string.Join("\n", SliceLines(lines, at + 1, lines.Count - 1));
 		return (decl, bodySeparator ? StripSeparator(impl) : impl, lines[at], at);
@@ -652,79 +645,85 @@ public static class StReader
 	/// REFUSED, never guessed at.
 	///
 	/// <para>An inferred boundary (the last <c>END_VAR</c>, a wrapped header) fails invisibly — the halves are re-joined
-	/// on read, so a wrong split round-trips byte for byte while the project holds it broken (see
-	/// <see cref="ImplementationMarker"/>); a graphical body's own VAR_TEMP blocks are one such case.</para></summary>
+	/// on read, so a wrong split round-trips byte for byte while the project holds it broken; a graphical body's own
+	/// VAR_TEMP blocks are one such case.</para></summary>
 	private static (string decl, string impl, StatedLanguage stated, ObjectProperties props) SplitDeclImpl(IList<string> pouLines, string what)
 	{
-		var (decl, impl, line, at) = SplitAtBoundaryAt(pouLines, what, bodySeparator: true);
-		// The POU's property lines stand directly under its boundary line (openspec bridge-one-to-one §1.2), peeled before
+		var (decl, impl, line, at) = SplitAtLanguageLine(pouLines, what, bodySeparator: true) ?? throw Unmarked(what, pouLines);
+		// The POU's property lines stand directly under its %LANGUAGE line (openspec bridge-one-to-one §1.2), peeled before
 		// the body is checked against the language the line states. A POU has no %FOLDER there: its folder is its file's.
 		var (props, _, code) = PeelPropertiesUnder(impl, what, at + 2, folderAllowed: false);
 		var (body, stated) = Body(line, code, what);
 		return (decl, body, stated, props);
 	}
 
-	/// <summary>The body a boundary line and the text under it make — checked against what the line STATES, which
-	/// is the one signal for how the body is read. Only a boundary line reaches here (<see cref="ImplementationMarker.Is"/>:
-	/// the grammar alone, openspec <c>bridge-refusal-review</c> D9); a line that only LOOKS like one — no language, one no
-	/// body can state, a bare CFC, SFC or IL, code after the language — is no boundary, and a region holding no other is
-	/// refused as <see cref="Unmarked"/>, naming that line and what it lacks. The one refusal here names
-	/// <paramref name="what"/> and the line as written, and is raised before anything is written:
-	/// <list type="bullet">
-	/// <item>code under an UNSUPPORTED line (<c>IMPLEMENTATION CFC|SFC|IL|LD|FBD UNSUPPORTED</c>) —
-	/// that body has no text form, the drivers write nothing for it, so the code would be dropped without a word and
-	/// overwritten by the next pull.</item>
-	/// </list>
-	/// (Text under <c>LD</c>/<c>FBD</c> that is no network is the network reader's refusal, with its own code and line;
-	/// network text under <c>ST</c> is an ST body like any other, written as sent: openspec <c>bridge-refusal-review</c> 1.1.)
-	/// With the body, the language the line STATES (<see cref="StatedLanguage"/>, openspec <c>bridge-refusal-review</c>
-	/// D6): the fact this reader already parsed, carried on the record so the push's guard reads no text to learn it.</summary>
+	/// <summary>The body a <c>%LANGUAGE</c> line and the text under it make — checked against what the line STATES, which
+	/// is the one signal for how the body is read. Code under an UNSUPPORTED line is refused by name: that body has no text
+	/// form, the drivers write nothing for it, so the code would be dropped without a word. (Text under <c>LD</c>/<c>FBD</c>
+	/// that is no network is the network reader's refusal, with its own code and line; network text under <c>ST</c> is an ST
+	/// body like any other, written as sent: openspec <c>bridge-refusal-review</c> 1.1.) With the body, the language the
+	/// line STATES (<see cref="StatedLanguage"/>, D6), carried on the record so the push's guard reads no text to learn it.</summary>
 	private static (string Body, StatedLanguage Stated) Body(string line, string code, string what)
 	{
-		var stated = line.Trim();
-		// AN ABSTRACT MEMBER WITH NO CODE (`IMPLEMENTATION NONE`, openspec abstract-member-push / abstract-member-parity):
-		// the line states that the member holds no code, so code under it is refused by name, as under an UNSUPPORTED one.
-		if (ImplementationMarker.IsNone(line))
+		if (PropertyLines.IsUnsupportedLine(line))
 		{
 			if (code.Trim().Length > 0)
 				throw new BridgeException(BridgeErrorCodes.InvalidSt,
-					$"{what} holds code under '{stated}'. That line states an abstract member, and an abstract member holds " +
-					"no code (both compilers refuse it: \"must not contain any statements\"). Remove it — or, to give the " +
-					$"member a body, make it concrete in the IDE and run `volt pull`.");
-			return (ImplementationMarker.NoneLine, StatedLanguage.None);
-		}
-		if (ImplementationMarker.IsUnsupported(line))
-		{
-			if (code.Trim().Length > 0)
-				throw new BridgeException(BridgeErrorCodes.InvalidSt,
-					$"{what} holds code under '{stated}'. Volt shows no implementation for that body and never writes it, " +
+					$"{what} holds code under '{line.Trim()}'. Volt shows no implementation for that body and never writes it, " +
 					"so the code has nowhere to go and would be dropped. Remove it, and edit the body in the IDE (the " +
 					"declaration above the line is yours to edit here).");
-			var hidden = ImplementationMarker.Join(line, "");
-			return (hidden, StatedLanguage.HiddenIn(ImplementationMarker.UnsupportedLanguageOf(hidden)!));
+			var hidden = PropertyLines.JoinBody(line, "");
+			return (hidden, StatedLanguage.HiddenIn(PropertyLines.UnsupportedLanguageOf(hidden)!));
 		}
-
-		var lang = ImplementationMarker.LanguageOf(line)
-			?? throw new VoltInvariantException($"'{stated}' reached the body read as a boundary line and states no language a reader reads");
-
+		var lang = PropertyLines.LanguageOf(line)
+			?? throw new VoltInvariantException($"'{line.Trim()}' reached the body read as a %LANGUAGE line and states no language a reader reads");
 		// The stated language picks the reader, and the body is not sniffed for another (openspec bridge-refusal-review
-		// 1.1, 2.3): an ST body is ST whatever it holds — `NETWORK … END_NETWORK` under `IMPLEMENTATION ST` is written
-		// as sent and the IDE's build reports it — and an LD/FBD body is network text, which the NETWORK reader reads and
-		// refuses with its own code and line (NETWORK_PARSE for text that is no network).
-		return (ImplementationMarker.Join(line, code), StatedLanguage.Shown(lang));
+		// 1.1, 2.3): an ST body is ST whatever it holds, and an LD/FBD body is network text, which the NETWORK reader reads
+		// and refuses with its own code and line.
+		return (PropertyLines.JoinBody(line, code), StatedLanguage.Shown(lang));
 	}
 
-	/// <summary>A DECLARATION is written into the IDE verbatim, so a line of Volt's own that ends up in one would
-	/// reach the project as code. Two kinds of line, both refused by name:
-	/// <list type="bullet">
-	/// <item>a boundary line (<see cref="ImplementationMarker.Is"/>, the grammar alone). A kind that has no
-	/// implementation (an interface and its members) has no boundary to consume it, and in any declaration it would read
-	/// back as the boundary. A line that only looks like one — <c>Implementation</c> alone, the last enum value or a
-	/// variable in a wrapped declaration — is code, the IDE's to compile (openspec <c>bridge-refusal-review</c> D9).</item>
-	/// <item>a <c>%FOLDER</c> directive. Its place is fixed (<see cref="PeelFolderUnder"/>, <see cref="PeelFolderClosing"/>)
-	/// and the directive there has been peeled already; one anywhere else is no directive, and leaving it in let a
-	/// member's folder read as none while the line was written into its declaration.</item>
-	/// </list></summary>
+	/// <summary>A METHOD's or a property accessor's region that states NO <c>%LANGUAGE</c> line: a member whose IDE object
+	/// has no body slot (DIALECT C2n; openspec <c>language-line</c>). The whole region is its declaration, so it holds nothing
+	/// after it. The declaration is what the LSP's declaration parser takes: after its header (<paramref name="header"/>, its
+	/// index in <paramref name="region"/>, -1 for an accessor, whose GET/SET line is outside the region) nothing but VAR
+	/// blocks — a section keyword (<see cref="VarSectionKeywords"/>) through its <c>END_VAR</c>, wherever either stands on
+	/// its line — and trivia. Any other code (<c>END_VAR;</c>'s <c>;</c>, a statement after or between the blocks, an
+	/// unknown section word) is code with no line to state its language, refused by name, quoting its line — as is the
+	/// line the format no longer reads, <c>IMPLEMENTATION</c>.</summary>
+	private static void DeclarationOnly(IList<string> region, int header, string what)
+	{
+		if (PropertyLines.RetiredLineIn(region) is { } retired) throw PropertyLines.RetiredLineRefusal(what, retired);
+		var code = StTrivia.Code(region);
+		var inBlock = false;
+		int? stray = null;
+		for (int l = header + 1; l < code.Length && stray is null; l++)
+		{
+			var s = code[l];
+			for (int k = 0; k < s.Length;)
+			{
+				if (char.IsWhiteSpace(s[k])) { k++; continue; }
+				int e = k;
+				while (e < s.Length && (char.IsLetterOrDigit(s[e]) || s[e] == '_')) e++;
+				var word = s.Substring(k, e - k);
+				if (inBlock) inBlock = !string.Equals(word, "END_VAR", StringComparison.OrdinalIgnoreCase);
+				else if (Array.Exists(VarSectionKeywords, v => string.Equals(v, word, StringComparison.OrdinalIgnoreCase))) inBlock = true;
+				else { stray = l; break; }
+				k = e > k ? e : k + 1;
+			}
+		}
+		if (stray is not { } at) return;
+		throw new BridgeException(BridgeErrorCodes.InvalidSt,
+			$"{what} holds '{Truncate(region[at].Trim(), 80)}' after its declaration and no %{PropertyLines.LanguageKey} line. " +
+			$"A body states its language on the line that opens it: state '{PropertyLines.LanguageLine(Languages.St)}' above " +
+			"the code, or run `volt pull` to get the line the IDE's member has. (Only a member with no body slot has no " +
+			"line, and nothing after its declaration.)");
+	}
+
+	/// <summary>A DECLARATION is written into the IDE verbatim, so a line of Volt's own that ends up in one would reach the
+	/// project as code: a property line left there after the peel (<see cref="RefusePropertyLinesIn"/>) — a
+	/// <c>%LANGUAGE</c> line in a kind that has no body (an interface and its members), a <c>%FOLDER</c> or any other key
+	/// standing where none is read. Refused by name.</summary>
 	private static void RefuseLinesInDeclarations(ItemContent item, string what)
 	{
 		Refuse(what, item.Declaration);
@@ -736,26 +735,11 @@ public static class StReader
 			Refuse($"{member} SET", m.Setter?.Declaration);
 		}
 
-		static void Refuse(string where, string? declaration)
-		{
-			if (string.IsNullOrEmpty(declaration)) return;
-			var lines = declaration!.Split('\n');
-			var open = StTrivia.OpenAtStart(lines);
-			for (int i = 0; i < lines.Length; i++)
-			{
-				if (open[i]) continue;
-				if (ImplementationMarker.Is(lines[i]))
-					throw new BridgeException(BridgeErrorCodes.InvalidSt,
-						$"{where} holds '{lines[i].Trim()}' in its declaration. That line opens a body and states its " +
-						"language, so it stands only where a body starts: here it would read back as the boundary. Remove " +
-						"it, or write what it names on a line with more than the words.");
-			}
-			RefusePropertyLinesIn(where, declaration);
-		}
+		static void Refuse(string where, string? declaration) => RefusePropertyLinesIn(where, declaration);
 	}
 
 	/// <summary>A property line (<see cref="PropertyLines"/> — <c>%CLASS</c>, <c>%FOLDER</c>, <c>%EXCLUDE_FROM_BUILD</c>, …)
-	/// left in a DECLARATION after the peel: its place is fixed (directly under the object's IMPLEMENTATION line, else
+	/// left in a DECLARATION after the peel: its place is fixed (directly under the object's %LANGUAGE line, else
 	/// closing its declaration — <see cref="PeelPropertiesUnder"/>, <see cref="PeelPropertiesClosing"/>), and one anywhere
 	/// else would be written into the IDE as code while the property it names read as absent. Refused by name (openspec
 	/// bridge-one-to-one §1.2 "Placement"). A line inside a comment is the comment's.</summary>
@@ -767,10 +751,16 @@ public static class StReader
 		for (int i = 0; i < lines.Length; i++)
 		{
 			if (open[i] || PropertyLines.KeyOf(lines[i]) is not { } key) continue;
+			if (key == PropertyLines.LanguageKey)
+				throw new BridgeException(BridgeErrorCodes.InvalidSt,
+					$"{where} holds '{lines[i].Trim()}' in its declaration. A %{key} line opens a body and states its " +
+					"language, so it stands only where a body starts, and here there is none: it would be written into the " +
+					"IDE as code. Remove it.");
 			throw new BridgeException(BridgeErrorCodes.InvalidSt,
 				$"{where} holds '{lines[i].Trim()}' in its declaration. A %{key} line stands directly under the object's " +
-				"IMPLEMENTATION line, or closing its declaration (a DUT's, a GVL's, an interface's, a property's or an " +
-				"interface member's); anywhere else it would be written into the IDE as code. Move it there, or remove it.");
+				$"%{PropertyLines.LanguageKey} line, or closing its declaration (a DUT's, a GVL's, an interface's, a property's, " +
+				"an interface member's or a member's with no body slot); anywhere else it would be written into the IDE as " +
+				"code. Move it there, or remove it.");
 		}
 	}
 
@@ -778,7 +768,7 @@ public static class StReader
 	/// the only place they are read there (openspec bridge-one-to-one §1.2): every leading line that is one
 	/// (<see cref="PropertyLines.KeyOf"/>), up to the first that is not. <c>%FOLDER</c> belongs to a member's block
 	/// (<paramref name="folderAllowed"/>); under a POU's own line it is code, as it always was. The rest is NOT trimmed:
-	/// <see cref="SplitAtBoundary"/> has already decided which blank lines are separator and which are the engineer's.
+	/// <see cref="SplitAtLanguageLine"/> has already decided which blank lines are separator and which are the engineer's.
 	/// <paramref name="firstLine"/> is the file line of the text's first line.</summary>
 	private static (ObjectProperties Props, string? Folder, string Remainder) PeelPropertiesUnder(string text, string what,
 	                                                                                          int firstLine, bool folderAllowed)
@@ -912,7 +902,19 @@ public static class StReader
 			                                                            at.Number(blockStart), folderAllowed: true);
 			return new Member(kind, name, itfDecl, null, itfProps, Folder: itfFolder, ReturnType: returnType);   // a signature: no body slot (D26)
 		}
-		var (decl, impl, line, boundaryAt) = SplitAtBoundaryAt(inner, what, bodySeparator: false);
+		var split = SplitAtLanguageLine(inner, what, bodySeparator: false);
+		if (split is null)
+		{
+			// NO LINE: a METHOD with no body slot (openspec language-line) — its region is its declaration, which its
+			// property lines and %FOLDER close, as an interface member's do. An action always has a body: refused.
+			if (kind != ItemKind.Kinds.Method) throw Unmarked(what, inner);
+			var (slotlessProps, slotlessFolder, slotlessDecl) = PeelPropertiesClosing(string.Join("\n", inner), what,
+			                                                                          at.Number(blockStart), folderAllowed: true);
+			DeclarationOnly(slotlessDecl.Split('\n'), sigLine - blockStart, what);
+			return new Member(kind, name, slotlessDecl, null, slotlessProps, Folder: slotlessFolder, ReturnType: returnType,
+			                  Stated: StatedLanguage.NoSlot);
+		}
+		var (decl, impl, line, boundaryAt) = split.Value;
 		if (kind == ItemKind.Kinds.Action) RefuseActionDeclaration(decl, blockStart, sigLine, name, at);
 		// The property lines — %CLASS, %FOLDER (the child's sub-folder), the rest — are the first lines under the boundary
 		// when there are any, and are peeled off before the body is checked against the language its line states.
@@ -932,7 +934,7 @@ public static class StReader
 		string? currentAccessorKind = null;
 		// WHERE AN ACCESSOR KEYWORD CAN STAND (openspec lsp-accessor-keyword-at-line-start). GET and SET are legal NAMES
 		// (the Standard RS FB declares `SET : BOOL`), so they are structural only OUTSIDE an accessor's VAR blocks and its
-		// body — the body being everything from its IMPLEMENTATION line to its own END_GET/END_SET, as for every element.
+		// body — the body being everything from its %LANGUAGE line to its own END_GET/END_SET, as for every element.
 		// `SET^.x := P;` in a setter is a statement, not a second SET refused INVALID_ST (a field FB was unreadable).
 		var inVar = false;
 		var inBody = false;
@@ -955,8 +957,9 @@ public static class StReader
 			if (inVar) { if (LineStartsWithKeyword(code[j], "END_VAR")) inVar = false; continue; }
 			if (currentAccessorStart is not null && endsAccessor is null)
 			{
-				if (VarOpener.IsMatch(code[j])) { inVar = true; continue; }
-				if (ImplementationMarker.Is(lines[j])) { inBody = true; continue; }
+				// A block on ONE line (`VAR x : INT; END_VAR`) closes where it opens: the lines under it are no VAR text.
+				if (VarOpener.IsMatch(code[j])) { inVar = !ClosesOnItsLine(code[j]); continue; }
+				if (PropertyLines.IsLanguageLine(lines[j])) { inBody = true; continue; }
 			}
 			var opens = LineStartsWithKeyword(code[j], "GET") ? "get"
 					  : LineStartsWithKeyword(code[j], "SET") ? "set" : null;
@@ -1030,50 +1033,33 @@ public static class StReader
 		// Between them: optional VAR sections + body. No signature line —
 		// the GET/SET keyword IS the signature. Decl is everything up to
 		// END_VAR (if any); impl is the rest.
-		// A BARE keyword is one line and has no END_: it is a PRESENT but empty accessor. `""`/`""` says exactly
-		// that — present-with-no-body — which is the distinction the whole accessor model turns on (null would
-		// mean "no such accessor" and would delete it on push).
-		if (accLines.Count <= 1) return new Accessor("", "");
+		// A BARE keyword is one line and has no END_: it is a PRESENT accessor (null would mean "no such accessor" and
+		// would delete it on push) with nothing in it — in an interface a signature, in a POU one that states no
+		// %LANGUAGE line, so no body slot, as every accessor with no line.
+		if (accLines.Count <= 1) return marked ? new Accessor("", null, Stated: StatedLanguage.NoSlot) : new Accessor("", "");
 		var inner = SliceLines(accLines, 1, accLines.Count - 2);
 		// An INTERFACE's accessors are signatures — no body, so no marker and nothing to split.
 		if (!marked) return new Accessor(string.Join("\n", inner), "");
-		var (decl, impl, line) = SplitAtBoundary(inner, what);
+		var split = SplitAtLanguageLine(inner, what, bodySeparator: false);
+		if (split is null)
+		{
+			// NO LINE: an accessor with no body slot (an abstract property's GET on CODESYS, DIALECT C2n).
+			DeclarationOnly(inner, -1, what);
+			return new Accessor(string.Join("\n", inner), null, Stated: StatedLanguage.NoSlot);
+		}
+		var (decl, impl, line, _) = split.Value;
 		var (body, stated) = Body(line, impl, what);
 		return new Accessor(decl, body, Stated: stated);
 	}
 
-	/// <summary>A region that does not say where its declaration ends. Refused, never guessed — see
-	/// <see cref="ImplementationMarker"/> for the three bugs the guessing cost.</summary>
+	/// <summary>A region that does not say where its declaration ends — a POU's, an action's: refused, never guessed. A
+	/// file written before the line was renamed holds the old one, and is told to pull again.</summary>
 	private static BridgeException Unmarked(string what, IList<string> region)
 	{
-		var head = $"{what} has no '{ImplementationMarker.Keyword} <ST|LD|FBD>' line — the text does not say where its " +
-		           "declaration ends or what language its body is in.";
-		// A LINE THAT LOOKS LIKE THE BOUNDARY AND IS NONE (openspec bridge-refusal-review D9): the file forgot its language,
-		// states one no body can, or keeps section 2b's bare line. Named, with what it lacks — the refusals the reader used
-		// to raise for such a line wherever it stood, now raised only where it is what is missing.
-		if (ImplementationMarker.LookalikeIn(region) is { } lookalike)
-			return new BridgeException(BridgeErrorCodes.InvalidSt, $"{head} It holds '{lookalike.Line}', {Lacks(lookalike.Stated)}");
+		if (PropertyLines.RetiredLineIn(region) is { } retired) return PropertyLines.RetiredLineRefusal(what, retired);
 		return new BridgeException(BridgeErrorCodes.InvalidSt,
-			$"{head} Run `volt pull` once to rewrite the workspace in the current format.");
-	}
-
-	/// <summary>What a line of the keyword's shape that is no boundary line lacks, by what it states (<paramref name="stated"/>,
-	/// <see cref="ImplementationMarker.Stated"/>).</summary>
-	private static string Lacks(string stated)
-	{
-		if (stated.Length == 0)
-			return "which states no language — a body states its language on that line: " +
-			       $"{ImplementationMarker.For(Languages.St)}, {ImplementationMarker.For(Languages.Ld)} or " +
-			       $"{ImplementationMarker.For(Languages.Fbd)}.";
-		// A body Volt does not show states UNSUPPORTED after its language, so a bare CFC, SFC or IL line states no body.
-		var word = stated.ToUpperInvariant();
-		if (ImplementationMarker.IsNeverShown(word))
-			return $"but Volt shows no {word} body, so its line is '{ImplementationMarker.Unsupported(word)}', with nothing " +
-			       "under it. Pull the item again to get it.";
-		return $"and '{stated}' is no language a body can state. The line holds the keyword and one of ST, LD or FBD, or — " +
-		       "for a body Volt does not show — its language (LD, FBD, CFC, SFC or IL) and " +
-		       $"{ImplementationMarker.UnsupportedWord}, alone. Code goes under the line, and a body in another language is " +
-		       "edited in the IDE.";
+			$"{what} has no '%{PropertyLines.LanguageKey} <ST|LD|FBD>' line — the text does not say where its declaration " +
+			"ends or what language its body is in. Run `volt pull` once to rewrite the workspace in the current format.");
 	}
 
 	// ─── Signature parsing (METHOD/ACTION/PROPERTY headers) ─────────
@@ -1082,7 +1068,7 @@ public static class StReader
 	///
 	/// <para><b>This is the only text in a declaration Volt still reads, and it cannot be removed the way the
 	/// others were.</b> The kind comes from the wire name's extension and the decl/impl boundary is stated by
-	/// <see cref="ImplementationMarker"/> — both because a FILE carries them. A method is not a file: it lives
+	/// its <c>%LANGUAGE</c> line — both because a FILE carries them. A method is not a file: it lives
 	/// inside its POU's, exactly as a method lives inside its class in every other language, so its signature
 	/// line is the only place its name exists. There is no second source for it to disagree with, which is what
 	/// made the kind dangerous and makes this safe.</para>
@@ -1364,6 +1350,32 @@ public static class StReader
 	/// <summary>A line of CODE opening a VAR block (<c>VAR</c>, <c>VAR_INPUT</c>, <c>VAR_INST</c>, <c>VAR CONSTANT</c>, …).</summary>
 	private static readonly System.Text.RegularExpressions.Regex VarOpener =
 		new(@"^\s*VAR(_[A-Z]+)*\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+	/// <summary>The words that open a VAR section — the LSP's <c>VAR_SECTION_KEYWORDS</c>, the list its declaration parser
+	/// takes, so a slotless member's declaration ends where the LSP's does (<see cref="DeclarationOnly"/>).</summary>
+	private static readonly string[] VarSectionKeywords =
+	{
+		"VAR", "VAR_INPUT", "VAR_OUTPUT", "VAR_IN_OUT", "VAR_TEMP", "VAR_STAT", "VAR_INST", "VAR_EXTERNAL", "VAR_GLOBAL",
+		"VAR_CONFIG", "VAR_ACCESS", "VAR_GENERIC",
+	};
+
+	/// <summary>Does this line of CODE close the VAR block it opens — an <c>END_VAR</c> word after its section keyword, on
+	/// the same line (<c>VAR x : INT; END_VAR</c>)?</summary>
+	private static bool ClosesOnItsLine(string code)
+	{
+		var opener = VarOpener.Match(code);
+		for (int from = opener.Index + opener.Length; from < code.Length;)
+		{
+			var k = code.IndexOf("END_VAR", from, StringComparison.OrdinalIgnoreCase);
+			if (k < 0) return false;
+			var after = k + "END_VAR".Length;
+			if (!IsWord(code[k - 1]) && (after == code.Length || !IsWord(code[after]))) return true;
+			from = after;
+		}
+		return false;
+
+		static bool IsWord(char c) => char.IsLetterOrDigit(c) || c == '_';
+	}
 
 	/// <summary>An accessor whose body reached <paramref name="reached"/> before its own END line. Inside a body only that
 	/// END closes it (a GET/SET there is text), so the block above the next accessor was never closed — refused naming

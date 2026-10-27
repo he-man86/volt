@@ -21,7 +21,7 @@ import { doc, project, projectDiags, vgBody, vgDiags } from "../../../test/suppo
 
 const WIRED = `FUNCTION_BLOCK F
 VAR a : BOOL; b : BOOL; out : BOOL; s : INT; END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
 split1 := a AND b;
 out := split1;
@@ -81,7 +81,7 @@ VAR Q : BOOL; END_VAR
 END_FUNCTION_BLOCK
 FUNCTION_BLOCK F
 VAR t : Inner; done : BOOL; END_VAR
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
 done := t.Q;
 END_NETWORK
@@ -93,7 +93,7 @@ END_FUNCTION_BLOCK`
 })
 
 test("network text: a hidden body's line hover explains the body (F.2e)", () => {
-  const src = `FUNCTION_BLOCK F\nVAR END_VAR\nIMPLEMENTATION CFC UNSUPPORTED\nEND_FUNCTION_BLOCK`
+  const src = `FUNCTION_BLOCK F\nVAR END_VAR\n%LANGUAGE CFC UNSUPPORTED\nEND_FUNCTION_BLOCK`
   const d = doc(src)
   const value = (readOnlyBodyHover(d, src.indexOf("CFC")) as { contents: { value: string } })?.contents.value
   expect(value).toContain("Continuous Function Chart")
@@ -102,19 +102,19 @@ test("network text: a hidden body's line hover explains the body (F.2e)", () => 
   // a hidden body is read by neither parser (no diagnostics)
   expect(vgDiags(src)).toEqual([])
 
-  const ld = `FUNCTION_BLOCK F\nVAR END_VAR\nIMPLEMENTATION LD UNSUPPORTED\nEND_FUNCTION_BLOCK`
+  const ld = `FUNCTION_BLOCK F\nVAR END_VAR\n%LANGUAGE LD UNSUPPORTED\nEND_FUNCTION_BLOCK`
   const unsupported = (readOnlyBodyHover(doc(ld), ld.indexOf("UNSUPPORTED")) as { contents: { value: string } })?.contents.value
   expect(unsupported).toContain("Ladder Diagram")
   expect(unsupported).toContain("cannot represent")
 
   // A language Volt has never seen, under the vendor's name (D27): Volt does not read it — no network-text excuse.
-  const uml = `FUNCTION_BLOCK F\nVAR END_VAR\nIMPLEMENTATION UML UNSUPPORTED\nEND_FUNCTION_BLOCK`
+  const uml = `FUNCTION_BLOCK F\nVAR END_VAR\n%LANGUAGE UML UNSUPPORTED\nEND_FUNCTION_BLOCK`
   const unknown = (readOnlyBodyHover(doc(uml), uml.indexOf("UML")) as { contents: { value: string } })?.contents.value
   expect(unknown).toContain("Volt does not read UML")
   expect(vgDiags(uml)).toEqual([])
 
   // Only the line a body opens with answers — not an ST body, and not the line quoted in a comment.
-  const st = `FUNCTION_BLOCK F\nVAR END_VAR\n(* IMPLEMENTATION CFC UNSUPPORTED *)\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK`
+  const st = `FUNCTION_BLOCK F\nVAR END_VAR\n(* %LANGUAGE CFC UNSUPPORTED *)\n%LANGUAGE ST\nEND_FUNCTION_BLOCK`
   expect(readOnlyBodyHover(doc(st), st.indexOf("CFC"))).toBeUndefined()
   expect(readOnlyBodyHover(doc(st), st.indexOf("ST\n"))).toBeUndefined()
 })
@@ -126,7 +126,7 @@ function crossBodyProject() {
   const files: Record<string, string> = {
     "file:///G.gvl": `VAR_GLOBAL\n\tFlag : BOOL;\nEND_VAR`,
     "file:///FB_ST.pou": `FUNCTION_BLOCK FB_ST\nFlag := TRUE;\nEND_FUNCTION_BLOCK`,
-    "file:///FB_VG.pou": `FUNCTION_BLOCK FB_VG\nVAR\n\tx : BOOL;\nEND_VAR\nIMPLEMENTATION LD
+    "file:///FB_VG.pou": `FUNCTION_BLOCK FB_VG\nVAR\n\tx : BOOL;\nEND_VAR\n%LANGUAGE LD
 NETWORK\nx := Flag;\nEND_NETWORK\nEND_FUNCTION_BLOCK`,
   }
   const docs = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source, { networkText: true }, "codesys") }))
@@ -163,7 +163,7 @@ test("network text rename: a new name that is a word of the text is backticked w
   const files: Record<string, string> = {
     "file:///G.gvl": `VAR_GLOBAL\n\tFlag : BOOL;\nEND_VAR`,
     "file:///FB_ST.pou": `FUNCTION_BLOCK FB_ST\nFlag := TRUE;\nEND_FUNCTION_BLOCK`,
-    "file:///FB_VG.pou": `FUNCTION_BLOCK FB_VG\nVAR\n\tx : BOOL;\nEND_VAR\nIMPLEMENTATION LD
+    "file:///FB_VG.pou": `FUNCTION_BLOCK FB_VG\nVAR\n\tx : BOOL;\nEND_VAR\n%LANGUAGE LD
 NETWORK\nx := Flag;\nFlag := x;\nx := \`Flag OR x\`;\nEND_NETWORK\nEND_FUNCTION_BLOCK`,
   }
   const docs = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source, { networkText: true }, "codesys") }))
@@ -190,7 +190,7 @@ test("network text: a marker line with trailing blanks is the marker — the bri
   const files: Record<string, string> = {
     "file:///G.gvl": `VAR_GLOBAL\n\tFlag : BOOL;\nEND_VAR`,
     "file:///S.pou": `PROGRAM S\nFlag := TRUE;\nEND_PROGRAM`,
-    "file:///P.pou": `PROGRAM P\nVAR x : BOOL; END_VAR\nIMPLEMENTATION FBD \t\nNETWORK\nx := Flag;\nEND_NETWORK\nEND_PROGRAM`,
+    "file:///P.pou": `PROGRAM P\nVAR x : BOOL; END_VAR\n%LANGUAGE FBD \t\nNETWORK\nx := Flag;\nEND_NETWORK\nEND_PROGRAM`,
   }
   expect(projectDiags(files, "file:///P.pou")).toEqual([])
   const docs = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source, { networkText: true }, "codesys") }))

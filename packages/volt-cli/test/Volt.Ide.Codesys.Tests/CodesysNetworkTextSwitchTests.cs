@@ -17,7 +17,7 @@ namespace Volt.Ide.Codesys.Tests
     /// THE CODESYS READ OBEYS THE PRODUCTION SWITCH (openspec <c>implementation-keyword</c> 3c) — the CODESYS twin of
     /// <c>TcNetworkTextSwitchTests</c>. The bridge runs IN the CODESYS process, so the switch is that process's
     /// environment. With it unset, <see cref="CodesysDriver.ReadContent"/> hands up an LD implementation aspect as
-    /// <c>IMPLEMENTATION LD UNSUPPORTED</c> with the switch's reason, asking the engine
+    /// <c>%LANGUAGE LD UNSUPPORTED</c> with the switch's reason, asking the engine
     /// (<c>NetworkText.Pulled</c>) before a single network is read — the aspect here has none to read.
     /// </summary>
     [Collection(NetworkTextSwitchCollection.Name)]
@@ -35,7 +35,7 @@ namespace Volt.Ide.Codesys.Tests
             {
                 var content = new CodesysDriver(projects: null).ReadContent(new ItemRef(pou));
 
-                Assert.Equal("IMPLEMENTATION LD UNSUPPORTED", content.Body);
+                Assert.Equal("%LANGUAGE LD UNSUPPORTED", content.Body);
                 Assert.Equal("LD and FBD are not enabled in this build", content.Unsupported);
             }
             finally

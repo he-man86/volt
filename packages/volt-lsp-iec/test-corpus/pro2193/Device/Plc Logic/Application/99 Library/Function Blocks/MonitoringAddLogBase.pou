@@ -5,7 +5,7 @@ VAR
 	plcDataType			: PlcDataType;				// Datatype where to output the measurement to the monitoring system too.
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 END_FUNCTION_BLOCK
 
@@ -14,7 +14,7 @@ VAR_INPUT
 	value					: LINT;  // The value to log
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Output data to monitoring system (optional)
 IF plcDataType <> 0 AND_THEN itfAddLog <> 0 AND_THEN itfAddLog.Connected THEN
 	//Disable warning C0327: Implicit conversion from one enumeration type (PLCDATATYPE) to another (PLCDATATYPE (edgepclogging, x.x (brink automation)))
@@ -31,7 +31,7 @@ VAR_INPUT
 	value					: LREAL;  // The value to log
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Output data to monitoring system (optional)
 IF plcDataType <> 0 AND_THEN itfAddLog <> 0 AND_THEN itfAddLog.Connected THEN
 	//Disable warning C0327: Implicit conversion from one enumeration type (PLCDATATYPE) to another (PLCDATATYPE (edgepclogging, x.x (brink automation)))
@@ -49,7 +49,7 @@ VAR_INPUT
 	plcDataType		: PlcDataType;				// Optional: when in use, output the measurement to the monitoring system too.
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 THIS^.itfAddLog		:= itfAddLog;
 THIS^.plcDataType	:= plcDataType;
 

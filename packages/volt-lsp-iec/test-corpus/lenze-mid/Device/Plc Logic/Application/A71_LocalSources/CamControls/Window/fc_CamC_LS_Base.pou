@@ -33,7 +33,7 @@ VAR
 	intMemStopPosition		: INT; 
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 //START point: If HighSpeedPos>Lowspeed pos = zero is crossed, add 360
 t_intPosLowSpeedStart := i_intPosLowSpeedStart; 
 

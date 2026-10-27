@@ -416,11 +416,9 @@ public sealed partial class BeckhoffDriver
         // NO SPECIAL CLASS IS MADE ON TWINCAT (openspec bridge-one-to-one §1.1, DIALECT C2s): a CreateChild of 603 and a
         // push both left SpecialFunc="None" (tc-special-classes), and TwinCAT has no persistent-list, NVL or text-list-enum
         // class at all. A create the text names a class for is refused by name, never the plain class reported created.
-        // The ABSTRACT METHOD class is the one exception, and not a special class here: TwinCAT has one method class (609),
-        // and ABSTRACT is its text alone (DIALECT C2n, `abstract-member-slot`) — the create makes the method, the
-        // declaration written next makes it abstract, as it always did (the engine derives that class from the text,
-        // `ObjectClass.AbstractMethod`, for CODESYS's sake).
-        if (cls is not null && cls.Word != ObjectClass.AbstractMethod)
+        if (cls is { Word: ObjectClass.AbstractMethod })
+            throw new ChildRefusedException(SlotlessMethodRefusal, ChildRefusalCause.Kind);
+        if (cls is not null)
             throw new ChildRefusedException(
                 $"%CLASS {cls}: TwinCAT makes no such class through its automation interface (tc-special-classes, DIALECT " +
                 "C2s) — create it in the IDE and pull.", ChildRefusalCause.Kind);
@@ -467,6 +465,15 @@ public sealed partial class BeckhoffDriver
     /// member TwinCAT cannot create because it states no type (see <see cref="CreateChild"/>).</summary>
     public string? RefusedMemberCreate(string memberKind, string name, string? seed) =>
         UntypedInterfaceMember(memberKind, name, seed);
+
+    /// <summary>Why TwinCAT creates no METHOD with no body slot (<c>ObjectClass.AbstractMethod</c>: a <c>METHOD ABSTRACT</c>
+    /// that states no <c>%LANGUAGE</c> line): it has one method class (609), which always has one — every TwinCAT abstract
+    /// member pulls <c>%LANGUAGE ST</c> (DIALECT C2n, <c>abstract-member-slot</c>). Creating it anyway would land a member
+    /// whose next pull states a line its text did not.</summary>
+    internal const string SlotlessMethodRefusal =
+        "TwinCAT has no METHOD without a body slot — its one method class always has one (DIALECT C2n), so a member that " +
+        "states no %LANGUAGE line cannot be created as the text states it. State '%LANGUAGE ST' with an empty body under " +
+        "the ABSTRACT method.";
 
     /// <summary>The push pre-flight's task refusal (<c>IVendorStore.ValidateTask</c>): what TwinCAT's PLC task cannot hold
     /// (a type other than Cyclic, an event, a watchdog) or nobody could read (a priority that is no number), by the very

@@ -42,7 +42,7 @@ signal status is read.
 In general a delay of 5 ms is fine. Look at the specification of the PLC in use!
 *)
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^(Data := Data);
 
 triggerTimer(IN := triggerSensor, PT := T#20MS);
@@ -57,7 +57,7 @@ VAR_INST
 	SetError					: ARRAY[1..3] OF SetErrorFB;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^.Alarms();
 
 SetError[1](
@@ -109,7 +109,7 @@ VAR
 	i					: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 DisableTrigger(
 	manualControlEnabled	:= );
 
@@ -161,7 +161,7 @@ END_METHOD
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 DisableTrigger.Reset();
 Cavity_Reset.Reset();
@@ -173,7 +173,7 @@ END_METHOD
 
 METHOD PROTECTED Initialize
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^.Initialize();
 
 resultToggleOld		:= resultToggle;
@@ -186,7 +186,7 @@ VAR_INST
 	localState					: SINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -210,7 +210,7 @@ END_METHOD
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 DisableTrigger.Reset();
 Cavity_Reset.Reset();
@@ -229,7 +229,7 @@ VAR_INST
 //	debugTimeAwaitAcquisition	: UINT;		// in ms
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -307,7 +307,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Busy	:= NOT idle;
 
 END_GET

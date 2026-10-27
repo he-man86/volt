@@ -21,7 +21,7 @@ VAR
 	];
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Initialize();
 
 StartCycle();
@@ -53,7 +53,7 @@ VAR_INST
 	xInitialized	: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF xInitialized THEN
 	RETURN;
 END_IF
@@ -80,7 +80,7 @@ VAR_INST
 	position			: INT := 1;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF ledTestDuration.Set(In := startLedTest, Pt := 8) THEN
 	startLedTest := FALSE;
 	position := 1;

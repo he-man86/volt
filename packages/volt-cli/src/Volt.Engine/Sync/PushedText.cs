@@ -40,11 +40,8 @@ public static class PushedText
         if (ItemKind.IsTaskWireName(wireName)) return TaskDescriptorFormat.SameDescriptor(pushed, held);
         var kind = ItemKind.KindForWireName(wireName)
             ?? throw new System.ArgumentException($"'{wireName}' is not a wire name: its extension names no item kind", nameof(wireName));
-        // Both read through the engine's fold (openspec abstract-member-parity): a pushed `IMPLEMENTATION ST` with an
-        // empty body under ABSTRACT is written as "" and comes back NONE — the same content spelled two ways, adopted as
-        // the IDE's layout rather than "held otherwise".
-        var a = AbstractMemberFold.Apply(StReader.Read(pushed, kind));
-        var b = AbstractMemberFold.Apply(StReader.Read(held, kind));
+        var a = StReader.Read(pushed, kind);
+        var b = StReader.Read(held, kind);
         // The outer END line is a token the item content does not carry (the IDE stores no END line; a pull writes it
         // from the declaration's own header, `StWriter`), so it is compared on its own: a pushed END line that does not
         // match its header (`PROGRAM X … END_FUNCTION_BLOCK`) comes back as `… END_PROGRAM`, which is not the pushed

@@ -10,7 +10,7 @@ namespace Volt.Engine.Format.Network;
 public sealed record NetworkRead(NetworkBody Model, NetworkScope Scope);
 
 /// <summary>
-/// The reader of a network-text language (<c>IMPLEMENTATION LD</c>, <c>IMPLEMENTATION FBD</c>): the code under the line,
+/// The reader of a network-text language (<c>%LANGUAGE LD</c>, <c>%LANGUAGE FBD</c>): the code under the line,
 /// validated against the scope the body resolves in — its own declarations innermost, then its owner's
 /// (<see cref="BodyContext.Declaration"/>), the push's own declarations answering before the IDE's — and returned as a
 /// <see cref="NetworkRead"/>. The scope comes from the host (<paramref name="scopeFor"/>): it is the SAME scope the host
@@ -32,6 +32,6 @@ public sealed class NetworkBodyReader : IBodyReader
     public object Read(string code, BodyContext context)
     {
         var scope = _scopeFor(context.Declaration, context.Pushed);
-        return new NetworkRead(NetworkText.Validate(ImplementationMarker.Join(ImplementationMarker.For(_language), code), scope), scope);
+        return new NetworkRead(NetworkText.Validate(PropertyLines.JoinBody(PropertyLines.LanguageLine(_language), code), scope), scope);
     }
 }

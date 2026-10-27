@@ -110,7 +110,7 @@ VAR CONSTANT
 	udiTimeout				: UDINT	:= 5_000_000;				// time (µs)
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF NOT Initialize() THEN
 	RETURN;
 END_IF
@@ -175,7 +175,7 @@ VAR_INST
 //	GeneralRunAlarm			: SetErrorFB;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 eStopMainCabinet(
 	elementId			:= 1,
 	ModuleParent		:= ModuleHandler,
@@ -446,7 +446,7 @@ VAR_INST
 	initialized	: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF initialized THEN
 	Initialize		:= TRUE;
 	RETURN;
@@ -480,14 +480,14 @@ VAR_INPUT
 	outputNumber	: USINT(0..127);
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 ReturnOutputFromNumber := BitLogic.Extract(dwSafetyPLCStatus[outputNumber / 32], outputNumber MOD 32);
 
 END_METHOD
 
 METHOD ValidateMessage : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Check if the read message is valid
 byChecksumReader		:= 0;
 FOR i := 4 TO 39 DO
@@ -513,7 +513,7 @@ END_IF
 END_METHOD
 
 ACTION CreateTelegram
-IMPLEMENTATION ST
+%LANGUAGE ST
 FOR i := 0 TO TO_INT(UPPER_BOUND(abyWriteBuffer, 1)) DO
 	abyWriteBuffer[i] := 0;
 END_FOR
@@ -580,7 +580,7 @@ END_FOR
 END_ACTION
 
 ACTION FunctionBlocks
-IMPLEMENTATION ST
+%LANGUAGE ST
 (* Implements a TCP Client. To connect to a TCP Server at the endpoint defined with ipAddr and uiPort the input xEnable
 should set to TRUE. While setup the connection xBusy is TRUE but xActive is FALSE. After the connection is established
 xActive and xBusy is TRUE and the hConnection output is valid. After closing the connection from the server side xActive
@@ -640,7 +640,7 @@ ReadActualSeverity(
 END_ACTION
 
 ACTION MapTheOutputs
-IMPLEMENTATION ST
+%LANGUAGE ST
 dwSafetyPLCStatus[0] := MEM.PackBytesToDword(
 							byLLByte	:= abyReadBuffer[ 8],		// eth.o0 - 7
 							byLHByte	:= abyReadBuffer[ 9],		// eth.o8 - 15

@@ -164,7 +164,7 @@ public static partial class ItemKind
     }
 
     /// <summary>WHAT A KIND'S FILE HOLDS, in one row per kind (openspec <c>bridge-refusal-review</c> D11). Every reader,
-    /// writer and guard asks this table — the ST reader and writer, <c>ImplementationMarker</c>, <c>NetworkText.CanHold</c>,
+    /// writer and guard asks this table — the ST reader and writer, <c>PropertyLines</c>, <c>NetworkText.CanHold</c>,
     /// <c>BodyFormatGuard</c>, <c>SourceScopes</c>, the push's accessor reconcile and create seed, the CODESYS member read.
     /// One answer to one question, so no caller asks it in its own words.
     ///
@@ -350,8 +350,8 @@ public static partial class ItemKind
     // (Volt.Cli.Sync.Extensions) all derive from it — no second hand-kept list — and
     // scripts/check-wiring.ts cross-checks the TS/JSON copies (LSP, VS Code, control)
     // against it. A POU's body LANGUAGE is never in the extension: an editable FBD/LD body is the same
-    // .pou as a textual one (graphical by its stated IMPLEMENTATION LD|FBD line), a CFC/SFC body is `.pou` too (its
-    // `IMPLEMENTATION CFC|SFC UNSUPPORTED` line). The extension carries only what the IDE stores per object — a POU is
+    // .pou as a textual one (graphical by its stated %LANGUAGE LD|FBD line), a CFC/SFC body is `.pou` too (its
+    // `%LANGUAGE CFC|SFC UNSUPPORTED` line). The extension carries only what the IDE stores per object — a POU is
     // `pou` whether its text says PROGRAM, FUNCTION_BLOCK or FUNCTION, a DUT is `dut` whatever its shape; a push never
     // reads a top-level item's text for it.
 

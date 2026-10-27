@@ -23,7 +23,7 @@ namespace Volt.Engine.Tests;
 /// </summary>
 public class DeclarationBeforeMembersTests
 {
-    private const string Method = "\n\nMETHOD M : BOOL\nIMPLEMENTATION ST\nM := TRUE;\nEND_METHOD\n";
+    private const string Method = "\n\nMETHOD M : BOOL\n%LANGUAGE ST\nM := TRUE;\nEND_METHOD\n";
 
     private static FakeIde Codesys(params FakeIde.Item[] items) => new(items) { RefusesMembersByText = true };
 
@@ -47,7 +47,7 @@ public class DeclarationBeforeMembersTests
     {
         var ide = Codesys();
         var resp = Push(ide, "F.pou",
-            "FUNCTION_BLOCK F\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK" + Method);
+            "FUNCTION_BLOCK F\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK" + Method);
 
         Assert.True(resp.Landed(), resp.Conflicts?.FirstOrDefault()?.Reason);
         Assert.Equal(new[] { "create:F", "writecontent:F", "create:M", "writecontent:F" }, ide.Recorded.ToArray());
@@ -60,7 +60,7 @@ public class DeclarationBeforeMembersTests
     public void A_create_whose_text_refuses_its_member_is_refused_by_name_and_leaves_nothing()
     {
         var ide = Codesys();
-        var resp = Push(ide, "F.pou", "FUNCTION F : BOOL\nVAR\nEND_VAR\nIMPLEMENTATION ST\nF := TRUE;\nEND_FUNCTION" + Method);
+        var resp = Push(ide, "F.pou", "FUNCTION F : BOOL\nVAR\nEND_VAR\n%LANGUAGE ST\nF := TRUE;\nEND_FUNCTION" + Method);
 
         Assert.False(resp.Landed());
         var conflict = Assert.Single(resp.Conflicts!);
@@ -81,7 +81,7 @@ public class DeclarationBeforeMembersTests
     public void An_update_whose_new_text_refuses_its_new_member_says_the_declaration_landed()
     {
         var ide = Codesys(FakeIde.Item.TextualPou("K", "FUNCTION_BLOCK K\nVAR\nEND_VAR", ";"));
-        var resp = Push(ide, "K.pou", "FUNCTION K : BOOL\nVAR\nEND_VAR\nIMPLEMENTATION ST\nK := TRUE;\nEND_FUNCTION" + Method);
+        var resp = Push(ide, "K.pou", "FUNCTION K : BOOL\nVAR\nEND_VAR\n%LANGUAGE ST\nK := TRUE;\nEND_FUNCTION" + Method);
 
         Assert.True(resp.Landed());   // part of the op stays, so the answer is a receipt (wire-final-shape F8)
         Assert.Contains("K.pou", resp.NewItems.Keys);
@@ -106,9 +106,9 @@ public class DeclarationBeforeMembersTests
         var a = new FakeIde.Item("A", ItemKind.PlcMethod, "", false, "METHOD A : BOOL\nVAR\nEND_VAR", "A := TRUE;", null, null);
         var ide = Codesys(pou, a);
         // TWO new methods: one dropped and one added of a kind would be the member RENAMED (bridge-one-to-one task 3.4).
-        var resp = Push(ide, "K.pou", "FUNCTION K : BOOL\nVAR\nEND_VAR\nIMPLEMENTATION ST\nK := TRUE;\nEND_FUNCTION\n\n" +
-                                      "METHOD B : BOOL\nIMPLEMENTATION ST\nB := TRUE;\nEND_METHOD\n\n" +
-                                      "METHOD C : BOOL\nIMPLEMENTATION ST\nC := TRUE;\nEND_METHOD\n");
+        var resp = Push(ide, "K.pou", "FUNCTION K : BOOL\nVAR\nEND_VAR\n%LANGUAGE ST\nK := TRUE;\nEND_FUNCTION\n\n" +
+                                      "METHOD B : BOOL\n%LANGUAGE ST\nB := TRUE;\nEND_METHOD\n\n" +
+                                      "METHOD C : BOOL\n%LANGUAGE ST\nC := TRUE;\nEND_METHOD\n");
 
         Assert.True(resp.Landed());   // part of the op stays, so the answer is a receipt (wire-final-shape F8)
         var conflict = Assert.Single(resp.Conflicts!);
@@ -126,10 +126,10 @@ public class DeclarationBeforeMembersTests
     [Fact]
     public void A_text_declaring_nothing_takes_an_action_and_refuses_a_method()
     {
-        const string broken = "(* Motor\n *\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK";
+        const string broken = "(* Motor\n *\nVAR\nEND_VAR\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK";
 
         var withAction = Codesys();
-        var ok = Push(withAction, "B.pou", broken + "\n\nACTION Act\nIMPLEMENTATION ST\n;\nEND_ACTION\n");
+        var ok = Push(withAction, "B.pou", broken + "\n\nACTION Act\n%LANGUAGE ST\n;\nEND_ACTION\n");
         Assert.True(ok.Landed(), ok.Conflicts?.FirstOrDefault()?.Reason);
         Assert.True(withAction.Exists("Act"));
 
@@ -146,14 +146,14 @@ public class DeclarationBeforeMembersTests
     public void An_edit_that_creates_no_member_is_still_one_write()
     {
         var ide = Codesys(FakeIde.Item.TextualPou("K", "FUNCTION_BLOCK K\nVAR\nEND_VAR", ";"));
-        var resp = Push(ide, "K.pou", "PROGRAM K\nVAR\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\nEND_PROGRAM\n");
+        var resp = Push(ide, "K.pou", "PROGRAM K\nVAR\nEND_VAR\n%LANGUAGE ST\nx := 1;\nEND_PROGRAM\n");
 
         Assert.True(resp.Landed(), resp.Conflicts?.FirstOrDefault()?.Reason);
         Assert.Equal(new[] { "writecontent:K" }, ide.Recorded.ToArray());
 
         var unchangedDeclaration = Codesys(FakeIde.Item.TextualPou("K", "FUNCTION_BLOCK K\nVAR\nEND_VAR", ";"));
         var added = Push(unchangedDeclaration, "K.pou",
-            "FUNCTION_BLOCK K\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK" + Method);
+            "FUNCTION_BLOCK K\nVAR\nEND_VAR\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK" + Method);
         Assert.True(added.Landed(), added.Conflicts?.FirstOrDefault()?.Reason);
         Assert.Equal(new[] { "create:M", "writecontent:K" }, unchangedDeclaration.Recorded.ToArray());
     }
@@ -171,7 +171,7 @@ public class DeclarationBeforeMembersTests
             FailCreate = (name, kind) => kind == ItemKind.PlcMethod ? new System.InvalidOperationException("Unbound tree item") : null,
         };
         var resp = Push(ide, "F.pou",
-            "FUNCTION_BLOCK F\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK" + Method);
+            "FUNCTION_BLOCK F\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK" + Method);
 
         Assert.False(resp.Landed());
         var conflict = Assert.Single(resp.Conflicts!);

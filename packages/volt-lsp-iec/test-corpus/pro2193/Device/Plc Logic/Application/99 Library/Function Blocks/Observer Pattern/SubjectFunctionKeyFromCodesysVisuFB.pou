@@ -5,7 +5,7 @@ FUNCTION_BLOCK PUBLIC SubjectFunctionKeyFromCodesysVisuFB
 EXTENDS SubjectFunctionKeyFB
 IMPLEMENTS ISubject, ISubjectFunctionKeyPayload
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 END_FUNCTION_BLOCK
 
@@ -17,7 +17,7 @@ END_VAR
 
 // Code copy from: SubjectBaseFB.Attach()
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF AttachAllowed(observer) THEN
 	Attach := AttachObserver(observer);
 END_IF
@@ -29,7 +29,7 @@ METHOD PUBLIC Notify
 
 // Code copy from: SubjectBaseFB.Notify()
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 FOR ui := 1 TO ObserverCount DO
 	observers[ui].Update(THIS^);
 END_FOR

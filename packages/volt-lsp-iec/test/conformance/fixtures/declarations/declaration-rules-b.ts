@@ -55,14 +55,14 @@ function dut(name: string, feature: string, pouName: string, source: string, plc
 }
 
 /** `t` pushed AS SENT — its header is one the parser misreads, so its split would not carry the question; the source states
- *  its own `IMPLEMENTATION ST` line, as a workspace file does. */
+ *  its own `%LANGUAGE ST` line, as a workspace file does. */
 function asSent(t: LanguageTest): LanguageTest {
   return { ...t, asSent: "the parser misreads this header; its text is pushed as a workspace file holds it" }
 }
 
 const HEADER_RULES: LanguageTest[] = [
   asSent(fb("hdr_fb_return_type", "a FUNCTION_BLOCK header with a return type",
-    "FUNCTION_BLOCK FB_LANG_hdr_fb_return_type : INT\nVAR\n\tout : INT;\nEND_VAR\nIMPLEMENTATION ST\nout := 1;\nEND_FUNCTION_BLOCK\n")),
+    "FUNCTION_BLOCK FB_LANG_hdr_fb_return_type : INT\nVAR\n\tout : INT;\nEND_VAR\n%LANGUAGE ST\nout := 1;\nEND_FUNCTION_BLOCK\n")),
   fb("hdr_fb_extends_three", "an FB EXTENDS naming three bases",
     "FUNCTION_BLOCK FB_LANG_hdr_fb_extends_three_a\nVAR\n\ta : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\n" +
       "FUNCTION_BLOCK FB_LANG_hdr_fb_extends_three_b\nVAR\n\tb : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\n" +
@@ -76,9 +76,9 @@ const HEADER_RULES: LanguageTest[] = [
       "FUNCTION_BLOCK FB_LANG_hdr_interface_extends_two IMPLEMENTS ITF_LANG_hdr_interface_extends_two_ab\nVAR\n\tout : INT;\nEND_VAR\nout := Ma() + Mb();\nEND_FUNCTION_BLOCK\n\n" +
       "METHOD Ma : INT\nMa := 1;\nEND_METHOD\n\nMETHOD Mb : INT\nMb := 2;\nEND_METHOD\n"),
   asSent(fn("hdr_function_private", "PRIVATE on a FUNCTION",
-    "FUNCTION PRIVATE F_LANG_hdr_function_private : INT\nVAR\nEND_VAR\nIMPLEMENTATION ST\nF_LANG_hdr_function_private := 1;\nEND_FUNCTION\n")),
+    "FUNCTION PRIVATE F_LANG_hdr_function_private : INT\nVAR\nEND_VAR\n%LANGUAGE ST\nF_LANG_hdr_function_private := 1;\nEND_FUNCTION\n")),
   asSent(prg("hdr_program_protected", "PROTECTED on a PROGRAM",
-    "PROGRAM PROTECTED P_LANG_hdr_program_protected\nVAR\n\tout : INT;\nEND_VAR\nIMPLEMENTATION ST\nout := 1;\nEND_PROGRAM\n")),
+    "PROGRAM PROTECTED P_LANG_hdr_program_protected\nVAR\n\tout : INT;\nEND_VAR\n%LANGUAGE ST\nout := 1;\nEND_PROGRAM\n")),
   fb("hdr_fb_property_no_accessor", "an FB PROPERTY declaring neither GET nor SET",
     "FUNCTION_BLOCK FB_LANG_hdr_fb_property_no_accessor\nVAR\n\tout : INT;\nEND_VAR\nout := 1;\nEND_FUNCTION_BLOCK\n\nPROPERTY P : INT\nEND_PROPERTY\n"),
   fb("hdr_interface_var_output_used", "a VAR_OUTPUT section in an INTERFACE an FB implements",

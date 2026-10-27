@@ -25,7 +25,7 @@ VAR
 
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^();
 
 // Enable manual control of Z Unit motor when Xu Unit is in safe position.
@@ -40,7 +40,7 @@ VAR_INPUT
 	iParameter			: INT := 1;	// 0: Invalid, 1: Takeover Pos 1, etc.
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Xu unit has at least 1 product in the gripper. We need a transfer.
 CheckIfTransferIsNeeded	S= xuUnit.HasPayload <> enumPayload.None;
 
@@ -53,7 +53,7 @@ END_METHOD
 
 METHOD PROTECTED Cyclic
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 State(actState	:= ActState);
 
 END_METHOD
@@ -61,7 +61,7 @@ END_METHOD
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 CommandLock.ForceRelease();
 
 ActState	:= StateNone;
@@ -72,7 +72,7 @@ END_METHOD
 // After a state change, this method is called to execute the current state
 METHOD PROTECTED Execute
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
 //	enumExchangeSets.SingleCavSingleTakeover:
 //		Execute_Sequence1();
@@ -95,7 +95,7 @@ VAR_INPUT
 	iParameter : INT := 1;	// 0: Invalid, 1: Takeover Pos 1, etc.
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
 END_IF
@@ -118,7 +118,7 @@ END_METHOD
 
 METHOD PROTECTED Execute_Sequence1
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF State.Changed THEN
 	Arrays.Bool_Reset(result);
 END_IF
@@ -193,7 +193,7 @@ END_METHOD
 
 METHOD PROTECTED Execute_Sequence2
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF State.Changed THEN
 	Arrays.Bool_Reset(result);
 END_IF
@@ -276,7 +276,7 @@ END_METHOD
 
 METHOD PROTECTED Execute_Sequence3
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF State.Changed THEN
 	Arrays.Bool_Reset(result);
 END_IF
@@ -356,7 +356,7 @@ END_METHOD
 
 METHOD PROTECTED Execute_Sequence4
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF State.Changed THEN
 	Arrays.Bool_Reset(result);
 END_IF
@@ -436,7 +436,7 @@ END_METHOD
 // Command to stop a module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 CommandLock.ForceRelease();
 
 ActState	:= StateNone;
@@ -452,7 +452,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 TransferBusy	:= ActState <> StateNone;
 
 END_GET

@@ -58,11 +58,11 @@ public class PushDeclarationTransportTests
     private static string Source(string decl, string body, string? terminator) =>
         terminator is null ? decl + "\n" : decl + "\n" + Stated(body) + "\n\n" + terminator + "\n";
 
-    /// <summary>A body under the line that states it, as the pull writes it: ST under <c>IMPLEMENTATION ST</c>, and a
+    /// <summary>A body under the line that states it, as the pull writes it: ST under <c>%LANGUAGE ST</c>, and a
     /// body Volt cannot write as its read-only keyword line ALONE — that line is the body's statement, and an
-    /// <c>IMPLEMENTATION ST</c> above it would claim a language Volt reads.</summary>
+    /// <c>%LANGUAGE ST</c> above it would claim a language Volt reads.</summary>
     private static string Stated(string body) =>
-        ImplementationMarker.IsUnsupportedBody(body) ? body : "IMPLEMENTATION ST\n" + body;
+        PropertyLines.IsUnsupportedBody(body) ? body : "%LANGUAGE ST\n" + body;
 
     /// <summary>The same declaration with one variable added — the ONLY difference in the push.</summary>
     private static string PlusOneVar(string decl) =>
@@ -107,7 +107,7 @@ public class PushDeclarationTransportTests
         const string decl = "FUNCTION_BLOCK K\nVAR\nEND_VAR";
         var ide = new FakeIde(new FakeIde.Item("K", ItemKind.PlcPou, "", true, decl, "", language, null));
 
-        Push(ide, "K.pou", Source(PlusOneVar(decl), ImplementationMarker.Unsupported(language), "END_FUNCTION_BLOCK"));
+        Push(ide, "K.pou", Source(PlusOneVar(decl), PropertyLines.UnsupportedLine(language), "END_FUNCTION_BLOCK"));
 
         Assert.Contains("vltAdded", ide.WrittenContent["K"].Declaration);
     }

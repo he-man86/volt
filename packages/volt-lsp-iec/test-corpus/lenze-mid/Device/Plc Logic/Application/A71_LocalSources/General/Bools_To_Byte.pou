@@ -13,7 +13,7 @@ VAR_OUTPUT
 	oByte: BYTE;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 len:=7;
 oByte:=0;
 

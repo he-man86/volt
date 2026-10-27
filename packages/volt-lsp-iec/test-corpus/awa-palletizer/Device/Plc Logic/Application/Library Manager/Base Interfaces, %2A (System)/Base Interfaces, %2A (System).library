@@ -2,4 +2,4 @@ LIBRARY Base Interfaces, * (System)
 NAMESPACE IBaseLibrary
 RESOLUTION Base Interfaces, * (System)
 PLACEHOLDER false
-MATERIALIZATION 4
+MATERIALIZATION 5

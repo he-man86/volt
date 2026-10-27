@@ -38,7 +38,7 @@ VAR CONSTANT
 	gateLockString				: STRING(14)		:= 'opening_gate';
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^(
 	AxisRef				:= AxisRef,
 	DataBrink			:= DataBrink,
@@ -53,7 +53,7 @@ VAR_INST
 	SetError					: ARRAY[1..3] OF SetErrorFB;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 //SetError[1](
 //	moduleHandler	:= ModuleHandler,
 //	textRefId		:= Conveyor_Errors,
@@ -95,7 +95,7 @@ VAR
 	i							: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 ReadMachineData(
 	Axis					:= AxisRef,
 	xEnable					:= TRUE,
@@ -180,7 +180,7 @@ END_METHOD
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 moveConveyorAfterEStop			:= TRUE;
 alarmAreaNotFree				:= FALSE;
@@ -196,7 +196,7 @@ END_METHOD
 // Gate close button is released. Safety gate is cancelling request, so stop moving. (trigger signal)
 METHOD PUBLIC GateCloseCancelled
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Gate Requests
 // Do nothing when gate closes
 END_METHOD
@@ -204,7 +204,7 @@ END_METHOD
 // Gate close button is pushed. Safety gate is requesting to close (trigger signal)
 METHOD PUBLIC GateCloseRequested
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Gate Requests
 // Do nothing when gate closes
 END_METHOD
@@ -212,7 +212,7 @@ END_METHOD
 // Gate open button is released. Safety gate is cancelling request, so stop moving. (trigger signal)
 METHOD PUBLIC GateOpenCancelled
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Gate Requests
 // Do nothing when gate open is cancelled
 
@@ -221,7 +221,7 @@ END_METHOD
 // Gate open button is pushed. Safety gate is requesting to open (trigger signal)
 METHOD PUBLIC GateOpenRequested
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Gate Requests
 IF NOT ProcessCommandLock.Request(gateLockString) THEN
 	RETURN;
@@ -239,7 +239,7 @@ VAR_INPUT
 	firstStackAfterCycleStart	: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Move
 // Optionally use a different stacking height for the first stack.
 IF firstStackAfterCycleStart AND Data.firstCycleStackHeight > 0 THEN
@@ -264,7 +264,7 @@ VAR
 	i		: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Stacking
 ProductsOnTopOfStack := products;
 
@@ -290,7 +290,7 @@ METHOD PUBLIC MoveContinuouslyToggle
 VAR_INPUT
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Move
 IF conveyorIsMovingContinuously THEN
 	conveyorIsMovingContinuously	:= FALSE;
@@ -309,7 +309,7 @@ VAR_INST
 	result						: ARRAY[1..1] OF BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Move
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -344,7 +344,7 @@ VAR_INST
 	Timer						: BTON;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -396,7 +396,7 @@ VAR
 	i	: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Methods
 FOR i := MaxPositionsOnConveyor TO 2 BY -1 DO
 	StackStatus[i] := StackStatus[i - 1];
@@ -416,7 +416,7 @@ VAR
 	i		: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Picking
 FOR i := 1 TO GVL_Constants.ZUnitProductsForConveyor DO
 	IF  StackStatus[MaxPositionsOnConveyor][i].Present
@@ -456,7 +456,7 @@ VAR
 	i		: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Methods
 FOR i := 1 TO GVL_Constants.ZUnitProductsForConveyor DO
 	IF StackStatus[iStackNo][i].Present THEN
@@ -469,7 +469,7 @@ END_METHOD
 
 METHOD PRIVATE StartConveyor
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Methods
 // Increase the alternating stack index by 1 (to create odd / even stacks)
 Increment.Subrange(
@@ -493,7 +493,7 @@ END_METHOD
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 alarmAreaNotFree				:= FALSE;
 
@@ -514,7 +514,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 CurrentStackFull := _currentStackFull;
 
 END_GET
@@ -522,7 +522,7 @@ SET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 _currentStackFull := CurrentStackFull;
 
 END_SET
@@ -537,7 +537,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 CycleLength := SEL(ReadMachineData.xValid, -1, ReadMachineData.lrCycleLength);
 
 END_GET
@@ -554,7 +554,7 @@ VAR
 	j	: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 FOR i := 1 TO MaxPositionsOnConveyor DO
 	FOR j := 1 TO GVL_Constants.ZUnitProductsForConveyor DO
 		IF StackStatus[i][j].Present THEN
@@ -578,7 +578,7 @@ VAR
 	i	: INT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 HighestStackIndex			:= MAX(StackIndex, Data.firstCycleStackHeight);
 
@@ -598,7 +598,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Current height of stack is lower than max allowed stacking height
 InSafePosForGate	:= (StackIndex * PersistentVars.RecipeVars.productPitch.value) + PersistentVars.RecipeVars.productHeight.value < MaxAllowedStackingHeightWhenGateOpens;
 // Safe when there is no stack
@@ -622,7 +622,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 MovingStacksAllowed := _movingStacksAllowed;
 
 END_GET
@@ -630,7 +630,7 @@ SET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 _movingStacksAllowed := MovingStacksAllowed;
 
 END_SET
@@ -645,7 +645,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 ProductsOnTopOfStack := _productsOnTopOfStack;
 
 END_GET
@@ -654,7 +654,7 @@ PROTECTED
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 _productsOnTopOfStack := ProductsOnTopOfStack;
 END_SET
 END_PROPERTY
@@ -670,7 +670,7 @@ VAR
 	maxIndex	: UINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 FOR i := 1 TO GVL_Constants.ChainProductsForZUnit DO
 	maxIndex := MAX(maxIndex, StackStatus[1][i].numberOfProducts);
 END_FOR
@@ -689,7 +689,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 StackingAllowed := (Arrays.DigitalSensor_All(AreaFree, TRUE) OR StackIndex > 0 OR HMI.testMachineWithoutConveyors)
 					AND Drive.Standstill
 					AND NOT MovingStacksAllowed
@@ -707,7 +707,7 @@ VAR
 	i		: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 FOR i := 1 TO GVL_Constants.ZUnitProductsForConveyor DO
 	StacksAreShort[i] := StackIndex > 0 AND StackStatus[1][i].numberOfProducts < StackIndex;
 END_FOR
@@ -722,7 +722,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Standstill := Drive.Standstill;
 
 END_GET

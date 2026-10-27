@@ -20,7 +20,7 @@ VAR
 	) DINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^();
 
 
@@ -35,7 +35,7 @@ VAR_INST
 	xuUnitVacuum	: WORD;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Xu unit has vacuum high that is needed for this Takeover position
 xuUnitVacuum	:= 0;
 CASE iParameter OF
@@ -50,7 +50,7 @@ END_METHOD
 
 METHOD PROTECTED Cyclic
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 State(actState	:= ActState);
 
 PulseOutput(
@@ -62,7 +62,7 @@ END_METHOD
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 CommandLock.ForceRelease();
 
 ActState	:= StateNone;
@@ -76,7 +76,7 @@ VAR_INPUT
 	iParameter : INT := 1;	// 0: Invalid, 1: Takeover Pos 1, etc.
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
 END_IF
@@ -106,7 +106,7 @@ VAR_INST
 	Timer				: BTON;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 CASE ActState OF
 	StateNone:
 		;
@@ -192,7 +192,7 @@ END_METHOD
 // Command to stop a module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 CommandLock.ForceRelease();
 
 ActState	:= StateNone;
@@ -208,7 +208,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 TransferBusy	:= ActState <> StateNone;
 
 END_GET

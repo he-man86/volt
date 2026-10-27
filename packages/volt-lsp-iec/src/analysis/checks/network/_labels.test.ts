@@ -17,7 +17,7 @@ const vgByCode = (src: string, code: string): number => vgDiags(src).filter((d) 
 test("network text: a JMP may target a label on ANOTHER network", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; out : BOOL; END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
 IF a THEN JMP Done := ; END_IF;
 END_NETWORK
@@ -31,7 +31,7 @@ END_FUNCTION_BLOCK`
 test("network text: a JMP to an undefined label is flagged; a defined one is not", () => {
   const bad = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
 out := TRUE;
 JMP Nowhere := ;
@@ -42,7 +42,7 @@ END_FUNCTION_BLOCK`
   ])
   const good = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK LABEL: Loop
 out := TRUE;
 JMP Loop := ;
@@ -57,7 +57,7 @@ test("network text: both vendors report a JMP to a missing label, TwinCAT with a
   // v1 text, and the exception it bought went with it.
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
 out := TRUE;
 JMP Nowhere := ;
@@ -76,7 +76,7 @@ END_FUNCTION_BLOCK`
 
 const labelsBody = (networks: string) => `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 ${networks}
 END_FUNCTION_BLOCK`
 const labelMessages = (networks: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
@@ -117,7 +117,7 @@ test("network labels: a label nothing jumps to is the build's warning; a jump in
 test("network text: a jump coil beside other coils resolves its label like a lone JMP", () => {
   const src = `FUNCTION_BLOCK F
 VAR c : BOOL; x1 : BOOL; y : BOOL; out : BOOL; END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x1 := JMP Done := c;
 END_NETWORK

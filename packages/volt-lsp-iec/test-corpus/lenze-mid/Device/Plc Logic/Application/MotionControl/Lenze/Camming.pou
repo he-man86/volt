@@ -31,7 +31,7 @@ VAR_IN_OUT
 	ioSlaveAxis						: AXIS_REF; 
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 ReadInputs();
 FlexCamParameters();
@@ -54,7 +54,7 @@ END_VAR
 VAR
 
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 BrakeInterface(
 	Axis:= ioSlaveAxis, 
@@ -97,7 +97,7 @@ END_VAR
 VAR
 	
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 //Selection of the cam. 
 IF Control_Local.SelectBypassCAM THEN 
 	uiSetCamTable := 2;					//Camtable 2 is a zero curve. 
@@ -278,7 +278,7 @@ METHOD FlexCamParameters
 VAR_INPUT
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 //General
 //ioSlaveAxis.scPar.WindowStandStill:=i_lrWindowStandstill;
 //ioSlaveAxis.scPar.JoggingSetVel:=i_lrJogVel;
@@ -324,7 +324,7 @@ METHOD ReadInputs
 VAR_INPUT
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 //activate internal control
 IF NOT internalControl THEN
@@ -347,7 +347,7 @@ END_VAR
 VAR
 
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 //Max torque on the axis. If the machine doesn't stop due to a programming error, this part ensures that the torque never gets too high. 
 TorqueLimit(											
@@ -398,7 +398,7 @@ VAR_INST
 
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 
 ioDataExchange.Status.DriveCommAlive				:= ioSlaveAxis.xCommunicationOK;

@@ -9,7 +9,7 @@ END_VAR
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Instantiate the outputs
 Green();
 Amber();
@@ -22,14 +22,14 @@ END_FUNCTION_BLOCK
 {attribute 'hide'}
 METHOD PUBLIC Map : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // no implementation
 END_METHOD
 
 // Reset all outputs on the stacklight
 METHOD Reset
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Green.Off();
 Amber.Off();
 Red.Off();
@@ -40,7 +40,7 @@ END_METHOD
 {attribute 'hide'}
 METHOD Set : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // no implementation
 END_METHOD
 
@@ -51,6 +51,6 @@ VAR_INPUT
 	xValue	: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // no implementation
 END_METHOD

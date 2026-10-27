@@ -66,7 +66,7 @@ public class StLayoutRulesTests
     [InlineData("gvl", "VAR_GLOBAL\r\n\ts : STRING := 'x\ry';\r\nEND_VAR", null, "VAR_GLOBAL\n\ts : STRING := 'x\ny';\nEND_VAR\n")]
     [InlineData("dut", "TYPE E :\r(a, b);\rEND_TYPE", null, "TYPE E :\n(a, b);\nEND_TYPE\n")]
     [InlineData("pou", "PROGRAM b\r\nVAR\r\nEND_VAR", "b := 1; (* x\ry *)\r\n",
-        "PROGRAM b\nVAR\nEND_VAR\nIMPLEMENTATION ST\nb := 1; (* x\ny *)\n\n\nEND_PROGRAM\n")]
+        "PROGRAM b\nVAR\nEND_VAR\n%LANGUAGE ST\nb := 1; (* x\ny *)\n\n\nEND_PROGRAM\n")]
     public void A_CR_the_IDE_holds_is_fetched_as_LF(string kind, string declaration, string? body, string fetched)
     {
         var text = StWriter.Write(new ItemContent(kind, declaration, body, new(), ObjectProperties.None));
@@ -84,7 +84,7 @@ public class StLayoutRulesTests
                 Getter: new Accessor("VAR\r\nEND_VAR", "p := TRUE;\r\n")),
         }, ObjectProperties.None));
         Assert.DoesNotContain('\r', text);
-        Assert.Contains("METHOD m : BOOL\nVAR\nEND_VAR\nIMPLEMENTATION ST\nm := TRUE;\n\nEND_METHOD", text);
+        Assert.Contains("METHOD m : BOOL\nVAR\nEND_VAR\n%LANGUAGE ST\nm := TRUE;\n\nEND_METHOD", text);
     }
 
     /// <summary>Texts that differ from the canonical one in layout only, beyond each row's own variant: every one is
@@ -92,26 +92,26 @@ public class StLayoutRulesTests
     /// Keyed by name; the value is (the text pushed, its kind, the canonical text).</summary>
     private static readonly Dictionary<string, (string Pushed, string Kind, string Canonical)> LayoutVariants = new()
     {
-        ["no final LF"] = ("PROGRAM b\nIMPLEMENTATION ST\nb := 1;\n\nEND_PROGRAM", ItemKind.Kinds.Pou,
-            "PROGRAM b\nIMPLEMENTATION ST\nb := 1;\n\nEND_PROGRAM\n"),
-        ["extra LFs after the END line"] = ("PROGRAM b\nIMPLEMENTATION ST\nb := 1;\n\nEND_PROGRAM\n\n\n", ItemKind.Kinds.Pou,
-            "PROGRAM b\nIMPLEMENTATION ST\nb := 1;\n\nEND_PROGRAM\n"),
+        ["no final LF"] = ("PROGRAM b\n%LANGUAGE ST\nb := 1;\n\nEND_PROGRAM", ItemKind.Kinds.Pou,
+            "PROGRAM b\n%LANGUAGE ST\nb := 1;\n\nEND_PROGRAM\n"),
+        ["extra LFs after the END line"] = ("PROGRAM b\n%LANGUAGE ST\nb := 1;\n\nEND_PROGRAM\n\n\n", ItemKind.Kinds.Pou,
+            "PROGRAM b\n%LANGUAGE ST\nb := 1;\n\nEND_PROGRAM\n"),
         ["no blank line before a member"] = (
-            "FUNCTION_BLOCK a\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\nMETHOD m : BOOL\nIMPLEMENTATION ST\nEND_METHOD\n",
+            "FUNCTION_BLOCK a\n%LANGUAGE ST\n\nEND_FUNCTION_BLOCK\nMETHOD m : BOOL\n%LANGUAGE ST\nEND_METHOD\n",
             ItemKind.Kinds.Pou,
-            "FUNCTION_BLOCK a\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD m : BOOL\nIMPLEMENTATION ST\nEND_METHOD\n"),
+            "FUNCTION_BLOCK a\n%LANGUAGE ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD m : BOOL\n%LANGUAGE ST\nEND_METHOD\n"),
         ["two blank lines before a member"] = (
-            "FUNCTION_BLOCK a\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\n\nMETHOD m : BOOL\nIMPLEMENTATION ST\nEND_METHOD\n",
+            "FUNCTION_BLOCK a\n%LANGUAGE ST\n\nEND_FUNCTION_BLOCK\n\n\nMETHOD m : BOOL\n%LANGUAGE ST\nEND_METHOD\n",
             ItemKind.Kinds.Pou,
-            "FUNCTION_BLOCK a\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD m : BOOL\nIMPLEMENTATION ST\nEND_METHOD\n"),
-        ["empty body, no blank line before END"] = ("PROGRAM b\nIMPLEMENTATION ST\nEND_PROGRAM\n", ItemKind.Kinds.Pou,
-            "PROGRAM b\nIMPLEMENTATION ST\n\nEND_PROGRAM\n"),
+            "FUNCTION_BLOCK a\n%LANGUAGE ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD m : BOOL\n%LANGUAGE ST\nEND_METHOD\n"),
+        ["empty body, no blank line before END"] = ("PROGRAM b\n%LANGUAGE ST\nEND_PROGRAM\n", ItemKind.Kinds.Pou,
+            "PROGRAM b\n%LANGUAGE ST\n\nEND_PROGRAM\n"),
         ["interface members with no blank lines"] = ("INTERFACE I\nMETHOD m : BOOL\nEND_METHOD\nEND_INTERFACE\n",
             ItemKind.Kinds.Interface, "INTERFACE I\n\nMETHOD m : BOOL\nEND_METHOD\n\nEND_INTERFACE\n"),
-        ["CRLF POU"] = ("PROGRAM b\r\nIMPLEMENTATION ST\r\nb := 1;\r\n\r\nEND_PROGRAM\r\n", ItemKind.Kinds.Pou,
-            "PROGRAM b\nIMPLEMENTATION ST\nb := 1;\n\nEND_PROGRAM\n"),
-        ["CR POU"] = ("PROGRAM b\rIMPLEMENTATION ST\rb := 1;\r\rEND_PROGRAM\r", ItemKind.Kinds.Pou,
-            "PROGRAM b\nIMPLEMENTATION ST\nb := 1;\n\nEND_PROGRAM\n"),
+        ["CRLF POU"] = ("PROGRAM b\r\n%LANGUAGE ST\r\nb := 1;\r\n\r\nEND_PROGRAM\r\n", ItemKind.Kinds.Pou,
+            "PROGRAM b\n%LANGUAGE ST\nb := 1;\n\nEND_PROGRAM\n"),
+        ["CR POU"] = ("PROGRAM b\r%LANGUAGE ST\rb := 1;\r\rEND_PROGRAM\r", ItemKind.Kinds.Pou,
+            "PROGRAM b\n%LANGUAGE ST\nb := 1;\n\nEND_PROGRAM\n"),
         ["CRLF GVL"] = ("VAR_GLOBAL\r\n\ta : INT;\r\nEND_VAR\r\n", ItemKind.Kinds.Gvl, "VAR_GLOBAL\n\ta : INT;\nEND_VAR\n"),
         ["CR GVL"] = ("VAR_GLOBAL\r\ta : INT;\rEND_VAR\r", ItemKind.Kinds.Gvl, "VAR_GLOBAL\n\ta : INT;\nEND_VAR\n"),
         ["CRLF DUT with a %-line"] = ("TYPE E :\r\n(a, b);\r\nEND_TYPE\r\n%EXCLUDE_FROM_BUILD\r\n", ItemKind.Kinds.Dut,
@@ -134,7 +134,7 @@ public class StLayoutRulesTests
     [InlineData("VAR_GLOBAL\r\n\ta : INT;\r\nEND_VAR\r\n", "gvl")]
     [InlineData("TYPE E :\r\n(a, b);\r\nEND_TYPE\r\n", "dut")]
     [InlineData("TYPE E :\r(a, b);\rEND_TYPE\r", "dut")]
-    [InlineData("FUNCTION_BLOCK a\r\nVAR\r\n\tx : INT;\r\nEND_VAR\r\nIMPLEMENTATION ST\r\nx := 1;\r\n\r\nEND_FUNCTION_BLOCK\r\n", "pou")]
+    [InlineData("FUNCTION_BLOCK a\r\nVAR\r\n\tx : INT;\r\nEND_VAR\r\n%LANGUAGE ST\r\nx := 1;\r\n\r\nEND_FUNCTION_BLOCK\r\n", "pou")]
     public void The_text_read_holds_no_CR(string pushed, string kind)
     {
         var read = StReader.Read(pushed, kind, "a");

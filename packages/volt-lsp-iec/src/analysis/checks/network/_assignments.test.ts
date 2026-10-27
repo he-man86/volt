@@ -8,7 +8,7 @@ import { vgDiags } from "../../../../test/support/network-docs.js"
 test("network text: a sink type mismatch is flagged with the SAME check/message as ST", () => {
   const src = `FUNCTION_BLOCK F
 VAR flag : BOOL; count : INT; END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
 flag := count;
 END_NETWORK
@@ -20,7 +20,7 @@ END_FUNCTION_BLOCK`
 test("network text: a well-typed sink over real vars yields no code diagnostic", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; b : BOOL; out : BOOL; END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
 out := a AND b;
 END_NETWORK
@@ -32,7 +32,7 @@ END_FUNCTION_BLOCK`
 test("network text: a narrowing sink (LREAL→REAL coil) warns like ST", () => {
   const src = `FUNCTION_BLOCK F
 VAR rv : REAL; l : LREAL; END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
 rv := l;
 END_NETWORK
@@ -53,7 +53,7 @@ test("network text: a reset coil is the R= operator, and it is not a type mismat
   const src = `TYPE DEVICE_STATE : (START, STOP, RESET); END_TYPE
 FUNCTION_BLOCK F
 VAR flag : BOOL; drive : BOOL; END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
 flag R= drive;
 END_NETWORK
@@ -64,7 +64,7 @@ END_FUNCTION_BLOCK`
 test("network text: a set coil is the S= operator, and it is not a type mismatch", () => {
   const src = `FUNCTION_BLOCK F
 VAR flag : BOOL; drive : BOOL; END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
 flag S= drive;
 END_NETWORK
@@ -78,7 +78,7 @@ test("network text: assigning a same-named enum member to a BOOL is still a mism
   const src = `TYPE DEVICE_STATE : (START, STOP, RESET); END_TYPE
 FUNCTION_BLOCK F
 VAR flag : BOOL; END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
 flag := RESET;
 END_NETWORK
@@ -89,7 +89,7 @@ END_FUNCTION_BLOCK`
 test("network text: a split's type is its feeder's, and it types what reads it", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; out : INT; END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
 split1 := a;
 out := split1;
@@ -102,7 +102,7 @@ END_FUNCTION_BLOCK`
 test("network text: EXECUTE without ( opens an inline-ST box, closed by END_EXECUTE;", () => {
   const src = `PROGRAM P
 VAR x : BOOL; END_VAR
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   EXECUTE
   x := TRUE;
@@ -120,7 +120,7 @@ F_Int := i;
 END_FUNCTION
 FUNCTION_BLOCK FB
 VAR a : BOOL; b : BOOL; c : BOOL; out : BOOL; iRPM : INT; s : INT; END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   %s
 END_NETWORK
@@ -154,7 +154,7 @@ F_Int := i;
 END_FUNCTION
 FUNCTION_BLOCK FB
 VAR o : BOOL; k : INT; END_VAR
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
 EXECUTE
 ${line}

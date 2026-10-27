@@ -41,8 +41,8 @@ public class MemberHeaderLastWordTests
                 {
                     Name = "K.pou",
                     IfVersion = refs.Items.GetValueOrDefault("K.pou"),
-                    SourceText = "FUNCTION_BLOCK K\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n\n" +
-                                 "METHOD Run Walk : BOOL\nVAR\nEND_VAR\nIMPLEMENTATION ST\nRun := TRUE;\nEND_METHOD\n",
+                    SourceText = "FUNCTION_BLOCK K\nVAR\nEND_VAR\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK\n\n" +
+                                 "METHOD Run Walk : BOOL\nVAR\nEND_VAR\n%LANGUAGE ST\nRun := TRUE;\nEND_METHOD\n",
                 },
             },
         });

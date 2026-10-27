@@ -14,7 +14,7 @@ namespace Volt.Engine.Tests.OneToOne;
 /// its <c>ifVersion</c>, or a create), and the property-line expectations every finding shares.
 ///
 /// <para><b>The expected texts are the design's (§1.2)</b>, not the code's: <c>%CLASS</c> first, then <c>%FOLDER</c> (a
-/// member's), then the keys in the grammar's order; directly under the object's <c>IMPLEMENTATION</c> line where it has
+/// member's), then the keys in the grammar's order; directly under the object's <c>%LANGUAGE</c> line where it has
 /// one, else closing its declaration.</para>
 /// </summary>
 internal static class OneToOneSteps

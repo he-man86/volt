@@ -223,8 +223,8 @@ public class WireRulesHaveOneImplementationTests
     }
 
     /// <summary>A wire error code is spelled once, in <c>Volt.Contracts/Vocabulary</c>; a string literal of one elsewhere is a
-    /// second definition. The one site today is not a code: <c>ImplementationMarker.UnsupportedWord</c> is the
-    /// <c>IMPLEMENTATION &lt;LANG&gt; UNSUPPORTED</c> keyword of the file format, which spells the same word.</summary>
+    /// second definition. The one site today is not a code: <c>PropertyLines.UnsupportedWord</c> is the
+    /// <c>%LANGUAGE &lt;LANG&gt; UNSUPPORTED</c> keyword of the file format, which spells the same word.</summary>
     [Fact]
     public void A_wire_error_code_is_spelled_only_in_the_vocabulary_ratchet()
     {
@@ -313,9 +313,8 @@ public class WireRulesHaveOneImplementationTests
 
     private static readonly Dictionary<string, int> CodeLiteralPins = new(StringComparer.Ordinal)
     {
-        ["Volt.Engine/Format/St/ImplementationMarker.cs"] = 1,
-        // The IMPLEMENTATION line's own word UNSUPPORTED, spelled like the code as ImplementationMarker's is: the new
-        // contract's line grammar (volt-cli-rework step 3), which replaces that one in step 7.
-        ["Volt.Engine/Seam/LanguageRegistry.cs"] = 1,
+        // The %LANGUAGE line's own word UNSUPPORTED, spelled like the code: the file format's word, which the contract's
+        // line grammar (LanguageRegistry) takes from here.
+        ["Volt.Engine/Format/St/PropertyLines.Language.cs"] = 1,
     };
 }

@@ -11,7 +11,7 @@ VAR CONSTANT
 	underscoreString			: STRING(1) := '_';
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Check if input string is not empty
 IF Stu.StrIsNullOrEmptyA(pInstanceName) THEN
 	RETURN;

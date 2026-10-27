@@ -26,7 +26,7 @@ VAR_INPUT
 	xCmdEStopActive: BOOL := FALSE;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 //------------------------------------------------------------------------------------------
 // General object definition.
 //
@@ -41,6 +41,6 @@ VAR_INPUT
 	pClassType: enClassType;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 isClassType := (myClassType = pClassType);
 END_METHOD

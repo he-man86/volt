@@ -7,7 +7,7 @@ VAR
 	nPos: INT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 	nPos	:= 1;
 
 	(* Ronde taart *)

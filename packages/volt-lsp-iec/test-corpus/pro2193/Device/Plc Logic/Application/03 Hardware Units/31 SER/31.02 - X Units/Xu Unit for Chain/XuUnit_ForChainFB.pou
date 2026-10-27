@@ -11,7 +11,7 @@ VAR CONSTANT
 	rDistanceFromChain	: REAL := 25;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^(
 	Data				:= Data,
 	AxisRef				:= AxisRef,
@@ -27,7 +27,7 @@ METHOD MoveToInFrontOfChain : BOOL
 VAR_INPUT
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT EnableHalfwayPosition THEN
 	RETURN;
@@ -58,7 +58,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Chain may already rotate when Xu unit is 15 mm back from Takeover pos
 InSafePosForChain := movementInsideMouldActive OR_ELSE Drive.PosSmallerOrEqual(Data.Takeover[1].Pos.value - rDistanceFromChain) OR_ELSE InSafePos;
 

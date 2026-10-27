@@ -14,7 +14,7 @@ VAR_IN_OUT
 END_VAR
 
 
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK TITLE: "NETWORK 3 (p1): Check for limit switch"
   ioUDT_JogLimitFree.Status.Limit_Left_OK := iServoStatus.Spare1;
 END_NETWORK

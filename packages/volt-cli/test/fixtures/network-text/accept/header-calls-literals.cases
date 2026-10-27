@@ -1,6 +1,6 @@
 #### header-order — `NETWORK [LABEL: x] [DISABLED] [TITLE: "…"]`, in that order
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK LABEL: Start DISABLED TITLE: "Calc"
   x := a;
 END_NETWORK
@@ -10,7 +10,7 @@ NETWORK label:Start disabled title:"Calc"
 
 #### title-escapes — a title exactly as stored, with IEC's escapes: `$$` `$"` `$L` `$R`
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK TITLE: "Calc $"A$" $$5 $R$L"
   x := a;
 END_NETWORK
@@ -20,7 +20,7 @@ NETWORK title:"Calc \"A\" $5 \r\n"
 
 #### title-other-escapes — `$N` is the IDE's line end, `$T` a tab, `$'` a quote: read, and written back verbatim
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK TITLE: "a$Nb$Tc$'d"
   x := a;
 END_NETWORK
@@ -28,14 +28,14 @@ END_NETWORK
 NETWORK title:"a\r\nb\tc'd"
   (:= x a)
 === canonical
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK TITLE: "a$R$Lb	c'd"
   x := a;
 END_NETWORK
 
 #### comment-lines — one `//` line per stored CR LF line; `// ` and one space are syntax
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   // first line
   //   indented
@@ -49,7 +49,7 @@ NETWORK comment:"first line\r\n  indented\r\n\r\nlast"
 
 #### comment-trailing-line — a trailing CR LF in the stored comment is a final bare `//` line
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   // only
   //
@@ -61,7 +61,7 @@ NETWORK comment:"only\r\n"
 
 #### comment-escapes — a `$` in a comment is `$$`; a bare LF `$L`, a bare CR `$R`
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   // cost $$5$Lnext$Rend
   x := a;
@@ -72,7 +72,7 @@ NETWORK comment:"cost $5\nnext\rend"
 
 #### empty-network — a network with no item
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
 END_NETWORK
 === model
@@ -80,7 +80,7 @@ NETWORK
 
 #### empty-item — `;` alone is the empty item
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   ;
 END_NETWORK
@@ -90,7 +90,7 @@ NETWORK
 
 #### unsupported-line — a network the text cannot spell: its one line, the shape and the network's hash
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK TITLE: "kept"
   UNSUPPORTED "a flag on a box input pin" #3f9a01c2;
 END_NETWORK
@@ -101,7 +101,7 @@ NETWORK title:"kept" unsupported:"a flag on a box input pin" hash:3f9a01c2
 === scope
 instance t2 TON
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   output := t2 : TON(IN := , PT := e1).Q;
 END_NETWORK
@@ -111,7 +111,7 @@ NETWORK
 
 #### unnamed-instance — `??? : TYPE(…)`, the vendor's unnamed instance
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   ??? : Axis(xEnable := go);
 END_NETWORK
@@ -121,7 +121,7 @@ NETWORK
 
 #### undeclared-instance — an instance the declarations do not name: the call names its type, which the build judges
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   t9 : TON(IN := go);
 END_NETWORK
@@ -133,7 +133,7 @@ NETWORK
 === scope
 instance fbs[] CTU
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   `fbs[1]` : CTU(CU := go, PV := 10, CV => n);
 END_NETWORK
@@ -145,7 +145,7 @@ NETWORK
 === scope
 instance fbm FB_M
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   x := fbm.Visible(on := go);
 END_NETWORK
@@ -155,7 +155,7 @@ NETWORK
 
 #### positional-pins — a pin stored with no name is positional, in slot order
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   y := LIMIT(0, v, 100);
 END_NETWORK
@@ -168,7 +168,7 @@ NETWORK
 instance t1 TON
 instance t2 TON
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   q := t1 : TON(NOT IN := v, PT := T#1S).Q;
   r := t2 : TON(IN := NOT v, PT := T#1S).Q;
@@ -180,7 +180,7 @@ NETWORK
 
 #### negated-contact — `NOT x` is the negated contact, a flag
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := a AND NOT b;
 END_NETWORK
@@ -190,7 +190,7 @@ NETWORK
 
 #### edges — `R_EDGE x`, `F_EDGE x`, `R_EDGE NOT x`: prefixes; the IDE negates before the edge (N17)
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   a := R_EDGE x;
   b := F_EDGE x;
@@ -204,7 +204,7 @@ NETWORK
 
 #### negated-call — a modifier on a call with no EN or ENO needs no bracket
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   x := NOT f(IN := a);
 END_NETWORK
@@ -214,7 +214,7 @@ NETWORK
 
 #### literals — a literal is bare
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   sName := 'Recipes';
   n := -1;
@@ -232,7 +232,7 @@ NETWORK
 
 #### expression-operand — an operand that is no one token is written between backticks
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   MOVE `DINT_TO_LREAL(pos)/10` => target ENO EN go;
 END_NETWORK
@@ -242,7 +242,7 @@ NETWORK
 
 #### backtick-escapes — inside backticks a backtick is doubled and a `$` is `$$`
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := `a``b`;
   y := `CONCAT('$$N', s)`;
@@ -256,7 +256,7 @@ NETWORK
 === scope
 instance ton1 TON
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   q := ton1 : TON(IN := TRUE, PT := ``).Q;
 END_NETWORK
@@ -266,7 +266,7 @@ NETWORK
 
 #### reserved-backticked — a name spelled like a word of the text is backticked
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   y := `ENO`;
   `EN` := c;
@@ -280,7 +280,7 @@ NETWORK
 
 #### non-words-are-names — IF, THEN, LET, VAR_TEMP, PARALLEL and INTO are no words of the text
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   Parallel := Feed AND Then AND Into AND Let;
 END_NETWORK
@@ -290,7 +290,7 @@ NETWORK
 
 #### reserved-pin-and-head-backticked — a pin, a callee or an output named like a word is backticked
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   `Execute`(`branch` := b, `en` => x);
 END_NETWORK
@@ -300,7 +300,7 @@ NETWORK
 
 #### header-disabled-title — `NETWORK DISABLED TITLE: "x"`
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK DISABLED TITLE: "x"
   y := a;
 END_NETWORK

@@ -44,7 +44,7 @@ export interface LoadUnit {
   implementation: string
   members: LoadMember[]
   /**
-   * `"sfc"` for a POU whose text states `IMPLEMENTATION SFC UNSUPPORTED` — the form Volt materializes an SFC body in.
+   * `"sfc"` for a POU whose text states `%LANGUAGE SFC UNSUPPORTED` — the form Volt materializes an SFC body in.
    * The text holds no chart, so the recorder creates the POU in SFC: the chart CODESYS creates for a new SFC POU, ONE
    * initial step `Init`, a `TRUE` transition and a jump back to it (measured 2026-10-03, SP21,
    * `create_pou(language=ImplementationLanguages.sfc)` exported as PLCopen), with that step named `step` (the fixture's
@@ -105,14 +105,14 @@ export function withDependencies(t: LanguageTest, all: readonly LanguageTest[]):
 }
 
 /**
- * `sfcStep` IS REQUIRED OF EXACTLY THE FIXTURES HOLDING AN SFC POU (`types.ts`): one whose body states `IMPLEMENTATION SFC
+ * `sfcStep` IS REQUIRED OF EXACTLY THE FIXTURES HOLDING AN SFC POU (`types.ts`): one whose body states `%LANGUAGE SFC
  * UNSUPPORTED` names the step its chart is recorded with, and no other fixture names one. Asked wherever a fixture is
  * loaded (`fixtureUnits`) or assembled (`withDependencies`, under every suite path) — it lived in `fixtureUnits` alone, so a
  * stray or a lost `sfcStep` passed the contract suite until the next `record:exec` (lsp-sfc-step-names 1, review).
  */
 function requireSfcStep(t: LanguageTest): void {
   const sfc = parsed(t).units.some((u) => {
-    const stated = "body" in u && u.body.kind === "body" ? u.body.implementation?.statement : undefined
+    const stated = "body" in u && u.body.kind === "body" ? u.body.languageLine?.statement : undefined
     return stated?.kind === "unsupported" && stated.language.toUpperCase() === "SFC"
   })
   if (t.sfcStep !== undefined && !sfc) throw new Error(`${t.name}: names an sfcStep and holds no SFC POU to draw it in`)

@@ -19,7 +19,7 @@ VAR
 	dwMachineParReturnValue: DWORD;
 END_VAR
 
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   RecipeManager : fbRecipeManager(sDatabaseName := 'Recipes', iNumberOfRecipes => iNumberOfRecipes, dwReturnValue => dwRecipeReturnValue, ActiveRecipe => ActiveRecipe, xLoadedNewRecipe => xLoadedNewRecipe, xRcpVisuPlcAreEqual => xRcpVisuPlcAreEqual) ENO EN TRUE;
 END_NETWORK

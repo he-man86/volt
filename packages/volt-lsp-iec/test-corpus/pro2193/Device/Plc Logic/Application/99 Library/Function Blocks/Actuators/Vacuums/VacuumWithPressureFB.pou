@@ -7,7 +7,7 @@ VAR_INPUT
 	{attribute 'symbol' := 'read'}	input2					: BOOL;				// Input 2 of Vacuum sensor (Pressure level reached)
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^();
 
 END_FUNCTION_BLOCK
@@ -19,7 +19,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 HasPressure := input2;
 END_GET
 END_PROPERTY

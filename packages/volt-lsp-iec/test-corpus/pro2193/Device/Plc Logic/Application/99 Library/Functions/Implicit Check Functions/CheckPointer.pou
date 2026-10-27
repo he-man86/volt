@@ -7,7 +7,7 @@ VAR_INPUT
 	bWrite		: BOOL;				// Indicates read or write access. TRUE = write access.
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %CLASS CHECK CheckPointer
 %EXCLUDE_FROM_BUILD
 // No standard way of implementation. Fill your own code here

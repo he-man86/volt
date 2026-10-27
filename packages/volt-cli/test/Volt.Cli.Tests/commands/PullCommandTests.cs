@@ -170,7 +170,7 @@ public class PullCommandTests
             var pristine = File.ReadAllText(PrgPath(root));
             File.WriteAllText(PrgPath(root), pristine.Replace("x := 1;", "x := 999;"));
             var stray = Path.Combine(root, "src", "Scratch.pou"); // an untracked file is local work too
-            File.WriteAllText(stray, "PROGRAM Scratch\nIMPLEMENTATION ST\nEND_PROGRAM");
+            File.WriteAllText(stray, "PROGRAM Scratch\n%LANGUAGE ST\nEND_PROGRAM");
 
             var plain = Commands.Pull(root, client);            // a NORMAL pull preserves local work...
             Assert.Equal("ok", plain.Kind);
@@ -567,7 +567,7 @@ public class PullCommandTests
     /// crash in that gap, a `.git` restored without it — has a current sidecar and no ref, so every pull said
     /// "already up to date with the IDE" and returned, while `Outgoing` is diffed against the ref that is not
     /// there. Nothing ever rebuilt it.</para></summary>
-    /// <summary>A body network text cannot represent pulls as <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c>, and the file says
+    /// <summary>A body network text cannot represent pulls as <c>%LANGUAGE LD|FBD UNSUPPORTED</c>, and the file says
     /// no more than that (openspec <c>implementation-keyword</c> 2b). The REASON left the file with the old
     /// <c>(* @volt-graphical: … *)</c> comment, so the pull message is where the engineer learns it: every such body the
     /// pull brought in, by file and member, with what network text has no spelling for.</summary>
@@ -596,7 +596,7 @@ public class PullCommandTests
             Assert.DoesNotContain("PLC_PRG", message);
 
             var file = File.ReadAllText(Path.Combine(root, "src", "POUs", "FB_Motor.pou"));
-            Assert.Contains("IMPLEMENTATION LD UNSUPPORTED", file);
+            Assert.Contains("%LANGUAGE LD UNSUPPORTED", file);
             Assert.DoesNotContain("a vendor split point", file);
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }

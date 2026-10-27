@@ -30,7 +30,7 @@ public class PushSiblingDeclarationsTests
 
     private static FakeIde TwoItems() => new(
         new FakeIde.Item("Mach1_AuxData", ItemKind.PlcGvl, "", true, "VAR_GLOBAL\nEND_VAR", null, null, null),
-        new FakeIde.Item("Caller", ItemKind.PlcPou, "", true, FbDecl, "IMPLEMENTATION FBD\nNETWORK\n  n := 1;\nEND_NETWORK", null, null));
+        new FakeIde.Item("Caller", ItemKind.PlcPou, "", true, FbDecl, "%LANGUAGE FBD\nNETWORK\n  n := 1;\nEND_NETWORK", null, null));
 
     private static PushResponse PushBoth(FakeIde ide)
     {
@@ -45,7 +45,7 @@ public class PushSiblingDeclarationsTests
                 new SetItemOp
                 {
                     Name = "Caller.pou", IfVersion = refs.Items["Caller.pou"],
-                    SourceText = FbDecl + "\nIMPLEMENTATION FBD\nNETWORK\n  n := 2;\nEND_NETWORK\n\nEND_FUNCTION_BLOCK\n",
+                    SourceText = FbDecl + "\n%LANGUAGE FBD\nNETWORK\n  n := 2;\nEND_NETWORK\n\nEND_FUNCTION_BLOCK\n",
                 },
                 new SetItemOp
                 {

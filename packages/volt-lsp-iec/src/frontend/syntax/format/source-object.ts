@@ -10,7 +10,7 @@
  *     VAR_CONFIG for a GVL — comments and pragmas aside. A text that opens with anything else (prose, nothing at all,
  *     a comment that never closes) declares NOTHING and the build reports NOTHING about it: only a use of what it
  *     was meant to declare fails, "Unknown type: 'X'" / "Identifier 'g' not defined";
- *   - Volt's file format claims nothing in it. The `IMPLEMENTATION` line, the retired `(* @volt-… *)` comment and the
+ *   - Volt's file format claims nothing in it. The `%LANGUAGE` line, the retired `(* @volt-… *)` comment and the
  *     reserved word are rules about splitting a POU's declaration from its body; a DUT or a GVL has no body, the push
  *     reads nothing of it, and CODESYS builds a member named IMPLEMENTATION and a GVL holding such a comment clean.
  *

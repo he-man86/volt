@@ -7,11 +7,11 @@ import { bodyStatements, parseSource, type Expr, type Program } from "../../synt
 import { build, findChildScope, type Scope } from "../../symbols/index.js"
 import { inferExprType, isSfcStepBase, renderType, UNKNOWN } from "../index.js"
 
-const SFC = (vars: string, body = "IMPLEMENTATION SFC UNSUPPORTED") => `PROGRAM P\nVAR\n${vars}\nEND_VAR\n${body}\nEND_PROGRAM\n`
+const SFC = (vars: string, body = "%LANGUAGE SFC UNSUPPORTED") => `PROGRAM P\nVAR\n${vars}\nEND_VAR\n${body}\nEND_PROGRAM\n`
 
 /** Each of `reads` assigned in an ST program Q beside the program `sfc`: its type, and whether its base is bet a step. */
 function ask(sfc: string, reads: string[]): { type: string; step: boolean }[] {
-  const q = `PROGRAM Q\nVAR\n\tv : BOOL;\nEND_VAR\nIMPLEMENTATION ST\n${reads.map((r) => `v := ${r};`).join("\n")}\nEND_PROGRAM\n`
+  const q = `PROGRAM Q\nVAR\n\tv : BOOL;\nEND_VAR\n%LANGUAGE ST\n${reads.map((r) => `v := ${r};`).join("\n")}\nEND_PROGRAM\n`
   const files = [
     { uri: "P.pou", source: sfc },
     { uri: "Q.pou", source: q },
@@ -39,5 +39,5 @@ test("a step read through its SFC program is an SFCStepType: x and _x BOOL, t an
 
 test("a member the program declares is its own, and an ST program has no steps", () => {
   expect(ask(SFC("\tn : INT;"), ["P.n"])).toEqual([{ type: "INT", step: false }])
-  expect(ask(SFC("\tn : INT;", "IMPLEMENTATION ST"), ["P.S_Boot.x"]).map((x) => x.step)).toEqual([false])
+  expect(ask(SFC("\tn : INT;", "%LANGUAGE ST"), ["P.S_Boot.x"]).map((x) => x.step)).toEqual([false])
 })

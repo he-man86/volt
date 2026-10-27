@@ -18,7 +18,7 @@ VAR_IN_OUT
 	ioAuxOneShot: BOOL;
 END_VAR
 
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   tBool := (iMachinePosition GE iStartCam EN) AND NOT iResetFlag AND iEN;
 END_NETWORK

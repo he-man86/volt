@@ -12,7 +12,7 @@ VAR
     CPY_bAxis_RearSet        				: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 
 IF NOT g_sMCHCopyMade THEN

@@ -73,7 +73,7 @@ VAR_OUTPUT
 	Q_byCounter						: BYTE;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 MC_MoveAbsoluteZ(
 	Execute:= ,
 	Position:= ,

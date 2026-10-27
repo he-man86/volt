@@ -69,7 +69,7 @@ VAR
 	uiCalWeek				: UINT;		// Actual calendar week
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 //********************************************************************************
 // Set ShiftName if Production Scheduler has been used
 // Run ID needs to be manage persistant in use rprogram if required 
@@ -125,7 +125,7 @@ xFirstCycleDone	:= TRUE;
 END_FUNCTION_BLOCK
 
 ACTION Call_AssignStructures
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 //***********************************************************************************************************************
 // Overwriting intern used scProduction and scErrorCategory with actual machine program 
@@ -186,7 +186,7 @@ END_IF;
 END_ACTION
 
 ACTION act_Call_Properties
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 //*********************************************************************************************************
 // Calculation option for part Throughput/hour
@@ -207,7 +207,7 @@ xSetDeactiveShiftContiniousUpdate := FALSE;
 END_ACTION
 
 ACTION call_OEE_FB
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   // //**********************************************************************************************************************************************************
   // // Call up L_OEE_FBs for OEE KPI calculation, Downtime & Production state Tracking
@@ -224,7 +224,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 xLaterShiftStartEnableDisable := xLaterShiftStartEnable;
 END_GET
@@ -232,7 +232,7 @@ SET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 xLaterShiftStartEnable := xLaterShiftStartEnableDisable;
 END_SET
@@ -244,7 +244,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 xSetDeactiveShiftContiniousUpdate := xDeactiveShiftContiniousUpdate;
 END_GET
@@ -252,7 +252,7 @@ SET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
  xDeactiveShiftContiniousUpdate := xSetDeactiveShiftContiniousUpdate;
 END_SET
@@ -264,7 +264,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 xSetProdSimEventOccurrence := xProdSimEventOccurrence;
 END_GET
@@ -272,7 +272,7 @@ SET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 xProdSimEventOccurrence :=  xSetProdSimEventOccurrence ;
 END_SET
@@ -284,7 +284,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 xTriggerManualShiftReset := xManualShiftReset;
 END_GET
@@ -292,7 +292,7 @@ SET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 xManualShiftReset := xTriggerManualShiftReset;
 END_SET
@@ -304,7 +304,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 xTriggerUpdateJsonOEEKPI := xUpdateJsonOEEKPI;
 END_GET
@@ -312,7 +312,7 @@ SET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 xUpdateJsonOEEKPI := xTriggerUpdateJsonOEEKPI;
 END_SET

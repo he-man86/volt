@@ -141,7 +141,7 @@ export const ENUM_DIVERGENCES: readonly string[] = [
 /**
  * THE SFC CHART IS NOT IN THE TEXT — openspec `lsp-sfc-step-names`, recorded 2026-10-03 (`fixtures/names/sfc-steps.ts`).
  * A POU whose body is SFC has its chart's step names in scope, each an `IecSfc.SFCStepType`; Volt materializes the body as
- * `IMPLEMENTATION SFC UNSUPPORTED`, so no step list reaches the LSP. Since 2.1 it BETS (`src/frontend/types/infer/sfc-step.ts`,
+ * `%LANGUAGE SFC UNSUPPORTED`, so no step list reaches the LSP. Since 2.1 it BETS (`src/frontend/types/infer/sfc-step.ts`,
  * DIALECT D40): a name read WITH A MEMBER in an SFC POU, or through its program or instance, that the POU
  * does not declare and that names nothing else with members, is a step. What the bet cannot see stays here: a step read
  * BARE, with no member to evidence it — `SIZEOF(S_Boot)` is "Identifier 'S_Boot' not defined" here and builds on CODESYS.

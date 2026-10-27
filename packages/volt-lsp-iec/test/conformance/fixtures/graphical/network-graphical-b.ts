@@ -12,7 +12,7 @@ import { ng } from "./network-graphical-shared.js"
 function shapeFb(name: string, lang: "FBD" | "LD", statements: string, header = `FUNCTION_BLOCK ${name}`): string {
   return (
     `${header}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tgo : BOOL;\n\tout : BOOL;\n\tout2 : BOOL;\n\tt1 : TON;\n\tpt : TIME;\nEND_VAR\n\n` +
-    `IMPLEMENTATION ${lang}\nNETWORK\n${statements}\nEND_NETWORK\n\nEND_FUNCTION_BLOCK\n`
+    `%LANGUAGE ${lang}\nNETWORK\n${statements}\nEND_NETWORK\n\nEND_FUNCTION_BLOCK\n`
   )
 }
 
@@ -52,6 +52,6 @@ export const NETWORK_GRAPHICAL_TESTS_B: readonly LanguageTest[] = [
 function intFb(name: string, lang: "FBD" | "LD", statements: string): string {
   return (
     `FUNCTION_BLOCK ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\n\ti : INT;\n\tj : INT;\n\tk : INT;\nEND_VAR\n\n` +
-    `IMPLEMENTATION ${lang}\nNETWORK\n${statements}\nEND_NETWORK\n\nEND_FUNCTION_BLOCK\n`
+    `%LANGUAGE ${lang}\nNETWORK\n${statements}\nEND_NETWORK\n\nEND_FUNCTION_BLOCK\n`
   )
 }

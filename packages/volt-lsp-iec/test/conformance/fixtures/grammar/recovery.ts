@@ -40,7 +40,7 @@ function fb(name: string, feature: string, vars: string, body: string, before = 
   }
 }
 
-/** A function block whose text is pushed AS SENT — `text(pouName)` is the whole object, IMPLEMENTATION line included:
+/** A function block whose text is pushed AS SENT — `text(pouName)` is the whole object, %LANGUAGE line included:
  *  the parser cannot split it where the question stands. */
 function sent(name: string, feature: string, text: (pouName: string) => string): LanguageTest {
   const pouName = `FB_LANG_${name}`
@@ -125,7 +125,7 @@ export const RECOVERY_TESTS: LanguageTest[] = [
   refusedAfter(fb("rec_file_scope_stray_semicolon", "R4 — a `;` after the unit's END_FUNCTION_BLOCK", "\tout : INT;", "out := 1;", "", ";\n"), ";"),
   refusedAfter(fb("rec_file_scope_stray_keyword", "R4 — END_IF after the unit's END_FUNCTION_BLOCK", "\tout : INT;", "out := 1;", "", "END_IF\n"), "END_IF"),
   sent("rec_file_scope_stray_before_unit", "R4 — a name before the unit's header",
-    (pou) => `stray\nFUNCTION_BLOCK ${pou}\nVAR\n\tout : INT;\nEND_VAR\nIMPLEMENTATION ST\nout := 1;\nEND_FUNCTION_BLOCK\n`),
+    (pou) => `stray\nFUNCTION_BLOCK ${pou}\nVAR\n\tout : INT;\nEND_VAR\n%LANGUAGE ST\nout := 1;\nEND_FUNCTION_BLOCK\n`),
   {
     name: "rec_interface_stray",
     pouName: "ITF_LANG_rec_interface_stray",
@@ -165,7 +165,7 @@ export const RECOVERY_TESTS: LanguageTest[] = [
   fb("rec_unterminated_var_before_section", "R4 — a VAR section without its END_VAR, the next section after it",
     "\tout : INT;\nVAR_INPUT\n\tk : INT;", "out := k;"),
   sent("rec_unterminated_var", "R4 — a VAR section without its END_VAR",
-    (pou) => `FUNCTION_BLOCK ${pou}\nVAR\n\tout : INT;\nIMPLEMENTATION ST\nout := 1;\nEND_FUNCTION_BLOCK\n`),
+    (pou) => `FUNCTION_BLOCK ${pou}\nVAR\n\tout : INT;\n%LANGUAGE ST\nout := 1;\nEND_FUNCTION_BLOCK\n`),
 
   // ─── R5 an operand missing: every kind of token where it belongs ───────────────────────────────────────────────────
   fb("rec_expected_expression", "R5 — an operator's right operand missing before `;`", "\tout : INT;", "out := 1 + ;"),

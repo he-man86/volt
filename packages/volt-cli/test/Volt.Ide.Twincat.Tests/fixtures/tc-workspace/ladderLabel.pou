@@ -2,7 +2,7 @@ PROGRAM ladderLabel
 VAR
 	coil: BOOL;
 END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK LABEL: testLabel
   coil := ;
 END_NETWORK

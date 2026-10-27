@@ -1,6 +1,6 @@
 #### mixed-words — one word is one box: two words at one level are refused
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   x := a ADD b MUL c;
 END_NETWORK
@@ -9,7 +9,7 @@ NETWORK_BAD_EXPRESSION one word is one box
 
 #### word-call-form-where-word-fits — an operator's backticked call where its word holds the box
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   x := `ADD`(a, b);
 END_NETWORK
@@ -18,7 +18,7 @@ NETWORK_BAD_EXPRESSION in its call form where its word holds it
 
 #### move-call-form-where-word-fits — `` `MOVE`(b, => a) `` where `MOVE b => a` holds the box
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   `MOVE`(b, => a);
 END_NETWORK
@@ -27,7 +27,7 @@ NETWORK_BAD_EXPRESSION in its call form where its word holds it
 
 #### word-unbacticked-call — a word is no call head: an operator's call form is backticked
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   x := ADD(a);
 END_NETWORK
@@ -36,7 +36,7 @@ NETWORK_BAD_EXPRESSION a redundant bracket
 
 #### move-inside-word — MOVE as another word's operand stands in brackets
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   x := a AND MOVE b;
 END_NETWORK
@@ -45,7 +45,7 @@ NETWORK_BAD_EXPRESSION as an operand
 
 #### move-two-operands — MOVE takes one operand
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   MOVE a ADD b => x;
 END_NETWORK
@@ -54,7 +54,7 @@ NETWORK_BAD_EXPRESSION MOVE takes one operand
 
 #### redundant-coil-bracket — a coil's value is a slot: a box there stands bare
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := (a AND b);
 END_NETWORK
@@ -63,7 +63,7 @@ NETWORK_BAD_EXPRESSION a redundant bracket
 
 #### redundant-item-bracket — an item's own assignment is not bracketed
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   (x := a);
 END_NETWORK
@@ -72,7 +72,7 @@ NETWORK_BAD_EXPRESSION a redundant bracket
 
 #### redundant-leaf-bracket — a bracket around a leaf is redundant
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := a AND (b);
 END_NETWORK
@@ -81,7 +81,7 @@ NETWORK_BAD_EXPRESSION a redundant bracket
 
 #### redundant-call-bracket — a call carries its own brackets
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := a AND (f(IN := b));
 END_NETWORK
@@ -90,7 +90,7 @@ NETWORK_BAD_EXPRESSION a call carries its own brackets
 
 #### redundant-double-bracket — one pair separates one box
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := a AND ((b OR c));
 END_NETWORK
@@ -99,7 +99,7 @@ NETWORK_BAD_EXPRESSION a redundant bracket
 
 #### redundant-pin-bracket — a pin is a slot: a box there takes no brackets
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   q := f(IN := (a AND b));
 END_NETWORK
@@ -108,7 +108,7 @@ NETWORK_BAD_EXPRESSION a redundant bracket
 
 #### redundant-en-bracket — EN's source is a slot
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   MOVE 1 => x ENO EN (a AND b);
 END_NETWORK
@@ -117,7 +117,7 @@ NETWORK_BAD_EXPRESSION a redundant bracket
 
 #### redundant-modifier-bracket — after a modifier a leaf or a call stands bare
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := NOT (a);
 END_NETWORK
@@ -126,7 +126,7 @@ NETWORK_BAD_EXPRESSION a redundant bracket
 
 #### word-operand-unbracketed-enabled — an enabled box as a word's operand is bracketed: EN after a word belongs to the word's box
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := a AND MOVE 1 => t ENO EN c;
 END_NETWORK
@@ -135,7 +135,7 @@ NETWORK_BAD_EXPRESSION as an operand
 
 #### feed-word-unbracketed — a feed that is a box is bracketed before BRANCH
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := s AND sync BRANCH (a, b);
 END_NETWORK
@@ -144,7 +144,7 @@ NETWORK_BAD_EXPRESSION a feed that is a box word is bracketed
 
 #### parallel-operand-unbracketed — a parallel as a word's operand is bracketed
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := a AND s BRANCH (b, c);
 END_NETWORK
@@ -153,7 +153,7 @@ NETWORK_BAD_EXPRESSION a feed that is a box word is bracketed
 
 #### branch-without-list — BRANCH takes a bracketed list
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := s BRANCH a;
 END_NETWORK
@@ -162,7 +162,7 @@ NETWORK_PARSE bracketed list
 
 #### no-branch — `BRANCH ()` holds none
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := s BRANCH ();
 END_NETWORK
@@ -171,7 +171,7 @@ NETWORK_UNSUPPORTED a parallel with no branch
 
 #### parallel-enabled — a parallel is no box, and has no EN
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := s BRANCH (a, b) EN c;
 END_NETWORK
@@ -180,7 +180,7 @@ NETWORK_BAD_EXPRESSION a parallel is no box
 
 #### shortcircuit-on-no-parallel — SHORTCIRCUIT follows a parallel's list
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := a SHORTCIRCUIT;
 END_NETWORK
@@ -189,7 +189,7 @@ NETWORK_BAD_EXPRESSION SHORTCIRCUIT after something no parallel
 
 #### en-on-leaf — EN follows a box
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := a EN c;
 END_NETWORK
@@ -198,7 +198,7 @@ NETWORK_BAD_EXPRESSION where no box takes it
 
 #### en-inside-call — a call's EN follows its brackets
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := f(IN := a EN c);
 END_NETWORK
@@ -207,7 +207,7 @@ NETWORK_BAD_EXPRESSION inside a call's brackets
 
 #### en-pin-in-call — `EN :=` in a call is not the enable
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   f(EN := c, IN := a);
 END_NETWORK
@@ -216,7 +216,7 @@ NETWORK_BAD_EXPRESSION `EN :=` in a call
 
 #### eno-pin-in-call — ENO follows the call
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   f(IN := a, ENO => x) EN c;
 END_NETWORK
@@ -225,7 +225,7 @@ NETWORK_BAD_EXPRESSION `ENO =>` in a call
 
 #### eno-after-en — ENO stands before EN
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   MOVE 1 => x EN c ENO;
 END_NETWORK
@@ -234,7 +234,7 @@ NETWORK_BAD_EXPRESSION ENO after EN
 
 #### arrow-after-en — the outputs come before EN
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   MOVE b EN c => a;
 END_NETWORK
@@ -243,7 +243,7 @@ NETWORK_BAD_EXPRESSION after EN
 
 #### arrow-without-target — a word's `=>` takes a target
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   a ADD b =>;
 END_NETWORK
@@ -252,7 +252,7 @@ NETWORK_BAD_EXPRESSION with no target
 
 #### modified-call-with-pin-state — a box with EN after a modifier is bracketed
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := NOT f(IN := a) EN c;
 END_NETWORK
@@ -261,7 +261,7 @@ NETWORK_BAD_EXPRESSION a pin state after a modified call
 
 #### modifier-twice — one negation, one edge, the edge first
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := NOT R_EDGE a;
 END_NETWORK
@@ -270,7 +270,7 @@ NETWORK_BAD_EXPRESSION a modifier after a modifier
 
 #### execute-continues-its-line — EXECUTE ends its line
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   EXECUTE x := 1;
   END_EXECUTE;
@@ -280,7 +280,7 @@ NETWORK_PARSE EXECUTE ends its line
 
 #### execute-without-end — an EXECUTE body ends with END_EXECUTE
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   EXECUTE
 x := 1;
@@ -290,7 +290,7 @@ NETWORK_PARSE with no END_EXECUTE
 
 #### execute-output-pin — an Execute box has no output pin
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   EXECUTE
 x := 1;
@@ -301,7 +301,7 @@ NETWORK_BAD_EXPRESSION has no output pin
 
 #### missing-semicolon — a line no deeper than its item's first line starts a new item
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := a
   y := b;
@@ -311,7 +311,7 @@ NETWORK_PARSE missing `;`?
 
 #### missing-semicolon-before-end — END_NETWORK ends the item
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := a
 END_NETWORK
@@ -322,7 +322,7 @@ NETWORK_PARSE missing `;`?
 === scope
 instance t1 TON
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := t1 : TON(IN := a).ENO;
 END_NETWORK
@@ -333,7 +333,7 @@ NETWORK_PARSE `.ENO` is not network text
 === scope
 instance t1 TON
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   t1(IN := a);
 END_NETWORK
@@ -344,7 +344,7 @@ NETWORK_BAD_EXPRESSION its call names its type
 === scope
 instance t1 TON
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   t1 : TOF(IN := a);
 END_NETWORK
@@ -353,7 +353,7 @@ NETWORK_BAD_EXPRESSION is declared a
 
 #### lone-jump-without-coil — a jump is a coil: `JMP l := ;`
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   JMP Done;
 END_NETWORK
@@ -365,7 +365,7 @@ NETWORK_BAD_EXPRESSION a jump or a return is a coil
 
 #### lone-return-without-coil — `RETURN := ;`
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   RETURN;
 END_NETWORK
@@ -374,7 +374,7 @@ NETWORK_BAD_EXPRESSION a jump or a return is a coil
 
 #### negated-set-coil — the vendor stores a negated set coil as the reset coil: `NOT x S= c` is `x R= c`
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   NOT x S= c;
 END_NETWORK
@@ -383,7 +383,7 @@ NETWORK_BAD_EXPRESSION write `x R=
 
 #### negated-reset-coil — a negated reset coil is no coil the IDE stores apart from the reset coil
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   NOT x R= c;
 END_NETWORK
@@ -392,7 +392,7 @@ NETWORK_BAD_EXPRESSION a negated reset coil
 
 #### negated-split — the IDE holds no flag on a split
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   split1 := a;
   x := NOT split1;
@@ -402,7 +402,7 @@ NETWORK_UNSUPPORTED a modifier on a split
 
 #### negated-parallel — the IDE holds no flag on a parallel
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := NOT (s BRANCH (a, b));
 END_NETWORK
@@ -411,7 +411,7 @@ NETWORK_UNSUPPORTED a modifier on a parallel
 
 #### enabled-box-without-eno-in-word — `ENO` without EN on an operator: it does not build ("Missing EN pin", X9)
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := a ADD b ENO;
 END_NETWORK
@@ -422,7 +422,7 @@ NETWORK_BAD_EXPRESSION ENO without EN
 === scope
 instance d1 Dryer
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   ready := d1 : Dryer(iOn := on) ENO;
 END_NETWORK
@@ -431,7 +431,7 @@ NETWORK_BAD_EXPRESSION ENO without EN
 
 #### execute-eno-without-en — an EXECUTE box is read through its ENO with nothing after it
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   done := EXECUTE
 i := 1;
@@ -442,7 +442,7 @@ NETWORK_BAD_EXPRESSION ENO without EN
 
 #### name-on-a-function — `.name` reads an FB's output; a function is read by its value
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := f(IN := a).Q;
 END_NETWORK
@@ -453,7 +453,7 @@ NETWORK_UNSUPPORTED which is no FB
 === scope
 instance t1 TON
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   t1 : TON(IN := a).Q;
 END_NETWORK
@@ -464,7 +464,7 @@ NETWORK_BAD_EXPRESSION a box nothing consumes
 === scope
 instance t1 TON
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := t1 : TON(IN := a) EN c;
 END_NETWORK
@@ -473,7 +473,7 @@ NETWORK_BAD_EXPRESSION a consumed FB with EN and no ENO
 
 #### old-plus — ST's `+` is no network text
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   x := a + b;
 END_NETWORK
@@ -482,7 +482,7 @@ NETWORK_BAD_EXPRESSION write ADD
 
 #### old-greater — ST's `>` is no network text
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   x := a > b;
 END_NETWORK
@@ -491,7 +491,7 @@ NETWORK_BAD_EXPRESSION write GT
 
 #### unknown-operator — a symbol that is no word of the text
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   x := a ^ b;
 END_NETWORK
@@ -500,7 +500,7 @@ NETWORK_UNKNOWN_OPERATOR is no operator of network text
 
 #### old-backticked-literal — a literal is bare
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   x := `5`;
 END_NETWORK
@@ -509,7 +509,7 @@ NETWORK_BAD_EXPRESSION a literal between backticks
 
 #### old-spaced-minus — the minus touches its digit
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   x := - 1;
 END_NETWORK
@@ -518,7 +518,7 @@ NETWORK_BAD_EXPRESSION a negative literal is the minus touching its digit
 
 #### bad-escape — delimited text spells IEC's escapes only
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   // cost $5
   x := a;
@@ -528,7 +528,7 @@ NETWORK_PARSE the escape '$5'
 
 #### unclosed-backtick — backticked text runs to its closing backtick on its line
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   x := `a;
 END_NETWORK
@@ -537,7 +537,7 @@ NETWORK_PARSE an unclosed backtick
 
 #### let-statement — `LET` is no statement: the item is the name before `:=`, and `LET g1` leaves it without its `;`
 === text
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   LET g1 := a;
   x := g1;
@@ -547,7 +547,7 @@ NETWORK_PARSE 'g1': an item ends with `;`.
 
 #### header-number — a NETWORK header holds no number: it is NETWORK [LABEL: x] [DISABLED] [TITLE: "…"]
 === text
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK 0 LD
   x := a;
 END_NETWORK

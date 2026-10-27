@@ -40,7 +40,7 @@
         "Answers from the bridge\u0027s cached snapshot, never on the IDE thread: it answers while a push or build runs, never reports PLC_DISCONNECTED, and is not gated by \u0060disconnect\u0060 \u2014 while paused every row is \u0060idle\u0060.",
         "Answers on an IDE the bridge cannot serve: \u0060unsupported\u0060 carries the sentence every other op answers IDE_UNSUPPORTED with, and every row is idle. An IDE is refused for what it lacks, never for its version number.",
         "States the bridge identity at top level, rows or not: \u0060productName\u0060, \u0060productVersion\u0060, \u0060productVendor\u0060, \u0060ideVersion\u0060 (the platform under the product) and \u0060bridgeVersion\u0060 (the stamped release, or \u0060(dev) \u003Ccommit\u003E\u0060). Each is absent when its source does not answer, never filled from another.",
-        "States the bridge\u0027s catalog, from its own declarations: \u0060ops\u0060 (every op it answers), \u0060languages\u0060 (every language it writes as \u0060IMPLEMENTATION \u003CLANG\u003E\u0060) and \u0060kinds\u0060 (every item kind, by extension, and whether a push writes it). A value the bridge does not list there is one it never sends.",
+        "States the bridge\u0027s catalog, from its own declarations: \u0060ops\u0060 (every op it answers), \u0060languages\u0060 (every language it writes as \u0060%LANGUAGE \u003CLANG\u003E\u0060) and \u0060kinds\u0060 (every item kind, by extension, and whether a push writes it). A value the bridge does not list there is one it never sends.",
         "A row\u0027s \u0060dirty\u0060 is absent when the IDE did not answer whether the project is saved: unknown, never clean."
       ],
       "result": {
@@ -282,7 +282,7 @@
       "x-outcomes": [
         "ITEM_UNVERIFIED as an error frame (TwinCAT): the Solution Explorer cannot vouch for the PLC project itself, so the walk stops before anything is read. Fix what stops the IDE enumerating it.",
         "BAD_REQUEST, before the walk, for an empty \u0060pattern\u0060, a regular expression that does not compile (the parse error named) or a \u0060limit\u0060 outside 1\u20131000; and, with no partial answer, for a pattern that takes longer than 100 ms on one line.",
-        "What it searches is what \u0060fetch\u0060 ships as text, from the same walk: a matched line is the fetched line at that number. An \u0060unreadable\u0060 item, and a body that reads \u0060IMPLEMENTATION \u003CLANG\u003E UNSUPPORTED\u0060, are in \u0060notSearched\u0060 with a code; libraries are not searched and not listed.",
+        "What it searches is what \u0060fetch\u0060 ships as text, from the same walk: a matched line is the fetched line at that number. An \u0060unreadable\u0060 item, and a body that reads \u0060%LANGUAGE \u003CLANG\u003E UNSUPPORTED\u0060, are in \u0060notSearched\u0060 with a code; libraries are not searched and not listed.",
         "The answer is bounded: at most \u0060limit\u0060 matches, counted up to 10000 in \u0060totalMatches\u0060; \u0060truncated\u0060 when more were found than answered. A line longer than 500 UTF-16 code units is cut, ends in \u0060\u2026\u0060 and carries \u0060cut: true\u0060."
       ],
       "result": {

@@ -23,7 +23,7 @@ VAR CONSTANT
 	iMaxCyclesBadCharge		: USINT	:= 3;		// Sound alarm when input check fails for this many cycles.
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^();
 
 IF T_MaxChargerTime.Set(In := Output.Map(), Pt := rMaxChargingTime) THEN
@@ -37,7 +37,7 @@ END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 ChargerFaultAlarm(
 	moduleHandler	:= moduleHandler,
 	textRefId		:= textRefId,
@@ -60,7 +60,7 @@ VAR_INPUT
 	plusButtonPushed		: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF plusButtonPushed THEN
 	Set();
 END_IF
@@ -74,7 +74,7 @@ END_METHOD
 // Maps the actuator to the physical output
 METHOD Map : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Map := Output.Map();
 
 END_METHOD
@@ -82,7 +82,7 @@ END_METHOD
 // Maps the actuator to the physical output
 METHOD MapAnalogOut : WORD
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF xAutoCycleActive OR Output.Map() THEN
 	MapAnalogOut	:= RANGE_TO_WORD(input := rSetPointCharger.value, input_LO := 0.0, input_HI := rSetPointCharger.upperLimit);
 ELSE
@@ -94,7 +94,7 @@ END_METHOD
 // Reset the output (=False)
 METHOD Reset
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Check if the charger is turned on
 IF Output.Map() THEN
 	// If the input is high when the charger is turned off, the label was charged enough.
@@ -112,7 +112,7 @@ END_METHOD
 // Set the output (=True)
 METHOD Set : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF T_MaxChargerTime.Q THEN
 	RETURN;
 END_IF
@@ -131,7 +131,7 @@ VAR_INPUT
 	xValue	: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF xValue THEN
 	Set();
 ELSE

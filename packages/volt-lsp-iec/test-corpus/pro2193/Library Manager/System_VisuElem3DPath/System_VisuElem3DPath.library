@@ -4,4 +4,4 @@ RESOLUTION VisuElem3DPath, 4.7.0.0 (System)
 PLACEHOLDER true
 SYSTEM true
 REDIRECT System_VisuElem3DPath VisuElem3DPath, 4.1.0.0 (System)
-MATERIALIZATION 4
+MATERIALIZATION 5

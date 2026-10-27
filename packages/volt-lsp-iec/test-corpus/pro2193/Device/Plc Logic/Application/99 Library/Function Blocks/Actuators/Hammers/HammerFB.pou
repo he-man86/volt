@@ -23,7 +23,7 @@ VAR
 	NoLabelsAlarm			: SetErrorFB;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^();
 
 Blinker(
@@ -49,7 +49,7 @@ END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 NoLabelsAlarm(
 	moduleHandler	:= moduleHandler,
 	textRefId		:= textRefId,
@@ -69,7 +69,7 @@ VAR_INPUT
 	plusButtonPushed		: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF plusButtonPushed THEN
 	Set();
 END_IF
@@ -83,7 +83,7 @@ END_METHOD
 // Maps the actuator to the physical output
 METHOD Map : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Map := Output.Map();
 
 END_METHOD
@@ -91,14 +91,14 @@ END_METHOD
 // Stop pulsating the output. If the output is active, it will remain high until the TimeHigh timer is elapsed.
 METHOD PUBLIC Reset
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 xMoveAuto := FALSE;
 END_METHOD
 
 // Start pulsating the output.
 METHOD Set : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 xMoveAuto := TRUE;
 END_METHOD
 
@@ -108,7 +108,7 @@ VAR_INPUT
 	xValue	: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 xMoveAuto := xValue;
 
 END_METHOD

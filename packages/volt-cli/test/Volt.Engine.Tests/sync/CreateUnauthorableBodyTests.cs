@@ -11,7 +11,7 @@ namespace Volt.Engine.Tests;
 
 /// <summary>
 /// DATA LOSS regression, the CREATE half: a push that would CREATE an item whose body is the
-/// <c>IMPLEMENTATION CFC|SFC|IL UNSUPPORTED</c> line must be refused, not written.
+/// <c>%LANGUAGE CFC|SFC|IL UNSUPPORTED</c> line must be refused, not written.
 ///
 /// <para><see cref="GraphicalChildGuardTests"/> pins the UPDATE half — an existing CFC/SFC body is never
 /// overwritten, decided from the IDE's live state. The create path had no such guard and could not have had the
@@ -33,7 +33,7 @@ public class CreateUnauthorableBodyTests
     private const string Name = Bare + ".pou";
     private const string Decl = "FUNCTION_BLOCK " + Bare + "\nVAR\nEND_VAR";
 
-    private static string Marker(string lang) => Volt.Engine.Format.St.ImplementationMarker.Unsupported(lang);
+    private static string Marker(string lang) => Volt.Engine.Format.St.PropertyLines.UnsupportedLine(lang);
 
     /// <summary>An empty project — so every op below is a CREATE (<c>IfVersion == null</c>).</summary>
     private static FakeIde Empty() => new();
@@ -75,7 +75,7 @@ public class CreateUnauthorableBodyTests
         var ide = Empty();
 
         var resp = Create(ide,
-            $"{Decl}\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\nMETHOD M : INT\nVAR\nEND_VAR\n{Marker("CFC")}\nEND_METHOD\n");
+            $"{Decl}\n%LANGUAGE ST\nEND_FUNCTION_BLOCK\n\nMETHOD M : INT\nVAR\nEND_VAR\n{Marker("CFC")}\nEND_METHOD\n");
 
         Assert.False(resp.Landed());
         Assert.Contains(resp.Conflicts ?? [], c => c.Reason.Contains("'M'") && c.Reason.Contains("CFC"));
@@ -88,7 +88,7 @@ public class CreateUnauthorableBodyTests
     {
         var ide = Empty();
 
-        var resp = Create(ide, $"{Decl}\nIMPLEMENTATION ST\nx := 1;\n\nEND_FUNCTION_BLOCK\n");
+        var resp = Create(ide, $"{Decl}\n%LANGUAGE ST\nx := 1;\n\nEND_FUNCTION_BLOCK\n");
 
         // `Conflicts` is null on an accepted push, so the message has to survive that to be readable when it isn't.
         Assert.True(resp.Landed(), string.Join("; ", (resp.Conflicts ?? []).Select(c => c.Reason)));

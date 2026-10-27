@@ -43,7 +43,7 @@ import {
 import { CAPS, harness } from "./harness.js"
 
 const PRG = (name: string, body: string) =>
-  `PROGRAM ${name}\nVAR\n\tb : BOOL;\n\ti : INT;\nEND_VAR\nIMPLEMENTATION ST\n${body}\nEND_PROGRAM\n`
+  `PROGRAM ${name}\nVAR\n\tb : BOOL;\n\ti : INT;\nEND_VAR\n%LANGUAGE ST\n${body}\nEND_PROGRAM\n`
 
 const SHAPES = ["parentheses", "nested IF", "flat +", "flat OR", "long file"] as const
 type Shape = (typeof SHAPES)[number]

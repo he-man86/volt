@@ -3,4 +3,4 @@ NAMESPACE CDSV3Prot
 RESOLUTION CDSV3ProtocolUtils, 4.1.0.0 (3S - Smart Software Solutions GmbH)
 PLACEHOLDER true
 DEPENDENCIES CmpBinTagUtilIec, Standard, CmpErrors2 Interfaces, * (System), Datasources Interfaces, * (3S - Smart Software Solutions GmbH), SysMem
-MATERIALIZATION 4
+MATERIALIZATION 5

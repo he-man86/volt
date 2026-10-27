@@ -41,7 +41,7 @@ VAR CONSTANT
 	MaxBrakeLabel				: USINT	:= 2;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^();
 
 _tempDrawerActive	:= ActiveDrawerItf;
@@ -65,7 +65,7 @@ VAR_INST
 	SetError					: ARRAY[1..4] OF SetErrorFB;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SetError[1](
 	moduleHandler	:= ModuleHandler,
 	textRefId		:= LabelSupplyDrawer_Errors,
@@ -118,7 +118,7 @@ VAR
 	drawerId	: enumDrawer;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 FOR i := 1 TO MaxBlowBetweenLabels DO
 	BlowBetweenLabels[i](
 		manualControlEnabled	:= SER.ManualControlEnabled);
@@ -204,7 +204,7 @@ VAR
 	i				: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Change
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -247,7 +247,7 @@ VAR_INST
 	Timer			: BTON;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Change
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -270,7 +270,7 @@ METHOD DrawerUnlock : BOOL
 VAR_INPUT
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Change
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -294,7 +294,7 @@ VAR
 	i	: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 FOR i := 1 TO MaxBrakeLabel DO
 	BrakeLabel[i].Reset();
@@ -313,7 +313,7 @@ END_METHOD
 // Gate close button is released. Safety gate is cancelling request, so stop moving. (trigger signal)
 METHOD PUBLIC GateCloseCancelled
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Gate Requests
 DrawerChangeCylinder.rGiveAirToBothOutputs := 0.2;
 DrawerChangeCylinder.Reset();
@@ -323,7 +323,7 @@ END_METHOD
 // Drawer helps to close the gate
 METHOD PUBLIC GateCloseRequested
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Gate Requests
 IF NOT DrawerHoodSafetyMagnet.xSafetyGateClosed THEN
 	RETURN;
@@ -346,7 +346,7 @@ END_METHOD
 // Gate open button is released. Safety gate is cancelling request, so stop moving. (trigger signal)
 METHOD PUBLIC GateOpenCancelled
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Gate Requests
 DrawerChangeCylinder.rGiveAirToBothOutputs := 0.2;
 DrawerChangeCylinder.Reset();
@@ -356,7 +356,7 @@ END_METHOD
 // Drawer helps to open the gate
 METHOD PUBLIC GateOpenRequested
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Gate Requests
 IF NOT DrawerHoodSafetyMagnet.xSafetyGateClosed THEN
 	RETURN;
@@ -378,7 +378,7 @@ END_METHOD
 
 METHOD HoldBrakes : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Supply
 HoldBrakes			:= MoveAllBrakesIn();
 
@@ -389,7 +389,7 @@ VAR
 	i	: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 MoveAllBrakesIn			:= TRUE;
 FOR i := 1 TO MaxBrakeLabel DO
 	BrakeLabel[i].Reset();
@@ -408,7 +408,7 @@ VAR
 	i					: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -457,7 +457,7 @@ VAR
 	i	: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 FOR i := 1 TO MaxBrakeLabel DO
 	BrakeLabel[i].Reset();
@@ -480,7 +480,7 @@ VAR
 	i	: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Supply
 FOR i := 1 TO MaxBlowBetweenLabels DO
 	BlowBetweenLabels[i].Reset();
@@ -500,7 +500,7 @@ VAR
 	i						: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Supply
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -544,7 +544,7 @@ END_VAR
 // Determine the active and inactive drawer
 // Get interface to the currently active drawer
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Safety sensor must be active and lockpins must be activated
 IF DrawerInSafePosition.IsInactive OR NOT LockPins.MapOut() THEN
 	ActiveDrawerItf := 0;
@@ -578,7 +578,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 HoodIsAcknowledged := DrawerHoodSafetyMagnet.GateState = enumGateStates.Acknowledged;
 
 END_GET
@@ -593,7 +593,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 InSafePosForGate := DrawerInSafePosition.IsActive AND (DrawerChangeCylinder.IsIn OR DrawerChangeCylinder.IsOut);
 
 END_GET
@@ -608,7 +608,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Get interface to the currently inactive drawer
 
 IF ActiveDrawerItf = 0 THEN

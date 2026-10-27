@@ -3,4 +3,4 @@ NAMESPACE CmpVisuHandler
 RESOLUTION CmpVisuHandler, 3.5.19.0 (System)
 PLACEHOLDER true
 DEPENDENCIES SysTypes2 Interfaces, * (System)
-MATERIALIZATION 4
+MATERIALIZATION 5

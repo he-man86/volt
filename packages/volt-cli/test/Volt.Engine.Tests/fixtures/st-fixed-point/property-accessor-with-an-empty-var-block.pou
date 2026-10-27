@@ -2,7 +2,7 @@ FUNCTION_BLOCK DrawerMagazineFB
 VAR
 	active	: IDrawer;
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 ;
 
 END_FUNCTION_BLOCK
@@ -14,7 +14,7 @@ VAR
 END_VAR
 
 // Determine the active and inactive drawer
-IMPLEMENTATION ST
+%LANGUAGE ST
 ActiveDrawerItf := active;
 END_GET
 END_PROPERTY

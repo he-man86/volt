@@ -14,7 +14,7 @@ VAR_IN_OUT
 	
 END_VAR
 
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   split3 := TRUE;
   ioVirtualMasterCom.Control.Enable := split3 AND ioVirtualMaster.Control.SetDriveEnable;

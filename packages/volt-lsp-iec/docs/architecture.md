@@ -55,7 +55,7 @@ src/  the product code, one folder per layer; imports point down the stack (scri
     syntax/  A — ST text to a tree: vocabulary, lexer, AST, parser, literals, pragmas, the workspace file format
       ast/  the AST node types, their walks, and questions about declarations answered from the tree alone
         nodes/  the AST node types, one file per family: expressions, statements, types, declarations, units
-      format/  the Volt workspace file format: the IMPLEMENTATION line, folders, which reader reads a body
+      format/  the Volt workspace file format: the %LANGUAGE line, folders, which reader reads a body
       lex/  the vocabulary, the token kinds and the hand-written ST lexer
       literal/  literal values: numbers, strings, durations, calendar values, direct addresses
       network/  the network-text (LD/FBD) words, lexer, AST, value walks and reader
@@ -209,7 +209,7 @@ branch in: the tree of the services that edit and navigate text (rename, referen
 values). `pragmas/` — the `{IF}` condition grammar and its evaluation (`conditional.ts`), and `{attribute …}`, attached
 once by the parser to the unit, member or declaration it decorates (`attributes.ts`; `FRONTEND_ATTRIBUTES` the ones the
 front-end answers by). `format/` — the Volt workspace file format, which is not
-CODESYS grammar: the `IMPLEMENTATION <LANG>` line and the body splitter, the `%`-lines (`object-properties.ts`: an
+CODESYS grammar: the `%LANGUAGE <LANG>` line and the body splitter, the `%`-lines (`object-properties.ts`: an
 object's properties — `%CLASS`, `%FOLDER`, `%EXCLUDE_FROM_BUILD`, … — the closed key list the bridge's
 `PropertyLines` spells, read and reported but never analysed as code; any other `%…` line is code), which reader reads a body — its stated language alone, never what the text looks like — and what a file's
 extension says its object is (a DUT's or a GVL's
@@ -695,7 +695,7 @@ constant, look it up here; if it exists, import it — never redefine.
 | Source spans, tokens | `frontend/syntax/` (`Span`, `Token`) — the shared foundation everything imports down to |
 | Keywords, the dialect's vocabulary | `frontend/syntax/lex/vocabulary` |
 | AST node types | `frontend/syntax/ast/nodes` |
-| The Volt workspace file format (`IMPLEMENTATION` line, the `%`-lines incl. `%FOLDER`, which reader reads a body) | `frontend/syntax/format/` |
+| The Volt workspace file format (the `%`-lines: `%LANGUAGE`, `%FOLDER` and the rest, which reader reads a body) | `frontend/syntax/format/` |
 | The library format (path layout, manifest, materialization) | `frontend/library/` |
 | Symbols, scopes | `frontend/symbols/` |
 | Scope-tree navigation | `frontend/symbols/scope-nav` |

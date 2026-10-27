@@ -14,7 +14,7 @@ namespace Volt.Engine.Tests;
 /// LD AND FBD ARE OFF UNLESS THE PROCESS SAYS <c>VOLT_GRAPHICAL=1</c> (openspec <c>implementation-keyword</c> 3c).
 ///
 /// <para>Network text is not ready to ship, so a production bridge shows every LD and FBD body as
-/// <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c> — the same hidden body a shape the text cannot spell gets, with the reason
+/// <c>%LANGUAGE LD|FBD UNSUPPORTED</c> — the same hidden body a shape the text cannot spell gets, with the reason
 /// "LD and FBD are not enabled in this build" — and refuses network text pushed at it by name. ST is untouched, and the
 /// declaration of an LD or FBD item stays editable: hidden bodies block neither a pull nor a push (3b). With the switch
 /// on, which every test suite and <c>ide.ps1</c> set, everything is as before.</para>
@@ -76,9 +76,9 @@ public class NetworkTextSwitchTests
     {
         var text = Off(() => Pulled(Ide()));
 
-        Assert.Contains("IMPLEMENTATION ST\nx := 1;", text);
-        Assert.Contains("METHOD Rung : BOOL\nIMPLEMENTATION LD UNSUPPORTED\nEND_METHOD", text);
-        Assert.Contains("METHOD Box : BOOL\nIMPLEMENTATION FBD UNSUPPORTED\nEND_METHOD", text);
+        Assert.Contains("%LANGUAGE ST\nx := 1;", text);
+        Assert.Contains("METHOD Rung : BOOL\n%LANGUAGE LD UNSUPPORTED\nEND_METHOD", text);
+        Assert.Contains("METHOD Box : BOOL\n%LANGUAGE FBD UNSUPPORTED\nEND_METHOD", text);
         Assert.DoesNotContain("NETWORK", text);
     }
 
@@ -101,8 +101,8 @@ public class NetworkTextSwitchTests
     {
         var text = Pulled(Ide());
 
-        Assert.Contains("METHOD Rung : BOOL\nIMPLEMENTATION LD\nNETWORK", text);
-        Assert.Contains("METHOD Box : BOOL\nIMPLEMENTATION FBD\nNETWORK", text);
+        Assert.Contains("METHOD Rung : BOOL\n%LANGUAGE LD\nNETWORK", text);
+        Assert.Contains("METHOD Box : BOOL\n%LANGUAGE FBD\nNETWORK", text);
         Assert.DoesNotContain("UNSUPPORTED", text);
     }
 
@@ -127,7 +127,7 @@ public class NetworkTextSwitchTests
         Assert.Equal("FB_Mix.pou", conflict.Name);
         Assert.Contains("LD and FBD are not enabled in this build", conflict.Reason);
         // The first network-text body the push meets is the one named — the ladder or the diagram, both refused.
-        Assert.Matches("stated 'IMPLEMENTATION (LD|FBD)'", conflict.Reason);
+        Assert.Matches("stated '%LANGUAGE (LD|FBD)'", conflict.Reason);
         Assert.Equal("x := 1;", ide.StoredImplementation("FB_Mix"));
         Assert.Equal(rung, ide.StoredImplementation("Rung"));
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("write") || r.StartsWith("decl"));
@@ -175,7 +175,7 @@ public class NetworkTextSwitchTests
     // ── a production file at a development bridge ────────────────────────────────────────────────
 
     /// <summary>A workspace pulled from a production bridge (switch off) is pushed at a development one (switch on):
-    /// the live ladder now reads as network text while the file states it <c>IMPLEMENTATION LD UNSUPPORTED</c>. That
+    /// the live ladder now reads as network text while the file states it <c>%LANGUAGE LD UNSUPPORTED</c>. That
     /// is the same body, hidden — never a reason to block the push. The ST edit and the member's declaration land, and
     /// neither the ladder nor the diagram is written. It used to be refused for the whole item ("… but its body in the
     /// IDE is graphical"), so the ST edit beside it could not be pushed until the workspace was pulled again.</summary>
@@ -198,7 +198,7 @@ public class NetworkTextSwitchTests
             ide.ReadContent(new ItemRef("FB_Mix")).Members.Single(m => m.Name == "Rung").Declaration);
         Assert.Equal(held, new[] { "Rung", "Box" }.Select(ide.StoredImplementation));
         // …and a pull from this bridge now shows the ladder as network text again: nothing was lost.
-        Assert.Contains("METHOD Rung : BOOL\nVAR_INPUT\n\tbStart : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK", Pulled(ide));
+        Assert.Contains("METHOD Rung : BOOL\nVAR_INPUT\n\tbStart : BOOL;\nEND_VAR\n%LANGUAGE LD\nNETWORK", Pulled(ide));
     }
 
     /// <summary>The production file pushed back unchanged at a development bridge is the ordinary no-op.</summary>
@@ -224,16 +224,16 @@ public class NetworkTextSwitchTests
         var ide = Ide();
         var text = Off(() => Pulled(ide))
             .Replace("x := 1;", "x := 2;")
-            .Replace("METHOD Rung : BOOL\nIMPLEMENTATION LD UNSUPPORTED", "METHOD Rung : BOOL\nIMPLEMENTATION FBD UNSUPPORTED");
-        Assert.Contains("METHOD Rung : BOOL\nIMPLEMENTATION FBD UNSUPPORTED", text);
+            .Replace("METHOD Rung : BOOL\n%LANGUAGE LD UNSUPPORTED", "METHOD Rung : BOOL\n%LANGUAGE FBD UNSUPPORTED");
+        Assert.Contains("METHOD Rung : BOOL\n%LANGUAGE FBD UNSUPPORTED", text);
 
         var resp = Update(ide, text);
 
         Assert.False(resp.Landed(), "a hidden line must state the language the IDE holds");
         var conflict = Assert.Single(resp.Conflicts!);
         Assert.Contains("'Rung'", conflict.Reason);
-        Assert.Contains("IMPLEMENTATION FBD UNSUPPORTED", conflict.Reason);
-        Assert.Contains("IMPLEMENTATION LD", conflict.Reason);
+        Assert.Contains("%LANGUAGE FBD UNSUPPORTED", conflict.Reason);
+        Assert.Contains("%LANGUAGE LD", conflict.Reason);
         Assert.Equal("x := 1;", ide.StoredImplementation("FB_Mix"));
     }
 }

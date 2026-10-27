@@ -37,7 +37,7 @@ VAR CONSTANT
 	ReferencePos				: CassettePosition	:= (X1 := 42, X2 := 42, Y := 49);
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^();
 
 
@@ -55,7 +55,7 @@ VAR
 	i				: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Private
 // Check if profile already exists in array, then overwrite. Else place profile at first empty position in the array.
 FOR i := 1 TO GVL_Constants_Magazine.MaxCassettes DO
@@ -87,7 +87,7 @@ VAR
 	i						: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF CassetteId = 0 THEN RETURN; END_IF
 
@@ -142,7 +142,7 @@ VAR_INPUT
 	Steps					: SINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 AdjustCassette(
 	DrawerId		:= DrawerId,
@@ -178,7 +178,7 @@ VAR
 	MovingY			: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Private
 // Write helper booleans for direction and motors which have to move
 MovingPositive	:= Direction = enumDirection.Positive;
@@ -236,7 +236,7 @@ METHOD PROTECTED Alarms
 VAR_INST
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 END_METHOD
 
 // Validates cassette configuration for the upper drawer, ensuring all values are within allowed limits.
@@ -247,7 +247,7 @@ VAR
 	i : USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Private
 CheckConfig		:= TRUE;
 
@@ -281,7 +281,7 @@ VAR_INPUT
 	Cassette : REFERENCE TO CassetteFB;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Private
 IF Cassette.HomingState = enumCassetteHomingState.StopHoming THEN
 	Cassette.TargetPositionX1	:= Cassette.ActualPositionX1;
@@ -340,7 +340,7 @@ VAR
 	CassetteI, CassetteJ	: REFERENCE TO CassetteDefinition;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Private
 CombinationUsedMoreThanOnce := FALSE;
 
@@ -376,7 +376,7 @@ VAR
 	k		 : enumMovementType;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Config
 FOR DrawerId := enumDrawer.Upper TO enumDrawer.Lower DO
 	DrawerPlate[DrawerId].NumberOfCassettes											:= 12;
@@ -543,7 +543,7 @@ METHOD PUBLIC CopyActualPositionsToData : BOOL
 VAR_INPUT
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 Data := ActualCassettePosition;
 
@@ -559,7 +559,7 @@ VAR_INST
 	lastSelectedDrawer	: enumDrawer;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 JsonBuilder.executeCassetteJson[instanceNo] S= Visu.SelectedDrawer <> lastSelectedDrawer;
 lastSelectedDrawer := Visu.SelectedDrawer;
 
@@ -607,7 +607,7 @@ VAR
 	i		: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 FOR i := 1 TO GVL_Constants_Magazine.MaxEnableValves DO
 	Enable[i].Reset();
@@ -633,7 +633,7 @@ END_METHOD
 // Returns an empty array of MovementProfiles
 METHOD PRIVATE EmptyProfileArray : ARRAY[1..GVL_Constants_Magazine.MaxCassettes] OF MovementProfile
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Private
 END_METHOD
 
@@ -656,7 +656,7 @@ VAR
 	ProfileTemp			: MovementProfile;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 actDrawerPlate		REF= DrawerPlate[activeDrawer];
 
 CASE State OF
@@ -757,7 +757,7 @@ VAR
 	CassetteId	: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Private
 FOR CassetteId := 1 TO DrawerPlate[1].NumberOfCassettes DO
 	IF DrawerPlate[1].CassetteDefinition[CassetteId].CavityId = Cavity AND DrawerPlate[1].CassetteDefinition[CassetteId].LabelId = Label THEN
@@ -774,7 +774,7 @@ VAR_INPUT
 	Direction : enumDirection;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Private
 GetOppositeDirection := SEL(Direction = enumDirection.Negative, enumDirection.Negative, enumDirection.Positive);
 END_METHOD
@@ -787,7 +787,7 @@ VAR_INPUT
 	HomingState	: enumCassetteHomingState;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Private
 CASE HomingState OF
 	enumCassetteHomingState.HomingStep1:
@@ -820,7 +820,7 @@ END_METHOD
 
 METHOD PROTECTED Initialize
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^.Initialize();
 
 TaskDisableWatchdog();		// Disable the watchdog for this cycle, because Config() call takes about 1 ms.
@@ -844,7 +844,7 @@ VAR_INST
 	localState	: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Private
 CASE localState OF
 	0:
@@ -872,7 +872,7 @@ VAR_INST
 	localState	: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Private
 CASE localState OF
 	0:
@@ -909,7 +909,7 @@ VAR
 	Limited		: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Private
 // Check if X1 has a positive or negative limit while moving in the corresponding direction
 LimitX1 :=	(DrawerPlate[Drawer].CassetteData[Cassette].NegativeLimitReachedX1 AND Direction = enumDirection.Negative)
@@ -949,7 +949,7 @@ VAR_INST
 	trigger			: RisingTriggerFB;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // ============================================================================
 // Cassette Position Control and Adjustment Logic
 // ============================================================================
@@ -1145,7 +1145,7 @@ VAR
 	i	: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 FOR i := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
 	MoveSingleCassetteToDataPosition(i);
@@ -1161,7 +1161,7 @@ VAR
 	i : USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 FOR i := 1 TO GVL_Constants_Magazine.MaxCassettes DO
 	MoveSingleCassetteToMiddlePosition(i);
@@ -1177,7 +1177,7 @@ VAR_INPUT
 	CassetteId	: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 DrawerPlate[activeDrawer].CassetteData[CassetteId].TargetPositionX1	:= Data[activeDrawer, CassetteId].X1;
 DrawerPlate[activeDrawer].CassetteData[CassetteId].TargetPositionX2	:= Data[activeDrawer, CassetteId].X2;
@@ -1193,7 +1193,7 @@ VAR_INPUT
 	CassetteId	: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 DrawerPlate[activeDrawer].CassetteData[CassetteId].TargetPositionX1	:= 0;
 DrawerPlate[activeDrawer].CassetteData[CassetteId].TargetPositionX2	:= 0;
@@ -1218,7 +1218,7 @@ VAR
 	Homing			: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Private
 ParallelAdjustmentPossible	:= TRUE;
 FirstCassette				REF= DrawerPlate[FirstProfile.Drawer].CassetteDefinition[FirstProfile.Cassette];
@@ -1261,7 +1261,7 @@ METHOD ReloadConfig : BOOL
 VAR_INPUT
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 _initialized := FALSE;
 
@@ -1272,7 +1272,7 @@ METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 // A Stop command does not have any effect on cassette adjustment.
 
@@ -1286,7 +1286,7 @@ VAR
 	i	: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 FOR i := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
 	StopAdjustingSingleCassette(i);
@@ -1302,7 +1302,7 @@ VAR_INPUT
 	CassetteId				: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF DrawerPlate[activeDrawer].CassetteData[CassetteId].HomingState > enumCassetteHomingState.Homed THEN
 	DrawerPlate[activeDrawer].CassetteData[CassetteId].HomingState := enumCassetteHomingState.StopHoming;
@@ -1331,7 +1331,7 @@ VAR
 	enableOut	: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 FOR i := 1 TO GVL_Constants_Magazine.MaxAdjustValves DO
 	IF risingAdjust[i].Rising(CLK := Adjust[i].Map()) THEN
 		Increment.AnyInt(SwitchCountAdjust[activeDrawer, i]);
@@ -1368,7 +1368,7 @@ VAR
 	CassetteId		: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 AllCassettesHomed			:= TRUE;
 FOR CassetteId := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
 	IF DrawerPlate[activeDrawer].CassetteData[CassetteId].HomingState <> enumCassetteHomingState.Homed THEN
@@ -1390,7 +1390,7 @@ VAR
 	HomingState		: enumCassetteHomingState;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 AllCassettesHoming			:= TRUE;
 HomingState					:= DrawerPlate[activeDrawer].CassetteData[1].HomingState;
 FOR CassetteId := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
@@ -1410,7 +1410,7 @@ PROPERTY AllCassettesReady : BOOL
 
 %FOLDER Properties
 GET
-IMPLEMENTATION ST
+%LANGUAGE ST
 AllCassettesReady	:= NOT AnyAdjustmentNeeded;
 
 END_GET
@@ -1425,7 +1425,7 @@ VAR
 	CassetteId	: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 FOR CassetteId := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
 	IF DrawerPlate[activeDrawer].CassetteData[CassetteId].AdjustmentNeeded THEN
 		AnyAdjustmentNeeded	:= TRUE;
@@ -1445,7 +1445,7 @@ VAR
 	CassetteId	: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 FOR CassetteId := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
 	IF DrawerPlate[activeDrawer].CassetteData[CassetteId].HomingState > enumCassetteHomingState.Homed THEN
 		AnyHomingBusy	:= TRUE;
@@ -1465,7 +1465,7 @@ VAR
 	CassetteId	: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 FOR CassetteId := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
 	IF DrawerPlate[activeDrawer].CassetteData[CassetteId].HomingState = enumCassetteHomingState.NotHomed THEN
 		AnyHomingNeeded	:= TRUE;
@@ -1485,7 +1485,7 @@ VAR
 	CassetteId	: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 FOR CassetteId := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
 	IF DrawerPlate[activeDrawer].CassetteData[CassetteId].NegativeLimitReachedX1
 	OR DrawerPlate[activeDrawer].CassetteData[CassetteId].NegativeLimitReachedX2
@@ -1508,7 +1508,7 @@ VAR
 	CassetteId	: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 FOR CassetteId := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
 	IF DrawerPlate[activeDrawer].CassetteData[CassetteId].PositiveLimitReachedX1
 	OR DrawerPlate[activeDrawer].CassetteData[CassetteId].PositiveLimitReachedX2

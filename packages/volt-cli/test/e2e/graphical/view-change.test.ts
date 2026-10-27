@@ -2,7 +2,7 @@ import { landed } from "../harness"
 /**
  * A PUSH CHANGES A BODY'S VIEW BETWEEN LD AND FBD (openspec `bridge-refusal-review` 2.22 / 2.31, measure 3.5).
  *
- * Network text states the view ONCE, on the body's `IMPLEMENTATION LD|FBD` line, and both vendors keep it as one member
+ * Network text states the view ONCE, on the body's `%LANGUAGE LD|FBD` line, and both vendors keep it as one member
  * of the body: CODESYS's `INWLImplementationObject.DefaultViewMode` (a writable string on SP21), TwinCAT's archive slot of
  * the same name. Both drivers refused a push that changed only that line ("Volt cannot change a body's view"), because
  * whether the member could be set on an update was not measured. This is the measurement: the line is flipped, the push
@@ -23,7 +23,7 @@ describe(`graphical / view change (${BASE})`, () => {
 	beforeAll(async () => { await requireHealthy(); await cleanup() })
 	afterAll(async () => { await cleanup() })
 
-	it("flipping the IMPLEMENTATION line writes the view, both ways", async () => {
+	it("flipping the %LANGUAGE line writes the view, both ways", async () => {
 		const name = id("view_flip")
 		const full = inFolder(await projectRoot(), fid("view_flip", "pou"))
 		const src = `FUNCTION_BLOCK ${name}
@@ -32,7 +32,7 @@ VAR
 	b : BOOL;
 	out : BOOL;
 END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   out := a AND b;
 END_NETWORK
@@ -41,11 +41,11 @@ END_FUNCTION_BLOCK
 `
 		await createItem(fid("view_flip"), src, await projectRoot())
 		const pulled = (await fetchItem(full)).sourceText
-		expect(pulled).toContain("IMPLEMENTATION LD\n")
+		expect(pulled).toContain("%LANGUAGE LD\n")
 
 		for (const [from, to] of [["LD", "FBD"], ["FBD", "LD"]] as const) {
 			const before = (await fetchItem(full)).sourceText
-			const flipped = before.replace(`IMPLEMENTATION ${from}\n`, `IMPLEMENTATION ${to}\n`)
+			const flipped = before.replace(`%LANGUAGE ${from}\n`, `%LANGUAGE ${to}\n`)
 			expect(flipped, "the flip did not apply").not.toBe(before)
 
 			const refs = await bridge.refs()
@@ -74,7 +74,7 @@ VAR
 	out : BOOL;
 	out2 : BOOL;
 END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   out := go BRANCH (a, b) SHORTCIRCUIT;
 END_NETWORK
@@ -91,8 +91,8 @@ END_FUNCTION_BLOCK
 		await withMainProgramRestored(async () => {
 			for (const [from, to] of [["LD", "FBD"], ["FBD", "LD"]] as const) {
 				const before = (await fetchItem(full)).sourceText
-				const flipped = before.replace(`IMPLEMENTATION ${from}
-`, `IMPLEMENTATION ${to}
+				const flipped = before.replace(`%LANGUAGE ${from}
+`, `%LANGUAGE ${to}
 `)
 				expect(flipped, "the flip did not apply").not.toBe(before)
 

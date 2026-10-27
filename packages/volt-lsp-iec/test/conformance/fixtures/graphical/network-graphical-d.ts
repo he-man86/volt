@@ -20,7 +20,7 @@ const calls = `${doc}#fb`
 function callerFb(name: string, callees: string, statement: string, vars = ""): string {
   return (
     `${callees}FUNCTION_BLOCK ${name}\nVAR\n\tv : INT := 4;\n\tw : INT := 5;\n\ty : INT;\n\td : DINT := 6;\n\tgo : BOOL;\n\tx : BOOL;\n${vars}END_VAR\n\n` +
-    `IMPLEMENTATION FBD\nNETWORK\n  ${statement}\nEND_NETWORK\n\nEND_FUNCTION_BLOCK\n`
+    `%LANGUAGE FBD\nNETWORK\n  ${statement}\nEND_NETWORK\n\nEND_FUNCTION_BLOCK\n`
   )
 }
 

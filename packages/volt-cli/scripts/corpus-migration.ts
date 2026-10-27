@@ -20,11 +20,13 @@
  * target's controller happens to be called.
  *
  * WHAT IS NOT MIGRATABLE, AND WHY THAT IS NOT A FINDING. A hidden body has no text form — its file carries the line
- * `IMPLEMENTATION <LANG> UNSUPPORTED` (every CFC/SFC/IL body, and an LD/FBD body network text cannot represent)
+ * `%LANGUAGE <LANG> UNSUPPORTED` (every CFC/SFC/IL body, and an LD/FBD body network text cannot represent)
  * and nothing under it — so there is nothing to create it FROM. Those are counted and reported, never staged; pushing
- * one is refused by `BodyFormatGuard`. (`IMPLEMENTATION NONE` — an abstract member with no code — IS migratable since
- * openspec `abstract-member-parity`: the create makes a member with a slot on both vendors, writes "" there, and the
- * next pull reads NONE again. pro2193's 7 owner files of abstract members were refused here until then.)
+ * one is refused by `BodyFormatGuard`. A member with no body slot — no `%LANGUAGE` line (pro2193's 7 owner files of
+ * IDE-made abstract members, openspec `language-line`) — IS staged: on a CODESYS target an ABSTRACT METHOD with no line is
+ * created as the vendor's `AbstractPOUMethodObject` (DIALECT C2r) and pulls back as pushed; an accessor with no slot
+ * (pro2193's `Busy` GET, in `VisionSystem_BaseFB`) has no measured create, and TwinCAT has no method without a slot (C2n),
+ * so those owners are refused by name and show here as `refused` — 1 file on CODESYS, all 7 on TwinCAT.
  *
  * RUNNING IT. It owns the IDE lifecycle: a throwaway blank project is opened per corpus — `ide.ps1` instance
  * `corpus-migration`, its pipe resolved from that instance's record and nothing else — and closed again.
@@ -61,9 +63,9 @@ let activePipe: string | undefined
  *  and the blank target has different libraries anyway. Excluded by folder, exactly as the CLI does.
  *  Each vendor names that folder itself: `Library Manager` on CODESYS, `References` on TwinCAT. */
 const LIBRARY_DIRS = new Set(["Library Manager", "References"])
-/** A body no create can author: its IMPLEMENTATION line states UNSUPPORTED (no text form). The spelling is the
- *  bridge's `ImplementationMarker`; a script matches the line, it does not define it. */
-const HIDDEN_BODY = /^[ \t]*IMPLEMENTATION[ \t]+[A-Za-z_][A-Za-z0-9_]*[ \t]+UNSUPPORTED[ \t]*\r?$/im
+/** A body no create can author: its %LANGUAGE line states UNSUPPORTED (no text form). The spelling is the
+ *  bridge's `PropertyLines`; a script matches the line, it does not define it. */
+const HIDDEN_BODY = /^[ \t]*%LANGUAGE[ \t]+[A-Za-z_][A-Za-z0-9_]*[ \t]+UNSUPPORTED[ \t]*\r?$/im
 
 const VENDOR = vendorOf(process.env.VOLT_VENDOR)
 

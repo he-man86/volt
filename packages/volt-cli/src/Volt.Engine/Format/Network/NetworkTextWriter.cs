@@ -42,7 +42,7 @@ public static class NetworkTextWriter
         if (scope is null) throw new ArgumentNullException(nameof(scope));
 
         var sb = new StringBuilder();
-        sb.Append(St.ImplementationMarker.For(NetworkText.Spelling(body.Language))).Append('\n');
+        sb.Append(St.PropertyLines.LanguageLine(NetworkText.Spelling(body.Language))).Append('\n');
         for (var i = 0; i < body.Networks.Count; i++)
         {
             var net = body.Networks[i];
@@ -639,7 +639,7 @@ public sealed class NetworkUnrepresentableException : UnrepresentableBodyExcepti
 {
     internal NetworkUnrepresentableException(string reason, string detail)
         : base(reason, "network text has no spelling for " + reason + ": " + detail +
-                       " Volt pulls the network as its UNSUPPORTED line (or, for a header, the body as IMPLEMENTATION LD|FBD UNSUPPORTED) rather than write it without that fact.")
+                       " Volt pulls the network as its UNSUPPORTED line (or, for a header, the body as %LANGUAGE LD|FBD UNSUPPORTED) rather than write it without that fact.")
         => Detail = detail;
 
     /// <summary>What was found, without the pull's "pulls it UNSUPPORTED" consequence.</summary>

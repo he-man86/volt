@@ -54,7 +54,7 @@ VAR_TEMP
 	uiPropertyIndex			: UINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF xExecute
 AND NOT xExecute_old THEN
 
@@ -235,7 +235,7 @@ VAR_INST
 	psFind				: POINTER TO STRING(1);
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Internal
 //Load pointer
 psFind := ADR(sFind);
@@ -276,7 +276,7 @@ VAR_INPUT
 	psContent			: POINTER TO STRING(c_uiPropertyStringSize);
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Internal
 //Check for BOOLEAN value (Text or Number)
 IF psContent^ = 'TRUE'
@@ -303,7 +303,7 @@ VAR
 	pbyFind				: POINTER TO BYTE;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Internal
 //Reset
 _mCheckType_Number := TRUE;
@@ -336,7 +336,7 @@ VAR
 	psConcat		: POINTER TO STRING(1);
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Internal
 //Load pointer
 psConcat := ADR(sConcat);

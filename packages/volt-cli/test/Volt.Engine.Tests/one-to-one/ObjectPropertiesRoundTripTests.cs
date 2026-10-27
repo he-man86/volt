@@ -13,7 +13,7 @@ namespace Volt.Engine.Tests.OneToOne;
 /// (§0.2): the corpora hold 11 excluded source objects (7 of them METHODS), 3 link-always GVLs, 15 POUs with an
 /// online-change reserve — every one pulls as a plain object and a migration pushes it back plain. The design spells
 /// each as a <c>%</c>-line on <see cref="ItemContent"/> AND on <see cref="Member"/>: directly under the object's
-/// <c>IMPLEMENTATION</c> line, else closing its declaration; <c>%CLASS</c> first, then a member's <c>%FOLDER</c>, then the
+/// <c>%LANGUAGE</c> line, else closing its declaration; <c>%CLASS</c> first, then a member's <c>%FOLDER</c>, then the
 /// keys in the grammar's order.</para>
 ///
 /// <para>Closed by 3.1 (contract + text format) and 3.2 (the CODESYS driver). The direct-address guard at the end is
@@ -42,15 +42,15 @@ public class ObjectPropertiesRoundTripTests
                        new[] { "%EXCLUDE_FROM_BUILD", "%LINK_ALWAYS", "%ONLINE_CHANGE_RESERVE 200", "%COMMENT 'doc'" } },
     };
 
-    /// <summary>A POU's properties stand directly under its <c>IMPLEMENTATION</c> line.</summary>
+    /// <summary>A POU's properties stand directly under its <c>%LANGUAGE</c> line.</summary>
     [Theory, MemberData(nameof(ItemCases))]
     public void A_pou_pulls_its_properties_under_its_implementation_line(string key, ObjectProperties props, string[] lines)
     {
         var ide = new FakeIde(new FakeIde.Item("FB_Excluded", ItemKind.PlcPou, "", true, FbDecl, "n := n + 1;", null, null)
             { Properties = props });
         var text = Pulled(ide, "FB_Excluded.pou");
-        Assert.Equal(lines, After(text, "IMPLEMENTATION ST", lines.Length));
-        Assert.Equal("n := n + 1;", After(text, "IMPLEMENTATION ST", lines.Length + 1)[lines.Length]);
+        Assert.Equal(lines, After(text, "%LANGUAGE ST", lines.Length));
+        Assert.Equal("n := n + 1;", After(text, "%LANGUAGE ST", lines.Length + 1)[lines.Length]);
     }
 
     /// <summary>A GVL has no body: its properties close its declaration.</summary>
@@ -69,7 +69,7 @@ public class ObjectPropertiesRoundTripTests
     public void A_push_applies_the_properties_and_writes_no_property_line(string key, ObjectProperties props, string[] lines)
     {
         var ide = new FakeIde(new FakeIde.Item("FB_Excluded", ItemKind.PlcPou, "", true, FbDecl, "n := n + 1;", null, null));
-        var text = FbDecl + "\nIMPLEMENTATION ST\n" + string.Join("\n", lines) + "\nn := n + 2;\n\nEND_FUNCTION_BLOCK\n";
+        var text = FbDecl + "\n%LANGUAGE ST\n" + string.Join("\n", lines) + "\nn := n + 2;\n\nEND_FUNCTION_BLOCK\n";
 
         AcceptedOk(Update(ide, "FB_Excluded.pou", text));
 
@@ -86,7 +86,7 @@ public class ObjectPropertiesRoundTripTests
         var ide = new FakeIde(new FakeIde.Item("FB_Excluded", ItemKind.PlcPou, "", true, FbDecl, "n := n + 1;", null, null)
             { Properties = Props(exclude: true, reserve: 200) });
 
-        AcceptedOk(Update(ide, "FB_Excluded.pou", FbDecl + "\nIMPLEMENTATION ST\nn := n + 2;\n\nEND_FUNCTION_BLOCK\n"));
+        AcceptedOk(Update(ide, "FB_Excluded.pou", FbDecl + "\n%LANGUAGE ST\nn := n + 2;\n\nEND_FUNCTION_BLOCK\n"));
 
         Assert.Equal(ObjectProperties.None, ide.PropertiesOf("FB_Excluded"));
     }
@@ -103,7 +103,7 @@ public class ObjectPropertiesRoundTripTests
                 { Properties = Props(exclude: true) });
         var text = Pulled(ide, "FB_Owner.pou");
         var block = text.Substring(text.IndexOf("METHOD Calc : INT", System.StringComparison.Ordinal));
-        Assert.Equal(new[] { "%FOLDER Helpers", "%EXCLUDE_FROM_BUILD", "Calc := 1;" }, After(block, "IMPLEMENTATION ST", 3));
+        Assert.Equal(new[] { "%FOLDER Helpers", "%EXCLUDE_FROM_BUILD", "Calc := 1;" }, After(block, "%LANGUAGE ST", 3));
     }
 
     /// <summary>A member's lines pushed apply to THAT member — not to its owner, not to a sibling.</summary>
@@ -116,7 +116,7 @@ public class ObjectPropertiesRoundTripTests
             new FakeIde.Item("Calc", ItemKind.PlcMethod, "", false, "METHOD Calc : INT", "Calc := 1;", null, null),
             new FakeIde.Item("Other", ItemKind.PlcMethod, "", false, "METHOD Other : INT", "Other := 1;", null, null));
         var text = Pulled(ide, "FB_Owner.pou")
-            .Replace("METHOD Calc : INT\nIMPLEMENTATION ST\n", "METHOD Calc : INT\nIMPLEMENTATION ST\n%EXCLUDE_FROM_BUILD\n");
+            .Replace("METHOD Calc : INT\n%LANGUAGE ST\n", "METHOD Calc : INT\n%LANGUAGE ST\n%EXCLUDE_FROM_BUILD\n");
 
         AcceptedOk(Update(ide, "FB_Owner.pou", text));
 
@@ -136,7 +136,7 @@ public class ObjectPropertiesRoundTripTests
     {
         var ide = new FakeIde(new FakeIde.Item("FB_Excluded", ItemKind.PlcPou, "", true, FbDecl, "n := n + 1;", null, null));
         var resp = Update(ide, "FB_Excluded.pou",
-                          FbDecl + "\nIMPLEMENTATION ST\n" + lines + "\nn := n + 2;\n\nEND_FUNCTION_BLOCK\n");
+                          FbDecl + "\n%LANGUAGE ST\n" + lines + "\nn := n + 2;\n\nEND_FUNCTION_BLOCK\n");
         RefusedNaming(resp, named, "line");
     }
 
@@ -147,7 +147,7 @@ public class ObjectPropertiesRoundTripTests
     {
         var ide = new FakeIde(new FakeIde.Item("FB_Excluded", ItemKind.PlcPou, "", true, FbDecl, "n := n + 1;", null, null));
         var resp = Update(ide, "FB_Excluded.pou",
-                          "FUNCTION_BLOCK FB_Excluded\n%EXCLUDE_FROM_BUILD\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := 2;\n\nEND_FUNCTION_BLOCK\n");
+                          "FUNCTION_BLOCK FB_Excluded\n%EXCLUDE_FROM_BUILD\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE ST\nn := 2;\n\nEND_FUNCTION_BLOCK\n");
         RefusedNaming(resp, "%EXCLUDE_FROM_BUILD");
     }
 
@@ -163,7 +163,7 @@ public class ObjectPropertiesRoundTripTests
         var ide = new FakeIde(new FakeIde.Item("FB_Out", ItemKind.PlcPou, "", true,
                                                "FUNCTION_BLOCK FB_Out\nVAR\nEND_VAR", line + "\nx := 1;", null, null));
         var text = Pulled(ide, "FB_Out.pou");
-        Assert.Equal(new[] { line, "x := 1;" }, After(text, "IMPLEMENTATION ST", 2));
+        Assert.Equal(new[] { line, "x := 1;" }, After(text, "%LANGUAGE ST", 2));
 
         AcceptedOk(Update(ide, "FB_Out.pou", text.Replace("x := 1;", "x := 2;")));
         Assert.StartsWith(line + "\nx := 2;", ide.StoredImplementation("FB_Out"));

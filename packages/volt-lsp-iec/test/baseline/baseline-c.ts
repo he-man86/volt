@@ -115,6 +115,44 @@ const NEGATED_INT_PIN: readonly CeilingException[] = [
 ]
 
 /**
+ * An ACTION's VAR section above its `%LANGUAGE` line (openspec language-line, `unit_action_var_section`): the line is the
+ * boundary wherever it stands, so the action's body under it now PARSES — where the retired line, read only as a body's
+ * first token, left the whole body unparsed and so out of these measures. An action has no declaration the IDE stores,
+ * so the push refuses the VAR section and the LSP reports it with the push's words (`parseAction`); `t`, declared only
+ * there, binds nowhere and has no type — what both vendors said of it when the push still dropped the section ("Identifier
+ * 't' not defined"). Newly measurable, not a regression.
+ */
+const ACTION_VAR_SECTION: readonly CeilingException[] = [
+  ...(
+    [
+      ["resolution-dump", "findings", 4],
+      ["resolution-dump", "fixtures codesys: bare name NONE", 2],
+      ["resolution-dump", "fixtures twincat: bare name NONE", 2],
+      ["type-dump", "fixtures codesys: ident_expr UNKNOWN", 2],
+      ["type-dump", "fixtures twincat: ident_expr UNKNOWN", 2],
+    ] as const
+  ).map(([baseline, measure, by]) => ({
+    baseline,
+    measure,
+    by,
+    fixture: "unit_action_var_section",
+    task: "none: the push refuses the fixture (an action has no declaration), and the LSP reports the refusal",
+    why: "an action's body under a %LANGUAGE line that a VAR section stands above parses now; `t` is declared only in the refused section",
+  })),
+  // `unit_method_override_public_order` (a method header the parser misreads, pushed as sent): its body under the line
+  // now parses, so the parse noise that happened to match two of the build's messages about the misread header ("';'
+  // expected instead of 'M'", "Unexpected token 'PUBLIC' found") is gone, and they count as the build's alone.
+  ...(["fixtures.codesys", "fixtures.twincat"] as const).map((baseline) => ({
+    baseline,
+    measure: "total: GAP",
+    by: 2,
+    fixture: "unit_method_override_public_order",
+    task: "none: a known divergence of the fixture (the parser's reading of `METHOD OVERRIDE PUBLIC M`)",
+    why: "the body under a %LANGUAGE line parses wherever the line stands; the header's own errors were matched only by noise before",
+  })),
+]
+
+/**
  * …and a FUNCTION box given one positional value more than it declares, on TwinCAT (ld-fbd-coverage 2R.4,
  * `ng_m_function_too_many`, recorded 2026-10-17): the push derives no name for the extra pin and TwinCAT's in-place
  * write leaves it the empty name, so its build adds "Identifier '' not defined" to the arity error both vendors give —
@@ -224,4 +262,5 @@ export const CEILING_EXCEPTIONS_C: readonly CeilingException[] = [
   ...REVERSED_ARRAY_SIZE,
   ...INDEXOF_UNTYPED,
   ...NEGATED_INT_PIN,
+  ...ACTION_VAR_SECTION,
 ]

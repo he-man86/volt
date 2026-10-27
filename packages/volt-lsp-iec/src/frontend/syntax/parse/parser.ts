@@ -25,7 +25,7 @@ import { parseProperty } from "./units/property.js"
 import { parseTypeDecl } from "./units/type-decl.js"
 import { unitBodies } from "../format/bodies.js"
 import { allUnits } from "../ast/walk.js"
-import { readNoNetworkText } from "../format/implementation-line.js"
+import { markSlotless, readNoNetworkText } from "../format/language-line.js"
 import { isTrivia } from "../lex/tokens.js"
 import { attachAttributes } from "../pragmas/attributes.js"
 import { isWrittenAsSent, OPENING_KEYWORDS, sourceObjectOf, type SourceObject } from "../format/source-object.js"
@@ -38,7 +38,7 @@ import { acceptClosingRun, readPropertyRun, reportMisplacedProperty } from "../f
 /**
  * How a parse reads what the text does not decide.
  *
- *   networkText   whether a body stated `IMPLEMENTATION LD|FBD` is read as network text. The front-end reads no
+ *   networkText   whether a body stated `%LANGUAGE LD|FBD` is read as network text. The front-end reads no
  *                 environment (openspec frontend-conformance P5): the product's switch is the SERVER's
  *                 (`server/config.ts`), which passes `false` unless development turned network text on. It is the
  *                 CALLER's fact and every parse is told it — required, never defaulted: a default here once turned
@@ -114,6 +114,9 @@ export function parse(tokens: readonly Token[], dialect: Dialect, options: Parse
 
   // a POU's END_NAMESPACE is the push's refusal (rule U28; `reportNamespaceClosers` says where it is not reported)
   if (object === "pou") reportNamespaceClosers(units, (message, span) => c.pushError(message, span))
+  // A workspace file's members with no body slot (no %LANGUAGE line, nothing after the declaration) — never the IDE's own
+  // text, which states no line anywhere (`markSlotless`).
+  if (object !== undefined) for (const unit of allUnits(units)) markSlotless(unit, dialect, (message, span) => c.pushError(message, span))
   if (!options.networkText) for (const unit of allUnits(units)) unitBodies(unit).forEach(readNoNetworkText)
   attachAttributes(units, tokens)
   return { units, errors: c.getErrors(), failedDeclarations: c.getFailedDeclarations(), tokens, dialect }

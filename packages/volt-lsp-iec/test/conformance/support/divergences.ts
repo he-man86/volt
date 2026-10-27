@@ -25,9 +25,9 @@ import * as units from "./divergences-units.js"
  * CREATES a backtick-quoted name, which TwinCAT refuses. Such a fixture carries `vendorRefuses`, so it has no build to
  * replay and the agreement gate never sees it; this list is where the LSP's side is written down. The LSP models no
  * create refusal by name — the 1092 measured reserved words neither (`parse/parser.test.ts`, "a unit header takes all
- * nine as its name") — so on `METHOD My-Name` it gives a message with the wrong cause (the stray `-Name : BOOL` reads as
- * code above the IMPLEMENTATION line: "an IMPLEMENTATION line inside a body"), and on TwinCAT it is silent on a
- * backtick name. Niche: accepted loss (0 occurrences in the corpora — no POU or member header in the six names itself
+ * nine as its name") — so on `METHOD My-Name` it gives a message with the wrong cause (the stray `-Name : BOOL` stands
+ * above the `%LANGUAGE` line: "… stands between the declaration and the %LANGUAGE line, and it is no declaration"), and
+ * on TwinCAT it is silent on a backtick name. Niche: accepted loss (0 occurrences in the corpora — no POU or member header in the six names itself
  * outside an ASCII identifier, and none with a backtick). Each entry is the vendor's own sentence the LSP would have to
  * say; `transpile-replay.test.ts` holds each as an expected failure, so the day the LSP says it, the entry must go.
  */

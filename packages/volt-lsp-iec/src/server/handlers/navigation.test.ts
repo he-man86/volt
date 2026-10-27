@@ -161,7 +161,7 @@ describe("a refused rename (lsp-same-standard finding R6)", () => {
   /** A rename to a name the dialect refuses is refused by name over the wire (lsp-same-standard 3.1, finding R6). */
   const URI = "file:///F.pou"
 
-  const SRC = `FUNCTION_BLOCK F\nVAR\n\tcount : INT;\nEND_VAR\nIMPLEMENTATION ST\ncount := count + 1;\nEND_FUNCTION_BLOCK`
+  const SRC = `FUNCTION_BLOCK F\nVAR\n\tcount : INT;\nEND_VAR\n%LANGUAGE ST\ncount := count + 1;\nEND_FUNCTION_BLOCK`
 
   async function renameTo(newName: string): Promise<unknown> {
     const client = connectToServer("codesys")

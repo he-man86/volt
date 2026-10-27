@@ -4,4 +4,4 @@ RESOLUTION Brink EdgePc Logging, 2.0.7 (Brink Automation)
 PLACEHOLDER true
 DEPENDENCIES CAA NetBaseSrv, StringUtils, Standard, SysTimeRtc, MemoryUtils, CAA Types, SysExcept, L_PLCLoggingAccess
 REDIRECT BrinkEdgePcLogging Brink EdgePc Logging, 2.0.7 (Brink Automation)
-MATERIALIZATION 4
+MATERIALIZATION 5

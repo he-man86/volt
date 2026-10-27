@@ -28,7 +28,7 @@ const vars = (names: string[]): string =>
 /** The boxes as pushed (positional, `named` false) and as the IDE holds them after the push: named, the formals in the
  *  signature's order (a FUNCTION box's positional pins are pushed named, 2R.4 — `callee-seed-lag.test.ts`). */
 const boxes = (named: boolean): string => `PROGRAM ${BOXES}
-${vars(["outMid", "outRep", "outDel"])}IMPLEMENTATION FBD
+${vars(["outMid", "outRep", "outDel"])}%LANGUAGE FBD
 NETWORK
   outMid := MID(${named ? "STR := txt, LEN := 2, POS := 3" : "txt, 2, 3"});
 END_NETWORK
@@ -43,7 +43,7 @@ END_PROGRAM
 `
 
 const st = `PROGRAM ${ST}
-${vars(["outMid", "outRep", "outDel", "swMid", "swRep", "swDel"])}IMPLEMENTATION ST
+${vars(["outMid", "outRep", "outDel", "swMid", "swRep", "swDel"])}%LANGUAGE ST
 outMid := MID(txt, 2, 3);
 outRep := REPLACE(txt, 'ab', 2, 1);
 outDel := DELETE(txt, 2, 3);

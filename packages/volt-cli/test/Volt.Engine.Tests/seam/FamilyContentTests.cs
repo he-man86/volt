@@ -52,7 +52,7 @@ public class FamilyContentTests
         {
             if (CorpusProjects.KindOf(file) is not { } kind || !ItemKind.IsSourceKind(kind)) continue;
             ItemContent item;
-            try { item = AbstractMemberFold.Apply(StReader.Read(File.ReadAllText(file), kind, Path.GetFileNameWithoutExtension(file))); }
+            try { item = StReader.Read(File.ReadAllText(file), kind, Path.GetFileNameWithoutExtension(file)); }
             catch (BridgeException) { continue; }   // a text the reader refuses has no record to convert
             read++;
 
@@ -86,6 +86,29 @@ public class FamilyContentTests
 
         var ex = Assert.Throws<BridgeException>(() => FamilyContent.ToContent(item));
         Assert.Contains("does not spell back", ex.Message);
+    }
+
+    /// <summary>A member with NO body slot (no <c>%LANGUAGE</c> line, openspec <c>language-line</c>) crosses as
+    /// <see cref="BodyForm.NoSlot"/> — a fact, not an absent body — and comes back as the record states it: no body, stated
+    /// no slot; a no-slot claim carrying a body is Volt's bug, refused.</summary>
+    [Fact]
+    public void A_member_with_no_body_slot_crosses_as_NoSlot_and_comes_back()
+    {
+        var item = new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK F", "", new List<Member>
+        {
+            new(ItemKind.Kinds.Method, "Run", "METHOD ABSTRACT Run", null, ObjectProperties.None, Stated: StatedLanguage.NoSlot),
+            new(ItemKind.Kinds.Property, "Busy", "PROPERTY ABSTRACT Busy : BOOL", null, ObjectProperties.None,
+                Getter: new Accessor("", null, Stated: StatedLanguage.NoSlot)),
+        }, ObjectProperties.None, Stated: StatedLanguage.St);
+
+        var content = FamilyContent.ToContent(item);
+
+        Assert.Equal(BodyForm.NoSlot, content.Members[0].Body!.Form);
+        Assert.Equal(BodyForm.NoSlot, content.Members[1].Get!.Body!.Form);
+        Assert.Equal(Describe(item), Describe(FamilyContent.ToItemContent(content)));
+
+        var claimed = item with { Members = new List<Member> { item.Members[0] with { Body = "x := 1;" } } };
+        Assert.Equal(BridgeErrorCodes.InternalError, Assert.Throws<BridgeException>(() => FamilyContent.ToContent(claimed)).ErrorCode);
     }
 
     /// <summary>A body with text and no stated language is a reader's bug, named as the contract it reached — the one

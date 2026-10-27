@@ -14,7 +14,7 @@ VAR_INPUT
 	I_dwAGM_Amplitude	: DWORD;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 (*de index 2000 control register en index 2010 de amplitude worden beschreven*)
 
 R_TRIG1(CLK:=I_bEnable);

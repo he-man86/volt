@@ -5,7 +5,7 @@ VAR
 	{attribute 'hide'}	_maxNumberOfLayers		: UINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Cyclic();
 
 
@@ -16,7 +16,7 @@ VAR_INPUT
 	item		: enumBoxItem;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 CASE item OF
 	enumBoxItem.None:
 		AddItem						:= FALSE;
@@ -50,7 +50,7 @@ END_METHOD
 
 METHOD PUBLIC BoxRemoved
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 ActualNumberOfLayers	:= 0;
 MaxNumberOfLayers		:= 0;
 
@@ -60,7 +60,7 @@ END_METHOD
 
 METHOD PROTECTED Cyclic
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 CASE State OF
 	enumBoxState.None:
 			;
@@ -82,7 +82,7 @@ VAR_INPUT
 	setNumberOfLayers	: UINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 ActualNumberOfLayers	:= 0;
 MaxNumberOfLayers		:= setNumberOfLayers;
 
@@ -92,7 +92,7 @@ END_METHOD
 
 METHOD PUBLIC SetToChangeNeeded : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 CASE State OF
 	enumBoxState.ProductsNeeded, enumBoxState.SheetNeeded:
 		State						:= enumBoxState.ChangeNeeded;
@@ -110,7 +110,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 ActualNumberOfLayers := _ActualNumberOfLayers;
 
 END_GET
@@ -119,7 +119,7 @@ PROTECTED
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 _ActualNumberOfLayers := ActualNumberOfLayers;
 
 END_SET
@@ -132,7 +132,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 MaxNumberOfLayers := _maxNumberOfLayers;
 
 END_GET
@@ -141,7 +141,7 @@ PROTECTED
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 _maxNumberOfLayers := MaxNumberOfLayers;
 
 END_SET
@@ -154,7 +154,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 State := _state;
 
 END_GET
@@ -163,7 +163,7 @@ PROTECTED
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 _state := State;
 
 END_SET

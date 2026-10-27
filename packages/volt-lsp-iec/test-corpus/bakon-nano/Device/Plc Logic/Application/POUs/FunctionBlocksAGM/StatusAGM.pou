@@ -8,7 +8,7 @@ VAR_OUTPUT
 END_VAR
 
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 (*************************************************************************
  *
  * Application name			: Snijmachine met ultrasoon generator

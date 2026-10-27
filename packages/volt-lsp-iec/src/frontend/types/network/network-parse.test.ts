@@ -26,7 +26,7 @@ import {
 import { parseNetworkText } from "./network-parse.js"
 
 /** A POU whose graphical body is `networks`, under the line stating LD. */
-function body(networks: string, marker = "IMPLEMENTATION LD"): BodySpan {
+function body(networks: string, marker = "%LANGUAGE LD"): BodySpan {
   const src = `FUNCTION_BLOCK F\nVAR\n\ta : BOOL;\nEND_VAR\n${marker}\n${networks}\nEND_FUNCTION_BLOCK\n`
   const b = unitBodies(parseSource(src, { networkText: true }, "codesys").units[0]!).find(isGraphicalBody)
   if (b === undefined) throw new Error("no graphical body")
@@ -68,7 +68,7 @@ test("the line states the language and a network has no order number", () => {
   expect(b.language).toBe("LD")
   expect(b.networks).toHaveLength(1)
   expect(b.networks[0]!.index).toBe(0)
-  expect(parseNetworkText(body(net("out := a;"), "IMPLEMENTATION FBD"), STRUCTURE_ONLY, "codesys").language).toBe("FBD")
+  expect(parseNetworkText(body(net("out := a;"), "%LANGUAGE FBD"), STRUCTURE_ONLY, "codesys").language).toBe("FBD")
 })
 
 test("a numbered header and a LET are refused as the push refuses them, never read", () => {

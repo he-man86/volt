@@ -71,7 +71,7 @@ public class GlobalsByWireKindTests
     public void A_body_in_a_push_sees_each_pushed_gvl_as_a_global_list()
     {
         var ide = new FakeIde(FakeIde.Item.TextualPou("Caller", "FUNCTION_BLOCK Caller\nVAR\n\tn : INT;\nEND_VAR",
-            "IMPLEMENTATION FBD\nNETWORK\n  n := 1;\nEND_NETWORK"));
+            "%LANGUAGE FBD\nNETWORK\n  n := 1;\nEND_NETWORK"));
         var refs = RefsService.Handle(ide);
         var resp = BoundWrite.Push(ide, new PushRequest
         {
@@ -81,11 +81,11 @@ public class GlobalsByWireKindTests
                 new SetItemOp
                 {
                     Name = "Caller.pou", IfVersion = refs.Items["Caller.pou"],
-                    SourceText = "FUNCTION_BLOCK Caller\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION FBD\nNETWORK\n  n := 2;\nEND_NETWORK\nEND_FUNCTION_BLOCK\n",
+                    SourceText = "FUNCTION_BLOCK Caller\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE FBD\nNETWORK\n  n := 2;\nEND_NETWORK\nEND_FUNCTION_BLOCK\n",
                 },
                 new SetItemOp { Name = "Variable_Configuration.gvl", SourceText = VarConfig + "\n" },
                 new SetItemOp { Name = "Line.gvl", SourceText = Broken + "\n" },
-                new SetItemOp { Name = "NotAList.pou", SourceText = "FUNCTION_BLOCK NotAList\n" + GlobalText + "\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n" },
+                new SetItemOp { Name = "NotAList.pou", SourceText = "FUNCTION_BLOCK NotAList\n" + GlobalText + "\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK\n" },
             },
         });
         Assert.True(resp.Landed(), resp.Conflicts?.FirstOrDefault()?.Reason);

@@ -33,7 +33,7 @@ VAR
 
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^();
 
 Drive(
@@ -121,7 +121,7 @@ END_FUNCTION_BLOCK
 
 METHOD PROTECTED Initialize
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^.Initialize();
 
 Drive.config.axisBlockedAlarmMaxTorque	:= 0.5;
@@ -136,7 +136,7 @@ SET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 externalManualServoControlEnabled := ExternalManualControlEnabled;
 
 END_SET

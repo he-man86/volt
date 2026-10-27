@@ -34,7 +34,7 @@ VAR
 	) DINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^();
 
 
@@ -42,7 +42,7 @@ END_FUNCTION_BLOCK
 
 METHOD PROTECTED Execute_Sequence1
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Is sticker unit enabled?
 IF NOT PersistentVars.RecipeVars.EnableSticker THEN
 	SUPER^.Execute_Sequence1();
@@ -78,7 +78,7 @@ END_METHOD
 
 METHOD PROTECTED Execute_Sequence2
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Is sticker unit enabled?
 IF NOT PersistentVars.RecipeVars.EnableSticker THEN
 	SUPER^.Execute_Sequence2();
@@ -118,7 +118,7 @@ VAR_INST
 	applyStickerFromHere	: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 IF State.Changed THEN
 	monitorForTakeover5Pos	:= FALSE;
@@ -150,7 +150,7 @@ END_METHOD
 
 METHOD PROTECTED UnitsOnStickerPosStart : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 IF  (result[1] OR_ELSE (result[1] := yUnit.MoveToTakeover(4)))
 AND (result[2] OR_ELSE (result[2] := xuUnit.MoveToTakeover(2)))
@@ -163,7 +163,7 @@ END_METHOD
 
 METHOD PROTECTED YUnitLeaveMouldArea : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 // Is sticker unit enabled?
 IF NOT PersistentVars.RecipeVars.EnableSticker THEN
@@ -199,7 +199,7 @@ VAR
 	xuUnitExtended				: IXuUnit_Default_Commands;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER States
 // Is sticker unit enabled?
 IF NOT PersistentVars.RecipeVars.EnableSticker THEN

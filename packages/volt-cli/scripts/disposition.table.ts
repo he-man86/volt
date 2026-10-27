@@ -118,12 +118,12 @@ const DECLARATION: ClassTable = {
   "Interface.TextDocument.TextBlobForSerialisation": CACHE("text-blob-serialisation"),
 }
 
-/** A body aspect (`Implementation`): its language (`IMPLEMENTATION <LANG>`) and, for ST, its text verbatim. A graphical
+/** A body aspect (`Implementation`): its language (`%LANGUAGE <LANG>`) and, for ST, its text verbatim. A graphical
  *  body's own members are `ld-fbd-coverage`'s, and the core reads such a body as its class ALONE (`_OPAQUE_IMPL`) — so
  *  every member below `Implementation` is a TEXTUAL body's, and one not listed here is undecided (no wildcard: a
  *  `Implementation.*` scope entry matched exactly those ST members and skipped them as another change's). */
 const BODY: ClassTable = {
-  Implementation: S("the body's language (IMPLEMENTATION <LANG>)"),
+  Implementation: S("the body's language (%LANGUAGE <LANG>)"),
   "Implementation.TextDocument": S("the body"),
   "Implementation.TextDocument.Text": S("the body, verbatim (trailing newlines included: trailing-newline-cache)"),
   "Implementation.TextDocument.LineInfoPersistence": CACHE("editor-caches"),
@@ -365,8 +365,8 @@ function graphical(impl: string): ClassTable {
 /** A body and the members a POU or an interface holds, in its file. */
 function tcBodies(o: string): ClassTable {
   const out: Record<string, Disposition> = {
-    [`${o}/Implementation`]: S("the body's language (IMPLEMENTATION <LANG>)"),
-    [`${o}/Implementation/ST`]: S("IMPLEMENTATION ST"),
+    [`${o}/Implementation`]: S("the body's language (%LANGUAGE <LANG>)"),
+    [`${o}/Implementation/ST`]: S("%LANGUAGE ST"),
     [`${o}/Implementation/ST#text`]: S("the body, verbatim"),
     ...graphical(`${o}/Implementation`),
   }
@@ -389,7 +389,7 @@ function tcBodies(o: string): ClassTable {
     out[`${p}/Declaration`] = S("the member declaration")
     out[`${p}/Declaration#text`] = S("the member declaration, verbatim")
     out[`${p}/Implementation`] = S("the member body's language")
-    out[`${p}/Implementation/ST`] = S("IMPLEMENTATION ST")
+    out[`${p}/Implementation/ST`] = S("%LANGUAGE ST")
     out[`${p}/Implementation/ST#text`] = S("the member body, verbatim")
     Object.assign(out, graphical(`${p}/Implementation`))
     out[`${p}/LineIds*`] = CACHE("editor-caches")

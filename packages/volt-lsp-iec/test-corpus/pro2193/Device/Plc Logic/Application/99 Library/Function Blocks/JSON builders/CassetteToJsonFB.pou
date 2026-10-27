@@ -11,7 +11,7 @@ VAR_IN_OUT
 	JSON					: STRING(25000);
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^();
 
 IF busy THEN
@@ -36,7 +36,7 @@ VAR_INST
 	asProperties		: ARRAY[0..8, 0..1] OF STRING(50);
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Fill data
 asProperties[0, 0]		:= 'Id';	asProperties[0, 1]		:= TO_STRING(CassetteDefinition[cassette].CassetteId);
 asProperties[1, 0]		:= 'Cid';	asProperties[1, 1]		:= TO_STRING(CassetteDefinition[cassette].CavityId);
@@ -62,7 +62,7 @@ VAR_INST
 	asProperties		: ARRAY[1..GVL_Constants_Magazine.MaxCassettes, 0..1] OF STRING(300);
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 CASE chunk OF
 	0:
 		Increment.AnyInt(chunk);
@@ -95,7 +95,7 @@ VAR_INST
 	asProperties		: ARRAY[0..2, 0..1] OF STRING(5);
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 //Fill data
 asProperties[0,0]		:= 'X1';	asProperties[0,1]		:= TO_STRING(position.X1);
 asProperties[1,0]		:= 'X2';	asProperties[1,1]		:= TO_STRING(position.X2);

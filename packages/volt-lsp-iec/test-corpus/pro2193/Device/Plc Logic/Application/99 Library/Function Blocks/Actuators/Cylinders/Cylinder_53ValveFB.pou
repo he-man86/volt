@@ -20,7 +20,7 @@ VAR
 	xStartGoOutDelay		: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Execute base cylinder fb
 SUPER^();
 
@@ -52,7 +52,7 @@ END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Set the alarm messages
 SetSensorOutAlarm(
 	SetAlarm(
@@ -71,7 +71,7 @@ END_METHOD
 // Set both outputs (=True)
 METHOD PUBLIC FINAL GoForceMiddle : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 OutputIn.Set();
 OutputOut.Set();
 
@@ -80,7 +80,7 @@ END_METHOD
 // The cylinder moves in. Returns true when cylinder is in.
 METHOD PUBLIC GoIn : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Do not move cylinder if outputs are not enabled.
 IF NOT EnableOutputs.Q THEN
 	RETURN;
@@ -108,14 +108,14 @@ END_METHOD
 // Reset both outputs. The 5/3 valve goes to middle position.
 METHOD PUBLIC GoMiddle
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Reset();
 END_METHOD
 
 // The cylinder moves out. Returns true when cylinder is out.
 METHOD PUBLIC GoOut : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Do not move cylinder if outputs are not enabled.
 IF NOT EnableOutputs.Q THEN
 	RETURN;
@@ -146,7 +146,7 @@ VAR_INPUT
 	plusButtonPushed		: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF inAdjustMode THEN
 	SetOrReset(Blinker.OUT);
 ELSIF plusButtonPushed THEN
@@ -170,7 +170,7 @@ END_METHOD
 {attribute 'hide'}
 METHOD Map : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 ThrowException('Use other mapping methods instead');
 
 END_METHOD
@@ -178,7 +178,7 @@ END_METHOD
 // Maps the output when cylinder moves Out to the physical output
 METHOD MapIn : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 MapIn := OutputIn.Map();
 
 END_METHOD
@@ -186,7 +186,7 @@ END_METHOD
 // Maps the output when cylinder moves Out to the physical output
 METHOD MapOut : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 MapOut := OutputOut.Map();
 
 END_METHOD
@@ -194,7 +194,7 @@ END_METHOD
 // Reset the outputs (=False)
 METHOD Reset
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 OutputIn.Reset();
 OutputOut.Reset();
 
@@ -203,7 +203,7 @@ END_METHOD
 // Set the outputs (=True)
 METHOD Set : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 GoOut();
 
 END_METHOD
@@ -215,7 +215,7 @@ VAR_INPUT
 	xSensor		: BOOL;		// The sensor on the cylinder.
 END_VAR
 
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   SetAlarm := (`AND`(IN1 := xOutput, NOT IN2 := xOutInv, NOT IN3 := xSensor) OR `AND`(IN1 := xOutInv, NOT IN2 := xOutput, IN3 := xSensor) OR (xOutput AND xOutInv AND xSensor)) AND EnableOutputs.Q;
 END_NETWORK
@@ -227,7 +227,7 @@ VAR_INPUT
 	xValue	: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Do not move cylinder if outputs are not enabled.
 IF NOT EnableOutputs.Q THEN
 	RETURN;
@@ -257,7 +257,7 @@ VAR_INPUT
 	xOutput1	: BOOL;		// Output when cylinder moves in
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 OutputOut.SetOrReset(xOutput2);
 OutputIn.SetOrReset(xOutput1);
 
@@ -270,7 +270,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 OnTargetPos	:= NOT xStartGoInDelay AND NOT xStartGoOutDelay AND EnableOutputs.Q AND
 			(OutputOut.Map() AND NOT OutputIn.Map() AND IsOut) XOR (OutputIn.Map() AND NOT OutputOut.Map() AND IsIn);
 

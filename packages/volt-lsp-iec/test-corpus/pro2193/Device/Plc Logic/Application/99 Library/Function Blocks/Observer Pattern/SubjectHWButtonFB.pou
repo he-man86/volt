@@ -9,7 +9,7 @@ VAR
 	_state			: BOOL;					// Private backing field for property
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 END_FUNCTION_BLOCK
 
@@ -21,7 +21,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 ButtonState := _state;
 
 END_GET
@@ -29,7 +29,7 @@ SET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 _state := ButtonState;
 
 END_SET
@@ -42,7 +42,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 ButtonType := _buttonType;
 
 END_GET
@@ -50,7 +50,7 @@ SET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 _buttonType := ButtonType;
 
 END_SET

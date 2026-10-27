@@ -3,7 +3,7 @@
 {attribute 'hide_all_locals'}
 PROGRAM Arrays
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 // Because arrays are value-type, it's not possible to cast an array of fbs to another type.
 // More info here:
@@ -31,7 +31,7 @@ VAR
 	upper, lower, di	: DINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Tests
 lower	:= LOWER_BOUND(actuatorArray, 1);
 upper	:= UPPER_BOUND(actuatorArray, 1);
@@ -63,7 +63,7 @@ VAR
 	upper, lower, di	: DINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Tests
 lower	:= LOWER_BOUND(actuatorArray, 1);
 upper	:= UPPER_BOUND(actuatorArray, 1);
@@ -88,7 +88,7 @@ VAR
 	upper, lower, di	: DINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Execute methods
 lower	:= LOWER_BOUND(actuatorArray, 1);
 upper	:= UPPER_BOUND(actuatorArray, 1);
@@ -112,7 +112,7 @@ VAR
 	upper, lower, di	: DINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Tests
 lower	:= LOWER_BOUND(safeModules, 1);
 upper	:= UPPER_BOUND(safeModules, 1);
@@ -142,7 +142,7 @@ VAR
 	upper, lower, di	: DINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Tests
 lower	:= LOWER_BOUND(boolArray, 1);
 upper	:= UPPER_BOUND(boolArray, 1);
@@ -170,7 +170,7 @@ VAR
 	upper, lower, di	: DINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Tests
 lower	:= LOWER_BOUND(boolArray, 1);
 upper	:= UPPER_BOUND(boolArray, 1);
@@ -193,7 +193,7 @@ VAR
 	upper, lower, di	: DINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Execute methods
 lower	:= LOWER_BOUND(boolArray, 1);
 upper	:= UPPER_BOUND(boolArray, 1);
@@ -213,7 +213,7 @@ VAR
 	upper, lower, di	: DINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Execute methods
 lower	:= LOWER_BOUND(boolArray, 1);
 upper	:= UPPER_BOUND(boolArray, 1);
@@ -236,7 +236,7 @@ VAR
 	upper, lower, di	: DINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Digital Sensors
 lower	:= LOWER_BOUND(sensorArray, 1);
 upper	:= UPPER_BOUND(sensorArray, 1);
@@ -266,7 +266,7 @@ VAR
 	upper, lower, di	: DINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Digital Sensors
 lower	:= LOWER_BOUND(sensorArray, 1);
 upper	:= UPPER_BOUND(sensorArray, 1);
@@ -296,7 +296,7 @@ VAR
 	counter				: USINT := 0;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Digital Sensors
 lower	:= LOWER_BOUND(sensorArray, 1);
 upper	:= UPPER_BOUND(sensorArray, 1);
@@ -335,7 +335,7 @@ VAR
 	counter				: USINT := 0;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Digital Sensors
 lower	:= LOWER_BOUND(sensorArray, 1);
 upper	:= UPPER_BOUND(sensorArray, 1);
@@ -367,7 +367,7 @@ VAR
 	upper, lower, di	: DINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Positions
 lower					:= LOWER_BOUND(positionArray, 1);
 upper					:= UPPER_BOUND(positionArray, 1);
@@ -388,7 +388,7 @@ VAR
 	upper, lower, di	: DINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Positions
 lower					:= LOWER_BOUND(positionArray, 1);
 upper					:= UPPER_BOUND(positionArray, 1);
@@ -413,7 +413,7 @@ VAR
 	upper, lower, di	: DINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Tests
 lower	:= LOWER_BOUND(vacuumArray, 1);
 upper	:= UPPER_BOUND(vacuumArray, 1);
@@ -450,7 +450,7 @@ VAR
 	upper, lower, di	: DINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Tests
 lower	:= LOWER_BOUND(vacuumArray, 1);
 upper	:= UPPER_BOUND(vacuumArray, 1);
@@ -495,7 +495,7 @@ VAR
 	upper, lower, di	: DINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Tests
 lower	:= LOWER_BOUND(vacuumArray, 1);
 upper	:= UPPER_BOUND(vacuumArray, 1);
@@ -537,7 +537,7 @@ VAR
 	upper, lower, di	: DINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Tests
 lower	:= LOWER_BOUND(vacuumArray, 1);
 upper	:= UPPER_BOUND(vacuumArray, 1);
@@ -582,7 +582,7 @@ VAR
 	upper, lower, di	: DINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Execute methods
 lower	:= LOWER_BOUND(vacuumArray, 1);
 upper	:= UPPER_BOUND(vacuumArray, 1);
@@ -613,7 +613,7 @@ VAR
 	upper, lower, di	: DINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Execute methods
 lower	:= LOWER_BOUND(vacuumArray, 1);
 upper	:= UPPER_BOUND(vacuumArray, 1);
@@ -645,7 +645,7 @@ VAR
 	upper, lower, di	: DINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Execute methods
 lower	:= LOWER_BOUND(vacuumArray, 1);
 upper	:= UPPER_BOUND(vacuumArray, 1);
@@ -681,7 +681,7 @@ VAR
 	upper, lower, di	: DINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Tests
 lower	:= LOWER_BOUND(vacuumArray, 1);
 upper	:= UPPER_BOUND(vacuumArray, 1);
@@ -728,7 +728,7 @@ VAR
 	upper, lower, di	: DINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Execute methods
 lower	:= LOWER_BOUND(vacuumArray, 1);
 upper	:= UPPER_BOUND(vacuumArray, 1);
@@ -759,7 +759,7 @@ VAR
 	upper, lower, di	: DINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Execute methods
 lower	:= LOWER_BOUND(vacuumArray, 1);
 upper	:= UPPER_BOUND(vacuumArray, 1);

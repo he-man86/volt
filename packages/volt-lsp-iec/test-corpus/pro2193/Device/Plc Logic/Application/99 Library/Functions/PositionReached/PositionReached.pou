@@ -5,7 +5,7 @@ VAR_INPUT
 	rSetPos		: REAL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 PositionReached			:= PositionReachedValue(rActPos, rSetPos, 1);
 
 

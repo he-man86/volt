@@ -5,7 +5,7 @@ VAR_IN_OUT
 	JSON					: STRING(25000);
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^();
 
 IF busy THEN
@@ -25,7 +25,7 @@ VAR_INST
 	asProperties		: ARRAY[1..GVL_Constants.MaxProductsInMould + 2, 0..1] OF STRING(1000);
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 CASE chunk OF
 	0:
 		Increment.AnyInt(chunk);
@@ -71,7 +71,7 @@ VAR_INST
 	i					: UINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Fill data
 asProperties[0, 0]	:= 'P';		asProperties[0, 1] := TO_STRING(stat.Produced);
 asProperties[1, 0]	:= 'S';		asProperties[1, 1] := TO_STRING(stat.Stacked);
@@ -101,7 +101,7 @@ VAR_INST
 	asProperties		: ARRAY[0..5, 0..1] OF STRING(25);
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Fill data
 asProperties[0, 0]		:= 'N';		asProperties[0, 1]		:= TO_STRING(stats.StatId);
 asProperties[1, 0]		:= 'S';		asProperties[1, 1]		:= TO_STRING(stats.TimeStopped);

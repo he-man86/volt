@@ -4,4 +4,4 @@ RESOLUTION VisuElemsSpecialControls, 4.7.0.0 (System)
 PLACEHOLDER true
 SYSTEM true
 REDIRECT System_VisuElemsSpecialControls VisuElemsSpecialControls, 4.4.0.0 (System)
-MATERIALIZATION 4
+MATERIALIZATION 5

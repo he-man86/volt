@@ -14,7 +14,7 @@ import { NETWORK_TEXT_ENABLED } from "./config.js"
 import { DiagnosticsPublisher, type PublisherHost } from "./diagnostics-publisher.js"
 
 const PRG = (name: string, body = "i := i + 1;") =>
-  `PROGRAM ${name}\nVAR\n\tb : BOOL;\n\ti : INT;\nEND_VAR\nIMPLEMENTATION ST\n${body}\nEND_PROGRAM\n`
+  `PROGRAM ${name}\nVAR\n\tb : BOOL;\n\ti : INT;\nEND_VAR\n%LANGUAGE ST\n${body}\nEND_PROGRAM\n`
 const A = "file:///PA.pou"
 const B = "file:///PB.pou"
 

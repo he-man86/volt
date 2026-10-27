@@ -16,7 +16,7 @@ VAR
 	_boxAtOutfeedPosition		: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %ONLINE_CHANGE_RESERVE 200
 SUPER^();
 
@@ -28,7 +28,7 @@ VAR_INST
 	SetError					: ARRAY[1..2] OF SetErrorFB;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SetError[1](
 	moduleHandler	:= ModuleHandler,
 	textRefId		:= BoxPusher_Errors,
@@ -55,7 +55,7 @@ METHOD PROTECTED Cyclic
 VAR_INST
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Pusher(
 	moduleHandler			:= ModuleHandler,
 	manualControlEnabled	:= BFU.ManualControlEnabled, // AND manualControlEnabled,
@@ -79,7 +79,7 @@ END_METHOD
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 CommandLock.ForceRelease();
 
@@ -95,7 +95,7 @@ VAR_INST
 	Timer				: BTON;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -120,7 +120,7 @@ VAR_INST
 	localState			: SINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -148,7 +148,7 @@ VAR_INST
 	Timer				: BTON;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -168,7 +168,7 @@ END_METHOD
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 Pusher.Reset();
 
@@ -184,7 +184,7 @@ PUBLIC
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 BoxAtOutfeedPosition		:= _boxAtOutfeedPosition;
 
 END_GET
@@ -193,7 +193,7 @@ PUBLIC
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 _boxAtOutfeedPosition		:= BoxAtOutfeedPosition;
 
 END_SET
@@ -206,7 +206,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 BoxAtOutfeedPositionSensor	:= sensorBoxAtOutfeedPosition;
 
 END_GET

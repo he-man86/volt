@@ -4,4 +4,4 @@ RESOLUTION StringUtils, 3.5.20.0 (System)
 PLACEHOLDER true
 DEPENDENCIES Standard, SysMem, SysTimeRtc, CmpErrors2 Interfaces, * (System), Component Manager
 REDIRECT StringUtils StringUtils, 3.5.20.0 (System)
-MATERIALIZATION 4
+MATERIALIZATION 5

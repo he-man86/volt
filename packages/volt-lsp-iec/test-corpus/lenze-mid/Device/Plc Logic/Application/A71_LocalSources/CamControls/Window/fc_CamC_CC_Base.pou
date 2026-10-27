@@ -11,7 +11,7 @@ END_VAR
 VAR
 END_VAR
 
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   o_xCamControl := i_xEnable BRANCH (i_lrMachinePosition LE i_intStopCam EN
                                        i_lrMachinePosition GE i_intStartCam EN

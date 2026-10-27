@@ -4,7 +4,7 @@ VAR_IN_OUT
 	ioSafetyControlUDT: udtSafety_Control;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 ;
 
 

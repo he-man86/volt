@@ -15,7 +15,7 @@ VAR
 	resettingNotPermittedAlarm	: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^(
 	Data				:= Data,
 	AxisRef				:= AxisRef,
@@ -31,7 +31,7 @@ VAR_INST
 	SetError					: ARRAY[1..2] OF SetErrorFB;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^.Alarms();
 
 SetError[1](
@@ -60,7 +60,7 @@ END_METHOD
 
 METHOD PROTECTED Cyclic
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^.Cyclic();
 
 ReleaseProductsAir[1](	// Upper row
@@ -73,7 +73,7 @@ END_METHOD
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 ReleaseProductsAir[1].Reset();
 ReleaseProductsAir[2].Reset();
 
@@ -83,7 +83,7 @@ END_METHOD
 
 METHOD PUBLIC Initialize
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^.Initialize();
 
 Drive.config.maxVelocity		:= 2;
@@ -100,7 +100,7 @@ VAR_OUTPUT
 	almostSafe		: BOOL;		// Drive almost arrived in position
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF SUPER^.MoveToParking(almostSafe => almostSafe) THEN
 	ReleaseProductsAir[1].Reset();
@@ -120,7 +120,7 @@ VAR_INST
 	Timer					: BTON;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Takeout from mould
 (*
 IF PersistentVars.RecipeVars.ActiveExchangeSet <> enumExchangeSets.FourCavDualTakeover AND PersistentVars.RecipeVars.ActiveExchangeSet <> enumExchangeSets.TwoCavSingleTakeover THEN
@@ -162,7 +162,7 @@ VAR_INST
 	Timer			: BTON;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Transfer
 (*
 IF PersistentVars.RecipeVars.ActiveExchangeSet <> enumExchangeSets.FourCavDualTakeover AND PersistentVars.RecipeVars.ActiveExchangeSet <> enumExchangeSets.TwoCavSingleTakeover THEN
@@ -201,7 +201,7 @@ END_METHOD
 // Command to reset the module. Servodrives are homed.
 METHOD PUBLIC Reset : BOOL	// Returns true when homing done
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF NOT YUnit.InSafePos AND NOT Drive.IsHomed THEN
 	resettingNotPermittedAlarm	:= TRUE;
 	RETURN;
@@ -217,7 +217,7 @@ END_METHOD
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 ReleaseProductsAir[1].Reset();
 ReleaseProductsAir[2].Reset();
 
@@ -234,7 +234,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 //IF PersistentVars.RecipeVars.ActiveExchangeSet <> enumExchangeSets.FourCavDualTakeover AND PersistentVars.RecipeVars.ActiveExchangeSet <> enumExchangeSets.TwoCavSingleTakeover THEN
 	HasPayload := SUPER^.HasPayload;
 (*
@@ -271,7 +271,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 InSafePos := OnParkingPosSensor.IsActive AND Drive.PosReached(Data.ParkingPos.value);
 
 END_GET
@@ -286,7 +286,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 InSafePosForMouldEntry := SUPER^.InSafePosForMouldEntry AND HasPayload = enumPayload.None;
 
 END_GET
@@ -301,7 +301,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IsOnTakeoutPos := (*OnParkingPosSensor.IsInactive AND*) Drive.PosReached(Data.Takeout.Pos.value);
 
 END_GET

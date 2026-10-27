@@ -4,7 +4,7 @@ VAR_INPUT
 	value, lower, upper : ULINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %CLASS CHECK CheckLRangeUnsigned
 IF value >= lower AND value <= upper THEN
 	CheckLRangeUnsigned := value;

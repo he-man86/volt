@@ -4,7 +4,7 @@
  * lsp-same-standard design.md §2.2), which keeps the VAR sections around it.
  */
 import type { AccessPath, VarDecl, Identifier } from "../ast/nodes/index.js"
-import { bodySpanFromTokens } from "../format/implementation-line.js"
+import { bodySpanFromTokens } from "../format/language-line.js"
 import type { Token } from "../lex/tokens.js"
 import type { Keyword } from "../lex/vocabulary.js"
 import { addressShape } from "../literal/address.js"

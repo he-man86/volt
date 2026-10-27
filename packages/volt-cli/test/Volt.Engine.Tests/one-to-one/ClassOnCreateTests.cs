@@ -29,7 +29,7 @@ public class ClassOnCreateTests
         ["check"] = new("CheckBounds", "pou", ItemKind.PlcPou,
             "FUNCTION CheckBounds : DINT\nVAR_INPUT\n\tindex, lower, upper : DINT;\nEND_VAR", "CheckBounds := index;",
             Props(cls: new ObjectClass(ObjectClass.Check, "CheckBounds")),
-            "IMPLEMENTATION ST", new[] { "%CLASS CHECK CheckBounds", "CheckBounds := index;" }),
+            "%LANGUAGE ST", new[] { "%CLASS CHECK CheckBounds", "CheckBounds := index;" }),
         ["textlist-enum"] = new("IQSlices", "dut", ItemKind.PlcDut,
             "TYPE IQSlices :\n(\n\tSliceA,\n\tSliceB\n);\nEND_TYPE", null,
             Props(cls: new ObjectClass(ObjectClass.TextListEnum, null)),
@@ -67,7 +67,7 @@ public class ClassOnCreateTests
     private static string Spelled(Case c) =>
         c.Impl is null
             ? c.Decl + "\n" + string.Join("\n", c.Lines) + "\n"
-            : c.Decl + "\nIMPLEMENTATION ST\n" + string.Join("\n", c.Lines) + "\n\nEND_FUNCTION\n";
+            : c.Decl + "\n%LANGUAGE ST\n" + string.Join("\n", c.Lines) + "\n\nEND_FUNCTION\n";
 
     [Theory, MemberData(nameof(Names))]
     public void The_pull_spells_the_class(string key)

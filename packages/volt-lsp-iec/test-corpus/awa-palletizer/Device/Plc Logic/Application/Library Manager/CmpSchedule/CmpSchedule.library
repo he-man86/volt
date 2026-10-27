@@ -3,4 +3,4 @@ NAMESPACE CmpSchedule
 RESOLUTION CmpSchedule, 3.5.17.0 (System)
 PLACEHOLDER true
 DEPENDENCIES CmpApp, SysTime, SysTypes2 Interfaces, * (System)
-MATERIALIZATION 4
+MATERIALIZATION 5

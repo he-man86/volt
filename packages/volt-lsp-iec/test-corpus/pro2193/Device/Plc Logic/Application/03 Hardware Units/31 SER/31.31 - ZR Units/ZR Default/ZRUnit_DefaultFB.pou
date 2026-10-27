@@ -16,7 +16,7 @@ END_VAR
 VAR CONSTANT
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^(
 	AxisRef				:= AxisRef,
 	DataBrink			:= DataBrink,
@@ -31,7 +31,7 @@ VAR_INST
 //	SetError					: ARRAY[1..1] OF SetErrorFB;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 END_METHOD
 
 METHOD PROTECTED Cyclic
@@ -40,7 +40,7 @@ VAR_INST
 	attachPosition				: ARRAY[1..2] OF AttachPosToButtonFB(							drive			:= Drive);
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Set limits for the positions, and guard the limits
 Data.Takeover.Pos.lowerLimit				:= DataBrink.rSWLimitNeg;
 Data.Takeover.Pos.upperLimit				:= DataBrink.rSWLimitPos;
@@ -60,7 +60,7 @@ END_METHOD
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 Drive.Quickstop(TRUE);
 
@@ -70,7 +70,7 @@ END_METHOD
 
 METHOD PROTECTED Initialize
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^.Initialize();
 
 DriveBrakeLogic.config.holdingTorque		:= -6;
@@ -92,7 +92,7 @@ VAR_INPUT
 	tolerance	: REAL	:= 1.0;	// Defaults to 1 mm
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 PosLargerOrEqual	:= Drive.actPos >= setPos - tolerance
 					AND Drive.IsHomed;
@@ -106,7 +106,7 @@ VAR_INPUT
 	tolerance	: REAL	:= 1.0;	// Defaults to 1 mm
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 PosSmallerOrEqual	:= Drive.actPos <= setPos + tolerance
 					AND Drive.IsHomed;
@@ -120,7 +120,7 @@ VAR_INST
 	result				: UINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -154,7 +154,7 @@ VAR_INPUT
 	position	: REAL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 Drive.SetMovementProfileData(Data.Stacking);
 
@@ -165,7 +165,7 @@ END_METHOD
 // Rotate to Stacking position to get place products on conveyor
 METHOD PUBLIC RotateToStacking : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -184,7 +184,7 @@ END_METHOD
 // Rotate to Takeover position to get products from chain
 METHOD PUBLIC RotateToTakeover : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -203,7 +203,7 @@ END_METHOD
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT GlobalVars.Reset AND Drive.AxisEnabled AND NOT Drive.config.virtualMode THEN
 	Drive.Halt();
@@ -222,7 +222,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 InStackingPosition :=	Drive.AxisEnabled
 					AND Drive.Standstill
 					AND Drive.InPosition
@@ -240,7 +240,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 InTakeoverPosition :=	Drive.AxisEnabled
 					AND Drive.Standstill
 					AND Drive.InPosition

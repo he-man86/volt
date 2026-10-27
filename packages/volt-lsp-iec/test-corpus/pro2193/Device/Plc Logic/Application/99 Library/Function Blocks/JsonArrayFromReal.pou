@@ -19,7 +19,7 @@ VAR CONSTANT
 	arrayDefault		: STRING(10) := 'y*os2# bK(';	// Random string to seed the array with
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 END_FUNCTION_BLOCK
 
@@ -38,7 +38,7 @@ END_VAR
 //		roundingDigits	: USINT(0..4);	// Ok
 //		roundingDigits	: USINT(0..4) := 3;	// Exception!
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Round new measurement and add to array
 latestMeasurement			:= Round(measurement, roundingDigits);
 measurements[latestIndex]	:= TO_STRING(latestMeasurement);
@@ -60,7 +60,7 @@ VAR
 	length			: DINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 jsonString^ := '[';
 
 FOR i := latestIndex TO 0 BY -1 DO

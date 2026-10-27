@@ -8,7 +8,7 @@ The contracts the `volt-lsp-iec` language server guarantees. It covers three con
    LSP-owned.
 2. **The graphical (FBD/LD) sublanguage** the LSP analyzes as readable text — *code correctness* is LSP-owned;
    *format and the vendor round-trip* are bridge-owned (`packages/volt-cli`).
-3. **The on-disk workspace layout** the LSP reads (kind-named files, the `IMPLEMENTATION <LANG>` line) —
+3. **The on-disk workspace layout** the LSP reads (kind-named files, the `%LANGUAGE <LANG>` line) —
    bridge/CLI-owned (the `volt` CLI in `packages/volt-cli` writes and reconciles it); consumed here offline.
 
 This capability is self-contained: together with its sibling docs — `architecture.md` (the layered structure +
@@ -426,13 +426,13 @@ runtime and on bun, are in the suite (`test/lsp/input-nobody-types.test.ts`).
 
 ### Requirement: Graphical CFC/SFC bodies are not diagnosed and carry no read-only marker
 
-The LSP SHALL treat a CFC/SFC body — its line `IMPLEMENTATION CFC|SFC UNSUPPORTED` with nothing under it (see
+The LSP SHALL treat a CFC/SFC body — its line `%LANGUAGE CFC|SFC UNSUPPORTED` with nothing under it (see
 "FBD/LD are editable; CFC/SFC/IL are UNSUPPORTED") — as having no body to analyze: it produces no diagnostics,
 and no code path classifies a body as "read-only" from its content. Read-only *access* for POU languages is not
 a concept the LSP models; such bodies are simply not analyzed and are edited in the IDE.
 
 #### Scenario: A graphical body yields no diagnostics without special detection
-- **WHEN** a POU (or inlined method) body is a CFC/SFC `IMPLEMENTATION <LANG> UNSUPPORTED` line
+- **WHEN** a POU (or inlined method) body is a CFC/SFC `%LANGUAGE <LANG> UNSUPPORTED` line
 - **THEN** the LSP produces no diagnostics for it and does not tag it read-only from content
 
 <!-- ══════════ D. Analyzer — symbol resolution (LSP-owned) ══════════ -->
@@ -632,13 +632,13 @@ The formatter SHALL guarantee three invariants over every formatted document: (A
 ### Requirement: Network text is its own language, routed by the stated language
 
 Editable FBD/LD graphical bodies SHALL be represented as network text — a distinct language
-with its own grammar, parser, and analysis, not Structured Text. A body under `IMPLEMENTATION LD` or
-`IMPLEMENTATION FBD` SHALL be routed to the network-text analysis path; a body under `IMPLEMENTATION ST` is ST, and
+with its own grammar, parser, and analysis, not Structured Text. A body under `%LANGUAGE LD` or
+`%LANGUAGE FBD` SHALL be routed to the network-text analysis path; a body under `%LANGUAGE ST` is ST, and
 nothing sniffs the text. The declaration (`PROGRAM`/`VAR … END_VAR`) remains ordinary ST; the network-text parser
 sees only the body.
 
 #### Scenario: An LD/FBD body is analyzed as network text
-- **WHEN** a POU body is stated `IMPLEMENTATION LD` or `IMPLEMENTATION FBD`
+- **WHEN** a POU body is stated `%LANGUAGE LD` or `%LANGUAGE FBD`
 - **THEN** it is parsed and analyzed by the network-text path, not the ST path
 
 ### Requirement: The round trip is exact and the bridge is the source of truth
@@ -672,23 +672,24 @@ before it is pushed.
 ### Requirement: FBD/LD are editable; CFC/SFC/IL are UNSUPPORTED
 
 ST, FBD, and LD bodies SHALL be read-write and round-trip as text (FBD/LD as editable network text). Every body
-SHALL state its language on the line that ends its declaration — `IMPLEMENTATION ST`, `IMPLEMENTATION LD`,
-`IMPLEMENTATION FBD` — and that line alone SHALL decide whether the ST parser or the network-text parser reads it.
+SHALL state its language on the line that ends its declaration — `%LANGUAGE ST`, `%LANGUAGE LD`,
+`%LANGUAGE FBD` — and that line alone SHALL decide whether the ST parser or the network-text parser reads it.
 CFC, SFC and IL bodies SHALL have **no text representation** and are authored only in the IDE: such a body SHALL
-materialize as its line `IMPLEMENTATION <LANG> UNSUPPORTED` with nothing under it (so SHALL an LD/FBD body network
+materialize as its line `%LANGUAGE <LANG> UNSUPPORTED` with nothing under it (so SHALL an LD/FBD body network
 text cannot spell), SHALL NOT be analyzed as network text or ST, and its DECLARATION SHALL be analyzed as any other.
 The push never writes such a body (openspec `implementation-keyword`).
 
 #### Scenario: A CFC body is materialized as its UNSUPPORTED line
 - **WHEN** a project contains a CFC (or SFC, or IL) body
-- **THEN** it materializes as `IMPLEMENTATION CFC UNSUPPORTED` (the hover on the line explains it) and is not analyzed as network text or ST
+- **THEN** it materializes as `%LANGUAGE CFC UNSUPPORTED` (the hover on the line explains it) and is not analyzed as network text or ST
 
-#### Scenario: An abstract member with no code states IMPLEMENTATION NONE
-- **WHEN** an `ABSTRACT` member (a METHOD, or a GET/SET under `PROPERTY ABSTRACT`) holds no code, on CODESYS or TwinCAT,
-  whatever object the IDE holds it in (openspec `abstract-member-push`, `abstract-member-parity`, DIALECT C2n)
-- **THEN** it materializes as `IMPLEMENTATION NONE` with nothing under it, byte-identical on both vendors, which names no
-  language and is read by neither parser; text under it is a diagnostic on the line ("an abstract member holds no
-  code"), as the push refuses it; and `IMPLEMENTATION NONE UNSUPPORTED` stays a hidden body of a language spelled NONE
+#### Scenario: A member with no body slot states no line
+- **WHEN** a METHOD, or a property's GET/SET, has no body slot in the IDE (CODESYS's `AbstractPOUMethodObject`, an
+  abstract property's `InterfacePropertyAccessorObject`; openspec `language-line`, DIALECT C2n)
+- **THEN** it materializes with no `%LANGUAGE` line and nothing after its declaration (a method's `%FOLDER` closing its
+  declaration), and draws no diagnostic; a member WITH a slot and no code — every TwinCAT abstract member — materializes
+  as `%LANGUAGE ST` with nothing under it; and code after a member's declaration with no line is a diagnostic naming the
+  line to state, as the push refuses it
 
 ### Requirement: Content detection covers whole files and inlined graphical methods
 
@@ -698,15 +699,15 @@ language-named file — so the injection SHALL be keyed purely by the `NETWORK` 
 discriminator the LSP router uses), never by a graphical extension, and SHALL cover both a whole
 graphical POU (e.g. a `.pou` file whose body begins with `NETWORK`) *and* a graphical body inlined
 inside a POU (a graphical method). That token decides COLOUR only. What a body IS — and so what the LSP analyzes —
-is its stated language: `IMPLEMENTATION LD|FBD` is network text, `IMPLEMENTATION ST` is ST, and
-`IMPLEMENTATION <LANG> UNSUPPORTED` is read by neither.
+is its stated language: `%LANGUAGE LD|FBD` is network text, `%LANGUAGE ST` is ST, and
+`%LANGUAGE <LANG> UNSUPPORTED` is read by neither.
 
 #### Scenario: An editable graphical body is read by its stated language
-- **WHEN** a kind-named POU file's body is stated `IMPLEMENTATION LD` or `IMPLEMENTATION FBD`
+- **WHEN** a kind-named POU file's body is stated `%LANGUAGE LD` or `%LANGUAGE FBD`
 - **THEN** it is analyzed as editable network text, regardless of extension, and its `NETWORK` headers are highlighted
 
 #### Scenario: An UNSUPPORTED body is not analyzed
-- **WHEN** a kind-named POU (or inlined method) body is stated `IMPLEMENTATION <LANG> UNSUPPORTED`
+- **WHEN** a kind-named POU (or inlined method) body is stated `%LANGUAGE <LANG> UNSUPPORTED`
 - **THEN** nothing under the line is analyzed as network text or ST, and the empty body produces no diagnostics
 
 <!-- ══════════ F. Workspace file layout & materialization — BRIDGE/CLI-OWNED (LSP consumes) ══════════ -->
@@ -734,7 +735,7 @@ file's outer END line mirrors its own header keyword (`END_PROGRAM` / `END_FUNCT
 
 Because POUs are named by kind, the extension SHALL NOT encode read-only access for a POU. A read-only
 graphical POU (a CFC/SFC/IL body) SHALL materialize with its state in content: its body's line is
-`IMPLEMENTATION <LANG> UNSUPPORTED` (e.g. `IMPLEMENTATION CFC UNSUPPORTED`) with nothing under it, stating that no
+`%LANGUAGE <LANG> UNSUPPORTED` (e.g. `%LANGUAGE CFC UNSUPPORTED`) with nothing under it, stating that no
 implementation is shown and the push never writes one. That a POU's body is hidden SHALL be detected from this
 line, never from the extension; its declaration stays editable. Opaque reference kinds
 (`library`, `task`, `image_pool`, `text_list`, `recipe_manager`, `visualization`, `visualization_manager`,
@@ -743,7 +744,7 @@ folder SHALL remain a `.gitkeep` marker.
 
 #### Scenario: A CFC POU states its hidden body in content
 - **WHEN** the IDE contains a function block whose body is a CFC chart
-- **THEN** it materializes as `<name>.pou` whose body line is `IMPLEMENTATION CFC UNSUPPORTED` — no `.cfc` extension and no wire flag mark it
+- **THEN** it materializes as `<name>.pou` whose body line is `%LANGUAGE CFC UNSUPPORTED` — no `.cfc` extension and no wire flag mark it
 
 #### Scenario: A reference kind keeps its extension and is read-only
 - **WHEN** the IDE contains a library, task, or visualization
@@ -751,8 +752,8 @@ folder SHALL remain a `.gitkeep` marker.
 
 ### Requirement: Access is read from content; kind from content
 
-The CLI SHALL derive a POU body's push-ability from its content — a body stated `IMPLEMENTATION <LANG> UNSUPPORTED`
-is never written (its declaration still pushes), a body stated `IMPLEMENTATION ST|LD|FBD` is writable — while
+The CLI SHALL derive a POU body's push-ability from its content — a body stated `%LANGUAGE <LANG> UNSUPPORTED`
+is never written (its declaration still pushes), a body stated `%LANGUAGE ST|LD|FBD` is writable — while
 reference kinds stay read-only by their extension. The bridge SHALL take an item's kind from its wire name's
 extension on push-back, never from its declaration header (openspec push-without-header-check): the text is written as
 sent, and what it declares is the IDE's and its build's business. The kind-based naming SHALL NOT lose kind or access
@@ -763,7 +764,7 @@ information.
 - **THEN** the bridge takes the kind from the extension and writes the text as sent (a POU whose text now says PROGRAM where it said FUNCTION_BLOCK is an ordinary update of `<name>.pou`; the IDE derives what it is from the declaration)
 
 #### Scenario: A hidden body is never written
-- **WHEN** a `.pou` file whose body is stated `IMPLEMENTATION CFC UNSUPPORTED` has its declaration edited and is pushed
+- **WHEN** a `.pou` file whose body is stated `%LANGUAGE CFC UNSUPPORTED` has its declaration edited and is pushed
 - **THEN** the declaration is pushed and the IDE's chart is left exactly as it was; code added under the line is refused by name
 
 ### Requirement: Library signatures materialize under the Library Manager, not a separate tree

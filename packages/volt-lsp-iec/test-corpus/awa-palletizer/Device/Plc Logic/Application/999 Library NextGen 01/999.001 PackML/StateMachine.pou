@@ -12,7 +12,7 @@ VAR
 	CmdAbortDoneRT : R_TRIG;	
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 END_FUNCTION_BLOCK
 
@@ -27,7 +27,7 @@ VAR_INPUT
 	xForce: BOOL := FALSE;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 //
 // HMI input.
 //
@@ -236,7 +236,7 @@ VAR_IN_OUT
 	myState: strState;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF myState.xCmdModeAutomatic THEN myState.enMode := enMode.AUTOMATIC; END_IF
 IF myState.xCmdModeManual    THEN myState.enMode := enMode.MANUAL;    END_IF
 IF myState.xCmdModeCleaning  THEN myState.enMode := enMode.CLEANING;  END_IF
@@ -245,7 +245,7 @@ IF myState.xCmdModeCleaning  THEN myState.enMode := enMode.CLEANING;  END_IF
 END_METHOD
 
 ACTION Aborted
-IMPLEMENTATION ST
+%LANGUAGE ST
 //----------------------------------------------------------------------------------	 
 // Aborted
 //----------------------------------------------------------------------------------
@@ -253,7 +253,7 @@ IMPLEMENTATION ST
 END_ACTION
 
 ACTION Aborting
-IMPLEMENTATION ST
+%LANGUAGE ST
 //----------------------------------------------------------------------------------	 
 // Aborting
 //----------------------------------------------------------------------------------
@@ -262,7 +262,7 @@ IMPLEMENTATION ST
 END_ACTION
 
 ACTION Executing
-IMPLEMENTATION ST
+%LANGUAGE ST
 //-------------------------------------------------------------------------------------
 // Executing
 //-------------------------------------------------------------------------------------
@@ -270,7 +270,7 @@ IMPLEMENTATION ST
 END_ACTION
 
 ACTION Idle
-IMPLEMENTATION ST
+%LANGUAGE ST
 //-------------------------------------------------------------------------------------
 // Idle
 //-------------------------------------------------------------------------------------
@@ -278,7 +278,7 @@ IMPLEMENTATION ST
 END_ACTION
 
 ACTION Initialize
-IMPLEMENTATION ST
+%LANGUAGE ST
 //-------------------------------------------------------------------------------------
 // Initialize
 //-------------------------------------------------------------------------------------
@@ -286,7 +286,7 @@ IMPLEMENTATION ST
 END_ACTION
 
 ACTION Resetting
-IMPLEMENTATION ST
+%LANGUAGE ST
 //-------------------------------------------------------------------------------------
 // Resetting
 //-------------------------------------------------------------------------------------
@@ -294,7 +294,7 @@ IMPLEMENTATION ST
 END_ACTION
 
 ACTION Starting
-IMPLEMENTATION ST
+%LANGUAGE ST
 //-------------------------------------------------------------------------------------
 // Starting
 //-------------------------------------------------------------------------------------
@@ -302,7 +302,7 @@ IMPLEMENTATION ST
 END_ACTION
 
 ACTION Stopped
-IMPLEMENTATION ST
+%LANGUAGE ST
 //-------------------------------------------------------------------------------------
 // Stopped
 //-------------------------------------------------------------------------------------
@@ -310,7 +310,7 @@ IMPLEMENTATION ST
 END_ACTION
 
 ACTION Stopping
-IMPLEMENTATION ST
+%LANGUAGE ST
 //-------------------------------------------------------------------------------------
 // Stopping
 //-------------------------------------------------------------------------------------

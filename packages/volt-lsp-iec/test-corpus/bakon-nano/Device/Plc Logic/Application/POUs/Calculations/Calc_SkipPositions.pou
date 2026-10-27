@@ -5,7 +5,7 @@ VAR
 	n					: INT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 (* Delete all impossible cutting positions in array *)
 
 (* init counters *)

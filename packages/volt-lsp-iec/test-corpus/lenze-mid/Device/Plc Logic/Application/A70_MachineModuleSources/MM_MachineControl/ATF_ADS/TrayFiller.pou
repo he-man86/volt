@@ -88,7 +88,7 @@ END_VAR
 VAR_IN_OUT
 	ioActNumberOfRows: INT;
 END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK TITLE: "DONE NETWORK 1: Condition: Reset all"
   stRestposition S= bReturnInfeedConv R= stInpushingRow R= stDecendTray R= stTrayDecended R= stTiltInpusher R= stReturnInpusher R= stLowerInpusher R= stMoveElevatorUp R= stMoveElevatorDown R= stElevatorAtBottom R= stOutfeedTray R= stTrayFedOut R= stElevatorAtTop R= stInfeedTray R= stLightCurtainInterruptedBeforeStart R= stLightCurtainInterruptedDuringInpushing R= stTrayFaultOutfeeding R= bRecoverFromLightCurtainInterrupted R= stSrCigarAtEnd R= LST_General.FirstCycle;
 END_NETWORK

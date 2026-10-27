@@ -13,7 +13,7 @@ VAR
 	{attribute 'hide'}	noProgramWarningDone		: BIT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^();
 
 noProgramWarningDone R= NOT noProgramWarningBusy;
@@ -29,7 +29,6 @@ METHOD PROTECTED ABSTRACT Cyclic
 
 // Modules with a State must have a Cyclic method: to call State FB
 
-IMPLEMENTATION NONE
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
@@ -59,25 +58,22 @@ EStop := TRUE;
 
  *)
 
-IMPLEMENTATION NONE
 END_METHOD
 
 // After a state change, this method is called to execute the current state
 METHOD PROTECTED ABSTRACT Execute
 
-IMPLEMENTATION NONE
 END_METHOD
 
 // Here is the State Machine for the default exchangeset
 METHOD PROTECTED ABSTRACT Execute_Sequence1
 
-IMPLEMENTATION NONE
 END_METHOD
 
 // Logs a warning in the PLC log when there is a module that has not defined a program for an exchange set.
 METHOD PROTECTED ShowNoProgramWarning
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Only write the log message once, the first time the method is executed.
 IF NOT noProgramWarningDone THEN
 	LogPlc.Warn(CONCAT3(InstanceName, ': No program for: ', TO_STRING(PersistentVars.RecipeVars.ActiveExchangeSet)));
@@ -91,5 +87,4 @@ END_METHOD
 // Command to stop a module (Statemachine to zero state)
 METHOD PUBLIC ABSTRACT Stop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION NONE
 END_METHOD

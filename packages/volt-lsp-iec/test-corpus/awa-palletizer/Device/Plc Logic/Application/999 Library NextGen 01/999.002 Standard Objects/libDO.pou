@@ -35,7 +35,7 @@ VAR
 	FTRIG_edX : F_TRIG;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 //------------------------------------------------------------------------------------------
 // This function controls a digital output.
 //

@@ -73,7 +73,7 @@ VAR
 \tout : BOOL;
 \tafter : BOOL;
 END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   out := TRUE;
   JMP Onwards := ;
@@ -99,7 +99,7 @@ VAR
 \tdone : BOOL;
 \tlater : BOOL;
 END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   JMP Tail := cond;
 END_NETWORK
@@ -133,7 +133,7 @@ VAR
 \tbStart : BOOL;
 \ttarget : INT;
 END_VAR
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   EXECUTE
 IF bStart THEN
@@ -163,7 +163,7 @@ END_VAR
 VAR_OUTPUT
 \tdoubled : INT;
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 doubled := source * 2;
 VltRefSplit := source + 1;
 
@@ -178,7 +178,7 @@ VAR
 \tnext : INT;
 \ttwice : INT;
 END_VAR
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   next := VltRefSplit(src, doubled => twice);
 END_NETWORK
@@ -192,7 +192,7 @@ VAR
 \tnext : INT;
 \ttwice : INT;
 END_VAR
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   next := VltRefSplit(source := src, doubled => twice);
 END_NETWORK
@@ -278,7 +278,7 @@ describe(`graphical / editing a body INTO a refused shape (${BASE})`, () => {
 
 	const NL = String.fromCharCode(10)
 	const prg = (name: string, vars: readonly string[], nets: readonly string[]) =>
-		["PROGRAM " + name, "VAR", ...vars, "END_VAR", "IMPLEMENTATION FBD", ...nets, "END_PROGRAM", ""].join(NL)
+		["PROGRAM " + name, "VAR", ...vars, "END_VAR", "%LANGUAGE FBD", ...nets, "END_PROGRAM", ""].join(NL)
 
 	const BOOLS = ["\ta : BOOL;", "\tout : BOOL;"]
 
@@ -378,7 +378,7 @@ VAR
 \tbRun : BOOL;
 \ttarget : INT;
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 target := 0;
 
 END_FUNCTION_BLOCK
@@ -390,7 +390,7 @@ END_FUNCTION_BLOCK
 		const withMethod = `${v1.sourceText.trimEnd()}
 
 METHOD Step : BOOL
-IMPLEMENTATION FBD
+%LANGUAGE FBD
 NETWORK
   EXECUTE
 target := 40 + 2;
@@ -401,7 +401,7 @@ END_METHOD
 `
 		const before = await bridge.refs()
 		const r = await pushOps([
-			{ op: "set", name: first, sourceText: `PROGRAM ${id("nm_first")}\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\n\nEND_PROGRAM\n`, ifVersion: null },
+			{ op: "set", name: first, sourceText: `PROGRAM ${id("nm_first")}\nVAR\nEND_VAR\n%LANGUAGE ST\n;\n\nEND_PROGRAM\n`, ifVersion: null },
 			{ op: "set", name: owner, sourceText: withMethod, ifVersion: v1.version },
 		])
 

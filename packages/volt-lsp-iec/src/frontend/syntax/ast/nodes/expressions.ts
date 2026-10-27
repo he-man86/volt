@@ -1,5 +1,5 @@
 /**
- * THE AST'S LEAVES AND EXPRESSIONS — identifiers, opaque body spans and the `IMPLEMENTATION` line, the expression
+ * THE AST'S LEAVES AND EXPRESSIONS — identifiers, opaque body spans and the `%LANGUAGE` line, the expression
  * tree, and the initializers built of it. One family of `ast/nodes/` (openspec lsp-same-standard design.md §8).
  */
 import type { Token } from "../../lex/tokens.js"
@@ -21,48 +21,47 @@ export interface Identifier {
  */
 export interface BodySpan {
   kind: "body"
-  /** A POU body's CODE: what the IDE holds, its keyword line (and a member's `%FOLDER` under it) taken out. */
+  /** A POU body's CODE: what the IDE holds, its `%LANGUAGE` line and the `%`-lines under it taken out. */
   tokens: Token[]
   span: Span
   /** The vocabulary the tokens were lexed with — the statement parser refuses a type name only where the type exists
    *  (`syntax/lex/vocabulary.ts` `isRefusedWord`). */
   dialect: Dialect
-  /** The `IMPLEMENTATION <LANG>` line that opened the body — absent for a body that opens with anything else
-   *  (`syntax/format/implementation-line`). */
-  implementation?: ImplementationLine
+  /** The `%LANGUAGE <LANG>` line that opened the body — absent for a body with none (`syntax/format/language-line`). */
+  languageLine?: LanguageLine
+  /** A METHOD's or a property accessor's body with NO `%LANGUAGE` line and nothing after its declaration: a member whose
+   *  IDE object has no body slot (DIALECT C2n, openspec `language-line`). A method's property lines close its
+   *  declaration (`property-peel.ts` `peelClosingProperties`) and are kept here for what prints the body back. */
+  noSlot?: { folder?: string; objectProperties?: readonly string[] }
 }
 
-/** What an `IMPLEMENTATION` line states (`syntax/format/implementation-line`, the bridge's `ImplementationMarker`). */
-export type ImplementationStatement =
+/** What a `%LANGUAGE` line states (`syntax/format/object-properties`, the bridge's `PropertyLines`). */
+export type LanguageStatement =
   /** `ST`, `LD` or `FBD`: a body a parser reads. */
   | { kind: "read"; language: "ST" | "LD" | "FBD" }
   /** A language and `UNSUPPORTED` (never ST): a body Volt does not show, empty and read by neither parser. */
   | { kind: "unsupported"; language: string }
-  /** `IMPLEMENTATION NONE`: a member the IDE holds with NO body slot (a CODESYS abstract method or abstract property's
-   *  GET — openspec `abstract-member-push`, DIALECT C2n). No language; nothing under it, read by neither parser. Not
-   *  `IMPLEMENTATION NONE UNSUPPORTED`, which is a hidden body of a vendor language spelled NONE. */
-  | { kind: "none" }
-  // A line that only LOOKS like the boundary — the keyword alone, a bare CFC/SFC/IL, a word no body can state — is no
-  // boundary line and so no statement (openspec bridge-refusal-review D9): it is code, named only as the hint of the
-  // finding for a body that states no language (`lookalikeLine`).
 
-export interface ImplementationLine {
+export interface LanguageLine {
   /** The line as written, trimmed. */
   text: string
-  statement: ImplementationStatement
-  /** From the keyword to the line's last word. */
+  /** What it states — absent for a line that states no body (`%LANGUAGE CFC`, `%LANGUAGE`), which the parse reports by
+   *  name and whose body neither parser reads. */
+  statement?: LanguageStatement
+  /** From the `%` to the line's last word. */
   span: Span
-  /** The words an editor colours as keywords: the whole statement. */
+  /** The words an editor colours as keywords: the whole line. */
   words: Token[]
-  /** The comments and pragmas between the declaration and this line, as written (trimmed), when there are any. They
-   *  are DECLARATION text on the push side — a `{warning}` or `{attribute}` pragma means something there — and neither
-   *  code nor the line, so they are out of the body's tokens and kept here for what prints the body back. */
+  /** What stands between the declaration and this line, as written (trimmed), when there is any: comments, pragmas — a
+   *  `{warning}` or `{attribute}` pragma means something there — and declaration text the declaration parser did not take
+   *  (`END_VAR;`'s `;`). DECLARATION text on the push side, and neither code nor the line, so it is out of the body's
+   *  tokens and kept here for what prints the body back. */
   leading?: string
   /** The path of a member's `%FOLDER` directive on the line directly under this one — taken out of the body with the
    *  line, and kept here so what prints the body (the formatter) prints it back. */
   folder?: string
   /** The object's other `%`-lines under this one (`%CLASS`, `%EXCLUDE_FROM_BUILD`, …), as written, in order — its
-   *  properties, not code (`object-properties.ts` `peelProperties`); kept so the formatter prints them back. */
+   *  properties, not code (`property-peel.ts` `peelProperties`); kept so the formatter prints them back. */
   objectProperties?: readonly string[]
 }
 

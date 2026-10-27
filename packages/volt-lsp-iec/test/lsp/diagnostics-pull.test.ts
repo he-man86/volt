@@ -20,7 +20,7 @@ import { computed, resetComputes } from "./probes.js"
 import { tempWorkspace } from "./sources.js"
 
 /** Two PROGRAMs (task roots by default, so neither is dead) that use nothing of each other. */
-const PA = `PROGRAM PA\nVAR\n\tb : BOOL;\n\ti : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := i + 1;\nEND_PROGRAM\n`
+const PA = `PROGRAM PA\nVAR\n\tb : BOOL;\n\ti : INT;\nEND_VAR\n%LANGUAGE ST\ni := i + 1;\nEND_PROGRAM\n`
 const PB = PA.replace("PROGRAM PA", "PROGRAM PB")
 /** PA with a type error (C0032) — an edit that moves PA's findings and nobody else's. */
 const PA_BROKEN = PA.replace("i := i + 1;", "i := b;")

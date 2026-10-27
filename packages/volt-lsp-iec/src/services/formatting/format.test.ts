@@ -13,11 +13,11 @@ function normalize(value: unknown): unknown {
   if (value !== null && typeof value === "object") {
     const obj = value as Record<string, unknown>
     if (obj.kind === "body") {
-      // The body's `IMPLEMENTATION` line and a member's `%FOLDER` under it are compared too: they are out of the body's
+      // The body's `%LANGUAGE` line and a member's `%FOLDER` under it are compared too: they are out of the body's
       // tokens, so a gate that looked at the statements alone passed a printer that deleted both from every file. So is
       // what stands between the declaration and the line (`leading`), which is out of the tokens for the same reason — its
       // line endings are layout, which the printer writes as `\n`.
-      const line = (obj as { implementation?: { statement: unknown; folder?: string; objectProperties?: readonly string[]; leading?: string } }).implementation
+      const line = (obj as { noSlot?: unknown; languageLine?: { statement: unknown; folder?: string; objectProperties?: readonly string[]; leading?: string } }).languageLine
       return {
         kind: "body",
         implementation: line === undefined ? undefined : { statement: line.statement, folder: line.folder, objectProperties: line.objectProperties, leading: line.leading?.replace(/\r\n/g, "\n") },
@@ -226,40 +226,40 @@ test("formatting keeps a declaration's REF=, which is a bind and not an assignme
 })
 
 /**
- * THE `IMPLEMENTATION` LINE AND A MEMBER'S `%FOLDER` SURVIVE FORMATTING. Both stand OUTSIDE a body's tokens (the line
+ * THE `%LANGUAGE` LINE AND A MEMBER'S `%FOLDER` SURVIVE FORMATTING. Both stand OUTSIDE a body's tokens (the line
  * is no code in any language, and the folder is metadata under it), so a printer that rebuilt a body from its tokens
  * alone deleted them: an LD body lost the line that states its language and read as ST, every rung a parse error, and
  * a member lost its folder, which the next push then took for "no folder" and moved the member to the POU's root.
  */
-test("formatting keeps every body's IMPLEMENTATION line, and a member's %FOLDER under it", () => {
+test("formatting keeps every body's %LANGUAGE line, and a member's %FOLDER under it", () => {
   const cases: Record<string, { src: string; kept: string[] }> = {
     "an ST function block": {
-      src: "FUNCTION_BLOCK FB\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := x + 1;\nEND_FUNCTION_BLOCK\n",
-      kept: ["END_VAR\nIMPLEMENTATION ST\nx := x + 1;\n"],
+      src: "FUNCTION_BLOCK FB\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\nx := x + 1;\nEND_FUNCTION_BLOCK\n",
+      kept: ["END_VAR\n%LANGUAGE ST\nx := x + 1;\n"],
     },
     "a ladder": {
-      src: "FUNCTION_BLOCK G\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  out := a;\nEND_NETWORK\nEND_FUNCTION_BLOCK\n",
-      kept: ["END_VAR\nIMPLEMENTATION LD\nNETWORK\n  out := a;\nEND_NETWORK\n"],
+      src: "FUNCTION_BLOCK G\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR\n%LANGUAGE LD\nNETWORK\n  out := a;\nEND_NETWORK\nEND_FUNCTION_BLOCK\n",
+      kept: ["END_VAR\n%LANGUAGE LD\nNETWORK\n  out := a;\nEND_NETWORK\n"],
     },
     "a method in a folder": {
-      src: "METHOD M : INT\nIMPLEMENTATION ST\n%FOLDER Sub/Deep\nM := 1;\nEND_METHOD\n",
-      kept: ["IMPLEMENTATION ST\n%FOLDER Sub/Deep\nM := 1;\n"],
+      src: "METHOD M : INT\n%LANGUAGE ST\n%FOLDER Sub/Deep\nM := 1;\nEND_METHOD\n",
+      kept: ["%LANGUAGE ST\n%FOLDER Sub/Deep\nM := 1;\n"],
     },
     "an action in a folder": {
-      src: "ACTION A\nIMPLEMENTATION ST\n%FOLDER Sub\nx := 1;\nEND_ACTION\n",
-      kept: ["ACTION A\nIMPLEMENTATION ST\n%FOLDER Sub\nx := 1;\n"],
+      src: "ACTION A\n%LANGUAGE ST\n%FOLDER Sub\nx := 1;\nEND_ACTION\n",
+      kept: ["ACTION A\n%LANGUAGE ST\n%FOLDER Sub\nx := 1;\n"],
     },
     "a hidden member in a folder": {
-      src: "METHOD Chart\nIMPLEMENTATION CFC UNSUPPORTED\n%FOLDER Sub\nEND_METHOD\n",
-      kept: ["METHOD Chart\nIMPLEMENTATION CFC UNSUPPORTED\n%FOLDER Sub\nEND_METHOD"],
+      src: "METHOD Chart\n%LANGUAGE CFC UNSUPPORTED\n%FOLDER Sub\nEND_METHOD\n",
+      kept: ["METHOD Chart\n%LANGUAGE CFC UNSUPPORTED\n%FOLDER Sub\nEND_METHOD"],
     },
     "a POU's and a member's %-lines": {
       src:
-        "FUNCTION_BLOCK FB\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n%EXCLUDE_FROM_BUILD\n%COMMENT 'a$'b'\nx := 1;\nEND_FUNCTION_BLOCK\n\n" +
-        "METHOD M\nIMPLEMENTATION ST\n%CLASS CHECK CheckBounds\n%FOLDER Sub\n%LINK_ALWAYS\nx := 2;\nEND_METHOD\n",
+        "FUNCTION_BLOCK FB\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\n%EXCLUDE_FROM_BUILD\n%COMMENT 'a$'b'\nx := 1;\nEND_FUNCTION_BLOCK\n\n" +
+        "METHOD M\n%LANGUAGE ST\n%CLASS CHECK CheckBounds\n%FOLDER Sub\n%LINK_ALWAYS\nx := 2;\nEND_METHOD\n",
       kept: [
-        "IMPLEMENTATION ST\n%EXCLUDE_FROM_BUILD\n%COMMENT 'a$'b'\nx := 1;\n",
-        "IMPLEMENTATION ST\n%CLASS CHECK CheckBounds\n%FOLDER Sub\n%LINK_ALWAYS\nx := 2;\n",
+        "%LANGUAGE ST\n%EXCLUDE_FROM_BUILD\n%COMMENT 'a$'b'\nx := 1;\n",
+        "%LANGUAGE ST\n%CLASS CHECK CheckBounds\n%FOLDER Sub\n%LINK_ALWAYS\nx := 2;\n",
       ],
     },
     "a DUT's %-lines": {
@@ -275,8 +275,8 @@ test("formatting keeps every body's IMPLEMENTATION line, and a member's %FOLDER 
       kept: ["INTERFACE I\n%EXTERNAL\n", "%FOLDER A\n%EXTERNAL\n\tEND_METHOD", "INT\n%FOLDER B\n%EXTERNAL\n\tGET"],
     },
     "a property's accessors": {
-      src: "PROPERTY P : INT\nGET\nIMPLEMENTATION ST\nP := 1;\nEND_GET\nSET\nIMPLEMENTATION FBD UNSUPPORTED\nEND_SET\nEND_PROPERTY\n",
-      kept: ["IMPLEMENTATION ST\nP := 1;\nEND_GET","IMPLEMENTATION FBD UNSUPPORTED\nEND_SET"],
+      src: "PROPERTY P : INT\nGET\n%LANGUAGE ST\nP := 1;\nEND_GET\nSET\n%LANGUAGE FBD UNSUPPORTED\nEND_SET\nEND_PROPERTY\n",
+      kept: ["%LANGUAGE ST\nP := 1;\nEND_GET","%LANGUAGE FBD UNSUPPORTED\nEND_SET"],
     },
   }
   for (const [name, { src, kept }] of Object.entries(cases)) {
@@ -302,9 +302,9 @@ test("formatting keeps a property's and an interface member's %FOLDER, and an in
   const cases: Record<string, { src: string; kept: string[]; gone: string[] }> = {
     "a property in a folder": {
       src:
-        "FUNCTION_BLOCK F\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\nEND_FUNCTION_BLOCK\n\n" +
-        "PROPERTY P : INT\n%FOLDER sub/dir\nGET\nIMPLEMENTATION ST\nP := x;\nEND_GET\nEND_PROPERTY\n",
-      kept: ["PROPERTY P : INT\n%FOLDER sub/dir\nGET\nIMPLEMENTATION ST\nP := x;\nEND_GET\nEND_PROPERTY"],
+        "FUNCTION_BLOCK F\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\nx := 1;\nEND_FUNCTION_BLOCK\n\n" +
+        "PROPERTY P : INT\n%FOLDER sub/dir\nGET\n%LANGUAGE ST\nP := x;\nEND_GET\nEND_PROPERTY\n",
+      kept: ["PROPERTY P : INT\n%FOLDER sub/dir\nGET\n%LANGUAGE ST\nP := x;\nEND_GET\nEND_PROPERTY"],
       // An accessor with no VAR section gained a blank line under its keyword — which the push keeps as the
       // accessor's (a leading newline is the engineer's blank line, `StWriter.AssembleAccessor`).
       gone: ["GET\n\n"],
@@ -328,19 +328,19 @@ test("formatting keeps a property's and an interface member's %FOLDER, and an in
 })
 
 /**
- * A CRLF FILE GAINS NO BLANK LINE UNDER ITS `IMPLEMENTATION` LINE. The line's own newline token opens the body's tokens,
+ * A CRLF FILE GAINS NO BLANK LINE UNDER ITS `%LANGUAGE` LINE. The line's own newline token opens the body's tokens,
  * and a verbatim body stripped only a leading `\n` — so a `\r\n` stayed, under the `\n` the head already printed: a blank
  * line the push writes into the IDE body (a leading newline is the engineer's), and a file of mixed line endings.
  */
-test("formatting a CRLF file adds no blank line under the IMPLEMENTATION line or a member's %FOLDER", () => {
+test("formatting a CRLF file adds no blank line under the %LANGUAGE line or a member's %FOLDER", () => {
   const cases = {
-    "a ladder": "FUNCTION_BLOCK F\r\nVAR\r\n\tx : BOOL;\r\nEND_VAR\r\nIMPLEMENTATION LD\r\nNETWORK\r\n  x := TRUE;\r\nEND_NETWORK\r\nEND_FUNCTION_BLOCK\r\n",
-    "a ladder method in a folder": "METHOD M\r\nIMPLEMENTATION LD\r\n%FOLDER a\r\nNETWORK\r\n  M := TRUE;\r\nEND_NETWORK\r\nEND_METHOD\r\n",
-    "a commented ST body": "FUNCTION_BLOCK F\r\nVAR\r\n\tx : INT;\r\nEND_VAR\r\nIMPLEMENTATION ST\r\n// c\r\nx := 1;\r\nEND_FUNCTION_BLOCK\r\n",
+    "a ladder": "FUNCTION_BLOCK F\r\nVAR\r\n\tx : BOOL;\r\nEND_VAR\r\n%LANGUAGE LD\r\nNETWORK\r\n  x := TRUE;\r\nEND_NETWORK\r\nEND_FUNCTION_BLOCK\r\n",
+    "a ladder method in a folder": "METHOD M\r\n%LANGUAGE LD\r\n%FOLDER a\r\nNETWORK\r\n  M := TRUE;\r\nEND_NETWORK\r\nEND_METHOD\r\n",
+    "a commented ST body": "FUNCTION_BLOCK F\r\nVAR\r\n\tx : INT;\r\nEND_VAR\r\n%LANGUAGE ST\r\n// c\r\nx := 1;\r\nEND_FUNCTION_BLOCK\r\n",
   }
   for (const [name, src] of Object.entries(cases)) {
     const out = formatDocument({ uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") })
-    expect({ name, out, blankLine: /(IMPLEMENTATION [A-Z]+|%FOLDER a)\r?\n\r?\n/.test(out), cr: out.includes("\r") }).toEqual({
+    expect({ name, out, blankLine: /(%LANGUAGE [A-Z]+|%FOLDER a)\r?\n\r?\n/.test(out), cr: out.includes("\r") }).toEqual({
       name,
       out,
       blankLine: false,
@@ -350,16 +350,16 @@ test("formatting a CRLF file adds no blank line under the IMPLEMENTATION line or
 })
 
 /**
- * WHAT STANDS BETWEEN A DECLARATION AND ITS `IMPLEMENTATION` LINE SURVIVES FORMATTING. It is declaration text on the
+ * WHAT STANDS BETWEEN A DECLARATION AND ITS `%LANGUAGE` LINE SURVIVES FORMATTING. It is declaration text on the
  * push side — a `{warning}` or `{attribute}` pragma means something there — and it is neither code nor the line, so
  * the body splitter set it aside and nothing printed it back.
  */
-test("formatting keeps a comment or pragma between the declaration and the IMPLEMENTATION line", () => {
+test("formatting keeps a comment or pragma between the declaration and the %LANGUAGE line", () => {
   for (const between of ["{warning 'keep'}", "// keep me", "(* keep me *)"]) {
-    const src = `FUNCTION_BLOCK F\nVAR\n\tx : INT;\nEND_VAR\n${between}\nIMPLEMENTATION ST\nx := 1;\nEND_FUNCTION_BLOCK\n`
+    const src = `FUNCTION_BLOCK F\nVAR\n\tx : INT;\nEND_VAR\n${between}\n%LANGUAGE ST\nx := 1;\nEND_FUNCTION_BLOCK\n`
     const doc: Document = { uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
     const out = formatDocument(doc)
-    expect({ between, out, kept: out.includes(`END_VAR\n${between}\nIMPLEMENTATION ST\n`) }).toEqual({ between, out, kept: true })
+    expect({ between, out, kept: out.includes(`END_VAR\n${between}\n%LANGUAGE ST\n`) }).toEqual({ between, out, kept: true })
     astEqual(doc.parseResult, parseSource(out, { networkText: true }, "codesys"))
   }
 })
@@ -500,9 +500,9 @@ END_FUNCTION_BLOCK`
  */
 test("range formatting: applying the edits to formatted text changes nothing, for every unit kind", () => {
   const units = [
-    "{attribute 'qualified_only'}\nFUNCTION_BLOCK FB_A\nVAR\n\ti : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := 1;\nEND_FUNCTION_BLOCK",
-    "FUNCTION F_B : INT\nVAR_INPUT\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nF_B := x;\nEND_FUNCTION",
-    "PROGRAM P_C\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := n + 1;\nEND_PROGRAM",
+    "{attribute 'qualified_only'}\nFUNCTION_BLOCK FB_A\nVAR\n\ti : INT;\nEND_VAR\n%LANGUAGE ST\ni := 1;\nEND_FUNCTION_BLOCK",
+    "FUNCTION F_B : INT\nVAR_INPUT\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\nF_B := x;\nEND_FUNCTION",
+    "PROGRAM P_C\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE ST\nn := n + 1;\nEND_PROGRAM",
     "INTERFACE I_D\nMETHOD M : BOOL\nEND_METHOD\nEND_INTERFACE",
     "TYPE E_E :\n(\n\tA,\n\tB\n);\nEND_TYPE",
     "TYPE S_F :\nSTRUCT\n\tx : INT;\nEND_STRUCT\nEND_TYPE",
@@ -523,10 +523,10 @@ test("range formatting: applying the edits to formatted text changes nothing, fo
 })
 
 test("range formatting: a file of several units keeps every other unit and each END_ keyword once", () => {
-  const src = "FUNCTION_BLOCK A\nVAR\n\ti : INT;\nEND_VAR\nIMPLEMENTATION ST\ni:=1;\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK B\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n"
+  const src = "FUNCTION_BLOCK A\nVAR\n\ti : INT;\nEND_VAR\n%LANGUAGE ST\ni:=1;\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK B\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK\n"
   const doc: Document = { uri: "u", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
   const applied = TextDocument.applyEdits(TextDocument.create("u", "st", 1, src), formatRange(doc, { start: { line: 5, character: 0 }, end: { line: 5, character: 5 } }))
-  expect(applied).toBe("FUNCTION_BLOCK A\nVAR\n\ti : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := 1;\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK B\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n")
+  expect(applied).toBe("FUNCTION_BLOCK A\nVAR\n\ti : INT;\nEND_VAR\n%LANGUAGE ST\ni := 1;\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK B\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK\n")
 })
 
 /**
@@ -538,13 +538,13 @@ test("range formatting: a file of several units keeps every other unit and each 
  */
 test("formatting keeps every comment in a declaration and between units, for the document and a range", () => {
   const cases: [string, string, string[]][] = [
-    ["an FB's VAR comments", "FUNCTION_BLOCK A\nVAR\n\ti : INT; // counter\n\t(* the limit *)\n\tj : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := 1;\nEND_FUNCTION_BLOCK\n", ["// counter", "(* the limit *)"]],
+    ["an FB's VAR comments", "FUNCTION_BLOCK A\nVAR\n\ti : INT; // counter\n\t(* the limit *)\n\tj : INT;\nEND_VAR\n%LANGUAGE ST\ni := 1;\nEND_FUNCTION_BLOCK\n", ["// counter", "(* the limit *)"]],
     ["a STRUCT member's comment", "TYPE S :\nSTRUCT\n\tx : INT; // x pos\nEND_STRUCT\nEND_TYPE\n", ["// x pos"]],
     ["a GVL's comment", "VAR_GLOBAL\n\tg : INT; // note\nEND_VAR\n", ["// note"]],
-    ["a header comment", "(* file header *)\nFUNCTION_BLOCK A\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n", ["(* file header *)"]],
+    ["a header comment", "(* file header *)\nFUNCTION_BLOCK A\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK\n", ["(* file header *)"]],
     [
       "a comment between units",
-      "FUNCTION_BLOCK A\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n(* doc for B *)\nFUNCTION_BLOCK B\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n// trailing\n",
+      "FUNCTION_BLOCK A\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK\n(* doc for B *)\nFUNCTION_BLOCK B\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK\n// trailing\n",
       ["(* doc for B *)", "// trailing"],
     ],
   ]
@@ -563,10 +563,10 @@ test("formatting keeps every comment in a declaration and between units, for the
 })
 
 // A CRLF file's line comment is lexed with its `\r`, which the printer does not write: compared as lexed, a comment the
-// reprint DOES keep (`METHOD M : BOOL // …` before its IMPLEMENTATION line) read as dropped, the unit was kept as
+// reprint DOES keep (`METHOD M : BOOL // …` before its %LANGUAGE line) read as dropped, the unit was kept as
 // written on the first pass and reprinted on the second — the formatter was not idempotent on three corpus files.
 test("formatting a CRLF file decides each unit as its LF form does", () => {
-  const src = "METHOD PUBLIC ABSTRACT Reset : BOOL\t// Returns true when homing done\nIMPLEMENTATION NONE\nEND_METHOD\n"
+  const src = "METHOD PUBLIC ABSTRACT Reset : BOOL\t// Returns true when homing done\n%LANGUAGE ST\nEND_METHOD\n"
   const fmt = (s: string) => formatDocument({ uri: "u.pou", source: s, parseResult: parseSource(s, { networkText: true }, "codesys") })
   expect(fmt(src.replace(/\n/g, "\r\n"))).toBe(fmt(src))
 })

@@ -1,6 +1,6 @@
 /**
  * Folding (`folding.ts`): a unit, its VAR sections and its blocks fold, every conditional branch (with selection, which
- * walks the same branches), and a body stated `IMPLEMENTATION LD` folds per NETWORK.
+ * walks the same branches), and a body stated `%LANGUAGE LD` folds per NETWORK.
  */
 import { describe, expect, test } from "bun:test"
 import { parseSource } from "../../frontend/syntax/index.js"
@@ -65,14 +65,14 @@ test("folding and selection reach every conditional branch, decided or not", () 
 
 describe("the implementation keyword", () => {
   /**
-   * The implementation keyword in the structure services (openspec `implementation-keyword`): `IMPLEMENTATION` and the
+   * The implementation keyword in the structure services (openspec `language-line`): `%LANGUAGE` and the
    * language it states colour as keywords, and a body stated `LD`/`FBD` folds per NETWORK like any graphical body.
    */
   const ST_FB = `FUNCTION_BLOCK F
 VAR
 \tx : INT;
 END_VAR
-IMPLEMENTATION ST
+%LANGUAGE ST
 x := 1;
 END_FUNCTION_BLOCK
 `
@@ -81,7 +81,7 @@ END_FUNCTION_BLOCK
 VAR
 \ta : BOOL; b : BOOL; out : BOOL;
 END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
 out := (a AND b);
 END_NETWORK
@@ -90,7 +90,7 @@ out := (a OR b);
 END_NETWORK
 END_FUNCTION_BLOCK`
 
-  test("folding: each NETWORK of a body stated IMPLEMENTATION LD is a foldable range", () => {
+  test("folding: each NETWORK of a body stated %LANGUAGE LD is a foldable range", () => {
     const folds = foldingRanges({
       uri: "file:///F.pou",
       source: LD_FB,

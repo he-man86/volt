@@ -218,7 +218,7 @@ const DECL = {
   function_block: (n: string) => `FUNCTION_BLOCK ${n}\nVAR\nEND_VAR\n`,
   function: (n: string) => `FUNCTION ${n} : INT\nVAR_INPUT\nEND_VAR\n`,
 }
-const MARK = "IMPLEMENTATION ST"
+const MARK = "%LANGUAGE ST"
 /** Whole sources for a push (the wire's item text). */
 const SRC = {
   program: (n: string, body = "x := TRUE;", vars = "\tx : BOOL;") =>
@@ -232,7 +232,7 @@ const SRC = {
   action: (n: string) => `\nACTION ${n}\n${MARK}\nx := 1;\nEND_ACTION\n`,
   /** A graphical caller (network text, `packages/volt-cli/docs/network-text.html`). */
   caller: (n: string, lang: "FBD" | "LD", vars: string, net: string) =>
-    `PROGRAM ${n}\nVAR\n${vars}\nEND_VAR\nIMPLEMENTATION ${lang}\nNETWORK\n  ${net}\nEND_NETWORK\n\nEND_PROGRAM\n`,
+    `PROGRAM ${n}\nVAR\n${vars}\nEND_VAR\n%LANGUAGE ${lang}\nNETWORK\n  ${net}\nEND_NETWORK\n\nEND_PROGRAM\n`,
 }
 
 /** `kind-source`'s CODESYS subjects (C2g): each DUT shape by its own seed, an enum on Volt's struct seed, PRG/FUN/FB,
@@ -704,7 +704,7 @@ function identifierShapeSteps(): Step[] {
  *  GET and SET) is ST, and the same FB with each body graphical — through the shipped push, as `volt push` sends it. */
 function languageSource(graphical: boolean): string {
   const body = (lang: "LD" | "FBD", line: string) =>
-    graphical ? `IMPLEMENTATION ${lang}\nNETWORK\n  ${line}\nEND_NETWORK\n` : `IMPLEMENTATION ST\n${line}\n`
+    graphical ? `%LANGUAGE ${lang}\nNETWORK\n  ${line}\nEND_NETWORK\n` : `%LANGUAGE ST\n${line}\n`
   return (
     `FUNCTION_BLOCK VltF_Lc\nVAR\n\ta : BOOL;\n\tq : BOOL;\nEND_VAR\n${body("LD", "q := a;")}\nEND_FUNCTION_BLOCK\n` +
     `\nMETHOD Step : BOOL\n${body("FBD", "q := a;")}\nEND_METHOD\n` +
@@ -724,7 +724,7 @@ function keepSource(after: boolean): string {
     : ["o1 := a;", "o2 := a AND b;", "o3 := b;", "o4 := a;"]
   return (
     `PROGRAM VltF_Keep\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\to1 : BOOL;\n\to2 : BOOL;\n\to3 : BOOL;\n\to4 : BOOL;\n\to5 : BOOL;\nEND_VAR\n` +
-    `IMPLEMENTATION LD\n${nets.map((n) => `NETWORK\n  ${n}\nEND_NETWORK\n`).join("")}\nEND_PROGRAM\n`
+    `%LANGUAGE LD\n${nets.map((n) => `NETWORK\n  ${n}\nEND_NETWORK\n`).join("")}\nEND_PROGRAM\n`
   )
 }
 
@@ -741,21 +741,21 @@ function nwlProgram(name: string, vars: string[], lang: "LD" | "FBD", nets: NwlN
       : `NETWORK${n.header ? " " + n.header : ""}\n${n.lines.map((l) => "  " + l).join("\n")}\nEND_NETWORK\n`
   return (
     `PROGRAM ${name}\nVAR\n${vars.map((v) => `\t${v};\n`).join("")}END_VAR\n` +
-    `IMPLEMENTATION ${lang}\n${nets.map(block).join("")}\nEND_PROGRAM\n`
+    `%LANGUAGE ${lang}\n${nets.map(block).join("")}\nEND_PROGRAM\n`
   )
 }
 
 /** The callees the rows' call boxes name, as `volt push` sends them: a function, a program, a DINT function, a DUT
  *  alias, a base FB (S5) and an FB with a BOOL input (S6). */
 const NWL_CALLEE = {
-  fn: `FUNCTION VltF_RFn : INT\nVAR_INPUT\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nVltF_RFn := x;\n\nEND_FUNCTION\n`,
-  prg: `PROGRAM VltF_RPrg\nVAR\n\tc : INT;\nEND_VAR\nIMPLEMENTATION ST\nc := c + 1;\n\nEND_PROGRAM\n`,
-  dintFn: `FUNCTION VltF_LwFn : DINT\nVAR_INPUT\n\tx : DINT;\nEND_VAR\nIMPLEMENTATION ST\nVltF_LwFn := x;\n\nEND_FUNCTION\n`,
+  fn: `FUNCTION VltF_RFn : INT\nVAR_INPUT\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\nVltF_RFn := x;\n\nEND_FUNCTION\n`,
+  prg: `PROGRAM VltF_RPrg\nVAR\n\tc : INT;\nEND_VAR\n%LANGUAGE ST\nc := c + 1;\n\nEND_PROGRAM\n`,
+  dintFn: `FUNCTION VltF_LwFn : DINT\nVAR_INPUT\n\tx : DINT;\nEND_VAR\n%LANGUAGE ST\nVltF_LwFn := x;\n\nEND_FUNCTION\n`,
   alias: `TYPE VltF_LwAl : INT;\nEND_TYPE\n`,
-  base: `FUNCTION_BLOCK VltF_S5Base\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := n + 1;\n\nEND_FUNCTION_BLOCK\n`,
+  base: `FUNCTION_BLOCK VltF_S5Base\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE ST\nn := n + 1;\n\nEND_FUNCTION_BLOCK\n`,
   pinFb:
     `FUNCTION_BLOCK VltF_S6Fb\nVAR_INPUT\n\txEnable : BOOL;\nEND_VAR\nVAR_OUTPUT\n\tq : BOOL;\nEND_VAR\n` +
-    `IMPLEMENTATION ST\nq := xEnable;\n\nEND_FUNCTION_BLOCK\n`,
+    `%LANGUAGE ST\nq := xEnable;\n\nEND_FUNCTION_BLOCK\n`,
 }
 const NWL_CALLEE_KIND: Record<keyof typeof NWL_CALLEE, [Kind, string]> = {
   fn: ["function", "VltF_RFn"],
@@ -885,7 +885,7 @@ const NWL_S6 = nwlProgram("VltF_S6", ["a : BOOL", "b : BOOL", "o1 : BOOL", "fb1 
   "o1 := AND(NOT IN1 := a, b);",
 ])
 const NWL_S5 =
-  "FUNCTION_BLOCK VltF_S5 EXTENDS VltF_S5Base\nVAR\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  `SUPER^`();\nEND_NETWORK\n\n" +
+  "FUNCTION_BLOCK VltF_S5 EXTENDS VltF_S5Base\nVAR\nEND_VAR\n%LANGUAGE LD\nNETWORK\n  `SUPER^`();\nEND_NETWORK\n\n" +
   "END_FUNCTION_BLOCK\n"
 
 /** The steps every NWL row takes: the callees and the subject created through the shipped push (`pushed`), the subject
@@ -916,7 +916,7 @@ function nwlSteps(subject: NwlSubject, callees: (keyof typeof NWL_CALLEE)[] = []
   if (call) {
     steps.push({ op: "find", as: "main", name: "PLC_PRG" })
     steps.push({ vendor: "codesys", tag: "called", op: "setText", on: "main", via: "script", impl: call + "\n" })
-    steps.push({ vendor: "twincat", tag: "called", op: "setText", on: "main", via: "push", after: { line: "IMPLEMENTATION ST", add: call } })
+    steps.push({ vendor: "twincat", tag: "called", op: "setText", on: "main", via: "push", after: { line: "%LANGUAGE ST", add: call } })
   }
   steps.push({ tag: "built", op: "build" }, { tag: "reloaded", op: "reload" }, { tag: "rebuilt", op: "build" })
   return steps
@@ -1124,7 +1124,7 @@ export const ROWS: Row[] = [
         op: "setText",
         on: "main",
         via: "push",
-        after: { line: "IMPLEMENTATION ST", add: "VltF_SubUse();" },
+        after: { line: "%LANGUAGE ST", add: "VltF_SubUse();" },
       },
       { tag: "built", op: "build" },
       // NEGATIVE CONTROL: "no error" proves nothing if the build never compiled the user.
@@ -3141,7 +3141,7 @@ export const ROWS: Row[] = [
         op: "setText",
         on: "main",
         via: "push",
-        after: { line: "IMPLEMENTATION ST", add: "VltF_LcFbd();\nVltF_LcSt();" },
+        after: { line: "%LANGUAGE ST", add: "VltF_LcFbd();\nVltF_LcSt();" },
       },
       { vendor: "twincat", tag: "built", op: "build" },
     ],
@@ -3436,7 +3436,7 @@ export const ROWS: Row[] = [
         op: "setText",
         on: "main",
         via: "push",
-        after: { line: "IMPLEMENTATION ST", add: "VltF_NbUse();" },
+        after: { line: "%LANGUAGE ST", add: "VltF_NbUse();" },
       },
       { tag: "built", op: "build" },
       { tag: "broken", op: "setText", on: "u", via: "script", impl: "r := VltF_NbF(1) + VltF_NbNoSuchName;\n" },
@@ -4571,7 +4571,7 @@ export const ROWS: Row[] = [
         op: "setText",
         on: "main",
         via: "push",
-        after: { line: "IMPLEMENTATION ST", add: "VltF_Keep();" },
+        after: { line: "%LANGUAGE ST", add: "VltF_Keep();" },
       },
       { tag: "built-first", op: "build" },
       { tag: "reloaded-first", op: "reload" },
@@ -5063,7 +5063,7 @@ export const ROWS: Row[] = [
       { tag: "pushed", op: "create", as: "re", kind: "program", name: "VltF_RE", parent: "root", via: "push", source: NWL_EDITOR },
       { op: "find", as: "main", name: "PLC_PRG" },
       { vendor: "codesys", tag: "called", op: "setText", on: "main", via: "script", impl: "VltF_RE();\nVltF_RF();\n" },
-      { vendor: "twincat", tag: "called", op: "setText", on: "main", via: "push", after: { line: "IMPLEMENTATION ST", add: "VltF_RE(); VltF_RF();" } },
+      { vendor: "twincat", tag: "called", op: "setText", on: "main", via: "push", after: { line: "%LANGUAGE ST", add: "VltF_RE(); VltF_RF();" } },
       { op: "editor", on: "re" },
       { tag: "edited", op: "editor", on: "rf" },
       { tag: "built", op: "build" },

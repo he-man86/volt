@@ -74,7 +74,7 @@ export function globMatch(glob: string, path: string): boolean {
 
 const inScope = (req: Req, path: string) => req.paths === undefined || req.paths.some((g) => globMatch(g, path))
 const ordinal = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0)
-const UNSUPPORTED = /^IMPLEMENTATION (\S+) UNSUPPORTED$/
+const UNSUPPORTED = /^%LANGUAGE (\S+) UNSUPPORTED$/
 
 export function oracle(project: Project, req: Req) {
 	const re = matcher(req)
@@ -98,7 +98,7 @@ export function oracle(project: Project, req: Req) {
 		}
 	}
 	// What is not searched, as fetch states it: every unreadable item in scope with refs' reason, and every item in
-	// scope whose fetched text holds a body line `IMPLEMENTATION <LANG> UNSUPPORTED` (the bridge's reason wording is its
+	// scope whose fetched text holds a body line `%LANGUAGE <LANG> UNSUPPORTED` (the bridge's reason wording is its
 	// own, so the oracle states which languages, how many, and fetch's `unsupported` facts it must carry).
 	const hidden = candidates
 		.map((it) => ({ name: it.path, langs: lines(it.text).flatMap((l) => UNSUPPORTED.exec(l)?.[1] ?? []), unsupported: it.unsupported ?? [] }))
@@ -144,10 +144,10 @@ export function differences(got: any, want: ReturnType<typeof oracle>): string[]
 	for (const h of want.notSearched.hidden) {
 		expected.add(h.name)
 		const reason = byName.get(h.name)
-		if (reason === undefined) { d.push(`notSearched[${h.name}]: missing; fetch shows ${h.langs.map((l) => `IMPLEMENTATION ${l} UNSUPPORTED`).join(", ")}`); continue }
+		if (reason === undefined) { d.push(`notSearched[${h.name}]: missing; fetch shows ${h.langs.map((l) => `%LANGUAGE ${l} UNSUPPORTED`).join(", ")}`); continue }
 		const count = (s: string) => reason.split(s).length - 1
 		for (const lang of new Set(h.langs)) {
-			const s = `IMPLEMENTATION ${lang} UNSUPPORTED`
+			const s = `%LANGUAGE ${lang} UNSUPPORTED`
 			const n = h.langs.filter((l) => l === lang).length
 			if (count(s) !== n) d.push(`notSearched[${h.name}]: names '${s}' ${count(s)}× | fetch has ${n}: ${JSON.stringify(reason)}`)
 		}
@@ -232,8 +232,8 @@ export function derivePatterns(project: Project, health: any, refs: any): Case[]
 	if (root) cases.push({ label: "glob one application root", req: { pattern: id, paths: [`${root}/**`] } })
 	if (escaped) cases.push({ label: "glob a %2F folder", req: { pattern: id, paths: [`**/${escaped}/**`] } })
 	if (health.languages?.includes("LD") && health.languages?.includes("FBD")) {
-		cases.push({ label: "network text IMPLEMENTATION LD", req: { pattern: "IMPLEMENTATION LD", literal: true, caseSensitive: true } })
-		cases.push({ label: "network text IMPLEMENTATION FBD", req: { pattern: "IMPLEMENTATION FBD", literal: true, caseSensitive: true } })
+		cases.push({ label: "network text %LANGUAGE LD", req: { pattern: "%LANGUAGE LD", literal: true, caseSensitive: true } })
+		cases.push({ label: "network text %LANGUAGE FBD", req: { pattern: "%LANGUAGE FBD", literal: true, caseSensitive: true } })
 	}
 	cases.push({ label: "CAP: `.` at limit 1000", req: { pattern: "." }, cap: true })
 	cases.push({ label: "CAP: `;` at limit 7", req: { pattern: ";", literal: true, limit: 7 }, cap: true })

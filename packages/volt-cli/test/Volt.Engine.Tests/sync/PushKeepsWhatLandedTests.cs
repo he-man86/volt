@@ -30,14 +30,14 @@ public class PushKeepsWhatLandedTests
     /// not recognise "The name 'Log' is not valid for this object.", task 1.1), modelled by <see cref="FbWithMethod"/>
     /// + <c>FakeIde.FailCreate</c> below.</summary>
     private const string FunctionWithMethod =
-        "FUNCTION F : BOOL\nVAR\nEND_VAR\nIMPLEMENTATION ST\nF := TRUE;\nEND_FUNCTION" +
-        "\n\nMETHOD M : BOOL\nIMPLEMENTATION ST\nM := TRUE;\nEND_METHOD\n";
+        "FUNCTION F : BOOL\nVAR\nEND_VAR\n%LANGUAGE ST\nF := TRUE;\nEND_FUNCTION" +
+        "\n\nMETHOD M : BOOL\n%LANGUAGE ST\nM := TRUE;\nEND_METHOD\n";
 
     /// <summary>A function block with a METHOD M — text every vendor accepts; the create of M is made to fail by
     /// <c>FakeIde.FailCreate</c>, the shape of the live <c>METHOD Log</c> refusal as it reaches the engine today.</summary>
     private const string FbWithMethod =
-        "FUNCTION_BLOCK F\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK" +
-        "\n\nMETHOD M : BOOL\nIMPLEMENTATION ST\nM := TRUE;\nEND_METHOD\n";
+        "FUNCTION_BLOCK F\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK" +
+        "\n\nMETHOD M : BOOL\n%LANGUAGE ST\nM := TRUE;\nEND_METHOD\n";
 
     /// <summary>The live CODESYS wording of the <c>Log</c> refusal (task 1.1), with the member renamed.</summary>
     private static System.Exception NotValidName(string name) =>
@@ -95,10 +95,10 @@ public class PushKeepsWhatLandedTests
         var ide = new FakeIde();
 
         var resp = Push(ide,
-            Create("Good1.pou", "PROGRAM Good1\nIMPLEMENTATION ST\nEND_PROGRAM\n"),
+            Create("Good1.pou", "PROGRAM Good1\n%LANGUAGE ST\nEND_PROGRAM\n"),
             Create("Bad.pou", "not a POU at all"),
             Create("Bad2.pou", "not a POU either"),
-            Create("Good2.pou", "PROGRAM Good2\nIMPLEMENTATION ST\nEND_PROGRAM\n"));
+            Create("Good2.pou", "PROGRAM Good2\n%LANGUAGE ST\nEND_PROGRAM\n"));
 
         Assert.False(resp.Landed());
         Assert.Empty(ide.Recorded);   // all-or-nothing before the first write — unchanged
@@ -199,7 +199,7 @@ public class PushKeepsWhatLandedTests
             ExpectedProjectVersion = lease,
             Ops = new List<PushOp>
             {
-                new SetItemOp { Name = "A.pou", IfVersion = "stale0000000", SourceText = "PROGRAM A\nVAR\nEND_VAR\nIMPLEMENTATION ST\nx := 2;\nEND_PROGRAM\n" },
+                new SetItemOp { Name = "A.pou", IfVersion = "stale0000000", SourceText = "PROGRAM A\nVAR\nEND_VAR\n%LANGUAGE ST\nx := 2;\nEND_PROGRAM\n" },
                 Create("B.pou", "not a POU at all"),
             },
         });
@@ -296,7 +296,7 @@ public class PushKeepsWhatLandedTests
             Ops = new List<PushOp>
             {
                 Create("E_A.dut", Enum),
-                new SetItemOp { Name = "B.pou", IfVersion = refs.Items["B.pou"], SourceText = "PROGRAM B\nVAR\nEND_VAR\nIMPLEMENTATION ST\nx := 2;\nEND_PROGRAM\n" },
+                new SetItemOp { Name = "B.pou", IfVersion = refs.Items["B.pou"], SourceText = "PROGRAM B\nVAR\nEND_VAR\n%LANGUAGE ST\nx := 2;\nEND_PROGRAM\n" },
             },
         });
 
@@ -332,8 +332,8 @@ public class PushKeepsWhatLandedTests
             Ops = new List<PushOp>
             {
                 new SetItemOp { Name = "K.pou", IfVersion = refs.Items["K.pou"], SourceText =
-                    "FUNCTION_BLOCK K\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK" +
-                    "\n\nMETHOD M : BOOL\nIMPLEMENTATION ST\nM := TRUE;\nEND_METHOD\n" },
+                    "FUNCTION_BLOCK K\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK" +
+                    "\n\nMETHOD M : BOOL\n%LANGUAGE ST\nM := TRUE;\nEND_METHOD\n" },
             },
         });
 
@@ -362,7 +362,7 @@ public class PushKeepsWhatLandedTests
                 : null,
         };
 
-        var resp = Push(ide, Create("LOG.pou", "FUNCTION_BLOCK LOG\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n"));
+        var resp = Push(ide, Create("LOG.pou", "FUNCTION_BLOCK LOG\nVAR\nEND_VAR\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK\n"));
 
         Assert.False(resp.Landed());
         var conflict = Assert.Single(resp.Conflicts!);
@@ -387,7 +387,7 @@ public class PushKeepsWhatLandedTests
             {
                 Create("E_A.dut", Enum),
                 new SetItemOp { Name = "B.pou", IfVersion = refs.Items["B.pou"],
-                                SourceText = "PROGRAM B\nVAR\nEND_VAR\nIMPLEMENTATION LD UNSUPPORTED\nEND_PROGRAM\n" },
+                                SourceText = "PROGRAM B\nVAR\nEND_VAR\n%LANGUAGE LD UNSUPPORTED\nEND_PROGRAM\n" },
             },
         });
 
@@ -421,8 +421,8 @@ public class PushKeepsWhatLandedTests
             {
                 Create("A.dut", Struct),
                 new SetItemOp { Name = "X.pou", To = "Y.pou", IfVersion = refs.Items["X.pou"], SourceText =
-                    "FUNCTION_BLOCK Y\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK" +
-                    "\n\nMETHOD M : BOOL\nIMPLEMENTATION ST\nM := TRUE;\nEND_METHOD\n" },
+                    "FUNCTION_BLOCK Y\nVAR\nEND_VAR\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK" +
+                    "\n\nMETHOD M : BOOL\n%LANGUAGE ST\nM := TRUE;\nEND_METHOD\n" },
             },
         });
 
@@ -457,8 +457,8 @@ public class PushKeepsWhatLandedTests
             Ops = new List<PushOp>
             {
                 new SetItemOp { Name = "K.pou", IfVersion = refs.Items["K.pou"], SourceText =
-                    "FUNCTION_BLOCK K\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK" +
-                    "\n\nMETHOD M : BOOL\nIMPLEMENTATION ST\nM := TRUE;\nEND_METHOD\n" },
+                    "FUNCTION_BLOCK K\nVAR\nEND_VAR\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK" +
+                    "\n\nMETHOD M : BOOL\n%LANGUAGE ST\nM := TRUE;\nEND_METHOD\n" },
             },
         });
 
@@ -482,7 +482,7 @@ public class PushKeepsWhatLandedTests
                 ? new System.InvalidOperationException("the IDE could not create 'Broken'") : null,
         };
         Push(ide, new SetItemOp { Name = "Data/Broken.pou", SourceText =
-            "FUNCTION_BLOCK Broken\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n" });
+            "FUNCTION_BLOCK Broken\nVAR\nEND_VAR\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK\n" });
         Assert.True(ide.Exists("Broken"));
         ide.UnopenedItems.Add("Broken");
         failCreate = true;
@@ -491,7 +491,7 @@ public class PushKeepsWhatLandedTests
         {
             Force = true,
             Ops = new List<PushOp> { new SetItemOp { Name = "Data/Broken.pou", SourceText =
-                "FUNCTION_BLOCK Broken\nVAR\nEND_VAR\nIMPLEMENTATION ST\nn := 1;\nEND_FUNCTION_BLOCK\n" } },
+                "FUNCTION_BLOCK Broken\nVAR\nEND_VAR\n%LANGUAGE ST\nn := 1;\nEND_FUNCTION_BLOCK\n" } },
         });
 
         Assert.False(ide.Exists("Broken"), "premise: the replace deleted the original before its create failed");
@@ -520,9 +520,9 @@ public class PushKeepsWhatLandedTests
 
     private static string PropertySource(bool get, bool set)
     {
-        var src = $"{PropDecl}\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\nPROPERTY P : INT\n";
-        if (get) src += "GET\nVAR\nEND_VAR\nIMPLEMENTATION ST\nP := _v;\nEND_GET\n";
-        if (set) src += "SET\nVAR\nEND_VAR\nIMPLEMENTATION ST\n_v := P;\nEND_SET\n";
+        var src = $"{PropDecl}\n%LANGUAGE ST\nEND_FUNCTION_BLOCK\n\nPROPERTY P : INT\n";
+        if (get) src += "GET\nVAR\nEND_VAR\n%LANGUAGE ST\nP := _v;\nEND_GET\n";
+        if (set) src += "SET\nVAR\nEND_VAR\n%LANGUAGE ST\n_v := P;\nEND_SET\n";
         return src + "END_PROPERTY\n";
     }
 
@@ -609,8 +609,8 @@ public class PushKeepsWhatLandedTests
             {
                 Create("ST_B.dut", Struct),
                 new SetItemOp { Name = "FB_Test.pou", IfVersion = refs.Items["FB_Test.pou"], SourceText =
-                    "FUNCTION_BLOCK FB_Test\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := n + 1;\nEND_FUNCTION_BLOCK\n\n" +
-                    "METHOD DoIt : BOOL\nIMPLEMENTATION ST\n%FOLDER Helpers\nDoIt := TRUE;\nEND_METHOD\n" },
+                    "FUNCTION_BLOCK FB_Test\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE ST\nn := n + 1;\nEND_FUNCTION_BLOCK\n\n" +
+                    "METHOD DoIt : BOOL\n%LANGUAGE ST\n%FOLDER Helpers\nDoIt := TRUE;\nEND_METHOD\n" },
             },
         });
 
@@ -633,7 +633,7 @@ public class PushKeepsWhatLandedTests
             FailMove = name => name == "FB_M" ? new System.InvalidOperationException("the IDE could not move 'FB_M'") : null,
         };
         var refs = RefsService.Handle(ide);
-        const string edited = "FUNCTION_BLOCK FB_M\nVAR\nEND_VAR\nIMPLEMENTATION ST\nn := 2;\nEND_FUNCTION_BLOCK\n";
+        const string edited = "FUNCTION_BLOCK FB_M\nVAR\nEND_VAR\n%LANGUAGE ST\nn := 2;\nEND_FUNCTION_BLOCK\n";
 
         var resp = BoundWrite.Push(ide, new PushRequest
         {
@@ -675,7 +675,7 @@ public class PushKeepsWhatLandedTests
             Ops = new List<PushOp>
             {
                 new SetItemOp { Name = "A/FB_M.pou", IfVersion = refs.Items["A/FB_M.pou"], To = "B/FB_M.pou", SourceText =
-                    "FUNCTION_BLOCK FB_M\nVAR\nEND_VAR\nIMPLEMENTATION ST\nn := 2;\nEND_FUNCTION_BLOCK\n" },
+                    "FUNCTION_BLOCK FB_M\nVAR\nEND_VAR\n%LANGUAGE ST\nn := 2;\nEND_FUNCTION_BLOCK\n" },
             },
         });
 
@@ -732,8 +732,8 @@ public class PushKeepsWhatLandedTests
             {
                 Create("E_A.dut", Enum),
                 new SetItemOp { Name = "K.pou", IfVersion = refs.Items["K.pou"], SourceText =
-                    "FUNCTION_BLOCK K\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK" +
-                    "\n\nACTION Log\nIMPLEMENTATION ST\n;\nEND_ACTION\n" },
+                    "FUNCTION_BLOCK K\nVAR\nEND_VAR\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK" +
+                    "\n\nACTION Log\n%LANGUAGE ST\n;\nEND_ACTION\n" },
             },
         });
 
@@ -750,7 +750,7 @@ public class PushKeepsWhatLandedTests
     {
         var ide = RefusingLog();
 
-        var resp = Push(ide, Create("E_A.dut", Enum), Create("LOG.pou", "FUNCTION_BLOCK LOG\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n"));
+        var resp = Push(ide, Create("E_A.dut", Enum), Create("LOG.pou", "FUNCTION_BLOCK LOG\nVAR\nEND_VAR\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK\n"));
 
         Assert.False(resp.Landed());
         Assert.Empty(ide.Recorded);

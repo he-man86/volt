@@ -32,12 +32,12 @@ const lines = (files: Record<string, string>, uri: string, diagnoseDeadCode = fa
     .map((d): [string, number] => [codesysCodeFor(d.code)?.code ?? d.code, d.span.startLine - 1])
     .sort((a, b) => a[1] - b[1])
 
-const PRG_MAIN = "PROGRAM PLC_PRG\nVAR\n\tfb : FB_Live;\nEND_VAR\nIMPLEMENTATION ST\nfb();\nEND_PROGRAM\n"
-const LIVE_FB = "FUNCTION_BLOCK FB_Live\nVAR\n\tb : BOOL;\n\ti : INT;\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n"
+const PRG_MAIN = "PROGRAM PLC_PRG\nVAR\n\tfb : FB_Live;\nEND_VAR\n%LANGUAGE ST\nfb();\nEND_PROGRAM\n"
+const LIVE_FB = "FUNCTION_BLOCK FB_Live\nVAR\n\tb : BOOL;\n\ti : INT;\nEND_VAR\n%LANGUAGE ST\n\nEND_FUNCTION_BLOCK\n"
 
 // ONE PARSE ERROR, ONE FINDING (analysis-conformance 2.5): the pipeline's `checkParseErrors` is the one a client gets.
 test("one top-level parse error is one finding", () => {
-  const files = { "C:/w/H.pou": "FUNCTION_BLOCK H\nVAR\n\tx : ;\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n" }
+  const files = { "C:/w/H.pou": "FUNCTION_BLOCK H\nVAR\n\tx : ;\nEND_VAR\n%LANGUAGE ST\n\nEND_FUNCTION_BLOCK\n" }
   expect(lines(files, "C:/w/H.pou")).toEqual([["C0002", 2]])
 })
 
@@ -52,8 +52,8 @@ test("a dead POU shows nothing, not even its parse errors (the build never reads
     // an FB no PROGRAM reaches: a declaration parse error (line 4), a conversion error (line 7), and a statement parse
     // error in its method (line 11)
     "C:/w/FB_Dead.pou":
-      "FUNCTION_BLOCK FB_Dead\nVAR\n\tb : BOOL;\n\ti : INT;\n\tx : ;\nEND_VAR\nIMPLEMENTATION ST\ni := b;\nEND_FUNCTION_BLOCK\n" +
-      "METHOD M\nIMPLEMENTATION ST\nIF TRUE i := 1; END_IF\nEND_METHOD\n",
+      "FUNCTION_BLOCK FB_Dead\nVAR\n\tb : BOOL;\n\ti : INT;\n\tx : ;\nEND_VAR\n%LANGUAGE ST\ni := b;\nEND_FUNCTION_BLOCK\n" +
+      "METHOD M\n%LANGUAGE ST\nIF TRUE i := 1; END_IF\nEND_METHOD\n",
   }
   expect(lines(files, "C:/w/FB_Dead.pou", true)).toEqual([["C0002", 4], ["C0032", 7], ["C0002", 11]])
   expect(lines(files, "C:/w/FB_Dead.pou")).toEqual([])
@@ -66,8 +66,8 @@ test("a parse error in a dead member is still shown (recorded), the member's sem
     // error (line 17)
     "C:/w/FB_Live.pou":
       LIVE_FB +
-      "METHOD Unused\nVAR\n\tx : ;\nEND_VAR\nIMPLEMENTATION ST\ni := b;\nEND_METHOD\n" +
-      "METHOD Unused2\nIMPLEMENTATION ST\nIF TRUE i := 1; END_IF\nEND_METHOD\n",
+      "METHOD Unused\nVAR\n\tx : ;\nEND_VAR\n%LANGUAGE ST\ni := b;\nEND_METHOD\n" +
+      "METHOD Unused2\n%LANGUAGE ST\nIF TRUE i := 1; END_IF\nEND_METHOD\n",
   }
   expect(lines(files, "C:/w/FB_Live.pou", true)).toEqual([["C0002", 10], ["C0032", 13], ["C0002", 17]])
   expect(lines(files, "C:/w/FB_Live.pou")).toEqual([["C0002", 10], ["C0002", 17]])
@@ -105,11 +105,11 @@ test("missing language: a Library Manager file with an unstated body gets nothin
 // EXCLUDED FROM BUILD (openspec lsp-excluded-from-build): CODESYS compiles no excluded object (DIALECT C2j), so one gives
 // nothing, as a dead POU gives nothing, whether reachability finds it live or not and with dead-code diagnosis on. The
 // missing-language finding follows the push, so it stays.
-const FB_TYPE_ERROR = "FUNCTION_BLOCK FB_Live\nVAR\n\tb : BOOL;\n\ti : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := b;\nEND_FUNCTION_BLOCK\n"
+const FB_TYPE_ERROR = "FUNCTION_BLOCK FB_Live\nVAR\n\tb : BOOL;\n\ti : INT;\nEND_VAR\n%LANGUAGE ST\ni := b;\nEND_FUNCTION_BLOCK\n"
 
 test("an excluded FB that a live PROGRAM reaches shows nothing, parse errors included", () => {
   const fb = (flag: string) =>
-    `FUNCTION_BLOCK FB_Live\nVAR\n\tb : BOOL;\n\ti : INT;\n\tx : ;\nEND_VAR\nIMPLEMENTATION ST\n${flag}i := b;\nEND_FUNCTION_BLOCK\n`
+    `FUNCTION_BLOCK FB_Live\nVAR\n\tb : BOOL;\n\ti : INT;\n\tx : ;\nEND_VAR\n%LANGUAGE ST\n${flag}i := b;\nEND_FUNCTION_BLOCK\n`
   const built = { "C:/w/PLC_PRG.pou": PRG_MAIN, "C:/w/FB_Live.pou": fb("") }
   expect(lines(built, "C:/w/FB_Live.pou")).toEqual([["C0002", 4], ["C0032", 7]])
   const excluded = { "C:/w/PLC_PRG.pou": PRG_MAIN, "C:/w/FB_Live.pou": fb("%EXCLUDE_FROM_BUILD\n") }
@@ -121,7 +121,7 @@ test("an excluded method that an interface keeps live shows nothing; the rest of
   const files = (flag: string) => ({
     "C:/w/PLC_PRG.pou": PRG_MAIN,
     "C:/w/I.itf": "INTERFACE I\nMETHOD M : BOOL\nEND_METHOD\nEND_INTERFACE\n",
-    "C:/w/FB_Live.pou": FB_TYPE_ERROR + `METHOD M : BOOL\nIMPLEMENTATION ST\n${flag}i := b;\nEND_METHOD\n`,
+    "C:/w/FB_Live.pou": FB_TYPE_ERROR + `METHOD M : BOOL\n%LANGUAGE ST\n${flag}i := b;\nEND_METHOD\n`,
   })
   expect(lines(files(""), "C:/w/FB_Live.pou")).toEqual([["C0032", 6], ["C0032", 10]])
   expect(lines(files("%EXCLUDE_FROM_BUILD\n"), "C:/w/FB_Live.pou")).toEqual([["C0032", 6]])
@@ -132,7 +132,7 @@ test("missing language: a member of an excluded FB with an unstated body still g
   const files = {
     "C:/w/PLC_PRG.pou": PRG_MAIN,
     "C:/w/FB_Live.pou":
-      FB_TYPE_ERROR.replace("IMPLEMENTATION ST\n", "IMPLEMENTATION ST\n%EXCLUDE_FROM_BUILD\n") +
+      FB_TYPE_ERROR.replace("%LANGUAGE ST\n", "%LANGUAGE ST\n%EXCLUDE_FROM_BUILD\n") +
       "METHOD Unused\nVAR\n\tx : INT;\nEND_VAR\nx := 1;\nEND_METHOD\n",
   }
   expect(lines(files, "C:/w/FB_Live.pou", true)).toEqual([["missing-language", 13]])

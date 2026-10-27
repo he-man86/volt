@@ -11,7 +11,7 @@ VAR
 	_shortShotTreshold	: REAL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 
 END_FUNCTION_BLOCK
 
@@ -22,7 +22,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Cavity := _cavity;
 END_GET
 SET
@@ -30,7 +30,7 @@ SET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 _cavity := Cavity;
 END_SET
 END_PROPERTY
@@ -41,7 +41,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Classification := _classification;
 
 END_GET
@@ -50,7 +50,7 @@ SET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 _classification := Classification;
 
 END_SET
@@ -63,7 +63,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 PeakValue := _peakValue;
 
 END_GET
@@ -72,7 +72,7 @@ SET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 _peakValue := PeakValue;
 
 END_SET
@@ -85,7 +85,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 ShortShotTreshold := _shortShotTreshold;
 END_GET
 SET
@@ -93,7 +93,7 @@ SET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 _shortShotTreshold := ShortShotTreshold;
 
 END_SET

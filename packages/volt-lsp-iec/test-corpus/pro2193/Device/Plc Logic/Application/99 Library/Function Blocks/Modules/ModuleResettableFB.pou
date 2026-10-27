@@ -9,7 +9,7 @@ VAR
 	_resetConditions			: ARRAY[1..2] OF IModuleResettable;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^();
 
 
@@ -33,7 +33,7 @@ VAR_INPUT
 	resetCondition2	: IModuleResettable;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 _resetConditions[1]	:= resetCondition1;
 _resetConditions[2]	:= resetCondition2;
 
@@ -42,7 +42,6 @@ END_METHOD
 // Command to reset the module. Servodrives are homed.
 METHOD PUBLIC ABSTRACT Reset : BOOL	// Returns true when homing done
 
-IMPLEMENTATION NONE
 END_METHOD
 
 // The order in which the modules are homed.
@@ -53,7 +52,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 ResetCondition1	:= _resetConditions[1];
 
 END_GET
@@ -67,7 +66,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 ResetCondition2	:= _resetConditions[2];
 
 END_GET

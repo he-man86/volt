@@ -10,11 +10,11 @@ namespace Volt.Engine.Format.Network;
 
 /// <summary>
 /// The network text graphical-body contract. An EDITABLE graphical body (FBD/LD — a POU's, a method's, an
-/// action's or an accessor's) states its language on its boundary line, <c>IMPLEMENTATION FBD</c> or
-/// <c>IMPLEMENTATION LD</c>, which stays the body's first line and round-trips; the language rides on that one line for
+/// action's or an accessor's) states its language on its boundary line, <c>%LANGUAGE FBD</c> or
+/// <c>%LANGUAGE LD</c>, which stays the body's first line and round-trips; the language rides on that one line for
 /// the whole body (openspec <c>implementation-keyword</c>). CFC/SFC/IL are NOT network-text bodies, and neither is an
-/// LD/FBD body the text cannot represent: each is its UNSUPPORTED line alone (<c>IMPLEMENTATION CFC UNSUPPORTED</c>,
-/// <c>IMPLEMENTATION LD UNSUPPORTED</c>, <see cref="ImplementationMarker.IsUnsupportedBody"/>).
+/// LD/FBD body the text cannot represent: each is its UNSUPPORTED line alone (<c>%LANGUAGE CFC UNSUPPORTED</c>,
+/// <c>%LANGUAGE LD UNSUPPORTED</c>, <see cref="PropertyLines.IsUnsupportedBody"/>).
 /// </summary>
 public static class NetworkText
 {
@@ -26,16 +26,16 @@ public static class NetworkText
     /// vendor readers build the model by and both writers compare by.</summary>
     public static string? Stored(string? s) => string.IsNullOrEmpty(s) ? null : s;
 
-    /// <summary>The body's language ("FBD"/"LD", from the <c>IMPLEMENTATION</c> line it opens with), or null if not a
+    /// <summary>The body's language ("FBD"/"LD", from the <c>%LANGUAGE</c> line it opens with), or null if not a
     /// network-text body. The line is the body's FIRST line: a network-text body is that line and its networks, nothing
     /// before them. A body stating ST is no network text — its language is the ST path's, and an ST body in memory
-    /// carries no line at all (<see cref="ImplementationMarker.Split"/>).</summary>
+    /// carries no line at all (<see cref="PropertyLines.SplitBody"/>).</summary>
     public static string? LanguageOf(string? impl)
     {
         if (impl == null) return null;
         var text = impl.TrimStart();
         var eol = text.IndexOf('\n');
-        var lang = ImplementationMarker.LanguageOf(eol < 0 ? text : text.Substring(0, eol));
+        var lang = PropertyLines.LanguageOf(eol < 0 ? text : text.Substring(0, eol));
         return Languages.IsNetwork(lang) ? lang : null;
     }
 
@@ -57,13 +57,13 @@ public static class NetworkText
     public static (string Body, string? Unsupported, StatedLanguage Stated) Pulled(BodyLanguage language, Func<string> read)
     {
         var spelled = Spelling(language);
-        var hidden = ImplementationMarker.Unsupported(spelled);
+        var hidden = PropertyLines.UnsupportedLine(spelled);
         if (!NetworkTextSwitch.Enabled) return (hidden, NetworkTextSwitch.DisabledReason, StatedLanguage.HiddenIn(spelled));
         try { return (read(), null, StatedLanguage.Shown(spelled)); }
         catch (UnrepresentableBodyException ex) { return (hidden, ex.Reason, StatedLanguage.HiddenIn(spelled)); }
     }
 
-    /// <summary>How a body language is spelled — on its <c>IMPLEMENTATION</c> line, and in the vendor-neutral language
+    /// <summary>How a body language is spelled — on its <c>%LANGUAGE</c> line, and in the vendor-neutral language
     /// vocabulary (<see cref="Languages"/>). The one mapping: the marker's writer, its reader and the view-change
     /// refusal each spelled it by hand.</summary>
     public static string Spelling(BodyLanguage language) => language == BodyLanguage.Ld ? Languages.Ld : Languages.Fbd;
@@ -75,7 +75,7 @@ public static class NetworkText
     /// <summary>The language a network body's line states, from the view mode the vendor stores on it (CODESYS's aspect
     /// member and TwinCAT's archive slot are both <c>DefaultViewMode</c>, DIALECT N1): <c>LD</c> or <c>FBD</c>, read as
     /// network text; <c>IL</c>, a view Volt does not author; and a view Volt has never seen under the vendor's own name
-    /// (<see cref="ImplementationMarker.VendorLanguage"/>), or <see cref="UnviewedNetwork"/> when the body states none.
+    /// (<see cref="PropertyLines.VendorLanguage"/>), or <see cref="UnviewedNetwork"/> when the body states none.
     /// The last three are the body's UNSUPPORTED line. ONE answer for both vendors, so the same body is the same line on
     /// each (D27, openspec bridge-refusal-review 2.23, 2.29). An unknown or missing view never throws: a throw outside
     /// <see cref="Pulled"/> would take the whole POU out of refs and fetch.</summary>
@@ -86,7 +86,7 @@ public static class NetworkText
         if (mode.Equals(Languages.Ld, StringComparison.OrdinalIgnoreCase)) return Languages.Ld;
         if (mode.Equals(Languages.Fbd, StringComparison.OrdinalIgnoreCase)) return Languages.Fbd;
         if (mode.Equals(Languages.Il, StringComparison.OrdinalIgnoreCase)) return Languages.Il;
-        return ImplementationMarker.VendorLanguage(mode);
+        return PropertyLines.VendorLanguage(mode);
     }
 
     /// <summary>The body language <paramref name="spelled"/> names (<see cref="Spelling"/>), or null for any other word.</summary>
@@ -163,7 +163,7 @@ public static class NetworkText
     }
 
     /// <summary>Editable graphical languages: FBD and LD. (CFC/SFC have no text form — their UNSUPPORTED
-    /// <c>IMPLEMENTATION</c> line is materialized for them instead of a network-text body.)</summary>
+    /// <c>%LANGUAGE</c> line is materialized for them instead of a network-text body.)</summary>
     public static bool IsEditable(string? language) => Languages.IsNetwork(language);
 
     /// <summary>The push path's gate: validate a network-text body against the declarations it can see and
@@ -179,8 +179,8 @@ public static class NetworkText
         {
             var language = LanguageOf(body) ?? throw new ArgumentException("no network-text body", nameof(body));
             throw new BridgeException(BridgeErrorCodes.Unsupported,
-                $"a body is stated '{ImplementationMarker.For(language)}', and {NetworkTextSwitch.DisabledReason}, so it " +
-                $"cannot be pushed: this build shows that body as '{ImplementationMarker.Unsupported(language)}' and " +
+                $"a body is stated '{PropertyLines.LanguageLine(language)}', and {NetworkTextSwitch.DisabledReason}, so it " +
+                $"cannot be pushed: this build shows that body as '{PropertyLines.UnsupportedLine(language)}' and " +
                 "never writes it. Pull the item to get that line; its declaration stays editable.");
         }
 

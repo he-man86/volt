@@ -175,7 +175,7 @@ test("references and rename reach every use of a body whose untaken or undecided
 
 const LIB_URI = "file:///w/Library%20Manager/Util/FB_Lib.pou"
 const LIB = `FUNCTION_BLOCK FB_Lib\nVAR_INPUT\n\tx : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`
-const USER = `PROGRAM P\nVAR\n\tinst : FB_Lib;\nEND_VAR\nIMPLEMENTATION ST\ninst(x := 1);\nEND_PROGRAM`
+const USER = `PROGRAM P\nVAR\n\tinst : FB_Lib;\nEND_VAR\n%LANGUAGE ST\ninst(x := 1);\nEND_PROGRAM`
 
 function withLibrary() {
   const files = [

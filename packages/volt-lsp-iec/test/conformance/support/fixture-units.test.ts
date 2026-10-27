@@ -16,7 +16,7 @@ const sfc: LanguageTest = {
   name: "sfc_contract_sfc",
   pouName: "PRG_LANG_sfc_contract_sfc",
   kind: "program",
-  source: "PROGRAM PRG_LANG_sfc_contract_sfc\nVAR\n\tk : INT;\nEND_VAR\nIMPLEMENTATION SFC UNSUPPORTED\nEND_PROGRAM\n",
+  source: "PROGRAM PRG_LANG_sfc_contract_sfc\nVAR\n\tk : INT;\nEND_VAR\n%LANGUAGE SFC UNSUPPORTED\nEND_PROGRAM\n",
   sfcStep: "S_Boot",
 }
 

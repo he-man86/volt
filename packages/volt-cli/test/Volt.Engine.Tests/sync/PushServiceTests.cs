@@ -101,7 +101,7 @@ public class PushServiceTests
             new FakeIde.Item("App", ItemKind.PlcFolder, "", false, null, null, null, null, Children: System.Array.Empty<string>()))
         { PlcRootName = "App", TreeRootName = "<root>" };
         var pv = RefsService.Handle(ide).ProjectVersion!;
-        var resp = Push(ide, pv, new SetItemOp { Name = "App/New.pou", IfVersion = null, SourceText = "PROGRAM New\nIMPLEMENTATION ST\nEND_PROGRAM\n" });
+        var resp = Push(ide, pv, new SetItemOp { Name = "App/New.pou", IfVersion = null, SourceText = "PROGRAM New\n%LANGUAGE ST\nEND_PROGRAM\n" });
         Assert.True(resp.Landed());
         Assert.Contains("create:New", ide.Recorded);
         Assert.DoesNotContain("create:App", ide.Recorded);   // reused the existing spine node — NOT doubled to App/App
@@ -133,7 +133,7 @@ public class PushServiceTests
         // a real destination (below).
         var ide = OneProgram("PLC_PRG", folder: "Device/Plc Logic/Application");
         var (v, pv) = Ver(ide, "Device/Plc Logic/Application/PLC_PRG.pou");
-        var resp = Push(ide, pv, new SetItemOp { Name = "Device/Plc Logic/Application/PLC_PRG.pou", IfVersion = v, To = null, SourceText = "PROGRAM PLC_PRG\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := n + 9;\n\nEND_PROGRAM\n" });
+        var resp = Push(ide, pv, new SetItemOp { Name = "Device/Plc Logic/Application/PLC_PRG.pou", IfVersion = v, To = null, SourceText = "PROGRAM PLC_PRG\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE ST\nn := n + 9;\n\nEND_PROGRAM\n" });
         Assert.True(resp.Landed());
         Assert.Contains("writecontent:PLC_PRG", ide.Recorded);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:") || r.StartsWith("create:")); // in place, not moved
@@ -163,7 +163,7 @@ public class PushServiceTests
         var ide = OneProgram();
         var pv = RefsService.Handle(ide).ProjectVersion!;
         var resp = Push(ide, pv,
-            new SetItemOp { Name = "Good.pou", IfVersion = null, SourceText = "PROGRAM Good\nIMPLEMENTATION ST\nEND_PROGRAM\n" },
+            new SetItemOp { Name = "Good.pou", IfVersion = null, SourceText = "PROGRAM Good\n%LANGUAGE ST\nEND_PROGRAM\n" },
             new SetItemOp { Name = "Bad.pou", IfVersion = null, SourceText = "not a POU at all" });
 
         Assert.False(resp.Landed());
@@ -176,7 +176,7 @@ public class PushServiceTests
     {
         var ide = OneProgram();
         var (v, pv) = Ver(ide, "PLC_PRG.pou");
-        var src = "PROGRAM MOTOR\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := n + 2;\n\nEND_PROGRAM\n";
+        var src = "PROGRAM MOTOR\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE ST\nn := n + 2;\n\nEND_PROGRAM\n";
         var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = v, To = "MOTOR.pou", SourceText = src });
         Assert.True(resp.Landed());
         Assert.Contains("rename:PLC_PRG->MOTOR", ide.Recorded);
@@ -210,7 +210,7 @@ public class PushServiceTests
     {
         var ide = OneProgram();
         var (_, pv) = Ver(ide, "PLC_PRG.pou");
-        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = null, SourceText = "PROGRAM PLC_PRG\nIMPLEMENTATION ST\nEND_PROGRAM\n" });
+        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = null, SourceText = "PROGRAM PLC_PRG\n%LANGUAGE ST\nEND_PROGRAM\n" });
         Assert.False(resp.Landed());
         Assert.Contains(resp.Conflicts!, c => c.Reason.Contains("already exists"));
     }
@@ -281,7 +281,7 @@ public class PushServiceTests
     public void Create_with_unclassifiable_content_is_rejected_not_crashed()
     {
         // An AI that pastes prose or a wrong-language body instead of ST: reject with a structured error,
-        // never a half-created item. A POU's text has no IMPLEMENTATION line or END line to split on, so the reader
+        // never a half-created item. A POU's text has no %LANGUAGE line or END line to split on, so the reader
         // refuses it INVALID_ST before any IDE mutation. (This pushed a struct DUT named `Junk` and leaned on the header parse; a
         // DUT's text is no longer read — PushWithoutHeaderCheckTests pins that prose under a DUT name is written.)
         var ide = new FakeIde();
@@ -296,9 +296,9 @@ public class PushServiceTests
     // first, losing a source method while the push reports accepted. The guard lives in Core (before any driver
     // call), so BOTH drivers reject it identically — this is the parity test for that shared behaviour.
     private const string TwoSameNameMethods =
-        "FUNCTION_BLOCK FB_Math\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n" +
-        "METHOD Calc : INT\nVAR_INPUT\n\ta : INT;\nEND_VAR\nIMPLEMENTATION ST\nEND_METHOD\n" +
-        "METHOD Calc : INT\nVAR_INPUT\n\ta : INT;\n\tb : INT;\nEND_VAR\nIMPLEMENTATION ST\nEND_METHOD\n";
+        "FUNCTION_BLOCK FB_Math\n%LANGUAGE ST\nEND_FUNCTION_BLOCK\n" +
+        "METHOD Calc : INT\nVAR_INPUT\n\ta : INT;\nEND_VAR\n%LANGUAGE ST\nEND_METHOD\n" +
+        "METHOD Calc : INT\nVAR_INPUT\n\ta : INT;\n\tb : INT;\nEND_VAR\n%LANGUAGE ST\nEND_METHOD\n";
 
     [Fact]
     public void Duplicate_child_name_is_rejected_not_silently_collapsed()
@@ -415,7 +415,7 @@ public class PushServiceTests
                 new SetItemOp
                 {
                     Name = "SFC_PRG.pou",
-                    SourceText = "PROGRAM SFC_PRG\nVAR\nEND_VAR\nIMPLEMENTATION ST\nx := 2;\n\nEND_PROGRAM\n\nACTION ACT_A\nIMPLEMENTATION ST\na := 1;\nEND_ACTION\n",
+                    SourceText = "PROGRAM SFC_PRG\nVAR\nEND_VAR\n%LANGUAGE ST\nx := 2;\n\nEND_PROGRAM\n\nACTION ACT_A\n%LANGUAGE ST\na := 1;\nEND_ACTION\n",
                 },
             },
         });
@@ -438,7 +438,7 @@ public class PushServiceTests
         var items = new System.Collections.Generic.List<FakeIde.Item>
         {
             new("PLC_PRG", ItemKind.PlcPou, "", true, "PROGRAM PLC_PRG\nVAR\n  out : BOOL;\nEND_VAR",
-                "IMPLEMENTATION LD\nNETWORK\n  out := TRUE;\nEND_NETWORK", "LD", null),
+                "%LANGUAGE LD\nNETWORK\n  out := TRUE;\nEND_NETWORK", "LD", null),
         };
         if (withGlobal) items.Add(FakeIde.Item.TextualPou("GVL_Main", "VAR_GLOBAL\n  SPLIT7 : BOOL;\nEND_VAR", ""));
         var ide = new FakeIde(items.ToArray());
@@ -448,7 +448,7 @@ public class PushServiceTests
         {
             Name = "PLC_PRG.pou",
             IfVersion = v,
-            SourceText = "PROGRAM PLC_PRG\nVAR\n  out : BOOL;\nEND_VAR\nIMPLEMENTATION LD\n" +
+            SourceText = "PROGRAM PLC_PRG\nVAR\n  out : BOOL;\nEND_VAR\n%LANGUAGE LD\n" +
                          "NETWORK\n  split7 := TRUE;\n  out := split7;\nEND_NETWORK\n\nEND_PROGRAM\n",
         });
 
@@ -472,7 +472,7 @@ public class PushServiceTests
             Name = "PLC_PRG.pou",
             IfVersion = v,
             To = "Machine/PLC_PRG.pou",
-            SourceText = "PROGRAM PLC_PRG\nVAR\nEND_VAR\nIMPLEMENTATION FBD\nNETWORK\n  out := (a AND b);\n\nEND_PROGRAM\n",
+            SourceText = "PROGRAM PLC_PRG\nVAR\nEND_VAR\n%LANGUAGE FBD\nNETWORK\n  out := (a AND b);\n\nEND_PROGRAM\n",
         });
 
         Assert.False(resp.Landed());

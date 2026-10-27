@@ -123,6 +123,11 @@ namespace Volt.Ide.Codesys.Tests
             return Materializer.Materialize(Volt.Engine.Sync.HostLink.Of(read), pou.get_name(false), ItemKind.Kinds.Pou, new ItemRef(pou)).Text.Replace("\r\n", "\n");
         }
 
+        /// <summary>The object-property lines of <paramref name="text"/>: every %-line but the body's %LANGUAGE line.</summary>
+        private static string[] PropertyLinesOf(string text) =>
+            text.Split('\n').Where(l => Volt.Engine.Format.St.PropertyLines.KeyOf(l) is { } key
+                                        && key != Volt.Engine.Format.St.PropertyLines.LanguageKey).ToArray();
+
         private static T With<T>(PropManager mgr, Func<T> body)
         {
             _3S.CoDeSys.Core.SystemInstances.ObjectMgr = mgr;
@@ -138,7 +143,7 @@ namespace Volt.Ide.Codesys.Tests
                 { ExcludeFromBuild = true, MemoryReserveForOnlineChange = 200, Undefines = new List<string> { "SIM" } };
             var text = With(new PropManager((pou, new object[] { build })), () => Pulled(pou));
 
-            Assert.Contains("IMPLEMENTATION ST\n%EXCLUDE_FROM_BUILD\n%ONLINE_CHANGE_RESERVE 200\n%UNDEFINE 'SIM'\n", text);
+            Assert.Contains("%LANGUAGE ST\n%EXCLUDE_FROM_BUILD\n%ONLINE_CHANGE_RESERVE 200\n%UNDEFINE 'SIM'\n", text);
         }
 
         /// <summary>WIRE PARITY (DIALECT C39): a function block excluded by its own flag pulls the text TwinCAT pulls for
@@ -177,7 +182,7 @@ namespace Volt.Ide.Codesys.Tests
         {
             var pou = new Node("FB_X", 1, new Pou("FUNCTION_BLOCK FB_X\nVAR\nEND_VAR", St()));
             var text = With(new PropManager((pou, new object[] { new _3S.CoDeSys.LanguageModelManager.BuildProperty() })), () => Pulled(pou));
-            Assert.DoesNotContain("%", text);
+            Assert.Empty(PropertyLinesOf(text));
         }
 
         [Fact]
@@ -185,7 +190,7 @@ namespace Volt.Ide.Codesys.Tests
         {
             var pou = new Node("CheckBounds", 1, new POUObjectCheckFunction("FUNCTION CheckBounds : DINT", St(), "CheckBounds"));
             var text = With(new PropManager((pou, Array.Empty<object>())), () => Pulled(pou));
-            Assert.Contains("IMPLEMENTATION ST\n%CLASS CHECK CheckBounds\n", text);
+            Assert.Contains("%LANGUAGE ST\n%CLASS CHECK CheckBounds\n", text);
         }
 
         /// <summary>The double answers every member its archive names, as SP21 does (gate review of step 4b, finding 6): a
@@ -206,7 +211,7 @@ namespace Volt.Ide.Codesys.Tests
         {
             var pou = new Node("FB_X", 1, new POUObject("FUNCTION_BLOCK FB_X\nVAR\nEND_VAR", St()));
             var text = With(new PropManager((pou, Array.Empty<object>())), () => Pulled(pou));
-            Assert.DoesNotContain("%", text);
+            Assert.Empty(PropertyLinesOf(text));
         }
 
         /// <summary>A member measured at ONE value on every corpus object, held at another, refuses the item BY NAME (design

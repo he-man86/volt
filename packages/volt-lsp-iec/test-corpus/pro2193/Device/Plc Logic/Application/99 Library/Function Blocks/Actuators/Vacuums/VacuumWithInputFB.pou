@@ -14,7 +14,7 @@ VAR
 	vacuumState				: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^();
 
 // Onderstaand is een idee van Arnoud
@@ -49,7 +49,7 @@ METHOD PROTECTED Alarms
 
 // Remember that this method may be replaced by another when deriving from this base FB.
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 NoVacuumAlarm(
 	moduleHandler	:= moduleHandler,
 	textRefId		:= textRefId,
@@ -75,7 +75,7 @@ VAR_INPUT
 	plcDataType		: PlcDataType;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 MeasureMaxTime.SetMonitoring(itfAddLog, plcDataType);
 
 END_METHOD
@@ -84,7 +84,7 @@ METHOD PROTECTED SetVacuumHighTimer
 VAR_INPUT
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 VacuumHighTimer.Set(
 			In := input1,
 			Pt := SEL(__ISVALIDREF(refVacuumHighTime), 0, refVacuumHighTime));

@@ -15,7 +15,7 @@ VAR_IN_OUT
 	ioPulse	: UDT_CamPulse;
 END_VAR
 
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
   MOVE iMachinePosition => ioPulse.MachinePos_HMI ENO EN;
 END_NETWORK

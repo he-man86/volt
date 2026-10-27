@@ -6,7 +6,7 @@ VAR_OUTPUT
 	xEdge	: BOOL;		// Provide a rising edge trigger when the output switches on
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 xEdge := FALSE;					// Reset the trigger output
 CLOCK();						// call TP Timer
 IF Enable THEN

@@ -4,7 +4,7 @@ VAR_INPUT
 	index, lower, upper : DINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %CLASS CHECK CheckBounds
 IF index >= lower AND index <= upper THEN
 	CheckBounds := index;

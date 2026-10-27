@@ -1,7 +1,7 @@
 /**
  * A PROPERTY'S AND AN INTERFACE MEMBER'S `%FOLDER` — read where the push reads it, and nowhere else.
  *
- * A method or an action keeps its folder under its `IMPLEMENTATION` line (the member cases at the end of this file). A property
+ * A method or an action keeps its folder under its `%LANGUAGE` line (the member cases at the end of this file). A property
  * and an interface member have no body line to stand it under, so the writer closes their DECLARATION with it
  * (`StWriter.AssembleProperty`, `AssembleChild`) and the push peels exactly that last line back into the folder
  * (`StReader.PeelFolderClosing`). A `%FOLDER` line anywhere else in a declaration the push refuses by name
@@ -13,14 +13,14 @@
 import { expect, test } from "bun:test"
 import { type BodySpan, isGraphicalBody, parseSource, bodyStatements, unitBodies } from "../index.js"
 
-const FB = "FUNCTION_BLOCK F\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\nEND_FUNCTION_BLOCK\n\n"
+const FB = "FUNCTION_BLOCK F\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\nx := 1;\nEND_FUNCTION_BLOCK\n\n"
 
 const folderErrors = (src: string) => parseSource(src, { networkText: true }, "codesys").errors.filter((e) => e.message.includes("%FOLDER"))
 
 test("a property's folder is the last line of its declaration", () => {
   for (const [what, src] of Object.entries({
-    "before GET": `${FB}PROPERTY P : INT\n%FOLDER sub/dir\nGET\nIMPLEMENTATION ST\nP := x;\nEND_GET\nEND_PROPERTY\n`,
-    "a blank line after it": `${FB}PROPERTY PUBLIC P : INT\n%FOLDER  sub/dir \n\nSET\nIMPLEMENTATION ST\nx := P;\nEND_SET\nEND_PROPERTY\n`,
+    "before GET": `${FB}PROPERTY P : INT\n%FOLDER sub/dir\nGET\n%LANGUAGE ST\nP := x;\nEND_GET\nEND_PROPERTY\n`,
+    "a blank line after it": `${FB}PROPERTY PUBLIC P : INT\n%FOLDER  sub/dir \n\nSET\n%LANGUAGE ST\nx := P;\nEND_SET\nEND_PROPERTY\n`,
     "no accessor": `${FB}PROPERTY P : INT\n%FOLDER sub/dir\nEND_PROPERTY\n`,
   })) {
     const pr = parseSource(src, { networkText: true }, "codesys")
@@ -57,13 +57,13 @@ test("a %FOLDER line anywhere the push does not peel it is reported, as the push
     "an interface method's, with a comment after it": "INTERFACE I\nMETHOD M : BOOL\n%FOLDER a\n// note\nEND_METHOD\nEND_INTERFACE\n",
     "between interface members": "INTERFACE I\nMETHOD M : BOOL\nEND_METHOD\n%FOLDER a\nMETHOD N : BOOL\nEND_METHOD\nEND_INTERFACE\n",
     "inside an interface accessor": "INTERFACE I\nPROPERTY Q : INT\nGET\n%FOLDER a\nEND_GET\nEND_PROPERTY\nEND_INTERFACE\n",
-    "at file scope": `${FB}%FOLDER a\nMETHOD M\nIMPLEMENTATION ST\nx := 2;\nEND_METHOD\n`,
+    "at file scope": `${FB}%FOLDER a\nMETHOD M\n%LANGUAGE ST\nx := 2;\nEND_METHOD\n`,
   }
   for (const [where, src] of Object.entries(misplaced))
     expect({ where, reported: folderErrors(src).length }).toEqual({ where, reported: 1 })
 })
 
-// ── a METHOD's or an ACTION's folder, under its IMPLEMENTATION line (rule FMT5) ─────────────────────────
+// ── a METHOD's or an ACTION's folder, under its %LANGUAGE line (rule FMT5) ─────────────────────────
 
 /** A function block whose body is `impl` — its boundary line and what follows it. */
 const fb = (impl: string): string =>
@@ -85,21 +85,21 @@ test("a member's %FOLDER is read where the push peels it, and nowhere else — e
   // folder there, and a blank line or a comment above the directive leaves it in the body. Wherever the push leaves
   // it, it is pushed into the IDE as ST statement text — so the LSP reads it as the body's, and does not hide it.
   for (const [member, end] of [["METHOD M", "END_METHOD"], ["ACTION A", "END_ACTION"]] as const) {
-    const src = `${fb("IMPLEMENTATION ST\n")}\n${member}\nIMPLEMENTATION ST\n%FOLDER  Sub/Deep \nout := a;\n${end}\n`
+    const src = `${fb("%LANGUAGE ST\n")}\n${member}\n%LANGUAGE ST\n%FOLDER  Sub/Deep \nout := a;\n${end}\n`
     expect({ member, errors: syntaxErrors(src) }).toEqual({ member, errors: [] })
-    expect({ member, folder: bodiesOf(src)[1]!.implementation?.folder }).toEqual({ member, folder: "Sub/Deep" })
+    expect({ member, folder: bodiesOf(src)[1]!.languageLine?.folder }).toEqual({ member, folder: "Sub/Deep" })
   }
   const left = {
-    "a POU's own body": "PROGRAM PRG\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n%FOLDER Sub\nx := 1;\nEND_PROGRAM\n",
-    "a property accessor": `${fb("IMPLEMENTATION ST\n")}\nPROPERTY P : INT\nGET\nIMPLEMENTATION ST\n%FOLDER Sub\nP := 1;\nEND_GET\nEND_PROPERTY\n`,
-    "another case": `${fb("IMPLEMENTATION ST\n")}\nMETHOD M\nIMPLEMENTATION ST\n%folder Sub\nout := a;\nEND_METHOD\n`,
-    "a blank line above it": `${fb("IMPLEMENTATION ST\n")}\nMETHOD M\nIMPLEMENTATION ST\n\n%FOLDER Sub\nout := a;\nEND_METHOD\n`,
-    "a comment above it": `${fb("IMPLEMENTATION ST\n")}\nMETHOD M\nIMPLEMENTATION ST\n(* note *)\n%FOLDER Sub\nout := a;\nEND_METHOD\n`,
-    "no path": `${fb("IMPLEMENTATION ST\n")}\nMETHOD M\nIMPLEMENTATION ST\n%FOLDER\nout := a;\nEND_METHOD\n`,
+    "a POU's own body": "PROGRAM PRG\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\n%FOLDER Sub\nx := 1;\nEND_PROGRAM\n",
+    "a property accessor": `${fb("%LANGUAGE ST\n")}\nPROPERTY P : INT\nGET\n%LANGUAGE ST\n%FOLDER Sub\nP := 1;\nEND_GET\nEND_PROPERTY\n`,
+    "another case": `${fb("%LANGUAGE ST\n")}\nMETHOD M\n%LANGUAGE ST\n%folder Sub\nout := a;\nEND_METHOD\n`,
+    "a blank line above it": `${fb("%LANGUAGE ST\n")}\nMETHOD M\n%LANGUAGE ST\n\n%FOLDER Sub\nout := a;\nEND_METHOD\n`,
+    "a comment above it": `${fb("%LANGUAGE ST\n")}\nMETHOD M\n%LANGUAGE ST\n(* note *)\n%FOLDER Sub\nout := a;\nEND_METHOD\n`,
+    "no path": `${fb("%LANGUAGE ST\n")}\nMETHOD M\n%LANGUAGE ST\n%FOLDER\nout := a;\nEND_METHOD\n`,
   }
   for (const [where, src] of Object.entries(left)) {
     const body = bodiesOf(src).at(-1)!
-    expect({ where, folder: body.implementation?.folder, inBody: body.tokens.some((t) => t.text === "%") }).toEqual({
+    expect({ where, folder: body.languageLine?.folder, inBody: body.tokens.some((t) => t.text === "%") }).toEqual({
       where,
       folder: undefined,
       inBody: true,
@@ -114,16 +114,16 @@ const parsed = (src: string) => parseSource(src, { networkText: true }, "codesys
 
 test("a POU's, a member's, a DUT's, a GVL's, an interface's and a property's %-lines are read where the push peels them", () => {
   const pou = parsed(
-    "FUNCTION_BLOCK F\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n%EXCLUDE_FROM_BUILD\n%COMMENT 'it$'s'\nx := 1;\nEND_FUNCTION_BLOCK\n\n" +
-      "METHOD M\nIMPLEMENTATION ST\n%CLASS CHECK CheckBounds\n%FOLDER Sub\n%LINK_ALWAYS\nx := 2;\nEND_METHOD\n",
+    "FUNCTION_BLOCK F\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\n%EXCLUDE_FROM_BUILD\n%COMMENT 'it$'s'\nx := 1;\nEND_FUNCTION_BLOCK\n\n" +
+      "METHOD M\n%LANGUAGE ST\n%CLASS CHECK CheckBounds\n%FOLDER Sub\n%LINK_ALWAYS\nx := 2;\nEND_METHOD\n",
   )
   expect(syntaxErrors(
-    "FUNCTION_BLOCK F\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n%EXCLUDE_FROM_BUILD\nx := 1;\nEND_FUNCTION_BLOCK\n",
+    "FUNCTION_BLOCK F\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\n%EXCLUDE_FROM_BUILD\nx := 1;\nEND_FUNCTION_BLOCK\n",
   )).toEqual([])
   expect(pou.errors).toEqual([])
   const [fbBody, mBody] = pou.units.flatMap(unitBodies)
-  expect(fbBody!.implementation?.objectProperties).toEqual(["%EXCLUDE_FROM_BUILD", "%COMMENT 'it$'s'"])
-  expect([mBody!.implementation?.folder, mBody!.implementation?.objectProperties]).toEqual([
+  expect(fbBody!.languageLine?.objectProperties).toEqual(["%EXCLUDE_FROM_BUILD", "%COMMENT 'it$'s'"])
+  expect([mBody!.languageLine?.folder, mBody!.languageLine?.objectProperties]).toEqual([
     "Sub",
     ["%CLASS CHECK CheckBounds", "%LINK_ALWAYS"],
   ])
@@ -150,7 +150,7 @@ test("a POU's, a member's, a DUT's, a GVL's, an interface's and a property's %-l
     ["%EXTERNAL"],
   ])
 
-  const prop = parsed(`${FB}PROPERTY P : INT\n%FOLDER sub\n%ONLINE_CHANGE_RESERVE 64\nGET\nIMPLEMENTATION ST\nP := x;\nEND_GET\nEND_PROPERTY\n`)
+  const prop = parsed(`${FB}PROPERTY P : INT\n%FOLDER sub\n%ONLINE_CHANGE_RESERVE 64\nGET\n%LANGUAGE ST\nP := x;\nEND_GET\nEND_PROPERTY\n`)
   expect(prop.errors).toEqual([])
   const p = prop.units.find((u) => u.kind === "property")
   expect(p?.kind === "property" && [p.folder, p.objectProperties]).toEqual(["sub", ["%ONLINE_CHANGE_RESERVE 64"]])
@@ -180,11 +180,19 @@ test("a %-line the push refuses is reported on its line: order, repeat, flag val
   expect(dut("%UNDEFINE 'A'\n%UNDEFINE 'B'\n%COMMENT 'x$N$27$$'\n%FILE_LINK Auto 'C:\a.txt'\n")).toEqual([])
 })
 
+/** A space or a tab separates the words of a %-line — the key from its value and a value's words from each other — as
+ *  the push reads it (`PropertyLines.KeyEnd`). */
+test("a tab separates a value's words as a space does", () => {
+  const dut = (lines: string) => parsed(`TYPE E :\n(\n\ta\n);\nEND_TYPE\n${lines}`).errors.map((e) => e.message)
+  for (const line of ["%CLASS\tCHECK CheckBounds", "%CLASS CHECK\tCheckBounds", "%CLASS CHECK \t CheckBounds", "%FILE_LINK Auto\t'C:\\a.txt'"])
+    expect({ line, errors: dut(`${line}\n`) }).toEqual({ line, errors: [] })
+})
+
 test("a %-line that is no property is code, and one where the push peels none is reported", () => {
   // `%QB1` is a direct address the lexer reads as one token; `%class` and `%CLASSIC` are no closed key — code the IDE gets
   for (const code of ["%QB1 := TRUE;", "%class := 1;"]) {
-    const body = bodiesOf(fb(`IMPLEMENTATION ST\n${code}`))[0]!
-    expect({ code, props: body.implementation?.objectProperties }).toEqual({ code, props: undefined })
+    const body = bodiesOf(fb(`%LANGUAGE ST\n${code}`))[0]!
+    expect({ code, props: body.languageLine?.objectProperties }).toEqual({ code, props: undefined })
   }
   const misplaced = {
     "a DUT's, before its end": "TYPE E :\n(\n\ta\n);\nEND_TYPE\n%EXTERNAL\nTYPE F :\n(\n\tb\n);\nEND_TYPE\n",
@@ -198,6 +206,6 @@ test("a %-line that is no property is code, and one where the push peels none is
       reported: 1,
     })
   // a POU's own body peels no %FOLDER, and an accessor peels nothing: left as code
-  const accessor = bodiesOf(`${FB}PROPERTY P : INT\nGET\nIMPLEMENTATION ST\n%EXTERNAL\nP := 1;\nEND_GET\nEND_PROPERTY\n`).at(-1)!
-  expect(accessor.implementation?.objectProperties).toBeUndefined()
+  const accessor = bodiesOf(`${FB}PROPERTY P : INT\nGET\n%LANGUAGE ST\n%EXTERNAL\nP := 1;\nEND_GET\nEND_PROPERTY\n`).at(-1)!
+  expect(accessor.languageLine?.objectProperties).toBeUndefined()
 })

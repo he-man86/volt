@@ -19,7 +19,7 @@ VAR CONSTANT
 	NoOfTakeoutsForReleaseBrake : USINT := 15;	// After this number of label takeouts, next time the brakes will be released during takeout
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 drawerActive	:= IsLocked;
 drawerEmpty		:= IsEmpty;
 
@@ -30,7 +30,7 @@ METHOD BrakeReleased : BOOL
 VAR_INPUT
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 _releaseBrakeCounter	:= 0;
 ReleaseBrakeNeeded		:= FALSE;
 
@@ -40,7 +40,7 @@ METHOD LabelsTaken : BOOL
 VAR_INPUT
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Increment.AnyInt(_releaseBrakeCounter);
 
 IF _releaseBrakeCounter = NoOfTakeoutsForReleaseBrake - 1 THEN
@@ -57,14 +57,14 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IsEmpty	:= _isEmpty;
 END_GET
 SET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 _isEmpty := IsEmpty;
 END_SET
 END_PROPERTY
@@ -76,7 +76,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IsLocked := Lock.IsActive;
 END_GET
 END_PROPERTY
@@ -88,7 +88,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Name := DrawerName;
 
 END_GET
@@ -101,7 +101,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 ReleaseBrakeCounter := _releaseBrakeCounter;
 END_GET
 END_PROPERTY
@@ -113,7 +113,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 ReleaseBrakeNeeded := _releaseBrakeNeeded;
 END_GET
 SET
@@ -121,7 +121,7 @@ PRIVATE
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 _releaseBrakeNeeded := ReleaseBrakeNeeded;
 END_SET
 END_PROPERTY

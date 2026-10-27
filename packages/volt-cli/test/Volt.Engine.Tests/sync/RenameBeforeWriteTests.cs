@@ -38,7 +38,7 @@ public class RenameBeforeWriteTests
 
     /// <summary>A body that parses as graphical and then fails validation — the network is never closed.</summary>
     private const string MalformedBody =
-        "PROGRAM FB_Renamed\nVAR\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  out := (a AND b);\nEND_PROGRAM\n";
+        "PROGRAM FB_Renamed\nVAR\nEND_VAR\n%LANGUAGE LD\nNETWORK\n  out := (a AND b);\nEND_PROGRAM\n";
 
     [Fact]
     public void A_rename_whose_edit_is_refused_does_not_rename()
@@ -92,7 +92,7 @@ public class RenameBeforeWriteTests
                 {
                     Name = "FB_Old.pou",
                     To = "FB_New.pou",
-                    SourceText = "PROGRAM FB_New\nVAR\nEND_VAR\nIMPLEMENTATION ST\ny := 2;\nEND_PROGRAM\n",
+                    SourceText = "PROGRAM FB_New\nVAR\nEND_VAR\n%LANGUAGE ST\ny := 2;\nEND_PROGRAM\n",
                     IfVersion = refs.Items["FB_Old.pou"],
                 },
             },
@@ -124,7 +124,7 @@ public class RenameBeforeWriteTests
                 {
                     Name = "FB_Old.pou",
                     To = "FB_New.pou",
-                    SourceText = "FUNCTION_BLOCK FB_New\nVAR\nEND_VAR\nIMPLEMENTATION ST\ny := 1;\nEND_FUNCTION_BLOCK\n",
+                    SourceText = "FUNCTION_BLOCK FB_New\nVAR\nEND_VAR\n%LANGUAGE ST\ny := 1;\nEND_FUNCTION_BLOCK\n",
                     IfVersion = refs.Items["FB_Old.pou"],
                 },
             },
@@ -164,7 +164,7 @@ public class RenameBeforeWriteTests
                 {
                     Name = "FB_Old.pou",
                     To = "FB_New.pou",
-                    SourceText = "FUNCTION_BLOCK FB_New\nVAR\nEND_VAR\nIMPLEMENTATION ST\ny := 2;\nEND_FUNCTION_BLOCK\n",
+                    SourceText = "FUNCTION_BLOCK FB_New\nVAR\nEND_VAR\n%LANGUAGE ST\ny := 2;\nEND_FUNCTION_BLOCK\n",
                     IfVersion = refs.Items["FB_Old.pou"],
                 },
             },
@@ -208,7 +208,7 @@ public class RenameBeforeWriteTests
                 {
                     Name = "FB_Old.pou",
                     To = $"{toFolder}/{toName ?? "FB_Old.pou"}",
-                    SourceText = $"FUNCTION_BLOCK {header}\nVAR\nEND_VAR\nIMPLEMENTATION ST\ny := 2;\nEND_FUNCTION_BLOCK\n",
+                    SourceText = $"FUNCTION_BLOCK {header}\nVAR\nEND_VAR\n%LANGUAGE ST\ny := 2;\nEND_FUNCTION_BLOCK\n",
                     IfVersion = refs.Items["FB_Old.pou"],
                 },
             },
@@ -246,7 +246,7 @@ public class RenameBeforeWriteTests
                 {
                     Name = "FB_Old.pou",
                     To = $"{toFolder}/{toName ?? "FB_Old.pou"}",
-                    SourceText = $"FUNCTION_BLOCK {header}\nVAR\nEND_VAR\nIMPLEMENTATION ST\ny := 2;\nEND_FUNCTION_BLOCK\n",
+                    SourceText = $"FUNCTION_BLOCK {header}\nVAR\nEND_VAR\n%LANGUAGE ST\ny := 2;\nEND_FUNCTION_BLOCK\n",
                     IfVersion = refs.Items["FB_Old.pou"],
                 },
             },

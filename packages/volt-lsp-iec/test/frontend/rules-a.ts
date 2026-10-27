@@ -44,7 +44,7 @@ export const RULES_A: readonly Rule[] = [
     area: 2,
     section: "2.1",
     rule: "CRLF line endings (lexer, implementation line)",
-    home: "lex/lexer, format/implementation-line",
+    home: "lex/lexer, format/language-line",
     gap: false,
     fixtures: ["lex_crlf_body", "lex_crlf_implementation_line"],
     design: "**GAP**",

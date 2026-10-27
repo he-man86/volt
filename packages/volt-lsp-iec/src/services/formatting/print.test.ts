@@ -18,7 +18,7 @@ const format = (source: string, uri = "file:///F.pou"): { text: string; errors: 
 // kept as written — reprinted from the AST it would lose the address, which the declaration does not hold.
 test("AT after the type round-trips", () => {
   const src =
-    "FUNCTION_BLOCK F\nVAR\n\tx : INT AT %IX0.0;\n\ty AT %QX0.1 : BOOL;\nEND_VAR\nIMPLEMENTATION ST\ny := TRUE;\nEND_FUNCTION_BLOCK\n"
+    "FUNCTION_BLOCK F\nVAR\n\tx : INT AT %IX0.0;\n\ty AT %QX0.1 : BOOL;\nEND_VAR\n%LANGUAGE ST\ny := TRUE;\nEND_FUNCTION_BLOCK\n"
   const r = format(src)
   expect(r.errors).toBeGreaterThan(0)
   expect(r.text).toBe(src)
@@ -67,7 +67,7 @@ test("an interface's VAR section survives formatting, in its place", () => {
 // found by the fixed point the day the parser refused the modifier there).
 test("an accessor's modifier prints on the line under GET/SET, where the push reads it", () => {
   const src =
-    "PROPERTY P : INT\nGET\nPUBLIC\nVAR\nEND_VAR\nIMPLEMENTATION ST\nP := 1;\nEND_GET\nSET\nPROTECTED\nIMPLEMENTATION ST\nEND_SET\nEND_PROPERTY\n"
+    "PROPERTY P : INT\nGET\nPUBLIC\nVAR\nEND_VAR\n%LANGUAGE ST\nP := 1;\nEND_GET\nSET\nPROTECTED\n%LANGUAGE ST\nEND_SET\nEND_PROPERTY\n"
   const r = format(src, "file:///P.prop")
   expect({ errors: r.errors, text: r.text }).toEqual({ errors: 0, text: src })
 })
@@ -78,7 +78,7 @@ test("an accessor's modifier prints on the line under GET/SET, where the push re
  * IDE body (`verbatimText`). A CRLF file stays CRLF.
  */
 test("range formatting a CRLF file leaves no mixed line endings", () => {
-  const src = "FUNCTION_BLOCK A\r\nVAR\r\n\ti : INT;\r\nEND_VAR\r\nIMPLEMENTATION ST\r\ni:=1;\r\nEND_FUNCTION_BLOCK\r\nFUNCTION_BLOCK B\r\nIMPLEMENTATION ST\r\n;\r\nEND_FUNCTION_BLOCK\r\n"
+  const src = "FUNCTION_BLOCK A\r\nVAR\r\n\ti : INT;\r\nEND_VAR\r\n%LANGUAGE ST\r\ni:=1;\r\nEND_FUNCTION_BLOCK\r\nFUNCTION_BLOCK B\r\n%LANGUAGE ST\r\n;\r\nEND_FUNCTION_BLOCK\r\n"
   const doc: Document = { uri: "u", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
   const applied = TextDocument.applyEdits(TextDocument.create("u", "st", 1, src), formatRange(doc, { start: { line: 5, character: 0 }, end: { line: 5, character: 2 } }))
   expect(applied).toBe(src.replace("i:=1;", "i := 1;"))
@@ -106,7 +106,7 @@ test("formatting keeps an interface member's attribute on the member, for the do
 
 test("formatting keeps a declaration comment whose text also stands in a string literal", () => {
   // `dropsCommentary` searched the printed text with indexOf, so the string literal stood in for the dropped comment
-  const src = "PROGRAM P\nVAR\n\ti : INT; // TODO\nEND_VAR\nIMPLEMENTATION ST\ns := '// TODO';\nEND_PROGRAM\n"
+  const src = "PROGRAM P\nVAR\n\ti : INT; // TODO\nEND_VAR\n%LANGUAGE ST\ns := '// TODO';\nEND_PROGRAM\n"
   const doc: Document = { uri: "P.pou", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
   expect(formatDocument(doc)).toContain("i : INT; // TODO")
 })

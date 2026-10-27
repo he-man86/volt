@@ -30,7 +30,7 @@ public class FakeAccessorWriteTests
     private const string FbDecl = "FUNCTION_BLOCK FB_P\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR";
 
     private static string Fb(string get) =>
-        $"{FbDecl}\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\n" +
+        $"{FbDecl}\n%LANGUAGE ST\n\nEND_FUNCTION_BLOCK\n\n" +
         $"PROPERTY P : BOOL\nGET\n{get}\nEND_GET\nEND_PROPERTY\n";
 
     private static PushResponse Create(FakeIde ide, string wireName, string src) =>
@@ -56,7 +56,7 @@ public class FakeAccessorWriteTests
     public void A_null_accessor_body_is_left_alone_and_an_empty_one_written_empty()
     {
         var ide = new FakeIde();
-        var created = Create(ide, "FB_P.pou", Fb("IMPLEMENTATION ST\nP := TRUE;"));
+        var created = Create(ide, "FB_P.pou", Fb("%LANGUAGE ST\nP := TRUE;"));
         Assert.True(created.Landed(), Why(created));
         Assert.Contains("P := TRUE;", Fetch(ide, "FB_P.pou"));
 
@@ -81,7 +81,7 @@ public class FakeAccessorWriteTests
     {
         var ide = new FakeIde { RematerializeAs = held => held + "\n(* vendor *)" };
 
-        var created = Create(ide, "FB_P.pou", Fb("IMPLEMENTATION FBD\nNETWORK\n  out  :=   a;\nEND_NETWORK"));
+        var created = Create(ide, "FB_P.pou", Fb("%LANGUAGE FBD\nNETWORK\n  out  :=   a;\nEND_NETWORK"));
         Assert.True(created.Landed(), Why(created));
 
         var fetched = Fetch(ide, "FB_P.pou");
@@ -106,7 +106,7 @@ public class FakeAccessorWriteTests
         ide.WriteContent(item, new ItemContent(ItemKind.Kinds.Interface, "INTERFACE I_P", null, new List<Member>
         {
             new(ItemKind.Kinds.InterfaceProperty, "P", "PROPERTY P : BOOL", "", ObjectProperties.None,
-                Getter: new Accessor("VAR\n\tx : INT;\nEND_VAR", "IMPLEMENTATION ST\nx := 1;")),
+                Getter: new Accessor("VAR\n\tx : INT;\nEND_VAR", "%LANGUAGE ST\nx := 1;")),
         }, ObjectProperties.None), Array.Empty<PushedNetworkBody>());
 
         Assert.DoesNotContain("x := 1;", Fetch(ide, "I_P.itf"));

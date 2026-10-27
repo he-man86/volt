@@ -9,7 +9,7 @@ VAR
 	Subject					: SubjectHWButtonFB;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^();
 
 
@@ -21,7 +21,7 @@ VAR_INPUT
 	observer			: IObserver;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Attach := Subject.Attach(observer);
 
 END_METHOD
@@ -32,14 +32,14 @@ VAR_INPUT
 	observer			: IObserver;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 Detach := Subject.Detach(observer);
 
 END_METHOD
 
 METHOD PROTECTED HandlePushed
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^.HandlePushed();
 
 Subject.ButtonType	:= buttonType;
@@ -50,7 +50,7 @@ END_METHOD
 
 METHOD PROTECTED HandleReleased
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^.HandleReleased();
 
 Subject.ButtonType	:= buttonType;
@@ -67,7 +67,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 ObserverCount := Subject.ObserverCount;
 
 END_GET

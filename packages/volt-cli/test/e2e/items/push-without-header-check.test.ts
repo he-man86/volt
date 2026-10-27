@@ -82,7 +82,7 @@ async function pushReferenceBuild(
 		const m = await fetchItem(main)
 		let src: string = m.sourceText
 		if (ref.decl) src = src.replace(/\nEND_VAR/, `\n\t${ref.decl}\nEND_VAR`)
-		if (ref.body) src = src.replace(/IMPLEMENTATION ST\n/, `IMPLEMENTATION ST\n${ref.body}\n`)
+		if (ref.body) src = src.replace(/%LANGUAGE ST\n/, `%LANGUAGE ST\n${ref.body}\n`)
 		const r = await pushOps([{ op: "set", name: main, sourceText: src, ifVersion: m.version }])
 		expect(landed(r), `could not reference '${wire}' from '${main}': ${JSON.stringify(r.conflicts)}`).toBe(true)
 		return { push, errors: await errors() }
@@ -119,7 +119,7 @@ describe(`items / push without header check (${BASE})`, () => {
 		  errors: (b) => [{ code: "C0077", message: `Unknown type: '${b}'` }], held: "fetched" },
 		{ key: "uc_gvl", ext: "gvl", text: (b) => `(* Globals\n *\nVAR_GLOBAL\n\t${b}_g : INT;\nEND_VAR`, ref: (b) => ({ decl: "v : INT;", body: `v := ${b}_g;` }),
 		  errors: (b) => [{ code: "C0032", message: `Cannot convert type 'Unknown type: '${b}_g'' to type 'INT'` }, { code: "C0046", message: `Identifier '${b}_g' not defined` }], held: "fetched" },
-		{ key: "uc_fb", ext: "pou", text: (b) => `(* Motor\n *\nFUNCTION_BLOCK ${b}\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := n + 1;\nEND_FUNCTION_BLOCK\n`, ref: (b) => ({ decl: `v : ${b};`, body: "v();" }),
+		{ key: "uc_fb", ext: "pou", text: (b) => `(* Motor\n *\nFUNCTION_BLOCK ${b}\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE ST\nn := n + 1;\nEND_FUNCTION_BLOCK\n`, ref: (b) => ({ decl: `v : ${b};`, body: "v();" }),
 		  // TwinCAT does not parse this text as a POU, but written in this load it is read like any POU (DIALECT C2i,
 		  // bridge-refusal-review 8.4): fetched back as written on both vendors.
 		  errors: (b) => [{ code: "C0077", message: `Unknown type: '${b}'` }, { code: "C0035", message: "Program name, function or function block instance expected instead of 'v'" }], held: "fetched" },
@@ -160,7 +160,7 @@ describe(`items / push without header check (${BASE})`, () => {
 		const bare = id(KEY + "fb_prg")
 		const r = await pushReferenceBuild(
 			`${bare}.pou`,
-			`PROGRAM ${bare}\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := 1;\nEND_PROGRAM\n`,
+			`PROGRAM ${bare}\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE ST\nn := 1;\nEND_PROGRAM\n`,
 			{ body: `${bare}();` },
 		)
 		expect(landed(r.push), `refused: ${JSON.stringify(r.push.conflicts)}`).toBe(true)
@@ -178,14 +178,14 @@ describe(`items / push without header check (${BASE})`, () => {
 	 *  vendors — the item changed — so it is a "pull first", and nothing is written.</p> */
 	it("an FB updated with PROGRAM text keeps its body and one identity; the fixed text restores it", async () => {
 		const bare = id(KEY + "upd")
-		const fbText = (n: number) => `FUNCTION_BLOCK ${bare}\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := ${n};\nEND_FUNCTION_BLOCK\n`
+		const fbText = (n: number) => `FUNCTION_BLOCK ${bare}\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE ST\nn := ${n};\nEND_FUNCTION_BLOCK\n`
 		const folder = await plcFolder("POUs")
 		const heldName = inFolder(folder, `${bare}.pou`)
 		expect(landed((await pushOps([{ op: "set", name: heldName, sourceText: fbText(5), ifVersion: null }])))).toBe(true)
 
 		let refs = await bridge.refs()
 		const heldBefore = refs.items[heldName]
-		const prgText = `PROGRAM ${bare}\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := 6;\nEND_PROGRAM\n`
+		const prgText = `PROGRAM ${bare}\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE ST\nn := 6;\nEND_PROGRAM\n`
 		const r = await pushOps([{ op: "set", name: heldName, sourceText: prgText, ifVersion: heldBefore }])
 		expect(landed(r), `refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 		refs = await bridge.refs()

@@ -10,7 +10,7 @@ import type { LibraryManifest } from "./manifest.js"
  * workspace, not only the library beside it. The two runtimes cannot share the constant; `bun run check`
  * (`scripts/check-wiring.ts`) fails when they disagree, since a mismatch silences every network-text diagnostic.
  */
-export const MATERIALIZATION: number = 4
+export const MATERIALIZATION: number = 5
 
 /** The manifests a pull by an OLDER Volt wrote — the workspace holds files the current format writes otherwise. */
 export function staleLibraryManifests(manifests: readonly LibraryManifest[]): LibraryManifest[] {

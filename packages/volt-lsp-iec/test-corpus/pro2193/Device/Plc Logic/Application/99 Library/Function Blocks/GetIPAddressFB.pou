@@ -13,7 +13,7 @@ END_VAR
 // 0x2452:002 Active eng. port settings: Subnet
 // 0x2452:003 Active eng. port settings: Gateway
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 ParameterRead(
 	xExecute		:= execute,
 	xAbort			:= ,

@@ -32,7 +32,7 @@ VAR CONSTANT
 	MaxVacuums					: USINT	:= ZUnits.MaxVacuums;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^(
 	Data				:= Data,
 	AxisRef				:= AxisRef,
@@ -48,7 +48,7 @@ VAR_INST
 	SetError					: ARRAY[1..2] OF SetErrorFB;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SetError[1](
 	moduleHandler	:= ModuleHandler,
 	textRefId		:= ZUnit_Errors,
@@ -80,7 +80,7 @@ VAR_INST
 	Timer			: BTON;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Stacking
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -111,7 +111,7 @@ VAR_INPUT
 	product			: ProductType;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Transfer
 takeoverPos	:= LIMIT(1, takeoverPos,	NumberOfTakeoverPositions);
 takeoverPos	:= LIMIT(1, takeoverPos,	MaxSides);
@@ -137,7 +137,7 @@ VAR
 	extendsAreIn				: BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^.Cyclic();
 
 // Handle ionizing bar
@@ -238,7 +238,7 @@ END_METHOD
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 Arrays.Vacuum_ReleaseAll(itfVacuumsFlat);
 
@@ -268,7 +268,7 @@ VAR
 	i				: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Transfer
 IF NOT ReadyForTransfer THEN
 	RETURN;
@@ -332,7 +332,7 @@ VAR
 	i, j	: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SUPER^.Initialize();
 
 // Set interfaces to correct vacuum instances
@@ -356,7 +356,7 @@ VAR_INST
 	rPosition			: REAL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Stacking
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -430,7 +430,7 @@ VAR
 	i, j					: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Stacking
 IF NOT ReadyForStacking THEN
 	RETURN;
@@ -501,7 +501,7 @@ VAR_INST
 	result					: ARRAY[1..3] OF BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Transfer
 IF NOT ReadyForTransfer THEN
 	RETURN;
@@ -550,7 +550,7 @@ VAR_INST
 	result					: ARRAY[1..2] OF BOOL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Stacking
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -593,7 +593,7 @@ VAR_INST
 	rStartPosition		: REAL;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Stacking
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -649,7 +649,7 @@ VAR
 	product1		: UINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Stacking
 product0	:= product - 1;	// Get zero based product number, needed for modulo calculation.
 
@@ -678,7 +678,7 @@ VAR
 	i, j				: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -779,7 +779,7 @@ VAR
 	i				: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Transfer
 IF NOT ReadyForTransfer THEN
 	RETURN;
@@ -808,7 +808,7 @@ END_METHOD
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 // Reset vacuums when products are no longer on the suction cups
 IF Arrays.Vacuum_ResetIfNotHigh(itfVacuumsFlat) = 0 THEN
@@ -828,7 +828,7 @@ VAR
 	i			: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands/Transfer
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -900,7 +900,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 IF Arrays.Vacuum_All(
 							vacuumArray	:= itfVacuumsFlat,
 							condition	:= TRUE,
@@ -932,7 +932,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 HasProductForTransfer := _hasProductForTransfer[gripperPosition];
 
 END_GET
@@ -948,7 +948,7 @@ VAR
 	i, j	: USINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 InSafePosForChain := TRUE;
 
 FOR i := 1 TO MaxSides DO
@@ -973,7 +973,7 @@ VAR
 	i, j : UINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Check if last product out of the mould is on the gripper.
 FOR i := 1 TO MaxSides DO
 	FOR j := 1 TO MaxVacuums DO

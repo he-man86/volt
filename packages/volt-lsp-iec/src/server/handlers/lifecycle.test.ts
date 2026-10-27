@@ -24,8 +24,8 @@ import { SCANNED_EXTENSIONS } from "../../workspace/workspace-refs.js"
 
 test("server: didChangeConfiguration live-toggles diagnoseDeadCode (no restart)", async () => {
   const client = connect()
-  const mainSrc = `PROGRAM Main\nIMPLEMENTATION ST\nx := 1;\nEND_PROGRAM`
-  const deadSrc = `FUNCTION_BLOCK FB_Dead\nVAR b : BOOL; i : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := b;\nEND_FUNCTION_BLOCK`
+  const mainSrc = `PROGRAM Main\n%LANGUAGE ST\nx := 1;\nEND_PROGRAM`
+  const deadSrc = `FUNCTION_BLOCK FB_Dead\nVAR b : BOOL; i : INT;\nEND_VAR\n%LANGUAGE ST\ni := b;\nEND_FUNCTION_BLOCK`
   const deadUri = "file:///FB_Dead.pou"
   await client.sendRequest(InitializeRequest.type, { processId: null, rootUri: null, capabilities: {} })
   const initial = onceDiag(client, deadUri)

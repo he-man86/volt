@@ -29,7 +29,7 @@ VAR CONSTANT
 	ReleaseFlapsPosition		: REAL	:= 150.0;			// Position to move flaps in and move stopper out
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %ONLINE_CHANGE_RESERVE 200
 SUPER^(
 	AxisRef				:= AxisRef,
@@ -46,7 +46,7 @@ VAR_INPUT
 	item : enumBoxItem;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 AddToBox	:= Box.AddItem(item);
 
@@ -57,7 +57,7 @@ VAR_INST
 	SetError					: ARRAY[1..1] OF SetErrorFB;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 SetError[1](
 	moduleHandler	:= ModuleHandler,
 	textRefId		:= BoxCenterUnit_Errors,
@@ -72,7 +72,7 @@ END_METHOD
 
 METHOD PUBLIC BoxRemoved
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 Box.BoxRemoved();
 
@@ -80,7 +80,7 @@ END_METHOD
 
 METHOD PUBLIC ClampBox : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 ClampBox	:= OpenBoxLongSide.GoOut() AND OpenBoxShortSide.GoOut();
 
@@ -92,7 +92,7 @@ VAR_INST
 	attachPosition				: ARRAY[1..2] OF AttachPosToButtonFB(							drive			:= Drive);
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 NumberOfLayersInBox := LayerIndex;
 
 // Set limits for the positions, and guard the limits
@@ -148,7 +148,7 @@ END_METHOD
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 CommandLock.ForceRelease();
 
@@ -165,7 +165,7 @@ END_METHOD
 
 METHOD PUBLIC MoveFlapsIn : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 MoveFlapsIn	:= OpenBoxLongSide.GoIn() AND OpenBoxShortSide.GoIn();
 
@@ -176,7 +176,7 @@ VAR_INST
 	localState			: SINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -202,7 +202,7 @@ VAR_INST
 	Timer				: BTON;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -252,7 +252,7 @@ VAR_INST
 	localState			: SINT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -304,7 +304,7 @@ END_METHOD
 
 METHOD PUBLIC SetBoxStateToChangeNeeded : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 SetBoxStateToChangeNeeded := Box.SetToChangeNeeded();
 
@@ -313,7 +313,7 @@ END_METHOD
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 CommandLock.ForceRelease();
 
@@ -327,7 +327,7 @@ END_METHOD
 
 METHOD PUBLIC UnclampBox : BOOL
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 %FOLDER Commands
 OpenBoxLongSide.Reset();
 OpenBoxShortSide.Reset();
@@ -343,7 +343,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 BoxCanBeFilled := LiftIsInbox
 			AND	OpenBoxLongSide.IsOut AND OpenBoxShortSide.IsOut
 			AND BoxInFillPosition.IsActive
@@ -361,7 +361,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 BoxIsFull := Box.ActualNumberOfLayers >= Box.MaxNumberOfLayers;
 
 END_GET
@@ -376,7 +376,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 CASE Box.State OF
 	enumBoxState.ProductsNeeded:
 		BoxItemNeeded	:= enumBoxItem.ProductLayer;
@@ -397,7 +397,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 InSafePosToMoveFlapsIn	:= Drive.PosSmallerOrEqual(ReleaseFlapsPosition);
 
 END_GET
@@ -411,7 +411,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 LayerIndex := Box.ActualNumberOfLayers;
 
 END_GET
@@ -425,7 +425,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 LiftIsInBox		:= Drive.PosReached(Data.InBoxPosition.Pos.value);
 
 END_GET
@@ -439,7 +439,7 @@ GET
 VAR
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 LiftIsOutOfBox	:= Drive.PosReached(Data.OutBoxPosition.Pos.value);
 
 END_GET

@@ -9,7 +9,7 @@ VAR
 	iecResult	: SysTypes.RTS_IEC_RESULT;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 // Get handle to current PLC application
 pApp		:= CmpApp.AppGetCurrent(pResult := ADR(iecResult));
 IF pApp = 0 THEN

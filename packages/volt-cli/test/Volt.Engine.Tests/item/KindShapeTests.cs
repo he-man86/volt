@@ -74,7 +74,7 @@ public class KindShapeTests
         Assert.False(ItemKind.ShapeOf(K.Property).Body);
         Assert.Equal(AccessorShape.WithBodies, ItemKind.ShapeOf(K.Property).Accessors);
 
-        // HasBody(interface) meant "composite": an interface has no IMPLEMENTATION line.
+        // HasBody(interface) meant "composite": an interface has no %LANGUAGE line.
         Assert.True(OldHasBody(K.Interface));
         Assert.True(IecLayout.Of(K.Interface).Composite);
         Assert.False(ItemKind.ShapeOf(K.Interface).Body);

@@ -44,7 +44,7 @@ VAR
 	Blink: BLINK;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 //------------------------------------------------------------------------------------------
 // This function controls a signal object.
 //

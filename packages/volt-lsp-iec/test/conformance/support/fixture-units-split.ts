@@ -20,12 +20,12 @@ export function asUnit(t: LanguageTest, source: string, unit: TopLevel, pragmas:
     case "program":
     case "function": {
       const declaration = pragmas + declarationText(source, unit.span.start, unit.body)
-      const stated = unit.body.implementation?.statement
+      const stated = unit.body.languageLine?.statement
       if (stated?.kind === "unsupported") {
         // A body Volt does not show has no text to load. Only an SFC one has a chart CODESYS makes by itself; any other
         // would be a POU loaded without the body the fixture is about — refused by name rather than loaded empty.
         if (stated.language.toUpperCase() !== "SFC")
-          throw new Error(`${t.name}: '${unit.name.text}' states IMPLEMENTATION ${stated.language} UNSUPPORTED — only an SFC body can be loaded without its text`)
+          throw new Error(`${t.name}: '${unit.name.text}' states %LANGUAGE ${stated.language} UNSUPPORTED — only an SFC body can be loaded without its text`)
         if (t.sfcStep === undefined) throw new Error(`${t.name}: '${unit.name.text}' is an SFC POU and the fixture names no sfcStep for its chart`)
         return { kind: unit.kind, name: unit.name.text, declaration, implementation: "", members: [], language: "sfc", step: t.sfcStep }
       }
@@ -118,18 +118,18 @@ function bodyText(source: string, span: Span): string {
 
 /**
  * A body's CODE — what the IDE holds as the implementation. A fixture written as a workspace file holds it (`asSent`)
- * states its body's `IMPLEMENTATION ST` line, which is no code in any language: the parser takes it out of the body's
+ * states its body's `%LANGUAGE ST` line, which is no code in any language: the parser takes it out of the body's
  * tokens, and the text loaded into the IDE starts under it, as the push strips it. Loaded with the line, CODESYS read it
  * as code ("',, AT or :' expected instead of 'ST'", `pwh_fb_text_says_program`, 2026-09-30). The declaration stops
  * above it for the same reason.
  */
 function declarationText(source: string, start: number, body: BodySpan): string {
-  return source.slice(start, body.implementation?.span.start ?? body.span.start).trimEnd() + "\n"
+  return source.slice(start, body.languageLine?.span.start ?? body.span.start).trimEnd() + "\n"
 }
 
 function codeText(source: string, body: BodySpan): string {
-  if (body.implementation === undefined) return bodyText(source, body.span)
-  return bodyText(source, { ...body.span, start: body.implementation.span.end })
+  if (body.languageLine === undefined) return bodyText(source, body.span)
+  return bodyText(source, { ...body.span, start: body.languageLine.span.end })
 }
 
 /** A declaration-only unit's whole text, its END_ keyword included (the span stops before it). */

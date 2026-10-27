@@ -1,9 +1,9 @@
 /**
- * The implementation keyword's diagnostics, over the server's real responses (openspec `implementation-keyword`):
- * a body under `IMPLEMENTATION ST` is analysed as ST, one under `LD`/`FBD` as network text; a missing or unknown
- * language is a diagnostic naming what is missing, on the keyword's line — never a guess; and a body that contradicts
- * its stated language is a diagnostic, never re-read as the other language. The push refuses the same files by name
- * (`ImplementationLanguagePushTests` in volt-cli).
+ * The `%LANGUAGE` line's diagnostics, over the server's real responses (openspec `language-line`): a body under
+ * `%LANGUAGE ST` is analysed as ST, one under `LD`/`FBD` as network text; a missing or unknown language is a diagnostic
+ * naming what is missing, on the line — never a guess; a body that contradicts its stated language is a diagnostic,
+ * never re-read as the other language; and a member with no body slot (no line, nothing after its declaration) draws
+ * nothing. The push refuses the same files by name (`LanguageLinePushTests` in volt-cli).
  */
 import { expect, test } from "bun:test"
 import type { Diagnostic } from "vscode-languageserver-protocol"
@@ -11,7 +11,7 @@ import { CAPS, harness } from "./harness.js"
 
 const NETWORK = "NETWORK\nout := a;\nEND_NETWORK"
 
-/** A function block whose body is `impl`; its keyword line is line 6. */
+/** A function block whose body is `impl`; its %LANGUAGE line is line 6. */
 const fb = (impl: string): string =>
   `FUNCTION_BLOCK F\nVAR\n\ta : BOOL;\n\tout : BOOL;\n\ti : INT;\nEND_VAR\n${impl}\nEND_FUNCTION_BLOCK\n`
 const KEYWORD_LINE = 6
@@ -30,27 +30,27 @@ const text = (d: Diagnostic): string => (typeof d.message === "string" ? d.messa
 
 const shown = (ds: Diagnostic[]): string[] => ds.map((d) => `${d.range.start.line}: ${String(d.code)} ${text(d)}`)
 
-test("a clean body under IMPLEMENTATION ST draws no diagnostic", async () => {
-  expect(shown(await diagnostics(fb("IMPLEMENTATION ST\nout := a;")))).toEqual([])
+test("a clean body under %LANGUAGE ST draws no diagnostic", async () => {
+  expect(shown(await diagnostics(fb("%LANGUAGE ST\nout := a;")))).toEqual([])
 })
 
 test("…and it is analysed as ST: its type error is found", async () => {
-  const ds = await diagnostics(fb("IMPLEMENTATION ST\ni := a;"))
+  const ds = await diagnostics(fb("%LANGUAGE ST\ni := a;"))
   expect(ds.map((d) => d.code)).toContain("C0032")
 })
 
-test("a clean body under IMPLEMENTATION LD or FBD draws no diagnostic", async () => {
+test("a clean body under %LANGUAGE LD or FBD draws no diagnostic", async () => {
   for (const language of ["LD", "FBD"]) {
-    expect(shown(await diagnostics(fb(`IMPLEMENTATION ${language}\n${NETWORK}`)))).toEqual([])
+    expect(shown(await diagnostics(fb(`%LANGUAGE ${language}\n${NETWORK}`)))).toEqual([])
   }
 })
 
 test("members and accessors under the keyword draw no diagnostic", async () => {
   const src =
-    fb("IMPLEMENTATION ST\n") +
-    "\nMETHOD Reset : BOOL\nIMPLEMENTATION ST\nReset := TRUE;\nEND_METHOD\n" +
-    "\nACTION Step\nIMPLEMENTATION ST\ni := i + 1;\nEND_ACTION\n" +
-    "\nPROPERTY Count : INT\nGET\nIMPLEMENTATION ST\nCount := i;\nEND_GET\nSET\nIMPLEMENTATION ST\ni := Count;\nEND_SET\nEND_PROPERTY\n"
+    fb("%LANGUAGE ST\n") +
+    "\nMETHOD Reset : BOOL\n%LANGUAGE ST\nReset := TRUE;\nEND_METHOD\n" +
+    "\nACTION Step\n%LANGUAGE ST\ni := i + 1;\nEND_ACTION\n" +
+    "\nPROPERTY Count : INT\nGET\n%LANGUAGE ST\nCount := i;\nEND_GET\nSET\n%LANGUAGE ST\ni := Count;\nEND_SET\nEND_PROPERTY\n"
   expect(shown(await diagnostics(src))).toEqual([])
 })
 
@@ -59,8 +59,8 @@ test("members and accessors under the keyword draw no diagnostic", async () => {
 const readByNeither = (ds: Diagnostic[]): boolean =>
   !ds.some((d) => d.code === "C0032" || String(d.code).startsWith("NETWORK_"))
 
-test("IMPLEMENTATION without a language is a diagnostic on its line naming the missing language", async () => {
-  const ds = await diagnostics(fb("IMPLEMENTATION\ni := a;"))
+test("%LANGUAGE without a language is a diagnostic on its line naming the missing language", async () => {
+  const ds = await diagnostics(fb("%LANGUAGE\ni := a;"))
   const on = ds.filter((d) => d.range.start.line === KEYWORD_LINE)
   expect(on.length).toBeGreaterThan(0)
   expect(on.some((d) => /language/i.test(text(d)))).toBe(true)
@@ -69,7 +69,7 @@ test("IMPLEMENTATION without a language is a diagnostic on its line naming the m
 
 test("an unknown language is a keyword diagnostic on its line naming it, and the body is read by neither reader", async () => {
   for (const language of ["XYZ", "ST UNSUPPORTED"]) {
-    const ds = await diagnostics(fb(`IMPLEMENTATION ${language}\ni := a;`))
+    const ds = await diagnostics(fb(`%LANGUAGE ${language}\ni := a;`))
     const on = ds.filter((d) => d.range.start.line === KEYWORD_LINE)
     expect({ language, shown: on.some((d) => text(d).includes(language) && /language/i.test(text(d))) }).toEqual({
       language,
@@ -79,14 +79,13 @@ test("an unknown language is a keyword diagnostic on its line naming it, and the
   }
 })
 
-/** Section 3b: a bare `IMPLEMENTATION CFC|SFC|IL` is no line a body can state — a body Volt does not show says so with
- *  UNSUPPORTED, on every language. It is a diagnostic on its line naming the line to write, and nothing under it is
- *  read. */
+/** A bare `%LANGUAGE CFC|SFC|IL` is no line a body can state — a body Volt does not show says so with UNSUPPORTED, on
+ *  every language. It is a diagnostic on its line naming the line to write, and nothing under it is read. */
 test("a bare CFC, SFC or IL line is a keyword diagnostic naming the UNSUPPORTED line, and read by neither reader", async () => {
   for (const language of ["CFC", "SFC", "IL"]) {
-    const ds = await diagnostics(fb(`IMPLEMENTATION ${language}\ni := a;`))
+    const ds = await diagnostics(fb(`%LANGUAGE ${language}\ni := a;`))
     const on = ds.filter((d) => d.range.start.line === KEYWORD_LINE)
-    expect({ language, shown: on.some((d) => text(d).includes(`IMPLEMENTATION ${language} UNSUPPORTED`)) }).toEqual({
+    expect({ language, shown: on.some((d) => text(d).includes(`%LANGUAGE ${language} UNSUPPORTED`)) }).toEqual({
       language,
       shown: true,
     })
@@ -98,19 +97,19 @@ test("a bare CFC, SFC or IL line is a keyword diagnostic naming the UNSUPPORTED 
  *  pushed, so it is analysed like any other: a syntax error in it is reported where it stands. */
 test("the declaration of a hidden body is still analysed", async () => {
   for (const line of ["CFC UNSUPPORTED", "LD UNSUPPORTED"]) {
-    const src = `FUNCTION_BLOCK F\nVAR_INPUT\n\tbStart BOOL;\nEND_VAR\nIMPLEMENTATION ${line}\nEND_FUNCTION_BLOCK\n`
+    const src = `FUNCTION_BLOCK F\nVAR_INPUT\n\tbStart BOOL;\nEND_VAR\n%LANGUAGE ${line}\nEND_FUNCTION_BLOCK\n`
     const ds = await diagnostics(src)
     expect({ line, onDeclaration: ds.some((d) => d.range.start.line === 2) }).toEqual({ line, onDeclaration: true })
   }
 })
 
-/** `IMPLEMENTATION <LANG> UNSUPPORTED` states a body Volt does not show — always for CFC, SFC and IL, and for an LD/FBD
+/** `%LANGUAGE <LANG> UNSUPPORTED` states a body Volt does not show — always for CFC, SFC and IL, and for an LD/FBD
  *  body network text cannot represent yet (owner decisions 2026-09-28, sections 2b and 3b) — which is empty. Code under
  *  one has nowhere to go — the push refuses it naming the item (`ReadOnlyBodyTests`) — so it is a diagnostic on the
  *  line naming what the line states, and neither reader reads the code. */
 test("code under an UNSUPPORTED line is a keyword diagnostic on its line naming it, and read by neither reader", async () => {
   for (const language of ["CFC UNSUPPORTED", "SFC UNSUPPORTED", "IL UNSUPPORTED", "LD UNSUPPORTED", "FBD UNSUPPORTED"]) {
-    const ds = await diagnostics(fb(`IMPLEMENTATION ${language}\ni := a;`))
+    const ds = await diagnostics(fb(`%LANGUAGE ${language}\ni := a;`))
     const on = ds.filter((d) => d.range.start.line === KEYWORD_LINE)
     // The keyword's OWN finding — it names the language and says it is one — not any parse error that echoes a token.
     expect({ language, shown: on.some((d) => text(d).includes(language) && /language/i.test(text(d))) }).toEqual({
@@ -131,7 +130,7 @@ test("a comment or pragma under an UNSUPPORTED line is the same keyword diagnost
     ["SFC UNSUPPORTED", "{attribute 'x'}"],
     ["LD UNSUPPORTED", "(* note *)"],
   ] as const) {
-    const ds = await diagnostics(fb(`IMPLEMENTATION ${line}\n${under}`))
+    const ds = await diagnostics(fb(`%LANGUAGE ${line}\n${under}`))
     const on = ds.filter((d) => d.range.start.line === KEYWORD_LINE)
     expect({ line, under, shown: on.some((d) => text(d).includes(line) && /holds code/i.test(text(d))) }).toEqual({
       line,
@@ -149,37 +148,37 @@ test("a comment or pragma under an UNSUPPORTED line is the same keyword diagnost
  *  LSP-only error is a false positive under the parity rule. Whether an IDE takes an OBJECT named so is the driver's
  *  measured answer (`RefusedName`), not a rule of the text. */
 test("IMPLEMENTATION is a name like any other, in every file and every naming position: no diagnostic", async () => {
-  const head = "FUNCTION_BLOCK F\nVAR\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\n"
+  const head = "FUNCTION_BLOCK F\nVAR\nEND_VAR\n%LANGUAGE ST\n\nEND_FUNCTION_BLOCK\n\n"
   const cases: { what: string; uri: string; src: string }[] = [
     ...["implementation", "IMPLEMENTATION", "Implementation"].map((name) => ({
       what: `a variable '${name}'`,
       uri: "file:///F.pou",
-      src: `FUNCTION_BLOCK F\nVAR\n\t${name} : INT;\nEND_VAR\nIMPLEMENTATION ST\n${name} := 1;\nEND_FUNCTION_BLOCK\n`,
+      src: `FUNCTION_BLOCK F\nVAR\n\t${name} : INT;\nEND_VAR\n%LANGUAGE ST\n${name} := 1;\nEND_FUNCTION_BLOCK\n`,
     })),
     {
       what: "a wrapped declaration's name on a line of its own",
       uri: "file:///F.pou",
-      src: "FUNCTION_BLOCK F\nVAR\n\ta,\n\tIMPLEMENTATION\n\t: INT;\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n",
+      src: "FUNCTION_BLOCK F\nVAR\n\ta,\n\tIMPLEMENTATION\n\t: INT;\nEND_VAR\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK\n",
     },
     {
       what: "a method-local variable",
       uri: "file:///F.pou",
-      src: head + "METHOD Run\nVAR\n\tImplementation : INT;\nEND_VAR\nIMPLEMENTATION ST\nImplementation := 1;\nEND_METHOD\n",
+      src: head + "METHOD Run\nVAR\n\tImplementation : INT;\nEND_VAR\n%LANGUAGE ST\nImplementation := 1;\nEND_METHOD\n",
     },
     {
       what: "a method's name",
       uri: "file:///F.pou",
-      src: head + "METHOD Implementation : BOOL\nIMPLEMENTATION ST\nImplementation := TRUE;\nEND_METHOD\n",
+      src: head + "METHOD Implementation : BOOL\n%LANGUAGE ST\nImplementation := TRUE;\nEND_METHOD\n",
     },
     {
       what: "a property's name",
       uri: "file:///F.pou",
-      src: head + "PROPERTY Implementation : BOOL\nGET\nIMPLEMENTATION ST\nImplementation := TRUE;\nEND_GET\nEND_PROPERTY\n",
+      src: head + "PROPERTY Implementation : BOOL\nGET\n%LANGUAGE ST\nImplementation := TRUE;\nEND_GET\nEND_PROPERTY\n",
     },
     {
       what: "the POU's own name",
       uri: "file:///Implementation.pou",
-      src: "FUNCTION_BLOCK Implementation\nVAR\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n",
+      src: "FUNCTION_BLOCK Implementation\nVAR\nEND_VAR\n%LANGUAGE ST\n\nEND_FUNCTION_BLOCK\n",
     },
     { what: "an enum value", uri: "file:///E.dut", src: "TYPE E :\n(\n\tIMPLEMENTATION,\n\tB\n);\nEND_TYPE\n" },
     { what: "a struct member", uri: "file:///S.dut", src: "TYPE S :\nSTRUCT\n\timplementation : INT;\nEND_STRUCT\nEND_TYPE\n" },
@@ -198,45 +197,45 @@ test("IMPLEMENTATION is a name like any other, in every file and every naming po
 /** A second keyword line outside any comment is not the boundary and not ST: the push refuses it by name
  *  (`A_second_keyword_line_in_a_body_is_refused_naming_the_member`), so the editor shows it on its line. */
 test("a second keyword line in a body is a diagnostic on that line", async () => {
-  const ds = await diagnostics(fb("IMPLEMENTATION ST\nout := a;\nIMPLEMENTATION ST\nout := NOT a;"))
+  const ds = await diagnostics(fb("%LANGUAGE ST\nout := a;\n%LANGUAGE ST\nout := NOT a;"))
   expect(ds.some((d) => d.range.start.line === KEYWORD_LINE + 2)).toBe(true)
 })
 
 /** A body Volt does not show (CFC, SFC, IL, an unrepresentable network) is pulled with its UNSUPPORTED line —
- *  `IMPLEMENTATION <LANG> UNSUPPORTED` — over an empty body, `%FOLDER` under it for a member in a folder (sections 2b,
- *  3b): it states no code is shown, where `IMPLEMENTATION ST` would have labelled a chart Structured Text. Such a file is
+ *  `%LANGUAGE <LANG> UNSUPPORTED` — over an empty body, `%FOLDER` under it for a member in a folder (sections 2b,
+ *  3b): it states no code is shown, where `%LANGUAGE ST` would have labelled a chart Structured Text. Such a file is
  *  what a pull writes, so it draws no diagnostic. */
 test("a body stated by its UNSUPPORTED line draws no diagnostic, and the members around it are still read", async () => {
   for (const line of ["CFC UNSUPPORTED", "SFC UNSUPPORTED", "IL UNSUPPORTED", "LD UNSUPPORTED", "FBD UNSUPPORTED"])
-    expect({ line, shown: shown(await diagnostics(fb(`IMPLEMENTATION ${line}\n`))) }).toEqual({ line, shown: [] })
+    expect({ line, shown: shown(await diagnostics(fb(`%LANGUAGE ${line}\n`))) }).toEqual({ line, shown: [] })
 
   // The members are CALLED from the body: CODESYS compiles only what is used, so the LSP says nothing about a member
   // nothing calls — and a member nothing calls would draw no diagnostic whatever its line said.
   const src =
-    "FUNCTION_BLOCK F\nVAR\n\ta : BOOL;\n\ti : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := a;\nChart();\nLadder();\nStep();\nEND_FUNCTION_BLOCK\n" +
-    "\nMETHOD Chart\nIMPLEMENTATION SFC UNSUPPORTED\nEND_METHOD\n" +
-    "\nMETHOD Ladder\nIMPLEMENTATION LD UNSUPPORTED\n%FOLDER Sub/Deep\nEND_METHOD\n" +
-    "\nACTION Step\nIMPLEMENTATION CFC UNSUPPORTED\nEND_ACTION\n"
+    "FUNCTION_BLOCK F\nVAR\n\ta : BOOL;\n\ti : INT;\nEND_VAR\n%LANGUAGE ST\ni := a;\nChart();\nLadder();\nStep();\nEND_FUNCTION_BLOCK\n" +
+    "\nMETHOD Chart\n%LANGUAGE SFC UNSUPPORTED\nEND_METHOD\n" +
+    "\nMETHOD Ladder\n%LANGUAGE LD UNSUPPORTED\n%FOLDER Sub/Deep\nEND_METHOD\n" +
+    "\nACTION Step\n%LANGUAGE CFC UNSUPPORTED\nEND_ACTION\n"
   // Exactly the ST body's type error, on its line (6): the hidden members draw nothing, and the body is analysed
   // as the ST its keyword states.
   expect((await diagnostics(src)).map((d) => `${d.range.start.line}: ${String(d.code)}`)).toEqual(["6: C0032"])
 })
 
-test("network text under IMPLEMENTATION ST is a diagnostic — read as ST, never as a network", async () => {
-  const ds = await diagnostics(fb(`IMPLEMENTATION ST\n${NETWORK}`))
+test("network text under %LANGUAGE ST is a diagnostic — read as ST, never as a network", async () => {
+  const ds = await diagnostics(fb(`%LANGUAGE ST\n${NETWORK}`))
   expect(ds.length).toBeGreaterThan(0)
   expect(ds.some((d) => String(d.code).startsWith("NETWORK_"))).toBe(false)
 })
 
-test("ST under IMPLEMENTATION LD is a network-text diagnostic — read as a network, never as ST", async () => {
-  const ds = await diagnostics(fb("IMPLEMENTATION LD\nout := a;"))
+test("ST under %LANGUAGE LD is a network-text diagnostic — read as a network, never as ST", async () => {
+  const ds = await diagnostics(fb("%LANGUAGE LD\nout := a;"))
   expect(ds.some((d) => String(d.code).startsWith("NETWORK_"))).toBe(true)
 })
 
-// A body with NO keyword line states no language, which the spec makes an LSP diagnostic as the push makes it a refusal
-// (`StReader.Unmarked`, "Run `volt pull` once"): never read as ST by default, so an engineer who deletes the line sees
-// it in the editor, not only when the push refuses the file.
-test("a body with no IMPLEMENTATION line is a diagnostic naming the item and `volt pull`, and read by neither reader", async () => {
+// A body with NO line states no language, which the spec makes an LSP diagnostic as the push makes it a refusal
+// (`StReader.Unmarked`, "Run `volt pull` once"; a member's code with no line, `StReader.DeclarationOnly`): never read as
+// ST by default, so an engineer who deletes the line sees it in the editor, not only when the push refuses the file.
+test("a body with no %LANGUAGE line is a diagnostic naming the item and `volt pull`, and read by neither reader", async () => {
   const ds = await diagnostics(
     "FUNCTION_BLOCK F\nVAR\n\ta : BOOL;\n\tout : BOOL;\n\ti : INT;\nEND_VAR\ni := a;\nEND_FUNCTION_BLOCK\n\n" +
       "METHOD M : BOOL\nM := TRUE;\nEND_METHOD\n",
@@ -249,9 +248,9 @@ test("a body with no IMPLEMENTATION line is a diagnostic naming the item and `vo
   expect(readByNeither(ds)).toBe(true)
 })
 
-test("a property accessor with no IMPLEMENTATION line is the same diagnostic", async () => {
+test("a property accessor with code and no %LANGUAGE line is the same diagnostic", async () => {
   const ds = await diagnostics(
-    fb("IMPLEMENTATION ST\n") + "\nPROPERTY Count : INT\nGET\nCount := i;\nEND_GET\nEND_PROPERTY\n",
+    fb("%LANGUAGE ST\n") + "\nPROPERTY Count : INT\nGET\nCount := i;\nEND_GET\nEND_PROPERTY\n",
   )
   expect(ds.filter((d) => /states no language/.test(text(d))).length).toBe(1)
 })
@@ -261,32 +260,59 @@ test("a line-less ladder is not read as ST either", async () => {
   expect(ds.filter((d) => /states no language/.test(text(d))).map((d) => d.range.start.line)).toEqual([KEYWORD_LINE])
 })
 
-// D9 (openspec bridge-refusal-review): a line is the boundary only by its grammar. A body whose only line-like line is
-// none — a bare `IMPLEMENTATION CFC`, a word no body states, the keyword alone — states no language, and the finding
-// names that line and what it lacks, as the push's refusal of the same file does (`StReader.Unmarked`).
-test("a body whose line only looks like the boundary states no language, and the finding names the line and what it lacks", async () => {
-  const bare = (await diagnostics(fb("IMPLEMENTATION CFC\n"))).filter((d) => /states no language/.test(text(d)))
-  expect(bare.length).toBe(1)
-  expect(text(bare[0]!)).toContain("It holds 'IMPLEMENTATION CFC'")
-  expect(text(bare[0]!)).toContain("'IMPLEMENTATION CFC UNSUPPORTED'")
-
-  const word = (await diagnostics(fb("IMPLEMENTATION SST\nout := a;"))).filter((d) => /states no language/.test(text(d)))
-  expect(word.length).toBe(1)
-  expect(text(word[0]!)).toContain("'SST' is no language a body can state")
+// A file written before the line was renamed: its retired `IMPLEMENTATION` line states nothing, so the body states no
+// language, and the finding says to pull again — the push's refusal of the same file (`PropertyLines.RetiredLineRefusal`).
+test("a body under the retired IMPLEMENTATION line states no language, and the finding says to pull again", async () => {
+  const ds = (await diagnostics(fb("IMPLEMENTATION ST\nout := a;"))).filter((d) => /states no language/.test(text(d)))
+  expect(ds.length).toBe(1)
+  expect(text(ds[0]!)).toBe(
+    "'F' states no language: it holds 'IMPLEMENTATION ST': `IMPLEMENTATION` is no longer read — pull again (it is now `%LANGUAGE <LANG>`).",
+  )
 })
 
-/** An abstract member with no code (`IMPLEMENTATION NONE`, openspec abstract-member-push / -parity) draws nothing — pro2193's abstract
- *  members re-pulled — and code under it is the keyword finding on its line, read by neither reader. */
-test("IMPLEMENTATION NONE draws no diagnostic, and code under it is a keyword diagnostic on its line", async () => {
+/** The line is the boundary wherever it stands; text above it is the declaration's, where the push writes it as sent.
+ *  Text there the declaration parser did not take is the build's to judge, and no recording says what the build says
+ *  (niche: accepted loss, 0 occurrences in the corpora): it draws nothing, and the body under the line is still
+ *  analysed. A %-line there is the push's refusal, and is reported as misplaced. */
+test("text above the %LANGUAGE line draws nothing no recording backs, and the body is still analysed", async () => {
+  const garbage = await diagnostics(fb("i := a;\nfoo bar baz qux\n%LANGUAGE ST\ni := a;"))
+  expect(garbage.map((d) => `${d.range.start.line}: ${String(d.code)}`).sort()).toEqual(["9: C0032"])
+
+  const method = await diagnostics(fb("%LANGUAGE ST") + "\nMETHOD M : BOOL\nM := undefinedThing;\n%LANGUAGE ST\nM := TRUE;\nEND_METHOD\n")
+  expect(method.map((d) => `${d.range.start.line}: ${String(d.code)}`)).toEqual([])
+
+  const semicolon = await diagnostics("FUNCTION_BLOCK F\nVAR\n\tout : BOOL;\nEND_VAR;\n%LANGUAGE ST\nout := TRUE;\nEND_FUNCTION_BLOCK\n")
+  expect(semicolon).toEqual([])
+
+  const property = await diagnostics("FUNCTION_BLOCK F\nVAR\n\tout : BOOL;\nEND_VAR\n%EXCLUDE_FROM_BUILD\n%LANGUAGE ST\nout := TRUE;\nEND_FUNCTION_BLOCK\n")
+  expect(property.map((d) => `${d.range.start.line}: ${text(d).slice(0, 51)}`)).toEqual([
+    "4: '%EXCLUDE_FROM_BUILD' is no property the push reads",
+  ])
+})
+
+/** A member with no body slot (DIALECT C2n: CODESYS's IDE-made abstract method, an abstract property's GET) is written
+ *  with no line and nothing after its declaration — pro2193's re-pulled — and draws nothing; the method's `%FOLDER`
+ *  closes its declaration. Code after a member's declaration with no line is the finding, saying the line to state. */
+test("a member with no body slot draws no diagnostic, and code after a member's declaration with no line is the finding", async () => {
   const src =
-    "FUNCTION_BLOCK ABSTRACT F\nVAR\n\ta : BOOL;\n\ti : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := a;\nEND_FUNCTION_BLOCK\n" +
-    "\nMETHOD ABSTRACT TakePicture : INT\nIMPLEMENTATION NONE\nEND_METHOD\n" +
-    "\nPROPERTY PUBLIC ABSTRACT Busy : BOOL\nGET\nVAR\nEND_VAR\nIMPLEMENTATION NONE\nEND_GET\nEND_PROPERTY\n"
-  // Exactly the ST body's type error, on its line (6): the abstract members draw nothing.
+    "FUNCTION_BLOCK ABSTRACT F\nVAR\n\ta : BOOL;\n\ti : INT;\nEND_VAR\n%LANGUAGE ST\ni := a;\nEND_FUNCTION_BLOCK\n" +
+    "\nMETHOD ABSTRACT TakePicture : INT\n\n%FOLDER Commands\nEND_METHOD\n" +
+    "\nPROPERTY PUBLIC ABSTRACT Busy : BOOL\nGET\nVAR\nEND_VAR\nEND_GET\nEND_PROPERTY\n"
+  // Exactly the ST body's type error, on its line (6): the members with no slot draw nothing.
   expect((await diagnostics(src)).map((d) => `${d.range.start.line}: ${String(d.code)}`)).toEqual(["6: C0032"])
 
-  const ds = await diagnostics(fb("IMPLEMENTATION NONE\ni := a;"))
-  const on = ds.filter((d) => d.range.start.line === KEYWORD_LINE)
-  expect(on.some((d) => text(d).includes("IMPLEMENTATION NONE") && text(d).includes("an abstract member holds no code"))).toBe(true)
-  expect(readByNeither(ds)).toBe(true)
+  const coded = (await diagnostics(fb("%LANGUAGE ST\n") + "\nMETHOD Run : BOOL\nRun := TRUE;\nEND_METHOD\n")).filter((d) =>
+    /states no language/.test(text(d)),
+  )
+  expect(coded.length).toBe(1)
+  expect(text(coded[0]!)).toContain("code stands after its declaration")
+  expect(text(coded[0]!)).toContain("State '%LANGUAGE ST' above the code")
+
+  // No line and nothing after the declaration, but not ABSTRACT: the push refuses it as a create and as an update, so
+  // it is the finding — on a concrete method and on a concrete property's empty GET alike.
+  const concrete = (
+    await diagnostics(fb("%LANGUAGE ST\n") + "\nMETHOD Run : BOOL\nVAR\nEND_VAR\nEND_METHOD\n\nPROPERTY P : INT\nGET\nEND_GET\nEND_PROPERTY\n")
+  ).filter((d) => /states no language/.test(text(d)))
+  expect(concrete.map((d) => text(d).slice(0, text(d).indexOf(" states")))).toEqual(["'Run'", "'P's getter'"])
+  for (const d of concrete) expect(text(d)).toContain("only a member with no body slot has none")
 })

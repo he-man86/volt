@@ -10,7 +10,7 @@ import type { SemanticTokens, SemanticTokensEdit } from "vscode-languageserver-p
 import {
   allUnits,
   graphicalBodies,
-  implementationWords,
+  languageLineWords,
   type Span,
   type Token,
   type TokenKind,
@@ -67,7 +67,7 @@ function tokenRecords(doc: Document, project: Scope): TokenRecord[] {
   const out: TokenRecord[] = []
   const graphical = graphicalBodySpans(doc)
   const wires = wireOccurrences(doc, project)
-  const stated = implementationLineWords(doc.parseResult.units)
+  const stated = languageLineWordStarts(doc.parseResult.units)
   for (const tok of doc.parseResult.tokens) {
     const type = wires.has(tok.span.start) ? "wire" : stated.has(tok.span.start) ? "keyword" : classify(tok, doc, project, graphical)
     if (type === undefined) continue
@@ -169,15 +169,15 @@ function wireOccurrences(doc: Document, project: Scope): Set<number> {
 }
 
 /**
- * Where the words of every body's `IMPLEMENTATION <LANG>` line start — `IMPLEMENTATION`, the language, `UNSUPPORTED`.
+ * Where the words of every body's `%LANGUAGE <LANG>` line start — `%`, `LANGUAGE`, the language, `UNSUPPORTED`.
  * They are syntax of a Volt file, not ST: the lexer hands them back as identifiers, and a lookup would paint them as
  * variables. Read off the parse, so only the line the splitter took as a body's boundary is coloured — never a
  * look-alike in a comment, or a variable someone named `ST`.
  */
-function implementationLineWords(units: readonly TopLevel[]): Set<number> {
+function languageLineWordStarts(units: readonly TopLevel[]): Set<number> {
   const at = new Set<number>()
   for (const unit of allUnits(units))
-    for (const body of unitBodies(unit)) for (const w of implementationWords(body)) at.add(w.span.start)
+    for (const body of unitBodies(unit)) for (const w of languageLineWords(body)) at.add(w.span.start)
   return at
 }
 

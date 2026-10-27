@@ -24,10 +24,10 @@ import { reopenTwinCatSolution } from "../lib/tc-reopen"
 
 const twincat = VENDOR === "twincat"
 const instance = process.env.VOLT_E2E_INSTANCE ?? ""
-const prg = (s: string, body: string) => `PROGRAM ${id(s)}\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n${body}\n\nEND_PROGRAM\n`
+const prg = (s: string, body: string) => `PROGRAM ${id(s)}\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\n${body}\n\nEND_PROGRAM\n`
 
 const fb = (s: string, body: string) =>
-	`FUNCTION_BLOCK ${id(s)}\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n${body}\n\nEND_FUNCTION_BLOCK\n`
+	`FUNCTION_BLOCK ${id(s)}\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\n${body}\n\nEND_FUNCTION_BLOCK\n`
 
 describe(`no save: every operation lands in the open IDE (${BASE})`, () => {
 	setDefaultTimeout(300_000)
@@ -133,10 +133,10 @@ describe(`no save: every operation lands in the open IDE (${BASE})`, () => {
 
 	it("a POU with members: edit, move (member bodies carried), delete — the IDE asks nothing", async () => {
 		const withMembers = (s: string, body: string) =>
-			`FUNCTION_BLOCK ${id(s)}\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\n\nEND_FUNCTION_BLOCK\n` +
-			`\nMETHOD Deep : INT\nIMPLEMENTATION ST\n${body}\nEND_METHOD\n` +
-			`\nMETHOD Shallow : INT\nIMPLEMENTATION ST\n%FOLDER Helpers\nShallow := 1;\nEND_METHOD\n` +
-			`\nPROPERTY P : INT\nGET\nIMPLEMENTATION ST\nP := x;\nEND_GET\nEND_PROPERTY\n`
+			`FUNCTION_BLOCK ${id(s)}\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\nx := 1;\n\nEND_FUNCTION_BLOCK\n` +
+			`\nMETHOD Deep : INT\n%LANGUAGE ST\n${body}\nEND_METHOD\n` +
+			`\nMETHOD Shallow : INT\n%LANGUAGE ST\n%FOLDER Helpers\nShallow := 1;\nEND_METHOD\n` +
+			`\nPROPERTY P : INT\nGET\n%LANGUAGE ST\nP := x;\nEND_GET\nEND_PROPERTY\n`
 		await createItem(fid("ns_m"), withMembers("ns_m", "Deep := 1;"))
 		await updateItem(fid("ns_m"), withMembers("ns_m", "Deep := 2;"))
 		const folder = await plcFolder("POUs/VltE2E_NsMembers")

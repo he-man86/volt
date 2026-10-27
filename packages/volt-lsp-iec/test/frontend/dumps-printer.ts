@@ -37,11 +37,12 @@ export function astKey(value: unknown): string {
     if (x !== null && typeof x === "object") {
       const obj = x as Record<string, unknown>
       if (obj.kind === "body") {
-        const line = (obj as { implementation?: { statement: unknown; folder?: string; leading?: string } })
-          .implementation
+        const line = (obj as { noSlot?: unknown; languageLine?: { statement: unknown; folder?: string; leading?: string } })
+          .languageLine
         return {
           kind: "body",
-          implementation:
+          noSlot: norm((obj as { noSlot?: unknown }).noSlot ?? null),
+          languageLine:
             line === undefined
               ? null
               : norm({

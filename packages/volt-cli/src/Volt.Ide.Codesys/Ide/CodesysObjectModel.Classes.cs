@@ -45,9 +45,9 @@ namespace Volt.Ide.Codesys
                         "is not: the completeness oracle has not reproduced a re-created list (openspec bridge-one-to-one " +
                         "§1.1). Create it in the IDE and pull; an update of an existing one is written."), ChildRefusalCause.Kind);
                 case (ObjectClass.AbstractMethod, ItemKind.PlcMethod):
-                    // The vendor's abstract method class, made as `create-each-class` / `abstract-member-equivalence` made it
-                    // (C2r): its constructor, the aspect it holds null from the POU factory's `DoCreate` — derived from the
-                    // text (`METHOD ABSTRACT` with no code), never spelled.
+                    // The vendor's abstract method class, with no body slot, made as `create-each-class` /
+                    // `abstract-member-equivalence` made it (C2r): its constructor, the aspect it holds null from the POU
+                    // factory's `DoCreate` — derived from the text (`METHOD ABSTRACT` stating no %LANGUAGE line), never spelled.
                     return AddVendorObject(parent, name, NewConstructed(AbstractMethodClass, Refused), factory: null, Refused);
                 case (ObjectClass.Nvl, ItemKind.PlcGvl):
                     throw new ChildRefusedException(Refused(

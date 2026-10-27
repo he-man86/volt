@@ -27,7 +27,7 @@ VAR
 	taskInfo						: CmpIecTask.Task_Info2;
 END_VAR
 
-IMPLEMENTATION ST
+%LANGUAGE ST
 taskInfo	:= TaskGetInfo();
 
 CASE chunk OF

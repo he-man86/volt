@@ -11,7 +11,7 @@ test("each NETWORK in a graphical body is a foldable range", () => {
 VAR
 \ta : BOOL; b : BOOL; out : BOOL;
 END_VAR
-IMPLEMENTATION LD
+%LANGUAGE LD
 NETWORK
 out := (a AND b);
 END_NETWORK

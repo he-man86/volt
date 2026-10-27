@@ -579,7 +579,7 @@ public class RelayTunnelTests : IDisposable
         await relay.AwaitHello();
 
         relay.FailSendWhen = frame => frame.StartsWith("{\"id\":\"r1\",\"result\"");
-        relay.SendRequest("r1", Ops.Push, new { expectedPlatform = "codesys", expectedProjectName = "FakeProject", ops = new object[] { new { op = "set", name = "Z.pou", sourceText = "PROGRAM Z\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_PROGRAM\n" } } });
+        relay.SendRequest("r1", Ops.Push, new { expectedPlatform = "codesys", expectedProjectName = "FakeProject", ops = new object[] { new { op = "set", name = "Z.pou", sourceText = "PROGRAM Z\nVAR\nEND_VAR\n%LANGUAGE ST\n;\nEND_PROGRAM\n" } } });
 
         var line = await AwaitTerminalLine(log, "r1");
         Assert.Matches(@"^relay: -> push \(r1\) ok landed newProjectVersion=\S+ \d+ms delivered=no \(WebSocketException: .+\)$", line);
@@ -634,7 +634,7 @@ public class RelayTunnelTests : IDisposable
         // Hold the push IN FLIGHT at its walk (armed after the hello, so nothing before the push is held).
         ide.OnWalkItems = () => { entered.Set(); release.Wait(); };
 
-        relay.SendRequest("r5", Ops.Push, new { expectedPlatform = "codesys", expectedProjectName = "FakeProject", ops = new object[] { new { op = "set", name = "Z.pou", sourceText = "PROGRAM Z\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_PROGRAM\n" } } });
+        relay.SendRequest("r5", Ops.Push, new { expectedPlatform = "codesys", expectedProjectName = "FakeProject", ops = new object[] { new { op = "set", name = "Z.pou", sourceText = "PROGRAM Z\nVAR\nEND_VAR\n%LANGUAGE ST\n;\nEND_PROGRAM\n" } } });
         Assert.True(entered.Wait(15_000), "the push never reached the blocking step");
         relay.DieWithoutClose();
         await delay.NextWait();

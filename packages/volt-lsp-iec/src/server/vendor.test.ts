@@ -23,7 +23,7 @@ import {
 import { connectToServer } from "../../test/lsp/harness.js"
 import type { Vendor } from "../analysis/index.js"
 
-const SRC = `PROGRAM P\nVAR\n\ts : STRING;\nEND_VAR\nIMPLEMENTATION ST\ns := __POUNAME();\nEND_PROGRAM`
+const SRC = `PROGRAM P\nVAR\n\ts : STRING;\nEND_VAR\n%LANGUAGE ST\ns := __POUNAME();\nEND_PROGRAM`
 
 /** A workspace folder holding P.pou, bound to `vendor` when one is given (the binding's real shape: `{ bridge: { vendor } }`). */
 function workspace(vendor?: string): string {
@@ -135,8 +135,8 @@ test("multi-root: the first BOUND folder decides, past an unbound one", async ()
 test("multi-root: the folder the vendor is read from is the folder crawled", async () => {
   const unbound = workspace()
   const bound = workspace("twincat")
-  writeFileSync(join(bound, "OnlyInBound.pou"), "PROGRAM OnlyInBound\nIMPLEMENTATION ST\n;\nEND_PROGRAM\n")
-  writeFileSync(join(unbound, "OnlyInUnbound.pou"), "PROGRAM OnlyInUnbound\nIMPLEMENTATION ST\n;\nEND_PROGRAM\n")
+  writeFileSync(join(bound, "OnlyInBound.pou"), "PROGRAM OnlyInBound\n%LANGUAGE ST\n;\nEND_PROGRAM\n")
+  writeFileSync(join(unbound, "OnlyInUnbound.pou"), "PROGRAM OnlyInUnbound\n%LANGUAGE ST\n;\nEND_PROGRAM\n")
   const client = connectToServer(undefined)
   try {
     await client.sendRequest(InitializeRequest.type, {

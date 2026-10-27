@@ -19,7 +19,7 @@ namespace Volt.Engine.Tests;
 public class UnclassifiableObjectTests
 {
     private static string Prg(string name) =>
-        $"PROGRAM {name}\nVAR\nEND_VAR\nIMPLEMENTATION ST\nn := 0;\n\nEND_PROGRAM\n";
+        $"PROGRAM {name}\nVAR\nEND_VAR\n%LANGUAGE ST\nn := 0;\n\nEND_PROGRAM\n";
 
     private static FakeIde Project(bool withEnum = true)
     {
@@ -210,7 +210,7 @@ public class UnclassifiableObjectTests
             Ops = new List<PushOp>
             {
                 new SetItemOp { Name = "Data/SER_OperationModeType.pou", IfVersion = null,
-                                SourceText = "FUNCTION_BLOCK SER_OperationModeType\nVAR\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n" },
+                                SourceText = "FUNCTION_BLOCK SER_OperationModeType\nVAR\nEND_VAR\n%LANGUAGE ST\n\nEND_FUNCTION_BLOCK\n" },
             },
         });
 

@@ -63,7 +63,7 @@ public class SameBareNameVersionTests
                 new SetItemOp
                 {
                     Name = "02_ControlModules/CM_Carrier/CM_Carrier.pou",
-                    SourceText = "FUNCTION_BLOCK CM_Carrier\nVAR\n\tnStep : INT;\nEND_VAR\nIMPLEMENTATION ST\nnStep := 2;\nEND_FUNCTION_BLOCK\n",
+                    SourceText = "FUNCTION_BLOCK CM_Carrier\nVAR\n\tnStep : INT;\nEND_VAR\n%LANGUAGE ST\nnStep := 2;\nEND_FUNCTION_BLOCK\n",
                     IfVersion = refs.Items["02_ControlModules/CM_Carrier/CM_Carrier.pou"],
                 },
             },
@@ -93,7 +93,7 @@ public class SameBareNameVersionTests
                 new SetItemOp
                 {
                     Name = "02_ControlModules/CM_Carrier/CM_Carrier.pou",
-                    SourceText = "FUNCTION_BLOCK CM_Carrier\nVAR\nEND_VAR\nIMPLEMENTATION ST\nnStep := 3;\nEND_FUNCTION_BLOCK\n",
+                    SourceText = "FUNCTION_BLOCK CM_Carrier\nVAR\nEND_VAR\n%LANGUAGE ST\nnStep := 3;\nEND_FUNCTION_BLOCK\n",
                     IfVersion = "stale0000deadbeef",
                 },
             },

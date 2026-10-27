@@ -171,7 +171,7 @@ test("server: a file open AND on disk contributes its symbols once (definition i
 test("server: didSave re-publishes diagnostics for the saved document", async () => {
   const client = connect()
   await client.sendRequest(InitializeRequest.type, { processId: null, rootUri: null, capabilities: {} })
-  const bad = `FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := b;\nEND_FUNCTION_BLOCK`
+  const bad = `FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\n%LANGUAGE ST\ni := b;\nEND_FUNCTION_BLOCK`
   const first = onceDiag(client, URI)
   await client.sendNotification(DidOpenTextDocumentNotification.type, {
     textDocument: { uri: URI, languageId: "iecst", version: 1, text: bad },
