@@ -64,6 +64,10 @@ nothing keeps a second spelling.
      create and as an update, so the LSP reports it as stating no language. (A live slotless member whose declaration
      lacks ABSTRACT would be the one text the push takes and the LSP reports: 0 in the corpora — all 12 slotless members
      of pro2193 are ABSTRACT.)
+   - A `%LANGUAGE` line in the declaration of a kind with no body (a GVL, a DUT, …) is refused by name
+     (`StReader.RefusePropertyLinesIn`: it would be written into the IDE as code), as the LSP reports it
+     (`object-properties.ts` `misplacedPropertyMessage`). The same text without the line is written whole, and the build
+     reports what it holds (e2e `behaviour-changes` 4.26 / 4.26b).
 4. **Network text:** the language stays the first line of a network-text body in memory (`NetworkText.LanguageOf`),
    now spelled `%LANGUAGE LD|FBD`. `docs/network-text.html` shows it.
 
@@ -75,7 +79,9 @@ per the docs rule. No migration and no dual reader.
 
 Mixed versions (4.1, decided from the owner's standing rules: protocol stays 1, no backward compatibility): an older
 Volt and this one refuse each other's push BY NAME, and the release matrix's mixed-version judge accepts exactly that
-refusal. "pull again" alone would loop (an older CLI pulls `IMPLEMENTATION` again), so the refusal names the bridge's
-own Volt version: "pull again with Volt <version> or later". No protocol bump. The workspace
+refusal, unchanged (owner: "dont worry about backward comp … just implement clean for future": no version naming,
+no compat code). The cell pushes each CLI's own text format, and the judge takes only a BRIDGE's rejection by
+name as a refused push (`mixed-version-lib.ts` `refusedForFormat`): a CLI that fails after its push was applied is red.
+No protocol bump. The workspace
 materialization format moves 4 → 5 (C# `LibraryManifest.Materialization`, LSP `MATERIALIZATION`); the wire protocol
 stays 1 (only descriptions in `volt-bridge.openrpc.json` change).

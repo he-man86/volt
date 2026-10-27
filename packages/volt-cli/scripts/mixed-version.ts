@@ -17,8 +17,8 @@
  * its `health.bridgeVersion` names that release. Both bridges are served at once, each on its own `ide.ps1` instance
  * (`<prefix>-bridge-previous` / `<prefix>-bridge-current`), and closed at the end.
  *
- * In each direction the CLI runs `init`, `status`, `build` and a push cycle (create one `VltE2E_Mx` POU, then delete
- * one) against the OTHER release's bridge, through `VOLT_PIPE`. When `init` there is refused, a workspace is bound on
+ * In each direction the CLI runs `init`, `status`, `build` and a push cycle (create one `VltE2E_Mx` POU, written in
+ * that CLI's own text format, then delete one) against the OTHER release's bridge, through `VOLT_PIPE`. When `init` there is refused, a workspace is bound on
  * the CLI's own release's bridge (not judged) and the other verbs then meet the other bridge from it, so every verb is
  * judged. The verdict (`judgeCell`): a pair whose wires differ (another protocol, or the two releases' OpenRPC documents
  * differ, deep) is refused by name in each direction by every verb before any op; a pair of one wire works; the bridge
@@ -109,6 +109,12 @@ function protocolOf(pkg: string): number | null {
 	return m ? Number(m[1]) : null
 }
 
+/** The body line a tree's CLI writes — the text its own user would push: `%LANGUAGE ST` from openspec `language-line`
+ *  on (its `PropertyLines.Language.cs`), `IMPLEMENTATION ST` in a tree from before it. */
+function bodyLineOf(pkg: string): string {
+	return existsSync(join(pkg, "src", "Volt.Engine", "Format", "St", "PropertyLines.Language.cs")) ? "%LANGUAGE ST" : "IMPLEMENTATION ST"
+}
+
 const GIT_ENV = { GIT_AUTHOR_NAME: "volt-mixed", GIT_AUTHOR_EMAIL: "mixed@volt.invalid", GIT_COMMITTER_NAME: "volt-mixed", GIT_COMMITTER_EMAIL: "mixed@volt.invalid" }
 
 /** One tree's bridge, served by that tree's own `ide.ps1` on its own instance, and what its `health` states. */
@@ -177,7 +183,7 @@ async function direction(name: string, cliExe: string, cliPkg: string, own: Serv
 		const file = join(dirname(join(src, anyPou)), "VltE2E_Mx.pou")
 		const rel = (f: string) => f.slice(root.length + 1).replace(/\\/g, "/")
 		const g = (...a: string[]) => spawnSync("git", a, { cwd: root, env: { ...process.env, ...GIT_ENV }, encoding: "utf8" })
-		writeFileSync(file, "FUNCTION_BLOCK VltE2E_Mx\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\nx := x + 1;\nEND_FUNCTION_BLOCK\n")
+		writeFileSync(file, `FUNCTION_BLOCK VltE2E_Mx\nVAR\n\tx : INT;\nEND_VAR\n${bodyLineOf(cliPkg)}\nx := x + 1;\nEND_FUNCTION_BLOCK\n`)
 		g("add", "--", rel(file)); g("commit", "-q", "-m", "mixed-version: create")
 		const created = await call("push (create)", ["push", "--json"], root, other.pipe, true)
 		g("rm", "-q", "--", created.status === 0 ? rel(file) : rel(join(src, anyPou))); g("commit", "-q", "-m", "mixed-version: delete")

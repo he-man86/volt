@@ -174,3 +174,45 @@ describe("the cell over both directions", () => {
 		expect(r.undetectable).toContain("same shape")
 	})
 })
+
+/** ONE WIRE, TWO TEXT FORMATS (openspec `language-line` 4.1; design.md "Not kept"): the body line is `%LANGUAGE <LANG>`
+ *  from this release on, `IMPLEMENTATION <LANG>` before it, over an unchanged protocol 1. Each release's BRIDGE refuses
+ *  the other's push by name, before any op — and that refusal, and only it, is a green push across the pair. */
+describe("a pair of one wire whose text formats differ", () => {
+	/** A rejected push as the CLI prints it with `--json`: .NET's encoder escapes `'`, `<`, `>`, a backtick and every
+	 *  non-ASCII character as a `\u` + four hex digits sequence (measured in the log below). */
+	const asCliPrints = (reason: string) =>
+		JSON.stringify({ kind: "rejected", reason }).replace(/[^ -~]|['<>`]/g, (c) => "\\u" + c.charCodeAt(0).toString(16).toUpperCase().padStart(4, "0"))
+	/** The previous bridge (0.1.18026) refusing this CLI's `%LANGUAGE` text — measured 2026-10-27
+	 *  (`dist/release-matrix/mixed-version/mixed-version.log`). */
+	const previousBridge = asCliPrints("the bridge rejected the push:\n  Device/Plc Logic/Application/VltE2E_Mx.pou: [INVALID_ST] 'VltE2E_Mx' has no 'IMPLEMENTATION <ST|LD|FBD>' line — the text does not say where its declaration ends or what language its body is in. Run `volt pull` once to rewrite the workspace in the current format.")
+	/** This bridge refusing the previous CLI's `IMPLEMENTATION` text (`PropertyLines.RetiredLineRefusal`), as that CLI prints it. */
+	const currentBridge = asCliPrints("the bridge rejected the push:\n  Device/Plc Logic/Application/VltE2E_Mx.pou: [INVALID_ST] 'VltE2E_Mx' holds 'IMPLEMENTATION ST': `IMPLEMENTATION` is no longer read — pull again (it is now `%LANGUAGE <LANG>`).")
+	/** The previous CLI's LOCAL read of a `%LANGUAGE` text it already pushed — measured 2026-10-27 after "push: 1/1": the
+	 *  bridge had applied the push, so this is no refusal before any op. */
+	const previousCliLocal = "applying: 0/1 (0%)\npush: 1/1 (100%)\nthis pou has no 'IMPLEMENTATION <ST|LD|FBD>' line — the text does not say where its declaration ends or what language its body is in. Run `volt pull` once to rewrite the workspace in the current format."
+	const pushes = (exit: number, output: string) => every(0, "").map((r) => r.verb.startsWith("push") ? { ...r, exit, output } : r)
+
+	it("is green when every push is refused by the other release's bridge for the text format, by name", () => {
+		for (const refusal of [previousBridge, currentBridge]) {
+			const v = judgeDirection(dir(1, pushes(2, refusal)), SAME)
+			expect(v.green).toBe(true)
+			expect(v.why).toContain("text format")
+		}
+	})
+
+	it("is red when a push was applied and the CLI failed after it — not refused before any op", () => {
+		expect(judgeDirection(dir(1, pushes(1, previousCliLocal)), SAME).green).toBe(false)
+	})
+
+	it("is red when a verb other than a push fails, even naming the format", () => {
+		const runs = every(0, "").map((r) => r.verb === "build" ? { ...r, exit: 2, output: previousBridge } : r)
+		expect(judgeDirection(dir(1, runs), SAME).green).toBe(false)
+	})
+
+	it("says in the cell's verdict that the formats differ and each push was refused by name", () => {
+		const r = judgeCell("0.1.18026", "abc", [dir(1, pushes(2, previousBridge)), dir(1, pushes(2, currentBridge))], [])
+		expect(r.green).toBe(true)
+		expect(r.undetectable).toContain("text formats differ")
+	})
+})

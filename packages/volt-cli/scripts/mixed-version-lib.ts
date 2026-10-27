@@ -9,8 +9,9 @@
  * ({@link capabilityGap} non-empty) — is refused by name in EACH direction, by EVERY verb ({@link REQUIRED_VERBS}),
  * before any op, never served: by the bridge (`PipeServer`: a request of another protocol, or none, is PROTOCOL_MISMATCH)
  * or by the client (`BridgeClient`: a `health` lacking a member of its wire is BRIDGE_PREDATES_WIRE, `WireShape`; an
- * older CLI's BRIDGE_PROTOCOL). A pair of ONE wire (same number, same documents) must work. So a verb served across
- * differing wires is a misread, and red. And the bridge that answered must be the release the direction meant.</p>
+ * older CLI's BRIDGE_PROTOCOL). A pair of ONE wire (same number, same documents) must work, except a push the other
+ * release's bridge refuses by name for the TEXT format ({@link refusedForFormat}). So a verb served across differing
+ * wires is a misread, and red. And the bridge that answered must be the release the direction meant.</p>
  */
 
 type Schema = {
@@ -67,6 +68,22 @@ const REFUSED_BY_NAME = [
 ]
 const refusedByName = (output: string) => REFUSED_BY_NAME.some((r) => r.test(output))
 
+/**
+ * ONE WIRE, TWO TEXT FORMATS (openspec `language-line`, design.md "Not kept"): a body's line is `%LANGUAGE <LANG>` from
+ * that release on and `IMPLEMENTATION <LANG>` before it, over an unchanged protocol. The other release's BRIDGE refuses
+ * such a push by name before any op: the previous bridge's "no `IMPLEMENTATION` line", or this one's retired-line refusal
+ * (no backward compatibility: the owner, 2026-10-27). Only a bridge's rejection
+ * counts: a CLI that fails after "push: n/n" has had its push applied. Matched on the output with the CLI's JSON
+ * `\uXXXX` escapes decoded.
+ */
+const FORMAT_REFUSED = [
+	/the bridge rejected the push:[\s\S]*\[INVALID_ST\] '[^']+' has no 'IMPLEMENTATION <ST\|LD\|FBD>' line — the text does not say where its declaration ends or what language its body is in\. Run `volt pull` once to rewrite the workspace in the current format\./,
+	/the bridge rejected the push:[\s\S]*\[INVALID_ST\] '[^']+' holds 'IMPLEMENTATION [^']+': `IMPLEMENTATION` is no longer read — pull again \(it is now `%LANGUAGE <LANG>`\)\./,
+]
+const decoded = (s: string) => s.replace(/\\u([0-9a-fA-F]{4})/g, (_, h: string) => String.fromCharCode(parseInt(h, 16)))
+/** A PUSH refused by the other release's bridge for the text format, by name ({@link FORMAT_REFUSED}). */
+export const refusedForFormat = (r: VerbRun) => r.verb.startsWith("push") && FORMAT_REFUSED.some((x) => x.test(decoded(r.output)))
+
 /** One direction's verdict. `shapesDiffer`: the two releases' OpenRPC documents differ ({@link capabilityGap}); another
  *  protocol number differs on its own. Differing wires must be refused by name, every verb; one wire must work. */
 export function judgeDirection(d: Direction, shapesDiffer: boolean): DirectionVerdict {
@@ -88,12 +105,16 @@ export function judgeDirection(d: Direction, shapesDiffer: boolean): DirectionVe
 		const quiet = d.runs.filter((r) => r.exit === 0).map((r) => `\`${r.verb}\` exited 0 on the refusal`)
 		return { name: d.name, green: true, why: `every verb refused by name before any op (${how})${quiet.length ? ` (${quiet.join(", ")})` : ""}: ${lastLine(d.runs[0].output)}` }
 	}
-	const failed = d.runs.filter((r) => r.exit !== 0)
+	const format = d.runs.filter((r) => r.exit !== 0 && refusedForFormat(r))
+	const failed = d.runs.filter((r) => r.exit !== 0 && !format.includes(r))
 	if (failed.length > 0)
 		return { name: d.name, green: false, why: `both speak one wire (${wire}, same shape), yet ${failed.map((r) => `\`${r.verb}\` exited ${r.exit}: ${lastLine(r.output)}`).join("; ")}` }
 	if (missing.length > 0)
 		return { name: d.name, green: false, why: `both speak one wire (${wire}, same shape), yet ${missing.map((v) => `\`${v}\``).join(", ")} never ran` }
-	return { name: d.name, green: true, why: `both speak one wire (${wire}, same shape); ${d.runs.map((r) => r.verb).join(", ")} worked` }
+	const worked = d.runs.filter((r) => !format.includes(r)).map((r) => r.verb).join(", ")
+	if (format.length > 0)
+		return { name: d.name, green: true, why: `both speak one wire (${wire}, same shape); ${worked} worked; the text format differs and ${format.map((r) => `\`${r.verb}\``).join(", ")} was refused by name by the bridge: ${lastLine(decoded(format[0].output))}` }
+	return { name: d.name, green: true, why: `both speak one wire (${wire}, same shape); ${worked} worked` }
 }
 
 function lastLine(s: string): string {
@@ -200,7 +221,12 @@ export function judgeCell(previous: string, current: string, dirs: Direction[], 
 	const sameNumber = dirs.every((d) => d.bridgeProtocol === d.cliProtocol)
 	const green = directions.length > 0 && directions.every((d) => d.green)
 	const what = sameNumber ? `ONE protocol number over ${gap.length} shape difference(s), listed` : "another protocol number"
-	const undetectable = !differ && sameNumber
+	const formats = !differ && sameNumber && dirs.some((d) => d.runs.some((r) => r.exit !== 0 && refusedForFormat(r)))
+	const undetectable = formats
+		? green
+			? "the two releases speak one protocol over one shape, but their text formats differ: each push of the other format was refused by name by the bridge, nothing written"
+			: "the two releases speak one protocol over one shape, but their text formats differ, and a verb failed unnamed or never ran"
+		: !differ && sameNumber
 		? "the two releases speak one protocol and their OpenRPC documents describe the same shape: nothing for either side to refuse"
 		: green
 			? `the two releases' wires differ (${what}): every verb refused by name in both directions, so nothing was misread`
