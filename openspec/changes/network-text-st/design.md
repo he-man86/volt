@@ -105,6 +105,20 @@ Assign item, a null input slot, a missing pin-flag list, and an unreadable Execu
 **Target.** A network body is ST that CODESYS compiles and runs as the network, and that reads back to the stored tree.
 Volt adds only `%` lines. Decided on 1.1–1.3 and the measurements below.
 
+**Revision (owner, 2026-10-27: "these are just functions", "similar to LIMIT", "the LSP knows what they are").** An
+enabled box is a call of the SAME function with `EN` as its first formal, returning ENO; its value leaves through `OUT`.
+The LSP knows it as it knows LIMIT (`frontend/types/builtins.ts`): no library file, no namespace, no network rule.
+A chain nests, as drawn:
+
+```
+done := MOVE(EN := MOVE(EN := c, IN := 1, OUT => x), IN := 2, OUT => y);
+```
+
+This replaces every `IF en THEN …` row below (EN, EN chain, result pin, ENO by value, enabled comparison). CODESYS
+compiles none of it (1.2: EN/ENO refused on every call), so the exec twin (oracle 3) rewrites each enabled call into
+its `IF`, which runs the same (1.3). Open before 2.1: the pin names of an enabled keyword operator (`ADD(EN := c, …)`),
+an enabled FB's ENO, and a callee that declares its own `EN` (55 library POUs; 0 enabled in the corpus).
+
 ### Measurements (1.4)
 
 CODESYS 3.5.21.40 64-bit, `ide.ps1 up -Instance network-text-st -NoBuild` on a fixture copy, closed after. 42 PROGRAMs:
