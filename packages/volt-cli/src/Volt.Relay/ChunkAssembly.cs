@@ -20,14 +20,21 @@ namespace Volt.Relay
         /// <summary>The largest chunk message this bridge takes — what its <c>hello</c> states.</summary>
         public const int MaxBytes = 8192;
 
+        /// <summary>The most chunks a set may state: the relay's own guard, mirrored (agreed with PLC Assist, 2026-10-27) —
+        /// <c>count</c> x <see cref="MaxBytes"/> at most 32 MiB, checked at chunk 0 before anything is buffered, so both
+        /// copies refuse the same set.</summary>
+        public const int MaxCount = MaxChunkedBytes / MaxBytes;
+
+        private const int MaxChunkedBytes = 32 * 1024 * 1024;
+
         /// <summary>The largest request a chunked set may state: the pipe's own frame cap, which the request crosses next.</summary>
         public const int MaxRequestBytes = PipeServer.MaxFrameBytes;
 
         /// <summary>The most gzip this bridge holds for ONE set stating <paramref name="bytes"/>: twice the bytes plus 1 KiB.
         /// It is the bridge's own limit, not a property of gzip — a valid member has no length bound (header fields, empty
         /// blocks). A standard writer stays far inside it: one that keeps a block stored when coding would not shrink it
-        /// (zlib, miniz, .NET) writes at most bytes + 5 per 64 KiB stored block + 18. It refuses a huge stated
-        /// <c>count</c> of 8 KiB slices for a small request before the bridge buffers them.</summary>
+        /// (zlib, miniz, .NET) writes at most bytes + 5 per 64 KiB stored block + 18. Within the
+        /// <see cref="MaxCount"/> guard, it refuses many 8 KiB slices for a small request before the bridge buffers them.</summary>
         private static long MaxGzipBytes(long bytes) => 2 * bytes + 1024;
 
         /// <summary>The most gzip ALL of a connection's unfinished sets hold together: one frame cap. The per-set bound
@@ -202,6 +209,9 @@ namespace Volt.Relay
             {
                 if (partial != null) return Outcome.Refused(name + " arrived twice");
                 if (header.Count == null) return Outcome.Refused(name + " has no positive integer `count`");
+                if (header.Count.Value > MaxCount)
+                    return Outcome.Refused(name + " states " + N(header.Count.Value) + " chunks: " + N(header.Count.Value) + " x " +
+                        N(MaxBytes) + " B is over the " + N(MaxChunkedBytes) + " B (32 MiB) a chunked request may take");
                 if (header.Bytes == null || header.Bytes.Value < 1) return Outcome.Refused(name + " has no positive integer `bytes`");
                 if (header.Bytes.Value > MaxRequestBytes)
                     return Outcome.Refused(name + " states " + N(header.Bytes.Value) + " B, over the " + N(MaxRequestBytes) + " B frame cap");
@@ -237,16 +247,17 @@ namespace Volt.Relay
             return Inflate(id, partial);
         }
 
-        /// <summary>The whole request: the slices decoded as ONE gzip member (<see cref="GzipMember"/>: stopped as soon as it
-        /// passes <c>bytes</c>, its trailer required and verified, nothing after it), then decoded as strict UTF-8.</summary>
+        /// <summary>The whole request: the slices as ONE gzip member (<see cref="Gzip"/>: the runtime inflates, stopped one
+        /// byte past <c>bytes</c>; the bridge checks the header and the last 8 bytes as the CRC32/ISIZE trailer), then decoded
+        /// as strict UTF-8.</summary>
         private static Outcome Inflate(string id, Partial partial)
         {
             var gzip = new byte[partial.Held];
             var at = 0;
             foreach (var slice in partial.Slices) { Array.Copy(slice, 0, gzip, at, slice.Length); at += slice.Length; }
             byte[] raw;
-            try { raw = GzipMember.Inflate(gzip, gzip.Length, partial.Bytes); }
-            catch (GzipMember.BrokenException ex) { return Outcome.Refused("the chunks of " + id + " " + ex.Message); }
+            try { raw = Gzip.Inflate(gzip, gzip.Length, partial.Bytes); }
+            catch (Gzip.BrokenException ex) { return Outcome.Refused("the chunks of " + id + " " + ex.Message); }
 
             try { return Outcome.Complete(new UTF8Encoding(false, throwOnInvalidBytes: true).GetString(raw)); }
             catch (DecoderFallbackException) { return Outcome.Refused("the chunks of " + id + " inflate to bytes that are not UTF-8"); }

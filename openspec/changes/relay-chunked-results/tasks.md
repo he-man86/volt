@@ -163,9 +163,83 @@ every behaviour gets a red test before code (`Volt.Relay.Tests`, FakeRelay exten
       volt-cli `bun test test/unit` 225/225; `bun run typecheck` 0; `bun run lint` exit 0 (warnings only, none in changed
       files); `bun run check` exit 0. Delta vs 3.5: Volt.Relay.Tests +4 (176 → 180).
 
-- [ ] 3.6 Mirror the relay's `count` guard (agreed with PLC Assist, 2026-10-27): a chunked request whose seq 0 states
+- [x] 3.6 Mirror the relay's `count` guard (agreed with PLC Assist, 2026-10-27): a chunked request whose seq 0 states
       `count` × 8192 > 32 MiB is refused by name (WARN + BAD_REQUEST, not run) before anything is buffered. Red test
       first.
+      Built (step 3 fix, 2026-10-27): `ChunkAssembly.MaxCount` = 32 MiB / 8192 = 4096, checked at chunk 0 right after
+      `count` is read: `chunk 0 of <id> states <n> chunks: <n> x 8192 B is over the 33554432 B (32 MiB) a chunked request
+      may take`. Red first: `A_count_over_the_relays_guard_is_refused_at_chunk_0_before_anything_is_held`
+      (ChunkAssemblyBoundsTests: 4097 refused with HeldBytes 0, 4096 held) and a `Broken()` case (tunnel: WARN +
+      BAD_REQUEST, acked, not run). Three existing tests stated `count` int.MaxValue to reach a LATER bound; the guard
+      now refuses that count first (premise refuted by the agreed guard, not by the code), so they state 4096, the most
+      it lets through — the two per-set-bound `Broken()` cases and the round-robin repro of 3.5b; their expected
+      reasons are unchanged. Same raise site: WireVocabularyTests census unchanged.
+- [x] 3.7 Owner, 2026-10-27: "dont want to reinvent the wheel". DELETE `GzipMember` (the 331-line port of zlib's
+      puff). Inflate with the runtime's `GZipStream` (stop one byte past `bytes`), then check the gzip trailer
+      ourselves, exactly as PLC Assist's relay does: the set's last 8 bytes are CRC32 (= CRC32 of the output) and ISIZE
+      (= `bytes`). A missing trailer, a bad CRC, trailing bytes and a second member all fail that check (the trailer
+      read is then not the real one), with the same named refusals as today. CRC32 comes from the runtime if net48 and
+      netstandard2.0 have one; otherwise use the standard table-driven CRC-32 (IEEE 802.3), ~15 lines, pinned by its
+      published check value (CRC32("123456789") = 0xCBF43926). Every existing refusal test stays green, unchanged.
+      Built (step 3 fix, 2026-10-27): `GzipMember.cs` deleted; `Gzip.cs` (header read, kept from it) + `Crc32.cs` (table
+      CRC-32 — no runtime one: System.IO.Hashing is a package, a second DLL in the IDE). **Not `GZipStream`, for the
+      owner to confirm:** measured in a scratch app (deleted) on net48 and net10, GZipStream checks the trailer ITSELF
+      and refuses a bad CRC/ISIZE with its own message (net10 "The archive entry was compressed using an unsupported
+      compression method.", net48 the OS language — Dutch here), so "fail the gzip CRC32 check" could never be the
+      bridge's; and it inflates a second member on net10 but not on net48. So the bridge reads the header, hands the
+      runtime's `DeflateStream` only the bytes between it and the last 8 (stopping one byte past `bytes`), and checks
+      those 8 as CRC32 + ISIZE — the same runtime inflater, no framing for it to judge. Measured with the built
+      Volt.Relay.dll: all 13 shapes (valid Optimal/Fastest/stored, flipped CRC, wrong ISIZE, no/cut trailer, +5 B, two
+      members same/other, stored without trailer, not gzip, bad deflate) give the IDENTICAL answer on net48 and net10; a
+      20 MB request (3.2 MB gzip) inflates in 60 ms (net10) / 73 ms (net48), against 250 / 340 ms for GzipMember.
+      **Tests that could not stay unchanged** (the owner's "same named refusals" and "tests unchanged" conflict here):
+      without its own inflater the bridge cannot know where the deflate data ends, so the refusals that named it are
+      gone. "no trailer", "a corrupted payload with no trailer", "a cut trailer" (were `end without the whole 8-byte
+      gzip trailer … <n> B of it arrived`) and "bytes after the gzip member" (was `carry 5 B after the gzip member`) now
+      expect `fail the gzip CRC32 check` — what the owner's 3.7 text says they do; still refused, BAD_REQUEST, not run.
+      New cases: "a second gzip member of another frame" (CRC32 check) and "too short for a gzip header and its trailer"
+      (`are <n> B, too short for their <h> B gzip header and the 8-byte trailer (CRC32 and ISIZE)`). The case "two gzip
+      members" (the SAME frame twice) is no longer refused: both trailers are equal, so the last 8 bytes pass and the
+      first member's frame is served, on both runtimes. Moved to
+      `ChunkFramingTests.Known_divergence_a_second_gzip_member_of_the_same_frame_is_served_as_the_first` (fails when it
+      starts being refused) and design.md Known limits — **for the owner**: the 3.7 text says a second member fails the
+      check; it does only when it is another frame. `do not inflate (<what>)` from the deflate data now reads `the
+      deflate data is not valid` (the runtime's message is its own and localized); header defects keep their names
+      (the FHCRC test is unchanged). Red first: 9 failing before the fix (the 7 reason/case changes above, the count
+      guard twice), the CRC32 check-value test a compile failure.
+      Numbers (step 3 fix): `dotnet build Volt.sln -c Release` 0 errors; Volt.Relay.Tests 188/188 (3 runs green; it
+      includes 2 tests of the uncommitted §4 work in the working copy); Volt.Repo.Gates 274/275 — the one red is
+      `WireVocabularyTests.Invariants_only_go_down` (RelayTunnel invariants census 1, found 3), raised by the
+      uncommitted §4 byte-accounting edits in RelayTunnel.cs (two `?? throw new VoltInvariantException`), not by 3.6/3.7.
+- [x] 3.8 Review fixes (gate step 3, third round, 2026-10-27):
+      - **The unchecked class is named whole, not one shape.** The runtime's inflater does not say where its deflate
+        data ends, so ANY bytes between the end of the deflate data and the last 8 (junk, or a second member of the
+        same frame) and an unterminated deflate stream (no final block) pass when the last 8 are the real trailer; the
+        frame served is the one that CRC32 vouches for. design.md (the framing bullet and Known limits) and the
+        `Gzip` summary now say so; two more known divergences pinned beside the same-frame one:
+        `Known_divergence_bytes_between_the_deflate_data_and_the_trailer_are_not_seen` and
+        `Known_divergence_deflate_data_with_no_final_block_is_served` (they fail when the set starts being refused).
+      - **The runtime-exception branch is pinned:** a `Broken()` case with a valid header, block type 3 and the real
+        trailer expects the full reason `the chunks of r1 do not inflate (the deflate data is not valid)`; "an inflate
+        error" now pins its full reason `(not a gzip header)`. Red shown by mutation: with the `InvalidDataException`
+        catch made inert, exactly that case fails (1 of 66 in the chunk tests).
+      - Comment in the connection-bound test corrected: 20 x 4096 x 8000 B ≈ 625 MiB, not ~2.6 GiB.
+      - **Open for the owner (not ticked by this gate, one item):** 3.7's text says "the same named refusals as today"
+        and "every existing refusal test stays green, unchanged" AND that a missing trailer, trailing bytes and a second
+        member "all fail that check". Both cannot hold without an inflater of our own. Built to the second half: four
+        expectations changed to `fail the gzip CRC32 check` (no trailer, corrupted with no trailer, cut trailer, bytes
+        after the member — the last now only when the bytes are not followed by the real trailer), and "two gzip
+        members" of the same frame inverted into a known divergence, with the two shapes above in the same class.
+        Default taken (memory: don't stall on a pending choice): committed as built; if the owner wants the old named
+        refusals back, that needs the deflate end, i.e. an inflater of our own — the one 3.7 deleted.
+      - §4's uncommitted byte-accounting work was set aside (scratchpad) for this gate and restored after the commit; it
+        is not part of this commit, and the Repo.Gates red of 3.7 belonged to it.
+      Numbers (gate step 3, VOLT_REQUIRE_FULL=1): `dotnet build Volt.sln -c Release` 0 errors;
+      Volt.Relay.Tests 188/188 (3 runs green; §4's 3 tests out, these 3 in); Volt.Cli.Tests 377/377; Volt.Engine.Tests
+      3222 pass + 1 skip; Volt.Connector.Tests 156/156; Volt.Ide.Twincat.Tests 728/728; Volt.Ide.Codesys.Tests 505/505
+      (net48); Volt.Contracts.Tests 56/56; Volt.Repo.Gates 275/275 (green again: the §4 red is not in this tree);
+      volt-cli `bun test test/unit` 225/225; `bun run typecheck` 0; `bun run lint` exit 0 (warnings only, none in
+      changed files); `bun run check` exit 0. Delta vs 3.5b: Volt.Relay.Tests +8 (180 → 188).
 
 ## 4. Byte accounting
 

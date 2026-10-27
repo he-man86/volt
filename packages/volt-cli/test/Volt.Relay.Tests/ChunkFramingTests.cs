@@ -10,9 +10,10 @@ using Xunit;
 
 namespace Volt.Relay.Tests;
 
-/// <summary>The relay's chunks below the tunnel (openspec relay-chunked-results, review of step 3): the bridge decodes the
-/// gzip member itself, so its answer is one answer on net48 (CODESYS in-proc) and net10 (the TwinCAT worker) — and the
-/// real socket adapter never holds more of a binary message than the bridge announced.</summary>
+/// <summary>The relay's chunks below the tunnel (openspec relay-chunked-results): the runtime inflates the deflate data and
+/// the bridge reads the gzip header and checks the trailer itself (tasks 3.7), so the runtime never sees the member's
+/// framing and the answer is one answer on net48 (CODESYS in-proc) and net10 (the TwinCAT worker) — and the real socket
+/// adapter never holds more of a binary message than the bridge announced.</summary>
 public class ChunkFramingTests
 {
     private static ChunkAssembly.Outcome Reassemble(string id, byte[] raw, byte[] gzip, int sliceBytes = 8000)
@@ -96,6 +97,72 @@ public class ChunkFramingTests
             for (var k = 0; k < 8; k++) crc = (crc & 1) != 0 ? (crc >> 1) ^ 0xEDB88320u : crc >> 1;
         }
         return ~crc;
+    }
+
+    [Fact]
+    public void The_crc32_is_the_standard_one_by_its_published_check_value()
+    {
+        Assert.Equal(0xCBF43926u, Volt.Relay.Crc32.Of(Encoding.ASCII.GetBytes("123456789"), 0, 9));
+        var data = Encoding.UTF8.GetBytes("Привет, CRC — " + new string('x', 1000));
+        Assert.Equal(Crc32(data), Volt.Relay.Crc32.Of(data, 0, data.Length));
+        Assert.Equal(Crc32(data[3..40]), Volt.Relay.Crc32.Of(data, 3, 37));
+    }
+
+    /// <summary>KNOWN DIVERGENCE from the contract ("the slices concatenated ARE gzip(frame)": nothing after the one member),
+    /// listed for the owner (tasks 3.7): the trailer check reads the set's LAST 8 bytes, and a second member of the SAME
+    /// frame ends with the same CRC32 and ISIZE as the first, so the set passes and the first member's frame — the request
+    /// the relay meant — is served, on both runtimes alike. Only an inflater that reports where its deflate data ends sees
+    /// the second member, and the runtime's does not say. A second member of another frame fails the CRC32 check
+    /// (ChunkedRequestTests). When this set starts being refused, this mark goes.</summary>
+    [Fact]
+    public void Known_divergence_a_second_gzip_member_of_the_same_frame_is_served_as_the_first()
+    {
+        const string frame = "{\"id\":\"r1\",\"op\":\"health\"}";
+        var raw = Encoding.UTF8.GetBytes(frame);
+        var gzip = FakeRelay.Gzip(raw);
+
+        var outcome = Reassemble("r1", raw, gzip.Concat(gzip).ToArray());
+
+        Assert.Equal(ChunkAssembly.Verdict.Complete, outcome.Verdict);
+        Assert.Equal(frame, outcome.Frame);
+    }
+
+    /// <summary>KNOWN DIVERGENCE, the same class as the one above (tasks 3.7, for the owner): the runtime's inflater stops at
+    /// the final block and does not say where that is, so bytes between the end of the deflate data and the last 8 are
+    /// never seen. With the real trailer after them, the set passes and the frame the CRC32 vouches for is served. When
+    /// this set starts being refused, this mark goes.</summary>
+    [Fact]
+    public void Known_divergence_bytes_between_the_deflate_data_and_the_trailer_are_not_seen()
+    {
+        const string frame = "{\"id\":\"r1\",\"op\":\"health\"}";
+        var raw = Encoding.UTF8.GetBytes(frame);
+        var gzip = FakeRelay.Gzip(raw);
+
+        var outcome = Reassemble("r1", raw, gzip[..^8].Concat(new byte[] { 9, 9, 9, 9, 9 }).Concat(gzip[^8..]).ToArray());
+
+        Assert.Equal(ChunkAssembly.Verdict.Complete, outcome.Verdict);
+        Assert.Equal(frame, outcome.Frame);
+    }
+
+    /// <summary>KNOWN DIVERGENCE, the same class (tasks 3.7, for the owner): the runtime's inflater answers end of data
+    /// without an error for deflate data with no final block, so an unterminated deflate stream followed by the real trailer
+    /// passes and the frame the CRC32 vouches for is served. When this set starts being refused, this mark goes.</summary>
+    [Fact]
+    public void Known_divergence_deflate_data_with_no_final_block_is_served()
+    {
+        const string frame = "{\"id\":\"r1\",\"op\":\"health\"}";
+        var raw = Encoding.UTF8.GetBytes(frame);
+        var header = FakeRelay.Gzip(raw)[..10];
+        // One stored block with BFINAL clear (BTYPE 00), LEN and NLEN, the bytes — and no block after it.
+        var block = new byte[] { 0x00, (byte)raw.Length, (byte)(raw.Length >> 8), (byte)~raw.Length, (byte)(~raw.Length >> 8) }.Concat(raw);
+        var crc = Crc32(raw);
+        var trailer = new[] { (byte)crc, (byte)(crc >> 8), (byte)(crc >> 16), (byte)(crc >> 24),
+                              (byte)raw.Length, (byte)(raw.Length >> 8), (byte)(raw.Length >> 16), (byte)(raw.Length >> 24) };
+
+        var outcome = Reassemble("r1", raw, header.Concat(block).Concat(trailer).ToArray());
+
+        Assert.Equal(ChunkAssembly.Verdict.Complete, outcome.Verdict);
+        Assert.Equal(frame, outcome.Frame);
     }
 
     // ── the real adapter never buffers past the limit ─────────────────────

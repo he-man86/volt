@@ -27,8 +27,10 @@ public class ChunkAssemblyBoundsTests
     [Fact]
     public void The_gzip_of_all_unfinished_sets_on_a_connection_is_bounded_by_one_frame_cap_and_refused_by_name()
     {
-        // The reviewer's repro: twenty ids, each stating a huge count and the largest `bytes`, fed round-robin and never
-        // finished. Each stays under its own per-set bound; together they would hold ~2.6 GiB in the IDE's process.
+        // The reviewer's repro: twenty ids, each stating the largest count the guard of tasks 3.6 lets through (it stated
+        // int.MaxValue before 3.6; that is now refused first, by the guard) and the largest `bytes`, fed round-robin and
+        // never finished. Each stays under its own per-set bound; together they would hold 20 x 4096 x 8000 B (~625 MiB) in the
+        // IDE's process, far over the 64 MiB connection bound.
         var assembly = new ChunkAssembly();
         var slice = new byte[8000];
         new Random(3).NextBytes(slice);
@@ -43,7 +45,7 @@ public class ChunkAssemblyBoundsTests
             for (var i = 0; i < ids && refused == null; i++)
             {
                 var id = "a" + i;
-                var outcome = Send(assembly, seq == 0 ? Header0(id, int.MaxValue, ChunkAssembly.MaxRequestBytes) : HeaderN(id, seq), slice);
+                var outcome = Send(assembly, seq == 0 ? Header0(id, ChunkAssembly.MaxCount, ChunkAssembly.MaxRequestBytes) : HeaderN(id, seq), slice);
                 if (outcome.Verdict == ChunkAssembly.Verdict.Refused) { refused = outcome; refusedId = id; refusedSeq = seq; }
                 else { Assert.Equal(ChunkAssembly.Verdict.Pending, outcome.Verdict); held += slice.Length; }
             }
@@ -78,7 +80,7 @@ public class ChunkAssemblyBoundsTests
     [Fact]
     public void The_per_set_bound_is_named_as_the_bridge_limit_it_is_not_as_what_a_gzip_can_be()
     {
-        // A valid single-member gzip of a 10 B frame with a 2000 B FEXTRA field: GzipMember reads past it, so the per-set
+        // A valid single-member gzip of a 10 B frame with a 2000 B FEXTRA field: the bridge reads past it, so the per-set
         // bound is not "what a gzip of 10 B can take" (valid gzip has no length bound at all: header fields, empty blocks).
         // It is the bridge's own limit, and the refusal says so.
         var raw = Encoding.UTF8.GetBytes("0123456789");
@@ -90,13 +92,32 @@ public class ChunkAssemblyBoundsTests
         withExtra[10] = (byte)(extra.Length & 0xFF);
         withExtra[11] = (byte)(extra.Length >> 8);
         Array.Copy(plain, 10, withExtra, 12 + extra.Length, plain.Length - 10);
-        Assert.Equal(raw, GzipMember.Inflate(withExtra, withExtra.Length, raw.Length));
+        Assert.Equal(raw, Gzip.Inflate(withExtra, withExtra.Length, raw.Length));
 
         var outcome = Send(new ChunkAssembly(), Header0("r1", 1, raw.Length), withExtra);
 
         Assert.Equal(ChunkAssembly.Verdict.Refused, outcome.Verdict);
         Assert.Equal("chunk 0 of r1 brings the set to " + withExtra.Length + " B of gzip, over the 1044 B this bridge holds " +
             "for a request of 10 B (2 x bytes + 1 KiB)", outcome.Reason);
+    }
+
+    /// <summary>Tasks 3.6: the relay's own guard, mirrored — a set may state at most 32 MiB of 8192 B chunks (4096 of
+    /// them); one stating more is refused at chunk 0, before anything is held.</summary>
+    [Fact]
+    public void A_count_over_the_relays_guard_is_refused_at_chunk_0_before_anything_is_held()
+    {
+        Assert.Equal(32 * 1024 * 1024 / ChunkAssembly.MaxBytes, ChunkAssembly.MaxCount);
+        var assembly = new ChunkAssembly();
+        var slice = new byte[100];
+
+        var refused = Send(assembly, Header0("r1", ChunkAssembly.MaxCount + 1, 1000), slice);
+        Assert.Equal(ChunkAssembly.Verdict.Refused, refused.Verdict);
+        Assert.Equal("chunk 0 of r1 states 4097 chunks: 4097 x 8192 B is over the 33554432 B (32 MiB) a chunked request may take",
+            refused.Reason);
+        Assert.Equal(0, assembly.HeldBytes);
+
+        Assert.Equal(ChunkAssembly.Verdict.Pending, Send(assembly, Header0("r2", ChunkAssembly.MaxCount, 1000), slice).Verdict);
+        Assert.Equal(slice.Length, assembly.HeldBytes);
     }
 
     [Fact]

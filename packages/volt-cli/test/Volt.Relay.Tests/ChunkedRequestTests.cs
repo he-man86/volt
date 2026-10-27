@@ -186,7 +186,13 @@ public class ChunkedRequestTests : IDisposable
             "chunk 2 of r1 is past the 2 chunks chunk 0 states", new[] { 0, 2 } };
         yield return new object[] { "an inflate error",
             new[] { FakeRelay.Chunk(Header0("r1", 1, raw.Length), Encoding.ASCII.GetBytes("this is not gzip at all")) },
-            "the chunks of r1 do not inflate", new[] { 0 } };
+            "the chunks of r1 do not inflate (not a gzip header)", new[] { 0 } };
+        // A valid header, then deflate data the runtime's inflater refuses (BFINAL with block type 3, which does not exist),
+        // then the real trailer: the ONE branch that maps the runtime's own exception to the bridge's words, the same on
+        // net48 and net10 (tasks 3.7).
+        yield return new object[] { "invalid deflate data after a valid header",
+            new[] { FakeRelay.Chunk(Header0("r1", 1, raw.Length), gzip[..10].Concat(new byte[] { 0x07, 0, 0, 0 }).Concat(gzip[^8..]).ToArray()) },
+            "the chunks of r1 do not inflate (the deflate data is not valid)", new[] { 0 } };
         yield return new object[] { "a length under bytes",
             new[] { FakeRelay.Chunk(Header0("r1", 1, raw.Length + 1), gzip) },
             "the chunks of r1 inflate to " + raw.Length + " B, not the " + (raw.Length + 1) + " B chunk 0 states", new[] { 0 } };
@@ -215,21 +221,27 @@ public class ChunkedRequestTests : IDisposable
         yield return new object[] { "not UTF-8",
             new[] { FakeRelay.Chunk(Header0("r1", 1, 2), FakeRelay.Gzip(new byte[] { 0xC3, 0x28 })) },
             "the chunks of r1 inflate to bytes that are not UTF-8", new[] { 0 } };
-        // The gzip member is held to its own framing (review of step 3): the 8-byte trailer is required and checked, and
-        // nothing may follow it. One answer on both vendor hosts, whatever a runtime's GZipStream would let through.
+        // The gzip trailer is checked by the bridge itself, as the relay checks it (tasks 3.7): the set's LAST 8 bytes are
+        // CRC32 of the output and ISIZE. The runtime inflates, and where its deflate data ends is the runtime's, so a
+        // missing or cut trailer and bytes after the member all put something other than the real trailer in the last 8
+        // bytes, and the set fails the CRC32 check (owner, 3.7: "the trailer read is then not the real one"). One answer on
+        // both vendor hosts: the runtime never sees the trailer.
         var stored = FakeRelay.Gzip(raw, CompressionLevel.NoCompression);
         var tampered = (byte[])stored.Clone();
         var flip = FindAscii(tampered, "true");
         tampered[flip] = (byte)'T';
         yield return new object[] { "a corrupted payload with no trailer",
             new[] { FakeRelay.Chunk(Header0("r1", 1, raw.Length), tampered[..^8]) },
-            "the chunks of r1 end without the whole 8-byte gzip trailer (CRC32 and ISIZE): 0 B of it arrived", new[] { 0 } };
+            "the chunks of r1 fail the gzip CRC32 check", new[] { 0 } };
         yield return new object[] { "no trailer",
             new[] { FakeRelay.Chunk(Header0("r1", 1, raw.Length), gzip[..^8]) },
-            "the chunks of r1 end without the whole 8-byte gzip trailer (CRC32 and ISIZE): 0 B of it arrived", new[] { 0 } };
+            "the chunks of r1 fail the gzip CRC32 check", new[] { 0 } };
         yield return new object[] { "a cut trailer",
             new[] { FakeRelay.Chunk(Header0("r1", 1, raw.Length), gzip[..^3]) },
-            "the chunks of r1 end without the whole 8-byte gzip trailer (CRC32 and ISIZE): 5 B of it arrived", new[] { 0 } };
+            "the chunks of r1 fail the gzip CRC32 check", new[] { 0 } };
+        yield return new object[] { "too short for a gzip header and its trailer",
+            new[] { FakeRelay.Chunk(Header0("r1", 1, raw.Length), gzip[..15]) },
+            "the chunks of r1 are 15 B, too short for their 10 B gzip header and the 8-byte trailer (CRC32 and ISIZE)", new[] { 0 } };
         var badCrc = (byte[])gzip.Clone();
         badCrc[^8] ^= 0x01;
         yield return new object[] { "a flipped CRC",
@@ -246,19 +258,25 @@ public class ChunkedRequestTests : IDisposable
             new[] { 0 } };
         yield return new object[] { "bytes after the gzip member",
             new[] { FakeRelay.Chunk(Header0("r1", 1, raw.Length), gzip.Concat(new byte[] { 1, 0, 0, 0, 0 }).ToArray()) },
-            "the chunks of r1 carry 5 B after the gzip member", new[] { 0 } };
-        yield return new object[] { "two gzip members",
-            new[] { FakeRelay.Chunk(Header0("r1", 1, raw.Length), gzip.Concat(gzip).ToArray()) },
-            "the chunks of r1 carry " + gzip.Length + " B after the gzip member", new[] { 0 } };
+            "the chunks of r1 fail the gzip CRC32 check", new[] { 0 } };
+        yield return new object[] { "a second gzip member of another frame",
+            new[] { FakeRelay.Chunk(Header0("r1", 1, raw.Length), gzip.Concat(FakeRelay.Gzip(Encoding.UTF8.GetBytes(Fetch("r2")))).ToArray()) },
+            "the chunks of r1 fail the gzip CRC32 check", new[] { 0 } };
+        // The relay's own guard, mirrored (tasks 3.6): `count` x 8192 may not pass 32 MiB. Refused at chunk 0, before
+        // anything is buffered (ChunkAssemblyBoundsTests pins that nothing is held).
+        yield return new object[] { "a count over the relay's guard",
+            new[] { FakeRelay.Chunk(Header0("r1", 4097, raw.Length), gzip) },
+            "chunk 0 of r1 states 4097 chunks: 4097 x 8192 B is over the 33554432 B (32 MiB) a chunked request may take", new[] { 0 } };
         // A set may not hold more gzip than the bridge holds for its `bytes` (2 x bytes + 1 KiB, the bridge's own limit —
-        // not a property of gzip, review of gate step 3): the bridge never buffers a huge `count` x 8 KiB.
+        // not a property of gzip, review of gate step 3). `count` is 4096, the most the guard of 3.6 lets through (these
+        // cases stated int.MaxValue before 3.6; that count is now refused first, by the guard above).
         var noise = new byte[8000];
         new Random(7).NextBytes(noise);
         yield return new object[] { "more gzip than the bridge holds for bytes, at chunk 0",
-            new[] { FakeRelay.Chunk(Header0("r1", int.MaxValue, 100), noise) },
+            new[] { FakeRelay.Chunk(Header0("r1", 4096, 100), noise) },
             "chunk 0 of r1 brings the set to 8000 B of gzip, over the 1224 B this bridge holds for a request of 100 B (2 x bytes + 1 KiB)", new[] { 0 } };
         yield return new object[] { "more gzip than the bridge holds for bytes, across chunks",
-            new[] { FakeRelay.Chunk(Header0("r1", int.MaxValue, 100), noise[..600]), FakeRelay.Chunk(HeaderN("r1", 1), noise[..700]) },
+            new[] { FakeRelay.Chunk(Header0("r1", 4096, 100), noise[..600]), FakeRelay.Chunk(HeaderN("r1", 1), noise[..700]) },
             "chunk 1 of r1 brings the set to 1300 B of gzip, over the 1224 B this bridge holds for a request of 100 B (2 x bytes + 1 KiB)", new[] { 0, 1 } };
         yield return new object[] { "a frame that is not a request",
             FakeRelay.ChunksFor("r1", "{\"id\":\"r1\",\"ack\":3}", 1 << 20).ToArray(),
