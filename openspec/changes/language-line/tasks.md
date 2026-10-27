@@ -51,23 +51,17 @@
     tests, 374 files, 591 s); C# Engine 3210 (+1 skip), Cli 377, Connector 156, Twincat 731, Codesys 518, Contracts 56,
     Relay 211, Repo.Gates 276 — all green; volt-cli bun unit 225 → 231, windows 19; volt-control 149; volt-vscode 39;
     typecheck, lint, check green. No fixture or transpiler change: map not regenerated.
-- [ ] 4.1 Full suites + the release matrix.
-  - BLOCKED (gate 2026-10-27, nothing committed): the release matrix's `mixed-version` cell is red and cannot turn
-    green without an OWNER choice. 0.1.18026 and this build both say protocol 1, yet each refuses the other's push by
-    name (current CLI → old bridge: "no `IMPLEMENTATION <ST|LD|FBD>` line … Run `volt pull`"; old CLI → new bridge: the
-    same refusal locally, after a pull that wrote `%LANGUAGE` texts), and the advice "pull again" loops. Nothing is
-    lost, but a text-format break travels over an unchanged protocol number. Choose one: (a) protocol 1 → 2 with PLC
-    Assist (proposed default: the archived `relay-protocol-tracks-wire-breaks` bump rule — "a re-meant response member
-    needs one" — reads `sourceText`'s format change as a bump; design.md "Not kept" says protocol stays 1 and would
-    change), (b) accept a refusal-by-name in the mixed-version judge, or (c) a recorded red cell. 4.1 stays unticked.
-  - To do in the next step-4 run (review findings, after the choice):
-    1. `behaviour-changes.test.ts` 4.26: KEEP the original row (GVL `VAR_GLOBAL … END_VAR\n<stmt>` with NO `%`-line,
-       written whole, read back verbatim, build reports errors at the GVL — the only live proof of the slotless path)
-       and ADD the refusal row (same text with `%LANGUAGE ST`: `INVALID_ST` naming the item and the line, refs state
-       unchanged); the file header names both. (The working tree still holds an uncommitted edit that REPLACED the
-       row with the refusal row; it must become the added row, not the replacement.)
-    2. Re-run 4.26 on every matrix cell (3.5.18.30, 3.5.21 64/32, 3.5.22, twincat-32), not only 3.5.22 + Project14;
-       the last `runs.jsonl` record is from 934abd81b9/2a0cc8648c, not the tree under review.
-    3. design.md: add the decision line — a `%LANGUAGE` line in the declaration of a kind with no body (GVL, DUT, …)
-       is refused by name (`StReader.RefusePropertyLinesIn`), as the LSP reports it (`object-properties.ts`
-       `misplacedPropertyMessage`).
+- [x] 4.1 Full suites + the release matrix.
+  - Owner's choice (b): the mixed-version judge accepts a push refused by name by the other release's BRIDGE for the
+    text format, no compat code, protocol stays 1 (ab4657874e; design.md "Not kept").
+  - Review findings done: `behaviour-changes` 4.26 keeps the slotless GVL row (no `%`-line, written whole, the build
+    reports it) and 4.26b adds the refusal (`%LANGUAGE ST` in a GVL: `INVALID_ST` naming the item and the line, refs
+    unchanged), green on every cell; the design.md decision line for a `%LANGUAGE` line in a bodiless kind is in.
+  - Numbers (full, VOLT_REQUIRE_FULL=1, VOLT_FIXTURES unset): LSP 10392 pass / 0 fail / 34 skip / 428 todo (10854
+    tests, 374 files); C# Engine 3210 (+1 skip), Cli 377, Connector 156, Twincat 731, Codesys 518, Contracts 56, Relay
+    211, Repo.Gates 276; volt-cli bun unit 235, windows 19; volt-control 149; volt-vscode 39; typecheck, lint, check
+    green. Release matrix (full, at 63e6e1d5bb, clean tree): GREEN codesys-3.5.18.30-64, 3.5.21.40-64, 3.5.21.60-32,
+    3.5.22.40-64 (561 pass each), twincat-32 (561), vendor-parity (86), mixed-version (both directions refused by name
+    for the text format, nothing written).
+  - Not explained: one Volt.Cli.Tests test failed once (376/377) and passed on the immediate rerun (377/377); the
+    failing test's name was not captured.
