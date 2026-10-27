@@ -405,6 +405,8 @@ describe("the pipe side", () => {
     push?: (body: any) => any
     health?: () => any
     connect?: () => any
+    applications?: string[]
+    platform?: string
   }) {
     const calls: Call[] = []
     let items = { ...(opts.items ?? {}) }
@@ -412,7 +414,8 @@ describe("the pipe side", () => {
       calls.push({ op, body })
       if (op === "health") return opts.health ? opts.health() : { projects: [{ project: "P", status: "healthy" }] }
       if (op === "connect") return opts.connect ? opts.connect() : {}
-      if (op === "refs") return { projectVersion: "v", items, folders: {}, platform: "codesys", projectName: "P" }
+      if (op === "refs")
+        return { projectVersion: "v", items, folders: {}, platform: opts.platform ?? "codesys", projectName: "P", applications: opts.applications }
       if (op === "push") {
         const a = opts.push ? opts.push(body) : { newProjectVersion: "v2", conflicts: [], newItems: {}, removed: [] }
         if (a.newProjectVersion !== undefined && body.ops[0].op === "set" && body.ops[0].sourceText !== undefined)
@@ -429,6 +432,42 @@ describe("the pipe side", () => {
     row: row({}),
     handles: new Map(),
     core,
+  })
+
+  // multi-application-tree: TwinCAT's core names a folder from its PLC project's root, which the wire names as the stated
+  // application; CODESYS's core names it from the project root. The frame is the VENDOR's, never guessed from the
+  // path's shape: a CODESYS folder outside every application (the POUs pool) stays outside it.
+  for (const [vendorCore, platform, corePath, expected] of [
+    ["TwinCAT (relative to its PLC project)", "twincat", [] as string[], "S/PLC/P/P Project/VltF_R.pou"],
+    ["TwinCAT, a folder below it", "twincat", ["POUs"], "S/PLC/P/P Project/POUs/VltF_R.pou"],
+    ["CODESYS (from the project root)", "codesys", ["S", "PLC", "P", "P Project"], "S/PLC/P/P Project/VltF_R.pou"],
+    ["CODESYS, a folder outside every application", "codesys", ["POUs"], "POUs/VltF_R.pou"],
+  ] as const)
+    it(`a create names its folder in the vendor's frame: ${vendorCore}`, async () => {
+      const b = bridge({ applications: ["S/PLC/P/P Project"], platform })
+      const wire = wireSide("pipe", { call: b.call, sleep: async () => {} })
+      const ctx = ctxOf(async () => ({ value: [...corePath] }))
+      const step: Step = { op: "create", as: "x", kind: "program", name: "VltF_R", parent: "root", via: "push", source: "S" }
+      expect(await wire.step(step, ctx)).toBe("accepted")
+      expect(b.calls.find((c) => c.op === "push")!.body.ops[0].name).toBe(expected)
+    })
+
+  it("a TwinCAT create whose refs state no application is refused by name, nothing pushed", async () => {
+    const b = bridge({ platform: "twincat" })
+    const wire = wireSide("pipe", { call: b.call, sleep: async () => {} })
+    const ctx = ctxOf(async () => ({ value: [] }))
+    const step: Step = { op: "create", as: "x", kind: "program", name: "VltF_R", parent: "root", via: "push", source: "S" }
+    await expect(wire.step(step, ctx)).rejects.toThrow(/states no application/)
+    expect(b.calls.some((c) => c.op === "push")).toBe(false)
+  })
+
+  it("a platform the recorder does not know is refused by name, nothing pushed", async () => {
+    const b = bridge({ platform: "fakeco", applications: ["A"] })
+    const wire = wireSide("pipe", { call: b.call, sleep: async () => {} })
+    const ctx = ctxOf(async () => ({ value: [] }))
+    const step: Step = { op: "create", as: "x", kind: "program", name: "VltF_R", parent: "root", via: "push", source: "S" }
+    await expect(wire.step(step, ctx)).rejects.toThrow(/platform 'fakeco'/)
+    expect(b.calls.some((c) => c.op === "push")).toBe(false)
   })
 
   it("a refused create leaves no handle, so cleanup never deletes the object that already had the name", async () => {

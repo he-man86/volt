@@ -71,13 +71,13 @@ prints the pipe name. Then `bun run test:e2e:codesys` or `test:e2e:twincat`.
 ### LD and FBD are off unless `VOLT_GRAPHICAL=1`
 
 Network text is not shipped yet. A bridge reads LD and FBD bodies as network text only when ITS process environment
-holds `VOLT_GRAPHICAL=1` (`Volt.Engine`'s `NetworkTextSwitch`, read once — the C# runtime's only switch). Without it every LD and FBD body pulls as `IMPLEMENTATION LD|FBD UNSUPPORTED` with the
+holds `VOLT_GRAPHICAL=1` (`Volt.Engine`'s `NetworkTextSwitch`, read once — the C# runtime's only switch). Without it every LD and FBD body pulls as `%LANGUAGE LD|FBD UNSUPPORTED` with the
 reason "LD and FBD are not enabled in this build", its declaration stays editable, and network text pushed at it is
 refused by name. ST is unaffected. A workspace pulled with it off pushes to a bridge with it on: the UNSUPPORTED line
 over the same ladder is that ladder hidden, never written, and the edits beside it land.
 
 The LSP has its own switch, the same variable in the EDITOR's process (`NETWORK_TEXT_ENABLED` in
-`volt-lsp-iec/src/syntax/implementation-keyword.ts`): without it, nothing under an `IMPLEMENTATION LD|FBD` line is read
+`volt-lsp-iec/src/server/config.ts`): without it, nothing under a `%LANGUAGE LD|FBD` line is read
 — no network finding, no refusal. To get network analysis while developing, start the editor with the variable too.
 
 The switch is the BRIDGE's environment, so a script that only talks to a bridge cannot turn it on by setting it for

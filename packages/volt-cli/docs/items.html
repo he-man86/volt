@@ -79,9 +79,9 @@ TwinCAT Project1/PLC/Untitled1/Untitled1 Project/POUs/MAIN.pou</pre>
 <p>
   A file's extension carries the <b>kind</b> — what the IDE stores per object, its class — and nothing else. A
   body's language is not in the extension: an editable FBD/LD body is the same <code>.pou</code> as a textual one — the
-  language rides on the body's <a href="network-text.html#body-line">IMPLEMENTATION line</a> in the content,
-  <code>IMPLEMENTATION ST</code>, <code>IMPLEMENTATION FBD</code> or <code>IMPLEMENTATION LD</code> — and a
-  CFC/SFC/IL body is that kind's extension too, materialized as its line <code>IMPLEMENTATION CFC UNSUPPORTED</code>
+  language rides on the body's <a href="network-text.html#body-line"><code>%LANGUAGE</code> line</a> in the content,
+  <code>%LANGUAGE ST</code>, <code>%LANGUAGE FBD</code> or <code>%LANGUAGE LD</code> — and a
+  CFC/SFC/IL body is that kind's extension too, materialized as its line <code>%LANGUAGE CFC UNSUPPORTED</code>
   (and so on) with no implementation under it.
 </p>
 
@@ -152,16 +152,16 @@ TwinCAT Project1/PLC/Untitled1/Untitled1 Project/POUs/MAIN.pou</pre>
 </p>
 <div data-render="object-properties"></div>
 <ul>
-  <li><b>What is a property line:</b> only <code>%</code> followed by one of the keys above, the key ending at a space or
-    the line's end. Every other line that opens with <code>%</code> is code — a direct-address assignment
+  <li><b>What is a property line:</b> only <code>%</code> followed by one of the keys above, the key ending at a space, a
+    tab or the line's end; a space or a tab separates a value's words too. Every other line that opens with <code>%</code> is code — a direct-address assignment
     <code>%QB1 := x;</code> can stand exactly where properties are read.</li>
-  <li><b>Order:</b> <code>%CLASS</code> first, then a member's <code>%FOLDER</code>, then the table's order; each key
+  <li><b>Order:</b> a body's <code>%LANGUAGE</code> line first (it ends the declaration), then <code>%CLASS</code>, then a member's <code>%FOLDER</code>, then the table's order; each key
     once, except <code>%UNDEFINE</code> and <code>%NETVAR</code>, which repeat in the vendor's order. The writer emits
     exactly that, and the reader refuses another order, a repeated key, a value on a flag and a valued key with none —
     naming the key and the line. The LSP's format layer (<code>frontend/syntax/format/object-properties.ts</code>)
     reads the same list and reports the same.</li>
-  <li><b>Placement:</b> directly under the object's <code>IMPLEMENTATION</code> line, or — for an object with no body
-    (a DUT, a GVL, an interface, a property, an <code>IMPLEMENTATION NONE</code> member) — closing its declaration.</li>
+  <li><b>Placement:</b> directly under the object's <code>%LANGUAGE</code> line, or — for an object with no body
+    (a DUT, a GVL, an interface, a property, a member with no body slot) — closing its declaration.</li>
   <li><b>Absence</b> is the value measured on every object without that vendor property (false, 0, empty). The read
     still requires the vendor member wherever the vendor archives it: a missing one refuses the item by name.</li>
   <li><b>A vendor member no key names</b> refuses the item on pull — listed <code>unreadable</code> with the member's

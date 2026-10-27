@@ -300,7 +300,7 @@ VOLT_E2E_INSTANCE=x bun test test/e2e/refusals
 **`production/network-text-off.test.ts` needs a PRODUCTION bridge** — one without `VOLT_GRAPHICAL=1`, as every
 shipped build is — and every other file needs the opposite, so it is its own run and skips (saying so) against a
 development bridge. It proves the switch is off where a customer's bridge has it off: ST shown, every LD/FBD body
-`IMPLEMENTATION LD|FBD UNSUPPORTED` with the switch named in the fetch, network text refused, and a declaration
+`%LANGUAGE LD|FBD UNSUPPORTED` with the switch named in the fetch, network text refused, and a declaration
 push over a hidden body taken with the body never written (byte for byte on both vendors). The project must hold an
 LD/FBD body: TwinCAT Project14 does, the CODESYS test fixture does not, so serve the committed pro2193 copy there.
 
@@ -381,4 +381,4 @@ first. CFC/SFC/IL items are counted and reported rather than staged: they have n
 
 | Found | Fixed in | Pinned by |
 |---|---|---|
-| Create path wrote a CFC/SFC body's marker (then a comment, now the line `IMPLEMENTATION <LANG> UNSUPPORTED`) as source, landing an EMPTY function block while the push reported success — a migration silently dropped every CFC/SFC POU | `BodyFormatGuard.RequireAuthorable`, called on the create arm of `PushService` | `Volt.Engine.Tests/sync/CreateUnauthorableBodyTests.cs` |
+| Create path wrote a CFC/SFC body's marker (then a comment, now the line `%LANGUAGE <LANG> UNSUPPORTED`) as source, landing an EMPTY function block while the push reported success — a migration silently dropped every CFC/SFC POU | `BodyFormatGuard.RequireAuthorable`, called on the create arm of `PushService` | `Volt.Engine.Tests/sync/CreateUnauthorableBodyTests.cs` |

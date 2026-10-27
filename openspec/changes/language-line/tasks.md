@@ -28,8 +28,27 @@
     C# Engine 3210 (+1 skip), Cli 377, Connector 156, Twincat 731, Codesys 518, Contracts 56, Relay 211, Repo.Gates 276
     — all green; volt-cli bun unit 225, windows 19; volt-control 149; volt-vscode 39; typecheck, lint, check green.
     Map: refused 2108 → 2106, lsp-gap 88 → 90, lowered 3626 → 3630.
-- [ ] 3.1 Rewrite fixtures, recordings, transcripts and corpora; regenerate the fixture map and generated docs.
-  (Corpora, LSP fixtures, map and baselines landed with the step-2 gate; left: vendor-facts JSON, wire transcripts,
-  generated docs.)
-- [ ] 3.2 Docs: items.html, network-text.html (current implementation only).
+- [x] 3.1 Rewrite fixtures, recordings, transcripts and corpora; regenerate the fixture map and generated docs.
+  (Corpora, LSP fixtures, map and baselines landed with the step-2 gate; step 3: the vendor-facts snapshots re-recorded
+  where their sources still push (diff lines: CODESYS 36, TwinCAT 98; e.g. `abstract-member-equivalence`), the five
+  wire transcripts, the generated docs unchanged (DocDataTests green). The 22 CODESYS / 15 TwinCAT `nwl-*` rows and
+  `graphical-callee-seed` are NOT re-recorded: their push sources use a network-text grammar the reader refused before
+  this change, and network-text-st replaces it — moved to openspec `nwl-facts-rerecord`, with the open
+  `nwl-editor-refill` stored-tree question.)
+- [x] 3.2 Docs: items.html, network-text.html (current implementation only); also CLAUDE.md, ARCHITECTURE.md, README.md,
+  driver.html, wire.html, the e2e README, ide.ps1 and record-nwl-corpus.py comments.
+  - Gate (2026-10-27), review findings:
+    1. DIALECT C2r stated the deleted fold (`A1`/`A2` "both pull `IMPLEMENTATION NONE`", "`AbstractMemberFold` is a
+       measured equivalence"): rewritten to the re-recorded row — `A1` `%LANGUAGE ST` empty, `A2` no line; a
+       `METHOD ABSTRACT` with no line is created as `AbstractPOUMethodObject`. (Doc only, no test.)
+    2. The unrecordable `nwl-*` rows had no home: new openspec change `nwl-facts-rerecord` (validates), see 3.1.
+    3. `vendor-facts.ts` `folderOf` guessed the core's frame from the path's shape: now by `refs.platform` — CODESYS's
+       path as the core names it, TwinCAT's under the stated application, refused by name when refs states none or the
+       platform is unknown. Failing tests first (3 red): a CODESYS folder outside every application (`POUs/VltF_R.pou`),
+       TwinCAT with no application, an unknown platform.
+    4. items.html: a tab ends a property key too, and separates a value's words. (Doc only, no test.)
+  - Numbers (full, VOLT_REQUIRE_FULL=1, VOLT_FIXTURES unset): LSP 10392 pass / 0 fail / 34 skip / 428 todo (10854
+    tests, 374 files, 591 s); C# Engine 3210 (+1 skip), Cli 377, Connector 156, Twincat 731, Codesys 518, Contracts 56,
+    Relay 211, Repo.Gates 276 — all green; volt-cli bun unit 225 → 231, windows 19; volt-control 149; volt-vscode 39;
+    typecheck, lint, check green. No fixture or transpiler change: map not regenerated.
 - [ ] 4.1 Full suites + the release matrix.

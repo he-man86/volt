@@ -39,7 +39,7 @@ import { basename, join } from "node:path"
 import { copyRoot, pipePid, scriptPipe, type Vendor } from "../test/e2e/lib/fixture-ide"
 import { callOn } from "../test/e2e/lib/pipe"
 import { landedInFull } from "../test/e2e/lib/workspace"
-import { fileOf, folderOf as pathFolder, inFolder } from "../test/e2e/lib/main-program"
+import { drivenApplication, fileOf, folderOf as pathFolder, inFolder } from "../test/e2e/lib/main-program"
 import { ROWS, type Read, type Row, type Step } from "./vendor-facts.table"
 
 /**
@@ -725,8 +725,18 @@ export function wireSide(
   const folderOf = async (ctx: RowContext, handle: string, r: any): Promise<string> => {
     const h = ctx.handles.get(handle)
     if (handle !== "root" && !h) throw new Error(`no handle '${handle}'`)
-    if (handle === "root" || h!.kind === "folder")
-      return ((await ctx.core({ kind: "path", row: ctx.row.id, on: handle })).value as string[]).join("/")
+    if (handle === "root" || h!.kind === "folder") {
+      // The core's frame is the VENDOR's (multi-application-tree): CODESYS names a folder from the project root
+      // (`Device/Plc Logic/Application/…`, a pool folder outside every application included), so its path IS the wire's;
+      // TwinCAT names it from its PLC project's root, which the wire names as the application the walk states, so the
+      // path is that application's. Never decided from the path's shape.
+      const path = ((await ctx.core({ kind: "path", row: ctx.row.id, on: handle })).value as string[]).join("/")
+      if (r.platform === "codesys") return path
+      if (r.platform !== "twincat") throw new Error(`refs states platform '${r.platform}', which the recorder has no folder frame for`)
+      const app = drivenApplication(r.applications)
+      if (app === null) throw new Error(`refs states no application, so a TwinCAT folder path '${path}' has no PLC project to lie in`)
+      return path === "" ? app : `${app}/${path}`
+    }
     if (!h) throw new Error("unreachable")
     return pathFolder(wireName(r, h.name))
   }

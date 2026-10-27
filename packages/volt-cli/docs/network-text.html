@@ -20,7 +20,7 @@
   coils. Writer, reader and validator are <code>NetworkTextWriter</code>, <code>NetworkTextReader</code> and
   <code>NetworkValidator</code> in <code>Volt.Engine/Format/Network/</code>; the LSP ports the reader and the validator.
 </p>
-<pre>IMPLEMENTATION LD
+<pre>%LANGUAGE LD
 NETWORK TITLE: "Start the motor"
   // runs while auto is on
   split1 := start AND NOT stop;
@@ -30,7 +30,7 @@ NETWORK TITLE: "Start the motor"
 END_NETWORK</pre>
 
 <h2 id="grammar">Grammar</h2>
-<pre>body      = "IMPLEMENTATION" , ( "LD" | "FBD" ) , NL , { network } ;
+<pre>body      = "%LANGUAGE" , ( "LD" | "FBD" ) , NL , { network } ;
 network   = header , NL , { comment } , ( unsupported | { item } ) , "END_NETWORK" ;
 header    = "NETWORK" , [ "LABEL:" , name ] , [ "DISABLED" ] , [ "TITLE:" , string ] ;
 comment   = "//" , [ " " , text ] , NL ;
@@ -111,11 +111,22 @@ END_NETWORK</pre>
 </p>
 
 <h2 id="body-line">The body line</h2>
+<pre>METHOD Run : BOOL
+VAR_INPUT
+    a : BOOL;
+END_VAR
+%LANGUAGE ST
+Run := a;
+END_METHOD
+
+ACTION Step
+%LANGUAGE SFC UNSUPPORTED
+END_ACTION</pre>
 <p>
-  Every body states its language: <code>IMPLEMENTATION ST</code>, <code>LD</code> or <code>FBD</code>, and that line
-  alone picks the reader. An abstract member is <code>IMPLEMENTATION NONE</code>. CFC, SFC and IL are
-  <code>IMPLEMENTATION &lt;LANG&gt; UNSUPPORTED</code> with nothing under it: the declaration stays editable and a push
-  never writes the body.
+  The line ends the declaration and its language alone picks the reader: <code>ST</code>, <code>LD</code> or
+  <code>FBD</code>. A body Volt does not show (CFC, SFC, IL) is its language and <code>UNSUPPORTED</code>, with nothing
+  under it: the declaration stays editable and a push never writes the body. A member whose IDE object has no body slot
+  has no line.
 </p>
 
 <h2 id="pairing">Pushing</h2>

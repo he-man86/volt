@@ -314,7 +314,7 @@ public class ReadOnlyBodyTests
     [InlineData("SFC", null, " x := 1;")]                       // after the line, on it
     [InlineData("FBD", "a vendor split point", " x := 1;")]
     // A comment or pragma is text under the line too: no driver writes a hidden body, so it would be silently lost.
-    // The LSP reports the same (`implementation-keyword-diagnostics.test.ts`).
+    // The LSP reports the same (`language-line-diagnostics.test.ts`).
     [InlineData("CFC", null, "\n(* note *)")]
     [InlineData("CFC", null, "\n// note")]
     [InlineData("SFC", null, "\n{attribute 'x'}")]

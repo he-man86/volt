@@ -1887,8 +1887,8 @@ export const ROWS: Row[] = [
       { tag: "found", op: "find", as: "stop", name: "Stop", under: "statefb" },
       // Update in place, rename, rename back + move, move home + original text — all through the shipped push. The
       // abstract method's in-place update is measured twice: the vendor's own (its declaration written through
-      // scripting, `updated`), and — since `abstract-member-push` (the pull states it IMPLEMENTATION NONE and the push
-      // writes no body there) — a line added beside it in its OWNER's pulled text, through the shipped push (`pushed`).
+      // scripting, `updated`), and — since `abstract-member-push` (the pull states no `%LANGUAGE` line for it and the
+      // push writes no body there) — a line added beside it in its OWNER's pulled text, through the shipped push (`pushed`).
       { op: "setText", on: "check", via: "push", prepend: "// volt vendor-facts: written in place\n" },
       { op: "setText", on: "persistent", via: "push", prepend: "// volt vendor-facts: written in place\n" },
       { op: "setText", on: "textlist", via: "push", prepend: "// volt vendor-facts: written in place\n" },
@@ -1973,7 +1973,7 @@ export const ROWS: Row[] = [
       // Whether each abstract site's CLASS declares `Implementation` (`NwlInterop.Has`): the `implementation` read above
       // is null both for a type without the member and for one holding null (openspec `abstract-member-push` design,
       // case (b) vs (c)). [] = not declared. Measured: every site declares it — a missing slot is case (c), the member
-      // declared and holding null, which is what the driver states as IMPLEMENTATION NONE.
+      // declared and holding null, which is what the driver states as no body slot (no `%LANGUAGE` line).
       {
         key: "implementation-declared",
         at: "found",

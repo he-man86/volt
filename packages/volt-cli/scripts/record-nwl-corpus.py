@@ -16,7 +16,7 @@
 # Pro2193-94-95-96_COdesys.project, lenze-mid <- Lenze_MID-S100_V5_00_602_T51_Codesys.project, awa-palletizer <-
 # AWA_Palletizer 09_1.project; bakon-nano <- Bakon Nano new VISU v00_90.project; CodesysTestProject <-
 # test/fixtures/CodesysTestProject.3.5.21.40.project). The body count each file holds is the check: it must match the
-# corpus's IMPLEMENTATION LD|FBD bodies (census 1b.1: 40 / 2 / 1 / 1 / 0).
+# corpus's %LANGUAGE LD|FBD bodies (census 1b.1: 40 / 2 / 1 / 1 / 0).
 #
 # THE FILE FORMAT (read by test/shared/NwlArchive.cs):
 #   <nwl-corpus corpus=… source=… ide=… bodies=…>

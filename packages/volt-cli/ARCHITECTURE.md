@@ -122,7 +122,7 @@ for their SUBJECT, and a body language's implementation lives under the body.**
 | **`Item/`** | **What an item IS and where it sits.** `ItemKind` is the IEC item-type table (`docs/items.html`) the CODESYS-family hosts answer in codes; `FolderPath` is tree-path arithmetic; `ItemRef` is the opaque per-vendor handle that keeps native objects out of the domain; `WalkResult` distinguishes a complete walk from one that skipped a subtree. `ItemContent` is the IEC layout's record; `ObjectProperties`, required on it and on every `Member`, carries every vendor member the text spells beside the code (the `%`-lines). | `ItemKind`, `FolderPath`, `ItemRef`, `WalkResult`, `IIecTree`, `ItemContent`, `ObjectProperties` |
 | **`Format/St/`** | **The IEC layout: the canonical workspace file of a POU, interface, GVL and DUT, both halves together.** `IecFormat` is that layout as the kinds' `IItemFormat`, over `StWriter`/`StReader` and the layout's record (`FamilyContent` converts it to the contract's `Content` and back, losing nothing). `IecLayout` says how each kind's file is laid out (composite, members inside). `Descriptor` renders the canonical text for NON-source items. `PropertyLines` is the one spelling of an object's `%`-lines, both directions. An INVERSE PAIR over one record — `write(read(write(x))) == write(x)`. The only written spec of a format with TWO implementations in two languages (`volt-lsp-iec` re-parses it). **An INTERFACE's members are `interface_method`/`interface_property` on both sides**, because both sides decide a member's kind from its owner. | `IecFormat`, `FamilyContent`, `IecLayout`, `StWriter`, `StReader`, `PropertyLines`, `Descriptor` |
 | **`Format/Network/`** | **FBD and LD — one pipeline, because they are one implementation.** `NetworkModel` is the vendor-neutral graph, shaped on the vendors' OWN `INetwork`/`IBoxTree` (`Ide/DIALECT.md` N1: the two ship an identical model). `NetworkTextReader`/`NetworkTextWriter` convert that graph ⇄ network text — one statement per NWL item, a name only where the vendor names a wire (`docs/network-text.html`); both work against a `NetworkScope` built from the declarations the body sees (`Ide/ProjectDeclarations`); `NetworkBodyReader` is LD's and FBD's `IBodyReader`; `NetworkTextGate` is the token fixed-point gate; `NetworkSpelling` holds the rules writer and reader must agree on; `FbdOperators` is the operator table. **Nothing here knows XML** — a vendor's own representation is the host's business. Called `Network`, not `Diagram`: CFC and SFC are the bodies Volt CANNOT express as text. | `NetworkModel`, `NetworkText*`, `NetworkBodyReader`, `NetworkTextGate`, `NetworkScope`, `NetworkSpelling`, `FbdOperators` |
-| **`Format/Body/`** | **What a body IS, decided from the body itself.** `BodyFormatGuard` is the ONE gate a push passes: it refuses to overwrite a body Volt cannot author, deciding from the IDE's LIVE body and never from the incoming text. `UnrepresentableBodyException` is how a reader says a body has no spelling, answered with the read-only `IMPLEMENTATION LD\|FBD UNSUPPORTED` line rather than by dropping the item. | `BodyFormatGuard`, `UnrepresentableBodyException`, `Languages` |
+| **`Format/Body/`** | **What a body IS, decided from the body itself.** `BodyFormatGuard` is the ONE gate a push passes: it refuses to overwrite a body Volt cannot author, deciding from the IDE's LIVE body and never from the incoming text. `UnrepresentableBodyException` is how a reader says a body has no spelling, answered with the read-only `%LANGUAGE LD\|FBD UNSUPPORTED` line rather than by dropping the item. | `BodyFormatGuard`, `UnrepresentableBodyException`, `Languages` |
 | **`Library/`** | Referenced-library manifests + signatures — `LibraryManifest` (the canonical `.library` body and hash basis, shared so the two vendors cannot drift on those bytes), `LibSignatureRenderer`, `LibraryLayout`, `LibraryFetch`, `LibSignature`. | `LibraryManifest`, `LibSignatureRenderer`, `LibSignature` |
 | **`Sync/`** | **One service per op** over a `HostLink` — the ONE host a process serves, the `Catalog` of ITS declaration alone (a kind no host declared is `BAD_REQUEST` before any write), and its `ComposedSession`. `ComposedSession` is composed once over the host's primitives: the degraded-state machine, the IDE-thread bracketing, the single-flight health probe and **the whole health response** — a wire-visible shape, so no host builds one. `RefsService`, `FetchService`, `PushService`, `BuildService`, `GrepService`. `Materializer` reads an item's `Content` and writes it through its kind's format; a non-source item is its manifest (`ReadManifest`). `Hasher` + `Versioning` give each item one content version, so the same project hashes identically on either vendor. `TreeNav`/`TreeLookup` navigate the host's tree by path; `OpGuard` is the shared precondition; `ProjectSnapshot` is the version walk `refs` answers with. | `HostLink`, `ComposedSession`, `FetchService`, `PushService`, `BuildService`, `RefsService`, `GrepService`, `Materializer`, `Versioning`, `TreeNav` |
 
@@ -138,14 +138,14 @@ representation below the seam.
 ### Adding a vendor
 
 A new vendor is one IDE host (its own assembly, as `Volt.Ide.Codesys` and `Volt.Ide.Twincat` are) and nothing in the
-Engine. The third test vendor (`test/shared`, "Fakeco": `.blk`/`.typ`/`.stn`, `IMPLEMENTATION FKL`) is the worked
+Engine. The third test vendor (`test/shared`, "Fakeco": `.blk`/`.typ`/`.stn`, `%LANGUAGE FKL`) is the worked
 example; it passes the transport suite over the pipe (`ThirdVendorTransportTests`, `ThirdVendorContractTests`).
 
 1. **Declare** (`IVendorSession.Declaration`, a `VendorDeclaration`):
    - its `VendorRow` (`Id` names the pipe, `volt.bridge.<id>.<pid>`; `Display` is what a user reads);
    - its `KindRow`s: each kind with its extension, its role (`Source`, `Descriptor`, `WritableDescriptor`, `Member`),
      and for a source kind its `KindShape` and its `IItemFormat` (the file layout; the IEC kinds name `IecFormat`);
-   - its `LanguageRow`s: a SHOWN language with its `IBodyReader`, a hidden one without (`IMPLEMENTATION <LANG>
+   - its `LanguageRow`s: a SHOWN language with its `IBodyReader`, a hidden one without (`%LANGUAGE <LANG>
      UNSUPPORTED`);
    - its `PropertyKey`s: the `%`-keys its objects hold, each with its grammar.
    The `Catalog` refuses a malformed or conflicting row by name, before the host serves.
@@ -233,7 +233,7 @@ applications, and throwing breaks `refs`.
   it reassembles the text — and **a top-level item's header is not even read** (openspec
   `push-without-header-check`): its kind is its wire name's extension, so the header is never parsed, never checked
   against the extension and never a reason to refuse. A DUT or a GVL is not read at all; a POU or an interface is
-  read for its `IMPLEMENTATION` line and its CHILD elements, whose signature line is the only place a member's name
+  read for its `%LANGUAGE` line and its CHILD elements, whose signature line is the only place a member's name
   exists (a child whose header cannot be read is refused naming the item and the line). A mistake in the text is
   the IDE build's to report. It is the rule to refuse any future "normalize the header" on sight. **Two exceptions, and they are the whole
   list:** an ACTION's header is SYNTHESIZED (`ACTION <name>`, because IEC gives an action a name and a body and
@@ -249,21 +249,25 @@ applications, and throwing breaks `refs`.
   emits `Member.Name`, `ReturnType` or `DataType`, so a change to the signature parsers needs its own field
   assertions — and a member-level boundary move (which side of the line a comment falls on) is byte-identical by
   construction, so those need structural assertions too. Both kinds live in that same file.
-- **The DECL/IMPL boundary is STATED in the file: the line `IMPLEMENTATION <LANG>`** (`Format/St/ImplementationMarker`,
-  the one spelling on the bridge side; the LSP mirrors it in `src/syntax/implementation-keyword.ts`). It stands
-  between a declaration and its body on exactly the kinds `ItemKind.ShapeOf` gives a body (POU, method,
-  action, property getter and setter; a DUT/GVL/interface has none), and it states the body's language, ST
-  included — the ONE signal for how the body is read: `ST` by the ST path, `LD`/`FBD` as network text. It is
-  matched as a whole line outside every comment, `IMPLEMENTATION` is a reserved name, and a missing or unknown
-  language, a second line, or a body that contradicts its language is refused by name. It replaced an INFERRED
-  boundary (last `END_VAR`, the end of a wrapped `EXTENDS`/`IMPLEMENTS` header, rules about which trailing comments
-  and pragmas belonged to which side) — every one of those rules was written after a bug, which the class summary
-  of `ImplementationMarker` lists. A file without the line (one written before it) is refused naming `volt pull`.
-- **Volt shows ST, FBD and LD; every other body is `IMPLEMENTATION <LANG> UNSUPPORTED`** (`ImplementationMarker.Unsupported`). CFC,
+- **The DECL/IMPL boundary is STATED in the file: the property line `%LANGUAGE <LANG>`** (`Format/St/PropertyLines.Language`,
+  one of `PropertyLines`' closed keys, so there is one `%`-line grammar; the LSP mirrors it in
+  `src/frontend/syntax/format/language-line.ts` and `object-properties.ts`). It stands between a declaration and its body
+  on exactly the kinds `ItemKind.ShapeOf` gives a body (POU, method, action, property getter and setter; a
+  DUT/GVL/interface has none), it is the body's FIRST `%`-line (the object's own property lines follow it), and it
+  states the body's language, ST included — the ONE signal for how the body is read: `ST` by the ST path, `LD`/`FBD`
+  as network text. It is matched as a whole line outside every comment (the key in upper case, the language words in
+  any case), and a missing or unknown language, a second line, or a body that contradicts its language is refused by
+  name. A METHOD or GET/SET whose IDE object has NO body slot (DIALECT C2n, CODESYS's abstract-member class) has no
+  line and nothing after its declaration — its property lines close the declaration, as an interface member's do;
+  `BodyFormatGuard` judges such a member against the live object. It replaced an INFERRED boundary (last `END_VAR`, the
+  end of a wrapped `EXTENDS`/`IMPLEMENTS` header, rules about which trailing comments and pragmas belonged to which
+  side) — every one of those rules was written after a bug. A file holding the retired `IMPLEMENTATION <LANG>` line
+  is refused naming `volt pull`.
+- **Volt shows ST, FBD and LD; every other body is `%LANGUAGE <LANG> UNSUPPORTED`** (`PropertyLines.UnsupportedLine`). CFC,
   SFC and IL always; an LD/FBD body when network text has no spelling for what it holds, or when network text is
   off in the build (`NetworkTextSwitch`, `VOLT_GRAPHICAL=1`). Nothing is shown under the line, the item's
   DECLARATION stays editable and pushes as usual, and a push never writes the IDE's body
-  (`ImplementationMarker.Written`, on both vendors' writers) — so a hidden body blocks neither pull nor push and
+  (`PropertyLines.Written`, on both vendors' writers) — so a hidden body blocks neither pull nor push and
   nothing the IDE holds is overwritten. IL is in this set for a reason worth keeping: being textual, it once
   materialized as its raw source, so the engineer got an editable-looking file and the next push rewrote their IL
   body as ST.
