@@ -106,36 +106,41 @@ Assign item, a null input slot, a missing pin-flag list, and an unreadable Execu
 Volt adds only `%` lines. Decided on 1.1–1.3 and the measurements below.
 
 **Revision (owner, 2026-10-27: "these are just functions", "similar to LIMIT", "the LSP knows what they are", "like a
-MOVE_EN() and a MOVE() function", "in the end in CS they are also 2 sep blocks you choose from").** One rule: **one
-function name per element the IDE's toolbox offers.** Where CODESYS offers two elements (a box and the box with EN/ENO),
-the text has two functions, so the text alone says which element is stored and nothing is told apart by context.
+MOVE_EN() and a MOVE() function", "in the end in CS they are also 2 sep blocks you choose from", "is it possible to
+have them both named GT(").** One rule: **every element the IDE's toolbox offers has its own spelling**, so the text
+alone says which element is stored and nothing is told apart by context. The box and the box with EN/ENO are both
+`GT(`: the `EN :=` pin is what tells them apart.
 **Every box is a call** (owner, 2026-10-27: "i thought we only use functions so GT(temp>80) and GT_EN(EN= …"),
 the 14 keyword operators included: `GT(temp, 80)`, `ADD(i, j)`, `AND(a, b, c)`, `NOT(a)`. An extensible box is one call
 with all its inputs, a nested box a nested call, so brackets carry no meaning and the operator-chain rule below is
 gone. Infix `a AND b`, `a OR b`, `NOT a` remain only for what the LD toolbox draws as contacts (series, parallel,
-negated contact); a drawn AND/OR/NOT box in LD is the call. FBD has no contacts, so FBD is calls only. An enabled box
-is `<name>_EN`, `EN` first, ALWAYS returning ENO (comparisons too), its value through `OUT`. Pins are positional for a
-built-in (as on the box), formal otherwise. The LSP knows every one of these functions as it knows LIMIT
-(`frontend/types/builtins.ts`): no library file, no namespace, no network rule. CODESYS ST has no call form for the 14
-keyword operators (1.2), so — like `_EN` — the exec twin rewrites them to infix. A chain nests, as drawn:
+negated contact); a drawn AND/OR/NOT box in LD is the call. FBD has no contacts, so FBD is calls only.
+
+**EN/ENO are IEC formal pins of the same function** (owner, 2026-10-27: "the _EN was just my idea but you can push
+back. do we really need diff functions?" — no; `_EN` dropped). An enabled box is the call with `EN :=` as its first
+formal (all pins formal then, IEC: no mixing; operator pins `IN1`, `IN2`, …); its ENO is `ENO => w` when wired and
+absent when not, so the text states the stored `Eno` (the probe's 3 ENO gaps close). The function returns its value as
+always. A chain runs through a wire. The LSP knows every one of these functions, EN/ENO included, as it knows LIMIT
+(`frontend/types/builtins.ts`): no library file, no namespace, no network rule. CODESYS ST refuses the operator call
+form and EN/ENO (1.2), so the exec twin rewrites both (infix; the IF of 1.3).
 
 ```
 tooHot := GT(temp, 80);
-ok     := GT_EN(EN := auto, temp, 80, OUT => alarm);
+alarm  := GT(EN := auto, IN1 := temp, IN2 := 80);
 run    := AND(start, NOT(stop), ok);
-done   := MOVE_EN(EN := MOVE_EN(EN := c, IN := 1, OUT => x), IN := 2, OUT => y);
+x      := MOVE(EN := c, IN := 1, ENO => w1);
+y      := MOVE(EN := w1, IN := 2, ENO => done);
 ```
 
-This overrides the "Boxes are their ST form" choice, the operator rows of the mapping table, the bracket edge case
-and the probe's "an enabled comparison returns its value".
+Open, measured in 2.1: an enabled box over a callee that DECLARES its own `EN` (55 library POUs; 0 in the corpus) —
+whether the editor can store it at all. If it can, 3.0 gives it a spelling.
 
-This replaces every `IF en THEN …` row below (EN, EN chain, result pin, ENO by value, enabled comparison) and the
-probe's `MOVE(EN := …)`; it also ends the clash with a callee that declares its own `EN` (55 library POUs): `f(EN := …)`
-is that POU's pin, `f_EN(…)` the enabled box. CODESYS compiles none of it (1.2: EN/ENO refused on every call), so the
-exec twin (oracle 3) rewrites each `_EN` call into its `IF`, which runs the same (1.3). The same rule spells the stored
-members below where the toolbox has its own element (contact vs drawn box, negated/edge contact, negated/edge coil);
-3.0 measures the toolbox and fixes the name table, checking no name collides with a library or user POU (0 `*_EN`
-names in the LSP fixtures, 2026-10-27).
+This overrides the "Boxes are their ST form" choice, the operator rows of the mapping table, the bracket edge case,
+the `_EN` naming, and the probe's "an enabled comparison returns its value".
+
+This replaces every `IF en THEN …` row below (EN, EN chain, result pin, ENO by value, enabled comparison). The same
+rule spells the stored members below where the toolbox has its own element (contact vs drawn box: infix vs call;
+negated/edge contact, negated/edge coil: 3.0 measures the toolbox and fixes their spelling).
 
 ### Measurements (1.4)
 
