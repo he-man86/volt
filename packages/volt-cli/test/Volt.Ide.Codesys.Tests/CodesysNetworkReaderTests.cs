@@ -94,6 +94,75 @@ public class CodesysNetworkReaderTests
         Assert.All(read.Inputs, i => Assert.Null(i.Formal));   // MOVE's data pin is positional
     }
 
+    /// <summary>A CALLEE THAT DECLARES ITS OWN EN (network-text-st 1c, Lenze <c>IDB_WSM</c>): the box stores <c>En</c> false
+    /// over an input slot 0 named <c>EN</c>. CODESYS then calls it on every scan and passes the pin into the callee's
+    /// declared <c>EN</c> — a plain call with a formal pin, not an enabled box. The enable is the stored flag, never the
+    /// slot's name.</summary>
+    [Fact]
+    public void A_slot_named_EN_on_a_box_not_showing_EN_is_the_callees_own_pin()
+    {
+        var box = new Nwl.BoxTreeBox
+        {
+            BoxType = "WSM",
+            Instance = new Nwl.Operand { OperandExpr = "IDB_WSM", IsInstance = true },
+            InputItemList = new object[] { Nwl.Leaf("run"), Nwl.Leaf("a") },
+            InputParams = new Nwl.ParamList { Names = new[] { "EN", "IN" }, Types = new[] { "BOOL", "BOOL" } },
+            OutputParams = new Nwl.ParamList { Names = new[] { "ENO", "Q" }, Types = new[] { "BOOL", "BOOL" } },
+            En = false,
+            Eno = false,
+        };
+
+        var read = Assert.IsType<Box>(CodesysNetworkReader.Read(Nwl.Body(box), BodyLanguage.Ld).Networks.Single().Trees.Single());
+
+        Assert.Null(read.Enable);
+        Assert.False(read.HasEnoOutput);
+        Assert.Equal(new[] { "EN", "IN" }, read.Inputs.Select(i => i.Formal));
+        Assert.Equal("run", Assert.IsType<Leaf>(read.Inputs[0].Value).Operand.Text);
+    }
+
+    /// <summary>A CALLEE THAT DECLARES ITS OWN ENO (1c, Lenze <c>IDB_Dryer</c>): <c>Eno</c> false over an output slot 0 named
+    /// <c>ENO</c>. The box shows no ENO; the value a consumer reads at slot 0 is the callee's declared output, by name.</summary>
+    [Fact]
+    public void An_output_named_ENO_on_a_box_not_showing_ENO_is_the_callees_own_output()
+    {
+        var box = new Nwl.BoxTreeBox
+        {
+            BoxType = "Dryer",
+            Instance = new Nwl.Operand { OperandExpr = "IDB_Dryer", IsInstance = true },
+            InputItemList = new object[] { Nwl.Leaf("a") },
+            InputParams = new Nwl.ParamList { Names = new[] { "IN" }, Types = new[] { "BOOL" } },
+            OutputParams = new Nwl.ParamList { Names = new[] { "ENO", "Q" }, Types = new[] { "BOOL", "BOOL" } },
+            MainOutputIndex = 0,
+            En = false,
+            Eno = false,
+        };
+        var assign = new Nwl.BoxTreeAssign { RValue = box };
+        assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out" });
+
+        var read = Assert.IsType<Assign>(CodesysNetworkReader.Read(Nwl.Body(assign), BodyLanguage.Ld).Networks.Single().Trees.Single());
+        var b = Assert.IsType<Box>(read.Value);
+
+        Assert.False(b.HasEnoOutput);
+        Assert.Equal(0, b.ConnectedSlot);
+        Assert.Equal("ENO", b.MainOutputName);
+    }
+
+    /// <summary>A box SHOWING its enable over a slot 0 named otherwise is no shape any IDE was measured to store:
+    /// refused by name, never read by guessing which input is the enable.</summary>
+    [Fact]
+    public void A_box_showing_EN_with_no_slot_named_EN_is_refused_by_name()
+    {
+        var box = new Nwl.BoxTreeBox
+        {
+            BoxType = "MOVE",
+            InputItemList = new object[] { Nwl.Leaf("value") },
+            En = true,
+        };
+
+        var ex = Assert.Throws<UnrepresentableBodyException>(() => CodesysNetworkReader.Read(Nwl.Body(box), BodyLanguage.Fbd));
+        Assert.Equal(Box.ShownWithoutSlotMarker, ex.Reason);
+    }
+
     /// <summary>A box with no EN slot keeps every input as data — the guard must not eat a real first pin just
     /// because the box has a name in slot 0.</summary>
     [Fact]
@@ -660,6 +729,7 @@ public class CodesysNetworkReaderTests
             InputItemList = new object[] { Nwl.Leaf("rung"), Nwl.Leaf("value") },
             InputParams = new Nwl.ParamList { Names = new[] { "EN", "" }, Types = new[] { "BOOL", "" } },
             InputFlags = new object[] { new Nwl.Flags { Negation = true }, new Nwl.Flags() },
+            En = true,
         };
 
         var read = Assert.IsType<Box>(CodesysNetworkReader.Read(Nwl.Body(box), BodyLanguage.Fbd).Networks.Single().Trees.Single());
@@ -679,6 +749,7 @@ public class CodesysNetworkReaderTests
             InputItemList = new object[] { Nwl.Leaf("rung"), Nwl.Leaf("value") },
             InputParams = new Nwl.ParamList { Names = new[] { "EN", "" }, Types = new[] { "BOOL", "" } },
             InputFlags = new object[] { new Nwl.Flags(), new Nwl.Flags { Negation = true } },
+            En = true,
         };
 
         var read = Assert.IsType<Box>(CodesysNetworkReader.Read(Nwl.Body(box), BodyLanguage.Fbd).Networks.Single().Trees.Single());
@@ -760,6 +831,8 @@ public class CodesysNetworkReaderTests
             InputItemList = new object[] { Nwl.Leaf("c"), Nwl.Leaf("0") },
             InputParams = new Nwl.ParamList { Names = new[] { "EN", "" }, Types = new[] { "BOOL", "" } },
             OutputParams = new Nwl.ParamList { Names = new[] { "ENO", "" }, Types = new[] { "BOOL", "INT" } },
+            En = true,
+            Eno = true,
         };
         box.Outputs.List.Add(new Nwl.Operand { OperandExpr = "enoFlag" });
         box.Outputs.List.Add(new Nwl.Operand { OperandExpr = "Status" });
@@ -876,6 +949,7 @@ public class CodesysNetworkReaderTests
             InputParams = new Nwl.ParamList { Names = new[] { "EN", "iLength" }, Types = new[] { "BOOL", "INT" } },
             OutputParams = new Nwl.ParamList { Names = new[] { "ENO", "oMeanValue", "oSpare" }, Types = new[] { "", "", "" } },
             En = true,
+            Eno = true,
         };
         box.Outputs.List.Add(null);                                              // the ENO echo, never wired
         box.Outputs.List.Add(new Nwl.Operand { OperandExpr = "measured" });      // the pin the engineer wired
@@ -997,6 +1071,8 @@ public class CodesysNetworkReaderTests
             InputItemList = inputs.ToArray(),
             InputParams = enabled ? new Nwl.ParamList { Names = new[] { "EN", "", "" }, Types = new[] { "", "", "" } } : new Nwl.ParamList(),
             OutputParams = new Nwl.ParamList { Names = outputNames, Types = outputNames.Select(n => n == "ENO" ? "BOOL" : "").ToArray() },
+            En = enabled ? true : null,
+            Eno = outputNames.Length > 0 && outputNames[0] == "ENO" ? true : null,
         };
         foreach (var _ in outputNames) box.Outputs.List.Add(new Nwl.Operand { OperandExpr = "" });
         var assign = new Nwl.BoxTreeAssign { RValue = box };

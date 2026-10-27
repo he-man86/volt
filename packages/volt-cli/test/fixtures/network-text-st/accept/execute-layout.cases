@@ -1,0 +1,118 @@
+#### execute-top-level — the v2 case execute-layout/execute-top-level, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%EXECUTE
+x := 1;
+%END_EXECUTE
+=== model
+NETWORK
+  (EXECUTE "x := 1;")
+
+#### execute-enabled — the v2 case execute-layout/execute-enabled, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%EXECUTE(EN := TRUE)
+iCount:=icount+1;
+
+%END_EXECUTE
+=== model
+NETWORK
+  (EXECUTE "iCount:=icount+1;\n" en:TRUE)
+
+#### execute-read-through-eno — the v2 case execute-layout/execute-read-through-eno, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%WIRES w1
+%EXECUTE(EN := go, ENO => w1)
+i := i + 1;
+%END_EXECUTE
+done := w1;
+=== model
+NETWORK
+  (:= done (EXECUTE "i := i + 1;" en:go conn:0))
+
+#### execute-in-a-chain — the v2 case execute-layout/execute-in-a-chain, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%WIRES w1
+%EXECUTE(EN := go, ENO => w1)
+i := i + 1;
+%END_EXECUTE
+lamp := MOVE_EN(EN := w1, 1, OUT => t);
+=== model
+NETWORK
+  (:= lamp (MOVE 1 =>1:t en:(EXECUTE "i := i + 1;" en:go conn:0) conn:0 eno:1))
+
+#### execute-as-operand — the v2 case execute-layout/execute-as-operand, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%WIRES w1, w2
+%EXECUTE(EN := go, ENO => w1)
+i := 1;
+%END_EXECUTE
+x := w1 AND d;
+%EXECUTE(EN := go, ENO => w2)
+j := 1;
+%END_EXECUTE
+y := w2 AND (d OR e);
+=== model
+NETWORK
+  (:= x (AND (EXECUTE "i := 1;" en:go conn:0) d))
+  (:= y (AND (EXECUTE "j := 1;" en:go conn:0) (OR d e)))
+
+#### execute-verbatim — the v2 case execute-layout/execute-verbatim, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%EXECUTE
+s := 'a$Nb'; // `x`
+%END_EXECUTE
+=== model
+NETWORK
+  (EXECUTE "s := 'a$Nb'; // `x`")
+
+#### execute-empty — the v2 case execute-layout/execute-empty, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%EXECUTE
+
+%END_EXECUTE
+=== model
+NETWORK
+  (EXECUTE "")
+
+#### execute-end-indent — the v2 case execute-layout/execute-end-indent, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%EXECUTE
+x := 1;
+%END_EXECUTE
+=== model
+NETWORK
+  (EXECUTE "x := 1;")
+
+#### layout-free — the v2 case execute-layout/layout-free, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%UNSUPPORTED "a wire read fewer than twice" #fb13f1e6
+=== model
+NETWORK unsupported:"a wire read fewer than twice" hash:fb13f1e6
+
+#### layout-any-item-indent — the v2 case execute-layout/layout-any-item-indent, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+x := a;
+y := b AND c;
+=== model
+NETWORK
+  (:= x a)
+  (:= y (AND b c))

@@ -109,7 +109,7 @@ export function exprText(e: Expr): string {
     case "call":
       return `${operand(e.callee, POSTFIX)}(${e.args.map(callArgText).join(", ")})`
     case "assign_expr":
-      return `${exprText(e.target)} := ${exprText(e.value)}`
+      return `${exprText(e.target)} ${e.op ?? ":="} ${exprText(e.value)}`
     case "global_expr":
       return `.${e.name.name}`
   }

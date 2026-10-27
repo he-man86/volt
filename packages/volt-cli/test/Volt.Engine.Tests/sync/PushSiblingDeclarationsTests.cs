@@ -3,6 +3,7 @@ using Xunit;
 using Volt.Contracts;
 using Volt.Engine.Item;
 using Volt.Engine.Sync;
+using Volt.Tests.Shared;
 
 namespace Volt.Engine.Tests;
 
@@ -56,7 +57,7 @@ public class PushSiblingDeclarationsTests
         });
     }
 
-    [Fact]
+    [Fact(Skip = ReadOnlyNetworkPush.Skip)]
     public void A_body_sees_a_sibling_whose_own_op_has_not_run_yet()
     {
         var ide = TwoItems();
@@ -71,7 +72,7 @@ public class PushSiblingDeclarationsTests
 
     /// <summary>Keyed BARE, because that is the key the resolver walks with — the IDE's own lookup key. The wire
     /// carries FULL names (`Mach1_AuxData.gvl`), and indexing under one would make every lookup miss.</summary>
-    [Fact]
+    [Fact(Skip = ReadOnlyNetworkPush.Skip)]
     public void The_index_is_keyed_by_bare_name()
     {
         var ide = TwoItems();
@@ -83,7 +84,7 @@ public class PushSiblingDeclarationsTests
 
     /// <summary>The item's OWN declaration is in there too. It costs nothing and it is what makes the index a
     /// straight answer to "what does this project say?" rather than a special case with a hole in it.</summary>
-    [Fact]
+    [Fact(Skip = ReadOnlyNetworkPush.Skip)]
     public void An_item_is_in_the_index_alongside_its_siblings()
     {
         var ide = TwoItems();

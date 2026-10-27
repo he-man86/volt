@@ -85,6 +85,7 @@ public class CodesysModelRoundTripOracleTests
             InputItemList = new object[] { Nwl.Leaf("rung"), Nwl.Leaf("value") },
             InputParams = new Nwl.ParamList { Names = new[] { "EN", "" }, Types = new[] { "BOOL", "" } },
             InputFlags = new object[] { new Nwl.Flags { Negation = true }, new Nwl.Flags() },
+            En = true,
         });
         {
             var box = new Nwl.BoxTreeBox
@@ -93,6 +94,8 @@ public class CodesysModelRoundTripOracleTests
                 InputItemList = new object[] { Nwl.Leaf("c"), Nwl.Leaf("0") },
                 InputParams = new Nwl.ParamList { Names = new[] { "EN", "" }, Types = new[] { "BOOL", "" } },
                 OutputParams = new Nwl.ParamList { Names = new[] { "ENO", "" }, Types = new[] { "BOOL", "INT" } },
+                En = true,
+                Eno = true,
             };
             box.Outputs.List.Add(new Nwl.Operand { OperandExpr = "enoFlag" });
             box.Outputs.List.Add(new Nwl.Operand { OperandExpr = "Status" });
@@ -176,6 +179,7 @@ public class CodesysModelRoundTripOracleTests
             InputItemList = new object[] { Nwl.Leaf("rung"), Nwl.Leaf("value") },
             InputParams = new Nwl.ParamList { Names = new[] { "EN", "" }, Types = new[] { "BOOL", "" } },
             InputFlags = new object[] { new Nwl.Flags(), new Nwl.Flags { Negation = true } },
+            En = true,
         });
         // Boxes a push BUILT store no MainOutputIndex (read-only, DIALECT N21); the reader takes the slot the compiler
         // was measured to read. Transcribed from the theory, one double per row.
@@ -195,6 +199,8 @@ public class CodesysModelRoundTripOracleTests
                 InputItemList = inputs.ToArray(),
                 InputParams = enabled ? new Nwl.ParamList { Names = new[] { "EN", "", "" }, Types = new[] { "", "", "" } } : new Nwl.ParamList(),
                 OutputParams = new Nwl.ParamList { Names = names, Types = names.Select(_ => "").ToArray() },
+                En = enabled ? true : null,
+                Eno = names.Length > 0 && names[0] == "ENO" ? true : null,
             };
             foreach (var _ in names) box.Outputs.List.Add(new Nwl.Operand { OperandExpr = "" });
             Fbd("Reader.A_consumed_box_Volt_built_is_connected_as_the_compiler_reads_it/" + row, Coil(box, Target("n")));
@@ -218,6 +224,7 @@ public class CodesysModelRoundTripOracleTests
                 InputParams = new Nwl.ParamList { Names = new[] { "EN", "iLength" }, Types = new[] { "BOOL", "INT" } },
                 OutputParams = new Nwl.ParamList { Names = new[] { "ENO", "oMeanValue", "oSpare" }, Types = new[] { "", "", "" } },
                 En = true,
+                Eno = true,
             };
             box.Outputs.List.Add(null!);
             box.Outputs.List.Add(new Nwl.Operand { OperandExpr = "measured" });
@@ -306,6 +313,12 @@ public class CodesysModelRoundTripOracleTests
     static readonly Dictionary<string, string> NotTranscribed = new(StringComparer.Ordinal)
     {
         ["A_boolean_where_a_node_belongs_is_never_a_node"] = "refused by the reader: an assignment with no value",
+        ["A_box_showing_EN_with_no_slot_named_EN_is_refused_by_name"] = "refused by the reader: a box showing EN or ENO with no slot of that name",
+        // network-text-st 2.2: the model reads EN/ENO from the stored flags, and v2 text keys them on the pin's NAME (`EN :=`
+        // is its enable, `.ENO` its ENO), so v2 cannot spell a callee's own EN/ENO. The plain-ST oracle (StNetworkProbe) checks
+        // these two shapes; v2 is deleted in 3.2.
+        ["A_slot_named_EN_on_a_box_not_showing_EN_is_the_callees_own_pin"] = "v2 has no spelling for a callee's own EN pin (plain-ST: StNetworkProbe)",
+        ["An_output_named_ENO_on_a_box_not_showing_ENO_is_the_callees_own_output"] = "v2 has no spelling for a callee's own ENO output (plain-ST: StNetworkProbe)",
         ["Formal_pin_names_are_read_from_the_param_list"] = "the TON double of A_box_whose_first_pin_is_not_EN_keeps_all_of_its_inputs",
         ["A_network_missing_its_item_count_throws_rather_than_reading_as_empty"] = "refused by the reader",
         ["A_terminator_with_an_input_is_refused_by_name"] = "refused by the reader",

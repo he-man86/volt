@@ -8,6 +8,7 @@ using Volt.Engine.Format.Network;
 using Volt.Engine.Format.St;
 using Volt.Engine.Item;
 using Volt.Engine.Sync;
+using Volt.Tests.Shared;
 
 namespace Volt.Engine.Tests;
 
@@ -91,7 +92,28 @@ public class LanguageLinePushTests
         Assert.DoesNotContain("%LANGUAGE", FakeIde.AllText(written));
     }
 
+    /// <summary>THE READ-ONLY PHASE (openspec <c>network-text-st</c> 2.1): a pull shows an LD/FBD body as plain-ST network
+    /// text, and a push of one — in plain ST or in any other spelling — is refused by name, naming the line it stated and
+    /// the line that keeps the IDE's body, before anything is written.</summary>
     [Theory]
+    [InlineData("LD", "%NETWORK\nout := a;")]
+    [InlineData("FBD", "%NETWORK\nout := a;")]
+    [InlineData("LD", Network)]
+    public void An_LD_or_FBD_body_is_refused_by_name_in_the_read_only_phase(string language, string code)
+    {
+        var ide = new FakeIde();
+
+        var resp = Create(ide, Motor($"%LANGUAGE {language}\n{code}"));
+
+        Assert.False(resp.Landed());
+        Assert.Contains(NetworkBodyReader.ReadOnlyReason, Why(resp));
+        Assert.Contains($"'%LANGUAGE {language}'", Why(resp));
+        Assert.Contains($"'%LANGUAGE {language} UNSUPPORTED'", Why(resp));
+        Assert.Empty(ide.CreatedItems);
+        Assert.Empty(ide.WrittenContent);
+    }
+
+    [Theory(Skip = ReadOnlyNetworkPush.Skip)]
     [InlineData("LD")]
     [InlineData("FBD")]
     public void A_body_stated_LD_or_FBD_is_read_as_network_text(string language)
@@ -153,7 +175,7 @@ public class LanguageLinePushTests
         Assert.Equal(Network, ide.WrittenContent["FB_Motor"].Members.Single(m => m.Name == "DoReset").Body);
     }
 
-    [Theory]
+    [Theory(Skip = ReadOnlyNetworkPush.Skip)]
     [InlineData("LD")]
     [InlineData("FBD")]
     public void ST_under_a_graphical_language_is_refused_by_the_network_reader(string language)
@@ -195,7 +217,7 @@ public class LanguageLinePushTests
         Assert.Equal(Network, ide.WrittenContent["FB_Motor"].Members.Single(m => m.Name == "Running").Getter!.Code);
     }
 
-    [Theory]
+    [Theory(Skip = ReadOnlyNetworkPush.Skip)]
     [InlineData("LD", "Running := out;")]           // ST stated LD
     public void A_getter_that_contradicts_its_language_is_refused_by_the_network_reader(string language, string code)
     {

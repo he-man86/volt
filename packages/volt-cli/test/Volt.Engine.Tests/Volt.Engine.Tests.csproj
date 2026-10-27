@@ -17,10 +17,13 @@
   <ItemGroup>
     <!-- The one shared in-memory IDE fake, compiled into each test assembly (see test/shared/FakeIde.cs). -->
     <Compile Include="..\shared\FakeIde.cs" Link="FakeIde.cs" />
+    <Compile Include="..\shared\ReadOnlyNetworkPush.cs" Link="ReadOnlyNetworkPush.cs" />
     <!-- The network text v2 model oracle, shared with the TwinCAT suite (its archives take the same check). -->
     <Compile Include="..\shared\NetworkModelOracle.cs" Link="NetworkModelOracle.cs" />
     <Compile Include="..\shared\NetworkTextFacts.cs" Link="NetworkTextFacts.cs" />
     <Compile Include="..\shared\NetworkModelEquality.cs" Link="NetworkModelEquality.cs" />
+    <!-- The plain-ST round-trip oracle (openspec network-text-st 2.2). -->
+    <Compile Include="..\shared\StNetworkOracle.cs" Link="StNetworkOracle.cs" />
     <!-- The shared network-text case set (test/fixtures/network-text), read by this suite and the LSP's alike. -->
     <Compile Include="..\shared\NetworkModelDump.cs" Link="NetworkModelDump.cs" />
     <Compile Include="..\shared\NetworkTextCases.cs" Link="NetworkTextCases.cs" />

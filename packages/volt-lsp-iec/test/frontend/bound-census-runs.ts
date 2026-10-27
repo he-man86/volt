@@ -13,8 +13,8 @@ import {
   type Dialect,
   allUnits,
   unitBodies,
-  isStBody,
 } from "../../src/frontend/syntax/index.js"
+import { measuredStBody } from "./st-bodies.js"
 import { type Scope, scopeForUnit, lookupLocal, lookupMember } from "../../src/frontend/symbols/index.js"
 import { inferExprType, renderType } from "../../src/frontend/types/index.js"
 import { tally } from "../baseline/baseline.js"
@@ -89,7 +89,7 @@ export function crossCheckBuildTypes(f: FixtureSources, vendor: Dialect, files: 
   // "Cannot convert type 'DINT' to type 'INT'" — a signature, not a store (rule H10, `analysis/checks/oop/method-signature`
   // says it; `inh_override_signature_mismatch`, `_section_mismatch`, `_pointer_only`, both vendors)
   const overrides = build.diagnostics.some((d) => /^Interface of overridden method '.+' of base '.+' doesn't match declaration$/.test(d.message))
-  const unreadBody = files.some((b) => allUnits(b.parsed.parseResult.units).some((u) => unitBodies(u).some((body) => !isStBody(body))))
+  const unreadBody = files.some((b) => allUnits(b.parsed.parseResult.units).some((u) => unitBodies(u).some((body) => !measuredStBody(body))))
   for (const d of build.diagnostics) {
     const m = TYPE_MESSAGES.map((r) => r.exec(d.message)).find((x) => x !== null)
     if (m === undefined || m === null) continue

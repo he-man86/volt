@@ -27,6 +27,7 @@ import { type Type, elementaryRef, UNKNOWN } from "../type.js"
 import { inferExprType } from "./expr.js"
 import { valueOperandType, sizedOperandType, structSizeBound, storageBytes } from "./sizeof.js"
 import { resolveMemberChain, insideOwnBody } from "./member.js"
+import { networkCallType } from "./network-call.js"
 
 /**
  * EXPT's checked type (`builtins.ts` `exptCheckedType`) over its arguments as inferred here. The reference catalog used
@@ -130,6 +131,9 @@ export const VALUE_SYMBOLS: ReadonlySet<string> = new Set(["var", "gvl_var", "st
 const NOT_CALLABLE: ReadonlySet<string> = new Set(["elementary", "enum", "struct", "array"])
 
 export function callReturnType(call: CallExpr, scope: Scope, project: Scope): Type {
+  // a plain-ST network body's own boxes (`network-call.ts`): only there, so ST keeps its answers
+  const network = networkCallType(call, scope, project)
+  if (network !== undefined) return network
   // A project function/method wins (user code can shadow a built-in name).
   const sym = resolveMemberChain(call.callee, scope, project)
   // a FUNCTION called inside its own body calls its RESULT VARIABLE (rule Y20), which is no call target: the call has no

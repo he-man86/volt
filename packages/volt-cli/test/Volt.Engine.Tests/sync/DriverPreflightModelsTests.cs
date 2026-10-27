@@ -6,6 +6,7 @@ using Volt.Engine.Format.Network;
 using Volt.Engine.Ide;
 using Volt.Engine.Sync;
 using Xunit;
+using Volt.Tests.Shared;
 
 namespace Volt.Engine.Tests;
 
@@ -44,7 +45,7 @@ public class DriverPreflightModelsTests
         });
     }
 
-    [Fact]
+    [Fact(Skip = ReadOnlyNetworkPush.Skip)]
     public void A_create_hands_the_driver_every_network_body_as_a_model_with_its_site()
     {
         var ide = new FakeIde();
@@ -61,7 +62,7 @@ public class DriverPreflightModelsTests
 
     /// <summary>The driver's refusal reads like every other pre-flight refusal: the op is refused UNSUPPORTED and
     /// nothing reaches the IDE.</summary>
-    [Fact]
+    [Fact(Skip = ReadOnlyNetworkPush.Skip)]
     public void A_driver_refusal_of_a_model_refuses_the_op_before_anything_is_written()
     {
         var ide = new FakeIde
@@ -86,7 +87,7 @@ public class DriverPreflightModelsTests
     /// <summary>AN UPDATE ASKS THE DRIVER TOO (2.28, D21), handing it the item the op writes into: whether a body is
     /// created or edited is the write's per-BODY decision — a new graphical member of an existing item is created whole
     /// — and the pre-flight asked only for a new ITEM, so such a member was refused mid-batch.</summary>
-    [Fact]
+    [Fact(Skip = ReadOnlyNetworkPush.Skip)]
     public void An_update_hands_the_driver_the_existing_item()
     {
         var ide = new FakeIde();

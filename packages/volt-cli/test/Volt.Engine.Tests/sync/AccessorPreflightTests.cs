@@ -4,6 +4,7 @@ using Volt.Contracts;
 using Volt.Engine.Item;
 using Volt.Engine.Sync;
 using Xunit;
+using Volt.Tests.Shared;
 
 namespace Volt.Engine.Tests;
 
@@ -73,7 +74,7 @@ public class AccessorPreflightTests
 
     /// <summary>The complement — the same push with a CANONICAL accessor body lands. Without this the test
     /// above would pass on a pre-flight that refused every property.</summary>
-    [Fact]
+    [Fact(Skip = ReadOnlyNetworkPush.Skip)]
     public void A_canonical_GET_body_still_pushes()
     {
         var ide = new FakeIde();

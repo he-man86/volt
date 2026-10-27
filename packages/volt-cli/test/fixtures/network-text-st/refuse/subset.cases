@@ -1,0 +1,471 @@
+#### for-loop — a network holds no loop
+=== text
+%LANGUAGE LD
+%NETWORK
+FOR i := 1 TO 2 DO x := a; END_FOR;
+=== refused
+network-plain-st cannot hold a FOR
+
+#### while-loop — a network holds no loop
+=== text
+%LANGUAGE LD
+%NETWORK
+WHILE a DO x := b; END_WHILE;
+=== refused
+network-plain-st cannot hold a WHILE
+
+#### repeat-loop — a network holds no loop
+=== text
+%LANGUAGE LD
+%NETWORK
+REPEAT x := b; UNTIL a END_REPEAT;
+=== refused
+network-plain-st cannot hold a REPEAT
+
+#### case-statement — a network holds no CASE
+=== text
+%LANGUAGE FBD
+%NETWORK
+CASE i OF 1: x := a; END_CASE;
+=== refused
+network-plain-st cannot hold a CASE
+
+#### if-with-code — an IF holds one JMP or RETURN
+=== text
+%LANGUAGE LD
+%NETWORK
+IF a THEN x := b; END_IF;
+=== refused
+network-plain-st holds one JMP or RETURN
+
+#### if-with-else — an IF has no ELSE
+=== text
+%LANGUAGE LD
+%NETWORK
+l:
+IF a THEN JMP l; ELSE RETURN; END_IF;
+=== refused
+network-plain-st no ELSE
+
+#### infix-comparison — every box is a call
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := i > 3;
+=== refused
+network-plain-st every box is a call
+
+#### infix-arithmetic — every box is a call
+=== text
+%LANGUAGE FBD
+%NETWORK
+n := i + j;
+=== refused
+network-plain-st every box is a call
+
+#### infix-xor — XOR is a box, not a contact
+=== text
+%LANGUAGE LD
+%NETWORK
+x := a XOR b;
+=== refused
+network-plain-st every box is a call
+
+#### not-before-a-call — the NOT box is NOT(…)
+=== text
+%LANGUAGE LD
+%NETWORK
+x := NOT f(a);
+=== refused
+network-plain-st the NOT box is NOT(
+
+#### block-comment — a network's comment is its // lines
+=== text
+%LANGUAGE LD
+%NETWORK
+x := a; (* note *)
+=== refused
+network-plain-st (* comment
+
+#### comment-after-code — a network's comment stands before its code
+=== text
+%LANGUAGE LD
+%NETWORK
+x := a;
+// late
+y := b;
+=== refused
+network-plain-st comment after the code starts
+
+#### pragma — a network holds no pragma
+=== text
+%LANGUAGE LD
+%NETWORK
+{attribute 'x'}
+x := a;
+=== refused
+network-plain-st a pragma {
+
+#### enabled-box-without-en — an enabled box takes EN first
+=== text
+%LANGUAGE LD
+%NETWORK
+MOVE_EN(1, OUT => x);
+=== refused
+network-plain-st takes EN := as its first argument
+
+#### out-twice — a box has one value
+=== text
+%LANGUAGE LD
+%NETWORK
+%WIRES w1
+MOVE_EN(EN := c, 1, OUT => x, OUT => w1);
+y := w1;
+=== refused
+network-plain-st names OUT twice
+
+#### return-and-wire — a box read where it stands has no wire
+=== text
+%LANGUAGE LD
+%NETWORK
+%WIRES w1
+y := MOVE_EN(EN := c, 1, OUT => w1);
+z := w1;
+=== refused
+network-plain-st is read by its return and defines the wire
+
+#### wire-declared-in-reach — a wire is never a variable
+=== scope
+name w1
+=== text
+%LANGUAGE LD
+%NETWORK
+%WIRES w1
+w1 := a AND b;
+x := w1;
+y := w1;
+=== refused
+network-plain-st declared in reach
+
+#### wire-named-twice — a wire is named once
+=== text
+%LANGUAGE LD
+%NETWORK
+%WIRES w1, w1
+w1 := a AND b;
+x := w1;
+y := w1;
+=== refused
+network-plain-st is named twice
+
+#### wire-named-by-two-networks — a wire name is one network's in a body
+=== text
+%LANGUAGE LD
+%NETWORK
+%WIRES w1
+w1 := a AND b;
+x := w1;
+y := w1;
+%NETWORK
+%WIRES w1
+w1 := c;
+u := w1;
+v := w1;
+=== refused
+network-plain-st named on an earlier network too
+
+#### wire-not-numbered — a wire is w<n>
+=== text
+%LANGUAGE LD
+%NETWORK
+%WIRES split1
+split1 := a AND b;
+x := split1;
+y := split1;
+=== refused
+network-plain-st a wire is w<n>
+
+#### wire-read-once — an expression read once is written inline
+=== text
+%LANGUAGE LD
+%NETWORK
+%WIRES w1
+w1 := a AND b;
+x := w1;
+=== refused
+network-plain-st read twice or more
+
+#### wire-read-before-definition — a wire is defined before it is read
+=== text
+%LANGUAGE LD
+%NETWORK
+%WIRES w1
+x := w1;
+w1 := a AND b;
+y := w1;
+=== refused
+network-plain-st is read before it is defined
+
+#### wire-defined-twice — a wire is defined once
+=== text
+%LANGUAGE LD
+%NETWORK
+%WIRES w1
+w1 := a;
+w1 := b;
+x := w1;
+y := w1;
+=== refused
+network-plain-st is defined twice
+
+#### wire-beside-a-coil — a wire is defined alone
+=== text
+%LANGUAGE LD
+%NETWORK
+%WIRES w1
+x := w1 := a;
+y := w1;
+z := w1;
+=== refused
+network-plain-st a wire is defined alone
+
+#### wire-never-read — a wire is read
+=== text
+%LANGUAGE LD
+%NETWORK
+%WIRES w1
+t1(IN := a, Q => w1);
+=== scope
+instance t1 TON
+=== refused
+network-plain-st is defined and never read
+
+#### wire-never-defined — a named wire is defined
+=== text
+%LANGUAGE LD
+%NETWORK
+%WIRES w1
+x := a;
+=== refused
+network-plain-st is named and never defined
+
+#### wire-of-another-network — a wire is its network's
+=== text
+%LANGUAGE LD
+%NETWORK
+%WIRES w1
+w1 := a AND b;
+x := w1;
+y := w1;
+%NETWORK
+z := w1;
+=== refused
+network-plain-st is read outside its network
+
+#### label-not-first — a network's label is its first statement
+=== text
+%LANGUAGE LD
+%NETWORK
+x := a;
+l2:
+y := b;
+=== refused
+network-plain-st a label stands first in its network
+
+#### expression-statement — a network holds assignments, calls, jumps and returns
+=== text
+%LANGUAGE LD
+%NETWORK
+a;
+=== refused
+network-plain-st an assignment, a call, a jump or a return
+
+#### disabled-after-wires — the % lines stand in order
+=== text
+%LANGUAGE LD
+%NETWORK
+%WIRES w1
+%DISABLED
+w1 := a AND b;
+x := w1;
+y := w1;
+=== refused
+network-plain-st in the order %DISABLED, %WIRES
+
+#### unknown-line — a network holds no other % line
+=== text
+%LANGUAGE LD
+%NETWORK
+%COLOR red
+x := a;
+=== refused
+network-plain-st a network holds no such line
+
+#### code-under-unsupported — an UNSUPPORTED network holds nothing else
+=== text
+%LANGUAGE LD
+%NETWORK
+%UNSUPPORTED "an edge contact" #0011aabb
+x := a;
+=== refused
+network-plain-st holds nothing else
+
+#### unsupported-line-shape — the line is %UNSUPPORTED "<shape>" #<hash>
+=== text
+%LANGUAGE LD
+%NETWORK
+%UNSUPPORTED an edge contact
+=== refused
+network-plain-st the line is %UNSUPPORTED
+
+#### title-not-quoted — a network title is one "…"
+=== text
+%LANGUAGE LD
+%NETWORK Start motor
+x := a;
+=== refused
+network-plain-st a network title is one
+
+#### execute-unclosed — an Execute box closes with %END_EXECUTE
+=== text
+%LANGUAGE LD
+%NETWORK
+%EXECUTE(EN := a)
+x := 1;
+=== refused
+network-plain-st %EXECUTE with no %END_EXECUTE
+
+#### call-wire-read-before-its-call — a box read once stands before the statement that reads it
+=== text
+%LANGUAGE LD
+%NETWORK
+%WIRES w1
+y := w1;
+t1(IN := a, PT := T#1S, Q => w1);
+=== scope
+instance t1 TON
+=== refused
+network-plain-st is read before it is defined
+
+#### enabled-wire-read-before-its-call — a box read once stands before the statement that reads it
+=== text
+%LANGUAGE LD
+%NETWORK
+%WIRES w1
+lamp := w1;
+GT_EN(EN := c, a, 5, OUT => w1);
+=== refused
+network-plain-st is read before it is defined
+
+#### call-wire-not-directly-before-its-read — nothing stands between a box read once and the statement that reads it
+=== text
+%LANGUAGE FBD
+%NETWORK
+%WIRES w1
+MOVE_EN(EN := c, k, OUT => w1);
+k := MOVE(5);
+y := w1;
+=== refused
+network-plain-st directly before the statement that reads it
+
+#### call-reads-a-wire-its-reader-defines — a box read once reads only wires defined before it
+=== text
+%LANGUAGE LD
+%NETWORK
+%WIRES w1, w2
+t1(IN := w1, PT := T#1S, Q => w2);
+y := (w1 := a OR b) AND w2;
+z := w1;
+=== scope
+instance t1 TON
+=== refused
+network-plain-st is read before it is defined
+
+#### enabled-value-inside-a-box — only an enabled comparison is read by its value inside a box
+=== text
+%LANGUAGE FBD
+%NETWORK
+%WIRES w1
+MOVE_EN(EN := c, k, OUT => w1);
+y := ADD(w1, 2);
+=== refused
+network-plain-st comparison operators only
+
+#### function-named-like-an-enabled-box — a POU whose name ends in _EN reads as an enabled box
+=== text
+%LANGUAGE FBD
+%NETWORK
+Foo_EN(EN := a);
+=== scope
+pou Foo_EN
+=== refused
+network-plain-st reads as an enabled box
+
+#### wire-defined-by-a-box-read-once — a box read once through a wire defines the next wire itself
+=== text
+%LANGUAGE FBD
+%NETWORK
+%WIRES w1, w2
+ADD_EN(EN := c, i, j, OUT => w1);
+w2 := w1;
+x := w2;
+y := w2;
+=== refused
+network-plain-st defines the wire itself
+
+#### comparison-wire-defined-by-a-box-read-once — one model, one text: the box defines its wire
+=== text
+%LANGUAGE FBD
+%NETWORK
+%WIRES w1, w2
+GT_EN(EN := c, i, 3, OUT => w1);
+w2 := w1;
+x := w2;
+y := w2;
+=== refused
+network-plain-st defines the wire itself
+
+#### enabled-value-as-a-jump-condition — an enabled box other than a comparison is read by its value only as a coil's value
+=== text
+%LANGUAGE LD
+%NETWORK
+%WIRES w1
+l:
+AND_EN(EN := c, a, b, OUT => w1);
+IF w1 THEN JMP l; END_IF;
+=== refused
+network-plain-st comparison operators only
+
+#### enabled-value-through-a-wire-read-twice — every read of an enabled box's value is a coil's value
+=== text
+%LANGUAGE FBD
+%NETWORK
+%WIRES w1
+ADD_EN(EN := c, i, j, OUT => w1);
+x := MUL(w1, 2);
+y := w1;
+=== refused
+network-plain-st comparison operators only
+
+#### enabled-value-into-an-inline-wire — a wire defined inside a box is no coil
+=== text
+%LANGUAGE FBD
+%NETWORK
+%WIRES w1, w2
+ADD_EN(EN := c, i, j, OUT => w1);
+y := MUL((w2 := w1), 2);
+z := w2;
+v := w2;
+=== refused
+network-plain-st comparison operators only
+
+#### variable-named-like-an-enabled-box — X_EN names nothing declared in reach
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := foo_EN(EN := a, b);
+=== scope
+pou foo
+name foo_EN
+=== refused
+network-plain-st reads as an enabled box

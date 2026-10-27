@@ -18,14 +18,12 @@ END_FUNCTION_BLOCK
 METHOD PRIVATE Counters
 
 %LANGUAGE FBD
-NETWORK
-  // Calculate the on-time and the number of switches of the output
-  MeasureOnTime : ONTIME(In := output);
-END_NETWORK
-NETWORK
-  // On a rising edge of the output, save the current date/time
-  MOVE TimeSettings.dtNow => TimeOfLastSwitch ENO EN R_EDGE output;
-END_NETWORK
+%NETWORK
+// Calculate the on-time and the number of switches of the output
+MeasureOnTime(In := output);
+%NETWORK
+// On a rising edge of the output, save the current date/time
+%UNSUPPORTED "an edge contact" #e2ae0020
 END_METHOD
 
 // Maps the actuator to the physical output

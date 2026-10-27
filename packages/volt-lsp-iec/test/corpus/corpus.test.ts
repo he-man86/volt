@@ -59,8 +59,9 @@ describe.skipIf(!hasCorpus)("1. the LSP can read real code", () => {
     expect(pass().materializeFailures).toEqual([])
   }, LOWERING_TIMEOUT)
 
-  test("the network-text parser finds every graphical body's networks, with no structural error", () => {
-    expect(pass().graphicalBodies).toBeGreaterThan(0)
+  test("every graphical body is plain-ST network text, read by the ST parser (network-text-st 2.1: the corpus is pulled so)", () => {
+    expect(pass().networkStBodies).toBe(46) // every `%LANGUAGE LD|FBD` body of the six corpora
+    expect(pass().graphicalBodies).toBe(0)
     expect(pass().networkFailures).toEqual([])
   }, LOWERING_TIMEOUT)
 

@@ -48,6 +48,7 @@ same) and `probe-lowering-refusals.ts` (last commit holding them: `0db2d45fcd`).
 | `record-exec.ts` | `record:exec` | the execution recording `test/conformance/recordings/codesys.run.json` — launches a headless CODESYS with `record-exec.py` as its runscript — and talks only to THAT process: no pipe, the recorder half runs inside the CODESYS it spawned (verified 2026-10-03), so the fixture-instance rule has nothing to resolve |
 | `record-exec.py` | — | the IronPython runscript `record-exec.ts` drives: per case, load the fixture's units into a simulated copy, build, run, read every path |
 | `record-corpus-build.ts` | — | a corpus project's real IDE build snapshot → the `corpus-diagnostics.test.ts` oracle |
+| `record-network-twins.ts` | — | a corpus project built with every LD/FBD body as its exec twin (openspec network-text-st 2.4) → `test-corpus/<name>/network-twins.<vendor>.json`, the `corpus-twins.test.ts` oracle |
 | `refresh-corpus.ts` | `refresh:corpus <name>` | refreshes a `test-corpus/<name>/` project via `volt pull` |
 | `verify-catalog.ts` | — | verifies implemented C-code wording vs the IDE → `docs/codesys-reference/catalog-verification.json` / the catalog's verified flags |
 

@@ -3,25 +3,22 @@ VAR
 END_VAR
 
 %LANGUAGE LD
-NETWORK
-  split9 := TRUE;
-  MOVE %IB26 => LST_InputsOutputs.Serv_IB100 ENO EN split9;
-  MOVE %IB27 => LST_InputsOutputs.Serv_IB101 ENO EN split9;
-END_NETWORK
-NETWORK
-  split13 := TRUE;
-  MOVE %IB370 => LST_InputsOutputs.Serv_IB132 ENO EN split13;
-  MOVE %IB371 => LST_InputsOutputs.Serv_IB133 ENO EN split13;
-  MOVE %IB372 => LST_InputsOutputs.Serv_IB136 ENO EN split13;
-  MOVE %IB373 => LST_InputsOutputs.Serv_IB137 ENO EN split13;
-END_NETWORK
-NETWORK
-  ForceOutput() ENO EN HMI_Var.ForceOutputs;
-END_NETWORK
-NETWORK
-  ForceOutput_1() ENO EN NOT HMI_Var.ForceOutputs;
-END_NETWORK
-NETWORK
-END_NETWORK
+%NETWORK
+%WIRES w1
+w1 := TRUE;
+MOVE_EN(EN := w1, %IB26, OUT => LST_InputsOutputs.Serv_IB100);
+MOVE_EN(EN := w1, %IB27, OUT => LST_InputsOutputs.Serv_IB101);
+%NETWORK
+%WIRES w2
+w2 := TRUE;
+MOVE_EN(EN := w2, %IB370, OUT => LST_InputsOutputs.Serv_IB132);
+MOVE_EN(EN := w2, %IB371, OUT => LST_InputsOutputs.Serv_IB133);
+MOVE_EN(EN := w2, %IB372, OUT => LST_InputsOutputs.Serv_IB136);
+MOVE_EN(EN := w2, %IB373, OUT => LST_InputsOutputs.Serv_IB137);
+%NETWORK
+ForceOutput_EN(EN := HMI_Var.ForceOutputs);
+%NETWORK
+ForceOutput_1_EN(EN := NOT HMI_Var.ForceOutputs);
+%NETWORK
 
 END_PROGRAM

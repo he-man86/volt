@@ -242,7 +242,8 @@ public class TcNwlCompletenessOracleTests
         foreach (var b in Bodies.Value)
         {
             var site = SourceScopes.SitesOf(CorpusProjects.Split(project.FileOf(b.Bare)!)).Single(s => s.Site.Member is null);
-            var pulled = NetworkTextWriter.Write(TcNetworkReader.Read(Impl(XElement.Parse(b.StoredXml)), b.Back.Language), b.Scope);
+            // the shipped pull: plain-ST network text (openspec network-text-st 2.1)
+            var pulled = StNetworkWriter.WritePulled(TcNetworkReader.ReadShown(Impl(XElement.Parse(b.StoredXml)), b.Back.Language), b.Scope);
             Assert.Equal(pulled, site.Body + "\n");   // the item file's reader hands the body without its closing line break
         }
     }

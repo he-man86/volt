@@ -236,7 +236,7 @@ public sealed partial class CodesysDriver
                 // raises the one exception for every such fact (network text v2: pull never throws anything
                 // else), so it is the same refusal as the reader's, and as IL.
                 return NetworkText.Pulled(view, () =>
-                    NetworkTextWriter.WritePulled(CodesysNetworkReader.ReadShown(impl, view), Declarations.ScopeForPull(declaration))
+                    StNetworkWriter.WritePulled(CodesysNetworkReader.ReadShown(impl, view), Declarations.ScopeForPull(declaration))
                         .TrimEnd('\n'));
             }
 

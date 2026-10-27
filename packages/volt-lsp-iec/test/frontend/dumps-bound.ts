@@ -9,10 +9,10 @@ import {
   type Expr,
   allUnits,
   unitBodies,
-  isStBody,
   bodyStatements,
   sourceStatements,
 } from "../../src/frontend/syntax/index.js"
+import { measuredStBody } from "./st-bodies.js"
 import { type Scope, scopeForUnit, type Symbol, lookupMember } from "../../src/frontend/symbols/index.js"
 import {
   resolveMemberChain,
@@ -49,7 +49,7 @@ export function sites(b: Bound): Site[] {
     const unitScope = scopeForUnit(b.project, unit) ?? (alias ? b.project : undefined)
     for (const expr of declExprs(unit)) out.push({ where: "decl", expr, scope: unitScope })
     for (const body of unitBodies(unit)) {
-      if (!isStBody(body)) continue
+      if (!measuredStBody(body)) continue
       const scope = unitScope?.children.find((c) => c.span === body.span) ?? unitScope
       for (const expr of statementExprs(bodyStatements(body, bodyConditionWorld(b.project, unit, body)).statements)) out.push({ where: "body", expr, scope })
     }
@@ -67,7 +67,7 @@ export function undecidedExprCount(b: Bound): number {
   let n = 0
   for (const unit of allUnits(b.parsed.parseResult.units))
     for (const body of unitBodies(unit)) {
-      if (!isStBody(body)) continue
+      if (!measuredStBody(body)) continue
       const compiled = bodyStatements(body, bodyConditionWorld(b.project, unit, body))
       if (compiled.refused === undefined) continue
       n += [...statementExprs(sourceStatements(body).statements)].length - [...statementExprs(compiled.statements)].length
@@ -88,7 +88,7 @@ export function uriId(uri: string): string {
 const describe = (s: Symbol): string => `${s.kind} ${s.owner.name}.${s.name} ${uriId(s.uri)}:${s.span.startLine}`
 
 /** The dump's word for each compiler-provided name (`types/builtins` `builtinName`). */
-const BUILTIN_WORD = { "system-operator": "system", conversion: "conversion", implicit: "implicit", operator: "builtin", type: "builtin" } as const
+const BUILTIN_WORD = { "system-operator": "system", conversion: "conversion", implicit: "implicit", operator: "builtin", type: "builtin", "network-box": "network-box" } as const
 
 /**
  * What a BARE name binds to — the search order's answer (`types/names` `resolveBareName`, rule Y23), in the dump's words:

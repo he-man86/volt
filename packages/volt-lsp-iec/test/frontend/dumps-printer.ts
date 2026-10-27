@@ -8,7 +8,6 @@ import {
   type Expr,
   allUnits,
   unitBodies,
-  isStBody,
   bodyStatements,
   type TypeExpr,
   type StatementList,
@@ -22,6 +21,7 @@ import {
   parseExprFromTokens,
   type ParseResult,
 } from "../../src/frontend/syntax/index.js"
+import { measuredStBody } from "./st-bodies.js"
 import { formatDocument } from "../../src/services/index.js"
 import { type Parsed, at } from "./dumps.js"
 
@@ -83,7 +83,7 @@ export interface PrintFinding {
 export function* topExprs(units: readonly TopLevel[]): Generator<Expr> {
   for (const unit of allUnits(units)) {
     yield* declExprs(unit)
-    for (const body of unitBodies(unit)) if (isStBody(body)) yield* statementExprs(bodyStatements(body).statements)
+    for (const body of unitBodies(unit)) if (measuredStBody(body)) yield* statementExprs(bodyStatements(body).statements)
   }
 }
 
@@ -202,7 +202,7 @@ export function printFindings(p: Parsed): PrintFinding[] {
 export function refusedIn(parseResult: ParseResult): (e: Expr) => boolean {
   const starts: number[] = [...parseResult.errors.map((e) => e.span.start)]
   for (const unit of allUnits(parseResult.units))
-    for (const body of unitBodies(unit)) if (isStBody(body)) starts.push(...bodyStatements(body).errors.map((e) => e.span.start))
+    for (const body of unitBodies(unit)) if (measuredStBody(body)) starts.push(...bodyStatements(body).errors.map((e) => e.span.start))
   return (e) => starts.some((s) => s >= e.span.start && s < e.span.end)
 }
 
@@ -223,7 +223,7 @@ export function unparsedIn(parseResult: ParseResult, vendorSays: ReadonlySet<str
   const spans: { start: number; end: number }[] = []
   for (const unit of allUnits(parseResult.units))
     for (const body of unitBodies(unit)) {
-      if (!isStBody(body)) continue
+      if (!measuredStBody(body)) continue
       const { errors } = bodyStatements(body)
       if (errors.length > 0 && errors.every((e) => vendorSays?.has(e.message.toLowerCase()) ?? true)) spans.push(body.span)
     }

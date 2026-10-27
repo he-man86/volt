@@ -14,6 +14,7 @@ import {
   type Attribute,
   type BodySpan,
   bodyReader,
+  isPlainStNetworkBody,
   type CaseArm,
   type EnumValue,
   type InterfaceMethod,
@@ -175,7 +176,8 @@ function closingLines(unit: { objectProperties?: readonly string[] }): string {
 }
 
 function printCode(body: BodySpan): string {
-  if (bodyReader(body) !== "st") return verbatim(body)
+  // a plain-ST network body is kept as written: its `%` lines are structure the statement tree does not hold
+  if (bodyReader(body) !== "st" || isPlainStNetworkBody(body)) return verbatim(body)
   const parsed = sourceStatements(body)
   // preserve commented, pragma'd and unparseable bodies: the tree holds neither comments nor pragmas, so printing it
   // would drop source

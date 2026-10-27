@@ -289,20 +289,56 @@ Restart note (2026-10-27): the first section-2 run was stopped mid-2.1 when the 
 (design.md "Revision"). Its UNCOMMITTED work in the tree (StNetworkWriter moved to `src/`, StNetworkOracle, the
 switch and vendor-reader wiring, test updates) is kept: continue it, change only the spelling to the revision.
 
-- [ ] 2.1 Writer: NWL → plain ST network text (behind `NetworkTextSwitch`, as LD/FBD are today). A push of an LD/FBD body is
+- [x] 2.1 Writer: NWL → plain ST network text (behind `NetworkTextSwitch`, as LD/FBD are today). A push of an LD/FBD body is
       refused by name until section 3 ("LD/FBD push comes back with the plain-ST reader"). Measure first, in CODESYS on
       an `ide.ps1` fixture copy: an unconnected input pin (Leaf `""`, 10 lenze networks) left out of the call — does the
       text compile and run as the network? If yes it is the pin left out, restored from the callee's declaration;
       if not, `%UNSUPPORTED`.
-- [ ] 2.2 C# reader of the plain-ST form into the NWL model (it is needed for the oracle). Round-trip oracle: every corpus and
+- [x] 2.2 C# reader of the plain-ST form into the NWL model (it is needed for the oracle). Round-trip oracle: every corpus and
       fixture network → text → model gives the identical tree. The model takes EN/ENO from the box's stored `En`/`Eno`
       flags, not the pin name (1c: WSM, Dryer), and wires from the network's `%WIRES` line (read twice or more: a
       Demux; once: the box where it is read).
-- [ ] 2.3 LSP: a network body is read by the ST front-end, plus ONE subset check (what a network may hold, refused
+- [x] 2.3 LSP: a network body is read by the ST front-end, plus ONE subset check (what a network may hold, refused
       by name). No network lexer, grammar or keyword list. LSP conformance against the same case set. A `%DISABLED`
       network's label is no jump target (CODESYS: "No such label … within the scope of the JMP statement").
-- [ ] 2.4 Exec oracle: the corpus networks' text compiled in CODESYS as called ST bodies, 0 errors; behaviour equal on
+- [x] 2.4 Exec oracle: the corpus networks' text compiled in CODESYS as called ST bodies, 0 errors; behaviour equal on
       the exec-oracle cases.
+
+  Done 2026-10-27 (design.md "2.1–2.2 As built", "2.3", "2.4"): pin measurement — an unconnected pin runs as the pin left
+  out. Oracle 1: CODESYS 388 networks 294 identical / 83 stored / 11 `%UNSUPPORTED`, TwinCAT 153 140/8/5, accept cases
+  129 68/23/38, 0 gaps. Oracle 2: 121 accept + 33 refuse cases, C# reader and LSP agree. LSP: the 46 corpus bodies, now
+  plain ST, read by the ST front-end with nothing beyond the recorded builds. Oracle 3: 44 corpus bodies' twins built in
+  CODESYS, 0 errors beyond the recorded builds; exec traces equal on 32/32 spelled cases (a scratch run, not
+  committed: the committed oracle 3 is the twins' BUILD; the twin's measured rules are pinned by
+  `test/support/network-twin.test.ts`).
+  Step-2 review fixes (2026-10-27): the reader keeps a call read once where it is read (directly before its
+  reader, reading only wires defined before it), refuses an enabled non-comparison box read by value inside a box
+  and a call head `X_EN` that names a POU or instance in reach; the writer shows a box hoisted before its item that
+  reads a wire the item defines as `%UNSUPPORTED` (0 in the corpora); the twin holds the coil of an enabled
+  non-comparison box read by its value. Two repo-gate allowances wait for the owner's approval: NewVendorGateTests
+  `StNetworkWriter.cs` 2 and WireVocabularyTests `NetworkBodyReader.cs` 1 (the read-only push refusal; 3.1 removes it).
+  Gate step 2 (2026-10-28): five review findings, each with a failing test first (7 new refuse cases in
+  `test/fixtures/network-text-st/refuse/subset.cases`, read by both sides; 2 writer tests in `StNetworkTextTests`).
+  (1) `w2 := w1;` over a box read once through `w1`: refused by name on both sides ("the box defines the wire itself"),
+  the comparison form too, so one model has one text (C# refused the ADD form with the wrong message, the LSP accepted
+  both). A wire definition's value is no coil's value on either side (the LSP had counted it as one, also for an inline
+  `(w2 := w1)`). (2) The writer shows as `%UNSUPPORTED` what its reader refuses: an enabled non-comparison box read by
+  its value anywhere but as a coil's value (inside a box, a jump's condition, through a wire, read once or more) —
+  "an enabled box read by its value outside a coil" — and an enabled box whose `X_EN` name is declared in reach,
+  function or FB — "an enabled box whose name with _EN is declared in reach". The jump condition (b) is not measured in
+  CODESYS: refused on all three sides now, 3.0 measures it. (3) `X_EN` names nothing in reach: the C# reader now refuses
+  a variable too (POU, instance or variable), as the LSP did; both messages say so. (4) An enabled non-comparison box
+  read by its value through a wire read twice or more, one read inside a box: refused on both sides (0 in the corpora);
+  read by coils only it stays spelled (the twin's held wire is the measured coil hold, through a Demux unmeasured: 3.0's
+  exec cases). (5) The unnamed `test/conformance` failure of the step-2 run was not reproduced: 3 runs in a row
+  6966 pass, 0 fail (373 s, 276 s, ~280 s), then 2 full suites. The one failure the full suite did show was real and
+  caused by this step (`check-size`: `checkWires` 106 lines, split into `checkCallWires`), not a flake. No name exists
+  for the earlier failure; if it recurs, the run's log names it and it is root-caused then.
+  Numbers: oracle 1 tallies unchanged (accept cases 68/23/38, corpora and TwinCAT archives as above, 0 gaps); oracle 2
+  121 accept + 47 refuse (40 before this step), C# and LSP agree. C#: Engine 3399 pass / 20 skip, Cli 372 / 5, Connector 156, Twincat 732 / 1,
+  Codesys 523, Contracts 56, Repo.Gates 276, 0 fail. Typecheck green on all 5 packages. Full LSP suite with
+  VOLT_REQUIRE_FULL=1: 10589 pass, 0 fail, 36 skip, 431 todo (576 s). No LSP fixture or transpiler change, so the map
+  is not regenerated.
 
 ## 3. Push and cleanup
 

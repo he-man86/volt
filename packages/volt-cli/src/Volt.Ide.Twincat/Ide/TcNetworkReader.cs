@@ -217,7 +217,30 @@ internal static class TcNetworkReader
         }
     }
 
-    internal static bool HasEno(XElement box) => Box.HasEnoSlot(Names(box, "OutputParam"));
+    /// <summary>Whether the box SHOWS its ENO: the archive's <c>ENO</c> flag, never the output's name (<c>Box.ShowsEno</c>,
+    /// network-text-st 1c) — the rule CODESYS's reader shares.</summary>
+    internal static bool HasEno(XElement box) =>
+        Box.ShowsEno(Shown(box, "ENO"), Names(box, "OutputParam"), BeckhoffDriver.Row.Display, TcArchive.Str(box, "BoxType") ?? "");
+
+    /// <summary>Whether the box SHOWS its enable: the archive's <c>EN</c> flag, never slot 0's name (<c>Box.ShowsEnable</c>).</summary>
+    private static bool HasEnable(XElement box) =>
+        Box.ShowsEnable(Shown(box, "EN"), Names(box, "InputParam"), BeckhoffDriver.Row.Display, TcArchive.Str(box, "BoxType") ?? "");
+
+    /// <summary>The "EN/ENO is shown" flag as the archive stores it: a scalar <c>true</c>/<c>false</c>, or <c>&lt;n n="EN" /&gt;</c>
+    /// (unset, null). Any other scalar is no measured spelling and is refused by name.</summary>
+    private static bool? Shown(XElement box, string member)
+    {
+        var v = box.Elements("v").FirstOrDefault(x => (string?)x.Attribute("n") == member)?.Value;
+        return v switch
+        {
+            null => null,
+            "true" => true,
+            "false" => false,
+            _ => throw new Volt.Engine.Format.Body.UnrepresentableBodyException(Box.ShownWithoutSlotMarker,
+                $"TwinCAT: the '{TcArchive.Str(box, "BoxType")}' box stores '{v}' as its {member} flag, a spelling no archive was " +
+                "measured to hold."),
+        };
+    }
 
     /// <summary>A box's pin names — <c>InputParam</c>/<c>OutputParam</c>'s <c>Names</c> list, REQUIRED. The names decide
     /// whether slot 0 is the enable (and the ENO), so a list the archive does not hold is refused by name
@@ -353,7 +376,7 @@ internal static class TcNetworkReader
     /// ordinary input item, and the <c>EN</c> member is the "EN/ENO is shown" flag rather than the wire.</summary>
     private static Node? ReadEnable(XElement e)
     {
-        if (!Box.HasEnableSlot(Names(e, "InputParam"))) return null;
+        if (!HasEnable(e)) return null;
         var items = InputSlots(e);
         return items.Count == 0 ? null : ReadPin(items[0]);
     }
@@ -381,7 +404,7 @@ internal static class TcNetworkReader
         var names = Names(e, "InputParam");
 
         // Slot 0 is the ENABLE when the vendor names it so, and it is not a data pin — `ReadEnable` takes it.
-        var skip = Box.HasEnableSlot(names) && items.Count > 0 ? 1 : 0;
+        var skip = HasEnable(e) && items.Count > 0 ? 1 : 0;
 
         // INDEX-ALIGNED, never length-equal: a shorter `Names` is not a partial list to guess at, it is how an
         // EXTENSIBLE operator says its trailing pins are positional.
@@ -432,7 +455,7 @@ internal static class TcNetworkReader
             .Select(x => ReadOperand(x)).ToList();
     }
 
-    /// <summary>A box's OUTPUT PINS — the wired ones. The same rule as CODESYS (`Box.HasEnoSlot`): output
+    /// <summary>A box's OUTPUT PINS — the wired ones. The same rule as CODESYS (`Box.ShowsEno`): output
     /// slot 0 is the <c>ENO</c> echo when the vendor names it so, names are index-aligned with the slots, and
     /// an unwired pin is an EMPTY operand rather than an absent one. Nothing here is TwinCAT-specific; the two
     /// vendors ship the same NWL model (N1) and this is that model through the archive's spelling.</summary>
@@ -449,7 +472,7 @@ internal static class TcNetworkReader
         if (holder is null || !holder.Elements("l2").Any(l => (string?)l.Attribute("n") == "OutputItems"))
             throw BoxRefusals.MissingList(BeckhoffDriver.Row.Display, type, "OutputItems");
         var slots = TcArchive.Slots(holder, "OutputItems");
-        var eno = Box.HasEnoSlot(names) ? 1 : 0;
+        var eno = HasEno(e) ? 1 : 0;
         var outputs = new List<Output>();
         // 2R.5 (#23): a variable stored on the ENO slot is the named ENO pin, `ENO => lamp` (P5), as on CODESYS.
         if (eno == 1 && slots.Count > 0 && slots[0] is { } enoSlot && ReadOperand(enoSlot) is { Text.Length: > 0 } wired)

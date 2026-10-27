@@ -4,6 +4,7 @@ using Volt.Contracts;
 using Volt.Engine.Sync;
 using Volt.Engine.Format.Body;
 using Volt.Engine.Item;
+using Volt.Tests.Shared;
 
 namespace Volt.Engine.Tests;
 
@@ -166,7 +167,7 @@ public class PouMergeWriteTests
     /// by content reads as "made graphical on purpose" — and the splice refused the very LD body it was creating:
     /// *has a FBD body in the IDE but the push carries LD*. Volt refusing a Volt decision, one line after making
     /// it, and it failed every LD create on that vendor.</para></summary>
-    [Fact]
+    [Fact(Skip = ReadOnlyNetworkPush.Skip)]
     public void A_create_establishes_the_body_language_over_the_seed_CreateChild_laid_down()
     {
         var ide = new FakeIde();

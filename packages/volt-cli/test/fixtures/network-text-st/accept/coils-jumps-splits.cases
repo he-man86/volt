@@ -1,0 +1,229 @@
+#### jump-coil — the v2 case coils-jumps-splits/jump-coil, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+IF a AND b THEN JMP Done; END_IF;
+%NETWORK
+Done:
+x := TRUE;
+=== model
+NETWORK
+  (jmp Done (AND a b))
+NETWORK label:Done
+  (:= x TRUE)
+
+#### jump-rail — the v2 case coils-jumps-splits/jump-rail, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+JMP Done;
+%NETWORK
+Done:
+x := TRUE;
+=== model
+NETWORK
+  (jmp Done _)
+NETWORK label:Done
+  (:= x TRUE)
+
+#### return-coil — the v2 case coils-jumps-splits/return-coil, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+IF NOT xReady THEN RETURN; END_IF;
+=== model
+NETWORK
+  (ret not:xReady)
+
+#### return-rail — the v2 case coils-jumps-splits/return-rail, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+RETURN;
+=== model
+NETWORK
+  (ret _)
+
+#### coil-and-jump — the v2 case coils-jumps-splits/coil-and-jump, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%UNSUPPORTED "a jump with several targets" #60c407ba
+%NETWORK
+Done:
+x := TRUE;
+=== model
+NETWORK unsupported:"a jump with several targets" hash:60c407ba
+NETWORK label:Done
+  (:= x TRUE)
+
+#### two-jumps — the v2 case coils-jumps-splits/two-jumps, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%UNSUPPORTED "a jump with several targets" #98bc5765
+%NETWORK
+L1:
+x := TRUE;
+%NETWORK
+L2:
+y := TRUE;
+=== model
+NETWORK unsupported:"a jump with several targets" hash:98bc5765
+NETWORK label:L1
+  (:= x TRUE)
+NETWORK label:L2
+  (:= y TRUE)
+
+#### jump-set — the v2 case coils-jumps-splits/jump-set, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%UNSUPPORTED "a coil modifier on a jump" #929f3675
+%NETWORK
+Done:
+x := TRUE;
+=== model
+NETWORK unsupported:"a coil modifier on a jump" hash:929f3675
+NETWORK label:Done
+  (:= x TRUE)
+
+#### nested-jump — the v2 case coils-jumps-splits/nested-jump, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%UNSUPPORTED "a jump inside a tree" #b0633ffa
+%NETWORK
+Done:
+x := TRUE;
+=== model
+NETWORK unsupported:"a jump inside a tree" hash:b0633ffa
+NETWORK label:Done
+  (:= x TRUE)
+
+#### nested-assign — the v2 case coils-jumps-splits/nested-assign, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+y := (x := a AND b);
+=== model
+NETWORK
+  (:= y (:= x (AND a b)))
+
+#### multi-coil — the v2 case coils-jumps-splits/multi-coil, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+y := x := a;
+=== model
+NETWORK
+  (:= y x a)
+
+#### set-reset-chain — the v2 case coils-jumps-splits/set-reset-chain, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+a := b S= c R= value;
+lamp S= lamp R= c;
+lamp R= lamp S= c;
+=== model
+NETWORK
+  (:= a S=b R=c value)
+  (:= S=lamp R=lamp c)
+  (:= R=lamp S=lamp c)
+
+#### coil-on-rail — the v2 case coils-jumps-splits/coil-on-rail, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+FirstCycle R= TRUE;
+=== model
+NETWORK
+  (:= R=FirstCycle TRUE)
+
+#### negated-coil — the v2 case coils-jumps-splits/negated-coil, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+xn := NOT c;
+=== model
+NETWORK
+  (:= xn not:c)
+
+#### edge-coils — the v2 case coils-jumps-splits/edge-coils, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+xe := c;
+xf := c;
+xg := NOT c;
+=== model
+NETWORK
+  (:= xe c)
+  (:= xf c)
+  (:= xg not:c)
+
+#### negated-empty-value — the v2 case coils-jumps-splits/negated-empty-value, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+x := NOT TRUE;
+=== model
+NETWORK
+  (:= x not:TRUE)
+
+#### split-defined-and-read — the v2 case coils-jumps-splits/split-defined-and-read, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%UNSUPPORTED "a wire read fewer than twice" #8731f592
+=== model
+NETWORK unsupported:"a wire read fewer than twice" hash:8731f592
+
+#### split-of-a-box — the v2 case coils-jumps-splits/split-of-a-box, as a pull writes it
+=== text
+%LANGUAGE FBD
+%NETWORK
+%UNSUPPORTED "a wire read fewer than twice" #d66b3d91
+=== model
+NETWORK unsupported:"a wire read fewer than twice" hash:d66b3d91
+
+#### split-in-en — the v2 case coils-jumps-splits/split-in-en, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%UNSUPPORTED "a wire read fewer than twice" #1b3781f4
+=== model
+NETWORK unsupported:"a wire read fewer than twice" hash:1b3781f4
+
+#### split-variable-backticked — the v2 case coils-jumps-splits/split-variable-backticked, as a pull writes it
+=== scope
+name split1
+=== text
+%LANGUAGE LD
+%NETWORK
+%WIRES w1
+w1 := a;
+x := w1;
+split1 := w1;
+=== model
+NETWORK
+  (split 1 a)
+  (:= x #1)
+  (:= split1 #1)
+
+#### split-before-definition — the v2 case coils-jumps-splits/split-before-definition, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%UNSUPPORTED "a wire read before its definition" #89991fe7
+=== model
+NETWORK unsupported:"a wire read before its definition" hash:89991fe7
+
+#### split-nested-definition — the v2 case coils-jumps-splits/split-nested-definition, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%UNSUPPORTED "a wire read fewer than twice" #f52c73df
+=== model
+NETWORK unsupported:"a wire read fewer than twice" hash:f52c73df

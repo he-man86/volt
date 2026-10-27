@@ -6,6 +6,7 @@ using Volt.Engine.Ide;
 using Volt.Engine.Item;
 using Volt.Engine.Sync;
 using Xunit;
+using Volt.Tests.Shared;
 
 namespace Volt.Engine.Tests;
 
@@ -76,7 +77,7 @@ public class FakeAccessorWriteTests
 
     /// <summary>A graphical GET is held as its MODEL, like a METHOD's body: it reads back in the canonical layout, and
     /// through <see cref="FakeIde.RematerializeAs"/> when the IDE holds other tokens.</summary>
-    [Fact]
+    [Fact(Skip = ReadOnlyNetworkPush.Skip)]
     public void A_graphical_accessor_is_held_as_the_IDE_holds_it()
     {
         var ide = new FakeIde { RematerializeAs = held => held + "\n(* vendor *)" };

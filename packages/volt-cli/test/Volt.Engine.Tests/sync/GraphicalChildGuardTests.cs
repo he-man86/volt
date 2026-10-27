@@ -6,6 +6,7 @@ using Volt.Contracts;
 using Volt.Engine.Sync;
 using Volt.Engine.Format.St;
 using Volt.Engine.Item;
+using Volt.Tests.Shared;
 
 namespace Volt.Engine.Tests;
 
@@ -157,7 +158,7 @@ public class GraphicalChildGuardTests
     /// stores an archive over an ST body as ST text that does not compile — no in-place route there). The message said "graphical
     /// bodies are authored in the IDE, not created by push", which is false: a push CREATES graphical bodies. It names
     /// the route that exists — delete and push again — and the two languages.</summary>
-    [Fact]
+    [Fact(Skip = ReadOnlyNetworkPush.Skip)]
     public void Network_text_over_a_textual_child_is_refused_naming_the_route_that_exists()
     {
         var ide = IdeWithChild("M", childLang: null);

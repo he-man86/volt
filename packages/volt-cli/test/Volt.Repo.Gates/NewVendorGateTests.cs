@@ -108,6 +108,9 @@ public class NewVendorGateTests
         ["Volt.Engine/Format/Network/NetworkModel.cs"] = 1,
         ["Volt.Engine/Format/Network/NetworkText.cs"] = 1,
         ["Volt.Engine/Format/Network/NetworkTextReader.cs"] = 1,
+        // openspec network-text-st 1.3: a plain-ST read states the toolbox element an AND/OR is (contact vs drawn box) as
+        // the stored OutputParam.Names, in the E3 NWL-shaped member bag — the same debt as NetworkMembers.cs, one new site.
+        ["Volt.Engine/Format/Network/StNetworkWriter.cs"] = 2,
     };
 
     /// <summary>Baseline: <c>input/vendor-neutrality.md</c> C1/C6 (the old contract's <c>int KindCode</c>/<c>kindCode</c>,

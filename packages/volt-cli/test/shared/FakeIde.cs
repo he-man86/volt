@@ -1114,7 +1114,8 @@ public sealed class FakeIde : VendorDriverBase, IVendorDriver, IIecTree
             var impl = it.Implementation ?? "";
             return Volt.Engine.Format.Network.NetworkText.Is(impl)
                 ? impl
-                : $"{Volt.Engine.Format.St.PropertyLines.LanguageLine(lang)}\nNETWORK\n  {impl.Trim()}\nEND_NETWORK\n";
+                // As both drivers pull one: plain-ST network text (openspec network-text-st 2.1).
+                : $"{Volt.Engine.Format.St.PropertyLines.LanguageLine(lang)}\n%NETWORK\n{impl.Trim()}\n";
         });
     }
 

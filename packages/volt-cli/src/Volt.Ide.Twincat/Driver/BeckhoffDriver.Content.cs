@@ -513,7 +513,7 @@ public sealed partial class BeckhoffDriver
             // holds the two drivers there — CODESYS had no pre-scan at all and lost POUs outright, which is what the
             // vendor differential map found on 2026-09-22.
             return NetworkText.Pulled(view, () =>
-                NetworkTextWriter.WritePulled(TcNetworkReader.ReadShown(impl, view), Declarations.ScopeForPull(declaration))
+                StNetworkWriter.WritePulled(TcNetworkReader.ReadShown(impl, view), Declarations.ScopeForPull(declaration))
                     .TrimEnd('\n'));
         }
 

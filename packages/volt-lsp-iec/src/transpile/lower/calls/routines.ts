@@ -15,7 +15,7 @@
 import { fbContext, functionContext, routineContext } from "../core/keys.js"
 import { type FbType, Lowering, type RoutineSymbol, zeroInit } from "../core/lowering.js"
 import type { PendingBody } from "../core/shared.js"
-import { type Expr, isStBody, type Span, type StatementList, type TopLevel, type VarSection } from "../../../frontend/syntax/index.js"
+import { type Expr, isPlainStNetworkBody, isStBody, type Span, type StatementList, type TopLevel, type VarSection } from "../../../frontend/syntax/index.js"
 import type { IrExpr, IrLayout, IrRoutine, IrStmt, Place } from "../../ir/index.js"
 import { holdsCall, someNode, somePlace } from "../../ir/walk.js"
 import { programReentrant, touchedOf, touchesOf } from "./reentrancy.js"
@@ -229,6 +229,10 @@ export function bodyOf(
   if (body.noSlot !== undefined)
     return { code: "graphical-body", message: `${name ?? "the body"} has no body slot: it holds no code (no %LANGUAGE line)` }
   if (!isStBody(body)) return { code: "graphical-body", message: name === undefined ? "a body that is not ST is not lowered here" : `${name} has no ST body` }
+  // plain-ST network text is ST to the front-end, but its boxes (`X_EN`, `GT(…)`, `EXECUTE`) and wires are no ST a
+  // lowering runs: refused by name until its lowering exists (openspec network-text-st)
+  if (isPlainStNetworkBody(body))
+    return { code: "graphical-body", message: `${name ?? "the body"} is plain-ST network text, which is not lowered yet` }
   const parsed = execBodyStatements(lw.project, unit, body)
   // A body that parses but for a conditional pragma asking what Volt is not given — a project option, a device fact, a
   // compile define — is valid ST CODESYS decides (`prag_if_hasconstanttype`: c 5, out 1) and no recording settles here:

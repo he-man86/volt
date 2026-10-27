@@ -17,7 +17,6 @@
 import { messagesFor, parseErrorMessage, vendorReportsParseError } from "../../src/analysis/index.js"
 import { bodyConditionWorld, type Scope } from "../../src/frontend/symbols/index.js"
 import {
-  isStBody,
   parseDocument,
   bodyStatements,
   unitBodies,
@@ -26,6 +25,7 @@ import {
   type ParseResult,
   type Span,
 } from "../../src/frontend/syntax/index.js"
+import { measuredStBody } from "./st-bodies.js"
 
 export const at = (s: Span): string => `${s.startLine}:${s.startCol}`
 
@@ -85,7 +85,7 @@ export function parseErrors(b: Bound, vendor: Dialect): ParseErrorRow[] {
   for (const e of p.parseResult.errors) if (vendorReportsParseError(e, vendor)) out.push(row("decl", e))
   for (const unit of p.parseResult.units)
     for (const body of unitBodies(unit)) {
-      if (!isStBody(body)) continue
+      if (!measuredStBody(body)) continue
       for (const e of bodyStatements(body, bodyConditionWorld(b.project, unit, body)).errors) if (vendorReportsParseError(e, vendor)) out.push(row("body", e))
     }
   if (vendor !== "twincat") return out

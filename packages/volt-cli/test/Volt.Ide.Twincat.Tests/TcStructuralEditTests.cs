@@ -279,6 +279,11 @@ public class TcStructuralEditTests
     {
         var xml = XDocument.Parse(Fixtures.Pou("importer-unwired.TcPOU"), LoadOptions.PreserveWhitespace)
             .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting).Replace("<v>IN</v>", "<v>EN</v>");
+        // The slot renamed EN is the enable only on a box that SHOWS it (network-text-st 2.2, `Box.ShowsEnable`): the TON
+        // states its EN flag, as the vendor does on every enabled box.
+        var nwl = XElement.Parse(xml, LoadOptions.PreserveWhitespace);
+        SetShown(nwl.Descendants("o").First(o => o.Elements("v").Any(v => (string?)v.Attribute("n") == "BoxType" && v.Value == "\"TON\"")), "EN");
+        xml = nwl.ToString(SaveOptions.DisableFormatting);
         var scope = NetworkScope.FromDeclarations("PROGRAM VltProbe_Max\nVAR\n  n : INT;\n  m : INT;\n  t1 : TON;\nEND_VAR",
                                                   _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName, Volt.Tests.Shared.Scopes.NoLibrary);
 
@@ -321,6 +326,13 @@ public class TcStructuralEditTests
     /// <summary>The ladder network as the importer would hand it back, with the box's output list set to
     /// <paramref name="names"/> and its type to <paramref name="type"/> — the imported box's own output list, read as
     /// CODESYS reads it (<see cref="Box.HasEnoSlot"/>).</summary>
+    /// <summary>Set a box's "EN/ENO is shown" flag true: a scalar in place of the archive's unset <c>&lt;n n="EN" /&gt;</c>.</summary>
+    private static void SetShown(XElement box, string member)
+    {
+        var at = box.Elements().First(x => (string?)x.Attribute("n") == member);
+        at.ReplaceWith(new XElement("v", new XAttribute("n", member), "true"));
+    }
+
     private static Func<Network, NetworkScope, XElement> ImportedAs(string type, params string[] names) => (_, _) =>
     {
         var impl = TcArchive.Root(Ladder())!;
@@ -330,6 +342,9 @@ public class TcStructuralEditTests
         var list = box.Elements("o").First(o => (string?)o.Attribute("n") == "OutputParam").Elements("l2")
             .First(l => (string?)l.Attribute("n") == "Names");
         foreach (var n in names) list.Add(new XElement("v", n));
+        // A box SHOWS its ENO by the stored flag, not by the slot's name (network-text-st 2.2, `Box.ShowsEno`): an import
+        // that gives the box an ENO output states it shown.
+        if (names.Length > 0 && names[0] == Box.EnoPin) SetShown(box, "ENO");
         return net;
     };
 

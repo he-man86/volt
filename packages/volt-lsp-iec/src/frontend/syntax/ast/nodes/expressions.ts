@@ -182,11 +182,14 @@ export interface ParenExpr {
   inner: Expr
   span: Span
 }
-/** CODESYS assignment-as-expression: `(x := v)`. */
+/** CODESYS assignment-as-expression: `(x := v)`, and in brackets a set or reset `(x S= v)` / `(x R= v)` and a chain
+ *  `(a := b := v)` (the value an inline assignment of its own). Worth its value either way. */
 export interface AssignExpr {
   kind: "assign_expr"
   target: Expr
   value: Expr
+  /** `S=` / `R=`; undefined for `:=`. */
+  op?: "S=" | "R="
   span: Span
 }
 

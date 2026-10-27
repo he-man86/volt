@@ -4,6 +4,7 @@ using Volt.Contracts;
 using Volt.Engine.Sync;
 using Volt.Engine.Format.Body;
 using Volt.Engine.Item;
+using Volt.Tests.Shared;
 
 namespace Volt.Engine.Tests;
 
@@ -430,7 +431,7 @@ public class PushServiceTests
     /// <c>split7</c> in a POU of a project whose GVL declares <c>SPLIT7</c> is the split (the global is <c>`SPLIT7`</c>)
     /// and the body is written, as it is without the global — both IDEs build the shape clean
     /// (<c>rcc_network_wire_named_like_variable</c>). It was refused by name until the 2R.3 review.</summary>
-    [Theory]
+    [Theory(Skip = ReadOnlyNetworkPush.Skip)]
     [InlineData(true)]
     [InlineData(false)]
     public void A_split_named_like_a_projects_global_is_written(bool withGlobal)

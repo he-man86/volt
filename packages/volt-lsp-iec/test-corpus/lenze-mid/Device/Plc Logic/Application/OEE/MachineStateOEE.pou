@@ -3,12 +3,12 @@ VAR
 END_VAR
 
 %LANGUAGE LD
-NETWORK TITLE: "DONE NETWORK 49: State of the machine"
-  split22 := TRUE;
-  MOVE eStates.Aborted => GVL_OEE_Var.eStatus_States ENO EN split22 AND (Mach1.GenFlags.MajorAlarm OR Mach1.GenFlags.MinorAlarm);
-  split23 := split22 AND NOT Mach1.GenFlags.MajorAlarm AND NOT Mach1.GenFlags.MinorAlarm;
-  MOVE eStates.Stopped => GVL_OEE_Var.eStatus_States ENO EN split23 AND NOT Mach1.GenFlags.RunMan AND NOT Mach1.GenFlags.RunAuto;
-  MOVE eStates.Execute => GVL_OEE_Var.eStatus_States ENO EN split23 AND (Mach1.GenFlags.RunMan OR Mach1.GenFlags.RunAuto);
-END_NETWORK
+%NETWORK "DONE NETWORK 49: State of the machine"
+%WIRES w1, w2
+w1 := TRUE;
+MOVE_EN(EN := w1 AND (Mach1.GenFlags.MajorAlarm OR Mach1.GenFlags.MinorAlarm), eStates.Aborted, OUT => GVL_OEE_Var.eStatus_States);
+w2 := w1 AND NOT Mach1.GenFlags.MajorAlarm AND NOT Mach1.GenFlags.MinorAlarm;
+MOVE_EN(EN := w2 AND NOT Mach1.GenFlags.RunMan AND NOT Mach1.GenFlags.RunAuto, eStates.Stopped, OUT => GVL_OEE_Var.eStatus_States);
+MOVE_EN(EN := w2 AND (Mach1.GenFlags.RunMan OR Mach1.GenFlags.RunAuto), eStates.Execute, OUT => GVL_OEE_Var.eStatus_States);
 
 END_PROGRAM

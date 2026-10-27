@@ -69,7 +69,7 @@
   },
   "corpus": {
     "total: FP": 216,
-    "total: GAP": 12,
+    "total: GAP": 11,
     "total: unowned GAP": 6
   },
   "coverage": {

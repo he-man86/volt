@@ -13,38 +13,31 @@ VAR
 END_VAR
 
 %LANGUAGE LD
-NETWORK
-  GeneralProgramFlags() ENO EN TRUE;
-END_NETWORK
-NETWORK
-  fc_Information() ENO EN TRUE;
-END_NETWORK
-NETWORK
-  WordConvertor_v2 : SafetyPLC_WordsToUDT_v2(ioSafetyStatusUDT := Mach1_Safety.Status, ioSafetyControlUDT := Mach1_Safety.Control);
-END_NETWORK
-NETWORK
-  split16 := NOT HMI_Var.ForceOutputs;
-  Mach1_MIDS() ENO EN split16;
-  fc_Visualisation_HMI() ENO EN split16;
-  SMC_BitsToBytes() ENO EN split16;
-END_NETWORK
-NETWORK
-  Status_ForceOutputs() ENO EN TRUE;
-END_NETWORK
-NETWORK
-  LST_General.FirstCycle R= ;
-END_NETWORK
-NETWORK
-  Bugs.checkconnection := BLINK_0 : BLINK(ENABLE := TRUE, TIMELOW := T#1S, TIMEHIGH := T#1S).OUT;
-END_NETWORK
-NETWORK
-  TON_0 : TON(IN := NOT Bugs.reportConnectionAlive, PT := T#2S);
-END_NETWORK
-NETWORK
-  TON_1 : TON(IN := Bugs.reportConnectionAlive, PT := T#2S);
-END_NETWORK
-NETWORK
-  Bugs.restart := TON_0.Q OR TON_1.Q;
-END_NETWORK
+%NETWORK
+GeneralProgramFlags_EN(EN := TRUE);
+%NETWORK
+fc_Information_EN(EN := TRUE);
+%NETWORK
+WordConvertor_v2(ioSafetyStatusUDT := Mach1_Safety.Status, ioSafetyControlUDT := Mach1_Safety.Control);
+%NETWORK
+%WIRES w1
+w1 := NOT HMI_Var.ForceOutputs;
+Mach1_MIDS_EN(EN := w1);
+fc_Visualisation_HMI_EN(EN := w1);
+SMC_BitsToBytes_EN(EN := w1);
+%NETWORK
+Status_ForceOutputs_EN(EN := TRUE);
+%NETWORK
+LST_General.FirstCycle R= TRUE;
+%NETWORK
+%WIRES w2
+BLINK_0(ENABLE := TRUE, TIMELOW := T#1S, TIMEHIGH := T#1S, OUT => w2);
+Bugs.checkconnection := w2;
+%NETWORK
+TON_0(IN := NOT Bugs.reportConnectionAlive, PT := T#2S);
+%NETWORK
+TON_1(IN := Bugs.reportConnectionAlive, PT := T#2S);
+%NETWORK
+Bugs.restart := TON_0.Q OR TON_1.Q;
 
 END_PROGRAM

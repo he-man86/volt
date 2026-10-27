@@ -638,6 +638,10 @@ public class TcRoundTripTests
             var en = new XElement(inputs.Elements("o").First());
             en.Descendants("v").First(v => (string?)v.Attribute("n") == "Operand").Value = "\"go\"";
             inputs.AddFirst(en);
+            // A box SHOWS its EN/ENO by the stored flags, not by the slot names (network-text-st 2.2, `Box.ShowsEnable`):
+            // the fixture's TON stores both false, so the enabled box this describes states them true, as the vendor does.
+            box.Elements("v").Single(v => (string?)v.Attribute("n") == "EN").Value = "true";
+            box.Elements("v").Single(v => (string?)v.Attribute("n") == "ENO").Value = "true";
         }
         return nwl.ToString(SaveOptions.DisableFormatting);
     }

@@ -4,21 +4,15 @@ VAR
 END_VAR
 
 %LANGUAGE FBD
-%EXCLUDE_FROM_BUILD
-NETWORK
-  L_TS2P_FlexCamState_0 : L_TS2P_FlexCamState(xEnable := ``, xEnableOperation := ``, xResetError := ``, xQSPApplication := ``, xAbort := ``, xJogPos := ``, xJogNeg := ``, xHomeExecute := ``, lrOverride := ``, scCtrlBasicMotion := ``, scPar := ``, Axis := ``, scAccessPoints := ``, MasterValues := ``, xSyncIn := ``, xCamChangeInstant := ``, lrSetOffsetPosX := ``, lrSetOffsetPosY := ``, lrSetScalingX := ``, lrSetScalingY := ``, CamTable1 := ``, CamTable2 := ``, CamTable3 := ``, CamTable4 := ``, wSetCamTable := ``, xCamSequencer := ``);
-END_NETWORK
-NETWORK
-  ??? : L_MC1P_AxisBasicControlV2(Axis := ``, xEnableInternalControl := ``, xEnableOperation := ``, xResetError := ``, xEnablePositive := ``, xEnableNegative := ``, xDisableSWLimit := ``, lrOverride := ``, lrOverrideAcc := ``, lrOverrideJerk := ``, xQspApplication := ``, xHalt := ``, xAbort := ``, xJogPos := ``, xJogNeg := ``, xContinuousUpdate := ``, xFinishPositioning := ``, xMoveVelExecute := ``, xMoveAbsExecute := ``, xMoveRelExecute := ``, lrPos_Dist := ``, lrVel := ``, lrAcc := ``, lrDec := ``, lrJerk := ``, eDirection := ``, xHomeExecute := ``, scHomeExtTP := ``, xHomeAbsSwitch := ``, xResetHomePosition := ``);
-END_NETWORK
-NETWORK
-  ??? : L_TT1P_BasicMotionBase(xEnableInternalControl := ``, xEnable := ``, scCtrlABC := ``, xResetError := ``, xRegulatorOn := ``, xStop := ``, xHalt := ``, scPar := ``, Axis := ``, xJogPos := ``, xJogNeg := ``, xHomeExecute := ``, xHomeAbsSwitch := ``, xMoveVelExecute := ``, xMoveAbsExecute := ``, xMoveRelExecute := ``, lrSetPos_Dist := ``, xDisableSWLimit := ``, lrOverride := ``, lrOverrideAcc := ``, lrOverrideJerk := ``);
-END_NETWORK
-NETWORK
-  ??? : L_TT1P_FlexCamBase(xEnableInternalControl := ``, xEnable := ``, scCtrlABC := ``, xResetError := ``, xRegulatorOn := ``, xStop := ``, xHalt := ``, scPar := ``, MasterAxis := ``, SlaveAxis := ``, scAccessPoints := ``, xJogPos := ``, xJogNeg := ``, xHomeExecute := ``, xHomeAbsSwitch := ``, xEnableHWLimit := ``, xHWLimitPos := ``, xHWLimitNeg := ``, xSyncCam := ``, xSyncOutInstant := ``, xCamChangeInstant := ``, lrSetOffsetMaster := ``, lrSetOffsetSlave := ``, lrSetScalingMaster := ``, lrSetScalingSlave := ``, CamTable1 := ``);
-END_NETWORK
-NETWORK
-  ??? : L_TT1P_FlexCamState(xEnableInternalControl := ``, xEnable := ``, scCtrlABC := ``, xResetError := ``, xRegulatorOn := ``, xStop := ``, xHalt := ``, scPar := ``, MasterAxis := ``, SlaveAxis := ``, scAccessPoints := ``, xJogPos := ``, xJogNeg := ``, xHomeExecute := ``, xHomeAbsSwitch := ``, xEnableHWLimit := ``, xHWLimitPos := ``, xHWLimitNeg := ``, xSyncCam := ``, xSyncOutInstant := ``, xCamChangeInstant := ``, lrSetOffsetMaster := ``, lrSetOffsetSlave := ``, lrSetScalingMaster := ``, lrSetScalingSlave := ``, CamTable1 := ``, CamTable2 := ``, CamTable3 := ``, CamTable4 := ``, eSetCamTable := ``, xCamSequencer := ``);
-END_NETWORK
+%NETWORK
+L_TS2P_FlexCamState_0();
+%NETWORK
+%UNSUPPORTED "an FB box with no instance" #a4fe7691
+%NETWORK
+%UNSUPPORTED "an FB box with no instance" #9a5c2654
+%NETWORK
+%UNSUPPORTED "an FB box with no instance" #a1cb24cb
+%NETWORK
+%UNSUPPORTED "an FB box with no instance" #e16c6605
 
 END_PROGRAM

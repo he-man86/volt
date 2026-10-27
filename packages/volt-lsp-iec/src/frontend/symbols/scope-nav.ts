@@ -256,7 +256,7 @@ export function findChildScope(parent: Scope, name: string, askerUri?: string): 
 export function enclosingPou(scope: Scope): Scope | undefined {
   let s: Scope | undefined = scope
   while (s !== undefined) {
-    if (s.kind === "pou") return s
+    if (s.kind === "pou" && s.network !== true) return s // a network body's scope is its unit's, wires over it
     s = s.parent
   }
   return undefined

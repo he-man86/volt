@@ -53,7 +53,7 @@ public class TcNetworkTextSwitchTests
     {
         var content = Read();
 
-        Assert.StartsWith("%LANGUAGE LD\nNETWORK", content.Body);
+        Assert.StartsWith("%LANGUAGE LD\n%NETWORK", content.Body);   // plain-ST network text (network-text-st 2.1)
         Assert.Null(content.Unsupported);
     }
 }

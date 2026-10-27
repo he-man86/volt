@@ -1,0 +1,230 @@
+#### add-coil — the v2 case words-and-move/add-coil, as a pull writes it
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := ADD(a, b);
+=== model
+NETWORK
+  (:= x (ADD a b conn:0))
+
+#### every-word — the v2 case words-and-move/every-word, as a pull writes it
+=== text
+%LANGUAGE FBD
+%NETWORK
+b1 := AND(a, b);
+b2 := OR(a, b);
+b3 := XOR(a, b);
+i1 := ADD(i, j);
+i2 := SUB(i, j);
+i3 := MUL(i, j);
+i4 := DIV(i, j);
+i5 := MOD(i, j);
+c1 := GT(i, j);
+c2 := GE(i, j);
+c3 := EQ(i, j);
+c4 := NE(i, j);
+c5 := LE(i, j);
+c6 := LT(i, j);
+=== model
+NETWORK
+  (:= b1 (AND a b))
+  (:= b2 (OR a b))
+  (:= b3 (XOR a b))
+  (:= i1 (ADD i j conn:0))
+  (:= i2 (SUB i j conn:0))
+  (:= i3 (MUL i j conn:0))
+  (:= i4 (DIV i j conn:0))
+  (:= i5 (MOD i j conn:0))
+  (:= c1 (GT i j conn:0))
+  (:= c2 (GE i j conn:0))
+  (:= c3 (EQ i j conn:0))
+  (:= c4 (NE i j conn:0))
+  (:= c5 (LE i j conn:0))
+  (:= c6 (LT i j conn:0))
+
+#### one-word-three-inputs — the v2 case words-and-move/one-word-three-inputs, as a pull writes it
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := ADD(a, b, c);
+=== model
+NETWORK
+  (:= x (ADD a b c conn:0))
+
+#### brackets-separate-boxes — the v2 case words-and-move/brackets-separate-boxes, as a pull writes it
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := ADD(a, ADD(b, c));
+y := MUL(ADD(a, b), c);
+lamp := AND(start, OR(a, b), NOT stop);
+=== model
+NETWORK
+  (:= x (ADD a (ADD b c conn:0) conn:0))
+  (:= y (MUL (ADD a b conn:0) c conn:0))
+  (:= lamp (AND start (OR a b) not:stop))
+
+#### and-nine-inputs — the v2 case words-and-move/and-nine-inputs, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+q := a AND b AND c AND d AND e AND f AND g AND h AND i;
+=== model
+NETWORK
+  (:= q (AND a b c d e f g h i))
+
+#### top-level-word-with-output — the v2 case words-and-move/top-level-word-with-output, as a pull writes it
+=== text
+%LANGUAGE FBD
+%NETWORK
+ADD(a, b, OUT => x);
+=== model
+NETWORK
+  (ADD a b =>0:x)
+
+#### lowercase-word — the v2 case words-and-move/lowercase-word, as a pull writes it
+=== text
+%LANGUAGE FBD
+%NETWORK
+%UNSUPPORTED "a box type that is no call head" #f5298073
+=== model
+NETWORK unsupported:"a box type that is no call head" hash:f5298073
+
+#### empty-operand — the v2 case words-and-move/empty-operand, as a pull writes it
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := MUL(TRUE, m, 6);
+y := ADD(a, TRUE, c);
+=== model
+NETWORK
+  (:= x (MUL TRUE m 6 conn:0))
+  (:= y (ADD a TRUE c conn:0))
+
+#### negated-box — the v2 case words-and-move/negated-box, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%UNSUPPORTED "an edge on a box output" #4289d1e6
+=== model
+NETWORK unsupported:"an edge on a box output" hash:4289d1e6
+
+#### word-operand-call — the v2 case words-and-move/word-operand-call, as a pull writes it
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := ADD(a, f(IN := b));
+=== model
+NETWORK
+  (:= x (ADD a (f IN=b conn:0) conn:0))
+
+#### word-in-pin — the v2 case words-and-move/word-in-pin, as a pull writes it
+=== scope
+instance t1 TON
+=== text
+%LANGUAGE LD
+%NETWORK
+%WIRES w1
+t1(IN := a AND b, PT := T#1S, Q => w1);
+q := w1;
+=== model
+NETWORK
+  (:= q (TON@t1 IN=(AND a b) PT=T#1S name:Q))
+
+#### move-to — the v2 case words-and-move/move-to, as a pull writes it
+=== text
+%LANGUAGE FBD
+%NETWORK
+MOVE(b, OUT => a);
+=== model
+NETWORK
+  (MOVE b =>0:a)
+
+#### move-then-coil — the v2 case words-and-move/move-then-coil, as a pull writes it
+=== text
+%LANGUAGE FBD
+%NETWORK
+a := MOVE(b);
+=== model
+NETWORK
+  (:= a (MOVE b conn:0))
+
+#### coil-no-box — the v2 case words-and-move/coil-no-box, as a pull writes it
+=== text
+%LANGUAGE FBD
+%NETWORK
+a := b;
+=== model
+NETWORK
+  (:= a b)
+
+#### move-two-targets — the v2 case words-and-move/move-two-targets, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%UNSUPPORTED "a second unnamed output" #2f471bc4
+=== model
+NETWORK unsupported:"a second unnamed output" hash:2f471bc4
+
+#### move-empty-operand — the v2 case words-and-move/move-empty-operand, as a pull writes it
+=== text
+%LANGUAGE FBD
+%NETWORK
+MOVE(TRUE, OUT => x);
+=== model
+NETWORK
+  (MOVE TRUE =>0:x)
+
+#### move-operand-bracketed — the v2 case words-and-move/move-operand-bracketed, as a pull writes it
+=== text
+%LANGUAGE FBD
+%NETWORK
+MOVE(ADD(a, b), OUT => x);
+=== model
+NETWORK
+  (MOVE (ADD a b conn:0) =>0:x)
+
+#### not-box — the v2 case words-and-move/not-box, as a pull writes it
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := NOT(a);
+=== model
+NETWORK
+  (:= x (NOT a))
+
+#### not-box-empty — the v2 case words-and-move/not-box-empty, as a pull writes it
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := NOT(TRUE);
+=== model
+NETWORK
+  (:= x (NOT TRUE))
+
+#### negated-pin-call-form — the v2 case words-and-move/negated-pin-call-form, as a pull writes it
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := AND(a, b, NOT c);
+=== model
+NETWORK
+  (:= x (AND a b not:c))
+
+#### rising-pin-call-form — the v2 case words-and-move/rising-pin-call-form, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%UNSUPPORTED "an edge on a pin" #c1aa7b44
+=== model
+NETWORK unsupported:"an edge on a pin" hash:c1aa7b44
+
+#### edge-and-negation-on-a-pin — the v2 case words-and-move/edge-and-negation-on-a-pin, as a pull writes it
+=== scope
+instance t1 TON
+=== text
+%LANGUAGE LD
+%NETWORK
+%UNSUPPORTED "an edge on a pin" #b6f41ecf
+=== model
+NETWORK unsupported:"an edge on a pin" hash:b6f41ecf

@@ -19,6 +19,8 @@ import { binaryOp } from "./precedence.js"
 export interface ExpressionGrammar {
   readonly expression: (cur: Cursor) => Expr | undefined
   readonly assignable: (cur: Cursor) => Expr | undefined
+  /** What a bracket holds: an expression, or an inline assignment — `:=`, `S=`, `R=`, chained. */
+  readonly bracketed: (cur: Cursor) => Expr | undefined
   readonly unary: (cur: Cursor) => Expr | undefined
 }
 
@@ -238,8 +240,8 @@ function punctOperand(cur: Cursor, t: Token, g: ExpressionGrammar): Operand {
       cur.pushError(vendorExpressionExpected(empty), empty.span)
       return undefined
     }
-    // Allow an inline assignment `(x := value)` inside the parens (CODESYS).
-    const inner = g.assignable(cur)
+    // Allow an inline assignment `(x := value)` inside the parens (CODESYS), a set or reset, chained.
+    const inner = g.bracketed(cur)
     if (inner === undefined) return undefined
     // A parenthesis left open where something else stands is "')' expected instead of 'X'", and the statement then
     // resyncs from X as after a missing `;` (`expr_paren_stray_name`: "';' expected instead of 'b'" and `b;` read on;

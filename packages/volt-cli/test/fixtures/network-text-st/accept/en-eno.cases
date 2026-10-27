@@ -1,0 +1,284 @@
+#### move-enabled — the v2 case en-eno/move-enabled, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%UNSUPPORTED "an enabled box without ENO" #9340c3b3
+=== model
+NETWORK unsupported:"an enabled box without ENO" hash:9340c3b3
+
+#### move-enabled-eno — the v2 case en-eno/move-enabled-eno, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+MOVE_EN(EN := c, 0, OUT => x);
+=== model
+NETWORK
+  (MOVE 0 =>1:x en:c eno:1)
+
+#### add-enabled-two-targets — the v2 case en-eno/add-enabled-two-targets, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%UNSUPPORTED "a second unnamed output" #c15439c0
+=== model
+NETWORK unsupported:"a second unnamed output" hash:c15439c0
+
+#### empty-enable — the v2 case en-eno/empty-enable, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+ADD_EN(EN := TRUE, x, 1, OUT => x);
+=== model
+NETWORK
+  (ADD x 1 =>1:x en:TRUE eno:1)
+
+#### en-source-is-a-slot — the v2 case en-eno/en-source-is-a-slot, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+MOVE_EN(EN := ready AND btn, 6, OUT => t);
+ADD_EN(EN := c, x, f(IN := b), OUT => y);
+=== model
+NETWORK
+  (MOVE 6 =>1:t en:(AND ready btn) eno:1)
+  (ADD x (f IN=b conn:0) =>1:y en:c eno:1)
+
+#### read-through-eno — the v2 case en-eno/read-through-eno, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+lamp := MOVE_EN(EN := c, 1, OUT => t);
+=== model
+NETWORK
+  (:= lamp (MOVE 1 =>1:t en:c conn:0 eno:1))
+
+#### enabled-value — the v2 case en-eno/enabled-value, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%WIRES w1, w2, w3, w4
+MOVE_EN(EN := c, k, OUT => w1);
+y := w1;
+ADD_EN(EN := c, a, b, OUT => w2);
+sum := w2;
+GT_EN(EN := c, a, 5, OUT => w3);
+lamp := w3;
+f_EN(EN := c, IN := v, OUT => w4);
+res := w4;
+=== model
+NETWORK
+  (:= y (MOVE k en:c conn:0))
+  (:= sum (ADD a b en:c conn:0))
+  (:= lamp (GT a 5 en:c conn:0))
+  (:= res (f IN=v en:c conn:0))
+
+#### enabled-value-as-operand — the v2 case en-eno/enabled-value-as-operand, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%WIRES w1
+GT_EN(EN := c, b, 40, OUT => w1);
+x := a AND w1;
+y := MOVE_EN(EN := c, 1, OUT => t) AND MOVE_EN(EN := d, 2, OUT => u);
+=== model
+NETWORK
+  (:= x (AND a (GT b 40 en:c conn:0)))
+  (:= y (AND (MOVE 1 =>1:t en:c conn:0 eno:1) (MOVE 2 =>1:u en:d conn:0 eno:1)))
+
+#### enabled-call-in-pin — the v2 case en-eno/enabled-call-in-pin, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+done R= fc(iEN := MOVE_EN(EN := go, stop, OUT => start), iPos := pos);
+=== model
+NETWORK
+  (:= R=done (fc iEN=(MOVE stop =>1:start en:go conn:0 eno:1) iPos=pos conn:0))
+
+#### chain — the v2 case en-eno/chain, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+lamp := MOVE_EN(EN := MOVE_EN(EN := MOVE_EN(EN := start, 1, OUT => a), 2, OUT => b), 3, OUT => c);
+=== model
+NETWORK
+  (:= lamp (MOVE 3 =>1:c en:(MOVE 2 =>1:b en:(MOVE 1 =>1:a en:start conn:0 eno:1) conn:0 eno:1) conn:0 eno:1))
+
+#### chain-top-level — the v2 case en-eno/chain-top-level, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+MOVE_EN(EN := MOVE_EN(EN := start, 1, OUT => a), 2, OUT => b);
+=== model
+NETWORK
+  (MOVE 2 =>1:b en:(MOVE 1 =>1:a en:start conn:0 eno:1) eno:1)
+
+#### chain-one-line — the v2 case en-eno/chain-one-line, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+lamp := MOVE_EN(EN := MOVE_EN(EN := MOVE_EN(EN := start, 1, OUT => a), 2, OUT => b), 3, OUT => c);
+=== model
+NETWORK
+  (:= lamp (MOVE 3 =>1:c en:(MOVE 2 =>1:b en:(MOVE 1 =>1:a en:start conn:0 eno:1) conn:0 eno:1) conn:0 eno:1))
+
+#### chain-odd-indentation — the v2 case en-eno/chain-odd-indentation, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+lamp := MOVE_EN(EN := MOVE_EN(EN := MOVE_EN(EN := start, 1, OUT => a), 2, OUT => b), 3, OUT => c);
+=== model
+NETWORK
+  (:= lamp (MOVE 3 =>1:c en:(MOVE 2 =>1:b en:(MOVE 1 =>1:a en:start conn:0 eno:1) conn:0 eno:1) conn:0 eno:1))
+
+#### chain-in-brackets — the v2 case en-eno/chain-in-brackets, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+x := a AND MOVE_EN(EN := MOVE_EN(EN := c, 2, OUT => u), 1, OUT => t);
+=== model
+NETWORK
+  (:= x (AND a (MOVE 1 =>1:t en:(MOVE 2 =>1:u en:c conn:0 eno:1) conn:0 eno:1)))
+
+#### en-slot-and-input-box — the v2 case en-eno/en-slot-and-input-box, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%UNSUPPORTED "a target that is no ST variable" #0dfd9ac0
+=== model
+NETWORK unsupported:"a target that is no ST variable" hash:0dfd9ac0
+
+#### split-in-en-slot — the v2 case en-eno/split-in-en-slot, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%UNSUPPORTED "a wire read fewer than twice" #e524b4d0
+=== model
+NETWORK unsupported:"a wire read fewer than twice" hash:e524b4d0
+
+#### eno-into-split — the v2 case en-eno/eno-into-split, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%WIRES w1
+w1 := MOVE_EN(EN := go, 860, OUT => speed);
+a := w1;
+b := w1;
+=== model
+NETWORK
+  (split 1 (MOVE 860 =>1:speed en:go conn:0 eno:1))
+  (:= a #1)
+  (:= b #1)
+
+#### eno-jump — the v2 case en-eno/eno-jump, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+IF MOVE_EN(EN := c, 1, OUT => x) THEN JMP Done; END_IF;
+%NETWORK
+%UNSUPPORTED "an empty item" #de457d8e
+=== model
+NETWORK
+  (jmp Done (MOVE 1 =>1:x en:c conn:0 eno:1))
+NETWORK unsupported:"an empty item" hash:de457d8e
+
+#### eno-modifier — the v2 case en-eno/eno-modifier, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%UNSUPPORTED "an edge on a box output" #49420bae
+=== model
+NETWORK unsupported:"an edge on a box output" hash:49420bae
+
+#### eno-wired-top-level — the v2 case en-eno/eno-wired-top-level, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%UNSUPPORTED "a variable on the ENO of an enabled function" #a961723a
+=== model
+NETWORK unsupported:"a variable on the ENO of an enabled function" hash:a961723a
+
+#### negated-en-pin — the v2 case en-eno/negated-en-pin, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+MOVE_EN(EN := NOT c, 5, OUT => y);
+MOVE_EN(EN := NOT c, 5, OUT => z);
+=== model
+NETWORK
+  (MOVE 5 =>1:y en:not:c eno:1)
+  (MOVE 5 =>1:z en:not:c eno:1)
+
+#### fb-call-read-by-name — the v2 case en-eno/fb-call-read-by-name, as a pull writes it
+=== scope
+instance t1 TON
+=== text
+%LANGUAGE LD
+%NETWORK
+%WIRES w1
+t1(IN := a, PT := T#1S, Q => w1);
+x := w1;
+=== model
+NETWORK
+  (:= x (TON@t1 IN=a PT=T#1S name:Q))
+
+#### fb-call-read-through-declared-eno — the v2 case en-eno/fb-call-read-through-declared-eno, as a pull writes it
+=== scope
+instance d1 Dryer
+=== text
+%LANGUAGE LD
+%NETWORK
+%UNSUPPORTED "a box showing ENO without EN" #9c8bfe7a
+=== model
+NETWORK unsupported:"a box showing ENO without EN" hash:9c8bfe7a
+
+#### fb-call-enabled — the v2 case en-eno/fb-call-enabled, as a pull writes it
+=== scope
+instance c1 CTU
+instance c2 CTU
+=== text
+%LANGUAGE LD
+%NETWORK
+%WIRES w1
+c1_EN(EN := go, CU := a, PV := 10, CV => n);
+c2_EN(EN := c, CU := a, PV := 10, CV => n, ENO => w1);
+lamp := w1 AND d;
+=== model
+NETWORK
+  (CTU@c1 CU=a PV=10 =>CV:n en:go eno:1)
+  (:= lamp (AND (CTU@c2 CU=a PV=10 =>CV:n en:c conn:0 eno:1) d))
+
+#### fb-call-enabled-read-by-name — the v2 case en-eno/fb-call-enabled-read-by-name, as a pull writes it
+=== scope
+instance t1 TON
+=== text
+%LANGUAGE LD
+%NETWORK
+%UNSUPPORTED "an enabled box without ENO" #e37443dd
+=== model
+NETWORK unsupported:"an enabled box without ENO" hash:e37443dd
+
+#### call-enabled — the v2 case en-eno/call-enabled, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+LIMIT_EN(EN := c, MN := 0, IN := v, MX := 100, OUT => y);
+=== model
+NETWORK
+  (LIMIT MN=0 IN=v MX=100 =>1:y en:c eno:1)
+
+#### function-eno-without-en — the v2 case en-eno/function-eno-without-en, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%UNSUPPORTED "a box showing ENO without EN" #5862bf62
+=== model
+NETWORK unsupported:"a box showing ENO without EN" hash:5862bf62
+
+#### call-read-through-eno — the v2 case en-eno/call-read-through-eno, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+lamp := Drive_EN(EN := TRUE) AND running;
+=== model
+NETWORK
+  (:= lamp (AND (Drive en:TRUE conn:0 eno:1) running))

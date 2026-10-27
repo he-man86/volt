@@ -10,6 +10,7 @@
 import type { BodySpan, TopLevel } from "../ast/nodes/index.js"
 import { allUnits } from "../ast/walk.js"
 import { bodyReader } from "./language-line.js"
+import { isPlainStNetworkText } from "./network-form.js"
 
 /** Every token-body a unit carries (POU body + property accessors) — a NAMESPACE block's are its units' (rule Y17, through
  *  `allUnits`: a walk over a file's units reached none of the bodies inside one). */
@@ -41,6 +42,11 @@ export function graphicalMarkerLanguage(body: BodySpan): "FBD" | "LD" | undefine
  *  is graphical by its line alone. */
 export function isGraphicalBody(body: BodySpan): boolean {
   return bodyReader(body) === "network"
+}
+
+/** True when an LD/FBD body is PLAIN-ST network text (`network/plain-st.ts`): read by the ST parser, as ST with `%` lines. */
+export function isPlainStNetworkBody(body: BodySpan): boolean {
+  return graphicalMarkerLanguage(body) !== undefined && bodyReader(body) === "st" && isPlainStNetworkText(body.tokens)
 }
 
 /** True when the ST parser reads this body: its line states `ST`, or it has no line (IDE text — see `splitImplementation`

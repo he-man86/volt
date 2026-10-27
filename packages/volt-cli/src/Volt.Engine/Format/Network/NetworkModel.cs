@@ -196,6 +196,37 @@ public sealed record Box(
     public static bool HasEnoSlot(IReadOnlyList<string?> formals) =>
         formals.Count > 0 && string.Equals(formals[0], EnoPin, StringComparison.Ordinal);
 
+    /// <summary>WHETHER A BOX SHOWS ITS ENABLE — the vendor's stored <c>En</c> flag (CODESYS's member, TwinCAT's archive
+    /// <c>EN</c>), never a pin's name (openspec <c>network-text-st</c> 1c). A box whose flag is true holds its enable in input
+    /// slot 0, named <c>EN</c> (<see cref="HasEnableSlot"/>); a box whose flag is false or unset keeps a slot 0 named
+    /// <c>EN</c> as an ordinary pin the CALLEE declares (Lenze <c>IDB_WSM</c>: CODESYS then calls the box on every scan and
+    /// passes the pin into the callee's own <c>EN</c>, measured in 1c). On the five CODESYS archives and the TwinCAT ones the
+    /// flag and the name agree on every other box. A flag that is true over a slot 0 named otherwise is no shape any IDE was
+    /// seen to store, and is refused by name.</summary>
+    public static bool ShowsEnable(bool? flag, IReadOnlyList<string?> inputNames, string vendor, string boxType)
+    {
+        if (flag != true) return false;
+        if (HasEnableSlot(inputNames)) return true;
+        throw new Volt.Engine.Format.Body.UnrepresentableBodyException(ShownWithoutSlotMarker,
+            $"{vendor}: the '{boxType}' box shows EN, but its input slot 0 is not named EN, a shape no IDE was measured to " +
+            "store. Volt refuses to read which input is the enable.");
+    }
+
+    /// <summary>WHETHER A BOX SHOWS ITS ENO — the vendor's stored <c>Eno</c> flag, the twin of <see cref="ShowsEnable"/>. A box
+    /// whose flag is false or unset keeps an output named <c>ENO</c> as an ordinary output the callee declares (Lenze
+    /// <c>IDB_Dryer</c>, 1c: the value read is the callee's own ENO).</summary>
+    public static bool ShowsEno(bool? flag, IReadOnlyList<string?> outputNames, string vendor, string boxType)
+    {
+        if (flag != true) return false;
+        if (HasEnoSlot(outputNames)) return true;
+        throw new Volt.Engine.Format.Body.UnrepresentableBodyException(ShownWithoutSlotMarker,
+            $"{vendor}: the '{boxType}' box shows ENO, but its output slot 0 is not named ENO, a shape no IDE was measured " +
+            "to store. Volt refuses to read which output is the ENO.");
+    }
+
+    /// <summary>The refusal reason of a box whose EN/ENO flag names no slot (<see cref="ShowsEnable"/>).</summary>
+    public const string ShownWithoutSlotMarker = "a box showing EN or ENO with no slot of that name";
+
     /// <summary>THE NAME A READER STATES FOR A CONSUMED FB'S OUTPUT (<see cref="MainOutputName"/>): the box's stored output
     /// name at the connected slot, for an FB read by a data output (not by its ENO). Null for any other box, or where no
     /// slot is connected. A slot past the stored names, or a name stored empty, is "" — a fact read, which the validator

@@ -24,42 +24,46 @@ VAR
 END_VAR
 
 %LANGUAGE LD
-NETWORK
-  // Always Off
-  AlwaysOff R= AlwaysOff;
-END_NETWORK
-NETWORK
-  // Always ON
-  AlwaysOn S= NOT AlwaysOn;
-END_NETWORK
-NETWORK
-  FirstCycle R= AlwaysOn AND OSfirstflagcycle;
-END_NETWORK
-NETWORK
-  MOVE 0 => dummyWord ENO EN AlwaysOn;
-END_NETWORK
-NETWORK
-  split2 := ;
-  FF50ms := tmr_FF50ms : TON(IN := split2 AND NOT tmr_FF50ms_not.Q, PT := T#100MS).Q;
-  LST_General.Imp100ms := tmr_FF50ms_not : TON(IN := split2 AND FF50ms, PT := T#100MS).Q;
-END_NETWORK
-NETWORK
-  split1 := ;
-  FF100ms := tmr_FF100ms : TON(IN := split1 AND NOT tmr_FF100ms_not.Q, PT := T#500MS).Q;
-  LST_General.Imp200ms := tmr_FF100ms_not : TON(IN := split1 AND FF100ms, PT := T#500MS).Q;
-END_NETWORK
-NETWORK
-  split3 := ;
-  FF500ms := tmr_FF500ms : TON(IN := split3 AND NOT tmr_FF500ms_not.Q, PT := T#500MS).Q;
-  LST_General.Imp1s := tmr_FF500ms_not : TON(IN := split3 AND FF500ms, PT := T#500MS).Q;
-END_NETWORK
-NETWORK
-  split4 := ;
-  FF1s := tmr_FF1s : TON(IN := split4 AND NOT tmr_FF1s_not.Q, PT := T#1S).Q;
-  tmr_FF1s_not : TON(IN := split4 AND FF1s, PT := T#1S);
-END_NETWORK
-NETWORK
-  LST_General.StartUpDelayPLC := PLC_StartUp_Delay : TON(IN := AlwaysOn, PT := T#60S).Q;
-END_NETWORK
+%NETWORK
+// Always Off
+AlwaysOff R= AlwaysOff;
+%NETWORK
+// Always ON
+AlwaysOn S= NOT AlwaysOn;
+%NETWORK
+FirstCycle R= AlwaysOn AND OSfirstflagcycle;
+%NETWORK
+MOVE_EN(EN := AlwaysOn, 0, OUT => dummyWord);
+%NETWORK
+%WIRES w1, w2, w3
+w1 := TRUE;
+tmr_FF50ms(IN := w1 AND NOT tmr_FF50ms_not.Q, PT := T#100MS, Q => w2);
+FF50ms := w2;
+tmr_FF50ms_not(IN := w1 AND FF50ms, PT := T#100MS, Q => w3);
+LST_General.Imp100ms := w3;
+%NETWORK
+%WIRES w4, w5, w6
+w4 := TRUE;
+tmr_FF100ms(IN := w4 AND NOT tmr_FF100ms_not.Q, PT := T#500MS, Q => w5);
+FF100ms := w5;
+tmr_FF100ms_not(IN := w4 AND FF100ms, PT := T#500MS, Q => w6);
+LST_General.Imp200ms := w6;
+%NETWORK
+%WIRES w7, w8, w9
+w7 := TRUE;
+tmr_FF500ms(IN := w7 AND NOT tmr_FF500ms_not.Q, PT := T#500MS, Q => w8);
+FF500ms := w8;
+tmr_FF500ms_not(IN := w7 AND FF500ms, PT := T#500MS, Q => w9);
+LST_General.Imp1s := w9;
+%NETWORK
+%WIRES w10, w11
+w10 := TRUE;
+tmr_FF1s(IN := w10 AND NOT tmr_FF1s_not.Q, PT := T#1S, Q => w11);
+FF1s := w11;
+tmr_FF1s_not(IN := w10 AND FF1s, PT := T#1S);
+%NETWORK
+%WIRES w12
+PLC_StartUp_Delay(IN := AlwaysOn, PT := T#60S, Q => w12);
+LST_General.StartUpDelayPLC := w12;
 
 END_PROGRAM

@@ -54,8 +54,14 @@ public static class NetworkTextCases
 {
     public static string Root() => Path.Combine(CorpusProjects.CliRoot().FullName, "test", "fixtures", "network-text");
 
-    public static IReadOnlyList<NetworkTextCase> All() =>
-        Directory.EnumerateFiles(Root(), "*.cases", SearchOption.AllDirectories)
+    /// <summary>The PLAIN-ST case set (openspec network-text-st 2.3): the same format, in plain-ST network text, read by
+    /// <c>StNetworkCaseTests</c> and by the LSP's network check (<c>_plain-st.test.ts</c>).</summary>
+    public static string StRoot() => Path.Combine(CorpusProjects.CliRoot().FullName, "test", "fixtures", "network-text-st");
+
+    public static IReadOnlyList<NetworkTextCase> All() => AllIn(Root());
+
+    public static IReadOnlyList<NetworkTextCase> AllIn(string root) =>
+        Directory.EnumerateFiles(root, "*.cases", SearchOption.AllDirectories)
             .OrderBy(f => f, StringComparer.Ordinal)
             .SelectMany(Read)
             .ToList();

@@ -19,21 +19,20 @@ VAR_IN_OUT
 	ioUDT			: UDT_FQI_Drive;
 END_VAR
 %LANGUAGE LD
-NETWORK
-  MOVE `UINT_TO_WORD(ioUDT.Control.AutoSpeed)` => oRefSpeed ENO EN;
-END_NETWORK
-NETWORK
-  split6 := TRUE;
-  ioUDT.Status.Error := split6 AND iStatusWord.Bit3_Fault;
-  ioUDT.Status.DriveReady := split6 AND NOT iStatusWord.Bit3_Fault AND iStatusWord.Bit0_ReadyForOperation;
-END_NETWORK
-NETWORK
-  split17 := TRUE;
-  oControlWord.Bit4_RunForward := split17 AND ioUDT.Control.Enable AND ioUDT.Control.StartAuto;
-  split18 := split17 AND ioUDT.Control.ResetError;
-  oControlWord.Bit7_ResetFault := split18;
-  ioUDT.Control.ResetError R= split18;
-  oControlWord.Bit12_ReverseDirection := split17 AND ioUDT.Control.Reverse;
-END_NETWORK
+%NETWORK
+MOVE_EN(EN := TRUE, UINT_TO_WORD(ioUDT.Control.AutoSpeed), OUT => oRefSpeed);
+%NETWORK
+%WIRES w1
+w1 := TRUE;
+ioUDT.Status.Error := w1 AND iStatusWord.Bit3_Fault;
+ioUDT.Status.DriveReady := w1 AND NOT iStatusWord.Bit3_Fault AND iStatusWord.Bit0_ReadyForOperation;
+%NETWORK
+%WIRES w2, w3
+w2 := TRUE;
+oControlWord.Bit4_RunForward := w2 AND ioUDT.Control.Enable AND ioUDT.Control.StartAuto;
+w3 := w2 AND ioUDT.Control.ResetError;
+oControlWord.Bit7_ResetFault := w3;
+ioUDT.Control.ResetError R= w3;
+oControlWord.Bit12_ReverseDirection := w2 AND ioUDT.Control.Reverse;
 
 END_FUNCTION_BLOCK

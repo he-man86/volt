@@ -5,13 +5,13 @@
  */
 import { bodyConditionWorld } from "../../src/frontend/symbols/index.js"
 import { compilerTypeText } from "../../src/frontend/syntax/index.js"
+import { measuredStBody } from "./st-bodies.js"
 import {
   type Expr,
   type Statement,
   type TopLevel,
   allUnits,
   bodyStatements,
-  isStBody,
   unitBodies,
   walkStatements,
 } from "../../src/frontend/syntax/index.js"
@@ -44,7 +44,7 @@ export function unitStores(walk: StoreWalk, units: readonly TopLevel[]): void {
     if (scope === undefined) continue
     declarationStores(walk, unit, scope)
     for (const body of unitBodies(unit)) {
-      if (!isStBody(body) || walk.unparsed(body)) continue
+      if (!measuredStBody(body) || walk.unparsed(body)) continue
       const bodyScope = scope.children.find((s) => s.span === body.span) ?? scope
       walkStatements(bodyStatements(body, bodyConditionWorld(walk.b.project, unit, body)).statements, (s) => statementStores(walk, s, bodyScope))
     }

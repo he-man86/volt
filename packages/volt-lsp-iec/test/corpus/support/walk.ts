@@ -6,6 +6,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
 import { join, relative } from "node:path"
 import {
   isGraphicalBody,
+  isPlainStNetworkBody,
   isStBody,
   parseDocument,
   sourceStatements,
@@ -150,6 +151,9 @@ export interface Pass {
   stBodies: number
   materializeFailures: string[]
   graphicalBodies: number
+  /** LD/FBD bodies in plain-ST network text (openspec network-text-st 2.1: the corpus is pulled through the plain-ST
+   *  writer) — read by the ST parser, so each is in `stBodies` and its parse in `materializeFailures` too. */
+  networkStBodies: number
   networkFailures: string[]
   formatFailures: string[]
   extendsBases: number
@@ -182,6 +186,7 @@ export function pass(): Pass {
     stBodies: 0,
     materializeFailures: [],
     graphicalBodies: 0,
+    networkStBodies: 0,
     networkFailures: [],
     formatFailures: [],
     extendsBases: 0,
@@ -256,6 +261,7 @@ function readFile(p: Pass, { file, source, parseResult }: { file: string; source
       }
       if (!isStBody(body)) continue
       p.stBodies += 1
+      if (isPlainStNetworkBody(body)) p.networkStBodies += 1
       // the body AS WRITTEN, every conditional branch in: what the vendor compiles depends on a world, the text
       // parsing does not — and a refused body is no excuse for a parse gap (frontend-conformance 2.7)
       const bp = sourceStatements(body)
@@ -306,7 +312,9 @@ function lowerPous(p: Pass, lowering: ReturnType<typeof loweringProject>, routin
     for (const unit of parseResult.units.filter(isRunnable)) {
       const scope = scopeForUnit(lowerProject, unit)
       if (scope === undefined) continue
-      if (!isStBody(unit.body)) continue // a body that is not ST: the network pipeline owns a graphical one, a read-only one has none
+      // a body that is not ST: the network pipeline owns a graphical one (plain-ST network text included, which no lowering
+      // runs yet), a read-only one has none
+      if (!isStBody(unit.body) || isPlainStNetworkBody(unit.body)) continue
       // the reach denominator is a body with STATEMENTS — a declaration-only POU lowers trivially and executes
       // nothing, so counting it would flatter the figure
       const hasCode = sourceStatements(unit.body).statements.length > 0

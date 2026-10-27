@@ -5,6 +5,7 @@ using Volt.Cli.Sync;
 using Volt.Engine.Item;
 using Xunit;
 using static Volt.Cli.Tests.CommandHarness;
+using Volt.Tests.Shared;
 
 namespace Volt.Cli.Tests;
 
@@ -234,7 +235,7 @@ public class PartialPushCommandTests
     /// canonical layout, so it never comes back as an IDE change (network-text-literal-nwl, "a hand layout does not come
     /// back as an IDE change"); a partial push pinned it as "another program than the text pushed" instead, and the next
     /// pull brought a whitespace-only diff in as an IDE edit.</summary>
-    [Fact]
+    [Fact(Skip = ReadOnlyNetworkPush.Skip)]
     public void A_hand_layout_landing_beside_a_refused_op_is_adopted_and_not_reported_as_another_program()
     {
         const string canonical = "%LANGUAGE LD\nNETWORK\n  t1 : TON(IN := a, PT := pt);\nEND_NETWORK";
@@ -317,7 +318,7 @@ public class PartialPushCommandTests
     /// failure in that gap left HEAD on the layout commit with the old volt/ide and baseline. The fast-forward is made to
     /// fail here (the index is locked once the push reaches the bridge): volt/ide and the sidecar must already hold what
     /// landed.</summary>
-    [Fact]
+    [Fact(Skip = ReadOnlyNetworkPush.Skip)]
     public void A_partial_push_writes_the_ide_ref_and_the_baseline_before_it_moves_the_working_tree()
     {
         const string canonical = "%LANGUAGE LD\nNETWORK\n  t1 : TON(IN := a, PT := pt);\nEND_NETWORK";

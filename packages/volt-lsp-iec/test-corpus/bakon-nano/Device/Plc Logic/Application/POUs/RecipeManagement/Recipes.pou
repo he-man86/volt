@@ -34,8 +34,8 @@ VAR
 	sRecipeNamePar: STRING(255);
 END_VAR
 %LANGUAGE FBD
-NETWORK
-  EXECUTE
+%NETWORK
+%EXECUTE(EN := TRUE)
 IF g_HMI_MachCommand.CMD.bNewRecipe THEN
 	g_HMI_RCP_Parameters_Visu.nProductType:=0;			(* ProductType = 0 = Slab Square *)
 															(* ProductType = 1 = Slab triangle *)
@@ -87,40 +87,30 @@ IF g_HMI_MachCommand.CMD.bNewRecipe THEN
 														
 	g_HMI_RCP_Parameters_Visu.bMirrorDiagonals := FALSE;
 END_IF
-  END_EXECUTE ENO EN TRUE;
-END_NETWORK
-NETWORK
-  L_RecipeManager1 : L_RecipeManager_Rcp(xEnable := TRUE, sDatabaseName := 'Recipes', sSelectedRecipeName := sSelectedRecipeName, xRecipe_Load := g_HMI_MachCommand.CMD.bLoadRecipe, xRecipe_New := g_HMI_MachCommand.CMD.bNewRecipe, xRecipe_Edit := g_HMI_MachCommand.CMD.bEditRecipe, xRecipe_Save := g_HMI_MachCommand.CMD.bSaveRecipe, xRecipe_Copy := g_HMI_MachCommand.CMD.bCopyRecipe, xRecipe_Delete := g_HMI_MachCommand.CMD.bDeleteRecipe, xRecipe_Update := g_HMI_MachCommand.CMD.bUpdateRecipe, scRecipeVisu := g_HMI_RCP_Parameters_Visu, scRecipePLC := g_HMI_RCP_Parameters, sRecipeNames => sRecipeNames, dwReturnValue => dwReturnValue);
-END_NETWORK
-NETWORK
-  // Generate machinepar name based on system time.
-  GetDateAndTime : rtclk.GetDateAndTime(xExecute := g_HMI_MachCommand.CMD.bSaveMachPar, dtDateAndTime => dtDateAndTIme);
-END_NETWORK
-NETWORK
-  sDateAndTIme := TO_STRING(dtDateAndTIme);
-END_NETWORK
-NETWORK
-  sDateAndTIme1 := DELETE(STR := sDateAndTIme, LEN := 4, POS := 0);
-END_NETWORK
-NETWORK
-  sDateAndTIme2 := REPLACE(STR1 := sDateAndTIme1, STR2 := 'h', L := 1, P := 14);
-END_NETWORK
-NETWORK
-  sRecipeNamePar := REPLACE(STR1 := sDateAndTIme2, STR2 := 'm', L := 1, P := 17);
-END_NETWORK
-NETWORK
-  EXECUTE
+%END_EXECUTE
+%NETWORK
+L_RecipeManager1(xEnable := TRUE, sDatabaseName := 'Recipes', sSelectedRecipeName := sSelectedRecipeName, xRecipe_Load := g_HMI_MachCommand.CMD.bLoadRecipe, xRecipe_New := g_HMI_MachCommand.CMD.bNewRecipe, xRecipe_Edit := g_HMI_MachCommand.CMD.bEditRecipe, xRecipe_Save := g_HMI_MachCommand.CMD.bSaveRecipe, xRecipe_Copy := g_HMI_MachCommand.CMD.bCopyRecipe, xRecipe_Delete := g_HMI_MachCommand.CMD.bDeleteRecipe, xRecipe_Update := g_HMI_MachCommand.CMD.bUpdateRecipe, scRecipeVisu := g_HMI_RCP_Parameters_Visu, scRecipePLC := g_HMI_RCP_Parameters, sRecipeNames => sRecipeNames, dwReturnValue => dwReturnValue);
+%NETWORK
+// Generate machinepar name based on system time.
+GetDateAndTime(xExecute := g_HMI_MachCommand.CMD.bSaveMachPar, dtDateAndTime => dtDateAndTIme);
+%NETWORK
+sDateAndTIme := TO_STRING(dtDateAndTIme);
+%NETWORK
+sDateAndTIme1 := DELETE(STR := sDateAndTIme, LEN := 4, POS := 0);
+%NETWORK
+sDateAndTIme2 := REPLACE(STR1 := sDateAndTIme1, STR2 := 'h', L := 1, P := 14);
+%NETWORK
+sRecipeNamePar := REPLACE(STR1 := sDateAndTIme2, STR2 := 'm', L := 1, P := 17);
+%NETWORK
+%EXECUTE(EN := TRUE)
 IF g_HMI_MachCommand.CMD.bSaveMachPar AND GetDateAndTime.xDone THEN
 	sMachParName := sRecipeNamePar;
 	bSavePars := TRUE;
 	g_HMI_MachCommand.CMD.bSaveMachPar := FALSE;
 END_IF
-  END_EXECUTE ENO EN TRUE;
-END_NETWORK
-NETWORK
-END_NETWORK
-NETWORK
-  L_MachParManager1 : L_RecipeManager(xEnable := TRUE, sDatabaseName := 'MachPar', sRecipeName := sMachParName, xRecipe_Delete := g_HMI_MachCommand.CMD.bDeleteMachPar, xRecipe_Load := g_HMI_MachCommand.CMD.bLoadMachPar, xRecipe_Save := bSaveParAs, xRecipe_SaveAs := bSavePars, sActiveRecipe := sActiveMachPar, sRecipeNames => sMachParNames, dwReturnValue => dwMachParReturnValue);
-END_NETWORK
+%END_EXECUTE
+%NETWORK
+%NETWORK
+L_MachParManager1(xEnable := TRUE, sDatabaseName := 'MachPar', sRecipeName := sMachParName, xRecipe_Delete := g_HMI_MachCommand.CMD.bDeleteMachPar, xRecipe_Load := g_HMI_MachCommand.CMD.bLoadMachPar, xRecipe_Save := bSaveParAs, xRecipe_SaveAs := bSavePars, sActiveRecipe := sActiveMachPar, sRecipeNames => sMachParNames, dwReturnValue => dwMachParReturnValue);
 
 END_PROGRAM

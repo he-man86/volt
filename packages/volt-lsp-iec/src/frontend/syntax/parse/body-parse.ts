@@ -16,6 +16,7 @@ import type { BodySpan } from "../ast/nodes/index.js"
 import { isConditionalDirective } from "../pragmas/conditional.js"
 import type { ConditionWorld } from "../pragmas/condition-eval.js"
 import { type BodyParse, parseSourceStatementTokens, parseStatementTokens } from "./statements.js"
+import { statementTokensOf } from "../network/plain-st.js"
 
 /** The world of a caller that holds none: every condition beyond the body's own defines is refused by name. */
 const NO_WORLD: ConditionWorld = Object.freeze({})
@@ -35,10 +36,10 @@ const isConditional = (body: BodySpan): boolean => body.tokens.some((t) => t.kin
  *  never guessed; what lies outside that chain keeps its errors and messages. */
 export function bodyStatements(body: BodySpan, world: ConditionWorld = NO_WORLD): BodyParse {
   const e = entryOf(body)
-  if (!isConditional(body)) return (e.plain ??= parseStatementTokens(body.tokens, body.dialect))
+  if (!isConditional(body)) return (e.plain ??= parseStatementTokens(statementTokensOf(body), body.dialect))
   const byWorld = (e.byWorld ??= new WeakMap())
   let parsed = byWorld.get(world)
-  if (parsed === undefined) byWorld.set(world, (parsed = parseStatementTokens(body.tokens, body.dialect, world)))
+  if (parsed === undefined) byWorld.set(world, (parsed = parseStatementTokens(statementTokensOf(body), body.dialect, world)))
   return parsed
 }
 
@@ -46,6 +47,8 @@ export function bodyStatements(body: BodySpan, world: ConditionWorld = NO_WORLD)
  *  the source services; a body with no conditional directive has one tree, and this is it (`bodyStatements`). */
 export function sourceStatements(body: BodySpan): BodyParse {
   const e = entryOf(body)
-  if (!isConditional(body)) return (e.plain ??= parseStatementTokens(body.tokens, body.dialect))
-  return (e.source ??= parseSourceStatementTokens(body.tokens, body.dialect))
+  // a plain-ST network body as written holds its disabled networks' code, which it does not compile
+  if (statementTokensOf(body, true) !== statementTokensOf(body)) return (e.source ??= parseStatementTokens(statementTokensOf(body, true), body.dialect))
+  if (!isConditional(body)) return (e.plain ??= parseStatementTokens(statementTokensOf(body), body.dialect))
+  return (e.source ??= parseSourceStatementTokens(statementTokensOf(body, true), body.dialect))
 }

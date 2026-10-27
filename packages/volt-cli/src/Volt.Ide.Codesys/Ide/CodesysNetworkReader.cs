@@ -286,12 +286,13 @@ namespace Volt.Ide.Codesys
             // cannot locate, and reading the gap as "no flag" is the silent drop 1.13 was.
             if (pinFlags.Count != items.Count) throw PinFlagsMisaligned(n, pinFlags.Count, items.Count);
 
-            // THE ENABLE IS INPUT SLOT 0, not the `En` member. `Box.HasEnableSlot` holds the measurement and
-            // what reading it as a data pin cost; here it is two lines, and they must run BEFORE the pins are
-            // paired with their names so the remaining slots line up with the remaining names.
+            // THE ENABLE IS INPUT SLOT 0, not the `En` member — but WHETHER slot 0 is the enable is the `En` flag, never
+            // the slot's name (network-text-st 1c: a callee that declares its own EN, Lenze `IDB_WSM`, stores `En` false
+            // over a slot 0 named EN, and CODESYS runs it as a plain call passing that pin). `Box.ShowsEnable` holds the
+            // rule; it runs BEFORE the pins are paired with their names so the remaining slots line up with the names.
             Node? enable = null;
             var enableFlags = Flags.None;
-            if (Box.HasEnableSlot(formals) && items.Count > 0)
+            if (Box.ShowsEnable(NwlInterop.Get(n, "En") as bool?, formals, CodesysDriver.Row.Display, type) && items.Count > 0)
             {
                 // The EN pin's own modifier (2R.5, #16: a negated EN pin stores, builds and runs) — Box.EnableFlags.
                 enableFlags = pinFlags[0];
@@ -325,18 +326,19 @@ namespace Volt.Ide.Codesys
             // slot a consumed box is connected by. `MainOutputIndex` is absent on the AND/OR boxes (census 1.6) and on
             // every box a push built (read-only, DIALECT N21); where it is absent the slot is the one the COMPILER was
             // measured to read (`UnstoredMainOutput`), and null where no measurement says — never a default: the
-            // writer refuses a box whose slot nobody read. Whether the box HAS an ENO output is its output list's
-            // first name (`Box.HasEnoSlot`), independent of EN — census 1.6 found 40 enabled comparisons with none.
+            // writer refuses a box whose slot nobody read. Whether the box HAS an ENO output is its
+            // stored `Eno` flag (`Box.ShowsEno`, network-text-st 1c), independent of EN — census 1.6 found 40 enabled comparisons with none.
             var outputNames = Names(n, "OutputParams");
+            var hasEno = Box.ShowsEno(NwlInterop.Get(n, "Eno") as bool?, outputNames, CodesysDriver.Row.Display, type);
             var mainOutput = NwlInterop.Get(n, "MainOutputIndex") is int main ? main
-                : consumed ? UnstoredMainOutput(type, enable is not null, outputNames) : null;
+                : consumed ? UnstoredMainOutput(type, enable is not null, hasEno, outputNames) : null;
 
             return new Box(
                 type,
                 instance,
                 ReadCallKind(NwlInterop.Get(n, "CallType"), instance),
                 inputs,
-                ReadBoxOutputs(n, type, outputNames),
+                ReadBoxOutputs(n, type, outputNames, hasEno),
                 // From INPUT SLOT 0 (above), never from `En` and never from `EnEno`. `EnEno` is a CAPABILITY
                 // marker, true on every box in a real project including every plain AND and OR, so keying on it
                 // would wrap the whole project in `IF en THEN … END_IF`. `En` is the "EN/ENO is shown" flag —
@@ -346,8 +348,8 @@ namespace Volt.Ide.Codesys
                 flags,
                 ConnectedSlot: consumed ? mainOutput : null,
                 OutputTypes: OutputTypes(n),
-                HasEnoOutput: Box.HasEnoSlot(outputNames),
-                MainOutputName: consumed ? Box.NameOfConnectedOutput(instance is not null, mainOutput, Box.HasEnoSlot(outputNames), outputNames) : null,
+                HasEnoOutput: hasEno,
+                MainOutputName: consumed ? Box.NameOfConnectedOutput(instance is not null, mainOutput, hasEno, outputNames) : null,
                 // The stored output names whole (ld-fbd-coverage 2.3): S1's slot on a bit operator, a call's unconnected
                 // pins — the text spells them where they differ from what its own pins give.
                 Members: NwlMembers.Of((NetworkMembers.OutputNames, MemberValue.Texts(outputNames.Select(x => x ?? "")))))
@@ -363,9 +365,9 @@ namespace Volt.Ide.Codesys
         /// (<c>Box.StoresNoMainOutput</c>). An enabled box whose list names no ENO has no slot the text could state
         /// (the ENO is read, and the text reads a suffix-less consumer as a data output), so it stays null and the
         /// writer names it.</para></summary>
-        private static int? UnstoredMainOutput(string type, bool enabled, IReadOnlyList<string?> outputNames)
+        private static int? UnstoredMainOutput(string type, bool enabled, bool hasEno, IReadOnlyList<string?> outputNames)
         {
-            if (enabled) return Box.HasEnoSlot(outputNames) ? 0 : null;
+            if (enabled) return hasEno ? 0 : null;
             return NetworkText.IsBitOperator(type) ? (outputNames.Count > 0 ? 0 : null) : 0;
         }
 
@@ -442,7 +444,7 @@ namespace Volt.Ide.Codesys
         /// <summary>A box's OUTPUT PINS — the ones actually wired to something.
         ///
         /// <para>The vendor's <c>OutputParams.Names</c> is index-aligned with <c>Outputs</c>, exactly like the
-        /// input side, and slot 0 is the <c>ENO</c> ECHO when the vendor names it so (<c>Box.HasEnoSlot</c>).
+        /// input side, and slot 0 is the <c>ENO</c> ECHO when the box shows its ENO (<c>Box.ShowsEno</c>).
         /// Measured across 373 networks: the ENO slot is null in every case — the rung's continuation is the
         /// enclosing <c>Assign</c>, not a variable — so it is not a data pin. That measurement is not a guarantee: a
         /// variable wired there is the named ENO pin, <c>ENO =&gt; lamp</c> (P5; 2R.5 #23 — it stores and builds, and is
@@ -454,7 +456,7 @@ namespace Volt.Ide.Codesys
         /// declared output whether or not the engineer wired it — 29 empty slots on one 30-pin box — so the
         /// non-empty ones are the connections, and emitting the rest would fabricate assignments to nothing.
         /// Nulls occur too (the ENO slot), so both are skipped.</para></summary>
-        private static List<Output> ReadBoxOutputs(object n, string type, IReadOnlyList<string?> names)
+        private static List<Output> ReadBoxOutputs(object n, string type, IReadOnlyList<string?> names, bool hasEno)
         {
             // RAW, nulls and all. `NwlInterop.Items` drops nulls — right for a list read for its CONTENT, and
             // wrong here, because the ENO slot IS a null and dropping it shifts every later slot one place
@@ -463,7 +465,7 @@ namespace Volt.Ide.Codesys
             var holder = NwlInterop.Require(n, "Outputs");
             var slots = (NwlInterop.Get(holder, "List") as IEnumerable
                          ?? throw BoxRefusals.MissingList(CodesysDriver.Row.Display, type, "Outputs.List")).Cast<object?>().ToList();
-            var eno = Box.HasEnoSlot(names) ? 1 : 0;
+            var eno = hasEno ? 1 : 0;
             var outputs = new List<Output>();
             // 2R.5 (#23): a variable stored on the ENO slot is the named ENO pin, `ENO => lamp` (P5) — it stores and builds.
             if (eno == 1 && slots.Count > 0 && slots[0] is { } enoSlot && ReadOperand(enoSlot) is { Text.Length: > 0 } wired)

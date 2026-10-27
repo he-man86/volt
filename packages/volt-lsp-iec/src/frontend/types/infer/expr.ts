@@ -27,6 +27,7 @@ import {
   staticNameOf,
 } from "./member.js"
 import { callReturnType } from "./builtin-call.js"
+import { wireType } from "./network-call.js"
 
 /** A CODESYS partial access's member name (`%X0`, `%b3`), one token (`lex/lexer`): its width letter. */
 const PARTIAL_ACCESS = /^%([XBWD])\d+$/i
@@ -82,6 +83,8 @@ function identType(expr: Extract<Expr, { kind: "ident_expr" }>, scope: Scope, pr
   // a global that clashes — two of the project's lists, or a global and an own enum's member — names nothing, so it
   // has no type (`names.ts` `globalClash`)
   if (sym?.kind === "gvl_var" && globalClash(scope, sym, expr.name) !== undefined) return UNKNOWN
+  // a plain-ST network body's wire is of its definition's type (`network-call.ts`)
+  if (sym?.wire !== undefined) return wireType(sym, project)
   // a GVL's name, and a FUNCTION's or METHOD's where it is no call, denote the declaration (rule DT8)
   const denoted = sym === undefined ? undefined : staticNameOf(sym, scope)
   if (denoted !== undefined) return denoted

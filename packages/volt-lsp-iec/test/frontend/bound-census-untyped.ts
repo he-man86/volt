@@ -9,12 +9,12 @@ import { isElementaryTypeName, resolveBareName } from "../../src/frontend/types/
 import {
   allUnits,
   bodyStatements,
-  isStBody,
   unitBodies,
   walkExpr,
   walkStatements,
   type Expr,
 } from "../../src/frontend/syntax/index.js"
+import { measuredStBody } from "./st-bodies.js"
 import { compilerExprText } from "../../src/analysis/index.js"
 import { inferExprType, resolveMemberChain, resolveTypeExpr } from "../../src/frontend/types/index.js"
 import { lookup, rootOf, type Scope } from "../../src/frontend/symbols/index.js"
@@ -251,7 +251,7 @@ export function noValidStatementsIn(b: Bound, says: ReadonlySet<string> | undefi
   const spans: { start: number; end: number }[] = []
   for (const unit of allUnits(b.parsed.parseResult.units))
     for (const body of unitBodies(unit)) {
-      if (!isStBody(body)) continue
+      if (!measuredStBody(body)) continue
       walkStatements(bodyStatements(body, bodyConditionWorld(b.project, unit, body)).statements, (st) => {
         if (st.kind === "expr_stmt" && echoes.has(compilerExprText(st.expr).toLowerCase())) spans.push(st.expr.span)
       })

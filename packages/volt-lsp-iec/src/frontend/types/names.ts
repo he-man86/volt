@@ -45,9 +45,32 @@ export function resolveBareName(scope: Scope, name: string): BareName {
     if (clash !== undefined) return { kind: "ambiguous", candidates: clash, said: true }
     return tagged(found.symbol, found.foundIn)
   }
+  if (isNetworkBox(scope, name)) return { kind: "builtin", builtin: "network-box" }
   const member = resolveBareEnumMember(scope, name)
   if (member === undefined) return NONE
   return member.kind === "member" ? { kind: "enum-member", symbol: member.symbol } : { kind: "ambiguous", candidates: member.candidates, said: member.said }
+}
+
+/** The suffix of an enabled box's function in plain-ST network text: `MOVE_EN`, `GT_EN`, `t1_EN`. */
+export const ENABLED_SUFFIX = "_EN"
+
+/**
+ * IS `name` A NETWORK'S OWN BOX in `scope` (openspec network-text-st: one function per toolbox element) — written inside a
+ * plain-ST network body (`Scope.network`) and declared by nothing: `EXECUTE`, the Execute box, and `<X>_EN`, the ENABLED
+ * box of whatever `X` names (an operator, a function, an FB instance). Such a call returns its ENO.
+ */
+export function isNetworkBox(scope: Scope, name: string): boolean {
+  if (!inNetwork(scope)) return false
+  const upper = name.toUpperCase()
+  if (upper === "EXECUTE") return true
+  if (!upper.endsWith(ENABLED_SUFFIX) || upper.length === ENABLED_SUFFIX.length) return false
+  const base = resolveBareName(scope, name.slice(0, -ENABLED_SUFFIX.length)).kind
+  return base !== "none" && base !== "ambiguous"
+}
+
+function inNetwork(scope: Scope): boolean {
+  for (let s: Scope | undefined = scope; s !== undefined; s = s.parent) if (s.network === true) return true
+  return false
 }
 
 /**

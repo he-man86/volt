@@ -3,8 +3,7 @@ VAR
 END_VAR
 
 %LANGUAGE LD
-NETWORK
-  LST_General.FirstCycle S= ;
-END_NETWORK
+%NETWORK
+LST_General.FirstCycle S= TRUE;
 
 END_PROGRAM

@@ -73,21 +73,16 @@ END_PROGRAM
 
 ACTION actReadFromFile
 %LANGUAGE FBD
-NETWORK
-  fbReadErrorFromFile : L_FECA.L_ReadErrorFromFile(asErrorText := L_FECA.GVL_ReadErrorFromFile.asErrorText, adwErrorID := L_FECA.GVL_ReadErrorFromFile.adwErrorID, xEnable := xEnable, xExecute := xExecute, xStoreAllErrorText := xStoreAllErrorText, xStoreTexRefIDErrorText := xStoreTexRefIDErrorText, xStoreAllAppTexRefIDErrorText := xStoreAllAppTexRefIDErrorText, xStopIfErrorFound := xStopIfErrorFound, xContinuousRead := xContinuousRead, xRepeat := xRepeat, xInit := xInit, xClearErrorArrays := xClearErrorArrays, scIN := scIN, xError => xError, xBusy => xBusy, xDone => xDone, scOUT => scOUT);
-END_NETWORK
-NETWORK
-  xRepeat := FALSE;
-END_NETWORK
-NETWORK
-  xInit := FALSE;
-END_NETWORK
-NETWORK
-  xRestart := FALSE;
-END_NETWORK
-NETWORK
-  xClearErrorArrays := FALSE;
-END_NETWORK
+%NETWORK
+fbReadErrorFromFile(asErrorText := L_FECA.GVL_ReadErrorFromFile.asErrorText, adwErrorID := L_FECA.GVL_ReadErrorFromFile.adwErrorID, xEnable := xEnable, xExecute := xExecute, xStoreAllErrorText := xStoreAllErrorText, xStoreTexRefIDErrorText := xStoreTexRefIDErrorText, xStoreAllAppTexRefIDErrorText := xStoreAllAppTexRefIDErrorText, xStopIfErrorFound := xStopIfErrorFound, xContinuousRead := xContinuousRead, xRepeat := xRepeat, xInit := xInit, xClearErrorArrays := xClearErrorArrays, scIN := scIN, xError => xError, xBusy => xBusy, xDone => xDone, scOUT => scOUT);
+%NETWORK
+xRepeat := FALSE;
+%NETWORK
+xInit := FALSE;
+%NETWORK
+xRestart := FALSE;
+%NETWORK
+xClearErrorArrays := FALSE;
 END_ACTION
 
 ACTION actSequencer

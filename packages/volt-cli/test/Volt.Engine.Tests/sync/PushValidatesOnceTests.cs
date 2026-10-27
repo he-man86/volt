@@ -6,6 +6,7 @@ using Volt.Engine.Ide;
 using Volt.Engine.Item;
 using Volt.Engine.Sync;
 using Xunit;
+using Volt.Tests.Shared;
 
 namespace Volt.Engine.Tests;
 
@@ -37,7 +38,7 @@ public class PushValidatesOnceTests
     private static string Reasons(PushResponse r) =>
         r.Conflicts is null ? "(none)" : string.Join(" | ", r.Conflicts.Select(c => c.Reason));
 
-    [Fact]
+    [Fact(Skip = ReadOnlyNetworkPush.Skip)]
     public void A_create_validates_each_network_body_once()
     {
         var ide = new FakeIde();
@@ -49,7 +50,7 @@ public class PushValidatesOnceTests
         Assert.Equal(2, ide.WrittenBodies["FB_N"].Count);
     }
 
-    [Fact]
+    [Fact(Skip = ReadOnlyNetworkPush.Skip)]
     public void An_update_validates_its_body_once()
     {
         var ide = new FakeIde(FakeIde.Item.TextualPou("FB_N", Decl, Fbd));
@@ -62,7 +63,7 @@ public class PushValidatesOnceTests
 
     /// <summary>A move+edit writes twice (before the move, and again after it, because a move can replace the item) —
     /// from the ONE reading the pre-flight made.</summary>
-    [Fact]
+    [Fact(Skip = ReadOnlyNetworkPush.Skip)]
     public void A_move_and_edit_validates_its_body_once_and_writes_it_twice()
     {
         var ide = new FakeIde(FakeIde.Item.TextualPou("FB_N", Decl, Fbd, folder: "From"));

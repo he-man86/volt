@@ -14,6 +14,7 @@
  */
 import type {
   Action,
+  CallExpr,
   CompileEnvironment,
   Dialect,
   EnumValue,
@@ -21,6 +22,7 @@ import type {
   InterfaceProperty,
   Method,
   Property,
+  Expr,
   Span,
   TopLevel,
   TypeExpr,
@@ -78,6 +80,12 @@ export interface Symbol {
    * bare-name search path (only `GvlName.varName` resolves). Kept independent of the type system.
    */
   qualifiedOnly?: boolean
+  /**
+   * A WIRE of a plain-ST network body (openspec network-text-st; `network-scope.ts`): a name on its network's `%WIRES`
+   * line, declared by nobody, its type its definition's — `w := <expr>`, or an output a call binds it to (`Q => w`,
+   * `ENO => w`, `OUT => w`). The type engine types it from here (`types/infer/network-call.ts`).
+   */
+  wire?: WireDefinition
   /** Backing AST node for downstream queries — a device instance's descriptor, which is no ST. */
   ast: TopLevel | VarDecl | EnumValue | InterfaceMethod | InterfaceProperty | Method | Action | Property | DeviceInstance
 }
@@ -96,6 +104,9 @@ export interface DeviceInstance {
   /** The descriptor's uri. */
   uri: string
 }
+
+/** Where a wire of a plain-ST network body gets its value: an expression assigned to it, or a call's output bound to it. */
+export type WireDefinition = { kind: "value"; expr: Expr } | { kind: "output"; call: CallExpr; param: string } | { kind: "none" }
 
 export type ScopeKind =
   | "project"
@@ -163,6 +174,11 @@ export interface Scope {
    * elements a name looked up in the namespace means before its dependencies' (rule LB3, `scope-nav` `namespaceHit`).
    */
   libraryUri?: string
+  /**
+   * A PLAIN-ST NETWORK BODY's scope (`network-scope.ts`): its wires over the unit's scope, and where the network's own
+   * box names mean something — an enabled box `X_EN`, the Execute box `EXECUTE` (`types/names.ts`).
+   */
+  network?: true
   /** For a TOP-LEVEL project child only: the URI of the file that contributed it. Set by `bindFile`, read
    *  by `unbindFile` to surgically drop one file's scopes on an incremental re-index. Undefined elsewhere. */
   defUri?: string

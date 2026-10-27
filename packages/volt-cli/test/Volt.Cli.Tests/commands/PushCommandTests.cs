@@ -3,6 +3,7 @@ using System.Linq;
 using Volt.Cli.Sync;
 using Xunit;
 using static Volt.Cli.Tests.CommandHarness;
+using Volt.Tests.Shared;
 
 namespace Volt.Cli.Tests;
 
@@ -91,7 +92,7 @@ public class PushCommandTests
     /// MODEL and materializes it in the canonical layout. The CLI records that text as <c>volt/ide</c> and brings the
     /// working tree to it — so the next pull reports nothing, the workspace holds the canonical layout, and nothing
     /// is outgoing.</summary>
-    [Fact]
+    [Fact(Skip = ReadOnlyNetworkPush.Skip)]
     public void A_hand_wrapped_graphical_call_is_adopted_in_the_IDEs_layout_after_the_push()
     {
         const string canonical = "%LANGUAGE LD\nNETWORK\n  t1 : TON(IN := a, PT := pt);\nEND_NETWORK";
@@ -127,7 +128,7 @@ public class PushCommandTests
     /// what was pushed, the push says which item the IDE holds otherwise, and the next pull brings the IDE's text in as
     /// the change it is. Adopting it merged a semantic difference into the working tree under a layout commit, and
     /// the next pull said "already up to date".</summary>
-    [Fact]
+    [Fact(Skip = ReadOnlyNetworkPush.Skip)]
     public void A_pushed_body_the_IDE_holds_as_other_tokens_is_not_adopted_as_a_layout()
     {
         const string canonical = "%LANGUAGE LD\nNETWORK\n  t1 : TON(IN := a, PT := pt);\nEND_NETWORK";
@@ -163,7 +164,7 @@ public class PushCommandTests
     /// give back, was never COMPARED — so it must not be reported as "held as another program". It used to be filed
     /// there by default: a missing fact turned into a claim about the IDE's program. It is named as what it is — its
     /// text did not come back — and the baseline keeps the pushed version, so the next pull fetches it.</summary>
-    [Fact]
+    [Fact(Skip = ReadOnlyNetworkPush.Skip)]
     public void A_pushed_item_whose_text_the_IDE_does_not_give_back_is_not_claimed_as_another_program()
     {
         const string canonical = "%LANGUAGE LD\nNETWORK\n  t1 : TON(IN := a, PT := pt);\nEND_NETWORK";

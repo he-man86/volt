@@ -1,0 +1,117 @@
+#### branch-fed — the v2 case parallel/branch-fed, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+lamp := start AND (a OR b AND LE(speed, 40) OR c);
+=== model
+NETWORK
+  (:= lamp (AND start (OR a (AND b (LE speed 40 conn:0)) c)))
+
+#### branch-shortcircuit — the v2 case parallel/branch-shortcircuit, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+lamp := start AND (a OR b);
+=== model
+NETWORK
+  (:= lamp (AND start (OR a b)))
+
+#### branch-unfed — the v2 case parallel/branch-unfed, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+lamp := a OR b;
+=== model
+NETWORK
+  (:= lamp (OR a b))
+
+#### branch-nested — the v2 case parallel/branch-nested, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+lamp := start AND (a OR c AND (b OR go));
+=== model
+NETWORK
+  (:= lamp (AND start (OR a (AND c (OR b go)))))
+
+#### branch-as-operand — the v2 case parallel/branch-as-operand, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%WIRES w1
+LE_EN(EN := low, speed, 40, OUT => w1);
+MOVE_EN(EN := (run AND (NOT low OR w1)) AND NOT cleaning, speed, OUT => t);
+=== model
+NETWORK
+  (MOVE speed =>1:t en:(AND (AND run (OR not:low (LE speed 40 en:low conn:0))) not:cleaning) eno:1)
+
+#### branch-word-feed — the v2 case parallel/branch-word-feed, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%UNSUPPORTED "an operand named like an ST keyword" #38dc1034
+=== model
+NETWORK unsupported:"an operand named like an ST keyword" hash:38dc1034
+
+#### branch-negated-feed — the v2 case parallel/branch-negated-feed, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%UNSUPPORTED "an operand named like an ST keyword" #234d8a99
+=== model
+NETWORK unsupported:"an operand named like an ST keyword" hash:234d8a99
+
+#### branch-as-en-source — the v2 case parallel/branch-as-en-source, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+MOVE_EN(EN := go AND (a OR b), 1, OUT => x);
+=== model
+NETWORK
+  (MOVE 1 =>1:x en:(AND go (OR a b)) eno:1)
+
+#### branch-of-enabled-comparisons — the v2 case parallel/branch-of-enabled-comparisons, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%WIRES w1, w2, w3
+GE_EN(EN := TRUE, pos, start, OUT => w2);
+LE_EN(EN := w2, pos, stop, OUT => w1);
+GT_EN(EN := TRUE, start, stop, OUT => w3);
+cam := enable AND (w1 OR w3);
+=== model
+NETWORK
+  (:= cam (AND enable (OR (LE pos stop en:(GE pos start en:TRUE conn:0) conn:0) (GT start stop en:TRUE conn:0))))
+
+#### branch-per-line — the v2 case parallel/branch-per-line, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%UNSUPPORTED "a Parallel with a side effect on a branch" #95248210
+=== model
+NETWORK unsupported:"a Parallel with a side effect on a branch" hash:95248210
+
+#### branch-per-line-read-on-one — the v2 case parallel/branch-per-line-read-on-one, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%UNSUPPORTED "a Parallel with a side effect on a branch" #95248210
+=== model
+NETWORK unsupported:"a Parallel with a side effect on a branch" hash:95248210
+
+#### empty-branch — the v2 case parallel/empty-branch, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+%UNSUPPORTED "an operand named like an ST keyword" #05612c7b
+=== model
+NETWORK unsupported:"an operand named like an ST keyword" hash:05612c7b
+
+#### eno-feeds-a-branch — the v2 case parallel/eno-feeds-a-branch, as a pull writes it
+=== text
+%LANGUAGE LD
+%NETWORK
+x := MOVE_EN(EN := c, 1, OUT => t) AND (d OR e);
+=== model
+NETWORK
+  (:= x (AND (MOVE 1 =>1:t en:c conn:0 eno:1) (OR d e)))

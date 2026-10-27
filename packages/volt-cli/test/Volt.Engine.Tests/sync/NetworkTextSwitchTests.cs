@@ -101,8 +101,9 @@ public class NetworkTextSwitchTests
     {
         var text = Pulled(Ide());
 
-        Assert.Contains("METHOD Rung : BOOL\n%LANGUAGE LD\nNETWORK", text);
-        Assert.Contains("METHOD Box : BOOL\n%LANGUAGE FBD\nNETWORK", text);
+        // Plain-ST network text (network-text-st 2.1).
+        Assert.Contains("METHOD Rung : BOOL\n%LANGUAGE LD\n%NETWORK", text);
+        Assert.Contains("METHOD Box : BOOL\n%LANGUAGE FBD\n%NETWORK", text);
         Assert.DoesNotContain("UNSUPPORTED", text);
     }
 
@@ -198,7 +199,7 @@ public class NetworkTextSwitchTests
             ide.ReadContent(new ItemRef("FB_Mix")).Members.Single(m => m.Name == "Rung").Declaration);
         Assert.Equal(held, new[] { "Rung", "Box" }.Select(ide.StoredImplementation));
         // …and a pull from this bridge now shows the ladder as network text again: nothing was lost.
-        Assert.Contains("METHOD Rung : BOOL\nVAR_INPUT\n\tbStart : BOOL;\nEND_VAR\n%LANGUAGE LD\nNETWORK", Pulled(ide));
+        Assert.Contains("METHOD Rung : BOOL\nVAR_INPUT\n\tbStart : BOOL;\nEND_VAR\n%LANGUAGE LD\n%NETWORK", Pulled(ide));
     }
 
     /// <summary>The production file pushed back unchanged at a development bridge is the ordinary no-op.</summary>

@@ -49,8 +49,9 @@ export const BUILTIN_OPERATOR_NAMES: ReadonlySet<string> = new Set([
  */
 export const COMPILER_IMPLICITS: ReadonlySet<string> = new Set(["THIS", "SUPER", "IOCONFIG_GLOBALS", "TYPE_CLASS"])
 
-/** What kind of compiler-provided name a bare name is (`builtinName`). */
-export type BuiltinName = "system-operator" | "conversion" | "implicit" | "operator" | "type"
+/** What kind of compiler-provided name a bare name is (`builtinName`) — and, in a plain-ST network body, a network's own
+ *  box (`names.ts` `isNetworkBox`: an enabled box `X_EN`, the Execute box). */
+export type BuiltinName = "system-operator" | "conversion" | "implicit" | "operator" | "type" | "network-box"
 
 /**
  * `name` as one of the compiler's own names in `dialect`, or undefined. A type name is a type only where the dialect has

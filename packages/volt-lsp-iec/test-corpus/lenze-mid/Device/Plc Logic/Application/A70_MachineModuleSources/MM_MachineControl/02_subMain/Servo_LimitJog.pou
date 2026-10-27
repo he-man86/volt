@@ -15,22 +15,17 @@ END_VAR
 
 
 %LANGUAGE LD
-NETWORK TITLE: "NETWORK 3 (p1): Check for limit switch"
-  ioUDT_JogLimitFree.Status.Limit_Left_OK := iServoStatus.Spare1;
-END_NETWORK
-NETWORK TITLE: "NETWORK 3 (p2): Check for limit switch"
-  ioUDT_JogLimitFree.Status.Limit_Right_OK := iServoStatus.Spare2;
-END_NETWORK
-NETWORK TITLE: "COPY previous control word to current controlword"
-  EXECUTE
+%NETWORK "NETWORK 3 (p1): Check for limit switch"
+ioUDT_JogLimitFree.Status.Limit_Left_OK := iServoStatus.Spare1;
+%NETWORK "NETWORK 3 (p2): Check for limit switch"
+ioUDT_JogLimitFree.Status.Limit_Right_OK := iServoStatus.Spare2;
+%NETWORK "COPY previous control word to current controlword"
+%EXECUTE(EN := TRUE)
 oServoControl:=iServoControl;
-  END_EXECUTE ENO EN;
-END_NETWORK
-NETWORK TITLE: "NETWORK 4 (p1): ControlToFreeLimitSwitches"
-  oServoControl.Spare1 := ioUDT_JogLimitFree.Status.Limit_Left_OK AND ioUDT_JogLimitFree.Control.Jog_LimitToLeft;
-END_NETWORK
-NETWORK TITLE: "NETWORK 4 (p2): ControlToFreeLimitSwitches"
-  oServoControl.Spare2 := ioUDT_JogLimitFree.Status.Limit_Right_OK AND ioUDT_JogLimitFree.Control.Jog_LimitToRight;
-END_NETWORK
+%END_EXECUTE
+%NETWORK "NETWORK 4 (p1): ControlToFreeLimitSwitches"
+oServoControl.Spare1 := ioUDT_JogLimitFree.Status.Limit_Left_OK AND ioUDT_JogLimitFree.Control.Jog_LimitToLeft;
+%NETWORK "NETWORK 4 (p2): ControlToFreeLimitSwitches"
+oServoControl.Spare2 := ioUDT_JogLimitFree.Status.Limit_Right_OK AND ioUDT_JogLimitFree.Control.Jog_LimitToRight;
 
 END_FUNCTION_BLOCK

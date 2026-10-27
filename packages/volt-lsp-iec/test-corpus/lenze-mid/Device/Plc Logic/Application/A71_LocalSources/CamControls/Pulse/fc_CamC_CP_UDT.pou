@@ -16,11 +16,9 @@ VAR_IN_OUT
 END_VAR
 
 %LANGUAGE LD
-NETWORK
-  MOVE iMachinePosition => ioPulse.MachinePos_HMI ENO EN;
-END_NETWORK
-NETWORK
-  fc_CamC_CP_UDT := ioPulse.Active := fc_CamC_CP_Base(iEN := iEN, iStartCam := ioPulse.Start, iMachinePosition := iMachinePosition, iResetFlag := iResetFlag, ioAuxOneShot := ioPulse.OSP);
-END_NETWORK
+%NETWORK
+MOVE_EN(EN := TRUE, iMachinePosition, OUT => ioPulse.MachinePos_HMI);
+%NETWORK
+fc_CamC_CP_UDT := ioPulse.Active := fc_CamC_CP_Base(iEN := iEN, iStartCam := ioPulse.Start, iMachinePosition := iMachinePosition, iResetFlag := iResetFlag, ioAuxOneShot := ioPulse.OSP);
 
 END_FUNCTION

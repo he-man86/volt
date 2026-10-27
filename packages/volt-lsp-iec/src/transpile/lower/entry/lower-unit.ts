@@ -9,7 +9,7 @@
  */
 
 import { pouContext, routineContext } from "../core/keys.js"
-import { isStBody, type TopLevel } from "../../../frontend/syntax/index.js"
+import { isPlainStNetworkBody, isStBody, type TopLevel } from "../../../frontend/syntax/index.js"
 import { type Scope, scopeUri } from "../../../frontend/symbols/index.js"
 import type { LoweringProject } from "../project/prepare.js"
 import { lowerDiagnostic, type LoweredPou } from "../diagnostics/diagnostic.js"
@@ -88,7 +88,8 @@ function lowerOnce(unit: Extract<TopLevel, { kind: "program" | "function_block" 
   // A body the ST parser does not read — network text, or a read-only CFC/SFC/IL body, which is empty — would lower to
   // a POU that "succeeds" and does nothing. Refuse it explicitly, before anything is declared; FBD/LD reach the backend
   // through network text, not through here.
-  if (!isStBody(unit.body)) return refusedBody(unit, bodyOf(lowering, unit, unit.body, undefined, { library: false }) as BodyRefusal)
+  if (!isStBody(unit.body) || isPlainStNetworkBody(unit.body))
+    return refusedBody(unit, bodyOf(lowering, unit, unit.body, undefined, { library: false }) as BodyRefusal)
   lowering.isRoot = true
   lowering.displayName = unit.name.text
   lowering.frameContext = pouContext(unit.name.text)

@@ -408,12 +408,15 @@ internal static class Nwl
     /// <c>Eno = True</c>), and its one input item the EN wire — an Execute box takes no data pin
     /// (<c>MaxInputPinCount = 0</c>). These doubles were <c>BoxType = "Execute"</c> with an unnamed data pin, a shape
     /// no vendor emits, which network text v2 reads as another box type with a pin and refuses: the oracle over the
-    /// reader doubles would have been checking the double, not the vendor.</summary>
+    /// reader doubles would have been checking the double, not the vendor. Its output list names the ENO it shows, as every
+    /// Execute box in the recorded lenze-mid archive stores it (<c>OutputParam.Names ['ENO']</c>): the reader takes the shown
+    /// ENO from the <c>Eno</c> flag and requires that name (network-text-st 2.2, <c>Box.ShowsEno</c>).</summary>
     public static BoxTreeBox ExecuteBox(STSnippet snippet) => new()
     {
         BoxType = "EXECUTE",
         InputItemList = new object[] { Leaf("a") },
         InputParams = new ParamList { Names = new[] { "EN" }, Types = new[] { "BOOL" } },
+        OutputParams = new ParamList { Names = new[] { "ENO" }, Types = new[] { "BOOL" } },
         En = true,
         Eno = true,
         STSnippet = snippet,

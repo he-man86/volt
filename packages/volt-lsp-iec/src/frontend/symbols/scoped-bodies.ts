@@ -21,6 +21,7 @@
  */
 import {
   allUnits,
+  isPlainStNetworkBody,
   isStBody,
   bodyStatements,
   sourceStatements,
@@ -35,6 +36,7 @@ import {
 } from "../syntax/index.js"
 import { scopeForUnit } from "./name-index.js"
 import { conditionWorld } from "./condition-world.js"
+import { networkScope } from "./network-scope.js"
 import type { Scope } from "./model.js"
 
 interface UnitBody {
@@ -84,7 +86,9 @@ function* scopedBodies(units: readonly TopLevel[], project: Scope): Generator<Om
     if (unitScope === undefined) continue
     for (const body of unitBodies(unit)) {
       if (!isStBody(body)) continue
-      yield { unit, body, scope: unitScope.children.find((c) => c.span === body.span) ?? unitScope }
+      const scope = unitScope.children.find((c) => c.span === body.span) ?? unitScope
+      // a plain-ST network body resolves its wires too (`network-scope.ts`)
+      yield { unit, body, scope: isPlainStNetworkBody(body) ? networkScope(scope, body) : scope }
     }
   }
 }

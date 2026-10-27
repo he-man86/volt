@@ -31,6 +31,7 @@ import { checkCallBoxes, checkPins, checkUnresolvedBoxes } from "./_boxes.js"
 import { checkLabels } from "./_labels.js"
 import { checkFormatHints, checkSplitsReused } from "./_format.js"
 import { checkBinaryOps, checkConversionArgs, checkUndeclared } from "./_operands.js"
+import { checkPlainStNetworks } from "./_plain-st.js"
 
 /** What the network pass reads of a document: its uri and its parse. */
 interface NetworkTextDocument {
@@ -69,5 +70,7 @@ export function computeNetworkTextDiagnostics(
     checkLabels(analysis.vg.networks, messages, out)
     checkSplitsReused(analysis.vg.networks, out)
   }
+  // plain-ST network text is ST, which the registry's checks read; this is the one check of what a network holds
+  checkPlainStNetworks(doc.parseResult, project, out)
   return out
 }

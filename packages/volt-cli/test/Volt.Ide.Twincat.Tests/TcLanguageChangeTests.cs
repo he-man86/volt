@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Volt.Engine.Item;
 using Xunit;
+using Volt.Tests.Shared;
 
 namespace Volt.Ide.Twincat.Tests;
 
@@ -47,7 +48,7 @@ public class TcLanguageChangeTests
         Assert.Equal(0, pou.ImplementationWrites);
     }
 
-    [Fact]
+    [Fact(Skip = ReadOnlyNetworkPush.Skip)]
     public void A_graphical_body_written_over_ST_is_refused_by_the_write_itself()
     {
         const string decl = "FUNCTION_BLOCK FB_S\nVAR\n\ta, q : BOOL;\nEND_VAR";

@@ -16,7 +16,7 @@
  *   evidence
  *     confirmed     3169
  *     refused       2106
- *     not-lowered    385
+ *     not-lowered    388
  *     lsp-gap         90
  *     diverges         5
  *     unaskable      152
@@ -1687,6 +1687,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   expr_index_empty: { evidence: "refused" },
   expr_index_of_index_on_2d: { evidence: "refused", tier: "aggregate", rust: "compiles", pedantic: 0, edge: "agree", size: 2.8, shape: "c8d0e4d2c7" },
   expr_inline_assign_case_selector: { evidence: "not-lowered" },
+  expr_inline_assign_chain: { evidence: "not-lowered" },
   expr_inline_assign_elsif_condition: { evidence: "not-lowered" },
   expr_inline_assign_for_bound: { evidence: "not-lowered" },
   expr_inline_assign_for_start: { evidence: "not-lowered" },
@@ -1695,6 +1696,8 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   expr_inline_assign_nested: { evidence: "not-lowered" },
   expr_inline_assign_operand: { evidence: "refused" },
   expr_inline_assign_repeat_condition: { evidence: "not-lowered" },
+  expr_inline_assign_reset: { evidence: "not-lowered" },
+  expr_inline_assign_set: { evidence: "not-lowered" },
   expr_inline_assign_value: { evidence: "not-lowered" },
   expr_inline_assign_while_condition: { evidence: "not-lowered" },
   expr_member_named_function_keyword: { evidence: "refused" },

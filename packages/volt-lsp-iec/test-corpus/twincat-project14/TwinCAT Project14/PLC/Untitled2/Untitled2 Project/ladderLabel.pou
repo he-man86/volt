@@ -3,10 +3,10 @@ VAR
 	coil: BOOL;
 END_VAR
 %LANGUAGE LD
-NETWORK LABEL: testLabel
-  coil := ;
-END_NETWORK
-NETWORK LABEL: testLabe2
-END_NETWORK
+%NETWORK
+testLabel:
+coil := TRUE;
+%NETWORK
+testLabe2:
 
 END_PROGRAM

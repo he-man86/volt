@@ -20,6 +20,9 @@
     <Compile Include="..\shared\NetworkModelOracle.cs" Link="NetworkModelOracle.cs" />
     <Compile Include="..\shared\NetworkTextFacts.cs" Link="NetworkTextFacts.cs" />
     <Compile Include="..\shared\NetworkModelEquality.cs" Link="NetworkModelEquality.cs" />
+    <!-- The plain-ST round-trip oracle (openspec network-text-st 2.2). -->
+    <Compile Include="..\shared\StNetworkOracle.cs" Link="StNetworkOracle.cs" />
+    <Compile Include="..\shared\CorpusNetworkText.cs" Link="CorpusNetworkText.cs" />
     <Compile Include="..\shared\Scopes.cs" Link="Scopes.cs" />
     <!-- The NWL completeness oracle (openspec ld-fbd-coverage 1b.3): the archive model, the member table and the
          comparison, shared by both drivers' halves; the corpus projects give each body its scope. -->
@@ -35,6 +38,7 @@
     <!-- The one in-memory driver double, for the fetch tests that feed it this vendor's REAL parsed signatures
          (TcDirectedLibraryReadTests). -->
     <Compile Include="..\shared\FakeIde.cs" Link="FakeIde.cs" />
+    <Compile Include="..\shared\ReadOnlyNetworkPush.cs" Link="ReadOnlyNetworkPush.cs" />
   </ItemGroup>
   <ItemGroup>
     <!-- The suite's own vendor fixtures, beside the test binary. Without this the loader cannot find them. -->

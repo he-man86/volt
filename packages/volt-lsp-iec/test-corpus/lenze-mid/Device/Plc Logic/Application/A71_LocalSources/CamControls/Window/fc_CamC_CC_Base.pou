@@ -12,11 +12,14 @@ VAR
 END_VAR
 
 %LANGUAGE LD
-NETWORK
-  o_xCamControl := i_xEnable BRANCH (i_lrMachinePosition LE i_intStopCam EN
-                                       i_lrMachinePosition GE i_intStartCam EN
-                                         i_intStartCam LT i_intStopCam EN,
-                                     (i_intStartCam GT i_intStopCam EN) BRANCH (i_lrMachinePosition GE i_intStartCam EN, i_lrMachinePosition LE i_intStopCam EN) SHORTCIRCUIT) SHORTCIRCUIT;
-END_NETWORK
+%NETWORK
+%WIRES w1, w2, w3, w4, w5, w6
+LT_EN(EN := TRUE, i_intStartCam, i_intStopCam, OUT => w3);
+GE_EN(EN := w3, i_lrMachinePosition, i_intStartCam, OUT => w2);
+LE_EN(EN := w2, i_lrMachinePosition, i_intStopCam, OUT => w1);
+GT_EN(EN := TRUE, i_intStartCam, i_intStopCam, OUT => w4);
+GE_EN(EN := TRUE, i_lrMachinePosition, i_intStartCam, OUT => w5);
+LE_EN(EN := TRUE, i_lrMachinePosition, i_intStopCam, OUT => w6);
+o_xCamControl := i_xEnable AND (w1 OR w4 AND (w5 OR w6));
 
 END_FUNCTION

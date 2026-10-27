@@ -55,6 +55,25 @@ export function parseAssignable(cur: Cursor): Expr | undefined {
   return target
 }
 
+/**
+ * WHAT A BRACKET HOLDS: an expression, or an inline assignment written in it — `(x := v)`, a set or a reset
+ * `(x S= v)` / `(x R= v)`, and a chain `(a := b := v)`, which binds right: the value is itself an inline assignment.
+ * Measured on CODESYS (openspec network-text-st 1.4: `out2 := (out S= a) AND b;` and `(eno := out := a)` build and run
+ * as the mid-rung coil they spell) and pinned by `expr_inline_assign_set`, `_reset`, `_chain`. Only in a bracket: a
+ * condition's inline assignment (`IF x := f() THEN`, `parseAssignable`) takes `:=` alone.
+ */
+function parseBracketed(cur: Cursor): Expr | undefined {
+  const target = parseExpression(cur)
+  if (target === undefined) return undefined
+  const t = cur.peek()
+  const op = t.kind === "punct" ? (t.text === ":=" ? ":=" : t.text.toUpperCase() === "S=" ? "S=" : t.text.toUpperCase() === "R=" ? "R=" : undefined) : undefined
+  if (op === undefined) return target
+  cur.consume()
+  const value = parseBracketed(cur)
+  if (value === undefined) return undefined
+  return { kind: "assign_expr", target, value, ...(op !== ":=" ? { op } : {}), span: joinSpans(target.span, value.span) }
+}
+
 /** `closer` — an operator that closes an enclosing list instead (`>` in `FB<…>`, `parseGenericValue`). */
 function parseBinary(cur: Cursor, minPrec: number, closer?: string): Expr | undefined {
   let left = parseUnary(cur)
@@ -83,7 +102,7 @@ function parseUnary(cur: Cursor): Expr | undefined {
 }
 
 /** This grammar, as the operand and postfix parsers recurse into it. */
-const GRAMMAR: ExpressionGrammar = { expression: parseExpression, assignable: parseAssignable, unary: parseUnary }
+const GRAMMAR: ExpressionGrammar = { expression: parseExpression, assignable: parseAssignable, bracketed: parseBracketed, unary: parseUnary }
 
 /**
  * Parse a token slice as a single expression in a CONTAINED sub-cursor, so a speculative

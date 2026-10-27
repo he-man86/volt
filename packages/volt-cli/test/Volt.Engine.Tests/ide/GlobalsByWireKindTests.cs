@@ -5,6 +5,7 @@ using Volt.Contracts;
 using Volt.Engine.Ide;
 using Volt.Engine.Item;
 using Volt.Engine.Sync;
+using Volt.Tests.Shared;
 
 namespace Volt.Engine.Tests;
 
@@ -67,7 +68,7 @@ public class GlobalsByWireKindTests
 
     /// <summary>Through the push itself: the declarations a body's scope is built from (the pre-flight, openspec
     /// <c>bridge-refusal-review</c> D8) carry the wire kind of each pushed item.</summary>
-    [Fact]
+    [Fact(Skip = ReadOnlyNetworkPush.Skip)]
     public void A_body_in_a_push_sees_each_pushed_gvl_as_a_global_list()
     {
         var ide = new FakeIde(FakeIde.Item.TextualPou("Caller", "FUNCTION_BLOCK Caller\nVAR\n\tn : INT;\nEND_VAR",

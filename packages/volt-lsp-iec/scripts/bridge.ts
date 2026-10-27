@@ -46,9 +46,33 @@ export function landedInFull(r: { newProjectVersion?: string; conflicts?: readon
  *  `PROTOCOL_MISMATCH` before anything runs. */
 const WIRE_PROTOCOL = 1
 
+/** The ops that write, and so must name the project they write (openspec `push-requires-project-identity`). */
+const WRITES = new Set(["push", "build"])
+
+/** Per pipe: the identity its bridge echoed on `refs` — dropped when the script connects or disconnects it. */
+const identities = new Map<string, Promise<{ expectedPlatform: string; expectedProjectName: string }>>()
+
+/**
+ * One call as a bound client makes it (the e2e harness's `callBound`, `volt-cli/test/e2e/lib/pipe.ts`): a WRITE carries
+ * the identity of the project the bridge serves, read from the bridge's own `refs` echo, once per pipe — the bridge
+ * writes into no project a request does not name. A body that names either member keeps its own.
+ */
+export function call(op: string, body?: unknown, pipe: string = pipeName()): Promise<any> {
+  if (op === "connect" || op === "disconnect") identities.delete(pipe)
+  const b: Record<string, unknown> = typeof body === "object" && body !== null ? { ...body } : {}
+  if (!WRITES.has(op) || "expectedPlatform" in b || "expectedProjectName" in b) return callRaw(op, body, pipe)
+  let identity = identities.get(pipe)
+  if (!identity) {
+    identity = callRaw("refs", undefined, pipe).then((r: any) => ({ expectedPlatform: r.platform, expectedProjectName: r.projectName }))
+    identity.catch(() => identities.delete(pipe))
+    identities.set(pipe, identity)
+  }
+  return identity.then((id) => callRaw(op, { ...b, ...id }, pipe))
+}
+
 /** One request per connection (mirrors the CLI's PipeClient): write `{op,protocol,body}\n`, drain newline-JSON frames,
  *  resolve the terminal result (an error frame rejects; progress frames are ignored). */
-export function call(op: string, body?: unknown, pipe: string = pipeName()): Promise<any> {
+function callRaw(op: string, body: unknown, pipe: string): Promise<any> {
   return new Promise((resolve, reject) => {
     const sock = connect(`\\\\.\\pipe\\${pipe}`)
     let buf = ""

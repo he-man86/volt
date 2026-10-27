@@ -14,22 +14,23 @@ VAR
 	out2: INT;
 END_VAR
 %LANGUAGE LD
-NETWORK
-  EXECUTE
+%NETWORK
+%EXECUTE(EN := TRUE)
 iCount:=icount+1;
 
-  END_EXECUTE ENO EN TRUE;
-END_NETWORK
-NETWORK
-  output := t1 : TON(IN := in1, PT := e1).Q;
-END_NETWORK
-NETWORK
-  split1 := b;
-  out1 := (a OR split1) AND c;
-  out2 := split1;
-END_NETWORK
-NETWORK
-  output := t2 : TON(IN := , PT := e1).Q;
-END_NETWORK
+%END_EXECUTE
+%NETWORK
+%WIRES w1
+t1(IN := in1, PT := e1, Q => w1);
+output := w1;
+%NETWORK
+%WIRES w2
+w2 := b;
+out1 := AND(OR(a, w2), c);
+out2 := w2;
+%NETWORK
+%WIRES w3
+t2(IN := TRUE, PT := e1, Q => w3);
+output := w3;
 
 END_PROGRAM

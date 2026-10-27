@@ -327,8 +327,15 @@ An unconnected input pin (Leaf `""`, 10 lenze networks) is measured in 2.1 (cand
 the callee's declaration).
 
 **Refused by name** (`%UNSUPPORTED`, kept on push):
-- an enabled non-comparison box inside another box (0): CODESYS does not build it;
+- an enabled non-comparison box read by its value anywhere but as a coil's value (0): inside another box CODESYS does
+  not build it; the same refusal covers a read through a wire read twice or more and a jump's condition (unmeasured in
+  CODESYS, 3.0 measures it), so writer, reader and LSP draw one line;
+- `X_EN(…)` where anything in reach (a POU, an instance, a variable) is named `X_EN` (0; the corpora declare a variable
+  `M_EN` 5 times and no box `M`): the text would have two meanings;
 - the lone empty leaf (1): niche, accepted loss (1.1).
+- a box written before its item (an FB, an Execute box, an enabled box read by value) that reads a wire its own item
+  defines inline (`(w1 := …)`): the text would read the wire before it is set, and CODESYS's order for that shape is
+  unmeasured; niche: accepted loss (0 occurrences in the corpora), 3.0 measures it.
 
 **Open for the owner** (the owner's rule: every stored shape gets a spelling). Until the owner decides, each is written
 `%UNSUPPORTED` and kept on push. Each is a regression against v2, which spells it today:
@@ -359,3 +366,78 @@ the callee's declaration).
   skips `%DISABLED` networks.
 
 **Migration:** none here. 2.1 writes this form behind `NetworkTextSwitch`, and v2 stays until 3.2 deletes it.
+
+## 2.1–2.2 As built: what the writer and the reader settled
+
+The revision's rules, as `StNetworkWriter` / `StNetworkReader` (`Volt.Engine/Format/Network`) apply them. Three points
+the revision left open were settled by the corpus; each is listed with why.
+
+- **Contact or drawn box** is the stored `OutputParam.Names` (1.3: a contact stores none, a drawn AND/OR one unnamed
+  output), not the body's language: 1.3 found a contact OR in an FBD-view body (pro2193 `SetAlarm`), so "FBD is calls
+  only" would rebuild it as a box. A model with no stored names (a text read of v2, the accept cases) is contacts in LD
+  and boxes in FBD. The reader states the element it read (`OutputParam.Names` `[]` for infix, `['']` for the call), so
+  a pulled text pulled again is the same text (`CodesysNwlCompletenessOracleTests`).
+- **An enabled box read by its VALUE** (CODESYS's 40 enabled comparisons, which store no ENO, 1.3) cannot be the call's
+  return, which is ENO. It is a call statement whose `OUT =>` defines a wire, the call standing where the wire is read:
+  `GT_EN(EN := w1, i, j, OUT => w2); MOVE_EN(EN := w2, j, OUT => x);`. Read that way the box shows no ENO; read by its
+  return, or at the root, it shows ENO. The two stored members this made spellable are gone from the list: the
+  "Assign over an enabled box without ENO" (now `MOVE_EN(…, OUT => w1); x := w1;`, read back exactly) and the NOT box over
+  a leaf (`NOT(a)` against the negated contact `NOT a`).
+- **Brackets carry meaning between contacts only**: an unbracketed chain of one contact operator is one box
+  (`a AND b AND c`), `(a AND b) AND c` two; every other box is a call, so a call's brackets are its own. Infix outside
+  the contacts (`i > 3`, `a + b`, `a XOR b`, `&`) is refused by name by the reader ("every box is a call"), and so is
+  `NOT` before a call or a wire (the NOT box is `NOT(…)`). An operand holding an ST expression (the stored member) is
+  read as ST, infix and all, only where it is that member (`StNetworkReader.ExpressionTree`).
+
+**Wires are named across the body** (1.4's choice, which the first build missed: it named a wire `w<VarId>`, and VarIds
+repeat from network to network): `w1`, `w2`, … in the order the text defines them, skipping every name the body's
+operands, targets and instances use and every name in reach, so one name is one wire and the writer never refuses a
+wire's name. The reader refuses a `%WIRES` name declared in reach or named by an earlier network, and `w2 := w1;` over a
+box read once through `w1` (the box names `w2` itself: `GT_EN(…, OUT => w2)`), so one model has one text. The vendor's Demux
+VarId is not spelled: a read numbers each network's Demux nodes 1, 2, … by where their definitions stand, and the
+oracle compares Demux nodes by that position (a stored member of the model, kept by pairing on an unchanged network;
+3.1 decides what a rebuild allocates).
+
+**Oracle 1 (round trip), measured:** CODESYS corpora 388 networks: 294 identical, 83 stored members only, 11
+`%UNSUPPORTED` (5 Parallels with a side effect on a branch, 4 `???` instances, 1 edge contact, 1 lone empty leaf), 0
+gaps. TwinCAT archives 153: 140 identical, 8 stored members only, 5 `%UNSUPPORTED` (3 edge contacts, 1 Demux read before
+its defining item: `Vn_fanout_two_wires`, 1 target `r`, which is no ST variable name), 0 gaps. Accept cases 129: 68
+identical, 23 stored members, 38 `%UNSUPPORTED`, 0 gaps (each a 3.0 spelling). The v2 model oracle, run on the corpus
+bodies now pulled as plain ST, reads all 392 networks; the 2 it cannot rebuild are lenze-mid's 1c boxes (IDB_WSM,
+IDB_Dryer: a plain call read through its own ENO), which v2 has no spelling for and plain ST has.
+
+**2.1 measured** (CODESYS 3.5.21.40, fixture copy): a CTU whose RESET pin is unconnected (Leaf `""`) runs equal to the
+call with RESET left out and different from `RESET := FALSE`, so the writer leaves an unconnected pin out.
+
+## 2.3 As built: the LSP reads a network body as ST
+
+- **Form dispatch, not a grammar.** A body whose first line is `%NETWORK` is plain-ST network text
+  (`frontend/syntax/format/network-form.ts`); the `%` lines are trivia, the statements go to the ST parser. No network
+  lexer or keyword list: the one token step (`frontend/syntax/network/plain-st.ts`) makes a box call whose head is an
+  ST keyword (`AND(`, `GT(`, `MOVE(`, `NOT(`) an identifier, turns `%EXECUTE … %END_EXECUTE` into a call statement, and
+  leaves a `%DISABLED` network out of the compiled tokens (its label is then no jump target, as in CODESYS).
+- **Wires are network-scoped VAR_TEMP symbols** (`frontend/symbols/network-scope.ts`), typed by the call that defines
+  them (`types/infer/network-call.ts`); `<name>_EN` and `EXECUTE` are network boxes returning BOOL.
+- **The ST parser learned three bracketed forms** CODESYS accepts in any ST body (`(x S= v)`, `(x R= v)`,
+  `(a := b := v)`): recorded as grammar fixtures (`expr_inline_assign_chain/set/reset`), not network-only syntax.
+- **One subset check**, `network-plain-st` (`analysis/checks/network/_plain-st.ts`), refuses what a network may not hold,
+  by name, on the same case set the C# reader refuses (`test/fixtures/network-text-st/{accept,refuse}`: 121 accept, 33
+  refuse; C# and LSP agree on every case).
+- The transpiler refuses a plain-ST network body by name (`graphical-body`); the formatter keeps it verbatim.
+
+## 2.4 As built: the exec oracle
+
+Each corpus body has an exec twin: the CODESYS ST that runs as the network (`test/support/network-twin.ts`: contacts
+infix, `<name>_EN` an IF with ENO, an FB's output wire read as `inst.Q`, `%EXECUTE` an IF, a disabled network dropped).
+`scripts/record-network-twins.ts` pushes every twin into the corpus project's own IDE (a copy) and builds it;
+`test/corpus/corpus-twins.test.ts` holds the build to the project's recorded one. Measured: lenze-mid 40 bodies,
+pro2193 2, awa-palletizer 1, bakon-nano 1, 44 bodies, 0 errors beyond the recorded builds. The 2 TwinCAT bodies are not
+compiled live: TwinCAT has no route that changes a body's language in place (DIALECT N24). Behaviour: the exec cases'
+traces, NWL against the twin, are equal on every spelled case (N24 20/20, 1.4 6/6, 1c 6/6) (a scratch run, not committed; the twin's rules are pinned by `test/support/network-twin.test.ts`); the Parallels with a side
+effect stay `%UNSUPPORTED` (3.0).
+
+**For the owner — edge cases this step met (each a grammar question, not doc content):**
+- an enabled box read by its value has no ENO, so it is a call statement with `OUT => w` rather than a return;
+- brackets carry meaning between contacts only (`(a AND b) AND c` is two boxes);
+- `s`/`r` are no ST variable names: a target so named is `%UNSUPPORTED`;
+- an empty LD body (no network) still goes through the v2 reader until 3.2.

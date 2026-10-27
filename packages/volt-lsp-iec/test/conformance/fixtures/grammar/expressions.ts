@@ -219,6 +219,16 @@ export const EXPRESSION_RULE_TESTS: readonly LanguageTest[] = [
     "\ta : INT;\n\tb : INT := 3;\n\tout : INT;", "out := (a := b + INT#1) * INT#2;"),
   fb("expr_inline_assign_nested", "E25 — an inline assignment inside an inline assignment: `(a := (b := 3))`",
     "\ta : INT;\n\tb : INT;\n\tout : INT;", "out := (a := (b := INT#3));"),
+  // …a chain, a set and a reset inline — the mid-rung coil of plain-ST network text (openspec network-text-st 1.4,
+  // measured: `out2 := (out S= a) AND b;` and `(eno := out := a)` build and run as the coil). a = b = 3, out = 3
+  fb("expr_inline_assign_chain", "E25 — an inline assignment chained: `(a := b := 3)`",
+    "\ta : INT;\n\tb : INT;\n\tout : INT;", "out := (a := b := INT#3);"),
+  // x set, out TRUE
+  fb("expr_inline_assign_set", "E25 — a set inline: `(x S= b) AND c`",
+    "\tx : BOOL;\n\tb : BOOL := TRUE;\n\tc : BOOL := TRUE;\n\tout : BOOL;", "out := (x S= b) AND c;"),
+  // b FALSE: x is kept (TRUE), and the value is b's: out FALSE
+  fb("expr_inline_assign_reset", "E25 — a reset inline: `(x R= b) OR c`",
+    "\tx : BOOL := TRUE;\n\tb : BOOL;\n\tc : BOOL;\n\tout : BOOL;", "out := (x R= b) OR c;"),
 
   // ─── E26 an inline assignment WITHOUT parentheses as a statement's condition (or selector) ─────────────────────────
   fb("expr_inline_assign_if_condition", "E26 — an inline assignment as an IF condition: `IF x := b THEN`",

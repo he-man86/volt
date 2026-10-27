@@ -14,6 +14,7 @@ import { allUnits, walkStatements, type Expr, type TopLevel } from "../../src/fr
 import { bodies, scopeForUnit, type Scope } from "../../src/frontend/symbols/index.js"
 import { inferExprType, literalCheckType, renderType, resolveCallee, resolveTypeExpr, type Type } from "../../src/frontend/types/index.js"
 import { type Bound } from "./dumps.js"
+import { measuredStBody } from "./st-bodies.js"
 import { valueExprs } from "./dumps-bound.js"
 import { contextLiteralType } from "../../src/transpile/lower/values/literals.js"
 
@@ -65,18 +66,19 @@ export function literalAnswers(b: Bound): LiteralAnswer[] {
           inner(decl.init, scope)
         }
   }
-  for (const { scope, statements } of bodies(units, b.project))
-    walkStatements(statements, (s) => {
-      if (s.kind === "assign" && s.op === undefined && s.chained === undefined) {
-        ask(inferExprType(s.target, scope, b.project), s.value)
-        inner(s.value, scope)
-      } else if (s.kind === "for") {
-        const counter = inferExprType(s.controlVar, scope, b.project)
-        for (const bound of [s.from, s.to, s.by]) ask(counter, bound)
-      } else if (s.kind === "case") {
-        const selector = inferExprType(s.selector, scope, b.project)
-        for (const label of s.arms.flatMap((a) => a.labels)) for (const v of [label.value, label.upper]) ask(selector, v)
-      } else if (s.kind === "expr_stmt") inner(s.expr, scope)
-    })
+  for (const { body, scope, statements } of bodies(units, b.project))
+    if (measuredStBody(body))
+      walkStatements(statements, (s) => {
+        if (s.kind === "assign" && s.op === undefined && s.chained === undefined) {
+          ask(inferExprType(s.target, scope, b.project), s.value)
+          inner(s.value, scope)
+        } else if (s.kind === "for") {
+          const counter = inferExprType(s.controlVar, scope, b.project)
+          for (const bound of [s.from, s.to, s.by]) ask(counter, bound)
+        } else if (s.kind === "case") {
+          const selector = inferExprType(s.selector, scope, b.project)
+          for (const label of s.arms.flatMap((a) => a.labels)) for (const v of [label.value, label.upper]) ask(selector, v)
+        } else if (s.kind === "expr_stmt") inner(s.expr, scope)
+      })
   return out
 }

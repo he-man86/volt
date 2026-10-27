@@ -90,6 +90,7 @@ public class WireVocabularyTests
             ("Volt.Engine/Ide/ExcludedFolder.cs", 2),   // wire-final-shape §4: an unreadable entry's code — an excluded folder, and each item under it
             ("Volt.Ide.Codesys/Driver/CodesysDriver.Tree.cs", 3),   // wire-final-shape §4: an unreadable entry's code — a container holding what no text spells, the library manager's unspelled content  // abstract-member-parity: the NONE/ABSTRACT refusals as named builders (NONE off a member site, NONE without ABSTRACT, ABSTRACT dropped over NONE, statements under ABSTRACT) + a body over NONE at an item site, over a slotless concrete member, and a comment over NONE
             ("Volt.Engine/Format/Network/NetworkText.cs", 1),
+            ("Volt.Engine/Format/Network/NetworkBodyReader.cs", 1),   // network-text-st 2.1: an LD/FBD body pushed in the read-only phase, refused by name until 3.1
             ("Volt.Engine/Format/St/FamilyContent.cs", 1),   // volt-cli-rework step 5: a %-key the IEC layout's object record has no field for
             ("Volt.Engine/Format/St/IecFormat.cs", 4),   // moved from Materializer (volt-cli-rework step 5): what a pull must not write
             ("Volt.Engine/Format/St/PropertyLines.Language.cs", 3),   // a vendor language the line cannot state (no word, ST); an ST body holding a %LANGUAGE line

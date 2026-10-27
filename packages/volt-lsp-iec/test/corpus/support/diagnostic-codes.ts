@@ -52,6 +52,9 @@ export const KNOWN_UNMAPPED = new Set([
   "network-split-reused",
   "network-en-unwired",
   "network-coil-on-rail",
+  // The one check of plain-ST network text (openspec network-text-st 2.3, `checks/network/_plain-st.ts`): what a network
+  // may hold, refused as the bridge's reader refuses it — Volt's own rule, no compiler message.
+  "network-plain-st",
 ])
 
 /** A code is an allowed wire identity: a compiler code, a network-text code, no code (parse), or a known gap. */
