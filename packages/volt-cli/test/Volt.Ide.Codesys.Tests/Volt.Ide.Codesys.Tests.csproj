@@ -44,6 +44,10 @@
     <!-- Who a bridge pipe admits (environment-dependency-audit 2.2): net10 here, net48 in the CODESYS suite. -->
     <Compile Include="..\shared\PipeAccessTests.cs" Link="PipeAccessTests.cs" />
     <Compile Include="..\shared\UnelevatedFact.cs" Link="UnelevatedFact.cs" />
+    <!-- The relay tunnel on .NET Framework's socket stack, the one the CODESYS in-proc bridge dials with (openspec
+         relay-chunked-results §5): the same real-socket tests the net10 relay suite runs. -->
+    <Compile Include="..\shared\RelayRealSocketTests.cs" Link="RelayRealSocketTests.cs" />
+    <Compile Include="..\shared\RelayChunkCheck.cs" Link="RelayChunkCheck.cs" />
   </ItemGroup>
 
   <!-- The SHIPPED bundle (the bridge's merged single assembly, Volt.Ide.Codesys.csproj's VoltBundle target), copied in

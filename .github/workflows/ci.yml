@@ -170,7 +170,7 @@ jobs:
         shell: pwsh
         run: |
           $failed = @()
-          foreach ($p in 'Volt.Cli.Tests','Volt.Engine.Tests','Volt.Connector.Tests','Volt.Ide.Twincat.Tests','Volt.Ide.Codesys.Tests','Volt.Contracts.Tests','Volt.Repo.Gates') {
+          foreach ($p in 'Volt.Cli.Tests','Volt.Engine.Tests','Volt.Connector.Tests','Volt.Ide.Twincat.Tests','Volt.Ide.Codesys.Tests','Volt.Contracts.Tests','Volt.Relay.Tests','Volt.Repo.Gates') {
             dotnet test "packages/volt-cli/test/$p/$p.csproj" -c Release --no-build --nologo --blame-hang-timeout 10m
             if ($LASTEXITCODE -ne 0) { $failed += $p }
           }

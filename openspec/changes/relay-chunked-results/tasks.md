@@ -284,13 +284,70 @@ every behaviour gets a red test before code (`Volt.Relay.Tests`, FakeRelay exten
 
 ## 5. Real sockets
 
-- [ ] 5.1 A test over a real ClientWebSocket through a throttled TCP proxy, against an HttpListener relay that
+- [x] 5.1 A test over a real ClientWebSocket through a throttled TCP proxy, against an HttpListener relay that
       announces, acks, reassembles and closes after a scaled silence limit. It needs a large, poorly compressible
       result and a concurrent `health`. Assert: the call completes, the relay never goes silent past its limit, the
       `health` answer waits ≤ W/uplink plus one chunk plus slack, and the reassembled frame is byte-identical. Kept
       under ~20 s so it runs in CI.
-- [ ] 5.2 The same test on .NET Framework 4.8 (the CODESYS host's socket stack). x86 as well if a test project
+      Built (step 5, 2026-10-27), no product code changed: `test/shared/RelayRealSocketTests.cs`, linked into
+      `Volt.Relay.Tests` (net10) and `Volt.Ide.Codesys.Tests` (net48). A real `RelayTunnel` with its default
+      `ClientWebSocketAdapter` dials `ws://localhost:<proxy>` → `ThrottledProxy` (16 KiB/s each way, paced 1 KiB reads, so
+      the rest queues in the OS socket buffers) → `HttpListenerRelay` (announces maxBytes 8192, answers pings, acks each
+      chunk at once, reassembles with GZipStream, closes 1011 after 8 s with no WHOLE message). The bridge pipe is a
+      plain `PipeServer`: `fetch` answers 195,000 random bytes base64'd (a 280,609 B frame), `health` a small answer.
+      Scale: the protocol's numbers 7.5× down in time (relay silence 8 s, ping 3 s, bridge watchdog 8 s). The expected
+      frame is `RelayFrames.Result("r1", <the pipe's own fetch answer>)`; the window bound is restated from design.md
+      (floor 16 KiB, cap 256 KiB, 5 s span), not read from the bridge: bound = (max(16 KiB, 5 s × link + one chunk) + one
+      chunk) / link + 2 s slack = 8.0 s.
+      Two tests, two classes (xunit runs them in parallel, ~15 s wall):
+      `RealSocketChunkedTests.A_large_answer_over_a_slow_real_socket_keeps_the_relay_alive_and_a_concurrent_health_answers_within_the_window`
+      (a `health` as the first chunk lands — window at its floor — and a second 4 s after the first answered — window
+      grown), and the control `RealSocketWholeFrameTests.Without_an_announcement_the_same_answer_over_the_same_link_starves_the_relay_past_its_silence_limit`,
+      which proves the link really is slow enough to break a whole frame (otherwise the first test asserts nothing).
+      Numbers (net10.0.12 x64, three runs): 280,609 B as 25 chunks, largest message 8,192 B, answer in 12.2–12.3 s;
+      health waited 1.0 s (floor: 16 KiB / 16 KiB/s) and 5.0–5.5 s (grown window: ~5 s of link, as design.md predicts),
+      bound 8.0 s; longest relay silence 0.5–0.6 s (limit 8 s); reassembled frame byte-identical. Control: relay closed
+      for silence at 8.0–8.1 s, the whole answer never arrived. Terminal line `-> fetch (r1) ok 12249ms, 280609 B as 25
+      chunks`. Volt.Relay.Tests 194 → 196, all green.
+      Gate review (step 5), fixed:
+      - CI never ran `Volt.Relay.Tests` (ci.yml's suite loop listed seven suites, not it), so the net10 real-socket test
+        and the rest of the relay suite ran by hand only. Red first: `Volt.Repo.Gates/CiRunsEveryTestSuiteTests` (every
+        project under `packages/volt-cli/test` that references the test SDK is in that loop) failed naming
+        `Volt.Relay.Tests`; added to the loop, green.
+      - The test relay checked only part of the chunk contract (seq 0's `bytes` unread, no gzip trailer check —
+        GZipStream accepts a missing one —, a duplicate seq overwrote the earlier one), and on net48 it is the only
+        chunked-result check. Now `test/shared/RelayChunkCheck.cs`, linked into both suites, restates the relay's
+        `chunk_invalid` rules from design.md: exact header members per seq, every message ≤ maxBytes, seq 0 first, no
+        gap / duplicate / more than `count` / chunk after the set was whole, the 32 MiB `count` and 64 MiB `bytes`
+        guards, the gzip header, DeflateStream to exactly `bytes`, and the last 8 bytes as CRC32 + ISIZE. The relay
+        records each refusal and fails the call with it; the real-socket test asserts none. `RelayChunkCheckTests` (11)
+        builds sets with the runtime's GZipStream, not the bridge's splitter. Red first on the real socket: the bridge's
+        seq 0 `bytes` made `+ 1` → net48 `RealSocketChunkedTests` red with "inflates to 280609 B, not the 280610 B seq 0
+        states"; restored, green.
+      - The size comment said ~260 KB of frame: it is 280,609 B (the JSON writer escapes each base64 '+' as `+`, 6 bytes).
+      Volt.Relay.Tests 196 → 207, Volt.Ide.Codesys.Tests 507 → 518, Volt.Repo.Gates +1.
+      Gate (Release build, every suite in ci.yml's loop, VOLT_REQUIRE_FULL=1): Cli 377, Engine 3222 (+1 skipped),
+      Connector 156, Ide.Twincat 728, Ide.Codesys 518 (net48), Contracts 56, Relay 207, Repo.Gates 276 — 0 failed.
+      Typecheck, lint (0 errors) and `bun run check` green.
+- [x] 5.2 The same test on .NET Framework 4.8 (the CODESYS host's socket stack). x86 as well if a test project
       runs x86 (the TwinCAT worker); otherwise record why not.
+      Same file in `Volt.Ide.Codesys.Tests` (505 → 507, all green). .NET Framework 4.8.9363.0 x64: 25 chunks in 12.3 s,
+      health 1.0 / 5.5 s (bound 8.0 s), longest silence 0.5 s, byte-identical; control closed at 8.1 s. x86 on net48
+      (32-bit CODESYS) runs: `dotnet test test/Volt.Ide.Codesys.Tests --filter FullyQualifiedName~RealSocket --
+      RunConfiguration.TargetPlatform=x86` → `.NET Framework 4.8.9363.0 x86`, 25 chunks in 12.4 s, health 1.0 / 5.5 s,
+      longest silence 0.5 s; control closed at 8.1 s. No suite runs x86 by default (no test project sets a platform), so
+      this x86 run is by hand, not in CI.
+      x86 on net10 (the TwinCAT worker, published self-contained `win-x86`) does NOT run here: this machine's x86 dotnet
+      (`C:\Program Files (x86)\dotnet`) has Microsoft.NETCore.App 3.1/5.0/8.0 only, and the testhost aborts with
+      "framework 10.0.0, arch x86 not found". The worker carries its runtime in its bundle, so no machine needs it;
+      covering it would mean installing the x86 .NET 10 runtime on the dev machine and CI.
+      Gate review (step 5): that x64 net10 and x86 net48 "bracket" it is an inference, not a measurement — the two
+      runtimes' ClientWebSocket and socket buffering differ, which is what this test measures. Tried to install the x86
+      Microsoft.NETCore.App 10.0.12 per-user (`dotnet-install.ps1 -Architecture x86 -Runtime dotnet -Version 10.0.12
+      -InstallDir %LOCALAPPDATA%\dotnet-x86`, then the run with `DOTNET_ROOT_X86` set): the session's permission system
+      refused the install. OPEN for the owner: install it (or allow the install), then run `dotnet test
+      test/Volt.Relay.Tests --filter FullyQualifiedName~RealSocket -- RunConfiguration.TargetPlatform=x86` and record
+      the numbers here.
 
 ## 6. Docs
 

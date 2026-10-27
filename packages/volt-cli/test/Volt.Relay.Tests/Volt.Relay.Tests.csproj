@@ -21,6 +21,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\shared\FakeIde.cs" Link="FakeIde.cs" />
+    <!-- Real sockets (openspec relay-chunked-results §5): a ClientWebSocket through a throttled proxy to an HttpListener
+         relay. Compiled here (net10, the TwinCAT worker's runtime) and in the CODESYS suite (net48, the in-proc host's). -->
+    <Compile Include="..\shared\RelayRealSocketTests.cs" Link="RelayRealSocketTests.cs" />
+    <Compile Include="..\shared\RelayChunkCheck.cs" Link="RelayChunkCheck.cs" />
     <Using Include="Volt.Tests.Shared" />
   </ItemGroup>
 </Project>
