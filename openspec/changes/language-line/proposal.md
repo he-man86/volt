@@ -30,7 +30,7 @@ END_FUNCTION_BLOCK
   a push of the old line is refused by name, saying to pull again.
 - `PropertyLines` owns the key, so there is one `%`-line grammar in the C# reader/writer and in the LSP.
 
-## Open points (decide in design.md before code)
+## Open points (decided: design.md)
 
 1. Order against the other `%` lines under it: is `%LANGUAGE` always first, as the boundary, with the object's
    properties after it, as they come after `IMPLEMENTATION` today?

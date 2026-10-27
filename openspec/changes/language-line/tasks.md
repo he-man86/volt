@@ -1,4 +1,4 @@
-- [ ] 1.1 design.md: answer the four open points (owner review).
+- [x] 1.1 design.md: the four open points decided (owner: %LANGUAGE, no line for a slotless member, no backward compat; the rest per design.md).
 - [ ] 1.2 Tell PLC Assist the new line and the release it lands in.
 - [ ] 2.1 C#: `%LANGUAGE` in `PropertyLines` (key, value grammar, order), reader + writer, refusal of the old line by name.
 - [ ] 2.2 LSP: the same key in `object-properties.ts`; lexer/format reader; the false positive of family 4 gone.
