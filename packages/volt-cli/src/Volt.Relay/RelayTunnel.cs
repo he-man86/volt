@@ -83,6 +83,9 @@ namespace Volt.Relay
             public bool SawFrame;
             public volatile int ChunkMaxBytes;
             public readonly ChunkWindow Window = new ChunkWindow(() => Monotonic.Elapsed);
+            // The relay's chunked requests being reassembled. Per connection on purpose: a partial request dies with its
+            // connection and is never served (openspec relay-chunked-results, the mirror image).
+            public readonly ChunkAssembly Assembly = new ChunkAssembly();
         }
 
         // The window's clock: monotonic, so a wall-clock step cannot empty or inflate its 5 s rate span.
@@ -287,7 +290,6 @@ namespace Volt.Relay
                 // Handed up, not logged here: what the close MEANS (an ordinary end, or a refusal that sets the
                 // next dial an hour out) is the reconnect policy's call, and it logs the close with that verdict.
                 if (received.Close != null) return received.Close;
-                var text = received.Text!;
 
                 _lastInboundUtc = DateTime.UtcNow;
                 if (!_accepted)
@@ -296,7 +298,15 @@ namespace Volt.Relay
                     _accepted = true;
                     Log(VoltLogLevel.Info, "relay: connected to " + _config.SafeDescription);
                 }
-                var frame = RelayFrames.Read(text);
+                if (received.Bytes != null)
+                {
+                    if (!conn.SawFrame)
+                        Log(VoltLogLevel.Info, "relay: no chunk announcement yet — this connection sends whole frames until the relay announces chunks");
+                    conn.SawFrame = true;
+                    ReceiveChunk(received.Bytes, received.Length, conn, token);
+                    continue;
+                }
+                var frame = RelayFrames.Read(received.Text!);
                 // The relay announces right after it accepts `hello`, but the contract is "a connection that RECEIVED it",
                 // not "as its first frame": an announcement after a pong still turns chunking on. So the first frame can
                 // only say what is true so far.
@@ -336,17 +346,76 @@ namespace Volt.Relay
                         break;
 
                     case RelayInboundKind.Request:
-                        // Fire and forget, deliberately. Awaiting here would serialize the tunnel onto one
-                        // request at a time and destroy the property the whole design exists for: `health`
-                        // answering while a `push` holds the IDE thread.
-                        // Registered here, synchronously, so the end line lists it even when the connection
-                        // ends before the request's own task has run.
-                        conn.InFlight[frame.Id!] = frame.Op!;
-                        var _ = ServeAsync(frame, conn, token);
+                        Serve(frame, conn, token);
                         break;
                 }
             }
             return null;
+        }
+
+        private void Serve(RelayInbound request, Connection conn, CancellationToken token)
+        {
+            // Fire and forget, deliberately. Awaiting here would serialize the tunnel onto one request at a time and
+            // destroy the property the whole design exists for: `health` answering while a `push` holds the IDE thread.
+            // Registered here, synchronously, so the end line lists it even when the connection ends before the
+            // request's own task has run.
+            conn.InFlight[request.Id!] = request.Op!;
+            _ = ServeAsync(request, conn, token);
+        }
+
+        /// <summary>One binary message from the relay: a chunk of a large request (openspec relay-chunked-results, the
+        /// mirror image). Acked at once, before anything is inflated; on the last chunk the request is served exactly as
+        /// if it had arrived whole. A broken set is refused by name and never served.</summary>
+        private void ReceiveChunk(byte[] message, long length, Connection conn, CancellationToken token)
+        {
+            var header = ChunkAssembly.ReadHeader(message, out var malformed);
+            if (header == null)
+            {
+                // No id, so no one to answer: like a malformed text frame, logged and dropped.
+                Log(VoltLogLevel.Warn, "relay: ignoring a malformed chunk — " + malformed);
+                return;
+            }
+            // Every chunk the bridge can name is acked, refused or not: an unacked chunk would hold the relay's window
+            // until its stall limit drops this connection. Not awaited: the receive loop does not wait behind a send.
+            if (header.Seq != null) _ = TrySendAsync(RelayFrames.Ack(header.Id, header.Seq.Value), token);
+
+            var outcome = conn.Assembly.Accept(header, message, length);
+            switch (outcome.Verdict)
+            {
+                case ChunkAssembly.Verdict.Pending:
+                    break;
+
+                case ChunkAssembly.Verdict.Ignored:
+                    var chunk = header.Seq == null ? "a chunk" : "chunk " + header.Seq.Value;
+                    if (outcome.Reason != null)
+                        Log(VoltLogLevel.Warn, "relay: ignoring " + chunk + " of " + header.Id + " — " + outcome.Reason);
+                    else
+                        Log(VoltLogLevel.Debug, "relay: dropped " + chunk + " of " + header.Id + ", a request already refused");
+                    break;
+
+                case ChunkAssembly.Verdict.Refused:
+                    RefuseChunked(header.Id, outcome.Reason!, token);
+                    break;
+
+                case ChunkAssembly.Verdict.Complete:
+                    var request = RelayFrames.Read(outcome.Frame!);
+                    if (request.Kind != RelayInboundKind.Request)
+                        RefuseChunked(header.Id, "the reassembled frame of " + header.Id + " is not a request" +
+                            (request.Reason == null ? "" : " (" + request.Reason + ")"), token);
+                    else if (request.Id != header.Id)
+                        RefuseChunked(header.Id, "the reassembled request of " + header.Id + " names the id " +
+                            RelayFrames.JsonEncode(request.Id!), token);
+                    else
+                        Serve(request, conn, token);
+                    break;
+            }
+        }
+
+        /// <summary>A broken chunked request's ONE terminal frame: BAD_REQUEST, naming what was broken. Nothing ran.</summary>
+        private void RefuseChunked(string id, string reason, CancellationToken token)
+        {
+            Log(VoltLogLevel.Warn, "relay: refusing chunked request " + id + " — " + reason + "; answered BAD_REQUEST, nothing was run");
+            _ = TrySendAsync(RelayFrames.Error(id, BridgeErrorCodes.BadRequest, "chunked request refused: " + reason + "; it was not run"), token);
         }
 
         /// <summary>Serve one request: forward it to the local pipe and stream the frames back, tagged.

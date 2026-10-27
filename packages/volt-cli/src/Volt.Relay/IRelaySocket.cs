@@ -14,15 +14,16 @@ namespace Volt.Relay
     /// failures (a socket that dies mid-push, a relay that goes silent) are ones a real socket will not perform
     /// on request.</para>
     ///
-    /// <para>Text frames, and BINARY messages for one thing: the chunks of a large terminal frame, on a connection
-    /// whose relay announced chunks (openspec relay-chunked-results).</para></summary>
+    /// <para>Text frames, and BINARY messages for one thing: chunks (openspec relay-chunked-results) — of a large
+    /// terminal frame, on a connection whose relay announced chunks, and of a large request, which the bridge's
+    /// <c>hello</c> says it takes.</para></summary>
     public interface IRelaySocket : IDisposable
     {
         Task ConnectAsync(Uri url, string token, CancellationToken cancellation);
         Task SendTextAsync(string text, CancellationToken cancellation);
         /// <summary>One whole binary message: a chunk (a JSON header line, then gzip bytes).</summary>
         Task SendBinaryAsync(byte[] message, CancellationToken cancellation);
-        /// <summary>The next frame, or the relay's close WITH its status and description. The close is not a
+        /// <summary>The next frame (text, or a binary chunk of a request), or the relay's close WITH its status and description. The close is not a
         /// bare "gone": 1008 is how a relay turns a bridge away (`unsupported protocol N`), and a tunnel that
         /// only learns "closed" cannot tell that from a network blip.</summary>
         Task<RelayReceived> ReceiveAsync(CancellationToken cancellation);
@@ -66,34 +67,8 @@ namespace Volt.Relay
         public Task SendBinaryAsync(byte[] message, CancellationToken cancellation) =>
             _socket.SendAsync(new ArraySegment<byte>(message), WebSocketMessageType.Binary, true, cancellation);
 
-        public async Task<RelayReceived> ReceiveAsync(CancellationToken cancellation)
-        {
-            var buffer = new byte[ChunkBytes];
-            using (var assembled = new System.IO.MemoryStream())
-            {
-                while (true)
-                {
-                    var result = await _socket
-                        .ReceiveAsync(new ArraySegment<byte>(buffer), cancellation)
-                        .ConfigureAwait(false);
-
-                    if (result.MessageType == WebSocketMessageType.Close)
-                        return RelayReceived.Closed(
-                            result.CloseStatus.HasValue ? (int)result.CloseStatus.Value : (int?)null,
-                            result.CloseStatusDescription);
-
-                    assembled.Write(buffer, 0, result.Count);
-
-                    // EndOfMessage is the frame boundary. Returning on the first read instead would split a
-                    // large `fetch` result into fragments that are each invalid JSON — and the bug would only
-                    // appear on projects big enough to exceed one chunk, which is to say on customers' projects
-                    // and not on ours.
-                    if (result.EndOfMessage) break;
-                }
-
-                return RelayReceived.Frame(Encoding.UTF8.GetString(assembled.ToArray()));
-            }
-        }
+        public Task<RelayReceived> ReceiveAsync(CancellationToken cancellation) =>
+            RelayReceived.ReadAsync(buffer => _socket.ReceiveAsync(buffer, cancellation), ChunkBytes);
 
         public Task CloseOutputAsync(int status, string reason, CancellationToken cancellation) =>
             _socket.CloseOutputAsync((WebSocketCloseStatus)status, reason, cancellation);

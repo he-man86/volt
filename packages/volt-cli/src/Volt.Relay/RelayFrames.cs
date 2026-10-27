@@ -74,6 +74,12 @@ namespace Volt.Relay
                     w.WriteString("volt", voltVersion ?? "");
                     w.WriteString("vendor", vendor ?? "");
                     w.WriteString("pipe", pipe ?? "");
+                    // The mirror of the relay's announcement (openspec relay-chunked-results): a relay MAY chunk a
+                    // large request to this bridge, in messages of at most this many bytes, and gets an ack per chunk.
+                    w.WriteStartObject("chunks");
+                    w.WriteNumber("maxBytes", ChunkAssembly.MaxBytes);
+                    w.WriteBoolean("ack", true);
+                    w.WriteEndObject();
                     w.WriteEndObject();
                     w.WriteEndObject();
                 }
@@ -109,6 +115,11 @@ namespace Volt.Relay
         public static string Error(string id, string code, string message, JsonElement? data = null) =>
             "{\"id\":" + JsonEncode(id) + ",\"error\":{\"code\":" + JsonEncode(code) +
             ",\"message\":" + JsonEncode(message) + (data is { } d ? ",\"data\":" + d.GetRawText() : "") + "}}";
+
+        /// <summary><c>{"id":"r1","ack":2}</c>: this bridge took chunk 2 of the relay's request r1 (the mirror of the
+        /// relay's ack, openspec relay-chunked-results).</summary>
+        public static string Ack(string id, int seq) =>
+            "{\"id\":" + JsonEncode(id) + ",\"ack\":" + seq.ToString(CultureInfo.InvariantCulture) + "}";
 
         internal static string JsonEncode(string value) =>
             JsonSerializer.Serialize(value ?? "");

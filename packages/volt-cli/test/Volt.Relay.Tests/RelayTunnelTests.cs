@@ -77,6 +77,9 @@ public class RelayTunnelTests : IDisposable
         Assert.Equal(1, WireProtocol.Version);
         Assert.Equal("codesys", hello.GetProperty("vendor").GetString());
         Assert.False(string.IsNullOrEmpty(hello.GetProperty("pipe").GetString()));
+        // relay-chunked-results 3.1: hello also says the bridge takes chunked requests (pinned in ChunkedRequestTests).
+        Assert.Equal(new[] { "protocol", "volt", "vendor", "pipe", "chunks" },
+            hello.EnumerateObject().Select(p => p.Name).ToArray());
 
         // FIRST, not merely present: a relay routes on `hello` and anything before it has nowhere to go.
         using var first = JsonDocument.Parse(relay.Received[0]);

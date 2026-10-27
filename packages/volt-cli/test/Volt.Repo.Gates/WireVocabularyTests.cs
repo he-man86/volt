@@ -82,7 +82,7 @@ public class WireVocabularyTests
             ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Task.cs", 2),   // bridge-one-to-one §3: a TwinCAT member label, a bare `Watchdog: off`
             ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Nodes.cs", 1),   // a write into the solution's own structure, above a PLC project (multi-application-tree)
             ("Volt.Ide.Twincat/Ide/TcTaskSchedule.cs", 4),
-            ("Volt.Relay/RelayTunnel.cs", 2),   // +1 a request id too long for a chunk header under the relay's maxBytes, refused before it runs (relay-chunked-results)
+            ("Volt.Relay/RelayTunnel.cs", 3),   // +1 a request id too long for a chunk header under the relay's maxBytes, refused before it runs; +1 a broken chunked request (a gap, a duplicate, an inflate error, …), refused before it runs (relay-chunked-results)
             ("Volt.Wire/PipeServer.cs", 3))),   // +1 a request frame that is JSON null, no envelope (wire-final-shape 4.1); +1 a request frame over MaxFrameBytes (volt-cli-rework 1.0 bug b)
         new("the IDE, or a documented Volt limit on a vendor shape, will not take it", "change the TEXT, or do it in the IDE",
             "UNSUPPORTED", At(

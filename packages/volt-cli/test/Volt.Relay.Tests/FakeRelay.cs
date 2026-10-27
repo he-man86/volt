@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.WebSockets;
 using System.Text.Json;
 using System.Threading;
@@ -130,6 +131,75 @@ public sealed class FakeRelay
             await Task.Delay(25);
         }
         throw new TimeoutException("the chunks of '" + id + "' never completed within " + timeoutMs + "ms; got " + ChunksOf(id).Count);
+    }
+
+    /// <summary>One BINARY message to the bridge: a chunk of a request (relay-chunked-results §3).</summary>
+    public void SendBinary(byte[] message) => _toBridge.Add(() => RelayReceived.Binary(message));
+
+    /// <summary>A binary message over the bridge's limit as the real adapter hands it up: only its first bytes kept,
+    /// and the length it had on the wire (relay-chunked-results; the adapter never buffers past the limit).</summary>
+    public void SendOversizedBinary(byte[] prefix, long length) => _toBridge.Add(() => RelayReceived.Binary(prefix, length));
+
+    /// <summary>A request frame as a relay writes it (the shape <see cref="SendRequest"/> sends whole).</summary>
+    public static string RequestFrame(string id, string op, object? body = null) =>
+        "{\"id\":" + JsonSerializer.Serialize(id) + ",\"op\":\"" + op + "\",\"protocol\":" + WireProtocol.Version +
+        ",\"body\":" + (body == null ? "{}" : JsonSerializer.Serialize(body)) + "}";
+
+    /// <summary>gzip of <paramref name="raw"/>, written here and not by the bridge's own splitter, so a test of the
+    /// bridge's reassembly does not grade the bridge against itself.</summary>
+    public static byte[] Gzip(byte[] raw, System.IO.Compression.CompressionLevel level = System.IO.Compression.CompressionLevel.Optimal)
+    {
+        using var buffer = new System.IO.MemoryStream();
+        using (var gz = new System.IO.Compression.GZipStream(buffer, level, leaveOpen: true))
+            gz.Write(raw);
+        return buffer.ToArray();
+    }
+
+    /// <summary>One chunk message: <paramref name="header"/> (a JSON object), <c>\n</c>, then <paramref name="slice"/>.</summary>
+    public static byte[] Chunk(string header, byte[] slice)
+    {
+        var head = System.Text.Encoding.UTF8.GetBytes(header + "\n");
+        var message = new byte[head.Length + slice.Length];
+        Buffer.BlockCopy(head, 0, message, 0, head.Length);
+        Buffer.BlockCopy(slice, 0, message, head.Length, slice.Length);
+        return message;
+    }
+
+    /// <summary>The chunks a relay sends for <paramref name="frame"/>: gzip(its UTF-8) cut into slices of
+    /// <paramref name="sliceBytes"/>, <c>count</c> and <c>bytes</c> on seq 0 only.</summary>
+    public static List<byte[]> ChunksFor(string id, string frame, int sliceBytes)
+    {
+        var raw = System.Text.Encoding.UTF8.GetBytes(frame);
+        var gzip = Gzip(raw);
+        var count = (gzip.Length + sliceBytes - 1) / sliceBytes;
+        var chunks = new List<byte[]>();
+        for (var seq = 0; seq < count; seq++)
+        {
+            var slice = gzip[(seq * sliceBytes)..Math.Min(gzip.Length, (seq + 1) * sliceBytes)];
+            var header = seq == 0
+                ? "{\"id\":" + JsonSerializer.Serialize(id) + ",\"seq\":0,\"count\":" + count + ",\"bytes\":" + raw.Length + "}"
+                : "{\"id\":" + JsonSerializer.Serialize(id) + ",\"seq\":" + seq + "}";
+            chunks.Add(Chunk(header, slice));
+        }
+        return chunks;
+    }
+
+    /// <summary>The seqs the bridge acked for <paramref name="id"/>, in the order it acked them.</summary>
+    public IReadOnlyList<int> AcksFrom(string id) =>
+        FramesOf(id, "ack").Select(a => a.GetInt32()).ToList();
+
+    /// <summary>The bridge's text frames for <paramref name="id"/> that carry <paramref name="key"/>, in order.</summary>
+    public IReadOnlyList<JsonElement> FramesOf(string id, string key)
+    {
+        var frames = new List<JsonElement>();
+        foreach (var raw in Received)
+        {
+            using var doc = JsonDocument.Parse(raw);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("id", out var gotId) && gotId.GetString() == id && root.TryGetProperty(key, out var payload))
+                frames.Add(payload.Clone());
+        }
+        return frames;
     }
 
     public IRelaySocket NewSocket() => new Socket(this);
