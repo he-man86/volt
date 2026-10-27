@@ -108,35 +108,37 @@ Volt adds only `%` lines. Decided on 1.1–1.3 and the measurements below.
 **Revision (owner, 2026-10-27: "these are just functions", "similar to LIMIT", "the LSP knows what they are", "like a
 MOVE_EN() and a MOVE() function", "in the end in CS they are also 2 sep blocks you choose from", "is it possible to
 have them both named GT(").** One rule: **every element the IDE's toolbox offers has its own spelling**, so the text
-alone says which element is stored and nothing is told apart by context. The box and the box with EN/ENO are both
-`GT(`: the `EN :=` pin is what tells them apart.
+alone says which element is stored and nothing is told apart by context.
 **Every box is a call** (owner, 2026-10-27: "i thought we only use functions so GT(temp>80) and GT_EN(EN= …"),
 the 14 keyword operators included: `GT(temp, 80)`, `ADD(i, j)`, `AND(a, b, c)`, `NOT(a)`. An extensible box is one call
 with all its inputs, a nested box a nested call, so brackets carry no meaning and the operator-chain rule below is
 gone. Infix `a AND b`, `a OR b`, `NOT a` remain only for what the LD toolbox draws as contacts (series, parallel,
 negated contact); a drawn AND/OR/NOT box in LD is the call. FBD has no contacts, so FBD is calls only.
 
-**EN/ENO are IEC formal pins of the same function** (owner, 2026-10-27: "the _EN was just my idea but you can push
-back. do we really need diff functions?" — no; `_EN` dropped). An enabled box is the call with `EN :=` as its first
-formal (all pins formal then, IEC: no mixing; operator pins `IN1`, `IN2`, …); its ENO is `ENO => w` when wired and
-absent when not, so the text states the stored `Eno` (the probe's 3 ENO gaps close). The function returns its value as
-always. A chain runs through a wire. The LSP knows every one of these functions, EN/ENO included, as it knows LIMIT
-(`frontend/types/builtins.ts`): no library file, no namespace, no network rule. CODESYS ST refuses the operator call
-form and EN/ENO (1.2), so the exec twin rewrites both (infix; the IF of 1.3).
+**An enabled box is its own function, `<name>_EN`** (owner, 2026-10-27: "chaining EN blocks goes through the enable
+out … chaining blocks without enable goes through output. so the return value is diff."). A call's return value is
+the line that leaves the box toward the next box: a plain box's value, an enabled box's ENO. One name cannot return
+both, so the box and the box with EN/ENO are two functions, as they are two toolbox elements. `<name>_EN` takes `EN`
+first, then the box's pins as stored (positional for a built-in, formal otherwise), returns ENO (comparisons too), and
+its value leaves through `OUT =>`. A chain nests exactly as drawn. ENO is wired when the return is used and not wired
+when the call is a statement (the probe's 3 ENO gaps close). A callee that declares its own `EN` (55 library POUs)
+keeps `f(EN := …)` as its own pin; `f_EN(…)` is the enabled box, so the clash is gone. The LSP knows every one of these
+functions as it knows LIMIT (`frontend/types/builtins.ts`): no library file, no namespace, no network rule. CODESYS ST
+refuses the operator call form and EN/ENO (1.2), so the exec twin rewrites both (infix; the IF of 1.3).
 
 ```
 tooHot := GT(temp, 80);
-alarm  := GT(EN := auto, IN1 := temp, IN2 := 80);
+ok     := GT_EN(EN := auto, temp, 80, OUT => alarm);
 run    := AND(start, NOT(stop), ok);
-x      := MOVE(EN := c, IN := 1, ENO => w1);
-y      := MOVE(EN := w1, IN := 2, ENO => done);
+done   := MOVE_EN(EN := MOVE_EN(EN := c, 1, OUT => x), 2, OUT => y);
+GT_EN(EN := auto, temp, 80, OUT => hot);          // ENO not wired
 ```
 
-Open, measured in 2.1: an enabled box over a callee that DECLARES its own `EN` (55 library POUs; 0 in the corpus) —
-whether the editor can store it at all. If it can, 3.0 gives it a spelling.
+(A same-name variant, `GT(EN := …, ENO => w)`, was considered and dropped the same day: its return value would depend
+on whether `EN` is passed, and chains would need a wire per link.)
 
 This overrides the "Boxes are their ST form" choice, the operator rows of the mapping table, the bracket edge case,
-the `_EN` naming, and the probe's "an enabled comparison returns its value".
+and the probe's "an enabled comparison returns its value".
 
 This replaces every `IF en THEN …` row below (EN, EN chain, result pin, ENO by value, enabled comparison). The same
 rule spells the stored members below where the toolbox has its own element (contact vs drawn box: infix vs call;
