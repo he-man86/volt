@@ -40,8 +40,11 @@ it: an op-less frame from the relay is ignored and counts as traffic. The bridge
   sent whole. `count` and `bytes` are on seq 0 only.
 - Integrity: TLS, the gzip trailer (CRC32 + ISIZE) and `bytes`. No second hash.
 
-**Ack** (relay → bridge, text): `{"id":"r1","ack":2}`. Sent at once for each chunk it accepts, before inflating. Also
-sent for a chunk of an id that is no longer pending, which the relay then drops.
+**Ack** (relay → bridge, text): `{"id":"r1","ack":2}`. Sent at once for every chunk whose header names an id and
+seq, before inflating, whether the chunk is accepted, belongs to an id that is no longer pending (dropped), or is
+refused as invalid (the call is then answered `INTERNAL_ERROR`). An ack means "received", not "valid". Without it a
+refused chunk would stay in the sender's window, and the 60 s stall rule would drop the whole socket and every other
+call on it.
 
 ## Bridge obligations
 
@@ -69,14 +72,18 @@ Agreed 2026-10-27, after the owner asked to close the gap rather than keep it as
 
 - The bridge's `hello` gains `"chunks": { "maxBytes": 8192, "ack": true }`. A relay MAY then chunk a REQUEST frame
   whose UTF-8 is over 8 KiB, in the same binary form. A bridge without the field (0.1.18029 and older) gets whole frames.
-- The bridge acks each chunk at once with `{"id":"r1","ack":seq}`, before inflating. After the last chunk it inflates
+- The bridge acks each chunk at once with `{"id":"r1","ack":seq}`, before inflating, under the same rule: every chunk
+  whose header names an id and seq is acked, refused ones included. After the last chunk it inflates
   to the exact request frame and serves it as if it had arrived whole.
 - **The bridge never runs a request from a partial set of chunks.** A buffer that is not complete when the connection
   ends is discarded. It is never carried to the next connection. So a request whose last chunk the relay never SENT
   cannot have run: the relay answers it as not sent, and a push is then safe to retry. Once the last chunk has been
   sent, a push's outcome is unknown, as it is today.
 - A broken chunked request is refused by name: seq > 0 without seq 0, a gap, a duplicate, more than `count` chunks,
-  an inflate error, a length mismatch, or `bytes` over 64 MiB (the pipe's frame cap). The bridge logs a WARN and
+  an inflate error, a length mismatch, `bytes` over 64 MiB (the pipe's frame cap), or a seq 0 whose `count` × maxBytes
+  is over 32 MiB (the relay's guard, mirrored). Both receivers check the gzip trailer themselves (CRC32 of the
+  output, ISIZE = `bytes`, nothing after the one member), because runtimes differ: Node's DecompressionStream accepts
+  a second member, and .NET's GZipStream accepts a missing trailer. The bridge logs a WARN and
   answers the id with `BAD_REQUEST`, naming what was broken. Nothing is served.
 - The relay runs the same window toward the bridge.
 - Relay side, noted so both copies agree: the per-call idle clock starts when the last request chunk is acked (or
@@ -101,5 +108,9 @@ same, plus ASN and colo. Rotating connections is designed only once a RU drop sh
 - Raising silence limits: it only moves the size where it breaks, and slows detecting a real drop.
 - base64 chunks: 33% more upload on exactly the slow links.
 - Chunking without acks: measured, every other call still waits for the whole OS buffer.
+- Keeping `GzipMember` (a 331-line port of zlib's puff): reinvents the runtime's inflater. `GZipStream` alone: it
+  accepts a missing trailer, so the trailer check is ours (8 bytes, CRC32 + ISIZE), not a second inflater.
+- Relying on the 64 MiB `bytes` cap alone for the request side: `count` arrives first, so the relay's 32 MiB
+  `count` guard refuses before anything is buffered; the bridge mirrors it so both copies refuse the same set.
 - An HTTPS side channel: a second credentialed connection from inside the IDE. Kept as the fallback only if this
   design fails its tests.
