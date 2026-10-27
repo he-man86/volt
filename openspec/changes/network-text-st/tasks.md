@@ -282,7 +282,8 @@ Owner, 2026-10-27: "go ahead with your proposals for section 2". Start from the 
 `worktree-agent-a334baa03b87b3d4b`, 911876691e: `test/shared/StNetworkWriter.cs`, `StNetworkReader.cs`, `StNetworkProbe.cs`
 and its three probe tests): move writer and reader into `src/` and build on them, do not rewrite from scratch. The two
 new stored members and the adopted open-point choices are in design.md ("Gap probe"). The four open-list shapes
-(Parallel with a side effect, `???` instance, edge contact, edges/negations on pins) stay `%UNSUPPORTED`.
+(Parallel with a side effect, `???` instance, edge contact, edges/negations on pins) are `%UNSUPPORTED` during the
+read-only phase only; 3.0 spells them.
 
 - [ ] 2.1 Writer: NWL → plain ST network text (behind `NetworkTextSwitch`, as LD/FBD are today). A push of an LD/FBD body is
       refused by name until section 3 ("LD/FBD push comes back with the plain-ST reader"). Measure first, in CODESYS on
@@ -301,6 +302,11 @@ new stored members and the adopted open-point choices are in design.md ("Gap pro
 
 ## 3. Push and cleanup
 
+- [ ] 3.0 100% coverage (owner, 2026-10-27: "of course we need 100% coverage in the end"; memory support-all-ld-fbd):
+      every shape the IDE can store gets a plain-ST spelling — the four open-list shapes, the lone empty leaf, the
+      Demux read once, and every accept-case gap of the probe. Gate: 0 `%UNSUPPORTED` on the corpora, the TwinCAT archives
+      and the accept cases. The v2 reader is not deleted (3.2) before this is green. Each new spelling measured in
+      CODESYS first (compiles, runs as the network).
 - [ ] 3.1 Push through the new reader (NetworkPairing, the derivation, RebuildLoss as today); the full e2e suite on
       both vendors.
 - [ ] 3.2 Delete the old reader, lexer, spelling and the LSP's network parser; rewrite `docs/network-text.html` (much
