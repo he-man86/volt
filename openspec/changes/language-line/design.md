@@ -16,7 +16,10 @@ contradicts it is refused by name. `LANGUAGE` joins `PropertyLines`' closed key 
 2. **Interface members:** unchanged. No body, no line, as today.
 3. **No body slot (owner):** a member whose IDE object has NO implementation slot (CODESYS
    `AbstractPOUMethodObject`, an abstract property's slotless accessor; DIALECT C2n) is written with NO `%LANGUAGE`
-   line and nothing after its declaration. `IMPLEMENTATION NONE` is gone. Rules:
+   line and no body. Its property lines (`%FOLDER`, `%CLASS`, …) CLOSE its declaration, exactly as an interface
+   member's do today (`StReader.PeelPropertiesClosing`, `StWriter`'s no-boundary path): one form for every member
+   without a body. Example: `METHOD ABSTRACT Run : BOOL` / `VAR_INPUT … END_VAR` / `%FOLDER Commands` /
+   `END_METHOD`. `IMPLEMENTATION NONE` is gone. Rules:
    - Only a METHOD or a property accessor (GET/SET) may lack the line. A POU, an action, a transition: refused by name,
      as an unmarked body is today.
    - Code after a member's declaration with no line is refused by name ("state `%LANGUAGE <LANG>`").
