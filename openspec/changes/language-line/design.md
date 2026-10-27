@@ -71,6 +71,11 @@ nothing keeps a second spelling.
 
 `IMPLEMENTATION <LANG>` is no longer read. In a pushed file it is refused by name: "`IMPLEMENTATION` is no longer read
 — pull again (it is now `%LANGUAGE <LANG>`)". That refusal is the only place the old word appears (the error table),
-per the docs rule. No migration and no dual reader. The workspace
+per the docs rule. No migration and no dual reader.
+
+Mixed versions (4.1, decided from the owner's standing rules: protocol stays 1, no backward compatibility): an older
+Volt and this one refuse each other's push BY NAME, and the release matrix's mixed-version judge accepts exactly that
+refusal. "pull again" alone would loop (an older CLI pulls `IMPLEMENTATION` again), so the refusal names the bridge's
+own Volt version: "pull again with Volt <version> or later". No protocol bump. The workspace
 materialization format moves 4 → 5 (C# `LibraryManifest.Materialization`, LSP `MATERIALIZATION`); the wire protocol
 stays 1 (only descriptions in `volt-bridge.openrpc.json` change).
