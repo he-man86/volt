@@ -466,7 +466,20 @@ pro2193 (2): 0 errors. The six v2 accept cases that used `s`/`r` as incidental n
 **Niche, accepted loss:** TwinCAT's `Vn_fanout_two_wires` archive stores one Demux defined twice and the other never (0 in
 the corpora).
 
-**Open for the owner (3.0 not ticked: each needs a grammar decision; 0 in the corpora):**
+**Decided by the owner (2026-10-28), to build in 3.0:**
+- (a) a jump that shares its value with coils, or sits in a tree: the jump is a function on its value, `JMP(label,
+  value)`, an item like a coil (`lamp := c; JMP(done, c);` on one value). Measure in CODESYS that the twin runs as the
+  network.
+- (b) an enabled box with EN and no ENO: `X_ENONLY(EN := c, …)`, returning its VALUE. `X_EN` stays the box with EN and
+  ENO (returns ENO), `X_ENO` the box with ENO and no EN. This retires the context rule "an enabled box read by its value
+  has no ENO".
+- (c) a name ST cannot write (`Then`, a backtick name, TwinCAT's coil `r`): niche, accepted loss, refused by name
+  (CODESYS ST refuses those names too).
+- (d) an FB instance no declaration holds: written as `???` is, a call of its stored FB type.
+- Also: an unconnected pin on a FUNCTION box (`MUL(m, , 6)`), measured like the FB pin in 2.1; if it runs as the pin left
+  out, that is its spelling and the deleted e2e case (`real-project-shapes` "a box with an unconnected input") comes back.
+
+**Was open for the owner (the decisions above answer each):**
 - a jump among coils or jumps on one value, a jump with `S=`, a jump nested in a tree (4 accept cases): ST has a jump only
   as a statement;
 - an enabled box without ENO at the root or read by an FB output's name (2 cases): `X_EN` returns ENO. Proposal: a suffix
