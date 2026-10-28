@@ -142,18 +142,22 @@ public sealed partial class BeckhoffDriver : VendorDriverBase, IVendorDriver, II
     /// the thing that silently drifts. <see cref="ShouldMarkDegraded"/> is the pipe host's question — should the
     /// session degrade and recover — and <c>TcObjectModel.Build</c> asks the same one for the opposite reason:
     /// to let an RPC fault PROPAGATE to that classifier instead of flattening it into "the build failed".</para></summary>
-    internal static bool IsRpcFault(Exception ex)
+    internal static bool IsRpcFault(Exception ex) => RpcFault(ex) is not null;
+
+    /// <summary>The HRESULT that makes <paramref name="ex"/> a dead/hung COM channel (<see cref="IsRpcFault"/>), or null
+    /// when it is none — the walk names it in its RPC line (<c>Touch</c>).</summary>
+    internal static uint? RpcFault(Exception ex)
     {
         for (var e = ex; e != null; e = e.InnerException)
         {
             if (e is not COMException com) continue;
             var hr = unchecked((uint)com.HResult);
-            if (hr == HResultRpcServerUnavailable) return true;
-            if (hr == HResultRpcCallFailed || hr == HResultRpcCallFailedDidNotExecute) return true;
-            if ((hr & HResultRpceFamilyMask) == HResultRpceFamily) return true;
-            if (hr == HResultCallRejected) return true;
+            if (hr == HResultRpcServerUnavailable) return hr;
+            if (hr == HResultRpcCallFailed || hr == HResultRpcCallFailedDidNotExecute) return hr;
+            if ((hr & HResultRpceFamilyMask) == HResultRpceFamily) return hr;
+            if (hr == HResultCallRejected) return hr;
         }
-        return false;
+        return null;
     }
 
     // ── project discovery + selection (the connector's `connect`; discovery rides on the health response) ──

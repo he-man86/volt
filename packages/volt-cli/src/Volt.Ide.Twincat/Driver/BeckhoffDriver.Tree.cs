@@ -45,6 +45,7 @@ public sealed partial class BeckhoffDriver
         var applications = new List<string>();
         _walkIndex = null;
         _walking = new List<(ItemRef, string, int)>();
+        (_comInFlight, _comReturned, _rpcNamed) = (null, null, false);
         try { WalkSystems(observer, items, unwalked, unreadable, applications); }
         catch { _walking = null; throw; }
         var result = new WalkResult(items, unwalked, unreadable, applications);
@@ -118,7 +119,7 @@ public sealed partial class BeckhoffDriver
         // healthy project stays quiet) so a silently-dropped item is diagnosable. A swallowed materialize error
         // like this once hid a real read bug (FB-with-method / interface) for a long time.
         int count;
-        try { count = kind is { } known ? _om.ChildCount(node, known) : _om.ChildCount(node); }
+        try { count = Touch("ChildCount", folderPath, () => kind is { } known ? _om.ChildCount(node, known) : _om.ChildCount(node)); }
         catch (Exception ex)
         {
             // The ENTIRE subtree is lost here, not one item. Recorded as well as logged: the log was at Debug,
@@ -131,7 +132,7 @@ public sealed partial class BeckhoffDriver
         for (int i = 1; i <= count; i++)
         {
             object child;
-            try { child = _om.ChildAt(node, i); }
+            try { child = Touch($"ChildAt({i})", folderPath, () => _om.ChildAt(node, i)); }
             catch (UnreadableItemException untouchable)
             {
                 // NAMED, never opened: a POU the IDE does not read as a POU, whose tree item crashes XAE after a load
@@ -148,7 +149,7 @@ public sealed partial class BeckhoffDriver
                 continue;
             }
             string name;
-            try { name = _om.GetName(child); }
+            try { name = Touch($"GetName({i})", folderPath, () => _om.GetName(child)); }
             catch (Exception ex)
             {
                 VoltLog.Warn($"walk: GetName faulted at folder='{folderPath}' index={i}: {ex.Message}");
@@ -158,7 +159,7 @@ public sealed partial class BeckhoffDriver
             // Classification faults where every other read in this loop does - and is recorded the same way, so
             // absence under this folder stops meaning "deleted".
             int itemType;
-            try { itemType = ClassifiedKind(child); }
+            try { itemType = Touch("ItemType", FolderPath.Append(folderPath, name), () => ClassifiedKind(child)); }
             catch (Exception ex)
             {
                 // NAMED, not only folder-marked: the walk knows which object it was, and `refs`/`fetch` list it in
@@ -183,7 +184,7 @@ public sealed partial class BeckhoffDriver
                 if (itemType == ItemKind.PlcFolder && !underExcluded)
                 {
                     TcExclusion exclusion;
-                    try { exclusion = _om.Exclusion(child, () => $"'{name}'"); }
+                    try { exclusion = Touch("Exclusion", nested, () => _om.Exclusion(child, () => $"'{name}'")); }
                     catch (Exception ex)
                     {
                         // Its kind is KNOWN (a folder): the folder it sits in was walked whole. Whether it is built was not
@@ -228,7 +229,7 @@ public sealed partial class BeckhoffDriver
             // One unreadable node must not break the walk (the
             // WarnUnmappedTcCode line above is the established policy), but it must be SAID.
             int childCount;
-            try { childCount = _om.ChildCount(child, itemType); }
+            try { childCount = Touch("ChildCount", FolderPath.Append(folderPath, name), () => _om.ChildCount(child, itemType)); }
             catch (Exception ex)
             {
                 // SAID on the channel the caller can act on, not only to the log. The three sibling catches in
@@ -256,6 +257,36 @@ public sealed partial class BeckhoffDriver
         }
     }
 
+    /// <summary>THE WALK'S COM CALLS, each named with the wire path of the item it touches (openspec
+    /// <c>twincat-crash-and-redial-identity</c> 1.3). Every call the walk makes into XAE goes through here; at the walk's
+    /// FIRST RPC failure (<see cref="RpcFault"/>) it logs the call in flight and the last call that returned. An XAE
+    /// that dies (a field access violation in <c>TwinCAT System Manager.dll</c> under <c>refs</c>) fails the call in
+    /// flight with <c>0x800706BE</c> — but the crash may be asynchronous to it, so the call before is the other candidate
+    /// trigger. Only the first: every call after it meets a dead XAE and says nothing new. The exception propagates
+    /// untouched; the walk's own catches still decide what it means.</summary>
+    private T Touch<T>(string call, string path, Func<T> com)
+    {
+        _comInFlight = $"{call} at '{path}'";
+        try
+        {
+            var result = com();
+            _comReturned = _comInFlight;
+            return result;
+        }
+        catch (Exception ex) when (!_rpcNamed && RpcFault(ex) is { } hr)
+        {
+            _rpcNamed = true;
+            VoltLog.Warn($"walk: RPC failure 0x{hr:X8} on {_comInFlight}; the last COM call that returned: " +
+                         $"{_comReturned ?? "none in this walk"}");
+            throw;
+        }
+    }
+
+    /// <summary>The walk's COM call in flight and the last one that returned (<see cref="Touch{T}"/>), and whether this walk
+    /// has named its first RPC failure; reset by every walk.</summary>
+    private string? _comInFlight, _comReturned;
+    private bool _rpcNamed;
+
     /// <summary>A system project's I/O devices (<c>TIID</c>), walked where the solution tree shows them: <c>I/O</c> → <c>Devices</c> under the system project's
     /// path (<paramref name="systemFolder"/>) — each system project has its own <c>TIID</c>.
     ///
@@ -276,7 +307,7 @@ public sealed partial class BeckhoffDriver
         var ioFolder = FolderPath.Append(FolderPath.Append(systemFolder, "I/O"), "Devices");
 
         object tiid;
-        try { tiid = _om.LookupIn(manager, "TIID"); }
+        try { tiid = Touch("LookupTreeItem(TIID)", ioFolder, () => _om.LookupIn(manager, "TIID")); }
         catch (Exception ex)
         {
             VoltLog.Warn($"twincat: the I/O tree (TIID) is unreadable — every device is OMITTED from this walk: {ex.Message}");
@@ -285,7 +316,7 @@ public sealed partial class BeckhoffDriver
         }
 
         int count;
-        try { count = _om.ChildCount(tiid); }
+        try { count = Touch("ChildCount", ioFolder, () => _om.ChildCount(tiid)); }
         catch (Exception ex)
         {
             VoltLog.Warn($"twincat: the I/O device count is unreadable — every device is OMITTED from this walk: {ex.Message}");
@@ -311,7 +342,7 @@ public sealed partial class BeckhoffDriver
     private void WalkIoNode(object node, string folderPath, List<ProjectItem> items, List<string> unwalked)
     {
         int count;
-        try { count = _om.ChildCount(node); }
+        try { count = Touch("ChildCount", folderPath, () => _om.ChildCount(node)); }
         catch (Exception ex)
         {
             VoltLog.Warn($"twincat: the I/O children of '{folderPath}' are unreadable — that subtree is OMITTED " +
@@ -323,7 +354,7 @@ public sealed partial class BeckhoffDriver
         for (int i = 1; i <= count; i++)
         {
             object device;
-            try { device = _om.ChildAt(node, i); }
+            try { device = Touch($"ChildAt({i})", folderPath, () => _om.ChildAt(node, i)); }
             catch (Exception ex)
             {
                 VoltLog.Warn($"twincat: I/O device #{i} under '{folderPath}' is unreadable — it is OMITTED from " +
@@ -332,7 +363,7 @@ public sealed partial class BeckhoffDriver
                 continue;
             }
             string name;
-            try { name = _om.GetName(device); }
+            try { name = Touch($"GetName({i})", folderPath, () => _om.GetName(device)); }
             catch (Exception ex)
             {
                 VoltLog.Warn($"twincat: an I/O device name is unreadable — the device is OMITTED from this walk: {ex.Message}");
@@ -341,7 +372,7 @@ public sealed partial class BeckhoffDriver
             }
 
             int children;
-            try { children = _om.ChildCount(device); }
+            try { children = Touch("ChildCount", FolderPath.Append(folderPath, name), () => _om.ChildCount(device)); }
             catch (Exception ex)
             {
                 VoltLog.Warn($"twincat: the child count of I/O device '{name}' is unreadable — it and any subtree " +
