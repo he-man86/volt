@@ -42,14 +42,14 @@ public class TcMemberBodyTests
         return ladder.Substring(i, j - i);
     }
 
-    /// <summary>Invoke the internal <c>TrySetBody(ref string, string[], string)</c>.</summary>
+    /// <summary>Invoke the internal <c>TrySetBody(ref string, string[], string, string pouName)</c>.</summary>
     private static (bool Ok, string Doc) SetBody(string tcPou, string[] path, string nwl)
     {
         var t = typeof(TcNetworkWriter).Assembly.GetType("Volt.Ide.Twincat.TcItemArchive")
                 ?? throw new InvalidOperationException("TcItemArchive not found");
         var m = t.GetMethod("TrySetBody", BindingFlags.NonPublic | BindingFlags.Static)
                 ?? throw new InvalidOperationException("TrySetBody not found");
-        object?[] args = { tcPou, path, nwl };
+        object?[] args = { tcPou, path, nwl, "FB" };
         var ok = (bool)m.Invoke(null, args)!;
         return (ok, (string)args[0]!);
     }

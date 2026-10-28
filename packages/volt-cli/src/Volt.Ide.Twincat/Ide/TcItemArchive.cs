@@ -103,7 +103,7 @@ internal static class TcItemArchive
     public static void SetMemberBodies(dynamic pouParent, string pouName, IReadOnlyList<LiveText> live, Action? discard,
                                        System.Collections.Generic.IReadOnlyList<(string[] Path, string Nwl)> bodies)
     {
-        Action<string> write = zip => SetBodies(zip, bodies);
+        Action<string> write = zip => SetBodies(zip, pouName, bodies);
         RoundTrip(pouParent, pouParent, pouName, write, live, discard);
     }
 
@@ -327,7 +327,7 @@ internal static class TcItemArchive
                 return false;
             impl.ReplaceNodes(network);
         }
-        RemoveLineIds(obj, el);
+        RemoveLineIds(obj, el, what);
         return true;
     }
 
@@ -342,14 +342,23 @@ internal static class TcItemArchive
     private static bool SameText(string archived, string live) =>
         string.Equals(archived.Replace("\r\n", "\n"), live.Replace("\r\n", "\n"), StringComparison.Ordinal);
 
+    /// <summary>The <c>Name</c> an archived element states — the POU's, or a member's on the path to a body — the key its
+    /// <c>&lt;LineIds&gt;</c> are found by. TwinCAT names each one; an element that names itself nothing is refused by name,
+    /// never keyed by <c>""</c>, which matched no <c>LineIds</c> and left the stale ones in the archive.</summary>
+    private static string ArchivedName(XElement element, Func<string> what) =>
+        (string?)element.Attribute("Name")
+        ?? throw new BridgeException(BridgeErrorCodes.Unreadable,
+            $"{what()}: TwinCAT's archive of it holds a <{element.Name.LocalName}> with no Name — Volt finds " +
+            "a body's line bookkeeping by those names, so nothing was changed.");
+
     /// <summary>Remove the <c>&lt;LineIds Name="POU.M"&gt;</c> of the body at <paramref name="el"/>: the item's own name,
     /// then the path as the archive spells it.</summary>
-    private static void RemoveLineIds(XElement obj, XElement el)
+    private static void RemoveLineIds(XElement obj, XElement el, Func<string> what)
     {
         var spelled = new List<string>();
         for (var e = el; e != null && e != obj; e = e.Parent)
             if (e.Attribute("Name") is { } n) spelled.Insert(0, n.Value);
-        spelled.Insert(0, (string?)obj.Attribute("Name") ?? "");
+        spelled.Insert(0, ArchivedName(obj, what));
         var key = string.Join(".", spelled);
         foreach (var ids in obj.Descendants().Where(e => e.Name.LocalName == "LineIds"
                                                          && string.Equals((string?)e.Attribute("Name"), key,
@@ -419,7 +428,7 @@ internal static class TcItemArchive
     /// <summary>Write each body into the archive's source documents. Same shape as
     /// <see cref="SetMemberFolder"/>: every entry is copied through, the PLC source documents get the
     /// rewrite offered to them, and a body no document claims is an ERROR rather than a silent no-op.</summary>
-    private static void SetBodies(string zip,
+    private static void SetBodies(string zip, string pouName,
                                   System.Collections.Generic.IReadOnlyList<(string[] Path, string Nwl)> bodies)
     {
         var rebuilt = zip + ".bodies";
@@ -435,7 +444,7 @@ internal static class TcItemArchive
 
                 if (IsPlcSource(entry.FullName))
                     foreach (var (path, nwl) in bodies)
-                        if (TrySetBody(ref text, path, nwl))
+                        if (TrySetBody(ref text, path, nwl, pouName))
                             written.Add(string.Join(".", path));
 
                 WriteEntry(dst, entry.FullName, text, bom);
@@ -493,7 +502,7 @@ internal static class TcItemArchive
     ///
     /// <para>The NWL is parsed rather than pasted, so a malformed archive fails HERE — before the POU has
     /// been deleted from the project — rather than inside the import, where the item is already gone.</para></summary>
-    private static bool TrySetBody(ref string tcPou, string[] path, string nwlXml)
+    private static bool TrySetBody(ref string tcPou, string[] path, string nwlXml, string pouName)
     {
         var doc = ParseVerbatim(tcPou);
 
@@ -525,9 +534,9 @@ internal static class TcItemArchive
         // match above, a member the engineer relettered would otherwise leave its old `LineIds` behind —
         // line bookkeeping for a body that no longer has lines, keyed to a spelling nothing else uses.
         var pou = doc.Descendants().First(e => e.Name.LocalName == "POU");
-        var spelled = new List<string> { (string?)pou.Attribute("Name") ?? "" };
+        var spelled = new List<string> { ArchivedName(pou, () => $"'{pouName}'") };
         for (var e = member; e != null && e.Name.LocalName != "POU"; e = e.Parent)
-            spelled.Insert(1, (string?)e.Attribute("Name") ?? "");
+            spelled.Insert(1, ArchivedName(e, () => $"'{pouName}'"));
         var key = string.Join(".", spelled);
 
         foreach (var ids in doc.Descendants()

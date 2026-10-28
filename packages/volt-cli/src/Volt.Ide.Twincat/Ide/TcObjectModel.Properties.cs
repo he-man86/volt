@@ -12,7 +12,7 @@ namespace Volt.Ide.Twincat;
 /// "TwinCAT and the object-property lines", census §0.1 findings 12-13): the source file's <c>@SpecialFunc</c>, its
 /// <c>&lt;ObjectProperties&gt;</c> archives, and — for an interface — each property accessor's stored
 /// <c>&lt;Declaration&gt;</c> (<see cref="InterfaceAccessors"/>: property name → the GET's and the SET's declaration, null
-/// for an accessor the file does not hold, <c>""</c> for one that holds no <c>&lt;Declaration&gt;</c>).</summary>
+/// for an accessor the file does not hold).</summary>
 internal sealed record TcSavedFacts(string File, string? SpecialFunc, IReadOnlyList<string> ObjectPropertyClasses,
                                     IReadOnlyDictionary<string, (string? Get, string? Set)> InterfaceAccessors,
                                     TcBuild Build);
@@ -78,7 +78,11 @@ internal sealed partial class TcObjectModel
             throw new BridgeException(BridgeErrorCodes.Unreadable,
                 $"{what()}: TwinCAT marks its {name} property read-only — Volt has measured it only as the object's own " +
                 "value (DIALECT C40), so it is not pulled.");
-        return (string?)property.Element("Value") ?? "";
+        // `<Value />` when empty (C40); no `<Value>` at all is unmeasured — refused, never read as the empty value.
+        return (string?)property.Element("Value")
+            ?? throw new BridgeException(BridgeErrorCodes.Unreadable,
+                $"{what()}: its {name} property holds no Value — TwinCAT publishes `<Value />` for an empty one (DIALECT " +
+                "C40), so it is not pulled rather than pulled as empty.");
     }
 
     private static bool Flag(XElement? item, string name, Func<string> what) =>
@@ -188,15 +192,23 @@ internal sealed partial class TcObjectModel
         var accessors = new Dictionary<string, (string?, string?)>(StringComparer.OrdinalIgnoreCase);
         if (obj.Name.LocalName == "Itf")
             foreach (var p in obj.Descendants().Where(e => e.Name.LocalName == "Property" && e.Attribute("Name") is not null))
-                accessors[(string)p.Attribute("Name")!] = (StoredDeclaration(p, "Get"), StoredDeclaration(p, "Set"));
+                accessors[(string)p.Attribute("Name")!] = (StoredDeclaration(p, "Get", what), StoredDeclaration(p, "Set", what));
         return new TcSavedFacts(path!, special, classes, accessors, build);
     }
 
     /// <summary>An interface property accessor's stored declaration, line ends as LF: null when the property holds no such
-    /// accessor, <c>""</c> when the accessor holds no <c>&lt;Declaration&gt;</c>.</summary>
-    private static string? StoredDeclaration(XElement property, string accessor) =>
-        property.Elements().FirstOrDefault(e => e.Name.LocalName == accessor) is not { } a ? null
-            : (a.Elements().FirstOrDefault(e => e.Name.LocalName == "Declaration")?.Value ?? "").Replace("\r\n", "\n");
+    /// accessor. An accessor holding no <c>&lt;Declaration&gt;</c> element is neither measured form (the constant, or the
+    /// empty <c>&lt;![CDATA[]]&gt;</c> of a 3.1.4024.16 save, <c>ITF1.TcIO</c>): refused by name, never read as empty.</summary>
+    private static string? StoredDeclaration(XElement property, string accessor, Func<string> what)
+    {
+        if (property.Elements().FirstOrDefault(e => e.Name.LocalName == accessor) is not { } a) return null;
+        var declaration = a.Elements().FirstOrDefault(e => e.Name.LocalName == "Declaration")
+            ?? throw new BridgeException(BridgeErrorCodes.Unreadable,
+                $"{what()}: its property '{(string?)property.Attribute("Name")}' {accessor.ToUpperInvariant()} is saved with " +
+                "no <Declaration> — TwinCAT saves one on every interface accessor (tc-itf-accessor-decl, ITF1.TcIO), so " +
+                "the interface is not pulled rather than pulled with that accessor read as empty.");
+        return declaration.Value.Replace("\r\n", "\n");
+    }
 
     /// <summary>The child elements of the <c>.plcproj</c>'s <c>&lt;Compile Include&gt;</c> entry for
     /// <paramref name="file"/> — none when the saved project does not list it yet (a new object, before the project is

@@ -73,6 +73,19 @@ public class TcWalkRpcTrailTests
         }
     }
 
+    /// <summary>The walk of <paramref name="root"/>, which must not throw.</summary>
+    internal static Volt.Engine.Item.WalkResult WalkResultOf(Node root, ExplorerNode explorer)
+    {
+        var window = new TcAttachTests.Dte(new TcAttachTests.Project("TwinCAT Project14", new SysManager(new Tipc(new Plc(root)))));
+        var driver = new BeckhoffDriver(new TcObjectModel
+        {
+            BindWindow = _ => window,
+            ReadExplorer = (_, _) => new ExplorerNode("TwinCAT Project14", "", "TwinCAT Project14", new List<ExplorerNode> { explorer }),
+        });
+        driver.Connect(xaePid: 1);
+        return driver.WalkItems();
+    }
+
     private static (string Log, Exception? Thrown, BeckhoffDriver Driver) Walk(Node root, ExplorerNode explorer, object? sysManager = null)
     {
         var window = new TcAttachTests.Dte(new TcAttachTests.Project("TwinCAT Project14",

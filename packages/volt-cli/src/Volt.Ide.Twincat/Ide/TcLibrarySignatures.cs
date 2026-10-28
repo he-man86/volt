@@ -60,7 +60,7 @@ internal static class TcLibrarySignatures
 
         foreach (var lib in root.Elements("Library"))
         {
-            var path = LibraryManifest.Resolution(Text(lib, "LibraryName"), Text(lib, "Version"), Text(lib, "Distributor"));
+            var path = LibraryManifest.Resolution(Stated(lib, "LibraryName"), Stated(lib, "Version"), Stated(lib, "Distributor"));
 
             foreach (var ts in lib.Element("TypeSignatures")?.Elements("TypeSignature") ?? Enumerable.Empty<XElement>())
             {
@@ -182,5 +182,17 @@ internal static class TcLibrarySignatures
             .ToList()
         ?? (IReadOnlyList<LibVar>)Array.Empty<LibVar>();
 
+    /// <summary>A signature's or a pin's <c>Name</c> / <c>DataType</c>. Not a fallback: a missing one reads <c>""</c> only to
+    /// reach the refusal every caller gives an empty one by name ("with no name", "with no data type").</summary>
     private static string Text(XElement owner, string child) => owner.Element(child)?.Value.Trim() ?? "";
+
+    /// <summary>One of the three parts every library in the document states (its name, version and distributor) — the
+    /// resolution that joins its signatures to its <c>.library</c> ref. One missing is refused by name, never joined by an
+    /// empty part (zero-fallback policy).</summary>
+    private static string Stated(XElement library, string part) =>
+        library.Element(part)?.Value.Trim()
+        ?? throw new BridgeException(BridgeErrorCodes.Unreadable,
+            $"TwinCAT: a library in the signature document ('{library.Element("LibraryName")?.Value.Trim()}') states no " +
+            $"{part} — Volt joins its signatures to its .library by name, version and distributor, so it refuses the " +
+            "signatures rather than join them by an empty part.");
 }

@@ -429,7 +429,8 @@ public sealed partial class BeckhoffDriver
     public string Name(ItemRef item) => item.Native switch
     {
         TcProjectSettingsNode => ProjectSettingsFormat.ItemName,
-        SolutionNode => _om.ProjectName ?? "",
+        // The bound solution names the root; a driver bound to none has no root to name (OpGuard refuses its ops first).
+        SolutionNode => _om.ProjectName ?? throw BridgeException.PlcDisconnected("no TwinCAT project bound"),
         SystemNode system => system.Name,
         PlcFolderNode => TcPlc.PlcSegment,
         PlcItemNode plc => plc.Plc.Name,

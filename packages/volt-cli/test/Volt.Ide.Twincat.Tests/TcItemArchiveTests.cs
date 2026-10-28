@@ -42,6 +42,10 @@ public class TcItemArchiveTests
         public List<string> Children { get; } = new();
         /// <summary>The body the exported document holds — its SAVED one (DIALECT D45); none when null.</summary>
         public string? SavedBody;
+        /// <summary>The archive's POU carries no <c>Name</c> attribute — never seen from TwinCAT; a test's what-if.</summary>
+        public bool Nameless;
+        /// <summary>Raw XML the archived POU holds after its body (its members).</summary>
+        public string? Inside;
 
         /// <summary>Writes a real zip, because <c>Flatten</c> opens and rewrites it — a stub that wrote nothing
         /// would make the test pass without exercising the archive handling at all.</summary>
@@ -50,8 +54,9 @@ public class TcItemArchiveTests
             using var zip = ZipFile.Open(zipPath, ZipArchiveMode.Create);
             var entry = zip.CreateEntry($"POUs/{name}.TcPOU");
             using var w = new StreamWriter(entry.Open());
-            w.Write("<TcPlcObject><POU Name=\"" + name + "\"" +
-                    (SavedBody is null ? " />" : $">\r\n    <Implementation>\r\n      {SavedBody}\r\n    </Implementation>\r\n  </POU>") +
+            var inner = (SavedBody is null ? "" : $"\r\n    <Implementation>\r\n      {SavedBody}\r\n    </Implementation>\r\n  ") + Inside;
+            w.Write("<TcPlcObject><POU" + (Nameless ? "" : " Name=\"" + name + "\"") +
+                    (inner.Length == 0 ? " />" : ">" + inner + "</POU>") +
                     "</TcPlcObject>");
         }
 
@@ -247,5 +252,38 @@ public class TcItemArchiveTests
         var rest = message.Substring(i + marker.Length);
         var end = rest.IndexOf(", import", StringComparison.Ordinal);
         return end >= 0 ? rest.Substring(0, end) : rest;
+    }
+
+    /// <summary>A carried body drops its stale <c>&lt;LineIds Name="POU.M"&gt;</c>, keyed by the archived POU's own
+    /// <c>Name</c>. An archive whose POU names itself nothing is unmeasured: with <c>""</c> for the name no key matched,
+    /// and the stale line bookkeeping stayed. Refused by name, before anything is deleted (zero-fallback policy).</summary>
+    [Fact]
+    public void A_carried_body_in_an_archive_whose_POU_names_itself_nothing_is_refused_before_anything_is_deleted()
+    {
+        var from = new FakeNode { SavedBody = "<ST><![CDATA[y := 2;]]></ST>", Nameless = true };
+        var to = new FakeNode();
+
+        var ex = Assert.Throws<BridgeException>(() => MoveWithLive(from, to, "FB_X", "x := 1;"));
+
+        Assert.Equal(BridgeErrorCodes.Unreadable, ex.ErrorCode);
+        Assert.Contains("'FB_X'", ex.Message);
+        Assert.Contains("Name", ex.Message);
+        Assert.Empty(from.Deleted);
+        Assert.Empty(to.Imported);
+    }
+
+    /// <summary>…and a graphical member body set into such an archive is refused the same way.</summary>
+    [Fact]
+    public void A_member_body_set_into_an_archive_whose_POU_names_itself_nothing_is_refused()
+    {
+        var pou = new FakeNode { Nameless = true, Inside = "<Method Name=\"M\"><Implementation><ST><![CDATA[]]></ST></Implementation></Method>" };
+        pou.Children.Add("FB_X");
+
+        var ex = Assert.Throws<BridgeException>(() =>
+            TcItemArchive.SetMemberBodies(pou, "FB_X", NoLive, null, new[] { (new[] { "M" }, "<NWL />") }));
+
+        Assert.Equal(BridgeErrorCodes.Unreadable, ex.ErrorCode);
+        Assert.Contains("'FB_X'", ex.Message);
+        Assert.Empty(pou.Deleted);
     }
 }

@@ -435,7 +435,18 @@ internal sealed partial class TcObjectModel
         return path.StartsWith(root + "^", StringComparison.Ordinal) ? path.Substring(root.Length + 1) : null;
     }
     public object Parent(object node) => (object)((dynamic)node).Parent;
-    public string GetName(object node) => (string)((dynamic)node).Name ?? "";
+    /// <summary>The node's tree name — its wire identity. No name (null, or empty: COM defines a NULL BSTR as the empty
+    /// string, and the marshaler hands it over as null) is refused by name, never read as <c>""</c>, which named an item
+    /// <c>""</c> on the wire. In the walk it is one child the folder cannot name, so the folder is unwalked; in a lookup, the folder is unverified.</summary>
+    public string GetName(object node) =>
+        RawName(node) is { Length: > 0 } name ? name
+        : throw new BridgeException(BridgeErrorCodes.Unreadable,
+            $"twincat: the tree item at '{RawPath(node) ?? "(no PathName either)"}' answers no Name — Volt " +
+            "names an item on the wire by it, so the item is not read rather than read as one named ''.");
+
+    /// <summary>The node's <c>Name</c> / <c>PathName</c> as answered, null included — for a refusal's text alone.</summary>
+    private static string? RawName(object node) => (string?)((dynamic)node).Name;
+    private static string? RawPath(object node) => (string?)((dynamic)node).PathName;
 
     // TwinCAT's native ItemType IS the vendor-neutral code.
     //
@@ -776,9 +787,13 @@ internal sealed partial class TcObjectModel
     /// <para><paramref name="recursive"/> is load-bearing and easy to miss: <c>ProduceXml()</c> with no
     /// argument returns the item's METADATA only, with none of its children — so an interface came back
     /// without the <c>&lt;Property&gt;</c> elements that carry the accessors, and the accessor read had
-    /// nothing to find. <c>ProduceXml(true)</c> is the whole object, children included.</para></summary>
+    /// nothing to find. <c>ProduceXml(true)</c> is the whole object, children included.</para>
+    /// <para>No XML (null or empty) is refused by name — never an empty document a caller then parses as nothing.</para></summary>
     public string ProduceXml(object node, bool recursive = false) =>
-        (string)((dynamic)node).ProduceXml(recursive) ?? "";
+        (string?)((dynamic)node).ProduceXml(recursive) is { Length: > 0 } xml ? xml
+        : throw new BridgeException(BridgeErrorCodes.Unreadable,
+            $"twincat: the tree item at '{PathOf(node)}' answers no item XML — Volt reads what it holds there, so it is " +
+            "not read rather than read as an empty document.");
 
     /// <summary>The HRESULT TwinCAT returns for a tree path that does not exist — <c>Item 'x' not found</c>.
     /// Measured on live TcXaeShell 15.0 (2026-08-30) against two bogus paths, one under an existing root and one
@@ -799,6 +814,12 @@ internal sealed partial class TcObjectModel
         catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException) { return null; }
     }
 
-    private static string PathOf(object node) => (string)((dynamic)node).PathName ?? "";
+    /// <summary>The node's <c>^</c>-joined tree path. None (null or empty) is refused by name, never read as <c>""</c> —
+    /// the path every relative path and C2i guard is measured from.</summary>
+    private static string PathOf(object node) =>
+        RawPath(node) is { Length: > 0 } path ? path
+        : throw new BridgeException(BridgeErrorCodes.Unreadable,
+            $"twincat: the tree item '{RawName(node) ?? "(no Name either)"}' answers no PathName — Volt places " +
+            "an item in the tree by it, so it is not read rather than placed at ''.");
 
 }

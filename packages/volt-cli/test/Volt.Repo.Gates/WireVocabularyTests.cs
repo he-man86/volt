@@ -171,15 +171,15 @@ public class WireVocabularyTests
             ("Volt.Ide.Codesys/Ide/CodesysNetworkReader.cs", 1),   // an archived SymbolComment that is not text (ld-fbd-coverage gate 1b-3)
             ("Volt.Ide.Twincat/Ide/TcDeviceDescriptor.cs", 1),   // a device whose ProduceXml does not parse (volt-cli-rework 2.2, review B6)
             ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 2),   // -1 the member declaration (MemberSites, volt-cli-rework step 6); +1 an item read as excluded by a folder the walk did not see (C39); +1 an interface accessor the saved file does not hold (gate review of step 3, 5)
-            ("Volt.Ide.Twincat/Ide/TcObjectModel.Properties.cs", 12),   // +3 the live Exclude property: no item XML, none published, neither True nor False (C39); +4 the live LinkAlways / External / CompilerDefines: no item XML, none published, read-only, neither True nor False (C40); +4 no item XML, no FullPath, a saved file / .plcproj not on disk (gate review of step 3, 6)
-            ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 3),   // bridge-one-to-one §3: a declaration or implementation that reads null
+            ("Volt.Ide.Twincat/Ide/TcObjectModel.Properties.cs", 14),   // +2 a build property with no Value, an interface accessor saved with no Declaration (zero-fallback); +3 the live Exclude property: no item XML, none published, neither True nor False (C39); +4 the live LinkAlways / External / CompilerDefines: no item XML, none published, read-only, neither True nor False (C40); +4 no item XML, no FullPath, a saved file / .plcproj not on disk (gate review of step 3, 6)
+            ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 6),   // bridge-one-to-one §3: a declaration or implementation that reads null; +3 a tree item answering no Name, PathName or item XML (zero-fallback)
             ("Volt.Ide.Twincat/Ide/TcTaskSchedule.cs", 3),   // a TaskDef that carries no measured member (gate review of step 3, 6)   // bridge-one-to-one §3: a declaration or implementation that reads null
             ("Volt.Ide.Codesys/Driver/CodesysDriver.cs", 1),   // wire-final-shape 3c: coded at the throw
             ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Libraries.cs", 6),   // wire-final-shape 3c: coded at the throw
             ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Properties.cs", 1),   // wire-final-shape 3c: coded at the throw
             ("Volt.Ide.Codesys/Ide/CodesysObjectModel.cs", 5),   // wire-final-shape 3c: coded at the throw; +1 a name the IDE answers null (3c review 5)
-            ("Volt.Ide.Twincat/Ide/TcItemArchive.cs", 4),   // wire-final-shape 3c: coded at the throw
-            ("Volt.Ide.Twincat/Ide/TcLibrarySignatures.cs", 3),   // wire-final-shape 3c: coded at the throw
+            ("Volt.Ide.Twincat/Ide/TcItemArchive.cs", 5),   // wire-final-shape 3c: coded at the throw; +1 an archived element with no Name (zero-fallback)
+            ("Volt.Ide.Twincat/Ide/TcLibrarySignatures.cs", 4),   // wire-final-shape 3c: coded at the throw; +1 a library stating no name, version or distributor (zero-fallback)
             ("Volt.Ide.Twincat/Ide/TcProjectSettings.cs", 6))),   // wire-final-shape 3c: coded at the throw
 
         // ── the optimistic gate and the apply loop ─────────────────────────────────────────────────────────────

@@ -274,6 +274,8 @@ internal static class TcSolutionExplorer
         while (c != VsItemIdNil)
         {
             var mine = new List<string>();
+            // A failed read is null (E_NOTIMPL on the PLC project node, measured — C2i). Not a fallback: COM defines a NULL
+            // BSTR as the empty string, and the marshaler hands one over as null — so S_OK with null IS "".
             var canonical = h.GetCanonicalName(c, out var cn) == 0 ? cn ?? "" : null;
             List<ExplorerNode> below;
             var ih = typeof(IVsHierarchy).GUID;
@@ -302,7 +304,9 @@ internal static class TcSolutionExplorer
     {
         if (Failed(h.GetProperty(id, prop, out var v), $"GetProperty({prop})", unread)) return "";
         if (v is null) { unread.Add($"GetProperty({prop}) answered no value"); return ""; }
-        return v.ToString() ?? "";
+        if (v.ToString() is { } text) return text;
+        unread.Add($"GetProperty({prop}) answered a value with no text");
+        return "";
     }
 
     private static bool Failed(int hr, string what, List<string> unread)
