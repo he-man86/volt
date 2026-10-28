@@ -16,7 +16,7 @@ namespace Volt.Ide.Twincat.Tests;
 /// null / false / 0 — the same answer as the IDE writing <c>""</c>, <c>false</c> or <c>0</c>. Every member below is one
 /// TwinCAT writes on EVERY object of its class (census 2026-10-28 over the TwinCAT archives under <c>test/</c>: the native
 /// corpus, <c>nwl-corpus/twincat-project14</c>, the e2e projects and the drawn <c>tc-pou</c> fixtures — 207 boxes, 201
-/// networks, 940 operands, 26 wires, 5 Execute lines), so its absence is no shape the IDE wrote: a box with no
+/// networks, 940 operands, 26 wires, 10 Execute ST lines), so its absence is no shape the IDE wrote: a box with no
 /// <c>BoxType</c> read as a call to <c>""</c>, an operand with no text as an unwired pin, a network with no
 /// <c>OutCommented</c> as enabled, a wire with no <c>VarId</c> as wire 0, a target with no <c>Flags</c> as a plain coil.</para>
 ///
