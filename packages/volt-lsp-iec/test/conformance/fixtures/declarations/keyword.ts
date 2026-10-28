@@ -267,7 +267,7 @@ END_METHOD
   // around POU declarations, and the bridge's StSplitter (+ TC's
   // tree-item model) only handles FUNCTION_BLOCK / PROGRAM /
   // FUNCTION / INTERFACE / GVL / DUT outer kinds. The volt-lsp-iec
-  // parser supports NAMESPACE (see ast.ts `Namespace`) but the wire
+  // parser supports NAMESPACE (see `nodes/units.ts` `Namespace`) but the wire
   // model doesn't carry it. Listed here as a known gap so future
   // catalog expansions know to add NAMESPACE coverage when (if) TC
   // exposes a namespace tree-item type.

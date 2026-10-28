@@ -1,5 +1,5 @@
 /**
- * BUILT-IN HOVER — the one entry both hover paths (ST `hover.ts`, network text `network/network-services.ts`) and
+ * BUILT-IN HOVER — the one entry hover (`hover.ts`, ST and network bodies alike) and
  * completion ask for what the COMPILER provides: elementary types, operators, conversions, the standard functions that
  * are operators (MAX, SEL, TRUNC…), the implicits and the system names, and the pragma directives and `{attribute '…'}`
  * names (openspec lsp-same-standard 2.2; it was `reference/`). Hover text only — every fact it shows is read from the

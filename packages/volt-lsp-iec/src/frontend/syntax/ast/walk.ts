@@ -1,5 +1,5 @@
 /**
- * Shared traversal for the ST statement/expression tree (`ast.ts`).
+ * Shared traversal for the ST statement/expression tree (`nodes/`).
  *
  * One place that knows the shape of every `Expr`/`Statement` node, so
  * consumers (type inference, the checks, the name-offset collector, the

@@ -81,7 +81,9 @@ function walkFiles(root: string, unlisted: Unreadable[]): string[] {
   const out: string[] = []
   let entries: string[]
   try {
-    entries = readdirSync(root)
+    // Sorted by code unit (ordinal, culture-free): readdir's order is the filesystem's — sorted on NTFS, not on ext4 —
+    // and the walk's order is what the scan's lists (one Project Settings per PLC project, …) come out in.
+    entries = readdirSync(root).sort()
   } catch (e) {
     const code = ioFailure(e)
     if (code !== undefined) unlisted.push({ path: root, code })

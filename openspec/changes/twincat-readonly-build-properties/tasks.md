@@ -12,4 +12,4 @@
 - [ ] 2 Read: accept a readonly build property's value when the IDE is online (or whatever state step 1 finds).
 - [ ] 3 Write: refuse by name with the remedy ("log out of the PLC"), under a code PLC Assist can map.
 - [ ] 4 DIALECT C40 amended; a regression test per state.
-- [ ] 5 Tell PLC Assist the code and wording; it maps it in `volt-error-map.ts`.
+- [ ] 5 Tell PLC Assist the code and wording; it maps it in its own error map.
