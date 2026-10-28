@@ -23,6 +23,14 @@
       a walk's FIRST RPC failure it logs `walk: RPC failure 0x800706BE on ChildAt(1) at '<path>'; the last COM call
       that returned: <call> at '<path>'` (the classifier is the one `RpcFault`/`IsRpcFault`). Pinned offline:
       `TcWalkRpcTrailTests` (2). Suites: Twincat 729/729, Engine 2437 + 1 skipped, Repo.Gates 276/276.
+- [x] 1.4 A dead XAE stops the walk (2026-10-28). The field log showed `ChildAt(2..11)` each failing after `ChildAt(1)`
+      met `0x800706BE`: the per-node catches took each RPC failure for one unreadable child. They now let an RPC fault
+      through (`when (!IsRpcFault(ex))`, PLC and I/O walk alike); `WalkItems` logs the 1.3 line and fails the op
+      `PLC_DISCONNECTED` ("TwinCAT XAE stopped answering during the tree walk (RPC … on <call>; the last call that
+      returned: …)"), the COM fault as the inner exception — so `ShouldMarkDegraded` still classifies it and
+      `RunRead` recovers (re-attach by pid) and retries once, as for any RPC fault. Pinned: `TcWalkRpcTrailTests`
+      `The_walk_stops_at_the_first_RPC_failure_and_fails_by_name_as_the_IDE_no_longer_answering`,
+      `An_RPC_failure_reading_the_IO_tree_fails_the_walk_by_name`.
 
 ## 2. Redial identity
 - [x] 2.1 Answered without a wire change: the relay decides from `hello.pipe` (owner, 2026-10-27). `pipe` is fixed for

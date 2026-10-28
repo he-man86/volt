@@ -42,6 +42,7 @@ public class WireVocabularyTests
             ("Volt.Engine.Host/BridgePipeHost.cs", 1),
             ("Volt.Engine/Sync/ComposedSession.cs", 1),   // the ambient probe of a host whose IDE did not answer (volt-cli-rework step 6: it was BeckhoffDriver's TriggerAsyncProbe)
             ("Volt.Engine/BridgeException.cs", 2),
+            ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Tree.cs", 1),   // a walk whose XAE stopped answering (an RPC failure: twincat-crash-and-redial-identity 1.4)
             ("Volt.Ide.Twincat/Ide/TcObjectModel.Build.cs", 1),   // -1 the save Volt no longer makes (D45)
             ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 1))),   // a delete with no IDE attached, before its member documents are closed (D45)
         new("another project is served", "the bound project is not the one named: rebind, never merge", "WRONG_PROJECT", At(

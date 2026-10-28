@@ -45,8 +45,13 @@ public sealed partial class BeckhoffDriver
         var applications = new List<string>();
         _walkIndex = null;
         _walking = new List<(ItemRef, string, int)>();
-        (_comInFlight, _comReturned, _rpcNamed) = (null, null, false);
+        (_comInFlight, _comReturned) = (null, null);
         try { WalkSystems(observer, items, unwalked, unreadable, applications); }
+        catch (Exception ex) when (ex is not BridgeException && RpcFault(ex) is { } hr)
+        {
+            _walking = null;
+            throw XaeStoppedAnswering(ex, hr);
+        }
         catch { _walking = null; throw; }
         var result = new WalkResult(items, unwalked, unreadable, applications);
         // The declarations index is this walk's, while it describes the tree (WalkIndex).
@@ -120,7 +125,7 @@ public sealed partial class BeckhoffDriver
         // like this once hid a real read bug (FB-with-method / interface) for a long time.
         int count;
         try { count = Touch("ChildCount", folderPath, () => kind is { } known ? _om.ChildCount(node, known) : _om.ChildCount(node)); }
-        catch (Exception ex)
+        catch (Exception ex) when (!IsRpcFault(ex))
         {
             // The ENTIRE subtree is lost here, not one item. Recorded as well as logged: the log was at Debug,
             // which is off by default, and the caller that derives DELETIONS from absence never saw it — so a
@@ -141,7 +146,7 @@ public sealed partial class BeckhoffDriver
                 unreadable.Add(new UnreadableObject(untouchable.Name, folderPath, untouchable.Reason, untouchable.Kind, Code: BridgeErrorCodes.Unreadable));
                 continue;
             }
-            catch (Exception ex)
+            catch (Exception ex) when (!IsRpcFault(ex))
             {
                 // One child lost rather than a subtree — still enough to make absence meaningless.
                 VoltLog.Warn($"walk: ChildAt({i}) faulted at folder='{folderPath}': {ex.Message}");
@@ -150,7 +155,7 @@ public sealed partial class BeckhoffDriver
             }
             string name;
             try { name = Touch($"GetName({i})", folderPath, () => _om.GetName(child)); }
-            catch (Exception ex)
+            catch (Exception ex) when (!IsRpcFault(ex))
             {
                 VoltLog.Warn($"walk: GetName faulted at folder='{folderPath}' index={i}: {ex.Message}");
                 unwalked.Add(folderPath);   // "" is the root: Removal reads it as covering everything
@@ -160,7 +165,7 @@ public sealed partial class BeckhoffDriver
             // absence under this folder stops meaning "deleted".
             int itemType;
             try { itemType = Touch("ItemType", FolderPath.Append(folderPath, name), () => ClassifiedKind(child)); }
-            catch (Exception ex)
+            catch (Exception ex) when (!IsRpcFault(ex))
             {
                 // NAMED, not only folder-marked: the walk knows which object it was, and `refs`/`fetch` list it in
                 // `unreadableNodes` (WalkResult derives the folder) — the same answer the CODESYS walk gives (openspec
@@ -185,7 +190,7 @@ public sealed partial class BeckhoffDriver
                 {
                     TcExclusion exclusion;
                     try { exclusion = Touch("Exclusion", nested, () => _om.Exclusion(child, () => $"'{name}'")); }
-                    catch (Exception ex)
+                    catch (Exception ex) when (!IsRpcFault(ex))
                     {
                         // Its kind is KNOWN (a folder): the folder it sits in was walked whole. Whether it is built was not
                         // read, so its own subtree is unwalked — nothing under it is read as deleted.
@@ -230,7 +235,7 @@ public sealed partial class BeckhoffDriver
             // WarnUnmappedTcCode line above is the established policy), but it must be SAID.
             int childCount;
             try { childCount = Touch("ChildCount", FolderPath.Append(folderPath, name), () => _om.ChildCount(child, itemType)); }
-            catch (Exception ex)
+            catch (Exception ex) when (!IsRpcFault(ex))
             {
                 // SAID on the channel the caller can act on, not only to the log. The three sibling catches in
                 // this method all append here; this one did not, so `WalkResult.Complete` stayed TRUE and
@@ -258,34 +263,39 @@ public sealed partial class BeckhoffDriver
     }
 
     /// <summary>THE WALK'S COM CALLS, each named with the wire path of the item it touches (openspec
-    /// <c>twincat-crash-and-redial-identity</c> 1.3). Every call the walk makes into XAE goes through here; at the walk's
-    /// FIRST RPC failure (<see cref="RpcFault"/>) it logs the call in flight and the last call that returned. An XAE
-    /// that dies (a field access violation in <c>TwinCAT System Manager.dll</c> under <c>refs</c>) fails the call in
-    /// flight with <c>0x800706BE</c> — but the crash may be asynchronous to it, so the call before is the other candidate
-    /// trigger. Only the first: every call after it meets a dead XAE and says nothing new. The exception propagates
-    /// untouched; the walk's own catches still decide what it means.</summary>
+    /// <c>twincat-crash-and-redial-identity</c> 1.3). Every call the walk makes into XAE goes through here, so an RPC failure
+    /// can name the call in flight and the last call that returned (<see cref="XaeStoppedAnswering"/>). An XAE that dies (a
+    /// field access violation in <c>TwinCAT System Manager.dll</c> under <c>refs</c>) fails the call in flight with
+    /// <c>0x800706BE</c> — but the crash may be asynchronous to it, so the call before is the other candidate trigger.</summary>
     private T Touch<T>(string call, string path, Func<T> com)
     {
         _comInFlight = $"{call} at '{path}'";
-        try
-        {
-            var result = com();
-            _comReturned = _comInFlight;
-            return result;
-        }
-        catch (Exception ex) when (!_rpcNamed && RpcFault(ex) is { } hr)
-        {
-            _rpcNamed = true;
-            VoltLog.Warn($"walk: RPC failure 0x{hr:X8} on {_comInFlight}; the last COM call that returned: " +
-                         $"{_comReturned ?? "none in this walk"}");
-            throw;
-        }
+        var result = com();
+        (_comReturned, _comInFlight) = (_comInFlight, null);
+        return result;
     }
 
-    /// <summary>The walk's COM call in flight and the last one that returned (<see cref="Touch{T}"/>), and whether this walk
-    /// has named its first RPC failure; reset by every walk.</summary>
+    /// <summary>The walk's named COM call in flight (null between two, so a fault in a call the walk makes outside
+    /// <see cref="Touch{T}"/> is not pinned on the last named one) and the last one that returned; reset by every walk.</summary>
     private string? _comInFlight, _comReturned;
-    private bool _rpcNamed;
+
+    /// <summary>A DEAD OR HUNG XAE ENDS THE WALK (openspec <c>twincat-crash-and-redial-identity</c>): the walk's per-node
+    /// catches let an RPC failure (<see cref="RpcFault"/>) through, so the first one reaches <see cref="WalkItems"/>, which
+    /// logs the call in flight and the last that returned and fails the op here — <c>PLC_DISCONNECTED</c>, the code a
+    /// client already reads as "the IDE is not answering" (the health probe's own). The field log showed the opposite:
+    /// <c>ChildAt(2..11)</c> each failing after <c>ChildAt(1)</c> met <c>0x800706BE</c>, each taken for one unreadable child.
+    /// The COM fault stays the inner exception, so the pipe host's <c>ShouldMarkDegraded</c> (<see cref="IsRpcFault"/> walks
+    /// the inner chain) degrades the session and <c>RunRead</c> recovers — re-attaches by pid — and retries once.</summary>
+    private BridgeException XaeStoppedAnswering(Exception fault, uint hr)
+    {
+        var call = _comInFlight ?? "a COM call outside the walk's named ones";
+        VoltLog.Warn($"walk: RPC failure 0x{hr:X8} on {call}; the last COM call that returned: " +
+                     $"{_comReturned ?? "none in this walk"}");
+        return new BridgeException(BridgeErrorCodes.PlcDisconnected,
+            $"TwinCAT XAE stopped answering during the tree walk (RPC 0x{hr:X8} on {call}; the last call that returned: " +
+            $"{_comReturned ?? "none in this walk"}) — the walk stopped there and nothing more was asked of it. If XAE " +
+            "closed or crashed, reopen it on the project and run the command again.", fault);
+    }
 
     /// <summary>A system project's I/O devices (<c>TIID</c>), walked where the solution tree shows them: <c>I/O</c> → <c>Devices</c> under the system project's
     /// path (<paramref name="systemFolder"/>) — each system project has its own <c>TIID</c>.
@@ -308,7 +318,7 @@ public sealed partial class BeckhoffDriver
 
         object tiid;
         try { tiid = Touch("LookupTreeItem(TIID)", ioFolder, () => _om.LookupIn(manager, "TIID")); }
-        catch (Exception ex)
+        catch (Exception ex) when (!IsRpcFault(ex))
         {
             VoltLog.Warn($"twincat: the I/O tree (TIID) is unreadable — every device is OMITTED from this walk: {ex.Message}");
             unwalked.Add(ioFolder);
@@ -317,7 +327,7 @@ public sealed partial class BeckhoffDriver
 
         int count;
         try { count = Touch("ChildCount", ioFolder, () => _om.ChildCount(tiid)); }
-        catch (Exception ex)
+        catch (Exception ex) when (!IsRpcFault(ex))
         {
             VoltLog.Warn($"twincat: the I/O device count is unreadable — every device is OMITTED from this walk: {ex.Message}");
             unwalked.Add(ioFolder);
@@ -343,7 +353,7 @@ public sealed partial class BeckhoffDriver
     {
         int count;
         try { count = Touch("ChildCount", folderPath, () => _om.ChildCount(node)); }
-        catch (Exception ex)
+        catch (Exception ex) when (!IsRpcFault(ex))
         {
             VoltLog.Warn($"twincat: the I/O children of '{folderPath}' are unreadable — that subtree is OMITTED " +
                          $"from this walk: {ex.Message}");
@@ -355,7 +365,7 @@ public sealed partial class BeckhoffDriver
         {
             object device;
             try { device = Touch($"ChildAt({i})", folderPath, () => _om.ChildAt(node, i)); }
-            catch (Exception ex)
+            catch (Exception ex) when (!IsRpcFault(ex))
             {
                 VoltLog.Warn($"twincat: I/O device #{i} under '{folderPath}' is unreadable — it is OMITTED from " +
                              $"this walk: {ex.Message}");
@@ -364,7 +374,7 @@ public sealed partial class BeckhoffDriver
             }
             string name;
             try { name = Touch($"GetName({i})", folderPath, () => _om.GetName(device)); }
-            catch (Exception ex)
+            catch (Exception ex) when (!IsRpcFault(ex))
             {
                 VoltLog.Warn($"twincat: an I/O device name is unreadable — the device is OMITTED from this walk: {ex.Message}");
                 unwalked.Add(folderPath);
@@ -373,7 +383,7 @@ public sealed partial class BeckhoffDriver
 
             int children;
             try { children = Touch("ChildCount", FolderPath.Append(folderPath, name), () => _om.ChildCount(device)); }
-            catch (Exception ex)
+            catch (Exception ex) when (!IsRpcFault(ex))
             {
                 VoltLog.Warn($"twincat: the child count of I/O device '{name}' is unreadable — it and any subtree " +
                              $"are OMITTED from this walk: {ex.Message}");
