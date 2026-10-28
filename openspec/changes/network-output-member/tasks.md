@@ -172,6 +172,16 @@
       `TYPE(FB := inst, …)`.
 - [ ] 2.8 Wires as `VAR_TEMP w1 : ANY; END_VAR` at the network start (design.md "Wires"): writer, reader, LSP, exec
       twin, doc; `%WIRES` deleted.
+- [ ] 2a Gate of 2.1/2.2/2.4 (2026-10-28): NOT green, nothing committed. Typecheck, lint, `bun run check` green; C#
+      Engine 2478 (+1 skip) / Cli 378 / Codesys 538 / Twincat 785 / Connector 156 / Contracts 56 / Repo.Gates 276, 0 fail;
+      volt-cli `test/unit` 235, volt-vscode 34, 0 fail; LSP full suite (`VOLT_REQUIRE_FULL=1`) 10290 pass / 36 skip /
+      431 todo / **4 fail** — `corpus-twins.test.ts` "the IDE builds the twins…" for awa-palletizer, bakon-nano, lenze-mid,
+      pro2193: each `network-twins.codesys.json` is of the old twins (hash mismatch; the corpora's network text was
+      respelled in 2.1). The fixture map is current (`map.test.ts` green). BLOCKER: re-recording needs a live CODESYS
+      (`scripts/record-network-twins.ts`, one per corpus, the `.project` files in `Documents/codesysproject`), and
+      `ide.ps1 up -Instance network-output-member` refuses beside a CODESYS it does not own (pid 35692, SP21 Patch 4, GUI
+      started 15:36 with no project argument). Re-run the gate once that IDE is closed: record the four (2.3), then the
+      full suite.
 
 ## 3. Close
 

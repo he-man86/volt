@@ -26,7 +26,9 @@
  *   `BRANCH(FEED := f, b1, b2)`                  `(f AND (b1 OR b2))`: every branch runs;
  *   `BRANCH_SHORTCIRCUIT(FEED := f, b1, b2)`     a branch holding a box runs, with the calls it reads, unless the feed
  *                                                and a box-free branch are both TRUE (1.4): `IF NOT (f AND free) THEN …`;
- *   `R_EDGE(x)`, `F_EDGE(x)`                     an `R_TRIG` / `F_TRIG` called every scan with x, read by its Q (1.3);
+ *   `R_EDGE(x)`, `F_EDGE(x)`                     an `R_TRIG` / `F_TRIG` called with x where its tree is evaluated, read
+ *                                                by its Q (1.3): every scan, or under the EN of the enabled FB box whose
+ *                                                pin it stands in;
  *   `JMP(l, v)`, `RETURN(v)`                     `IF v THEN JMP l; END_IF;` / `IF v THEN RETURN; END_IF;`; in a tree its
  *                                                value held in a temp, the jump taken where the tree is evaluated;
  *   a wire                                       a variable of its definition's type (`types` `network-call.ts`),
@@ -241,7 +243,7 @@ class Twinner extends BoxTwinner {
     return t
   }
 
-  /** `R_EDGE(x)` / `F_EDGE(x)`: an edge detector called on every scan with x, read by its Q (1.3). */
+  /** `R_EDGE(x)` / `F_EDGE(x)`: an edge detector called with x where its tree is evaluated (`pre`), read by its Q (1.3). */
   private edge(call: CallExpr, pre: string[]): string {
     const rising = (call.callee as { name: string }).name.toUpperCase() === "R_EDGE"
     const name = `${this.prefix}trig${this.trigs.length + 1}`
