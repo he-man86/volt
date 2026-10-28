@@ -16,9 +16,7 @@
 <h1>Network text</h1>
 <p class="lede">
   An LD or FBD body is ST: every box is a call, a contact is <code>AND</code>, <code>OR</code> or <code>NOT</code>
-  between operands, a coil is an assignment. Lines starting with <code>%</code> carry what is not code. Writer and
-  reader are <code>StNetworkWriter</code> and <code>StNetworkReader</code> in <code>Volt.Engine/Format/Network/</code>;
-  the language server reads the body with its ST parser.
+  between operands, a coil is an assignment. Lines starting with <code>%</code> carry what is not code.
 </p>
 <pre>%LANGUAGE LD
 %NETWORK "Start the motor"
@@ -35,44 +33,40 @@ lamp := MOVE_EN(EN := w1, 100, OUT => speed);</pre>
   <tr><td class="name"><code>%NETWORK "title"</code></td><td>a network starts; the title is optional</td></tr>
   <tr><td class="name"><code>%DISABLED</code></td><td>the network is not compiled</td></tr>
   <tr><td class="name"><code>%WIRES w1, w2</code></td><td>the network's wires</td></tr>
-  <tr><td class="name"><code>// text</code></td><td>the network's comment, before its code</td></tr>
+  <tr><td class="name"><code>// text</code></td><td>the network's comment</td></tr>
   <tr><td class="name"><code>l:</code></td><td>the network's label, its first code line</td></tr>
-  <tr><td class="name"><code>%EXECUTE</code> … <code>%END_EXECUTE</code></td><td>an Execute box; the lines between are its ST</td></tr>
+  <tr><td class="name"><code>%EXECUTE</code> … <code>%END_EXECUTE</code></td><td>an Execute box (<a href="#execute">below</a>)</td></tr>
   <tr><td class="name"><code>%UNSUPPORTED "shape" #hash</code></td><td>a network the text cannot spell (<a href="#unsupported">below</a>)</td></tr>
 </table>
-<p>The <code>%</code> lines of a network stand in this order, before its code.</p>
+<p>A network's lines stand in this order, before its code.</p>
 
 <h2 id="elements">Elements</h2>
 <table>
   <tr><th>element</th><th>text</th></tr>
   <tr><td class="name">contact</td><td><code>x := a AND NOT b;</code> <code>x := a OR b;</code></td></tr>
   <tr><td class="name">coil</td><td><code>x := a;</code> <code>x S= a;</code> <code>x R= a;</code> <code>y := x := a;</code></td></tr>
-  <tr><td class="name">operator box</td><td><code>x := AND(a, b);</code> <code>i := ADD(j, k, 1);</code> <code>x := GT(i, 3);</code> <code>x := NOT(a);</code></td></tr>
+  <tr><td class="name">operator box</td><td><code>x := AND(a, b);</code> <code>i := ADD(j, k, 1);</code> <code>x := NOT(a);</code></td></tr>
   <tr><td class="name">MOVE</td><td><code>x := MOVE(a);</code> <code>MOVE(a, OUT => x, OUT => y);</code></td></tr>
   <tr><td class="name">function</td><td><code>y := LIMIT(MN := 0, IN := v, MX := 100);</code> <code>y := f(a, b);</code></td></tr>
   <tr><td class="name">FB</td><td><code>t1(IN := a, PT := T#1S, Q => x);</code></td></tr>
   <tr><td class="name">output pin</td><td><code>y := f(IN := a, err => e);</code></td></tr>
   <tr><td class="name">edge</td><td><code>x := R_EDGE(a);</code> <code>x := F_EDGE(a);</code></td></tr>
   <tr><td class="name">negated pin</td><td><code>t1(IN := NOT a, PT := T#1S);</code></td></tr>
-  <tr><td class="name">rail</td><td><code>x := TRUE;</code> <code>t1(IN := TRUE);</code></td></tr>
+  <tr><td class="name">rail</td><td><code>x := TRUE;</code></td></tr>
   <tr><td class="name">parallel</td><td><code>x := BRANCH(FEED := start, a, b);</code> <code>x := BRANCH_SHORTCIRCUIT(FEED := start, a, b);</code></td></tr>
   <tr><td class="name">jump</td><td><code>JMP l;</code> <code>JMP(l, a);</code> <code>x := JMP(l, a);</code></td></tr>
   <tr><td class="name">return</td><td><code>RETURN;</code> <code>RETURN(a);</code></td></tr>
   <tr><td class="name">mid-rung coil</td><td><code>y := (x := a) AND b;</code></td></tr>
-  <tr><td class="name">unnamed instance</td><td><code>TON(IN := a);</code> — the call names the type</td></tr>
+  <tr><td class="name">unnamed instance</td><td><code>TON(IN := a);</code></td></tr>
 </table>
 
 <h2 id="en-eno">EN and ENO</h2>
-<p>The suffix names the pins a box shows; the call returns what the suffix says.</p>
 <table>
   <tr><th>suffix</th><th>shows</th><th>returns</th><th>example</th></tr>
-  <tr><td class="name"><code>_EN</code></td><td>EN, ENO</td><td>ENO</td><td><code>lamp := MOVE_EN(EN := c, 1, OUT => x);</code></td></tr>
+  <tr><td class="name"><code>_EN</code></td><td>EN, ENO</td><td>ENO</td><td><code>lamp := MOVE_EN(EN := c, 1, OUT => x);</code> <code>MOVE_EN(EN := c, 7, ENO => lamp, OUT => x);</code> <code>t1_EN(EN := c, IN := a, Q => x);</code></td></tr>
   <tr><td class="name"><code>_ENO</code></td><td>ENO</td><td>ENO</td><td><code>ok := f_ENO(IN := a);</code></td></tr>
   <tr><td class="name"><code>_ENONLY</code></td><td>EN</td><td>the value</td><td><code>x := GT_ENONLY(EN := c, i, 3);</code></td></tr>
 </table>
-<p>A box read by its ENO hands its value on only through <code>OUT =&gt;</code>. ENO wired beside the outputs:</p>
-<pre>MOVE_EN(EN := c, 7, ENO => lamp, OUT => x);</pre>
-<p>An FB called on its instance takes the suffix on the instance: <code>t1_EN(EN := c, IN := a, Q => x);</code>.</p>
 
 <h2 id="wires">Wires</h2>
 <pre>%NETWORK
@@ -80,11 +74,7 @@ lamp := MOVE_EN(EN := w1, 100, OUT => speed);</pre>
 w1 := a AND b;
 x := w1;
 y := w1 AND c;</pre>
-<p>
-  A value read twice is a wire: named on the <code>%WIRES</code> line, defined once (<code>w1 := …</code> or
-  <code>Q =&gt; w1</code>), read by name. A box read once stands where it is read. The writer names wires
-  <code>w1</code>, <code>w2</code>, … across the body.
-</p>
+<p>A value read twice is a wire, defined once (<code>w1 := …</code> or <code>Q =&gt; w1</code>). A box read once stands where it is read.</p>
 
 <h2 id="execute">Execute box</h2>
 <pre>%NETWORK
@@ -95,53 +85,23 @@ END_IF
 %END_EXECUTE</pre>
 
 <h2 id="subset">What a network holds</h2>
-<p>
-  A network holds assignments, calls, jumps and returns. No <code>IF</code>, <code>CASE</code>, loop or
-  <code>EXIT</code>; no infix box (<code>i + 1</code>, <code>a XOR b</code>, <code>i &gt; 3</code> — write the call:
-  <code>ADD(i, 1)</code>). ST of any kind stands only in an Execute box.
-</p>
+<p>Assignments, calls, jumps and returns. Any other ST stands only in an Execute box.</p>
 
 <h2 id="unsupported">A network that cannot be spelled</h2>
 <pre>%NETWORK "Calc"
 %UNSUPPORTED "a coil modifier on a jump" #929f3675</pre>
-<p>
-  A pull never fails: the network keeps its title and shows this line, with the stored network's hash. Pushed back
-  unchanged it stays as the IDE holds it; edited, the push is refused.
-</p>
-
-<h2 id="body-line">The body line</h2>
-<pre>METHOD Run : BOOL
-%LANGUAGE ST
-Run := a;
-END_METHOD
-
-ACTION Step
-%LANGUAGE SFC UNSUPPORTED
-END_ACTION</pre>
-<p>
-  The line ends the declaration; its language picks the reader. CFC, SFC and IL are their language and
-  <code>UNSUPPORTED</code>, with nothing under it: the declaration stays editable and a push never writes the body.
-</p>
+<p>Pushed back unchanged it stays as the IDE holds it; edited, the push is refused.</p>
 
 <h2 id="pairing">Pushing</h2>
-<p>
-  A push pairs networks by their text (<code>NetworkPairing</code>): an equal network is not touched, a changed one is
-  rebuilt. What the text does not carry is derived from the declarations or kept from the stored network; a rebuild
-  that drops a stored value is named (<code>RebuildLoss</code>). Any layout the reader accepts is pushed; the next pull
-  shows the writer's.
-</p>
+<p>A push rebuilds only the networks whose text changed; what the text does not carry is derived from the declarations or kept from the stored network.</p>
 
 <h2 id="diagnostics">Errors</h2>
 <table>
   <tr><th>code</th><th>raised for</th><th>example</th></tr>
   <tr><td class="name">NETWORK_PARSE</td><td>text a network may not hold, with its line</td><td><code>x := a XOR b;</code> — every box is a call</td></tr>
-  <tr><td class="name">NETWORK_UNSUPPORTED</td><td>a model the writer has no spelling for, and an edited <code>%UNSUPPORTED</code> line</td><td><code>???(IN := a);</code> — a box type that is no call head</td></tr>
+  <tr><td class="name">NETWORK_UNSUPPORTED</td><td>a model the writer has no spelling for, and an edited <code>%UNSUPPORTED</code> line</td><td><code>???(IN := a);</code></td></tr>
 </table>
-<p>
-  The language server gives the same refusals while typing. Both sides read the case set
-  <code>test/fixtures/network-text-st/</code>: <code>accept/*.cases</code> (a text and its model) and
-  <code>refuse/*.cases</code> (a text and its error).
-</p>
+<p>The language server gives the same refusals while typing.</p>
 
 </main>
 </div>

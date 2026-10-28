@@ -79,10 +79,11 @@ TwinCAT Project1/PLC/Untitled1/Untitled1 Project/POUs/MAIN.pou</pre>
 <p>
   A file's extension carries the <b>kind</b> — what the IDE stores per object, its class — and nothing else. A
   body's language is not in the extension: an editable FBD/LD body is the same <code>.pou</code> as a textual one — the
-  language rides on the body's <a href="network-text.html#body-line"><code>%LANGUAGE</code> line</a> in the content,
-  <code>%LANGUAGE ST</code>, <code>%LANGUAGE FBD</code> or <code>%LANGUAGE LD</code> — and a
+  language rides on the body's <code>%LANGUAGE</code> line in the content, which ends the declaration and picks the
+  reader: <code>%LANGUAGE ST</code>, or <code>%LANGUAGE FBD</code> / <code>%LANGUAGE LD</code>
+  (<a href="network-text.html">network text</a>) — and a
   CFC/SFC/IL body is that kind's extension too, materialized as its line <code>%LANGUAGE CFC UNSUPPORTED</code>
-  (and so on) with no implementation under it.
+  (and so on) with no implementation under it: the declaration stays editable and a push never writes the body.
 </p>
 
 <h3 id="pou">The POU: one class, one kind, one wire name</h3>
