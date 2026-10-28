@@ -34,7 +34,8 @@ internal static class TcItemXml
     public static string Saved(string name, int itemType, IEnumerable<(string Property, bool Get, bool Set)>? accessors = null) =>
         Built(name, SavedFile(name, itemType, accessors));
 
-    /// <summary>A file holding the object element TwinCAT saves for <paramref name="itemType"/>, written once per call.</summary>
+    /// <summary>A file holding the object element TwinCAT saves for <paramref name="itemType"/>, written once per call. A POU
+    /// carries <c>SpecialFunc="None"</c>, as every vendor-written <c>.TcPOU</c> does.</summary>
     public static string SavedFile(string name, int itemType, IEnumerable<(string Property, bool Get, bool Set)>? accessors = null)
     {
         var (element, extension) = itemType switch
@@ -53,7 +54,8 @@ internal static class TcItemXml
         var file = Path.Combine(Dir, Guid.NewGuid().ToString("N") + extension);
         File.WriteAllText(file,
             "<?xml version=\"1.0\" encoding=\"utf-8\"?><TcPlcObject Version=\"1.1.0.1\">" +
-            $"<{element} Name=\"{SecurityElement.Escape(name)}\" Id=\"{{0}}\">{properties}</{element}></TcPlcObject>");
+            $"<{element} Name=\"{SecurityElement.Escape(name)}\" Id=\"{{0}}\"{(element == "POU" ? " SpecialFunc=\"None\"" : "")}>" +
+            $"{properties}</{element}></TcPlcObject>");
         return file;
     }
 }

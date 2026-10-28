@@ -212,7 +212,13 @@ internal sealed partial class TcObjectModel
         var doc = XDocument.Load(path!, LoadOptions.PreserveWhitespace);
         var obj = doc.Root?.Elements().FirstOrDefault()
             ?? throw new BridgeException(BridgeErrorCodes.Unreadable, $"twincat: '{path}' holds no object element");
+        // Every POU TwinCAT saves states its SpecialFunc (all 46 vendor-written .TcPOU files, `None` on an ordinary POU); a
+        // DUT, GVL or interface saves none (every recording). A POU without it is refused, never read as `None`.
         var special = (string?)obj.Attribute("SpecialFunc");
+        if (special is null && obj.Name.LocalName == "POU")
+            throw new BridgeException(BridgeErrorCodes.Unreadable,
+                $"{what()}: its saved file '{path}' states no SpecialFunc, which TwinCAT writes on every POU — save the " +
+                "project in the IDE (File > Save All) and pull again.");
         var classes = doc.Descendants().Where(e => e.Name.LocalName == "ObjectProperties")
             .SelectMany(op => op.Descendants().Where(e => e.Name.LocalName == "o" && e.Attribute("t") is not null)
                                 .Select(e => (string)e.Attribute("t")!)

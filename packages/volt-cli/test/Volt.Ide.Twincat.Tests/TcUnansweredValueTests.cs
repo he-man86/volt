@@ -157,6 +157,36 @@ public class TcUnansweredValueTests
         finally { Directory.Delete(dir, recursive: true); }
     }
 
+    /// <summary>Every POU TwinCAT saves states its <c>SpecialFunc</c> (all 46 vendor-written <c>.TcPOU</c> files in the
+    /// repo carry it, <c>None</c> on an ordinary POU). A POU saved without it is refused by name, never read as
+    /// <c>None</c>; a DUT, GVL or interface saves none (every recording), so their absence stays measured.</summary>
+    [Fact]
+    public void A_POU_saved_with_no_SpecialFunc_is_refused_by_name()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "volt-tc-unanswered-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var file = Path.Combine(dir, "MAIN.TcPOU");
+            File.WriteAllText(file, "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<TcPlcObject Version=\"1.1.0.1\">\n" +
+                                    "  <POU Name=\"MAIN\" Id=\"{00000000-0000-0000-0000-000000000001}\">\n" +
+                                    "    <Declaration><![CDATA[PROGRAM MAIN]]></Declaration>\n" +
+                                    "  </POU>\n</TcPlcObject>\n");
+            var node = new Answers
+            {
+                Xml = "<TreeItem><VSProperties>" + TcExclusionTests.Advanced("False") +
+                      $"<VSProperty category=\"Misc\" readonly=\"true\"><Name>FullPath</Name><Value>{file}</Value></VSProperty>" +
+                      "</VSProperties></TreeItem>",
+            };
+            var ex = Assert.Throws<BridgeException>(() => new TcObjectModel().SavedFacts(node, () => "'MAIN'"));
+            Assert.Equal(BridgeErrorCodes.Unreadable, ex.ErrorCode);
+            Assert.Contains("'MAIN'", ex.Message);
+            Assert.Contains("SpecialFunc", ex.Message);
+            Assert.Contains("MAIN.TcPOU", ex.Message);
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
     /// <summary>Every library in the signature document states its name, version and distributor (DIALECT D27) — the
     /// three parts its resolution joins a signature to its <c>.library</c> by. One missing is refused by name, never
     /// joined by an empty part.</summary>
