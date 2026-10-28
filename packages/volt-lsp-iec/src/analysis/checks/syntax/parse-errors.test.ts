@@ -6,6 +6,8 @@
  * closed, so these valid CODESYS forms produce no diagnostic.
  */
 import { test, expect } from "bun:test"
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig } from "../../index.js"
@@ -117,4 +119,23 @@ test("a Chinese project's DUT, FB with CJK methods and their caller produce no d
     ),
   )
   expect(found).toEqual([])
+})
+
+// openspec lsp-field-false-positives 2 — NOT a false positive. PLC Assist's field traffic flagged `s`/`r` variables;
+// CODESYS refuses the same declaration with the same words (3.5.21.40: `cc_reserved_name_s_string`, `cc_reserved_name_r`,
+// `cc_reserved_name_s_upper`, and the field chat's own build failed until `s` was renamed). The LSP must keep saying it:
+// the declaration's cascade, word for word, is the one each recording holds.
+test("a variable named s, S or r is refused at its declaration as CODESYS refuses it (repro 2)", () => {
+  const recorded = JSON.parse(readFileSync(join(import.meta.dir, "../../../../test/conformance/recordings/codesys.build.json"), "utf8"))
+    .tests as Record<string, { diagnostics: { message: string }[] }>
+  const declarationCascade = (fixture: string) => recorded[fixture]!.diagnostics.map((d) => d.message).slice(0, 5)
+  const declaration = (src: string) => syntaxErrors(src).slice(0, 5)
+  expect(declaration(`FUNCTION F_T : STRING\nVAR\n\ts : STRING;\nEND_VAR\n%LANGUAGE ST\ns := 'a'; F_T := s;\nEND_FUNCTION`)).toEqual(
+    declarationCascade("cc_reserved_name_s_string"),
+  )
+  expect(declaration(`FUNCTION F_T : INT\nVAR\n\tr : INT;\nEND_VAR\n%LANGUAGE ST\nF_T := 1;\nEND_FUNCTION`)).toEqual(declarationCascade("cc_reserved_name_r"))
+  expect(declaration(`FUNCTION F_T : INT\nVAR\n\tS : BOOL;\nEND_VAR\n%LANGUAGE ST\nF_T := 1;\nEND_FUNCTION`)).toEqual(
+    declarationCascade("cc_reserved_name_s_upper"),
+  )
+  expect(declarationCascade("cc_reserved_name_s_string")[0]).toBe("Unexpected token 's' found")
 })
