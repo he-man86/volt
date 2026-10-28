@@ -15,14 +15,15 @@
  *
  *   evidence
  *     confirmed     3169
- *     refused       2106
+ *     refused       2214
  *     not-lowered    388
+ *     unasked          7
  *     lsp-gap         90
  *     diverges         5
  *     unaskable      145
  *
  *   tier                     lowered    clean
- *     decl                    844      844
+ *     decl                    851      851
  *     arith                  1651     1651
  *     control                 171      160
  *     aggregate               158      158
@@ -52,7 +53,7 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         3402
+ *     agree         3409
  *     disagree         0
  *     not-run        228
  *       not-run: reaches the platform's libm (pow, ln, sin…)     77
@@ -94,7 +95,7 @@
  *     tr_a10_string_to_dint_underscore_sign_edges   10.8
  *     tr_a10_string_to_int_literal_forms            10.8
  *
- *   shape — 1976 distinct emission shapes over 3630 lowered fixtures, 2234 distinct constructs.
+ *   shape — 1976 distinct emission shapes over 3637 lowered fixtures, 2234 distinct constructs.
  *   20 constructs carry a review note (`NOTES`): 37 fixtures are improvable, 23 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  *   Notes per owning task (openspec transpile-restructure; a merged note counts once under each owner of its items;
@@ -2377,6 +2378,121 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   lex_crlf_body: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "6214ab89c9" },
   lex_crlf_implementation_line: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.7, shape: "7f327e5fec" },
   lex_div_as_operator: { evidence: "refused" },
+  lex_enum_value_abstract: { evidence: "refused" },
+  lex_enum_value_andn: { evidence: "refused" },
+  lex_enum_value_bit: { evidence: "refused" },
+  lex_enum_value_bool: { evidence: "refused" },
+  lex_enum_value_byte: { evidence: "refused" },
+  lex_enum_value_calcn: { evidence: "refused" },
+  lex_enum_value_date: { evidence: "refused" },
+  lex_enum_value_date_and_time: { evidence: "refused" },
+  lex_enum_value_dint: { evidence: "refused" },
+  lex_enum_value_dt: { evidence: "refused" },
+  lex_enum_value_dword: { evidence: "refused" },
+  lex_enum_value_final: { evidence: "refused" },
+  lex_enum_value_get: { evidence: "unasked", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 1.6, shape: "32c43fc226" },
+  lex_enum_value_get_default: { evidence: "unasked", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.6, shape: "32c43fc226" },
+  lex_enum_value_int: { evidence: "refused" },
+  lex_enum_value_internal: { evidence: "refused" },
+  lex_enum_value_jmpc: { evidence: "refused" },
+  lex_enum_value_jmpcn: { evidence: "refused" },
+  lex_enum_value_ld: { evidence: "refused" },
+  lex_enum_value_ldate: { evidence: "refused" },
+  lex_enum_value_ldate_and_time: { evidence: "refused" },
+  lex_enum_value_ldn: { evidence: "refused" },
+  lex_enum_value_ldt: { evidence: "refused" },
+  lex_enum_value_lint: { evidence: "refused" },
+  lex_enum_value_lreal: { evidence: "refused" },
+  lex_enum_value_ltime: { evidence: "refused" },
+  lex_enum_value_ltime_of_day: { evidence: "refused" },
+  lex_enum_value_ltod: { evidence: "refused" },
+  lex_enum_value_lword: { evidence: "refused" },
+  lex_enum_value_orn: { evidence: "refused" },
+  lex_enum_value_override: { evidence: "unasked", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 1.6, shape: "32c43fc226" },
+  lex_enum_value_private: { evidence: "refused" },
+  lex_enum_value_protected: { evidence: "refused" },
+  lex_enum_value_public: { evidence: "refused" },
+  lex_enum_value_r: { evidence: "refused" },
+  lex_enum_value_real: { evidence: "refused" },
+  lex_enum_value_ret: { evidence: "refused" },
+  lex_enum_value_retc: { evidence: "refused" },
+  lex_enum_value_retcn: { evidence: "refused" },
+  lex_enum_value_s: { evidence: "refused" },
+  lex_enum_value_set: { evidence: "unasked", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 1.6, shape: "32c43fc226" },
+  lex_enum_value_sint: { evidence: "refused" },
+  lex_enum_value_st: { evidence: "refused" },
+  lex_enum_value_stn: { evidence: "refused" },
+  lex_enum_value_string: { evidence: "refused" },
+  lex_enum_value_sys_uxint: { evidence: "refused" },
+  lex_enum_value_sys_xint: { evidence: "refused" },
+  lex_enum_value_sys_xword: { evidence: "refused" },
+  lex_enum_value_time: { evidence: "refused" },
+  lex_enum_value_time_of_day: { evidence: "refused" },
+  lex_enum_value_tod: { evidence: "refused" },
+  lex_enum_value_udint: { evidence: "refused" },
+  lex_enum_value_uint: { evidence: "refused" },
+  lex_enum_value_ulint: { evidence: "refused" },
+  lex_enum_value_usint: { evidence: "refused" },
+  lex_enum_value_word: { evidence: "refused" },
+  lex_enum_value_wstring: { evidence: "refused" },
+  lex_enum_value_xorn: { evidence: "refused" },
+  lex_implicit_enum_value_abstract: { evidence: "refused" },
+  lex_implicit_enum_value_andn: { evidence: "refused" },
+  lex_implicit_enum_value_bit: { evidence: "refused" },
+  lex_implicit_enum_value_bool: { evidence: "refused" },
+  lex_implicit_enum_value_byte: { evidence: "refused" },
+  lex_implicit_enum_value_calcn: { evidence: "refused" },
+  lex_implicit_enum_value_date: { evidence: "refused" },
+  lex_implicit_enum_value_date_and_time: { evidence: "refused" },
+  lex_implicit_enum_value_dint: { evidence: "refused" },
+  lex_implicit_enum_value_dt: { evidence: "refused" },
+  lex_implicit_enum_value_dword: { evidence: "refused" },
+  lex_implicit_enum_value_final: { evidence: "refused" },
+  lex_implicit_enum_value_get: { evidence: "unasked", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.8, shape: "581715ad74" },
+  lex_implicit_enum_value_int: { evidence: "refused" },
+  lex_implicit_enum_value_internal: { evidence: "refused" },
+  lex_implicit_enum_value_jmpc: { evidence: "refused" },
+  lex_implicit_enum_value_jmpcn: { evidence: "refused" },
+  lex_implicit_enum_value_ld: { evidence: "refused" },
+  lex_implicit_enum_value_ldate: { evidence: "refused" },
+  lex_implicit_enum_value_ldate_and_time: { evidence: "refused" },
+  lex_implicit_enum_value_ldn: { evidence: "refused" },
+  lex_implicit_enum_value_ldt: { evidence: "refused" },
+  lex_implicit_enum_value_lint: { evidence: "refused" },
+  lex_implicit_enum_value_lreal: { evidence: "refused" },
+  lex_implicit_enum_value_ltime: { evidence: "refused" },
+  lex_implicit_enum_value_ltime_of_day: { evidence: "refused" },
+  lex_implicit_enum_value_ltod: { evidence: "refused" },
+  lex_implicit_enum_value_lword: { evidence: "refused" },
+  lex_implicit_enum_value_orn: { evidence: "refused" },
+  lex_implicit_enum_value_override: { evidence: "unasked", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.8, shape: "581715ad74" },
+  lex_implicit_enum_value_private: { evidence: "refused" },
+  lex_implicit_enum_value_protected: { evidence: "refused" },
+  lex_implicit_enum_value_public: { evidence: "refused" },
+  lex_implicit_enum_value_r: { evidence: "refused" },
+  lex_implicit_enum_value_real: { evidence: "refused" },
+  lex_implicit_enum_value_ret: { evidence: "refused" },
+  lex_implicit_enum_value_retc: { evidence: "refused" },
+  lex_implicit_enum_value_retcn: { evidence: "refused" },
+  lex_implicit_enum_value_s: { evidence: "refused" },
+  lex_implicit_enum_value_set: { evidence: "unasked", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.8, shape: "581715ad74" },
+  lex_implicit_enum_value_sint: { evidence: "refused" },
+  lex_implicit_enum_value_st: { evidence: "refused" },
+  lex_implicit_enum_value_stn: { evidence: "refused" },
+  lex_implicit_enum_value_string: { evidence: "refused" },
+  lex_implicit_enum_value_sys_uxint: { evidence: "refused" },
+  lex_implicit_enum_value_sys_xint: { evidence: "refused" },
+  lex_implicit_enum_value_sys_xword: { evidence: "refused" },
+  lex_implicit_enum_value_time: { evidence: "refused" },
+  lex_implicit_enum_value_time_of_day: { evidence: "refused" },
+  lex_implicit_enum_value_tod: { evidence: "refused" },
+  lex_implicit_enum_value_udint: { evidence: "refused" },
+  lex_implicit_enum_value_uint: { evidence: "refused" },
+  lex_implicit_enum_value_ulint: { evidence: "refused" },
+  lex_implicit_enum_value_usint: { evidence: "refused" },
+  lex_implicit_enum_value_word: { evidence: "refused" },
+  lex_implicit_enum_value_wstring: { evidence: "refused" },
+  lex_implicit_enum_value_xorn: { evidence: "refused" },
   lex_ini_keyword: { evidence: "refused" },
   lex_keyword_assigned_abs: { evidence: "refused" },
   lex_keyword_assigned_abstract: { evidence: "refused" },

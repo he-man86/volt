@@ -5,6 +5,8 @@
  * file is held to 400 lines).
  */
 import type { CeilingException } from "./baseline-shared.js"
+import { ENUM_VALUE_WORDS, enumValueSlug } from "../conformance/fixtures/grammar/lexer.js"
+import { CODESYS_ONLY_TYPE_WORDS } from "../../src/frontend/syntax/index.js"
 
 /**
  * lsp-quick-fixes 1.1 (2026-10-12): the quick-fix BEFOREs (`fixtures/quick-fixes/`) are new ground — each exists to report
@@ -244,7 +246,60 @@ const UNNAMED_CALL_BOXES: readonly CeilingException[] = [
   })),
 ]
 
+/**
+ * openspec lsp-field-false-positives 6b (2026-10-28): every word whose reading as an ENUM VALUE the parser decides by its
+ * vocabulary, asked in both lists (`grammar/lexer.ts` `lex_enum_value_*`, `lex_implicit_enum_value_*`) — new ground. The
+ * refused ones draw the vendor's FIRST line from the LSP ("Identifier expected instead of 'R'" in a TYPE enum, "Type
+ * definition expected instead of ','" in an implicit one); the vendor's recovery past it is the GAP below, the same
+ * recovery `decl_type_enum_number_name` / `decl_implicit_enum_number_name` already pin (`divergences-units.ts`): the TYPE
+ * closed twice over ("':= or ;' expected instead of 'END_TYPE'", "'END_TYPE' expected instead of ''"), and an implicit
+ * list's next declaration swallowed (`n` then "not defined" and "no valid assignment target"). Niche: accepted loss — 0
+ * enum values named by a refused word in the corpora, which build.
+ */
+const REFUSED_ENUM_VALUE_RECOVERY: readonly CeilingException[] = ENUM_VALUE_WORDS.filter((w) => !["GET", "SET", "OVERRIDE"].includes(w)).flatMap(
+  (w) => {
+    const typeEnum = `lex_enum_value_${enumValueSlug(w)}`
+    const implicit = `lex_implicit_enum_value_${enumValueSlug(w)}`
+    const rows: [string, string, string, number][] = [
+      ["fixtures.codesys", typeEnum, "total: GAP", 3],
+      ["fixtures.codesys", typeEnum, "group syntax: GAP", 1],
+      ["fixtures.codesys", implicit, "total: GAP", 4],
+      ["fixtures.codesys", implicit, "group syntax: GAP", 1],
+      ["resolution-dump", implicit, "findings", 1],
+      ["resolution-dump", implicit, "messages codesys: recorded only", 1],
+    ]
+    return rows.map(([baseline, fixture, measure, by]) => ({
+      baseline,
+      measure,
+      by,
+      fixture,
+      task: "none: niche, accepted loss (0 such enum values in the corpora) — the recovery divergences-units.ts pins",
+      why: "a refused word as an enum value: the LSP gives the vendor's first line, not its recovery past it",
+    }))
+  },
+)
+
+/**
+ * …and the same fixtures UNRECORDED on TwinCAT: every XAE on the machine was another run's or the engineer's while this
+ * change recorded (2026-10-28), so TwinCAT has not answered them; the LSP refuses each word on TwinCAT as on CODESYS but
+ * the five 64-bit date type names, which are names on TwinCAT (`CODESYS_ONLY_TYPE_WORDS`).
+ */
+const ENUM_VALUE_TWINCAT_UNRECORDED: readonly CeilingException[] = ENUM_VALUE_WORDS.filter(
+  (w) => !["GET", "SET", "OVERRIDE"].includes(w) && !CODESYS_ONLY_TYPE_WORDS.has(w),
+).flatMap((w) =>
+  [`lex_enum_value_${enumValueSlug(w)}`, `lex_implicit_enum_value_${enumValueSlug(w)}`].map((fixture) => ({
+    baseline: "parse-census",
+    measure: "findings",
+    by: 1,
+    fixture,
+    task: "lsp-field-false-positives: record the lex_*enum_value_* fixtures on TwinCAT (`VOLT_VENDOR=twincat RECORD_ONLY=…`)",
+    why: "a refused word as an enum value, which TwinCAT has not been asked",
+  })),
+)
+
 export const CEILING_EXCEPTIONS_C: readonly CeilingException[] = [
+  ...REFUSED_ENUM_VALUE_RECOVERY,
+  ...ENUM_VALUE_TWINCAT_UNRECORDED,
   // a LIBRARY function's box read through its namespace with ENO on TwinCAT: "Program name, function or function block
   // instance expected instead of 'Standard.LEN'" + "Identifier 'Standard' not defined" — CODESYS's namespace on TwinCAT
   {

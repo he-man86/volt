@@ -23,7 +23,7 @@
   after it are unanswered.) Fix: a declared name reads an array element on its way (`names.ts` `readDeclaredName`: an
   index group only where `.` and a part follow its `]`), spelled as the vendor spells it. Tests: `declarations.test.ts`
   (1-D, 2-D, `[2,1]` → `[2, 1]`), `parse-errors.test.ts` (repro 3).
-- [ ] 4 `IMPLEMENTATION ST` after `END_VAR` (repro 4): the line is now `%LANGUAGE <LANG>` (language-line, archived 2026-10-27; the old line is refused by name). Re-run repro 4 with `%LANGUAGE ST`; the family was never reproduced, so close it if the re-run is clean.
+- [x] 4 `IMPLEMENTATION ST` after `END_VAR` (repro 4): the line is now `%LANGUAGE <LANG>` (language-line, archived 2026-10-27; the old line is refused by name). Re-run repro 4 with `%LANGUAGE ST`; the family was never reproduced, so close it if the re-run is clean.
   CLOSED, clean: re-run with `%LANGUAGE ST` right after the last END_VAR of a FUNCTION, a PROGRAM, and a FUNCTION_BLOCK with
   a METHOD, a PROPERTY's GET/SET and an ACTION, through the whole pipeline — no diagnostic. Held by `parse-errors.test.ts`
   "%LANGUAGE ST right after END_VAR draws nothing, on every body kind (repro 4)". The field message was the retired
@@ -54,4 +54,17 @@
   keeping its percent-encoding (and, for a `git:` diff URI, reading the query). It now reads `baseNameOf` (task 1's one
   place, decoded path). A POU's scope was already named from its header. Test: `duplicate-declaration.test.ts`
   (`A14_升降.gvl` by its file URI → "already defined in 'A14_升降'").
+- [x] 6b An ENUM value named `GET` (`TYPE E_Method : (GET, POST, PUT) := GET;` → "Unexpected token 'GET' found").
+  MEASURED (CODESYS 3.5.21.40, 2026-10-28, `record:language`, 116 new fixtures in `grammar/lexer.ts`): every word whose
+  reading as a value the parser decides by its vocabulary, one per fixture, in a TYPE enum (`lex_enum_value_*`) and an
+  implicit one (`lex_implicit_enum_value_*`), plus the field's own shape (`lex_enum_value_get_default`). GET, SET and
+  OVERRIDE build clean in both lists (and the field shape); the six modifiers, the 15 IL operator names and the 33
+  elementary type names are REFUSED — a TYPE enum "Identifier expected instead of 'R'" (a keyword too), an implicit one
+  "Type definition expected instead of ','". The LSP refused GET/SET/OVERRIDE and accepted the IL and type names
+  silently (an LSP that accepted what CODESYS refuses). Fix: `enum-values.ts` `readValueName` — the soft names are
+  values, a refused word is refused with each list's first line (which also turns `decl_implicit_enum_number_name`'s
+  LSP-only line into the vendor's). The vendors' recovery past that line is a named ceiling exception
+  (`baseline-c.ts`), as for the number-name fixtures. TwinCAT not recorded (no XAE free: the engineer's CODESYS was
+  open); the parse census holds those 98 fixtures by name until it is — 6b.1 below.
+  - [ ] 6b.1 Record `lex_enum_value_*` / `lex_implicit_enum_value_*` on TwinCAT and drop `ENUM_VALUE_TWINCAT_UNRECORDED`.
 - [ ] 7 A release with these; PLC Assist re-bundles `volt-lsp-iec.generated.mjs` and re-runs its 14-day scan.

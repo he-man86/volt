@@ -116,11 +116,14 @@ test("T10 — an implicit enum may end in a comma; a TYPE enum may not; neither 
   expect(messages(enumType("();"))).toEqual(["Identifier expected instead of ')'"])
 })
 
-test("T10 — one value parser: a value that is no name is 'Identifier expected' in either list", () => {
+test("T10 — one value parser: a value that is no name is refused as each list's vendor refuses it", () => {
   // `decl_type_enum_number_name` (both vendors: "Identifier expected instead of '5'"); the implicit list said a Volt
-  // sentence of its own ("expected enum value name in implicit enumeration") and four cascade messages besides
+  // sentence of its own ("expected enum value name in implicit enumeration") and four cascade messages besides. The
+  // implicit list's own answer is recorded too: the token after the value is refused, "Type definition expected instead of
+  // ')'" (`decl_implicit_enum_number_name`, both vendors; `lex_implicit_enum_value_*`, CODESYS 2026-10-28) — this line
+  // asserted the TYPE list's words there, which no recording of an implicit list holds
   expect(messages(enumType("(tn_a, 5);"))).toContain("Identifier expected instead of '5'")
-  expect(first("e : (nn_a, 5);")).toBe("Identifier expected instead of '5'")
+  expect(first("e : (nn_a, 5);")).toBe("Type definition expected instead of ')'")
   expect(messages(inVar("e : (nn_a, 5);")).some((m) => m.includes("implicit enumeration"))).toBe(false)
   // a value followed by neither `,` nor `)` — TwinCAT's refused `CHAR#` after `A :=` (`lit_char_typed_in_enum_value`):
   // "', or )' expected instead of 'CHAR#'", and the list resyncs at its next `,` without leaving it (it ran to file scope)
@@ -136,4 +139,21 @@ test("T10 — one value parser: a value that is no name is 'Identifier expected'
   expect(body.values.map((v) => v.name.text)).toEqual(["A", "B", "C"])
   expect(body.baseType).toMatchObject({ name: { text: "DINT" } })
   expect(body.init).toMatchObject({ kind: "ident_expr", name: "B" })
+})
+
+// openspec lsp-field-false-positives 6b, every word measured in both lists (CODESYS 2026-10-28, `lex_enum_value_*`,
+// `lex_implicit_enum_value_*`): PLC Assist's `TYPE E_Method : (GET, POST, PUT) := GET;` builds clean — and the LSP said
+// "Unexpected token 'GET' found". GET, SET and OVERRIDE are values; the six modifiers, the IL operator names and the
+// elementary type names are refused — which the LSP accepted silently for the last two.
+test("T10 — GET, SET and OVERRIDE are enum values; a modifier, an IL operator or a type name is refused", () => {
+  expect(messages(enumType("(GET, POST, PUT) := GET;"))).toEqual([])
+  expect(enumBody(enumType("(GET, POST, PUT) := GET;")).values.map((v) => v.name.text)).toEqual(["GET", "POST", "PUT"])
+  for (const w of ["GET", "SET", "OVERRIDE", "Get"]) {
+    expect(messages(enumType(`(\n\t${w},\n\tother\n);`))).toEqual([])
+    expect(messages(inVar(`e : (${w}, other);`))).toEqual([])
+  }
+  for (const w of ["PUBLIC", "ABSTRACT", "R", "S", "LD", "XORN", "INT", "STRING", "LDATE", "__XINT"]) {
+    expect(messages(enumType(`(\n\t${w},\n\tother\n);`))).toEqual([`Identifier expected instead of '${w}'`])
+    expect(first(`e : (${w}, other);`)).toBe("Type definition expected instead of ','")
+  }
 })

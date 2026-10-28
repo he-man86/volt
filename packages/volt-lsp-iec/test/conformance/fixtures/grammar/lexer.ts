@@ -13,7 +13,7 @@
  * holds, and an arithmetic nobody asked about would be measured as this rule's.
  */
 import type { LanguageTest } from "../../types.js"
-import { KEYWORDS } from "../../../../src/frontend/syntax/index.js"
+import { ELEMENTARY_TYPE_WORDS, KEYWORDS } from "../../../../src/frontend/syntax/index.js"
 
 const doc = "frontend-conformance design.md §4 2.1 (lexer)"
 
@@ -55,6 +55,17 @@ function fb(name: string, feature: string, decl: string, body: string, extra: Pa
 function nameFixture(name: string, feature: string, word: string): LanguageTest {
   return fb(name, feature, `\t${word} : INT;\n\tn : INT;`, `${word} := 1;\nn := 2;`)
 }
+
+/** Every word whose reading as an enum value the parser decides by its vocabulary: the soft keywords, the IL operator
+ *  names, the elementary type names (openspec lsp-field-false-positives 6b). */
+export const ENUM_VALUE_WORDS: readonly string[] = [
+  ...["GET", "SET", "OVERRIDE", "PUBLIC", "PRIVATE", "PROTECTED", "INTERNAL", "FINAL", "ABSTRACT"],
+  ...["R", "S", "LD", "LDN", "ST", "STN", "RET", "RETC", "RETCN", "JMPC", "JMPCN", "CALCN", "ANDN", "ORN", "XORN"],
+  ...ELEMENTARY_TYPE_WORDS,
+]
+
+/** The word as a fixture names it: lower case, a leading `__` as `sys_` (an object name may not hold `__`). */
+export const enumValueSlug = (w: string): string => w.toLowerCase().replace(/^__/, "sys_")
 
 /** `text` with every line break written as CRLF — how both vendors store an object's text. */
 const crlf = (text: string): string => text.replace(/\r?\n/g, "\r\n")
@@ -222,6 +233,39 @@ export const LEXER_TESTS: readonly LanguageTest[] = [
       "n := 1;",
     ),
   ),
+  // L12/R6: the ENUM VALUE — the name position a TYPE enum gives (openspec lsp-field-false-positives 6b: PLC Assist's
+  // field traffic flagged `TYPE E_Method : (GET, POST, PUT)`). Every word whose reading as a name the parser decides by
+  // its vocabulary, one word per fixture, as the value list's first name: each soft keyword (9), each IL operator name
+  // (15), each elementary type name (`ELEMENTARY_TYPE_WORDS`). The enum is referenced from PLC_PRG, so the build reads it.
+  ...ENUM_VALUE_WORDS.map((w): LanguageTest => {
+    const slug = enumValueSlug(w)
+    const pouName = `DUT_LANG_enum_value_${slug}`
+    return {
+      name: `lex_enum_value_${slug}`,
+      pouName,
+      kind: "dut",
+      feature: `L12/R6 — \`${w}\` as an enum value: \`TYPE ${pouName} : (${w}, other); END_TYPE\``,
+      fromDoc: doc,
+      plcPrgVar: `e_${slug} : ${pouName};`,
+      source: `TYPE ${pouName} :\n(\n\t${w},\n\tother\n);\nEND_TYPE\n`,
+    }
+  }),
+  // …each word again as an IMPLICIT enum's value — one parser reads both lists, and the two recover differently
+  // (`decl_implicit_enum_number_name`), so each list is asked.
+  ...ENUM_VALUE_WORDS.map((w) => {
+    const slug = enumValueSlug(w)
+    return fb(`lex_implicit_enum_value_${slug}`, `L12/R6 — \`${w}\` as an implicit enum's value: \`e : (${w}, other);\``, `\te : (${w}, other);\n\tn : INT;`, "n := 1;")
+  }),
+  // …and the field's own shape: three values, the default naming the soft keyword.
+  {
+    name: "lex_enum_value_get_default",
+    pouName: "DUT_LANG_enum_value_get_default",
+    kind: "dut",
+    feature: "L12 — `TYPE E : (GET, POST, PUT) := GET; END_TYPE`, PLC Assist's repro 6b",
+    fromDoc: doc,
+    plcPrgVar: "e_get_default : DUT_LANG_enum_value_get_default;",
+    source: "TYPE DUT_LANG_enum_value_get_default : (GET, POST, PUT) := GET;\nEND_TYPE\n",
+  },
   // L12: a soft keyword CODESYS accepts as a name, met by the cascade after a refused word — does the cascade stop at
   // it, as it stops at the identifier after `CAL` (`lex_cal_keyword`), or echo it as an unexpected token? One word per
   // fixture; `limit` is the refused word because its own cascade is recorded (`lex_limit_as_variable`). The name ends the
