@@ -89,6 +89,61 @@ public class PushReceiptRemovedTests
                      RefsService.Handle(ide).Items.Keys.Where(k => k.StartsWith("POUs/", System.StringComparison.Ordinal)).OrderBy(k => k, System.StringComparer.Ordinal));
     }
 
+    /// <summary>THE SAME CHECK ON AN ITEM THE IDE WILL NOT OPEN (DIALECT C2i): a forced delete goes through the parent by
+    /// name, and when it answers and leaves the item the post-condition is the same — refused <c>IDE_LOST_ITEM</c>, not
+    /// landed, nothing of it stays, its path not in <c>removed</c>.</summary>
+    [Fact]
+    public void A_forced_delete_of_an_unopened_item_that_did_not_take_is_refused_not_removed()
+    {
+        var ide = new FakeIde { DeletesThatDoNotTake = new[] { "Broken" } };
+        Seed(ide, "POUs", "Broken", "Other");
+        ide.UnopenedItems.Add("Broken");
+
+        var res = BoundWrite.Push(ide, new PushRequest
+        {
+            Force = true,
+            Ops = new List<PushOp> { new DeleteItemOp { Name = "POUs/Broken.pou" } },
+        });
+
+        Assert.Contains("delete:Broken", ide.Recorded);
+        Assert.True(ide.Exists("Broken"));
+        Assert.False(res.Landed());
+        var c = Assert.Single(res.Conflicts!);
+        Assert.Equal(("POUs/Broken.pou", BridgeErrorCodes.IdeLostItem), (c.Name, c.Code));
+        Assert.Null(c.PartiallyApplied);
+        Assert.DoesNotContain("POUs/Broken.pou", res.Removed ?? new List<string>());
+        Assert.Empty(ide.OpenedUnopened);
+    }
+
+    /// <summary>THE CHECK ITSELF CANNOT READ THE FOLDER. The IDE ran the delete; looking the path up again then faults on a
+    /// SIBLING. That fault is the op's refusal (<c>ITEM_UNVERIFIED</c>), but the delete call ran, so the conflict cannot
+    /// say nothing of the op stays: it is <c>partiallyApplied</c>, and the receipt walk — which reads the folder — decides
+    /// <c>removed</c> as for any partly applied op. A client is never told nothing changed while the item is gone.</summary>
+    [Fact]
+    public void A_delete_whose_check_faults_on_a_sibling_is_partially_applied_and_the_receipt_proves_the_removal()
+    {
+        FakeIde ide = null!;
+        ide = new FakeIde
+        {
+            FailDelete = name =>
+            {
+                if (name == "A") ide.FaultingNameReads = new[] { "B" };
+                return null;
+            },
+        };
+        Seed(ide, "F", "A", "B");
+
+        var res = Delete(ide, "F/A.pou");
+
+        Assert.False(ide.Exists("A"));
+        var c = Assert.Single(res.Conflicts!);
+        Assert.Equal(("F/A.pou", ConflictCodes.ItemUnverified), (c.Name, c.Code));
+        Assert.True(c.PartiallyApplied);
+        Assert.NotNull(res.NewProjectVersion);
+        Assert.Equal(new[] { "F/A.pou" }, res.Removed);
+        Assert.DoesNotContain("F/A.pou", res.NewItems!.Keys);
+    }
+
     /// <summary>The control: a delete that takes IS in <c>removed</c> — the receipt walk read its folder and no longer
     /// holds it.</summary>
     [Fact]

@@ -27,6 +27,26 @@
   from another lane's commits (1f1f315538..c7067d639f) landed during this step — not this change's paths; the
   IDE_LOST_ITEM census this step moved passes.
 
+### Gate 1b (2026-10-28)
+
+- [x] Finding 1 (medium, `RequireDeleted` fault after the delete ran): fixed. Red first —
+      `A_delete_whose_check_faults_on_a_sibling_is_partially_applied_and_the_receipt_proves_the_removal` (a sibling's name
+      read faults once `delete:A` ran) failed on `partiallyApplied` null. A fault in the post-delete look-up now records
+      `OpOutcome.DeleteRan`, so the refusal (its own code, `ITEM_UNVERIFIED`) is `partiallyApplied` and its reason says the
+      IDE ran the delete; the receipt walk then decides `removed` as for any partly applied op (`F/A.pou` is in it). An
+      item that is still there stays `IDE_LOST_ITEM` with nothing applied (unchanged). FakeIde `FaultingNameReads` is
+      settable so a fault can start mid-push.
+- [x] Finding 2 (low, unopened arm uncovered): `A_forced_delete_of_an_unopened_item_that_did_not_take_is_refused_not_removed`
+      pins `ApplyToUnopened`'s `RequireDeleted`; mutation-checked (removing that call turns it red).
+- [x] Finding 3 (low, no CLI-layer pin): `PartialPushCommandTests.A_delete_the_IDE_did_not_perform_stays_in_volt_ide_and_outgoing`
+      — `volt push` (an edit + a delete the IDE does not perform) is partial, `volt/ide` and the baseline still hold
+      `Z_Stays.pou`, `volt status` shows only that delete outgoing and nothing incoming, and the next push re-sends exactly
+      that delete. Green on the current code (it pins the 1.4 reason, no product change needed).
+- Numbers: Volt.Engine.Tests 2444 pass / 1 skip (+2), Volt.Cli.Tests 378/378 (+1), Volt.Contracts.Tests 56/56,
+  Volt.Connector.Tests 156/156, Volt.Ide.Twincat.Tests 784/784, Volt.Ide.Codesys.Tests 535/535, Volt.Repo.Gates 276/276,
+  `bun run typecheck` clean. No fixture, LSP or transpiler change, so no fixture-map regeneration and no LSP suite. (The
+  TwinCAT/CODESYS counts include another lane's uncommitted network-reader work in the tree; none of it is this step's.)
+
 ## 2. Docs
 
 - [ ] 2.1 `push` outcome sentence: `removed` names only paths the receipt walk read and no longer holds.

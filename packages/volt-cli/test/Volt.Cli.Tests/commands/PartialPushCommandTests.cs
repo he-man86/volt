@@ -359,4 +359,47 @@ public class PartialPushCommandTests
         }
         finally { if (File.Exists(indexLock)) File.Delete(indexLock); host.Dispose(); TestUtil.ForceDelete(root); }
     }
+
+    /// <summary>openspec <c>push-removed-proves-a-delete</c> 1.4, at the CLI: a delete the IDE answers and does not perform
+    /// is refused <c>IDE_LOST_ITEM</c>, and the CLI's partial-push path keeps the file in <c>volt/ide</c> and the delete
+    /// outgoing — no silent drift between <c>volt/ide</c> and the IDE (the reason <c>newItems</c> was rejected). The next
+    /// push re-sends exactly that delete.</summary>
+    [Fact]
+    public void A_delete_the_IDE_did_not_perform_stays_in_volt_ide_and_outgoing()
+    {
+        var ide = new FakeIde(Pou("A_First"), Pou("Z_Stays"))
+        {
+            HealthConnected = true, HealthPlatform = "codesys", HealthProjectName = "Demo",
+            DeletesThatDoNotTake = new[] { "Z_Stays" },
+        };
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            Edit(root, "A_First.pou", "x := 1;", "x := 2;");
+            File.Delete(Path.Combine(root, "src", "Z_Stays.pou"));
+
+            var r = Commands.Push(root, client);
+
+            Assert.True(r.Kind == ResultKinds.Partial, $"expected a partial push, got {r.Kind}: {r.Reason}");
+            Assert.Equal(new[] { "A_First.pou" }, r.Items!.ToArray());
+            Assert.Contains("Z_Stays.pou", r.Reason);
+            Assert.Contains("delete:Z_Stays", ide.Recorded);
+            Assert.True(ide.Exists("Z_Stays"), "premise: the IDE answered the delete and kept the item");
+            var ideTree = Git.ListTree(Git.ResolveGitDir(root), "refs/remotes/volt/ide").Select(e => e.Path).ToArray();
+            Assert.Contains("src/Z_Stays.pou", ideTree);
+            Assert.True(Sidecar.LoadIdeRefs(root)!.Items.ContainsKey("Z_Stays.pou"), "the baseline still holds the item");
+            var status = Commands.Status(root, client);
+            Assert.Equal(new[] { "Z_Stays.pou" }, status.Outgoing.Removed.ToArray());
+            Assert.Empty(status.Outgoing.Modified);
+            Assert.Equal(0, status.Incoming.Count);
+
+            ide.Recorded.Clear();
+            var again = Commands.Push(root, client);
+            Assert.NotEqual("ok", again.Kind);
+            Assert.Equal(new[] { "delete:Z_Stays" }, ide.Recorded.Where(x => x.StartsWith("delete:", StringComparison.Ordinal)).ToArray());
+            Assert.DoesNotContain(ide.Recorded, x => x.Contains("A_First"));
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
 }

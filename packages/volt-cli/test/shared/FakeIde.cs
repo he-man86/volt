@@ -299,7 +299,7 @@ public sealed class FakeIde : VendorDriverBase, IVendorDriver, IIecTree
     /// <see cref="Name"/> FAULTS — the two other reads a lookup makes, each its own refusal site in
     /// <c>ItemLookup.Walk</c> (openspec <c>bridge-refusal-review</c> V.1).</summary>
     public IReadOnlyList<string> FaultingChildReads { get; init; } = System.Array.Empty<string>();
-    public IReadOnlyList<string> FaultingNameReads { get; init; } = System.Array.Empty<string>();
+    public IReadOnlyList<string> FaultingNameReads { get; set; } = System.Array.Empty<string>();
 
     /// <summary>Items whose <see cref="Classify"/> the IDE answers with NOTHING — CODESYS's read checkout answering no
     /// object, which the driver refuses coded <c>UNREADABLE</c> (<c>CodesysObjectModel.ReadObject</c>).</summary>

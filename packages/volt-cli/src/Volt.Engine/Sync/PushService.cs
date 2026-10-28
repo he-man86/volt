@@ -662,10 +662,14 @@ public static class PushService
         /// recorded as each is made. A rollback removes the item, not them, so they stay — as a refused move's do
         /// (<c>RecordMoveKept</c>).</summary>
         public readonly List<string> FoldersCreated = new();
+        /// <summary>The IDE answered this op's DELETE and the check that it took could not read the folder
+        /// (<c>RequireDeleted</c>): the item may be gone, so the op is not "nothing stays" — the receipt walk decides.</summary>
+        public string? DeleteRan;
 
         /// <summary>Anything of the op stays in the project: every fact above except a create that was rolled back.</summary>
         public bool PartiallyApplied => UpdateKept is not null || KeptInRefusal || RollbackFault is not null
-                                        || Renamed is not null || Replaced is not null || FoldersCreated.Count > 0;
+                                        || Renamed is not null || Replaced is not null || FoldersCreated.Count > 0
+                                        || DeleteRan is not null;
     }
 
     /// <summary>The conflict a refused op is reported with — the pre-flight's and the apply loop's alike.
@@ -707,6 +711,8 @@ public static class PushService
             reason += $" — '{rn.From}' was renamed to '{rn.To}' before it and stays renamed";
         if (outcome?.Replaced is { } replaced)
             reason += $" — the IDE's '{replaced}' was deleted before it, to be replaced, and stays deleted";
+        if (outcome?.DeleteRan is { } ran)
+            reason += $" — the IDE ran the delete of '{ran}' before it, so it may be gone";
         foreach (var folder in outcome?.FoldersCreated ?? new List<string>())
             reason += $" — the folder '{folder}' was created before it and stays";
         var stale = ex as StaleItemVersionException;
@@ -939,7 +945,7 @@ public static class PushService
                 // `link.Driver.Name(del)`, NOT the wire `name`: itemCache resolves case-INSENSITIVELY while the drivers'
                 // child scan matches case-SENSITIVELY, so only the item's ACTUAL IDE name reaches it.
                 link.Driver.Delete(link.Driver.Parent(del), link.Driver.Name(del));
-                RequireDeleted(link, op.Name);
+                RequireDeleted(link, op.Name, outcome);
                 return "deleted";
             case DeleteItemOp:
                 return "no-op";  // a delete quoting no version of an item that isn't there (a quoted one: the gate refused it)
@@ -954,10 +960,22 @@ public static class PushService
     /// answering the call is the bridge saying it ran it, not that the object is gone — a CODESYS delete-child can answer
     /// and leave it. So the path is looked up again where it was, and an item still there (read or not) is a post-condition
     /// of the apply the IDE broke: refused <c>IDE_LOST_ITEM</c> where it ran, and the push stops there like any apply-time
-    /// refusal. Nothing of the op stays, so the client keeps its delete outgoing and is never told the item is gone.</summary>
-    private static void RequireDeleted(HostLink link, string path)
+    /// refusal. Nothing of the op stays, so the client keeps its delete outgoing and is never told the item is gone.
+    ///
+    /// <para>The look-up runs AFTER the IDE ran the call, so a fault in it (a sibling whose read faults: ITEM_UNVERIFIED)
+    /// refuses an op whose delete may well have taken. That refusal records <see cref="OpOutcome.DeleteRan"/>, which makes
+    /// it <c>partiallyApplied</c>: the receipt walk then decides whether the path is <c>removed</c>, as for any op part of
+    /// which stays — never "nothing of the op stays" over an item that is gone.</para></summary>
+    private static void RequireDeleted(HostLink link, string path, OpOutcome outcome)
     {
-        var (item, untouchable) = TreeLookup.Locate(link, path);
+        ItemRef? item;
+        ItemLookup.Untouchable? untouchable;
+        try { (item, untouchable) = TreeLookup.Locate(link, path); }
+        catch
+        {
+            outcome.DeleteRan = ItemPath.BareOf(path);
+            throw;
+        }
         if (item is not null || untouchable is not null)
             throw new BridgeException(BridgeErrorCodes.IdeLostItem,
                 $"'{path}': the IDE answered the delete and still holds the item");
@@ -983,7 +1001,7 @@ public static class PushService
         {
             case DeleteItemOp:
                 link.Driver.Delete(u.Parent, u.Name);
-                RequireDeleted(link, op.Name);
+                RequireDeleted(link, op.Name, outcome);
                 return "deleted";
             case SetItemOp set:
                 if (set.SourceText is null)
