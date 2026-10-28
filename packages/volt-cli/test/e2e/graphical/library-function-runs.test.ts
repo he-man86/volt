@@ -29,15 +29,12 @@ const vars = (names: string[]): string =>
  *  signature's order (a FUNCTION box's positional pins are pushed named, 2R.4 — `callee-seed-lag.test.ts`). */
 const boxes = (named: boolean): string => `PROGRAM ${BOXES}
 ${vars(["outMid", "outRep", "outDel"])}%LANGUAGE FBD
-NETWORK
-  outMid := MID(${named ? "STR := txt, LEN := 2, POS := 3" : "txt, 2, 3"});
-END_NETWORK
-NETWORK
-  outRep := REPLACE(${named ? "STR1 := txt, STR2 := 'ab', L := 2, P := 1" : "txt, 'ab', 2, 1"});
-END_NETWORK
-NETWORK
-  outDel := DELETE(${named ? "STR := txt, LEN := 2, POS := 3" : "txt, 2, 3"});
-END_NETWORK
+%NETWORK
+outMid := MID(${named ? "STR := txt, LEN := 2, POS := 3" : "txt, 2, 3"});
+%NETWORK
+outRep := REPLACE(${named ? "STR1 := txt, STR2 := 'ab', L := 2, P := 1" : "txt, 'ab', 2, 1"});
+%NETWORK
+outDel := DELETE(${named ? "STR := txt, LEN := 2, POS := 3" : "txt, 2, 3"});
 
 END_PROGRAM
 `

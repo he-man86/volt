@@ -290,7 +290,9 @@ internal sealed class TcArchiveBuilder
             Member("InputParam", "ParamList", Params(inNames, inTypes)),
             Member("OutputParam", "ParamList", Params(outNames, outTypes)),
             new XElement("v", new XAttribute("n", "CallType"), new XAttribute("t", "Operator"), callType),
-            shown ? Raw("EN", "true") : Null("EN"),
+            // EN SHOWN ONLY WHERE THE BOX HAS AN EN PIN: an Execute box the text states without EN shows its ENO alone, as
+            // CODESYS stores it; EN shown over an input list holding no EN reads back as no box at all.
+            b.Enable is not null ? Raw("EN", "true") : Null("EN"),
             // ENO SHOWN ONLY WHERE THE BOX HAS ONE: an enabled comparison read as a value is built EN, no ENO, as
             // CODESYS builds it (2R.5 #26), and with ENO shown beside an output list holding none TwinCAT does not compile
             // it — measured live 2026-10-17, `x := a AND (v GT 40 EN c);` built "Identifier '__<POU>__ImpVar8' not

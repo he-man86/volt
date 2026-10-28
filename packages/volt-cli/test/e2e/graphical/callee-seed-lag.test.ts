@@ -46,7 +46,7 @@ const fun = (n: string) => `FUNCTION ${n} : INT\nVAR_INPUT\n\ta : INT;\nEND_VAR\
 // (openspec ld-fbd-coverage 2R.4, DIALECT N40 — CODESYS builds no function box without them), so `f(n)` is the box
 // `f(a := n)` and pulls back so (`pulls`); the CLI adopts that text as the IDE's (graphical/positional-call-cli).
 const caller = (n: string, lang: "FBD" | "LD", vars: string, net: string) =>
-	`PROGRAM ${n}\nVAR\n${vars}\nEND_VAR\n%LANGUAGE ${lang}\nNETWORK\n  ${net}\nEND_NETWORK\n\nEND_PROGRAM\n`
+	`PROGRAM ${n}\nVAR\n${vars}\nEND_VAR\n%LANGUAGE ${lang}\n%NETWORK\n${net}\n\nEND_PROGRAM\n`
 
 interface Case {
 	readonly what: string
@@ -60,7 +60,7 @@ const CASES: readonly Case[] = [
 	{
 		what: "ENO read off a box calling a PROGRAM created by the same push",
 		callee: { name: fid("lagP"), source: program(id("lagP")) },
-		caller: { name: fid("lagPc"), source: caller(id("lagPc"), "LD", "\tgo : BOOL;\n\tdone : BOOL;", `done := ${id("lagP")}() ENO EN go;`) },
+		caller: { name: fid("lagPc"), source: caller(id("lagPc"), "LD", "\tgo : BOOL;\n\tdone : BOOL;", `done := ${id("lagP")}_EN(EN := go);`) },
 		twincatRefuses: false,
 	},
 	{
@@ -68,8 +68,8 @@ const CASES: readonly Case[] = [
 		callee: { name: fid("lagF"), source: fun(id("lagF")) },
 		caller: {
 			name: fid("lagFc"),
-			source: caller(id("lagFc"), "FBD", "\tgo : BOOL;\n\tn : INT;\n\tok : BOOL;", `ok := ${id("lagF")}(n) ENO EN go;`),
-			pulls: caller(id("lagFc"), "FBD", "\tgo : BOOL;\n\tn : INT;\n\tok : BOOL;", `ok := ${id("lagF")}(a := n) ENO EN go;`),
+			source: caller(id("lagFc"), "FBD", "\tgo : BOOL;\n\tn : INT;\n\tok : BOOL;", `ok := ${id("lagF")}_EN(EN := go, n);`),
+			pulls: caller(id("lagFc"), "FBD", "\tgo : BOOL;\n\tn : INT;\n\tok : BOOL;", `ok := ${id("lagF")}_EN(EN := go, a := n);`),
 		},
 		twincatRefuses: false,
 	},
@@ -78,8 +78,8 @@ const CASES: readonly Case[] = [
 		callee: { name: fid("lagG"), source: fun(id("lagG")) },
 		caller: {
 			name: fid("lagGc"),
-			source: caller(id("lagGc"), "FBD", "\tn : INT;\n\tr : INT;", `r := ${id("lagG")}(n);`),
-			pulls: caller(id("lagGc"), "FBD", "\tn : INT;\n\tr : INT;", `r := ${id("lagG")}(a := n);`),
+			source: caller(id("lagGc"), "FBD", "\tn : INT;\n\tres : INT;", `res := ${id("lagG")}(n);`),
+			pulls: caller(id("lagGc"), "FBD", "\tn : INT;\n\tres : INT;", `res := ${id("lagG")}(a := n);`),
 		},
 		twincatRefuses: false,
 	},

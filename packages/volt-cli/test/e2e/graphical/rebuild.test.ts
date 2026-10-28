@@ -63,9 +63,8 @@ VAR
 END_VAR
 ` +
 			`%LANGUAGE LD
-NETWORK
-  out := a AND b;
-END_NETWORK
+%NETWORK
+out := a AND b;
 ` +
 			`
 END_FUNCTION_BLOCK
@@ -97,9 +96,7 @@ END_FUNCTION_BLOCK
 	 * project-wide: `PushService` sends the whole body on every push, so without the gate an edit to ONE rung
 	 * would re-mint every rung in the POU, each re-mint dropping whatever the round trip cannot carry.
 	 *
-	 * Asserted through wire NAMES, which is the one rebuild-visible thing the text does show: a rebuilt network
-	 * used to be renumbered from the vendor's allocator (DIALECT C9), so an untouched neighbour keeping its
-	 * `g` name is evidence its items were never removed and re-appended.
+	 * Asserted through the pulled text: the untouched neighbour, wire and all, comes back as it was.
 	 */
 	it("editing one network leaves its neighbour untouched", async () => {
 		const name = id("rb_scope")
@@ -113,22 +110,23 @@ VAR
 	c : BOOL;
 	p : BOOL;
 	q : BOOL;
-	r : BOOL;
-	s : BOOL;
+	x : BOOL;
+	y : BOOL;
 END_VAR
 ` +
 			`%LANGUAGE LD
-NETWORK
-  split0 := a AND b;
-  p := split0;
-  q := split0;
-END_NETWORK
+%NETWORK
+%WIRES w1
+w1 := a AND b;
+p := w1;
+q := w1;
 ` +
-			`NETWORK
-  split1 := a OR b;
-  r := split1;
-  s := split1;
-END_NETWORK
+			`%NETWORK
+%WIRES w2
+w2 := a OR b;
+x := w2;
+y := w2;
+
 ` +
 			`
 END_FUNCTION_BLOCK
@@ -136,9 +134,8 @@ END_FUNCTION_BLOCK
 
 		await createItem(fid("rb_scope"), src, await projectRoot())
 		const before = (await fetchItem(full)).sourceText
-		const wires = (t: string) => t.match(/\bsplit\d+ :=/g) ?? []
-		// A CREATE keeps both splits on both vendors (TwinCAT's PLCopen import folded each into one assign driving two
-		// coils, D22 / C25 — superseded by the native writer, openspec twincat-inproc-host).
+		const wires = (t: string) => t.match(/^w\d+ :=.*$/gm) ?? []
+		// A CREATE keeps both wires on both vendors.
 		expect(wires(before).length).toBe(2)
 
 		const edited = before.replace("a AND b;", "a AND c;")
@@ -150,7 +147,8 @@ END_FUNCTION_BLOCK
 
 		const after = (await fetchItem(full)).sourceText
 		expect(after).toBe(edited)
-		expect(wires(after), "an untouched network was rebuilt too").toEqual(wires(before))
+		expect(wires(after), "an untouched network was rebuilt too").toEqual(wires(edited))
+
 	})
 
 	/**
@@ -184,14 +182,13 @@ VAR
 END_VAR
 %LANGUAGE LD
 ` +
-			// LABEL FIRST, THEN COMMENT — the IDE's own header layout, and the canonical form too. The reader
-			// takes them in either order; a text in another layout is written and comes back canonical
-			// (bridge-refusal-review 2.12 retired the layout-only refusal).
-			`NETWORK LABEL: Guard TITLE: "interlock"
-  // holds the drive off while the guard is open
-  // second line of the same comment
-  out := a AND b;
-END_NETWORK
+			// The comment is the network's `//` lines before its code; the label starts the code.
+			`%NETWORK "interlock"
+// holds the drive off while the guard is open
+// second line of the same comment
+Guard:
+out := a AND b;
+
 ` +
 			`
 END_FUNCTION_BLOCK
@@ -200,7 +197,7 @@ END_FUNCTION_BLOCK
 		await createItem(fid("rb_meta"), src, await projectRoot())
 		const before = (await fetchItem(full)).sourceText
 		expect(before, "the title was dropped on create").toContain(`"interlock"`)
-		expect(before, "the label was dropped on create").toContain("LABEL: Guard")
+		expect(before, "the label was dropped on create").toContain("\nGuard:\n")
 		expect(before, "the comment was dropped on create").toContain("// holds the drive off")
 
 		// Change the LOGIC, which is what forces the rebuild. A title-only edit would leave the trees
@@ -215,7 +212,7 @@ END_FUNCTION_BLOCK
 		const after = (await fetchItem(full)).sourceText
 		expect(after, "the network metadata did not survive the rebuild").toBe(edited)
 		expect(after).toContain(`"interlock"`)
-		expect(after).toContain("LABEL: Guard")
+		expect(after).toContain("\nGuard:\n")
 		expect(after).toContain("// holds the drive off while the guard is open")
 		expect(after).toContain("// second line of the same comment")
 	})

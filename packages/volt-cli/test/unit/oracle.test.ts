@@ -6,8 +6,8 @@
  * assertions rot into vacuous ones, which is precisely how the graphical round-trip evidence in this repo
  * managed to stay green over a body it was destroying. So the three loss shapes the audit actually measured
  * are pinned here as cases the oracle MUST refuse, and the rewrites measured against the live IDEs are
- * pinned as cases it must accept. (Network text v2 since task 4.4: the language rides on the body marker, the
- * header has no number; since ld-fbd-coverage 2R.3 a split is `split<VarId>` and a box is its word.)</p>
+ * pinned as cases it must accept. (Plain-ST network text since openspec network-text-st: a network opens with its
+ * `%NETWORK` line, a wire is `w<n>` on its `%WIRES` line.)</p>
  */
 import { describe, it, expect } from "bun:test"
 import { expectNoOperandsLost } from "../e2e/harness"
@@ -15,22 +15,22 @@ const wrap = (lang: string, b: string) => `PROGRAM P\nVAR\nEND_VAR\n%LANGUAGE ${
 describe("oracle self-check", () => {
 	it("catches an unconsumed block deleted by the writer", () => {
 		expect(() => expectNoOperandsLost(
-			wrap("LD", "NETWORK\n  tmr(IN := a, PT := T#5S);\n  out := b;\nEND_NETWORK"),
-			wrap("LD", "NETWORK\n  out := b;\nEND_NETWORK"))).toThrow()
+			wrap("LD", "%NETWORK\ntmr(IN := a, PT := T#5S);\nout := b;"),
+			wrap("LD", "%NETWORK\nout := b;"))).toThrow()
 	})
 	it("catches a jump's discarded condition spine", () => {
 		expect(() => expectNoOperandsLost(
-			wrap("LD", "NETWORK\n  JMP done := a AND b;\nEND_NETWORK"),
-			wrap("LD", "NETWORK\n  JMP done;\nEND_NETWORK"))).toThrow()
+			wrap("LD", "%NETWORK\nIF a AND b THEN JMP done; END_IF;"),
+			wrap("LD", "%NETWORK\nJMP done;"))).toThrow()
 	})
 	it("catches an FB instance type written as empty", () => {
 		expect(() => expectNoOperandsLost(
-			wrap("FBD", "NETWORK\n  fbUp(CLK := a);\n  out := fbUp.Q;\nEND_NETWORK"),
-			wrap("FBD", "NETWORK\n  out := a;\nEND_NETWORK"))).toThrow()
+			wrap("FBD", "%NETWORK\n%WIRES w1\nfbUp(CLK := a, Q => w1);\nout := w1;"),
+			wrap("FBD", "%NETWORK\nout := a;"))).toThrow()
 	})
-	it("tolerates reparenthesisation, a split the importer folds into one assign, and rung splitting", () => {
+	it("tolerates reparenthesisation, a wire the importer folds into one assign, and rung splitting", () => {
 		expectNoOperandsLost(
-			wrap("LD", "NETWORK\n  split1 := NOT a AND b AND c;\n  out := split1;\n  q := split1;\n  r := d;\nEND_NETWORK"),
-			wrap("LD", "NETWORK\n  out :=\n  q := (NOT a AND b) AND c;\nEND_NETWORK\nNETWORK\n  r := d;\nEND_NETWORK"))
+			wrap("LD", "%NETWORK\n%WIRES w1\nw1 := NOT a AND b AND c;\nout := w1;\nq := w1;\nq2 := d;"),
+			wrap("LD", "%NETWORK\nout := q := (NOT a AND b) AND c;\n%NETWORK\nq2 := d;"))
 	})
 })

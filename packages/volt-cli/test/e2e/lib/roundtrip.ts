@@ -77,20 +77,21 @@ export async function expectStable(name: string): Promise<void> {
 
 // ── the operand oracle ────────────────────────────────────────────────────────
 
-/** The `NETWORK … END_NETWORK` region of a source — the diagram, isolated from the declaration. A header is a line
- *  that STARTS with the word `NETWORK` (network text v2 numbers none, and `END_NETWORK` must not count). */
+/** The network region of a source — the diagram, isolated from the declaration: from its first `%NETWORK` line to the
+ *  item's outer END line (plain-ST network text, openspec network-text-st). */
 export function bodyOf(src: string): string {
-	const i = src.search(/^[ \t]*NETWORK\b/m)
-	const j = src.lastIndexOf("END_NETWORK")
-	if (i < 0 || j < 0) throw new Error(`no NETWORK block in:\n${src}`)
-	return src.slice(i, j + "END_NETWORK".length)
+	const i = src.search(/^%NETWORK\b/m)
+	const j = src.search(/^END_[A-Z_]+\s*$(?![\s\S]*^END_[A-Z_]+\s*$)/m)
+	if (i < 0 || j < 0 || j < i) throw new Error(`no %NETWORK region in:\n${src}`)
+	return src.slice(i, j)
 }
 
-/** Everything in a network line that is grammar rather than the engineer's program. */
+/** Everything in a network line that is grammar rather than the engineer's program: ST's words, the text's own
+ *  elements and `%` lines, a box's call head (a suffixed one is its box's word with `_EN` / `_ENO` / `_EN_ONLY`). */
 const NETWORK_KEYWORDS = new Set([
-	"NETWORK", "END_NETWORK", "DISABLED", "LABEL", "TITLE", "NOT", "AND", "OR", "XOR", "ADD", "SUB", "MUL", "DIV", "MOD",
-	"GT", "GE", "EQ", "NE", "LE", "LT", "MOVE", "EN", "ENO", "BRANCH", "SHORTCIRCUIT", "JMP", "RETURN", "EXECUTE",
-	"END_EXECUTE", "R_EDGE", "F_EDGE", "UNSUPPORTED", "TRUE", "FALSE",
+	"NETWORK", "DISABLED", "WIRES", "UNSUPPORTED", "NOT", "AND", "OR", "XOR", "ADD", "SUB", "MUL", "DIV", "MOD",
+	"GT", "GE", "EQ", "NE", "LE", "LT", "MOVE", "EN", "ENO", "OUT", "FEED", "BRANCH", "BRANCH_SHORTCIRCUIT", "JMP",
+	"RETURN", "IF", "THEN", "END_IF", "EXECUTE", "END_EXECUTE", "R_EDGE", "F_EDGE", "TRUE", "FALSE",
 ])
 
 /**
@@ -103,8 +104,8 @@ const NETWORK_KEYWORDS = new Set([
  * <p>What survives every one of those rewrites is the SET OF OPERANDS, so that is what this asserts. It catches
  * the whole measured loss class — a dropped unconsumed block, a jump's discarded condition spine, an FB instance
  * written with `typeName=""`, a flattened accessor — while staying blind to reformatting, which is the IDE's
- * business. A split name (`split<VarId>`) is excluded: it names a branch point, not an operand of the program, and an
- * importer that folds the split away drops the name with nothing lost.</p>
+ * business. A wire name (`w<n>`) is excluded: it names a branch point, not an operand of the program, and an
+ * importer that folds the wire away drops the name with nothing lost.</p>
  *
  * <p>It is loose by design, and loose assertions rot into vacuous ones — which is how the graphical evidence in
  * this repo once stayed green over a body it was destroying. `test/unit/oracle.test.ts` pins the three measured
@@ -112,10 +113,10 @@ const NETWORK_KEYWORDS = new Set([
  */
 export function expectNoOperandsLost(pushed: string, fetched: string): void {
 	const idents = (s: string): string[] =>
-		(s.match(/[A-Za-z_][A-Za-z0-9_.]*/g) ?? []).filter((w) => !NETWORK_KEYWORDS.has(w.toUpperCase()))
+		(s.match(/[A-Za-z_][A-Za-z0-9_.]*/g) ?? []).map((w) => w.replace(/_(EN|ENO)$/i, "")).filter((w) => !NETWORK_KEYWORDS.has(w.toUpperCase()))
 
 	const body = bodyOf(pushed)
-	const want = [...new Set(idents(body))].filter((w) => !/^split\d+$/i.test(w))
+	const want = [...new Set(idents(body))].filter((w) => !/^w\d+$/i.test(w))
 	const got = new Set(idents(bodyOf(fetched)))
 
 	const lost = want.filter((w) => !got.has(w))

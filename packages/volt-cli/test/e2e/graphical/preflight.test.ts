@@ -44,18 +44,17 @@ describe(`graphical / the push pre-flight (${BASE})`, () => {
 	/** A perfectly ordinary graphical POU — this one must never be the reason a push fails. */
 	const fine = (name: string) =>
 		["PROGRAM " + name, "VAR", "\ta : BOOL;", "\tb : BOOL;", "\tout : BOOL;", "END_VAR",
-		 "%LANGUAGE FBD", "NETWORK", "  out := a AND b;", "END_NETWORK", "", "END_PROGRAM", ""].join(NL)
+		 "%LANGUAGE FBD", "%NETWORK", "out := AND(a, b);", "", "END_PROGRAM", ""].join(NL)
 
 	/**
-	 * …and one holding a tree the vendor stores and does not build: an operator box with EN read through its ENO, its
-	 * value wired nowhere (`x := MOVE 1 ENO EN a;`, X3) — refused by name with `NETWORK_UNSUPPORTED` on both vendors, from
-	 * the text alone.
+	 * …and one the push's reader refuses from the text alone, on both vendors: an enabled box whose call does not take its
+	 * `EN :=` first (`x := MOVE_EN(1);`) — refused by name, `NETWORK_PARSE`.
 	 */
 	const broken = (name: string) =>
 		["PROGRAM " + name, "VAR", "\ta : BOOL;", "\tx : BOOL;", "END_VAR",
-		 "%LANGUAGE FBD", "NETWORK", "  x := MOVE 1 ENO EN a;", "END_NETWORK", "", "END_PROGRAM", ""].join(NL)
+		 "%LANGUAGE FBD", "%NETWORK", "x := MOVE_EN(1);", "", "END_PROGRAM", ""].join(NL)
 
-	it("a create refused for a shape the vendor does not build leaves the item before it unwritten", async () => {
+	it("a create refused from its text leaves the item before it unwritten", async () => {
 		const firstName = id("pf_ok")
 		const first = rid("pf_ok", "pou")
 		const second = rid("pf_bad", "pou")
@@ -69,8 +68,8 @@ describe(`graphical / the push pre-flight (${BASE})`, () => {
 			{ op: "set", name: second, sourceText: broken(id("pf_bad")), ifVersion: null },
 		])
 
-		expect(landed(r), "the unbuildable shape was ACCEPTED — update this test").toBe(false)
-		expect(JSON.stringify(r.conflicts ?? []), "the refusal does not name the shape").toMatch(/an operator box read through its ENO with no output wired/)
+		expect(landed(r), "the refused text was ACCEPTED — update this test").toBe(false)
+		expect(JSON.stringify(r.conflicts ?? []), "the refusal does not name the rule").toMatch(/takes EN := as its first argument/)
 
 		// THE ASSERTION. Not "the push failed" — that was already true while half of it landed.
 		const after = (await bridge.refs()).items ?? {}

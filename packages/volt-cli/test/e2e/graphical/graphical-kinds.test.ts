@@ -40,15 +40,18 @@ const VARS = `VAR
 \tt1 : TON;
 END_VAR`
 
+/** `l AND r` in each language: LD's contacts in series, FBD's AND box. */
+const AND = (lang: string, l: string, r: string) => (lang === "LD" ? `${l} AND ${r}` : `AND(${l}, ${r})`)
+
 /** The one network used throughout, in whichever language: `coil := l AND r`. Deliberately IDENTICAL across
- *  every kind and both languages, so a failure isolates to the kind or the language and never to the network.
- *  It is also the canonical form both readers emit, which is what makes the re-push a fixed point. */
+ *  every kind, so a failure isolates to the kind or the language and never to the network. It is also the
+ *  canonical form the reader emits, which is what makes the re-push a fixed point. */
 const NET = (lang: string) => (coil: string, l = "a", r = "b") =>
-	`%LANGUAGE ${lang}\nNETWORK\n  ${coil} := ${l} AND ${r};\nEND_NETWORK`
+	`%LANGUAGE ${lang}\n%NETWORK\n${coil} := ${AND(lang, l, r)};\n`
 
 /** A network that CALLS an FB instance — the shape whose type can only be resolved from the OWNER's
  *  declaration. `t1` is declared in `VARS`, i.e. one level above any member that calls it. */
-const callNet = (lang: string) => `%LANGUAGE ${lang}\nNETWORK\n  t1 : TON(IN := a, PT := T#1s);\nEND_NETWORK`
+const callNet = (lang: string) => `%LANGUAGE ${lang}\n%NETWORK\nt1(IN := a, PT := T#1s);\n`
 
 /** Every source shape for one language. Built from the same `net` so the two languages differ in exactly one
  *  token — if FBD passes where LD fails, the difference is real and not a fixture artefact. */
@@ -124,7 +127,7 @@ for (const lang of ["FBD", "LD"]) {
 
 				const v1 = await fetchItem(full)
 				expect(networkLangs(v1.sourceText)).toEqual([lang])   // stayed graphical, not flattened to ST
-				expect(v1.sourceText).toContain("a AND b")
+				expect(v1.sourceText).toContain(AND(lang, "a", "b"))
 				expectNoOperandsLost(src[key](name), v1.sourceText)
 				await isFixedPoint(full, v1)
 			})
@@ -155,8 +158,8 @@ for (const lang of ["FBD", "LD"]) {
 			// TWO networks, one per accessor, each keeping its own coil. A splice that wrote both accessors from
 			// the same body would still show two networks — the coils are what tell them apart.
 			expect(networkLangs(v1.sourceText)).toEqual([lang, lang])
-			expect(v1.sourceText).toContain("P_G := a AND b")     // the GET drives the property…
-			expect(v1.sourceText).toContain("out := P_G AND a")   // …and the SET is driven by it
+			expect(v1.sourceText).toContain(`P_G := ${AND(lang, "a", "b")}`)     // the GET drives the property…
+			expect(v1.sourceText).toContain(`out := ${AND(lang, "P_G", "a")}`)   // …and the SET is driven by it
 			expectNoOperandsLost(src.property(name), v1.sourceText)
 			await isFixedPoint(full, v1)
 			await ensureCompiles(name)
@@ -174,7 +177,7 @@ for (const lang of ["FBD", "LD"]) {
 			// (`language-change.test.ts`). The premise "the push refuses it" was Volt's own refusal, disproved on
 			// CODESYS by measurement.
 			const refs = await bridge.refs()
-			const flat = src.property(name).replace(new RegExp(`%LANGUAGE ${lang}\\nNETWORK[^]*?END_NETWORK`, "g"), "%LANGUAGE ST\nP_G := a;")
+			const flat = src.property(name).replace(new RegExp(`%LANGUAGE ${lang}\\n%NETWORK\\n[^\\n]*`, "g"), "%LANGUAGE ST\nP_G := a;")
 			const r = await bridge.push({
 				expectedProjectVersion: refs.projectVersion,
 				ops: [{ op: "set", name: full, ifVersion: refs.items[full], sourceText: flat }],
@@ -202,7 +205,7 @@ for (const lang of ["FBD", "LD"]) {
 				await createItem(full, (src as any)[key](name), await projectRoot())
 
 				const v1 = await fetchItem(full)
-				expect(v1.sourceText, "the call lost its instance").toContain("t1 : TON(IN := a")
+				expect(v1.sourceText, "the call lost its instance").toContain("t1(IN := a")
 				await isFixedPoint(full, v1)
 				await ensureCompiles(name)
 			})

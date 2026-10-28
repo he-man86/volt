@@ -474,3 +474,14 @@ the corpora).
   read by its value has no ENO";
 - an operand ST cannot name: an ST keyword (`Then`), a backtick (`a``b`), and TwinCAT's coil `r` (1 archive);
 - an FB instance the declarations do not hold (1 case): its type is in no text.
+
+## 3.1 As built: the push reads plain ST
+
+The push validates a body through `StNetworkGate` (read, derive, write back canonical); `NetworkPairing`, `PushedText` and
+the drivers' change gates compare plain-ST models. A network's comment is its `//` lines before the code, its label the
+first code line. Wires are numbered `w1, w2, …` across the body. Measured live: CODESYS 3.5.21.40 e2e 557 pass / 0 fail;
+TwinCAT 4024 e2e 541 pass and one fail fixed (an Execute box without EN was built showing EN over no EN pin;
+`TcArchiveBuilder` shows EN only where the box has one, pinned offline), its three Execute suites re-run green.
+Deleted e2e case: `real-project-shapes` "a box with an unconnected input" — an empty operand on a FUNCTION's pin has no
+spelling (the writer refuses it by name, unmeasured); the FB form stays (`t1();`). `stored-shapes` #9–#14 (jumps among
+coils, negated/edge coils) left the push suite: the first wait on the owner (3.0), the others are stored members.

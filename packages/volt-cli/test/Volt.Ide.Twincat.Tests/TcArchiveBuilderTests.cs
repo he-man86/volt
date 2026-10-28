@@ -269,4 +269,15 @@ public sealed class TcArchiveBuilderTests(Xunit.Abstractions.ITestOutputHelper o
         output.WriteLine("refused: " + string.Join("\n", refused));
         Assert.True(failures.Count == 0, string.Join("\n", failures.Take(10)));
     }
+
+    /// <summary>An Execute box the text states without EN is built showing no EN: EN shown over an input list holding no EN
+    /// pin read back as the "no slot of that name" marker (live, refused-shapes.test.ts "an EXECUTE box" edit).</summary>
+    [Fact]
+    public void An_Execute_box_without_EN_builds_without_EN_and_reads_back_the_same()
+    {
+        var scope = new NetworkScope(new[] { "out", "a" }, Array.Empty<string>(), new Dictionary<string, string>());
+        const string text = "%LANGUAGE FBD\n%NETWORK\n%EXECUTE\nout := a;\n%END_EXECUTE\n";
+        var back = ReadBack(TcArchiveBuilder.Body(NetworkText.Validate(text, scope), scope));
+        Assert.Equal(text, StNetworkWriter.Write(back, scope));
+    }
 }

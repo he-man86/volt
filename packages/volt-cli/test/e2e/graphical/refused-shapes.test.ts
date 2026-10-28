@@ -74,13 +74,12 @@ VAR
 \tafter : BOOL;
 END_VAR
 %LANGUAGE LD
-NETWORK
-  out := TRUE;
-  JMP Onwards := ;
-END_NETWORK
-NETWORK LABEL: Onwards
-  after := TRUE;
-END_NETWORK
+%NETWORK
+out := TRUE;
+JMP Onwards;
+%NETWORK
+Onwards:
+after := TRUE;
 
 END_FUNCTION_BLOCK
 `,
@@ -100,19 +99,16 @@ VAR
 \tlater : BOOL;
 END_VAR
 %LANGUAGE LD
-NETWORK
-  JMP Tail := cond;
-END_NETWORK
-NETWORK
-  RETURN := cond;
-END_NETWORK
-NETWORK LABEL: Tail
-  done := TRUE;
-  RETURN := ;
-END_NETWORK
-NETWORK
-  later := TRUE;
-END_NETWORK
+%NETWORK
+IF cond THEN JMP Tail; END_IF;
+%NETWORK
+IF cond THEN RETURN; END_IF;
+%NETWORK
+Tail:
+done := TRUE;
+RETURN;
+%NETWORK
+later := TRUE;
 
 END_FUNCTION_BLOCK
 `,
@@ -134,13 +130,12 @@ VAR
 \ttarget : INT;
 END_VAR
 %LANGUAGE FBD
-NETWORK
-  EXECUTE
+%NETWORK
+%EXECUTE(EN := bRun)
 IF bStart THEN
 \ttarget := 40 + 2;
 END_IF
-  END_EXECUTE ENO EN bRun;
-END_NETWORK
+%END_EXECUTE
 
 END_FUNCTION_BLOCK
 `,
@@ -179,9 +174,8 @@ VAR
 \ttwice : INT;
 END_VAR
 %LANGUAGE FBD
-NETWORK
-  next := VltRefSplit(src, doubled => twice);
-END_NETWORK
+%NETWORK
+next := VltRefSplit(src, doubled => twice);
 
 END_FUNCTION_BLOCK
 `,
@@ -193,9 +187,8 @@ VAR
 \ttwice : INT;
 END_VAR
 %LANGUAGE FBD
-NETWORK
-  next := VltRefSplit(source := src, doubled => twice);
-END_NETWORK
+%NETWORK
+next := VltRefSplit(source := src, doubled => twice);
 
 END_FUNCTION_BLOCK
 `,
@@ -293,33 +286,33 @@ describe(`graphical / editing a body INTO a refused shape (${BASE})`, () => {
 			// Editing a conditional jump into an unconditional one is the swap DIRECTLY — no import at all,
 			// because only the RValue element changes. This is what was measured first.
 			vars: BOOLS,
-			nets: ["NETWORK", "  JMP Done := a;", "END_NETWORK", "NETWORK LABEL: Done", "  out := a;", "END_NETWORK"],
-			from: "JMP Done := a;",
-			to: "JMP Done := ;",
+			nets: ["%NETWORK", "IF a THEN JMP Done; END_IF;", "%NETWORK", "Done:", "out := a;"],
+			from: "IF a THEN JMP Done; END_IF;",
+			to: "JMP Done;",
 		},
 		{
 			key: "eret",
 			what: "an unconditional RETURN",
 			vars: BOOLS,
-			nets: ["NETWORK", "  RETURN := a;", "END_NETWORK", "NETWORK", "  out := a;", "END_NETWORK"],
-			from: "RETURN := a;",
-			to: "RETURN := ;",
+			nets: ["%NETWORK", "IF a THEN RETURN; END_IF;", "%NETWORK", "out := a;"],
+			from: "IF a THEN RETURN; END_IF;",
+			to: "RETURN;",
 		},
 		{
 			key: "earrow",
 			what: "a box output pin wired straight to a variable",
 			vars: ["\tt1 : TON;", "\ta : BOOL;", "\tpt : TIME;", "\tel : TIME;"],
-			nets: ["NETWORK", "  t1 : TON(IN := a, PT := pt);", "END_NETWORK"],
-			from: "t1 : TON(IN := a, PT := pt)",
-			to: "t1 : TON(IN := a, PT := pt, ET => el)",
+			nets: ["%NETWORK", "t1(IN := a, PT := pt);"],
+			from: "t1(IN := a, PT := pt)",
+			to: "t1(IN := a, PT := pt, ET => el)",
 		},
 		{
 			key: "eexec",
 			what: "an EXECUTE box",
 			vars: BOOLS,
-			nets: ["NETWORK", "  out := a;", "END_NETWORK"],
-			from: "  out := a;",
-			to: ["  EXECUTE", "    out := a;", "  END_EXECUTE;"].join(NL),
+			nets: ["%NETWORK", "out := a;"],
+			from: "out := a;",
+			to: ["%EXECUTE", "out := a;", "%END_EXECUTE"].join(NL),
 		},
 	]
 
@@ -391,11 +384,11 @@ END_FUNCTION_BLOCK
 
 METHOD Step : BOOL
 %LANGUAGE FBD
-NETWORK
-  EXECUTE
+%NETWORK
+%EXECUTE(EN := bRun)
 target := 40 + 2;
-  END_EXECUTE ENO EN bRun;
-END_NETWORK
+%END_EXECUTE
+
 
 END_METHOD
 `

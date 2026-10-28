@@ -32,13 +32,13 @@ const it = itGapped(PLATFORM_GAPS.graphicalWrite)
 
 const SHAPES: [string, string, string][] = [
 	// label, VAR block, the ONE network's statements
-	["one connected tree", "\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;", "  out := a AND b;"],
+	["one connected tree", "\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;", "out := AND(a, b);"],
 	["one wire, two coils", "\ta : BOOL;\n\tb : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;",
-		"  split1 := a AND b;\n  out1 := split1;\n  out2 := split1;"],
+		"%WIRES w1\nw1 := AND(a, b);\nout1 := w1;\nout2 := w1;"],
 	["two disconnected sinks", "\ta : BOOL;\n\tb : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;",
-		"  out1 := a;\n  out2 := b;"],
+		"out1 := a;\nout2 := b;"],
 	["fb call + output read", "\tt1 : TON;\n\ta : BOOL;\n\tpt : TIME;\n\tdone : BOOL;",
-		"  t1 : TON(IN := a, PT := pt);\n  done := t1.Q;"],
+		"t1(IN := a, PT := pt);\ndone := t1.Q;"],
 ]
 
 describe(`graphical / importer grouping (${BASE})`, () => {
@@ -69,7 +69,7 @@ describe(`graphical / importer grouping (${BASE})`, () => {
 			// outlives its own test is exactly the shape that produces that.
 			try {
 
-				const src = `PROGRAM ${name}\nVAR\n${vars}\nEND_VAR\n%LANGUAGE FBD\nNETWORK\n${body}\nEND_NETWORK\n\nEND_PROGRAM\n`
+				const src = `PROGRAM ${name}\nVAR\n${vars}\nEND_VAR\n%LANGUAGE FBD\n%NETWORK\n${body}\n\nEND_PROGRAM\n`
 				const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
 
 				if (!landed(created)) {
@@ -79,7 +79,7 @@ describe(`graphical / importer grouping (${BASE})`, () => {
 				}
 
 				const v = (await bridge.fetch({ knownItems: {}, onlyItems: [item] })).changed.find((i: any) => i.name === item)
-				const n = [...String(v.sourceText).matchAll(/^NETWORK$/gm)].length
+				const n = [...String(v.sourceText).matchAll(/^%NETWORK$/gm)].length
 				report.push(`  ${label.padEnd(24)} pushed 1 network -> got ${n}`)
 				counts.push(n)
 			} finally {

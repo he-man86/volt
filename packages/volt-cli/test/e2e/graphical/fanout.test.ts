@@ -48,7 +48,7 @@ describe(`graphical / fan-out (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;\nEND_VAR\n` +
-			`%LANGUAGE FBD\nNETWORK\n  split7 := a AND b;\n  out1 := split7;\n  out2 := split7;\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`%LANGUAGE FBD\n%NETWORK\n%WIRES w1\nw1 := AND(a, b);\nout1 := w1;\nout2 := w1;\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: wire, sourceText: src, ifVersion: null }])
 		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
@@ -56,12 +56,9 @@ describe(`graphical / fan-out (${BASE})`, () => {
 		const v1 = (await bridge.fetch({ knownItems: {}, onlyItems: [wire] })).changed.find((i: any) => i.name === wire)
 		expect(v1).toBeDefined()
 
-		// THE VALUE, BOTH CONSUMERS AND THE SPLIT ARE THERE ON BOTH VENDORS. A split (`split<VarId> := …`) is a real
-		// fan-out (a `BoxTreeDemux` the editor draws); a chained assignment (`out1 := out2 := v;`) is ONE item driving
-		// several coils. TwinCAT's PLCopen import folded the first into the second (DIALECT D22/C20, superseded): the native
-		// writer builds the Demux the text states, under the VarId the text gave it, as CODESYS does (openspec
-		// twincat-inproc-host).
-		const shape = "  split7 := a AND b;\n  out1 := split7;\n  out2 := split7;\n"
+		// THE VALUE, BOTH CONSUMERS AND THE WIRE ARE THERE ON BOTH VENDORS. A wire (`%WIRES w1`) is a real fan-out (a
+		// `BoxTreeDemux` the editor draws); the native writer builds the Demux the text states, as CODESYS does.
+		const shape = "%WIRES w1\nw1 := AND(a, b);\nout1 := w1;\nout2 := w1;\n"
 		expect(v1.sourceText).toContain(shape)
 		// …and the erasure signatures are absent: an empty operand, or a bare statement.
 		expect(v1.sourceText).not.toContain("( AND")
@@ -102,13 +99,13 @@ describe(`graphical / fan-out (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : INT;\n\tb : INT;\n\tn : INT;\n\tsv : INT;\nEND_VAR\n` +
-			`%LANGUAGE FBD\nNETWORK\n  split1 := a ADD b;\n  n := split1;\n  sv := split1;\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`%LANGUAGE FBD\n%NETWORK\n%WIRES w1\nw1 := ADD(a, b);\nn := w1;\nsv := w1;\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: wire, sourceText: src, ifVersion: null }])
 		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
 
 		const v1 = (await bridge.fetch({ knownItems: {}, onlyItems: [wire] })).changed.find((i: any) => i.name === wire)
-		const shape = "  split1 := a ADD b;\n  n := split1;\n  sv := split1;\n"
+		const shape = "%WIRES w1\nw1 := ADD(a, b);\nn := w1;\nsv := w1;\n"
 		expect(v1.sourceText).toContain(shape)
 
 		const refs = await bridge.refs()
@@ -136,7 +133,7 @@ describe(`graphical / fan-out (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\tout1 : BOOL;\n\tout2 : BOOL;\nEND_VAR\n` +
-			`%LANGUAGE LD\nNETWORK\n  split1 := TRUE;\n  out1 := split1;\n  out2 := split1;\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`%LANGUAGE LD\n%NETWORK\n%WIRES w1\nw1 := TRUE;\nout1 := w1;\nout2 := w1;\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: wire, sourceText: src, ifVersion: null }])
 		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)

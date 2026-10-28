@@ -44,7 +44,7 @@ function status(root: string): string[] {
 const F = id("posF"), P = id("posP")
 const fun = `FUNCTION ${F} : INT\nVAR_INPUT\n\ta : INT;\nEND_VAR\n%LANGUAGE ST\n${F} := a + 1;\n\nEND_FUNCTION\n`
 const caller = (call: string) =>
-	`PROGRAM ${P}\nVAR\n\tn : INT;\n\tr : INT;\nEND_VAR\n%LANGUAGE FBD\nNETWORK\n  r := ${call};\nEND_NETWORK\n\nEND_PROGRAM\n`
+	`PROGRAM ${P}\nVAR\n\tn : INT;\n\tres : INT;\nEND_VAR\n%LANGUAGE FBD\n%NETWORK\nres := ${call};\n\nEND_PROGRAM\n`
 
 describe.skipIf(CLI === undefined)(`volt push of a positional FUNCTION call (${BASE})`, () => {
 	setDefaultTimeout(240_000)

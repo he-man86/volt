@@ -50,8 +50,8 @@ describe(`graphical / create shapes (${BASE})`, () => {
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tc : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;\nEND_VAR\n` +
 			// NO blank line between networks — not the canonical form a PULL emits. It is written all the same
 			// (bridge-refusal-review 2.12: the layout-only gate is gone) and the pull below returns the canonical text.
-			`%LANGUAGE FBD\nNETWORK\n  out1 := a AND b;\nEND_NETWORK\n` +
-			`NETWORK\n  out2 := b OR c;\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`%LANGUAGE FBD\n%NETWORK\nout1 := AND(a, b);\n` +
+			`%NETWORK\nout2 := OR(b, c);\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
 		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
@@ -61,9 +61,9 @@ describe(`graphical / create shapes (${BASE})`, () => {
 
 		// BOTH networks survived, each with its own content - not one merged network, not a dropped second.
 		// Headers carry no order number, so the count is the check: two `NETWORK` lines, not one merged.
-		expect(v1.sourceText.match(/^NETWORK$/gm)?.length, "the two networks did not come back as two").toBe(2)
-		expect(v1.sourceText).toMatch(/out1 := a AND b;/)
-		expect(v1.sourceText).toMatch(/out2 := b OR c;/)
+		expect(v1.sourceText.match(/^%NETWORK$/gm)?.length, "the two networks did not come back as two").toBe(2)
+		expect(v1.sourceText).toMatch(/out1 := AND\(a, b\);/)
+		expect(v1.sourceText).toMatch(/out2 := OR\(b, c\);/)
 
 		// …and the whole thing is a FIXED POINT, which is what proves the ids the IDE minted are consistent.
 		const refs = await bridge.refs()
@@ -89,7 +89,7 @@ describe(`graphical / create shapes (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\tt1 : TON;\n\ta : BOOL;\n\tpt : TIME;\n\tel : TIME;\nEND_VAR\n` +
-			`%LANGUAGE FBD\nNETWORK\n  t1 : TON(IN := a, PT := pt, ET => el);\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`%LANGUAGE FBD\n%NETWORK\nt1(IN := a, PT := pt, ET => el);\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
 
@@ -115,7 +115,7 @@ describe(`graphical / create shapes (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\tt1 : TON;\n\ta : BOOL;\n\tpt : TIME;\n\tdone : BOOL;\nEND_VAR\n` +
-			`%LANGUAGE FBD\nNETWORK\n  t1 : TON(IN := a, PT := pt);\n  done := t1.Q;\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`%LANGUAGE FBD\n%NETWORK\nt1(IN := a, PT := pt);\ndone := t1.Q;\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
 		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
@@ -123,9 +123,9 @@ describe(`graphical / create shapes (${BASE})`, () => {
 		const v1 = await pull(item)
 		expect(v1).toBeDefined()
 
-		// THE INSTANCE IS THE POINT. `t1 : TON(...)` must come back named t1 - if `instanceName` were ignored the call
+		// THE INSTANCE IS THE POINT. `t1(...)` must come back named t1 - if `instanceName` were ignored the call
 		// would return as a bare TON and the timer would lose its state between scans.
-		expect(v1.sourceText).toMatch(/t1 : TON\(/)
+		expect(v1.sourceText).toMatch(/^t1\(/m)
 		expect(v1.sourceText).toMatch(/done := t1\.Q;/)
 
 		const refs = await bridge.refs()

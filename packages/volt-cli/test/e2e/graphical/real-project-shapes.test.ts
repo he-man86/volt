@@ -67,8 +67,9 @@ async function survivesOrIsRefused(fullName: string, src: string): Promise<"roun
 	return "round-tripped"
 }
 
-/** A PROGRAM wrapping one network body, with the declarations the shapes below reference. Network text v2 states
- *  the body's language once, on its %LANGUAGE line. */
+/** A PROGRAM wrapping one network body, with the declarations the shapes below reference. The text states the
+ *  body's language once, on its %LANGUAGE line. */
+
 function program(name: string, lang: "FBD" | "LD", networks: string): string {
 	return (
 		`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\n\tout2 : BOOL;\n\tn : INT;\n\tm : INT;\n` +
@@ -83,27 +84,11 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 	beforeEach(async () => { await fixPlcPrg(); await cleanup(); await savePlcPrg() })
 	afterEach(async () => { await restorePlcPrg() })
 
-	/**
-	 * AN UNCONNECTED PIN.
-	 *
-	 * The writer rendered a pin wired to nothing as nothing at all, so the vendor's own bodies came out as
-	 * `( * iRPM * 6)` and `RESET := , PV := )` — text no reader could take back. 110 of the 373 networks. The
-	 * fix is a POSITION, not a token: `?` was tried and withdrawn, because CODESYS writes `???` into a box whose
-	 * instance is unresolved and that is real content Volt has to carry.
-	 *
-	 * CODESYS builds this natively. TwinCAT refuses it on CREATE — PLCopen has no way to say "this pin is
-	 * connected to nothing" — and says so.
-	 */
-	it("a box with an unconnected input survives, or is refused", async () => {
-		const name = id("rp_pin")
-		await survivesOrIsRefused(fid("rp_pin", "pou"), program(name, "LD", `NETWORK\n  n := MUL m MUL 6;\nEND_NETWORK\n`))
-	})
-
-	/** The same fact in the other syntax — an FB call whose pins are declared but unwired, which is how a
-	 *  half-finished block sits in a live project. */
+	/** AN UNCONNECTED PIN: an FB call whose pins are unwired, which is how a half-finished block sits in a live project.
+	 *  Its text is the call with the pins left out (the network runs as that call, design.md "2.1"). */
 	it("an FB call with unwired named pins survives, or is refused", async () => {
 		const name = id("rp_pins")
-		await survivesOrIsRefused(fid("rp_pins", "pou"), program(name, "FBD", `NETWORK\n  t1 : TON(IN := , PT := );\nEND_NETWORK\n`))
+		await survivesOrIsRefused(fid("rp_pins", "pou"), program(name, "FBD", `%NETWORK\nt1();\n`))
 	})
 
 	/**
@@ -120,7 +105,7 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 		const name = id("rp_wire")
 		await survivesOrIsRefused(
 			fid("rp_wire", "pou"),
-			program(name, "LD", `NETWORK\n  split0 := a AND b;\n  out := split0;\nEND_NETWORK\n`),
+			program(name, "LD", `%NETWORK\n%WIRES w1\nw1 := a AND b;\nout := w1;\n`),
 		)
 	})
 
@@ -134,21 +119,21 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 	it("a call whose output goes nowhere round-trips", async () => {
 		const name = id("rp_stmt")
 		const full = fid("rp_stmt", "pou")
-		const src = program(name, "LD", `NETWORK\n  MOVE a;\nEND_NETWORK\n`)
+		const src = program(name, "LD", `%NETWORK\nMOVE(a);\n`)
 
 		expect(await roundTrip(full, src)).toBe(src)
 	})
 
 	/**
-	 * A NOT BOX IS NOT A NEGATION FLAG. Reading the box `` `NOT`(a) `` as the modifier deleted a box item from the drawing and
+	 * A NOT BOX IS NOT A NEGATION FLAG. Reading the box `NOT(a)` as the modifier deleted a box item from the drawing and
 	 * put a dot on a pin instead — logically equal, visually not, and a push would have committed it. Both
 	 * spellings go through the IDE here, because only the IDE can say they stayed different.
 	 */
 	it("a NOT box and a negated operand stay different", async () => {
-		const boxSrc = program(id("rp_notbox"), "FBD", `NETWORK\n  out := \`NOT\`(a);\nEND_NETWORK\n`)
+		const boxSrc = program(id("rp_notbox"), "FBD", `%NETWORK\nout := NOT(a);\n`)
 		expect(await roundTrip(fid("rp_notbox", "pou"), boxSrc)).toBe(boxSrc)
 
-		const flagSrc = program(id("rp_notflag"), "FBD", `NETWORK\n  out := NOT a;\nEND_NETWORK\n`)
+		const flagSrc = program(id("rp_notflag"), "FBD", `%NETWORK\nout := NOT a;\n`)
 		expect(await roundTrip(fid("rp_notflag", "pou"), flagSrc)).toBe(flagSrc)
 	})
 
@@ -161,8 +146,8 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 		const src = program(
 			id("rp_text"),
 			"LD",
-			// A quote in a title is ST's own `$"` (network text v2 titles use ST's string escapes).
-			`NETWORK TITLE: "Muting of alarm $"No bunch$""\n  //     aligned on purpose\n  out := a AND b;\nEND_NETWORK\n`,
+			// A quote in a title is ST's own `$"` (titles use ST's string escapes).
+			`%NETWORK "Muting of alarm $"No bunch$""\n//     aligned on purpose\nout := a AND b;\n`,
 		)
 
 		expect(await roundTrip(full, src)).toBe(src)
@@ -187,8 +172,8 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 		const src = program(
 			id("rp_fix"),
 			"LD",
-			`NETWORK TITLE: "a rung"\n  out := out2 := a AND b;\nEND_NETWORK\n` +
-				`NETWORK\n  MOVE a;\nEND_NETWORK\n`,
+			`%NETWORK "a rung"\nout := out2 := a AND b;\n` +
+				`%NETWORK\nMOVE(a);\n`,
 		)
 
 		const once = await roundTrip(full, src)
@@ -198,7 +183,7 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 		expect(twice).toBe(once)
 	})
 	/**
-	 * A PARALLEL BRANCH (`feed BRANCH (a, b)`, `SHORTCIRCUIT` off the editor's Sequential default, B8). CODESYS builds a
+	 * A PARALLEL BRANCH (`BRANCH(FEED := f, a, b)`, `BRANCH_SHORTCIRCUIT` off the editor's Sequential default, B8). CODESYS builds a
 	 * `BoxTreeParallel` natively and must hand it back exactly, fed and unfed, in both modes — v1 rebuilt one as AND/OR
 	 * and a fresh one as `Sequential` (DIALECT N20). TwinCAT's import has no element for one (D30), so the push is
 	 * refused by name before the import (task 4.2). Of Lenze's 17 Parallels the v2 pull spells 4, all in bodies holding
@@ -210,8 +195,8 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 		const src = program(
 			id("rp_par"),
 			"LD",
-			`NETWORK\n  out := go BRANCH (a, b) SHORTCIRCUIT;\nEND_NETWORK\n` +
-				`NETWORK\n  out2 := a AND (BRANCH (b, go));\nEND_NETWORK\n`,
+			`%NETWORK\nout := BRANCH_SHORTCIRCUIT(FEED := go, a, b);\n` +
+				`%NETWORK\nout2 := a AND BRANCH(b, go);\n`,
 		)
 		const refs = await bridge.refs()
 		const fullAt = await existingOrAtRoot(refs.items, full)

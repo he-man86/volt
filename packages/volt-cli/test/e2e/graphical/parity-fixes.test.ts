@@ -53,7 +53,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const src =
 			`PROGRAM ${name}\nVAR\n\tgo : BOOL;\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n%LANGUAGE FBD\n` +
 			// The enable is the box's own EN pin, and its value goes to its output pin — this test is about the EN pin.
-			`NETWORK\n  a AND b => out ENO EN go;\nEND_NETWORK\n\n` +
+			`%NETWORK\nAND_EN(EN := go, a, b, OUT => out);\n\n` +
 			`END_PROGRAM\n`
 
 		// VENDOR-BLIND ON PURPOSE, because this is the one capability that genuinely differs and the difference
@@ -95,7 +95,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const full = fid("pf_fn", "pou")
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : INT;\n\tb : INT;\n\tout : INT;\nEND_VAR\n` +
-			`%LANGUAGE FBD\nNETWORK\n  out := MAX(a, b);\nEND_NETWORK\n\n` +
+			`%LANGUAGE FBD\n%NETWORK\nout := MAX(a, b);\n\n` +
 			`END_PROGRAM\n`
 
 		const back = await roundTrip(full, src)
@@ -112,7 +112,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const name = id("pf_fnbuild")
 		const src =
 			`FUNCTION_BLOCK ${name}\nVAR\n\ta : INT;\n\tb : INT;\n\tout : INT;\nEND_VAR\n` +
-			`%LANGUAGE FBD\nNETWORK\n  out := MAX(a, b);\nEND_NETWORK\n\n` +
+			`%LANGUAGE FBD\n%NETWORK\nout := MAX(a, b);\n\n` +
 			`END_FUNCTION_BLOCK\n`
 
 		await createItem(fid("pf_fnbuild"), src, await projectRoot())
@@ -133,7 +133,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const full = fid("pf_pins", "pou")
 		const src =
 			`PROGRAM ${name}\nVAR\n\tt1 : TON;\n\tgo : BOOL;\n\tpt : TIME;\nEND_VAR\n` +
-			`%LANGUAGE FBD\nNETWORK\n  t1 : TON(IN := go, PT := pt);\nEND_NETWORK\n\n` +
+			`%LANGUAGE FBD\n%NETWORK\nt1(IN := go, PT := pt);\n\n` +
 			`END_PROGRAM\n`
 
 		// Create, then edit the PULLED text rather than re-stating the body. The IDE decides its own network
@@ -144,7 +144,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const created = await roundTrip(full, src)
 		expect(created).toContain("IN := go")
 
-		const swapped = created.replace("t1 : TON(IN := go, PT := pt)", "t1 : TON(PT := pt, IN := go)")
+		const swapped = created.replace("t1(IN := go, PT := pt)", "t1(PT := pt, IN := go)")
 		expect(swapped).not.toBe(created)          // the edit really applied
 
 		const back = await roundTrip(full, swapped)
@@ -168,7 +168,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const full = fid("pf_neg", "pou")
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`%LANGUAGE LD\nNETWORK\n  out := NOT a AND b;\nEND_NETWORK\n\n` +
+			`%LANGUAGE LD\n%NETWORK\nout := NOT a AND b;\n\n` +
 			`END_PROGRAM\n`
 
 		const back = await roundTrip(full, src)
@@ -189,7 +189,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const full = fid("pf_set", "pou")
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`%LANGUAGE LD\nNETWORK\n  out S= a;\nEND_NETWORK\n\n` +
+			`%LANGUAGE LD\n%NETWORK\nout S= a;\n\n` +
 			`END_PROGRAM\n`
 
 		const back = await roundTrip(full, src)
@@ -208,7 +208,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const full = fid("pf_fix", "pou")
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`%LANGUAGE LD\nNETWORK\n  out S= NOT a AND b;\nEND_NETWORK\n\n` +
+			`%LANGUAGE LD\n%NETWORK\nout S= NOT a AND b;\n\n` +
 			`END_PROGRAM\n`
 
 		const once = await roundTrip(full, src)
@@ -220,14 +220,8 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 	/**
 	 * EDITING A NETWORK DOES NOT RENAME THE WIRES IN IT.
 	 *
-	 * A fan-out is a split in the text (`split0 := ...`), named by the id the vendor
-	 * holds. CODESYS re-minted every id on write, so touching one operand renumbered the whole network: measured
-	 * live, `LET g0` came back as `LET g2` after a one-word edit, while the untouched network beside it kept
-	 * `g1` because the change gate spared it. Nothing was lost and nothing miscompiled — the diff just claimed
-	 * the engineer had renamed wires they never touched, in the tool whose whole value is an honest diff.
-	 *
-	 * TwinCAT never had it: `TcNetworkWriter` writes `d.VarId` straight through. So this is vendor-blind like
-	 * the rest of the file, and the minting was the divergence.
+	 * A fan-out is a wire in the text (`w1 := ...`). A one-word edit must come back as exactly that edit: the diff
+	 * must not claim the engineer renamed or moved wires they never touched.
 	 */
 	it("editing one operand leaves every wire name alone", async () => {
 		const name = id("pf_wire")
@@ -239,23 +233,23 @@ VAR
 	b : BOOL;
 	p : BOOL;
 	q : BOOL;
-	r : BOOL;
-	s : BOOL;
+	x : BOOL;
+	y : BOOL;
 END_VAR
 ` +
 			// Two fan-outs, in two networks, so the test sees both the edited one and its untouched neighbour.
 			`%LANGUAGE FBD
-NETWORK
-  split0 := a AND b;
-  p := split0;
-  q := split0;
-END_NETWORK
+%NETWORK
+%WIRES w1
+w1 := AND(a, b);
+p := w1;
+q := w1;
 ` +
-			`NETWORK
-  split1 := a OR b;
-  r := split1;
-  s := split1;
-END_NETWORK
+			`%NETWORK
+%WIRES w2
+w2 := OR(a, b);
+x := w2;
+y := w2;
 
 ` +
 			`END_PROGRAM
@@ -264,17 +258,16 @@ END_NETWORK
 		// Edit the PULLED text, not the authored text: the IDE owns its own network boundaries (D25), so a
 		// re-stated body can differ in shape for reasons that have nothing to do with wire names.
 		const before = await roundTrip(full, src)
-		const wires = (t: string) => t.match(/\bsplit\d+ :=/g) ?? []
-		// A CREATE keeps both splits on both vendors (TwinCAT's PLCopen import folded each into one assign driving two
-		// coils, D22 / C25 — superseded by the native writer, openspec twincat-inproc-host).
+		const wires = (t: string) => t.match(/^w\d+ :=.*$/gm) ?? []
+		// A CREATE keeps both wires on both vendors.
 		expect(wires(before).length).toBe(2)
 
-		const edited = before.replace("a AND b;", "a AND p;")
+		const edited = before.replace("AND(a, b);", "AND(a, p);")
 		expect(edited).not.toBe(before)              // the edit really applied
 		const after = await roundTrip(full, edited)
 
-		// BOTH networks keep their wire names — the edited one and the one that was never touched.
-		expect(wires(after)).toEqual(wires(before))
+		// BOTH networks keep their wires — the edited one (its new operand) and the one that was never touched.
+		expect(wires(after)).toEqual(wires(edited))
 		// And the references still point at the definitions, rather than being renamed apart from them.
 		expect(after).toBe(edited)
 	})
@@ -302,17 +295,15 @@ VAR
 	done : BOOL;
 END_VAR
 ` +
-			// Canonical form puts NO blank line between networks — the push gate refuses otherwise, and says so.
 			`%LANGUAGE FBD
-NETWORK
-  t1 : TON(IN := go, PT := pt);
-END_NETWORK
+%NETWORK
+t1(IN := go, PT := pt);
 ` +
-			`NETWORK
-  done := t1.Q;
-END_NETWORK
+			`%NETWORK
+done := t1.Q;
 
 ` +
+
 			`END_FUNCTION_BLOCK
 `
 

@@ -4,7 +4,7 @@ import { landed } from "../harness"
  *
  * A jump in FBD/LD leaves its network: each network may carry ONE label, and `JMP name` transfers control to the
  * network carrying it. The model holds the label on the network itself (`Network.Label`, which both drivers read
- * and write), and `NetworkTextWriter` renders it on that network's header, `NETWORK LABEL: name` — so a real
+ * and write), and the writer renders it as the line `name:` under that network's `%NETWORK` — so a real
  * forward jump names a label the JUMPING network does not contain.
  *
  * Nothing in the live suite covered either half, on either vendor: the label could have been dropped on the way
@@ -55,15 +55,15 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 		// that lives on the network object rather than in the statements.
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;\nEND_VAR\n` +
-			`%LANGUAGE FBD\nNETWORK\n  out1 := a AND b;\nEND_NETWORK\n` +
-			`NETWORK LABEL: Done\n  out2 := a OR b;\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`%LANGUAGE FBD\n%NETWORK\nout1 := AND(a, b);\n` +
+			`%NETWORK\nDone:\nout2 := OR(a, b);\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
 		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
 
 		const v1 = await pull(item)
 		expect(v1, "the item vanished after its create").toBeDefined()
-		expect(v1.sourceText, "the network label was dropped").toContain("LABEL: Done")
+		expect(v1.sourceText, "the network label was dropped").toContain("\nDone:\n")
 
 		const refs = await bridge.refs()
 		const again = await pushOps([{ op: "set", name: item, sourceText: v1.sourceText, ifVersion: refs.items[item] }])
@@ -92,8 +92,8 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`%LANGUAGE FBD\nNETWORK\n  JMP Done := a;\nEND_NETWORK\n` +
-			`NETWORK LABEL: Done\n  out := a OR b;\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`%LANGUAGE FBD\n%NETWORK\nIF a THEN JMP Done; END_IF;\n` +
+			`%NETWORK\nDone:\nout := OR(a, b);\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
 		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
@@ -101,7 +101,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 		const v1 = await pull(item)
 		expect(v1).toBeDefined()
 		expect(v1.sourceText, "the jump was dropped").toMatch(/JMP\s+Done/i)
-		expect(v1.sourceText, "the jump's target label was dropped").toContain("LABEL: Done")
+		expect(v1.sourceText, "the jump's target label was dropped").toContain("\nDone:\n")
 
 		const refs = await bridge.refs()
 		const again = await pushOps([{ op: "set", name: item, sourceText: v1.sourceText, ifVersion: refs.items[item] }])
@@ -133,8 +133,8 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`%LANGUAGE FBD\nNETWORK\n  RETURN := a;\nEND_NETWORK\n` +
-			`NETWORK\n  out := a AND b;\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`%LANGUAGE FBD\n%NETWORK\nIF a THEN RETURN; END_IF;\n` +
+			`%NETWORK\nout := AND(a, b);\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
 		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
@@ -158,10 +158,10 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 	})
 
 	/**
-	 * AN UNCONDITIONAL `RETURN := ;` — round-trips, or is refused for a reason that names the vendor limit.
+	 * AN UNCONDITIONAL `RETURN;` — round-trips, or is refused for a reason that names the vendor limit.
 	 *
 	 * CODESYS builds it: the item needs a VALUE, and "nothing drives this" is spelled as an unconnected
-	 * terminator — the same shape `coil := ;` reads back as — rather than as a null, which is what it used to be
+	 * terminator — the rail — rather than as a null, which is what it used to be
 	 * and what the IDE would not save.
 	 *
 	 * TwinCAT cannot CREATE one. Measured by single-variable comparison: the identical PLCopen document with a
@@ -175,8 +175,8 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`%LANGUAGE FBD\nNETWORK\n  out := a AND b;\nEND_NETWORK\n` +
-			`NETWORK\n  RETURN := ;\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`%LANGUAGE FBD\n%NETWORK\nout := AND(a, b);\n` +
+			`%NETWORK\nRETURN;\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
 		if (!landed(created)) {
@@ -186,7 +186,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 
 		const v1 = await pull(item)
 		expect(v1).toBeDefined()
-		expect(v1.sourceText, "the return was dropped").toMatch(/^\s*RETURN := ;/m)
+		expect(v1.sourceText, "the return was dropped").toMatch(/^RETURN;$/m)
 		expect(v1.sourceText).toBe(src)
 
 		await clean(item)
@@ -199,8 +199,8 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`%LANGUAGE FBD\nNETWORK\n  JMP Done := ;\nEND_NETWORK\n` +
-			`NETWORK LABEL: Done\n  out := a AND b;\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`%LANGUAGE FBD\n%NETWORK\nJMP Done;\n` +
+			`%NETWORK\nDone:\nout := AND(a, b);\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
 		if (!landed(created)) {
@@ -210,7 +210,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 
 		const v1 = await pull(item)
 		expect(v1).toBeDefined()
-		expect(v1.sourceText, "the jump was dropped").toMatch(/^\s*JMP\s+Done := ;/m)
+		expect(v1.sourceText, "the jump was dropped").toMatch(/^JMP Done;$/m)
 		expect(v1.sourceText).toBe(src)
 
 		await clean(item)
@@ -224,10 +224,10 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 	 * jump to a label no network carries.
 	 */
 	const SHAPES: readonly (readonly [string, string])[] = [
-		["twice", "NETWORK LABEL: Done\n  out := a AND b;\nEND_NETWORK\nNETWORK LABEL: DONE\n  q := a;\nEND_NETWORK\n"],
-		["disabled_target", "NETWORK\n  JMP Done := a;\nEND_NETWORK\nNETWORK LABEL: Done DISABLED\n  out := a OR b;\nEND_NETWORK\n"],
-		["jump_disabled", "NETWORK DISABLED\n  JMP Done := a;\nEND_NETWORK\nNETWORK LABEL: Done\n  out := a AND b;\nEND_NETWORK\n"],
-		["missing", "NETWORK\n  JMP Nowhere := a;\nEND_NETWORK\nNETWORK\n  out := a AND b;\nEND_NETWORK\n"],
+		["twice", "%NETWORK\nDone:\nout := AND(a, b);\n%NETWORK\nDONE:\nq := a;\n"],
+		["disabled_target", "%NETWORK\nIF a THEN JMP Done; END_IF;\n%NETWORK\n%DISABLED\nDone:\nout := OR(a, b);\n"],
+		["jump_disabled", "%NETWORK\n%DISABLED\nIF a THEN JMP Done; END_IF;\n%NETWORK\nDone:\nout := AND(a, b);\n"],
+		["missing", "%NETWORK\nIF a THEN JMP Nowhere; END_IF;\n%NETWORK\nout := AND(a, b);\n"],
 	]
 	for (const [key, nets] of SHAPES) {
 		it(`the IDE holds a label shape (${key}): it round-trips exactly`, async () => {

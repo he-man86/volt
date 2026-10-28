@@ -41,7 +41,7 @@ const itemOf = (lang: string) => rid(`hidnet_${lang.toLowerCase()}`, "pou")
 /** A PROGRAM whose body is one network in `lang` — the shape both vendors create and read back (graphical-kinds). */
 const created = (lang: string) =>
 	`PROGRAM ${bareOf(lang)}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-	`%LANGUAGE ${lang}\nNETWORK\n  out := a AND b;\nEND_NETWORK\n\nEND_PROGRAM\n`
+	`%LANGUAGE ${lang}\n%NETWORK\nout := ${lang === "LD" ? "a AND b" : "AND(a, b)"};\n\nEND_PROGRAM\n`
 
 /** The file as a PRODUCTION pull writes it: the same declaration, the body replaced by its UNSUPPORTED line. */
 function asProductionPull(pulled: string, stated: string): string {
@@ -114,7 +114,7 @@ describe(`graphical / a production workspace's hidden LD/FBD body pushed to a de
 		it(`an ${lang} body stated UNSUPPORTED is not written, and the declaration edit beside it lands`, async () => {
 			const name = itemOf(lang)
 			const before = (await fetchItem(name)).sourceText as string
-			expect(before).toContain(`\n%LANGUAGE ${lang}\nNETWORK\n`)
+			expect(before).toContain(`\n%LANGUAGE ${lang}\n%NETWORK\n`)
 			const bytes = await heldBytes(lang)
 
 			// The production file pushed back unchanged: the ordinary no-op.

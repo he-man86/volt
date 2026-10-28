@@ -33,21 +33,20 @@ VAR
 \tout2 : BOOL;
 END_VAR
 %LANGUAGE FBD
-NETWORK
-  out1 := a AND b;
-END_NETWORK
-NETWORK
-  out2 := a OR b;
-END_NETWORK
+%NETWORK
+out1 := AND(a, b);
+%NETWORK
+out2 := OR(a, b);
 END_PROGRAM
 `
 }
 
-/** Each `NETWORK …` block, sliced so concatenation reproduces the original. */
+/** Each `%NETWORK …` block, up to the next one or the body's END_ line. */
 const networks = (src: string): string[] => {
-	const heads = [...src.matchAll(/^NETWORK\b/gm)]
+	const heads = [...src.matchAll(/^%NETWORK\b/gm)]
 	return heads.map((h, i) =>
-		src.slice(h.index!, i + 1 < heads.length ? heads[i + 1].index! : src.lastIndexOf("END_NETWORK") + "END_NETWORK".length + 1))
+		src.slice(h.index!, i + 1 < heads.length ? heads[i + 1].index! : h.index! + src.slice(h.index!).search(/^END_\w+\s*$/m)))
+
 }
 
 describe(`graphical / splice (${BASE})`, () => {
@@ -65,7 +64,7 @@ describe(`graphical / splice (${BASE})`, () => {
 		expect(nets1.length).toBe(2)
 
 		// Edit network 1 ONLY. Network 0's text is byte-identical, so the splice must carry it.
-		const edited = nets1[1].replace("out2 :=", "out2b :=").replace("a OR b;", "a AND NOT b;")
+		const edited = nets1[1].replace("out2 :=", "out2b :=").replace("OR(a, b);", "AND(a, NOT b);")
 		expect(edited).not.toBe(nets1[1])
 		const pushed = v1.replace(nets1[1], edited).replace("\tout2 : BOOL;", "\tout2b : BOOL;")
 
@@ -82,7 +81,7 @@ describe(`graphical / splice (${BASE})`, () => {
 		expect(nets2.length).toBe(2)
 		expect(nets2[0]).toBe(nets1[0])                 // untouched network: carried, unchanged
 		expect(v2).toContain("out2b")                   // and the edit really landed
-		expect(v2).not.toContain("a OR b;")
+		expect(v2).not.toContain("OR(a, b);")
 	})
 
 	it("a spliced body still COMPILES — the importer accepted it as a program, not just as XML", async () => {
@@ -99,19 +98,17 @@ VAR
 \tout2 : BOOL;
 END_VAR
 %LANGUAGE FBD
-NETWORK
-  out1 := a AND b;
-END_NETWORK
-NETWORK
-  out2 := a OR b;
-END_NETWORK
+%NETWORK
+out1 := AND(a, b);
+%NETWORK
+out2 := OR(a, b);
 END_FUNCTION_BLOCK
 `
 		await createItem(full, src, await projectRoot())
 		const v1 = (await fetchItem(full)).sourceText
 		const nets1 = networks(v1)
 
-		const pushed = v1.replace(nets1[1], nets1[1].replace("a OR b;", "a AND NOT b;"))
+		const pushed = v1.replace(nets1[1], nets1[1].replace("OR(a, b);", "AND(a, NOT b);"))
 		const refs = await bridge.refs()
 		expect(landed((await bridge.push({
 			expectedProjectVersion: refs.projectVersion,
@@ -128,7 +125,7 @@ END_FUNCTION_BLOCK
 
 		const v1 = (await fetchItem(full)).sourceText
 		const nets = networks(v1)
-		const pushed = v1.replace(nets[1], nets[1].replace("a OR b;", "a AND NOT b;"))
+		const pushed = v1.replace(nets[1], nets[1].replace("OR(a, b);", "AND(a, NOT b);"))
 
 		const r1 = await bridge.refs()
 		expect(landed((await bridge.push({ expectedProjectVersion: r1.projectVersion,

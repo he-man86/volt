@@ -16,10 +16,7 @@ const it = itGapped(PLATFORM_GAPS.graphicalWrite)
 setDefaultTimeout(30000)
 
 function fbdProgram(name: string) {
-	// CANONICAL readable form (a fixed point of NetworkTextWriter∘NetworkTextReader, so it passes the round-trip gate): operands
-	// inlined, single-use results inlined, full parenthesisation. Exercises OUTPUT negation (`out := NOT (a AND
-	// b)`) — which now round-trips through both vendors (FBD inVariable negation is encoded as expression text;
-	// see GraphWriter). The old verbose `i1 := a; … g1 := (i1 AND i2); out := NOT g1;` is now non-canonical.
+	// CANONICAL plain-ST network text (openspec network-text-st): every FBD box a call, the NOT box over the AND box.
 	return `PROGRAM ${name}
 VAR
 \ta : BOOL;
@@ -27,9 +24,8 @@ VAR
 \tout : BOOL;
 END_VAR
 %LANGUAGE FBD
-NETWORK
-  out := NOT (a AND b);
-END_NETWORK
+%NETWORK
+out := NOT(AND(a, b));
 
 END_PROGRAM
 `
@@ -43,9 +39,8 @@ VAR
 \tout : BOOL;
 END_VAR
 %LANGUAGE LD
-NETWORK
-  out := a AND b;
-END_NETWORK
+%NETWORK
+out := a AND b;
 
 END_PROGRAM
 `
@@ -67,9 +62,8 @@ VAR
 \tout : BOOL;
 END_VAR
 %LANGUAGE LD
-NETWORK
-  out := NOT a AND b;
-END_NETWORK
+%NETWORK
+out := NOT a AND b;
 
 END_PROGRAM
 `
@@ -83,9 +77,8 @@ VAR
 \tout : BOOL;
 END_VAR
 %LANGUAGE LD
-NETWORK
-  out := a AND b AND c;
-END_NETWORK
+%NETWORK
+out := a AND b AND c;
 
 END_PROGRAM
 `
@@ -96,13 +89,12 @@ VAR
 \ta : BOOL;
 \tb : BOOL;
 \tq : BOOL;
-\tr : BOOL;
+\tq2 : BOOL;
 END_VAR
 %LANGUAGE LD
-NETWORK
-  q := a;
-  r := b;
-END_NETWORK
+%NETWORK
+q := a;
+q2 := b;
 
 END_PROGRAM
 `
@@ -114,18 +106,16 @@ VAR
 \tout : BOOL;
 END_VAR
 %LANGUAGE LD
-NETWORK
-  out S= a;
-END_NETWORK
+%NETWORK
+out S= a;
 
 END_PROGRAM
 `
 }
 
-// An FBD program with a CODESYS Execute box — the standard "ST inside FBD/LD" element. EN-guarded (the EN pin,
-// `END_EXECUTE ENO EN bRun`), holding real multi-statement, commented ST. Exercises the full round-trip: NetworkTextReader
-// detects `EXECUTE … END_EXECUTE`, GraphWriter reconstructs `<block typeName="EXECUTE"> + <STCode>`, and a
-// re-push is byte-identical (the ST is carried verbatim).
+// An FBD program with a CODESYS Execute box — the standard "ST inside FBD/LD" element. EN-guarded (`%EXECUTE(EN := bRun)`),
+// holding real multi-statement, commented ST, carried verbatim between `%EXECUTE` and `%END_EXECUTE`: a re-push is
+// byte-identical.
 function executeProgram(name: string) {
 	return `PROGRAM ${name}
 VAR
@@ -133,21 +123,19 @@ VAR
 \tiResult : INT;
 END_VAR
 %LANGUAGE FBD
-NETWORK
-  EXECUTE
+%NETWORK
+%EXECUTE(EN := bRun)
   IF bRun THEN
 \tiResult := 40 + 2;   (* the answer *)
   END_IF
-  END_EXECUTE ENO EN bRun;
-END_NETWORK
+%END_EXECUTE
 
 END_PROGRAM
 `
 }
 
-// (The blank line between EXECUTE and END_EXECUTE is the CANONICAL form for an empty box — the writer
-// emits one line for the empty ST, and the gate refuses anything else. Measured against the live gate,
-// not guessed: the first cut of this fixture omitted it and was refused NETWORK_NOT_CANONICAL.)
+// (The blank line between %EXECUTE and %END_EXECUTE is the canonical form for an empty box: the writer emits one line for
+// the empty ST.)
 // The same box with NO ST in it — an Execute box the engineer blanked, which is a shape a real project holds
 // and Volt's own reader used to lose. `ReadStCode` trailed with `is { Length: > 0 } ? t : null`, so an empty
 // snippet read back as StCode == null, the writer skipped its EXECUTE arm, and the box came back as
@@ -159,11 +147,10 @@ VAR
 	bRun : BOOL := TRUE;
 END_VAR
 %LANGUAGE FBD
-NETWORK
-  EXECUTE
+%NETWORK
+%EXECUTE(EN := bRun)
 
-  END_EXECUTE ENO EN bRun;
-END_NETWORK
+%END_EXECUTE
 
 END_PROGRAM
 `
@@ -179,9 +166,8 @@ VAR
 \tout : BOOL;
 END_VAR
 %LANGUAGE LD
-NETWORK
-  out := a AND b;
-END_NETWORK
+%NETWORK
+out := a AND b;
 
 END_FUNCTION_BLOCK
 `
@@ -317,7 +303,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 			expectNoOperandsLost(buildSrc(name), v1.sourceText)          // and every element survived the write
 			if (exact) expect(v1.sourceText).toBe(buildSrc(name))        // …and it came back exactly as pushed
 			// The one inexact shape still has to keep every rung — the split may regroup them, never drop one.
-			else expect(v1.sourceText.match(/^NETWORK\b/gm)!.length).toBeGreaterThanOrEqual(1)
+			else expect(v1.sourceText.match(/^%NETWORK\b/gm)!.length).toBeGreaterThanOrEqual(1)
 
 			// Fixed point: pushing the fetched network text back leaves the body byte-identical.
 			const refs2 = await bridge.refs()
@@ -433,7 +419,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		expect(after.sourceText).toBe(before.sourceText)  // byte-identical: the bad push never reached the IDE
 	})
 
-	it("refuses a malformed graphical body (missing END_NETWORK) and leaves the item untouched", async () => {
+	it("refuses a malformed graphical body (a statement missing its `;`) and leaves the item untouched", async () => {
 		const name = id("net_guard_malformed")
 		const fullName = inFolder(await projectRoot(), fid("net_guard_malformed", "pou"))
 		const r0 = await bridge.refs()
@@ -441,10 +427,10 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		const before = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => fileOf(i.name).startsWith(name + "."))
 
 		const r1 = await bridge.refs()
-		const malformed = fbdProgram(name).replace("END_NETWORK\n", "")   // a valid FBD body with END_NETWORK removed
+		const malformed = fbdProgram(name).replace("AND(a, b));", "AND(a, b))")   // a valid FBD body with its `;` removed
 		const r = await bridge.push({ expectedProjectVersion: r1.projectVersion, ops: [{ op: "set", name: fullName, sourceText: malformed, ifVersion: r1.items[before.name] }] })
 		expect(landed(r)).toBe(false)
-		expect(JSON.stringify(r.conflicts)).toContain("END_NETWORK")
+		expect(JSON.stringify(r.conflicts)).toContain("';' expected")
 
 		const after = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => fileOf(i.name).startsWith(name + "."))
 		expect(after.sourceText).toBe(before.sourceText)  // unchanged

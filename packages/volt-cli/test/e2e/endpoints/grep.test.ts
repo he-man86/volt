@@ -109,7 +109,7 @@ describe(`endpoints / grep (${BASE})`, () => {
 		const name = id("g_fbd")
 		await createItem(fid("g_fbd"),
 			`PROGRAM ${name}\nVAR\n\tstart : BOOL;\n\tstop : BOOL;\n\tlamp : BOOL;\nEND_VAR\n` +
-			`%LANGUAGE FBD\nNETWORK\n  lamp := start AND stop;\nEND_NETWORK\n\nEND_PROGRAM\n`)
+			`%LANGUAGE FBD\n%NETWORK\nlamp := AND(start, stop);\n\nEND_PROGRAM\n`)
 		const path = await pathOf(fid("g_fbd"))
 		const text = await fetchSource(fid("g_fbd"))
 		const lines = text.split("\n").map((l: string) => l.replace(/\r$/, ""))
@@ -118,7 +118,7 @@ describe(`endpoints / grep (${BASE})`, () => {
 		// The stop gate for a network-text body too: the text refs hashes is the text fetch ships.
 		expect(itemVersion(path, text)).toBe((await bridge.refs()).items[path])
 
-		const r = await bridge.grep({ pattern: "lamp := start", literal: true, paths: [path] })
+		const r = await bridge.grep({ pattern: "lamp := AND(start", literal: true, paths: [path] })
 
 		expect(r.matches).toHaveLength(1)
 		expect(r.matches[0].text).toBe(lineOf(text, r.matches[0].line))

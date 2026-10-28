@@ -27,7 +27,7 @@ setDefaultTimeout(120_000)
 function fb(name: string, lang: "FBD" | "LD", statements: string, header = `FUNCTION_BLOCK ${name}`): string {
 	return (
 		`${header}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tgo : BOOL;\n\tout : BOOL;\n\tout2 : BOOL;\n\tt1 : TON;\n\tpt : TIME;\nEND_VAR\n` +
-		`%LANGUAGE ${lang}\nNETWORK\n${statements}\nEND_NETWORK\n\nEND_FUNCTION_BLOCK\n`
+		`%LANGUAGE ${lang}\n%NETWORK\n${statements}\n\nEND_FUNCTION_BLOCK\n`
 	)
 }
 
@@ -52,24 +52,24 @@ describe(`graphical / census shapes, ld-fbd-coverage 2.3 (${BASE})`, () => {
 	})
 
 	it("S1: a bit operator storing an output slot is its pragmas, and the IDE keeps them", async () => {
-		await shape("s1", (n) => fb(n, "FBD", "  out := a AND b;"))
+		await shape("s1", (n) => fb(n, "FBD", "out := AND(a, b);"))
 	})
 
 	it("S2: an assignment below the top level is its own pair", async () => {
-		await shape("s2", (n) => fb(n, "LD", "  t1 : TON(IN := (out := go), PT := pt);"), "an assignment to 'out' below the top level")
+		await shape("s2", (n) => fb(n, "LD", "t1(IN := (out := go), PT := pt);"), "an assignment to 'out' below the top level")
 	})
 
 	it("S3a: a leaf-fed wire is declared with the leaf's stored type", async () => {
-		await shape("s3a", (n) => fb(n, "LD", "  split1 := a;\n  out := split1 AND b;\n  out2 := split1;"), "fed by the leaf 'a'")
+		await shape("s3a", (n) => fb(n, "LD", "%WIRES w1\nw1 := a;\nout := w1 AND b;\nout2 := w1;"), "fed by the leaf 'a'")
 	})
 
-	it("S3b: in LD a wire fed by nothing is the left rail, BOOL", async () => {
-		await shape("s3b", (n) => fb(n, "LD", "  split2 := ;\n  out := split2 AND a;\n  out2 := split2;"))
+	it("S3b: in LD a wire fed by the rail is TRUE, BOOL", async () => {
+		await shape("s3b", (n) => fb(n, "LD", "%WIRES w1\nw1 := TRUE;\nout := w1 AND a;\nout2 := w1;"))
 	})
 
-	it("S6: a negated pin is spelled on its formal, on an operator's and on a call's", async () => {
-		await shape("s6", (n) => fb(n, "FBD", "  out := `AND`(IN1 := a, NOT IN2 := b);"), "a modifier on its input pin")
-		await shape("s6fb", (n) => fb(n, "FBD", "  t1 : TON(NOT IN := go, PT := pt);"), "a modifier on its input pin")
+	it("S6: a negated input is the negated contact on its value, on an operator's and on a call's", async () => {
+		await shape("s6", (n) => fb(n, "FBD", "out := AND(a, NOT b);"), "a modifier on its input pin")
+		await shape("s6fb", (n) => fb(n, "FBD", "t1(IN := NOT go, PT := pt);"), "a modifier on its input pin")
 	})
 
 	describe("S5", () => {
@@ -82,8 +82,8 @@ describe(`graphical / census shapes, ld-fbd-coverage 2.3 (${BASE})`, () => {
 			await removeItem(fid("s5base", "pou"))
 		})
 
-		it("a call through SUPER^ is the backticked instance of the base, its type the base", async () => {
-			await shape("s5", (n) => fb(n, "FBD", `  \`SUPER^\` : ${base}(x := go);`, `FUNCTION_BLOCK ${n} EXTENDS ${base}`), "SUPER^")
+		it("a call through SUPER^ is the base's instance, its type the base", async () => {
+			await shape("s5", (n) => fb(n, "FBD", `SUPER^(x := go);`, `FUNCTION_BLOCK ${n} EXTENDS ${base}`), "SUPER^")
 		})
 	})
 })

@@ -32,28 +32,32 @@ const VARS =
 	"a : BOOL; b : BOOL; c : BOOL; d : BOOL; e : BOOL; go : BOOL; out : BOOL; out1 : BOOL; out2 : BOOL; out3 : BOOL; " +
 	"i1 : INT; i2 : INT; n : INT; t1 : TON; pt : TIME; el : TIME;"
 
+/** A contact pair in each language: LD's contacts are infix, FBD's gates are boxes. */
+const and = (lang: string, x: string, y: string) => (lang === "LD" ? `${x} AND ${y}` : `AND(${x}, ${y})`)
+const or = (lang: string, x: string, y: string) => (lang === "LD" ? `${x} OR ${y}` : `OR(${x}, ${y})`)
+
 /** The shapes: name → the body under `%LANGUAGE <LANG>`. */
-const SHAPES: Record<string, string> = {
-	single_consumer_branch: "NETWORK\n  split1 := a AND b;\n  out := split1;\nEND_NETWORK\n",
-	fanout_two_coils: "NETWORK\n  split1 := a AND b;\n  out1 := split1;\n  out2 := split1;\nEND_NETWORK\n",
-	leaf_fed_split: "NETWORK\n  split1 := a;\n  out1 := split1;\n  out2 := split1;\nEND_NETWORK\n",
-	unconnected_pin: "NETWORK\n  t1 : TON(IN := , PT := pt);\nEND_NETWORK\n",
-	pin_to_variable: "NETWORK\n  t1 : TON(IN := a, PT := pt, ET => el);\nEND_NETWORK\n",
-	negated_input: "NETWORK\n  out := NOT a AND b;\nEND_NETWORK\n",
-	set_coil: "NETWORK\n  out S= a;\nEND_NETWORK\n",
-	reset_coil: "NETWORK\n  out R= a AND b;\nEND_NETWORK\n",
-	rising_edge: "NETWORK\n  out := R_EDGE a AND b;\nEND_NETWORK\n",
-	execute: "NETWORK\n  EXECUTE\nn := n + 1;\n  END_EXECUTE ENO EN go;\nEND_NETWORK\n",
-	multi_rung: "NETWORK\n  out1 := a AND b;\n  out2 := c OR d;\n  t1 : TON(IN := e, PT := pt);\nEND_NETWORK\n",
-	assign_below_top: "NETWORK\n  t1 : TON(IN := (out := go), PT := pt);\nEND_NETWORK\n",
-	jump_and_label: "NETWORK\n  JMP L1 := a;\nEND_NETWORK\nNETWORK LABEL: L1\n  out := a OR b;\nEND_NETWORK\n",
-	return_uncond: "NETWORK\n  out := a AND b;\nEND_NETWORK\nNETWORK\n  RETURN := ;\nEND_NETWORK\n",
-	unconnected_coil: "NETWORK\n  out := ;\nEND_NETWORK\n",
-	empty_network: "NETWORK\n  out := a AND b;\nEND_NETWORK\nNETWORK\nEND_NETWORK\n",
-	header: "NETWORK LABEL: Here DISABLED TITLE: \"a rung\"\n  // a comment\n  out := a AND b;\nEND_NETWORK\n",
-	enable_move: "NETWORK\n  out := MOVE b => out1 ENO EN go;\nEND_NETWORK\n",
-	function_named: `NETWORK\n  n := ${FN}(A := i1, B := i2);\nEND_NETWORK\n`,
-	named_eno: "NETWORK\n  MOVE 7 => n ENO => out EN go;\nEND_NETWORK\n",
+const SHAPES: Record<string, (lang: string) => string> = {
+	single_consumer_branch: (l) => `%NETWORK\n%WIRES w1\nw1 := ${and(l, "a", "b")};\nout := w1;\n`,
+	fanout_two_coils: (l) => `%NETWORK\n%WIRES w1\nw1 := ${and(l, "a", "b")};\nout1 := w1;\nout2 := w1;\n`,
+	leaf_fed_split: () => "%NETWORK\n%WIRES w1\nw1 := a;\nout1 := w1;\nout2 := w1;\n",
+	rail_pin: () => "%NETWORK\nt1(IN := TRUE, PT := pt);\n",
+	pin_to_variable: () => "%NETWORK\nt1(IN := a, PT := pt, ET => el);\n",
+	negated_input: (l) => `%NETWORK\nout := ${and(l, "NOT a", "b")};\n`,
+	set_coil: () => "%NETWORK\nout S= a;\n",
+	reset_coil: (l) => `%NETWORK\nout R= ${and(l, "a", "b")};\n`,
+	rising_edge: (l) => `%NETWORK\nout := ${and(l, "R_EDGE(a)", "b")};\n`,
+	execute: () => "%NETWORK\n%EXECUTE(EN := go)\nn := n + 1;\n%END_EXECUTE\n",
+	multi_rung: (l) => `%NETWORK\nout1 := ${and(l, "a", "b")};\nout2 := ${or(l, "c", "d")};\nt1(IN := e, PT := pt);\n`,
+	assign_below_top: () => "%NETWORK\nt1(IN := (out := go), PT := pt);\n",
+	jump_and_label: (l) => `%NETWORK\nIF a THEN JMP L1; END_IF;\n%NETWORK\nL1:\nout := ${or(l, "a", "b")};\n`,
+	return_uncond: (l) => `%NETWORK\nout := ${and(l, "a", "b")};\n%NETWORK\nRETURN;\n`,
+	rail_coil: () => "%NETWORK\nout := TRUE;\n",
+	empty_network: (l) => `%NETWORK\nout := ${and(l, "a", "b")};\n%NETWORK\n`,
+	header: (l) => `%NETWORK "a rung"\n%DISABLED\n// a comment\nHere:\nout := ${and(l, "a", "b")};\n`,
+	enable_move: () => "%NETWORK\nout := MOVE_EN(EN := go, b, OUT => out1);\n",
+	function_named: () => `%NETWORK\nn := ${FN}(A := i1, B := i2);\n`,
+	named_eno: () => "%NETWORK\nMOVE_EN(EN := go, 7, ENO => out, OUT => n);\n",
 }
 
 const LANGS = ["LD", "FBD"] as const
@@ -62,7 +66,7 @@ type Row = { stores?: boolean; reload?: boolean; editor?: boolean; edit?: boolea
 describe(`graphical / native writer (${BASE})`, () => {
 	setDefaultTimeout(900_000)
 	const rows = new Map<string, Row>()
-	const cases: { key: string; bare: string; item: string; src: string }[] = []
+	const cases: { key: string; bare: string; lang: string; item: string; src: string }[] = []
 	const twincat = VENDOR === "twincat"
 	const instance = process.env.VOLT_E2E_INSTANCE ?? ""
 
@@ -96,7 +100,7 @@ describe(`graphical / native writer (${BASE})`, () => {
 		for (const [shape, body] of Object.entries(SHAPES).filter(([k]) => only.length === 0 || only.includes(k)))
 			for (const lang of LANGS) {
 				const bare = id(`nw_${shape}_${lang}`)
-				cases.push({ key: `${shape} ${lang}`, bare, item: rid(`nw_${shape}_${lang}`, "pou"), src: fb(bare, lang, body) })
+				cases.push({ key: `${shape} ${lang}`, bare, lang, item: rid(`nw_${shape}_${lang}`, "pou"), src: fb(bare, lang, body(lang)) })
 			}
 		await clean([...cases.map((c) => c.item), rid("nw_F", "pou")])
 		const fn = `FUNCTION ${FN} : INT\nVAR_INPUT\n\tA : INT;\n\tB : INT;\nEND_VAR\n%LANGUAGE ST\n${FN} := A + B;\n\nEND_FUNCTION\n`
@@ -167,8 +171,8 @@ describe(`graphical / native writer (${BASE})`, () => {
 	it("a shape TwinCAT never wrote, or does not compile when built, is refused by name and writes nothing", async () => {
 		if (!twincat) return // CODESYS builds both from its live object model
 		const refused: Record<string, string> = {
-			parallel: "NETWORK\n  out := go BRANCH (a, b);\nEND_NETWORK\n",
-			enable_and: "NETWORK\n  out := a AND b ENO EN go;\nEND_NETWORK\n",
+			parallel: "%NETWORK\nout := BRANCH(FEED := go, a, b);\n",
+			enable_and: "%NETWORK\nout := AND_EN(EN := go, a, b);\n",
 		}
 		for (const [shape, body] of Object.entries(refused)) {
 			const bare = id(`nw_r_${shape}`)
@@ -189,7 +193,7 @@ describe(`graphical / native writer (${BASE})`, () => {
 			const at = c.src.indexOf("\n%LANGUAGE ")
 			const src = c.src.slice(0, at) + c.src.slice(at)
 				.replace(/\bb\b/g, "c")
-				.replace(/\nEND_FUNCTION_BLOCK\n$/, "NETWORK\n  out3 := d OR e;\nEND_NETWORK\n\nEND_FUNCTION_BLOCK\n")
+				.replace(/\nEND_FUNCTION_BLOCK\n$/, `%NETWORK\nout3 := ${or(c.lang, "d", "e")};\n\nEND_FUNCTION_BLOCK\n`)
 			const r = await pushOps([{ op: "set", name: c.item, sourceText: src, ifVersion: refs[c.item] }])
 			const back = landed(r) ? await pull(c.item) : undefined
 			// The canonical text the pull writes: the pushed text with a blank line before END_FUNCTION_BLOCK, as created.

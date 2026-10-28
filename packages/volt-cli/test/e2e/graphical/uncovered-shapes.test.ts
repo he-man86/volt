@@ -70,7 +70,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 	// ── what ladderLabel.pou lost ────────────────────────────────────────────────────────────────────────
 
 	/**
-	 * AN UNDRIVEN COIL — `out := ;`, a coil with nothing wired into it.
+	 * AN UNDRIVEN COIL — a coil with nothing wired into it, which in LD is the rail: `out := TRUE;`.
 	 *
 	 * The reader already models it: an empty right-hand side becomes the TERMINATOR the archive actually holds,
 	 * not a null, because a null makes the in-place writer refuse ("the 'RValue' input of an item is removed")
@@ -79,11 +79,11 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 	 */
 	it("a coil with nothing driving it round-trips", async () => {
 		const name = id("ucoil")
-		await expectRoundTrip(fid("ucoil", "pou"), prg(name, "LD", `NETWORK\n  out := ;\nEND_NETWORK\n`))
+		await expectRoundTrip(fid("ucoil", "pou"), prg(name, "LD", `%NETWORK\nout := TRUE;\n`))
 	})
 
 	/**
-	 * AN EMPTY NETWORK — a marker straight to `END_NETWORK`.
+	 * AN EMPTY NETWORK — a `%NETWORK` line with nothing under it.
 	 *
 	 * Refusal is a legitimate outcome here and silence is not. PLCopen has no network element (D25), so the
 	 * TwinCAT create route cannot state an empty one, and `LostNetworks` exists to catch exactly that. What
@@ -92,7 +92,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 	 */
 	it("an empty network round-trips, or is refused by name", async () => {
 		const name = id("enet")
-		const src = prg(name, "LD", `NETWORK\n  out := a AND b;\nEND_NETWORK\nNETWORK\nEND_NETWORK\n`)
+		const src = prg(name, "LD", `%NETWORK\nout := a AND b;\n%NETWORK\n`)
 
 		const outcome = await expectRoundTripOrRefusal(fid("enet", "pou"), src, "network")
 		console.log(`  [empty network] ${BASE}: ${outcome}`)
@@ -108,7 +108,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 		const src = prg(
 			name,
 			"LD",
-			`NETWORK LABEL: First\n  out := ;\nEND_NETWORK\nNETWORK LABEL: Second\nEND_NETWORK\n`,
+			`%NETWORK\nFirst:\nout := TRUE;\n%NETWORK\nSecond:\n`,
 			"\tout : BOOL;\n",
 		)
 
@@ -131,7 +131,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 		const name = id("rcoil")
 		const before = await diagnostics()
 
-		const back = await expectRoundTrip(fid("rcoil", "pou"), prg(name, "LD", `NETWORK\n  out R= a;\nEND_NETWORK\n`))
+		const back = await expectRoundTrip(fid("rcoil", "pou"), prg(name, "LD", `%NETWORK\nout R= a;\n`))
 
 		expect(back, "the reset coil came back as something else").toContain("R=")
 		expect(back, "a reset coil must not degrade to a SET coil").not.toContain("S=")
@@ -157,7 +157,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 		const src = prg(
 			name,
 			"LD",
-			`NETWORK\n  split0 := a AND b;\n  latched S= split0;\n  cleared R= split0;\nEND_NETWORK\n`,
+			`%NETWORK\n%WIRES w1\nw1 := a AND b;\nlatched S= w1;\ncleared R= w1;\n`,
 			"\ta : BOOL;\n\tb : BOOL;\n\tlatched : BOOL;\n\tcleared : BOOL;\n",
 		)
 
@@ -169,7 +169,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 
 		// Each coil keeps its own storage — a SET that came back as the RESET's (or plain) is the bug this pins.
 		expect(back, "the SET or the RESET coil lost its storage")
-			.toContain("  split0 := a AND b;\n  latched S= split0;\n  cleared R= split0;\n")
+			.toContain("%WIRES w1\nw1 := a AND b;\nlatched S= w1;\ncleared R= w1;\n")
 
 		// THE FIXED POINT is the half a create cannot give: push back exactly what came out, and nothing moves.
 		const again = await pushOps([
@@ -180,20 +180,19 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 	})
 
 	/**
-	 * A RISING-EDGE FLAG on a consumed operand, spelled `R_EDGE a` — IEC's edge word for the vendor's IFlags bit,
+	 * A RISING-EDGE FLAG on a consumed operand, spelled `R_EDGE(a)` — IEC's edge word for the vendor's IFlags bit,
 	 * never an `R_TRIG` box (which would add an instance the IDE never had).
 	 *
-	 * The VALUE side is the one the text spells; an edge-triggered COIL has no spelling (a census of five real
-	 * projects found none to calibrate one against), so a body holding one materializes as `%LANGUAGE LD|FBD UNSUPPORTED`.
+	 * The VALUE side is the one the text spells.
 	 */
 	it("a rising edge (R_EDGE) survives a round trip", async () => {
 		const name = id("rise")
 		const back = await expectRoundTrip(
 			fid("rise", "pou"),
-			prg(name, "FBD", `NETWORK\n  out := R_EDGE a AND b;\nEND_NETWORK\n`),
+			prg(name, "FBD", `%NETWORK\nout := AND(R_EDGE(a), b);\n`),
 		)
 
-		expect(back, "the rising edge was dropped").toContain("R_EDGE a")
+		expect(back, "the rising edge was dropped").toContain("R_EDGE(a)")
 	})
 
 	/** The same for F_EDGE, which shares the model field and every code path. */
@@ -201,9 +200,10 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 		const name = id("fall")
 		const back = await expectRoundTrip(
 			fid("fall", "pou"),
-			prg(name, "FBD", `NETWORK\n  out := F_EDGE a AND b;\nEND_NETWORK\n`),
+			prg(name, "FBD", `%NETWORK\nout := AND(F_EDGE(a), b);\n`),
 		)
 
-		expect(back, "the falling edge was dropped").toContain("F_EDGE a")
+		expect(back, "the falling edge was dropped").toContain("F_EDGE(a)")
+
 	})
 })

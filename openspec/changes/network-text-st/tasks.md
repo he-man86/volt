@@ -348,7 +348,7 @@ switch and vendor-reader wiring, test updates) is kept: continue it, change only
       gets its own function name (design.md "Revision": one function per toolbox element), so a rebuilt network keeps it. Gate: 0 `%UNSUPPORTED` on the corpora, the TwinCAT archives
       and the accept cases. The v2 reader is not deleted (3.2) before this is green. Each new spelling measured in
       CODESYS first (compiles, runs as the network).
-- [ ] 3.1 Push through the new reader (NetworkPairing, the derivation, RebuildLoss as today); the full e2e suite on
+- [x] 3.1 Push through the new reader (NetworkPairing, the derivation, RebuildLoss as today); the full e2e suite on
       both vendors.
 - [ ] 3.2 Delete the old reader, lexer, spelling and the LSP's network parser; rewrite `docs/network-text.html` (much
       smaller: the mapping table and the subset); the case set re-recorded. Correct DIALECT N21 and the

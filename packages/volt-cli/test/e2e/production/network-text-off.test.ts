@@ -60,7 +60,7 @@ describe.skipIf(!production)(`production / a bridge without VOLT_GRAPHICAL (${BA
 			const lines = networkLines(item.sourceText)
 			// Not one ladder shown: every line is hidden, and no network text follows any of them.
 			expect(lines.filter((l) => !l.hidden), item.name).toEqual([])
-			expect(item.sourceText, item.name).not.toMatch(/^NETWORK\b/m)
+			expect(item.sourceText, item.name).not.toMatch(/^%NETWORK\b/m)
 			// Each hidden body is named in the fetch, for the pull message, with the switch as the reason.
 			const named: { member?: string; language: string; reason: string }[] = (item.unsupported ?? []).filter(
 				(u: any) => u.language === "LD" || u.language === "FBD")
@@ -78,7 +78,7 @@ describe.skipIf(!production)(`production / a bridge without VOLT_GRAPHICAL (${BA
 		const name = inFolder(await projectRoot(), fid("prod_ld", "pou"))
 		const src =
 			`PROGRAM ${id("prod_ld")}\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`%LANGUAGE LD\nNETWORK\n  out := a;\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`%LANGUAGE LD\n%NETWORK\nout := a;\n\nEND_PROGRAM\n`
 		const r = await pushOps([{ op: "set", name, sourceText: src, ifVersion: null }])
 		expect(landed(r)).toBe(false)
 		expect(JSON.stringify(r.conflicts ?? r)).toContain(DISABLED)

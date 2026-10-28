@@ -35,17 +35,17 @@ VAR
 \tdone : BOOL;
 END_VAR
 %LANGUAGE FBD
-NETWORK
-  EXECUTE
+%NETWORK
+%EXECUTE
 k := ${k};
 i := i + 1;
-  END_EXECUTE;
-END_NETWORK
-NETWORK
-  done := EXECUTE
+%END_EXECUTE
+%NETWORK
+%WIRES w1
+%EXECUTE(EN := go, ENO => w1)
 j := j + 1;
-          END_EXECUTE ENO EN go;
-END_NETWORK
+%END_EXECUTE
+done := w1;
 
 END_PROGRAM
 `

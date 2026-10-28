@@ -92,28 +92,14 @@ describe(`graphical / the ??? marker (${BASE})`, () => {
 	 * LIBRARY type. The type is spelled inline (`??? : TYPE(…)`) because there is no declaration to read it
 	 * from — that is the whole reason the form exists.
 	 */
-	it("an UNDECLARED FB instance keeps its type: `??? : TYPE(pins)`", async () => {
-		await roundTrips("qmark_inst", "FBD", "NETWORK\n  ??? : TON(IN := a, PT := pt);\nEND_NETWORK\n", BOOLS)
-	})
-
-	/** The same, with a type this project does NOT have — exactly the Lenze case, where the box names a library
-	 *  FB the target project never references. The type must survive as text even though nothing can resolve it. */
-	it("an undeclared instance of an UNRESOLVABLE type survives too", async () => {
-		await roundTrips(
-			"qmark_lib",
-			"FBD",
-			"NETWORK\n  ??? : L_TT1P_FlexCamBase(xEnable := , Axis := );\nEND_NETWORK\n",
-			BOOLS,
-			// NO VENDOR BRANCH. This carried one — TwinCAT refused the unconnected pins (`xEnable := ,`) as "a
-			// ladder rung terminator" — and the refusal was wrong: emitted as an `<inVariable>` with an EMPTY
-			// expression, the importer builds exactly the right shape and this round-trips on both vendors.
-		)
+	it("an UNDECLARED FB instance is the box called by its type: `TYPE(pins)`", async () => {
+		await roundTrips("qmark_inst", "FBD", "%NETWORK\nTON(IN := a, PT := pt);\n", BOOLS)
 	})
 
 	/** AN INPUT PIN. The position no real project has shown us yet — which is the reason to pin it, not a
 	 *  reason to skip it. */
 	it("`???` on a named INPUT pin", async () => {
-		await roundTrips("qmark_in", "FBD", "NETWORK\n  t1 : TON(IN := ???, PT := pt);\nEND_NETWORK\n", BOOLS)
+		await roundTrips("qmark_in", "FBD", "%NETWORK\nt1(IN := ???, PT := pt);\n", BOOLS)
 	})
 
 	/** AN OUTPUT PIN, spelled with ST's own output-parameter operator. */
@@ -121,7 +107,7 @@ describe(`graphical / the ??? marker (${BASE})`, () => {
 		await roundTrips(
 			"qmark_out",
 			"FBD",
-			"NETWORK\n  t1 : TON(IN := a, PT := pt, ET => ???);\nEND_NETWORK\n",
+			"%NETWORK\nt1(IN := a, PT := pt, ET => ???);\n",
 			BOOLS,
 		)
 	})
@@ -133,28 +119,27 @@ describe(`graphical / the ??? marker (${BASE})`, () => {
 		await roundTrips(
 			"qmark_both",
 			"FBD",
-			"NETWORK\n  t1 : TON(IN := ???, PT := pt, ET => ???);\nEND_NETWORK\n",
+			"%NETWORK\nt1(IN := ???, PT := pt, ET => ???);\n",
 			BOOLS,
 		)
 	})
 
-	/** THE BOX'S RESULT PIN — the unnamed output the box writes itself, spelled `=> ???` in its own call. v1 spelled
-	 *  it `??? := MOVE(src);`, which is also an Assign whose value is the box — a different NWL item — so nothing
-	 *  could tell them apart (`network-unresolved.ts` in the LSP conformance set records the difference).
-	 *  (TwinCAT refused one while its PLCopen import was the create door; the native writer builds it.) */
+	/** THE BOX'S RESULT PIN wired to nothing: a stored member, so the text is the call statement alone — distinct from
+	 *  the Assign `??? := MOVE(src);` below, a different NWL item. */
 	it("`???` on a box's RESULT pin", async () => {
-		await roundTrips("qmark_res", "FBD", "NETWORK\n  MOVE src => ???;\nEND_NETWORK\n", BOOLS)
+		await roundTrips("qmark_res", "FBD", "%NETWORK\nMOVE(src);\n", BOOLS)
+
 	})
 
 	/** …and the Assign the v1 spelling also meant: a coil nobody named, driven by a box. */
 	it("`???` as the target of an assign driven by a box", async () => {
-		await roundTrips("qmark_asg", "FBD", "NETWORK\n  ??? := MOVE src;\nEND_NETWORK\n", BOOLS)
+		await roundTrips("qmark_asg", "FBD", "%NETWORK\n??? := MOVE(src);\n", BOOLS)
 	})
 
 	/** A COIL WITH NO TARGET. `??? := ioAxis.xVirtual;` is the shape a real project carried, and the reason the
 	 *  format could not adopt `?` as its unconnected-pin token. */
 	it("`???` as a coil target", async () => {
-		await roundTrips("qmark_coil", "LD", "NETWORK\n  ??? := a;\nEND_NETWORK\n", BOOLS)
+		await roundTrips("qmark_coil", "LD", "%NETWORK\n??? := a;\n", BOOLS)
 	})
 
 	/** …and behind an UNCONNECTED ENABLE, which is how the two LIVE Lenze POUs (`Mach1_MIDS`, `AHWF`) carry it.
@@ -165,13 +150,13 @@ describe(`graphical / the ??? marker (${BASE})`, () => {
 			"LD",
 			// The box shows EN (wired to nothing) and the coil reads it through its ENO. (An operator box read so needs its
 			// value wired, `=> out` — without it the vendor stores and does not build it, X3.)
-			"NETWORK\n  ??? := MOVE a => out ENO EN;\nEND_NETWORK\n",
+			"%NETWORK\n??? := MOVE_EN(EN := ???, a, OUT => out);\n",
 			BOOLS,
 		)
 	})
 
 	/** AN OPERAND INSIDE A GROUP — the marker where a plain variable belongs. */
 	it("`???` as an operand in a group", async () => {
-		await roundTrips("qmark_operand", "FBD", "NETWORK\n  out := ??? AND a;\nEND_NETWORK\n", BOOLS)
+		await roundTrips("qmark_operand", "FBD", "%NETWORK\nout := AND(???, a);\n", BOOLS)
 	})
 })
