@@ -372,7 +372,9 @@ internal static class Nwl
         /// <summary>An Execute box's ST, hung on the box. Settable, as on the vendor.</summary>
         public object? STSnippet { get; set; }
 
-        public object? Flags { get; set; }
+        /// <summary>PRESENT, like every box's in the recorded corpora (1300 of 1300 hold a <c>Flags</c> object): the reader
+        /// refuses a box answering none rather than read it as "no flag", so a null default was a box no vendor holds.</summary>
+        public object? Flags { get; set; } = new Flags();
     }
 
     /// <summary>The vendor's parameter list: two STRING ARRAYS, not a list of named objects.</summary>

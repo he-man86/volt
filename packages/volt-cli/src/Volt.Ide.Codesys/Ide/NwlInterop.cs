@@ -67,7 +67,16 @@ namespace Volt.Ide.Codesys
 
         public static string? Text(object? o, string member) => Get(o, member) as string;
 
-        public static bool Flag(object? o, string member) => Get(o, member) is bool b && b;
+        /// <summary>A string member the model MUST answer with a string — <c>""</c> included, which is an answer. An absent
+        /// member is the version story (<see cref="Missing"/>); one answering null or a non-string is the model stating no
+        /// text, refused by name rather than read as <c>""</c> (zero-fallback policy).</summary>
+        public static string RequireText(object o, string member) =>
+            Declared(o, member) is string s ? s : throw Unstated(o, member, "text");
+
+        /// <summary>A boolean member the model MUST answer. <c>Flag</c> answered false for an absent member and for a null
+        /// one alike, which read a network nobody could see as enabled and a flag set nobody could read as "no flag".</summary>
+        public static bool RequireBool(object o, string member) =>
+            Declared(o, member) is bool b ? b : throw Unstated(o, member, "a boolean");
 
 
         /// <summary>An int member that MUST be there — the scalar twin of <see cref="Require"/>.
@@ -222,6 +231,11 @@ namespace Volt.Ide.Codesys
                 $"against the 3S NWL object model in {Describe(o.GetType().Assembly)}; this build exposes a " +
                 "different shape. Refusing rather than reading a partial body — a body that comes back " +
                 "half-read is indistinguishable from one the engineer emptied.");
+
+        private static BridgeException Unstated(object o, string member, string what) =>
+            new BridgeException(BridgeErrorCodes.Unreadable,
+                $"CODESYS: '{o.GetType().Name}' answered '{member}' with no {what}, where the NWL model states one on every " +
+                "object of its kind. Refusing rather than reading a value the IDE did not state.");
 
         private static string Describe(Assembly a)
         {

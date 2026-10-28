@@ -54,12 +54,15 @@ namespace Volt.Ide.Codesys
         /// would use — a second, nearly-identical read here is how the two would drift.</summary>
         internal static Network ReadNetwork(object net, int order) => Header(net, order) with { Trees = ReadTrees(net, order) };
 
+        /// <summary>The header as the model states it — each member REQUIRED: every recorded network answers a string for
+        /// Title, Label and Comment (388 of 388, <c>""</c> where there is none, which reads as none) and a boolean for
+        /// OutCommented. A null was read as "no title", an absent OutCommented as enabled.</summary>
         private static Network Header(object net, int order) =>
             new(order,
-                NetworkText.Stored(NwlInterop.Text(net, "Title")),
-                Clean(NwlInterop.Text(net, "Label")),
-                NetworkText.Stored(NwlInterop.Text(net, "Comment")),
-                NwlInterop.Flag(net, "OutCommented"),
+                NetworkText.Stored(NwlInterop.RequireText(net, "Title")),
+                Clean(NwlInterop.RequireText(net, "Label")),
+                NetworkText.Stored(NwlInterop.RequireText(net, "Comment")),
+                NwlInterop.RequireBool(net, "OutCommented"),
                 Array.Empty<Node>());
 
         private static List<Node> ReadTrees(object net, int order)
@@ -115,8 +118,9 @@ namespace Volt.Ide.Codesys
         /// (<see cref="Box.ConnectedSlot"/>); a top-level one has no consumer and records none.</param>
         private static Node ReadNode(object n, bool consumed)
         {
-            var flags = ReadFlags(NwlInterop.Get(n, "Flags"));
-            switch (NwlInterop.TypeName(n))
+            var type = NwlInterop.TypeName(n);
+            var flags = ItemFlags(n, type);
+            switch (type)
             {
                 // A CONTACT'S MODIFIERS LIVE ON ITS OPERAND, not on the item holding it. DIALECT N4 measured the
                 // vendor shape — `BoxTreeOperand carries Operand, Id and NO Flags` — so taking `flags` from the
@@ -126,7 +130,7 @@ namespace Volt.Ide.Codesys
                 case "BoxTreeOperand":
                 {
                     var operand = ReadOperand(NwlInterop.Require(n, "Operand"));
-                    return new Leaf(operand, operand.Flags ?? flags);
+                    return new Leaf(operand, operand.Flags!);   // ReadOperand reads every operand's own Flags
                 }
 
                 case "BoxTreeAssign":
@@ -204,13 +208,41 @@ namespace Volt.Ide.Codesys
             }
         }
 
+        /// <summary>THE FLAG SET OF AN ITEM, by its class. A box, an assignment and a terminator answer a <c>Flags</c> object
+        /// on every one recorded, so none is refused by name rather than read as "no flag". A contact
+        /// (<c>BoxTreeOperand</c>) has no such member (DIALECT N4: its modifiers ride the operand); a wire and a Parallel
+        /// hand out an object the node never stores (N20), read so the shared refusal names a bit found there.</summary>
+        private static Flags ItemFlags(object n, string type) => type switch
+        {
+            "BoxTreeBox" or "BoxTreeAssign" or "BoxTreeTerminator" =>
+                ReadFlags(NwlInterop.Get(n, "Flags") ?? throw Unstated(n, "Flags", "a flag set")),
+            "BoxTreeDemux" or "BoxTreeParallel" when NwlInterop.Get(n, "Flags") is { } f => ReadFlags(f),
+            _ => Flags.None,   // a contact (N4), an unfed wire/Parallel getter, or an item refused below by name
+        };
+
+        private static Volt.Engine.BridgeException Unstated(object o, string member, string what) =>
+            new(Volt.Contracts.BridgeErrorCodes.Unreadable,
+                $"CODESYS: '{NwlInterop.TypeName(o)}' answered '{member}' with no {what}, where the NWL model states one on " +
+                "every object of its kind. Refusing rather than reading a value the IDE did not state.");
+
+        /// <summary>A box's TYPE — the callee's name, REQUIRED and non-empty: every recorded box names one (1300 of 1300).
+        /// Null or <c>""</c> was read as a call to <c>""</c>.</summary>
+        private static string BoxType(object box) =>
+            NwlInterop.RequireText(box, "BoxType") is { Length: > 0 } t ? t : throw Unstated(box, "BoxType", "type name");
+
         /// <summary>A box's pin names — the <c>Names</c> array of its <c>InputParams</c>/<c>OutputParams</c>, REQUIRED. The
         /// names decide whether slot 0 is the enable (and the ENO), so a list the box does not answer is refused by name
         /// (<see cref="BoxRefusals.MissingList"/>): read as "no names", <c>MOVE(EN := en1, a)</c> pulled as
         /// <c>MOVE(en1, a)</c>. An operator's EMPTY array is a real answer (<c>Names=[]</c>, measured).</summary>
-        private static List<string?> Names(object box, string paramList) =>
-            Strings(NwlInterop.Get(box, paramList), "Names")
-            ?? throw BoxRefusals.MissingList(CodesysDriver.Row.Display, NwlInterop.Text(box, "BoxType") ?? "", paramList + ".Names");
+        /// <para>Each name is a string (971 of 971 recorded output names, <c>""</c> for an unnamed slot): a null entry is a
+        /// name the model did not state, refused under the same marker rather than read as an unnamed slot.</para>
+        private static List<string> Names(object box, string paramList)
+        {
+            var names = Strings(NwlInterop.Get(box, paramList), "Names");
+            if (names is null || names.Contains(null))
+                throw BoxRefusals.MissingList(CodesysDriver.Row.Display, BoxType(box), paramList + ".Names");
+            return names.Select(x => x!).ToList();
+        }
 
         /// <summary>One of an <c>IParamList</c>'s two string arrays (<c>Names</c>, <c>Types</c>), or null when the list or
         /// the array is absent.</summary>
@@ -247,21 +279,29 @@ namespace Volt.Ide.Codesys
         /// them, and reading that as "no flag on any pin" is the silent default that pulled six negated pins as plain
         /// contacts before 1.13. So it is refused by the same name, and the pull materializes the marker.</para>
         /// </summary>
-        private static List<Flags> PinFlags(object box) =>
-            NwlInterop.Get(box, "InputFlags") is System.Collections.IEnumerable pinFlags
-                ? pinFlags.Cast<object?>().Select(ReadFlags).ToList()
-                : throw BoxRefusals.NoPinFlags(CodesysDriver.Row.Display, NwlInterop.Text(box, "BoxType") ?? "");
+        /// <para>Each entry is a flag set (one per input on every recorded box): a null entry is a pin whose modifiers the
+        /// model did not state, refused under the pin-flag marker rather than read as "no flag".</para>
+        private static List<Flags> PinFlags(object box)
+        {
+            if (NwlInterop.Get(box, "InputFlags") is not System.Collections.IEnumerable pinFlags)
+                throw BoxRefusals.NoPinFlags(CodesysDriver.Row.Display, BoxType(box));
+            return pinFlags.Cast<object?>().Select((f, i) => f is null
+                ? throw new Volt.Engine.Format.Body.UnrepresentableBodyException(BoxRefusals.PinFlagMarker,
+                    $"CODESYS: the '{BoxType(box)}' box answers no flag set for input {i}, where every recorded box holds one per " +
+                    "input. Volt refuses to materialize the body rather than read the gap as \"no flag\".")
+                : ReadFlags(f)).ToList();
+        }
 
         private static Volt.Engine.Format.Body.UnrepresentableBodyException PinFlagsMisaligned(object box, int flags, int pins) =>
             new(BoxRefusals.PinFlagMarker,
-                $"CODESYS: the '{NwlInterop.Text(box, "BoxType")}' box holds {flags} pin flag(s) for {pins} input(s). The " +
+                $"CODESYS: the '{BoxType(box)}' box holds {flags} pin flag(s) for {pins} input(s). The " +
                 "list is index-aligned with the inputs and was never measured any other length, so which pin a modifier " +
                 "belongs to is unknown. Volt refuses to materialize the body rather than read the gap as \"no flag\".");
 
 
         private static Box ReadBox(object n, Flags flags, bool consumed)
         {
-            var type = NwlInterop.Text(n, "BoxType") ?? "";
+            var type = BoxType(n);
             // RAW, nulls and all — the slots are index-aligned with the names and the pin flags, and `NwlInterop.Items`
             // drops a null, which shifted every later pin onto its neighbour's name. A null slot is no measured shape
             // (an unwired pin is a terminator here), so it is refused under its own name, before the flag check would
@@ -337,7 +377,7 @@ namespace Volt.Ide.Codesys
             return new Box(
                 type,
                 instance,
-                ReadCallKind(NwlInterop.Get(n, "CallType"), instance),
+                ReadCallKind(NwlInterop.Get(n, "CallType") ?? throw Unstated(n, "CallType", "call type"), instance),
                 inputs,
                 ReadBoxOutputs(n, type, outputNames, hasEno),
                 // From INPUT SLOT 0 (above), never from `En` and never from `EnEno`. `EnEno` is a CAPABILITY
@@ -353,7 +393,7 @@ namespace Volt.Ide.Codesys
                 MainOutputName: consumed ? Box.NameOfConnectedOutput(instance is not null, mainOutput, hasEno, outputNames) : null,
                 // The stored output names whole (ld-fbd-coverage 2.3): S1's slot on a bit operator, a call's unconnected
                 // pins — the text spells them where they differ from what its own pins give.
-                Members: NwlMembers.Of((NetworkMembers.OutputNames, MemberValue.Texts(outputNames.Select(x => x ?? "")))))
+                Members: NwlMembers.Of((NetworkMembers.OutputNames, MemberValue.Texts(outputNames))))
             { EnableFlags = enableFlags };
         }
 
@@ -402,7 +442,7 @@ namespace Volt.Ide.Codesys
         /// exactly as the TwinCAT reader already does for its own unwalkable snippet.</para></summary>
         private static string? ReadStCode(object n)
         {
-            if (!NwlInterop.Flag(n, "ProvidesSTSnippet")) return null;
+            if (!NwlInterop.RequireBool(n, "ProvidesSTSnippet")) return null;
             var snippet = NwlInterop.Get(n, "STSnippet")
                           ?? throw new Volt.Engine.Format.Body.UnrepresentableBodyException(BoxRefusals.UnreadableExecuteMarker,
                               "CODESYS: this network contains an Execute box that reports an ST snippet and has " +
@@ -421,14 +461,17 @@ namespace Volt.Ide.Codesys
         // that store a comment included) — while `GetSerializableValue("SymbolComment")` answers the stored comment. Read
         // through the property, no CODESYS pull ever held one, so the refusal that keeps a rebuild from erasing it
         // (`NetworkText.RefuseSymbolCommentLoss`) could not fire, and TwinCAT, which reads its archive, did hold it (DIALECT N27).
+        /// <para>The text is REQUIRED: <c>""</c> on an unwired slot or a name (3993 of 3993 recorded pin and output
+        /// operands); null only on an Instance with none, which <see cref="ReadBox"/> asks before reading one. Read as
+        /// <c>""</c>, a null was an unwired pin. <c>Type</c> is the IDE's metadata, null where it states none (330 recorded).</para>
         private static Operand ReadOperand(object o) =>
             new Operand(
-                NwlInterop.Text(o, "OperandExpr") ?? "",
+                NwlInterop.RequireText(o, "OperandExpr"),
                 Clean(NwlInterop.Text(o, "Type")),
                 CleanOperandField(StoredSymbolComment(o)),
-                NwlInterop.Flag(o, "IsInstance"),
-                NwlInterop.Flag(o, "IsLValue"),
-                ReadFlags(NwlInterop.Get(o, "Flags")));
+                NwlInterop.RequireBool(o, "IsInstance"),
+                NwlInterop.RequireBool(o, "IsLValue"),
+                ReadFlags(NwlInterop.Get(o, "Flags") ?? throw Unstated(o, "Flags", "a flag set")));
 
         /// <summary>The comment the operand's archive stores: a string, or null. Any other answer is refused BY NAME
         /// (gate 1b-3): read as "no comment" it would let <c>NetworkText.RefuseSymbolCommentLoss</c> pass a rebuild that
@@ -490,12 +533,12 @@ namespace Volt.Ide.Codesys
         /// in a project read as a negated SET coil, and materialize as a plain <c>SET</c>.</summary>
         private static Operand ReadTarget(object o)
         {
-            var op = ReadOperand(o);
-            var f = NwlInterop.Get(o, "Flags");
-            var coil = Flags.CoilFromVendor(NwlInterop.Flag(f, "Negation"), NwlInterop.Flag(f, "Set"));
+            var op = ReadOperand(o);   // refuses an operand with no flag set
+            var f = NwlInterop.Require(o, "Flags");
+            var coil = Flags.CoilFromVendor(NwlInterop.RequireBool(f, "Negation"), NwlInterop.RequireBool(f, "Set"));
             return op with
             {
-                Flags = (op.Flags ?? Flags.None) with { Negated = coil.Negated, Set = coil.Set, Reset = coil.Reset },
+                Flags = op.Flags! with { Negated = coil.Negated, Set = coil.Set, Reset = coil.Reset },
             };
         }
 
@@ -504,24 +547,22 @@ namespace Volt.Ide.Codesys
         /// <para><see cref="Flags.Reset"/> is left false here ON PURPOSE: this reads an item or a CONTACT,
         /// where <c>Negation</c> means negation. Only an assignment TARGET spells a coil kind with those bits,
         /// and only <see cref="ReadTarget"/> decodes them.</para></summary>
-        private static Flags ReadFlags(object? f) =>
-            f == null
-                ? Flags.None
-                : new Flags(
-                    Negated: NwlInterop.Flag(f, "Negation"),
-                    Set: NwlInterop.Flag(f, "Set"),
-                    Reset: false,          // see ReadTarget — a coil kind is decoded, never read bit-for-bit
-                    Jump: NwlInterop.Flag(f, "Jump"),
-                    Return: NwlInterop.Flag(f, "Return"),
-                    Rising: NwlInterop.Flag(f, "Rtrig"),
-                    Falling: NwlInterop.Flag(f, "Ftrig"));
+        private static Flags ReadFlags(object f) =>
+            new Flags(
+                Negated: NwlInterop.RequireBool(f, "Negation"),
+                Set: NwlInterop.RequireBool(f, "Set"),
+                Reset: false,          // see ReadTarget — a coil kind is decoded, never read bit-for-bit
+                Jump: NwlInterop.RequireBool(f, "Jump"),
+                Return: NwlInterop.RequireBool(f, "Return"),
+                Rising: NwlInterop.RequireBool(f, "Rtrig"),
+                Falling: NwlInterop.RequireBool(f, "Ftrig"));
 
         /// <summary>The vendor derives <c>CallType</c> itself from the box's type name (measured: setting
         /// <c>BoxType="AND"</c> produced <c>CallType=Operator.And</c> unasked), so it is READ, never computed.
         /// The decode is <see cref="CallKinds.FromVendor"/> — one rule for one enum, shared with TwinCAT,
         /// which is what added the <c>FunctionBlock</c> member this side was missing.</summary>
-        private static CallKind ReadCallKind(object? callType, Operand? instance) =>
-            CallKinds.FromVendor(callType?.ToString(), instance is not null);
+        private static CallKind ReadCallKind(object callType, Operand? instance) =>
+            CallKinds.FromVendor(callType.ToString(), instance is not null);
 
 
         /// <summary>Empty and the vendor's serialization placeholders both mean "not set".

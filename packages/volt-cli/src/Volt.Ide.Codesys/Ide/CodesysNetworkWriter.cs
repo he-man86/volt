@@ -154,7 +154,7 @@ namespace Volt.Ide.Codesys
             SetIfChanged(net, "Title", model.Title ?? "");
             SetIfChanged(net, "Label", model.Label ?? "");
             SetIfChanged(net, "Comment", model.Comment ?? "");
-            if (NwlInterop.Flag(net, "OutCommented") != model.Disabled)
+            if (NwlInterop.RequireBool(net, "OutCommented") != model.Disabled)
                 NwlInterop.Set(net, "OutCommented", model.Disabled);
 
             // THE CHANGE GATE. A network whose LOGIC is unchanged is not rebuilt — which is what the class
@@ -303,10 +303,13 @@ namespace Volt.Ide.Codesys
         /// <summary>Write a string member only when it really differs — comparing with TRAILING WHITESPACE
         /// ignored, because the IDE stores a title or comment with the newline the engineer typed after it and
         /// the model holds it trimmed (see the reader's `Clean`). Without that, every push rewrote a title
-        /// nobody had touched.</summary>
+        /// nobody had touched.
+        /// <para>The current value is REQUIRED (the reader's rule: every recorded network answers a string here), so a
+        /// member answering null is refused, not compared as <c>""</c>. The model's null is written <c>""</c> — what all 388
+        /// recorded networks hold where they have none (the reader reads <c>""</c> back as null).</para></summary>
         private static void SetIfChanged(object o, string member, string value)
         {
-            var current = NwlInterop.Text(o, member) ?? "";
+            var current = NwlInterop.RequireText(o, member);
             if (!string.Equals(current, value, StringComparison.Ordinal)) NwlInterop.Set(o, member, value);
         }
 
@@ -757,9 +760,9 @@ namespace Volt.Ide.Codesys
                 // plain — inverted logic, or an edge gone, with the text saying otherwise.
                 foreach (var (slot, flags, name) in pins)
                     if (kept[slot] is not { } k ||
-                        (flags.Negated && !NwlInterop.Flag(k, "Negation")) ||
-                        (flags.Rising && !NwlInterop.Flag(k, "Rtrig")) ||
-                        (flags.Falling && !NwlInterop.Flag(k, "Ftrig")))
+                        (flags.Negated && !NwlInterop.RequireBool(k, "Negation")) ||
+                        (flags.Rising && !NwlInterop.RequireBool(k, "Rtrig")) ||
+                        (flags.Falling && !NwlInterop.RequireBool(k, "Ftrig")))
                         throw new BridgeException(BridgeErrorCodes.Unsupported,
                             $"CODESYS: the '{b.Type}' box did not keep the modifier written on its pin {name} — " +
                             "refusing rather than build the pin plain, another program than the text.");
