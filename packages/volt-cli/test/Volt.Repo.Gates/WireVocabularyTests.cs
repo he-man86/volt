@@ -179,7 +179,7 @@ public class WireVocabularyTests
             ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Properties.cs", 1),   // wire-final-shape 3c: coded at the throw
             ("Volt.Ide.Codesys/Ide/CodesysObjectModel.cs", 5),   // wire-final-shape 3c: coded at the throw; +1 a name the IDE answers null (3c review 5)
             ("Volt.Ide.Twincat/Ide/TcItemArchive.cs", 5),   // wire-final-shape 3c: coded at the throw; +1 an archived element with no Name (zero-fallback)
-            ("Volt.Ide.Twincat/Ide/TcLibrarySignatures.cs", 4),   // wire-final-shape 3c: coded at the throw; +1 a library stating no name, version or distributor (zero-fallback)
+            ("Volt.Ide.Twincat/Ide/TcLibrarySignatures.cs", 5),   // wire-final-shape 3c: coded at the throw; +1 a library stating no name, version or distributor; +1 a TypeSignature kind no recording holds (zero-fallback)
             ("Volt.Ide.Twincat/Ide/TcProjectSettings.cs", 6))),   // wire-final-shape 3c: coded at the throw
 
         // ── the optimistic gate and the apply loop ─────────────────────────────────────────────────────────────

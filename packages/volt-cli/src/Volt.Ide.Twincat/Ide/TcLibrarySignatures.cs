@@ -28,10 +28,10 @@ namespace Volt.Ide.Twincat;
 /// </summary>
 internal static class TcLibrarySignatures
 {
-    /// <summary>What one parse did beside emitting signatures: the entries the vendor names only (<c>NoBody</c>), the
-    /// entries of a kind Volt does not model (<c>Unknown</c>), and the VarGlobal signatures Volt READ as enums
-    /// (<c>InferredEnums</c>, <see cref="InferredEnum"/>) — a Volt inference, not a vendor fact, so it is counted.</summary>
-    internal readonly record struct Tally(int NoBody, int Unknown, int InferredEnums);
+    /// <summary>What one parse did beside emitting signatures: the entries the vendor names only (<c>NoBody</c>), and the
+    /// VarGlobal signatures Volt READ as enums (<c>InferredEnums</c>, <see cref="InferredEnum"/>) — a Volt inference, not a
+    /// vendor fact, so it is counted.</summary>
+    internal readonly record struct Tally(int NoBody, int InferredEnums);
 
     /// <summary>Every signature the vendor described well enough to render.</summary>
     public static IReadOnlyList<LibSignature> Parse(string? xml) => Parse(xml, out _);
@@ -56,7 +56,6 @@ internal static class TcLibrarySignatures
         var sigs = new List<LibSignature>();
         var noBody = 0;
         var inferredEnums = 0;
-        var unknown = new List<string>();
 
         foreach (var lib in root.Elements("Library"))
         {
@@ -120,8 +119,13 @@ internal static class TcLibrarySignatures
                         break;
 
                     default:
-                        unknown.Add(kind.Length == 0 ? "(no type attribute)" : kind);
-                        break;
+                        // The live dump holds exactly the five kinds above (DIALECT D27). Another is refused by name:
+                        // dropped, a library type silently costs the LSP its declarations.
+                        throw new BridgeException(BridgeErrorCodes.Unreadable,
+                            $"TwinCAT: the library '{path}' lists '{name}' as " +
+                            (kind.Length == 0 ? "a TypeSignature with no type" : $"a TypeSignature of type '{kind}'") +
+                            " — Volt reads FunctionBlock, Function, VarGlobal, Type and Interface (the kinds measured, " +
+                            "DIALECT D27), so it refuses the signatures rather than drop it from them.");
                 }
             }
         }
@@ -129,14 +133,11 @@ internal static class TcLibrarySignatures
         if (noBody > 0)
             VoltLog.Debug($"twincat lib signatures: {noBody} Type/Interface entries carry a name only (no body " +
                           "described by the vendor) and are not emitted — see TcLibrarySignatures");
-        if (unknown.Count > 0)
-            VoltLog.Warn($"twincat lib signatures: {unknown.Count} entries have a TypeSignature kind Volt does " +
-                         $"not model ({string.Join(", ", unknown.Distinct().Take(5))}) — they are not emitted");
         if (inferredEnums > 0)
             VoltLog.Debug($"twincat lib signatures: {inferredEnums} enums inferred from shape (a VarGlobal whose every " +
                           "constant is typed as itself — Volt's reading, the vendor states no enum; DIALECT D27)");
 
-        tally = new Tally(noBody, unknown.Count, inferredEnums);
+        tally = new Tally(noBody, inferredEnums);
         return sigs;
     }
 
@@ -166,6 +167,12 @@ internal static class TcLibrarySignatures
     /// <summary>The <c>Name</c>/<c>DataType</c> pairs under a container (<c>Inputs</c>, <c>Constants</c>, …).
     /// A <c>Comment</c> sits beside them and is dropped: <see cref="LibVar"/> has nowhere to put it and the
     /// renderer emits declarations, not documentation.
+    ///
+    /// <para><b>An absent container is "no pins" — the vendor's spelling, not a fallback.</b> TwinCAT omits a container it
+    /// has nothing to put in rather than write it empty: the recorded document's <c>RS</c> and <c>CONCAT</c> have no in-out
+    /// pins and hold no <c>&lt;InOuts&gt;</c> (<c>fixtures/tc-pou/library-signatures.xml</c>, verbatim), and the same live
+    /// dump carries FBs with no inputs and FUNCTIONs with no outputs (twincat-project14's <c>References/</c>). Pinned by
+    /// <c>TcLibraryUntypedPinTests.An_absent_pin_container_is_the_vendors_spelling_of_no_pins</c>.</para>
     ///
     /// <para>EVERY ENTRY STATES BOTH, OR THE DOCUMENT IS REFUSED BY NAME (cli-bridges review, step 2.2): an entry missing
     /// either was dropped, so a library FB lost a pin in silence where CODESYS refuses the signature. Measured on the full

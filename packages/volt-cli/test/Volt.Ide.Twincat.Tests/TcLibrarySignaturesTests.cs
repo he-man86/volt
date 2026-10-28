@@ -195,7 +195,6 @@ public class TcLibraryInferredEnumTests
 
         Assert.Equal(1, tally.InferredEnums);   // E_WATCHDOG_TIME_CONFIG
         Assert.Equal(2, tally.NoBody);          // the Type and the Interface the vendor names only
-        Assert.Equal(0, tally.Unknown);
     }
 
     /// <summary>ONE constant typed as something else makes the whole signature a GVL: the inference needs EVERY constant
@@ -260,6 +259,38 @@ public class TcLibraryUntypedPinTests
         Assert.Equal(BridgeErrorCodes.Unreadable, ex.ErrorCode);
         Assert.Contains("FB_Gate", ex.Message);
         Assert.Contains("BOOL", ex.Message);
+    }
+
+    /// <summary>A KIND NO RECORDING HOLDS IS REFUSED BY NAME. The live dump holds exactly five <c>type</c> values (DIALECT
+    /// D27: FunctionBlock 102, Function 114, Type 25, VarGlobal 18, Interface 1; the excerpt holds one of each). Another
+    /// was dropped with a Warn and a count — and a dropped library type silently costs the LSP its declarations.</summary>
+    [Theory]
+    [InlineData("<TypeSignature type=\"Program\"><Name>P_Lib</Name></TypeSignature>", "Program")]
+    [InlineData("<TypeSignature><Name>P_Lib</Name></TypeSignature>", "no type")]
+    public void A_signature_of_a_kind_no_recording_holds_is_refused_by_name(string entry, string named)
+    {
+        var ex = Assert.Throws<BridgeException>(() => TcLibrarySignatures.Parse(string.Format(Lib, entry)));
+        Assert.Equal(BridgeErrorCodes.Unreadable, ex.ErrorCode);
+        Assert.Contains("P_Lib", ex.Message);
+        Assert.Contains("Tc2_Standard", ex.Message);
+        Assert.Contains(named, ex.Message);
+    }
+
+    /// <summary>AN ABSENT PIN CONTAINER IS "NO PINS" — THE VENDOR'S OWN SPELLING. The recorded document (verbatim excerpt)
+    /// carries an FB (<c>RS</c>) and a FUNCTION (<c>CONCAT</c>) that have no in-out pins, and neither holds an
+    /// <c>&lt;InOuts&gt;</c> element: TwinCAT omits the container rather than write it empty. Library FBs with no inputs
+    /// (<c>FB_IecCriticalSection</c>, <c>FW_GetCpuAccount</c>) and FUNCTIONs with no outputs (the four return-less Tc2_System
+    /// ones) exist in the same live dump (twincat-project14's pulled <c>References/</c>).</summary>
+    [Fact]
+    public void An_absent_pin_container_is_the_vendors_spelling_of_no_pins()
+    {
+        var raw = Fixtures.Pou("library-signatures.xml");
+        Assert.DoesNotContain("<InOuts", raw);
+
+        var sigs = TcLibrarySignatures.Parse(raw);
+
+        Assert.Empty(sigs.Single(s => s.Name == "RS").InOuts);
+        Assert.Empty(sigs.Single(s => s.Name == "CONCAT").InOuts);
     }
 
     /// <summary>A signature with no name was skipped with no tally and no error — refused naming its library.</summary>
