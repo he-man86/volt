@@ -427,7 +427,7 @@ internal static class TcNetworkReader
     {
         if (!HasEnable(e)) return null;
         var items = InputSlots(e);
-        return items.Count == 0 ? null : ReadPin(items[0]);
+        return items.Count == 0 ? throw Box.EnableWithoutItem(BeckhoffDriver.Row.Display, BoxType(e)) : ReadPin(items[0]);
     }
 
     /// <summary>THE ONE READ OF A BOX INPUT SLOT — the enable (slot 0) and every data pin alike. The import builds an
@@ -453,7 +453,7 @@ internal static class TcNetworkReader
         var names = Names(e, "InputParam");
 
         // Slot 0 is the ENABLE when the vendor names it so, and it is not a data pin — `ReadEnable` takes it.
-        var skip = HasEnable(e) && items.Count > 0 ? 1 : 0;
+        var skip = HasEnable(e) ? 1 : 0;   // a shown EN with no item is refused by ReadEnable
 
         // INDEX-ALIGNED, never length-equal: a shorter `Names` is not a partial list to guess at, it is how an
         // EXTENSIBLE operator says its trailing pins are positional.

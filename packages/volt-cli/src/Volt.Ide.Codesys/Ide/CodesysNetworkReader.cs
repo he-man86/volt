@@ -332,8 +332,9 @@ namespace Volt.Ide.Codesys
             // rule; it runs BEFORE the pins are paired with their names so the remaining slots line up with the names.
             Node? enable = null;
             var enableFlags = Flags.None;
-            if (Box.ShowsEnable(NwlInterop.Get(n, "En") as bool?, formals, CodesysDriver.Row.Display, type) && items.Count > 0)
+            if (Box.ShowsEnable(NwlInterop.Get(n, "En") as bool?, formals, CodesysDriver.Row.Display, type))
             {
+                if (items.Count == 0) throw Box.EnableWithoutItem(CodesysDriver.Row.Display, type);
                 // The EN pin's own modifier (2R.5, #16: a negated EN pin stores, builds and runs) — Box.EnableFlags.
                 enableFlags = pinFlags[0];
                 enable = ReadNode(items[0]!, consumed: true);

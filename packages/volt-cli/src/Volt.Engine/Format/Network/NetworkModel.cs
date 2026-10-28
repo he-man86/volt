@@ -223,6 +223,14 @@ public sealed record Box(
             "to store. Volt refuses to read which output is the ENO.");
     }
 
+    /// <summary>A box that SHOWS its enable over a slot 0 named EN, and holds no input item there: the enable is the item in
+    /// slot 0 on every box measured, so none is no shape any IDE stored — refused under the same marker, rather than read
+    /// as a box with no enable (the rung it stands on gone from the text). One refusal both readers raise.</summary>
+    public static Volt.Engine.Format.Body.UnrepresentableBodyException EnableWithoutItem(string vendor, string boxType) =>
+        new(ShownWithoutSlotMarker,
+            $"{vendor}: the '{boxType}' box shows EN, but holds no input item in slot 0 to be the enable, a shape no IDE was " +
+            "measured to store. Volt refuses to read the box as having no enable.");
+
     /// <summary>The refusal reason of a box whose EN/ENO flag names no slot (<see cref="ShowsEnable"/>).</summary>
     public const string ShownWithoutSlotMarker = "a box showing EN or ENO with no slot of that name";
 

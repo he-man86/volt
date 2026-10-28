@@ -125,6 +125,23 @@ public class CodesysNetworkUnstatedValueTests
         Assert.Contains("IsLValue", Refused<BridgeException>(assign).Message);
     }
 
+    /// <summary>A box showing EN with no input item to be the enable was read as a box with no enable — the rung gone
+    /// from the text. Refused under the shown-without-slot marker, as on TwinCAT.</summary>
+    [Fact]
+    public void A_box_showing_EN_with_no_input_item_is_refused_not_read_as_unenabled()
+    {
+        var box = new Nwl.BoxTreeBox
+        {
+            BoxType = "MOVE",
+            InputItemList = new object[0],
+            InputParams = new Nwl.ParamList { Names = new[] { "EN" }, Types = new[] { "BOOL" } },
+            OutputParams = new Nwl.ParamList { Names = new[] { "ENO", "" }, Types = new[] { "BOOL", "INT" } },
+            En = true,
+            Eno = true,
+        };
+        Assert.Equal(Box.ShownWithoutSlotMarker, Refused<UnrepresentableBodyException>(box).Reason);
+    }
+
     internal sealed class NetworkWithoutOutCommented
     {
         public string Title { get; set; } = "";

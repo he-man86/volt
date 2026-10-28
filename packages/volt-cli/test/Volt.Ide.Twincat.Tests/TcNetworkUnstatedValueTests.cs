@@ -135,6 +135,20 @@ public class TcNetworkUnstatedValueTests
 
     private static System.Collections.Generic.IEnumerable<Node> Descend(Node n) => n.Children().SelectMany(Descend).Prepend(n);
 
+    /// <summary>A BOX SHOWING EN WITH NO INPUT ITEM TO BE THE ENABLE is refused, not read as a box with no enable: the
+    /// reader took <c>items.Count == 0 ? null</c>, so the shown EN — and the rung it stands on — vanished from the text.
+    /// Every box that shows EN holds its enable in input slot 0 (execute-box.TcPOU's, every enabled corpus box).</summary>
+    [Fact]
+    public void A_box_showing_EN_with_no_input_item_is_refused_not_read_as_unenabled()
+    {
+        var impl = Impl("execute-box.TcPOU");
+        var box = impl.Descendants("o").First(o => TcArchive.TypeOf(o) == "BoxTreeBox" && o.Elements("v").Any(v => Named(v, "EN") && v.Value == "true"));
+        box.Elements("l2").Single(l => Named(l, "InputItems")).RemoveNodes();
+
+        var ex = Assert.Throws<UnrepresentableBodyException>(() => TcNetworkReader.Read(impl, BodyLanguage.Fbd));
+        Assert.Equal(Box.ShownWithoutSlotMarker, ex.Reason);
+    }
+
     // ── the in-place writer ──────────────────────────────────────────────────────────────────────
 
     private static string Body(string fixture) =>
