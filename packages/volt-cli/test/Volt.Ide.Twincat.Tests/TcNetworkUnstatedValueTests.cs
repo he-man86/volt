@@ -134,4 +134,67 @@ public class TcNetworkUnstatedValueTests
     }
 
     private static System.Collections.Generic.IEnumerable<Node> Descend(Node n) => n.Children().SelectMany(Descend).Prepend(n);
+
+    // ── the in-place writer ──────────────────────────────────────────────────────────────────────
+
+    private static string Body(string fixture) =>
+        XDocument.Load(Fixtures.Path("tc-pou", fixture), LoadOptions.PreserveWhitespace)
+            .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting);
+
+    private static NetworkBody Pulled(string body) =>
+        TcNetworkReader.Read(XElement.Parse(body, LoadOptions.PreserveWhitespace)
+            .DescendantsAndSelf("o").First(o => (string?)o.Attribute("t") == "NWLImplementationObject"), BodyLanguage.Fbd);
+
+    private static Node WithPin(Node n, Func<Box, Box> edit) => n switch
+    {
+        Box b when b.Instance is not null => edit(b),
+        Box b => b with { Inputs = b.Inputs.Select(i => i with { Value = WithPin(i.Value, edit) }).ToList() },
+        Assign a => a with { Value = WithPin(a.Value, edit) },
+        _ => n,
+    };
+
+    /// <summary>A PIN THE IDE NAMES, PUSHED POSITIONAL, IS REFUSED — NEVER RENAMED <c>""</c>. The TON of FbCall names its pins
+    /// <c>IN</c> and <c>PT</c>; a push naming <c>IN</c> and leaving the second pin positional wrote <c>Formal ?? ""</c> over
+    /// <c>PT</c> — the IDE's name blanked, no refusal. The all-positional case was already refused naming the pin (the
+    /// writer's own rule: "a name the IDE holds is the IDE's"); the mixed case now follows it.</summary>
+    [Fact]
+    public void A_named_pin_pushed_positional_beside_a_named_one_is_refused_not_blanked()
+    {
+        var body = Body("FbCall.derived.TcPOU");
+        var pulled = Pulled(body);
+        var model = pulled with
+        {
+            Networks = pulled.Networks.Select(n => n with
+            {
+                Trees = n.Trees.Select(t => WithPin(t, b => b with
+                {
+                    Inputs = b.Inputs.Select((p, i) => i == 1 ? p with { Formal = null } : p).ToList(),
+                })).ToList(),
+            }).ToList(),
+        };
+
+        var ex = Assert.Throws<UnsupportedException>(() => TcNetworkWriter.Apply(body, model, TcText.ScopeOf(pulled)));
+        Assert.Contains("'PT'", ex.Message);
+    }
+
+    /// <summary>A <c>TypeList</c> entry with no name is no entry TwinCAT writes (every <c>&lt;Type&gt;</c> it lists carries
+    /// <c>n</c>). Read as the type <c>""</c>, the IDE's GUID for the type it really lists was dropped and the TABLE's put in
+    /// its place on the next structural edit — refused instead, naming the list.</summary>
+    [Fact]
+    public void A_TypeList_entry_with_no_name_is_refused_on_a_structural_edit()
+    {
+        var doc = XDocument.Load(Fixtures.Path("tc-pou", "ladder-demux.TcPOU"), LoadOptions.PreserveWhitespace);
+        var nwl = doc.Descendants("NWL").Single();
+        nwl.Descendants("TypeList").Single().Elements("Type").First().Attribute("n")!.Remove();
+        var body = nwl.ToString(SaveOptions.DisableFormatting);
+        var pulled = Pulled(body);
+        // A structural edit: a network appended, which the builder builds and the TypeList must follow.
+        var extra = new Network(pulled.Networks.Count, null, null, null, false,
+            new Node[] { new Assign(new Leaf(new Operand("a"), Flags.None), new[] { new Operand("b", IsLValue: true) }, Flags.None) });
+        var model = pulled with { Networks = pulled.Networks.Append(extra).ToList() };
+
+        var ex = Assert.Throws<UnsupportedException>(() =>
+            TcNetworkWriter.Apply(body, model, TcText.ScopeOf(model), TcArchiveBuilder.NetworkGraph));
+        Assert.Contains("TypeList", ex.Message);
+    }
 }

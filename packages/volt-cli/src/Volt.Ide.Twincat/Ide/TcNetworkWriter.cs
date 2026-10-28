@@ -219,7 +219,11 @@ internal static class TcNetworkWriter
     {
         var list = doc.Descendants("TypeList").FirstOrDefault();
         if (list is null) throw Refuse("the archive names no TypeList, so a new item's type cannot be declared");
-        var known = list.Elements("Type").ToDictionary(t => (string?)t.Attribute("n") ?? "", t => t.Value, StringComparer.Ordinal);
+        // Every entry TwinCAT lists names its type; a nameless one is no entry it writes, and read as the type "" the IDE's
+        // GUID for the type it really lists would give way to the table's below.
+        var known = list.Elements("Type").ToDictionary(
+            t => (string?)t.Attribute("n") ?? throw Refuse("the archive's TypeList holds an entry with no type name"),
+            t => t.Value, StringComparer.Ordinal);
         var entries = TcArchiveWriter.TypeNames(impl).Select(name =>
             new XElement("Type", new XAttribute("n", name),
                 known.TryGetValue(name, out var guid) ? guid
@@ -449,7 +453,7 @@ internal static class TcNetworkWriter
         // nobody had edited. The surveyed real project carries 846 negations and 246 sets.
         // A NEGATED EMPTY SLOT (`x := NOT ;`, 2R.5 #6a) is measured on CODESYS only: written here it would be a flagged
         // terminator no TwinCAT edit has stored (gate 2R.5). One the IDE holds is kept; one the push makes is refused.
-        if (n is Terminator { Flags.IsNone: false } && (type != "BoxTreeTerminator" || TcArchive.Bits(n.Flags) != TcArchive.FlagBits(e)))
+        if (n is Terminator { Flags.IsNone: false } && (type != "BoxTreeTerminator" || TcArchive.Bits(n.Flags) != TcArchive.RequireFlagBits(e, "a terminator")))
             throw TcUnmeasured.InPlace("a negated empty slot");
 
         var changed = type == "BoxTreeOperand" ? false : WriteFlags(e, n.Flags);
@@ -506,7 +510,7 @@ internal static class TcNetworkWriter
                 // nobody retyped was refused, and on the push path that refusal discards the network to
                 // `RebuildNetwork`, regenerating the very ids this writer exists to preserve. The spelling is no fact
                 // of the text, so the archive keeps its own.
-                var was = TcArchive.Str(e, "BoxType") ?? "";
+                var was = TcNetworkReader.BoxType(e);
                 var namesThisBox = Volt.Engine.Format.St.StDeclaration.SameType(was, b.Type);
                 if (!namesThisBox)
                     throw Refuse($"a box changes from '{was}' to '{b.Type}'");
@@ -569,7 +573,7 @@ internal static class TcNetworkWriter
                     // Tolerating it writes NOTHING to that line: the model fills the first N and the blank is
                     // left exactly as the IDE wrote it.
                     var trailingBlank = lines.Count == want.Length + 1 &&
-                                        string.IsNullOrEmpty(TcArchive.Str(lines[lines.Count - 1], "Text"));
+                                        TcArchive.RequireText(lines[lines.Count - 1], "Text", "an Execute box's ST line").Length == 0;
                     if (lines.Count != want.Length && !trailingBlank)
                         throw Refuse($"the ST inside Execute box '{b.Type}' changes from {lines.Count} to " +
                                      $"{want.Length} line(s); Volt edits an existing line but cannot add or " +
@@ -877,7 +881,14 @@ internal static class TcNetworkWriter
         var changed = false;
         for (int i = enSlot; i < slots.Count; i++)
         {
-            var want = b.Inputs[i - enSlot].Formal ?? "";
+            // A pin the text leaves POSITIONAL keeps the slot the IDE wrote unnamed, and a slot the IDE NAMES is refused
+            // (the all-positional rule above): written `Formal ?? ""`, a push naming one pin blanked the IDE's name of the next.
+            if (b.Inputs[i - enSlot].Formal is not { } want)
+            {
+                if (slots[i].Value.Length != 0)
+                    throw Refuse($"box '{b.Type}' names its pin '{slots[i].Value}', which the text leaves positional");
+                continue;
+            }
             if (slots[i].Value == want) continue;
             slots[i].Value = want;
             changed = true;
@@ -911,8 +922,9 @@ internal static class TcNetworkWriter
         var writes = new List<(XElement Flags, int Next)>();
         for (int i = 0; i < items.Count; i++)
         {
-            var flags = TcArchive.Obj(items[i], "Flags");
-            var now = flags is null ? 0 : TcArchive.Int(flags, "Flags");
+            // Every target holds its Flags (the reader requires them, TcNetworkReader.Targets), so none is no "0".
+            var flags = TcArchive.RequireObj(items[i], "Flags", "an assignment target");
+            var now = TcArchive.RequireInt(flags, "Flags", "an assignment target's Flags");
             int desired;
             if (plainReturn) desired = now & TcArchive.FlagReturn;
             else
@@ -923,11 +935,6 @@ internal static class TcNetworkWriter
                         | (f.Jump || (lone && a.Flags.Jump) ? TcArchive.FlagJump : 0)
                         | (f.Return || (lone && a.Flags.Return) ? TcArchive.FlagReturn : 0)
                         | (f.Rising ? TcArchive.FlagRtrig : 0) | (f.Falling ? TcArchive.FlagFtrig : 0);
-            }
-            if (flags == null)
-            {
-                if (desired != 0) throw Refuse("a coil's target carries no flags");
-                continue;
             }
             var next = (now & ~managed) | desired;
             if (next != now) writes.Add((flags, next));
@@ -1029,30 +1036,42 @@ internal static class TcNetworkWriter
     /// <summary>Like <see cref="SetString"/>, but a difference in TRAILING WHITESPACE alone is not a change —
     /// the IDE's copy carries the engineer's newline and the model's does not (see the call site).</summary>
     private static bool SetText(XElement owner, string name, string? text) =>
-        (TcArchive.Str(owner, name) ?? "").TrimEnd() == (text ?? "").TrimEnd()
+        TcArchive.RequireText(owner, name, What(owner)).TrimEnd() == (text ?? "").TrimEnd()
             ? false
             : SetString(owner, name, text);
 
     /// <summary>A title or comment, compared EXACTLY (2R.2 S: the model holds them as the IDE stores them).</summary>
     private static bool SetExact(XElement owner, string name, string? text) =>
-        string.Equals(TcArchive.Str(owner, name) ?? "", text ?? "", StringComparison.Ordinal) ? false : SetString(owner, name, text);
+        string.Equals(TcArchive.RequireText(owner, name, What(owner)), text ?? "", StringComparison.Ordinal) ? false : SetString(owner, name, text);
 
     /// <summary>The comment, compared as the reader reads it (<see cref="TcNetworkReader.Comment"/>): the archive's
     /// parsed LF is the IDE's CR LF, so an unchanged comment writes nothing.</summary>
     private static bool SetComment(XElement net, string? text) =>
-        string.Equals(TcNetworkReader.Comment(TcArchive.Str(net, "Comment")) ?? "", text ?? "", StringComparison.Ordinal)
+        string.Equals(TcNetworkReader.Comment(TcArchive.RequireText(net, "Comment", "a network")) ?? "", text ?? "", StringComparison.Ordinal)
             ? false
             : SetString(net, "Comment", text);
 
-    private static bool SetString(XElement owner, string name, string? text) =>
-        Set(owner, name, "\"" + (text ?? "") + "\"", "\"" + (TcArchive.Str(owner, name) ?? "") + "\"");
+    /// <summary>A string member, written quoted as TwinCAT writes one. The model's null is the stored <c>""</c> (a network
+    /// with no title, an operand with no type: <c>""</c> on every one TwinCAT wrote that has none). A member the IDE holds as
+    /// the explicit null is left so while the model states nothing there, and refused where it states a value — that
+    /// would turn the null into a scalar this writer has never seen the IDE hold there.</summary>
+    private static bool SetString(XElement owner, string name, string? text)
+    {
+        var stored = TcArchive.RequireRaw(owner, name, What(owner));
+        if (stored is null)
+            return string.IsNullOrEmpty(text) ? false
+                : throw Refuse($"'{name}' of a '{TcArchive.TypeOf(owner) ?? "?"}' is null in the archive, and the text gives it '{text}'");
+        return Set(owner, name, "\"" + (text ?? "") + "\"", stored);
+    }
+
+    private static string What(XElement owner) => $"a '{TcArchive.TypeOf(owner) ?? "?"}'";
 
     private static bool SetBool(XElement owner, string name, bool b) =>
-        Set(owner, name, b ? "true" : "false", TcArchive.Bool(owner, name) ? "true" : "false");
+        Set(owner, name, b ? "true" : "false", TcArchive.RequireBool(owner, name, What(owner)) ? "true" : "false");
 
     private static bool SetInt(XElement owner, string name, int i) =>
         Set(owner, name, i.ToString(CultureInfo.InvariantCulture),
-            TcArchive.Int(owner, name).ToString(CultureInfo.InvariantCulture));
+            TcArchive.RequireInt(owner, name, What(owner)).ToString(CultureInfo.InvariantCulture));
 
     /// <summary>The 3S type guid for <c>BoxTreeTerminator</c>, as every real archive that holds one writes it.
     /// A body Volt created has no terminator and therefore no <c>TypeList</c> entry for one, so the swap adds
@@ -1066,8 +1085,7 @@ internal static class TcNetworkWriter
     /// TwinCAT stores and then cannot load (openspec twincat-inproc-host, attempt 1: a <c>cet</c> on a mixed list).</para></summary>
     private static bool SwapToTerminator(XElement e, Flags? flags)
     {
-        var id = TcArchive.Int(e, "Id");
-        if (id == 0) throw Refuse("an item becomes unconnected but carries no id to keep");
+        var id = TcArchive.RequireInt(e, "Id", "an item that becomes unconnected (its id is kept)");
 
         e.SetAttributeValue("t", "BoxTreeTerminator");
         e.RemoveNodes();
