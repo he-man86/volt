@@ -126,6 +126,37 @@ public class TcUnansweredValueTests
         finally { Directory.Delete(dir, recursive: true); }
     }
 
+    /// <summary>Every <c>&lt;Property&gt;</c> TwinCAT saves in a <c>.TcIO</c> / <c>.TcPOU</c> carries a <c>Name</c>
+    /// attribute (every recording: <c>ITF1.TcIO</c>, <c>MembersSt.TcPOU</c>, <c>MembersHidden.TcPOU</c>). A nameless one was
+    /// SKIPPED, so its accessors were later reported "not in the saved file — save the project", a remedy that cannot help.
+    /// Refused at the element, by name.</summary>
+    [Fact]
+    public void An_interface_property_saved_with_no_Name_is_refused_at_the_element()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "volt-tc-unanswered-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var file = Path.Combine(dir, "I_X.TcIO");
+            File.WriteAllText(file, "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<TcPlcObject Version=\"1.1.0.1\">\n" +
+                                    "  <Itf Name=\"I_X\" Id=\"{00000000-0000-0000-0000-000000000001}\">\n" +
+                                    "    <Property Id=\"{00000000-0000-0000-0000-000000000002}\"><Get Name=\"Get\"><Declaration><![CDATA[]]></Declaration></Get></Property>\n" +
+                                    "  </Itf>\n</TcPlcObject>\n");
+            var node = new Answers
+            {
+                Xml = "<TreeItem><VSProperties>" + TcExclusionTests.Advanced("False") +
+                      $"<VSProperty category=\"Misc\" readonly=\"true\"><Name>FullPath</Name><Value>{file}</Value></VSProperty>" +
+                      "</VSProperties></TreeItem>",
+            };
+            var ex = Assert.Throws<BridgeException>(() => new TcObjectModel().SavedFacts(node, () => "'I_X'"));
+            Assert.Equal(BridgeErrorCodes.Unreadable, ex.ErrorCode);
+            Assert.Contains("'I_X'", ex.Message);
+            Assert.Contains("no Name", ex.Message);
+            Assert.Contains("I_X.TcIO", ex.Message);
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
     /// <summary>Every library in the signature document states its name, version and distributor (DIALECT D27) — the
     /// three parts its resolution joins a signature to its <c>.library</c> by. One missing is refused by name, never
     /// joined by an empty part.</summary>

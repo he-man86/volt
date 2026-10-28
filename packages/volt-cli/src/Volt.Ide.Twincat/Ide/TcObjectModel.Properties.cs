@@ -221,8 +221,16 @@ internal sealed partial class TcObjectModel
             .Where(c => c.Length > 0).Distinct().ToList();
         var accessors = new Dictionary<string, (string?, string?)>(StringComparer.OrdinalIgnoreCase);
         if (obj.Name.LocalName == "Itf")
-            foreach (var p in obj.Descendants().Where(e => e.Name.LocalName == "Property" && e.Attribute("Name") is not null))
-                accessors[(string)p.Attribute("Name")!] = (StoredDeclaration(p, "Get", what), StoredDeclaration(p, "Set", what));
+            foreach (var p in obj.Descendants().Where(e => e.Name.LocalName == "Property"))
+                // Every `<Property>` TwinCAT saves carries a Name (every recording: ITF1.TcIO, MembersSt/MembersHidden.TcPOU).
+                // A nameless one is refused HERE: skipped, its accessors read as "not in the saved file" with a save remedy
+                // that cannot help.
+                accessors[(string?)p.Attribute("Name") is { Length: > 0 } name ? name
+                    : throw new BridgeException(BridgeErrorCodes.Unreadable,
+                        $"{what()}: its saved file '{Path.GetFileName(path)}' holds a <Property> with no Name — TwinCAT names " +
+                        "every property it saves, so the interface is not pulled rather than pulled without that property's " +
+                        "accessors.")]
+                    = (StoredDeclaration(p, "Get", what), StoredDeclaration(p, "Set", what));
         return new TcSavedFacts(path!, special, classes, accessors, build);
     }
 
