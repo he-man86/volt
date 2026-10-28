@@ -105,7 +105,7 @@ public class PushConflict
     /// <summary><c>true</c> when the live IDE refused this op AFTER part of it landed, and that part stays in the project:
     /// an update's declaration or a member it deleted, created or moved, part of a task's settings, a move+edit's text, a
     /// folder a create or a move made, a native rename that ran first (<see cref="RenamedTo"/>), the delete before a
-    /// forced replace, a create whose rollback failed (<see cref="Remains"/>). <b>Absent</b> when nothing of the op stays — never <c>false</c>. A client re-reads the
+    /// forced replace, a delete the IDE ran before the check that it took faulted, a create whose rollback failed (<see cref="Remains"/>). <b>Absent</b> when nothing of the op stays — never <c>false</c>. A client re-reads the
     /// item before retrying exactly when this is set; re-sending the op unchanged is wrong then (its name may be gone,
     /// its version is stale). <see cref="Reason"/> says WHAT stays, in words (openspec <c>push-keeps-what-landed</c>);
     /// this is the same fact as a field, so a caller never parses the prose (openspec

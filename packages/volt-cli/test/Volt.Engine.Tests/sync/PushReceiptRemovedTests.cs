@@ -139,6 +139,8 @@ public class PushReceiptRemovedTests
         var c = Assert.Single(res.Conflicts!);
         Assert.Equal(("F/A.pou", ConflictCodes.ItemUnverified), (c.Name, c.Code));
         Assert.True(c.PartiallyApplied);
+        // The reason names the ITEM by its path, never a bare name (an item is always its full path on the wire).
+        Assert.Contains("the IDE ran the delete of 'F/A.pou' before the check faulted, so it may be gone", c.Reason);
         Assert.NotNull(res.NewProjectVersion);
         Assert.Equal(new[] { "F/A.pou" }, res.Removed);
         Assert.DoesNotContain("F/A.pou", res.NewItems!.Keys);

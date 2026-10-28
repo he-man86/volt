@@ -662,7 +662,7 @@ public static class PushService
         /// recorded as each is made. A rollback removes the item, not them, so they stay — as a refused move's do
         /// (<c>RecordMoveKept</c>).</summary>
         public readonly List<string> FoldersCreated = new();
-        /// <summary>The IDE answered this op's DELETE and the check that it took could not read the folder
+        /// <summary>The PATH of the item whose DELETE the IDE answered when the check that it took could not read the folder
         /// (<c>RequireDeleted</c>): the item may be gone, so the op is not "nothing stays" — the receipt walk decides.</summary>
         public string? DeleteRan;
 
@@ -712,7 +712,7 @@ public static class PushService
         if (outcome?.Replaced is { } replaced)
             reason += $" — the IDE's '{replaced}' was deleted before it, to be replaced, and stays deleted";
         if (outcome?.DeleteRan is { } ran)
-            reason += $" — the IDE ran the delete of '{ran}' before it, so it may be gone";
+            reason += $" — the IDE ran the delete of '{ran}' before the check faulted, so it may be gone";
         foreach (var folder in outcome?.FoldersCreated ?? new List<string>())
             reason += $" — the folder '{folder}' was created before it and stays";
         var stale = ex as StaleItemVersionException;
@@ -973,7 +973,7 @@ public static class PushService
         try { (item, untouchable) = TreeLookup.Locate(link, path); }
         catch
         {
-            outcome.DeleteRan = ItemPath.BareOf(path);
+            outcome.DeleteRan = path;
             throw;
         }
         if (item is not null || untouchable is not null)

@@ -9,6 +9,9 @@ plain and the unopened-item arm), `PushService.RequireDeleted` looks the path up
 item is still there, read or not, the IDE broke a post-condition of the apply. The push stops there like any
 apply-time refusal: the op is not landed, every later op is `NOT_ATTEMPTED`, there is no `partiallyApplied`, and the
 path is in neither `removed` nor `newItems`. Ops before it keep their own landed outcome.
+The one exception is a look-up that FAULTS after the IDE ran the delete (a sibling whose read faults): that
+refusal (`ITEM_UNVERIFIED`) is `partiallyApplied`, its reason names the path whose delete ran, and the receipt walk
+decides whether that path is in `removed`.
 
 Why: the CLI already handles an apply-time conflict as a partial push. It keeps the file in `volt/ide` and the delete
 outgoing, so the next push tries it again and the user sees the refusal by name. `IDE_LOST_ITEM` already means "the IDE

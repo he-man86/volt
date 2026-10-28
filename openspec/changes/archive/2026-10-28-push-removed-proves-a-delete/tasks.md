@@ -69,3 +69,24 @@
   `bun run typecheck` clean. The two IDE suites ran in a clean worktree of HEAD + this step's diff: in the shared tree they
   do not compile because of another lane's untracked `Scratch*.cs` census probes (CS0104 `Parallel` ambiguous), not this
   change's paths. No fixture, LSP or transpiler change, so no fixture-map regeneration and no LSP suite.
+
+## 3. Close (2026-10-28)
+
+- [x] 3.1 Final review, SPEC and LAYERING lenses over the whole change. LAYERING: clean — `RequireDeleted` sits in
+      `Volt.Engine/Sync` and looks up through the vendor-blind `TreeLookup`; `FakeIde` stays in `test/shared`; the wire
+      change is doc text in `Volt.Contracts`. SPEC: one finding, fixed test-first — the 1b refusal's reason named the
+      item by its BARE name (`ItemPath.BareOf`), while an item is always its full path on the wire. Red first
+      (`A_delete_whose_check_faults_on_a_sibling_is_partially_applied_and_the_receipt_proves_the_removal` asserts the
+      reason "the IDE ran the delete of 'F/A.pou' before the check faulted, so it may be gone"), green after
+      `OpOutcome.DeleteRan` carries the path. `PushConflict.PartiallyApplied`'s summary now lists that case, and
+      design.md states the faulting-check exception (it read "no `partiallyApplied`" without it).
+- [x] 3.2 Numbers (HEAD + this step, clean worktree — the shared tree's untracked `Scratch*.cs` probes are another
+      lane's): Volt.Engine.Tests 2444 pass / 1 skip, Volt.Cli.Tests 378/378, Volt.Contracts.Tests 56/56,
+      Volt.Connector.Tests 156/156, Volt.Ide.Twincat.Tests 784/784, Volt.Ide.Codesys.Tests 535/535, Volt.Repo.Gates
+      276/276, `bun run typecheck` clean. LSP full suite COLD (`VOLT_RUSTC_CACHE=0 VOLT_REQUIRE_FULL=1`): first run
+      10184 pass / 53 fail, every fail `transpile-replay` linking with LNK1201/LNK1318 (PDB write) on a 100%-full C:
+      (4.5 GB free); after freeing space `transpile-replay.test.ts` alone cold 6309/6309, then the full suite re-run
+      cold: see 3.3.
+- [x] 3.3 LSP full suite re-run COLD (`VOLT_RUSTC_CACHE=0 VOLT_REQUIRE_FULL=1`, no `VOLT_FIXTURES`): 10237 pass / 36 skip /
+      431 todo / 0 fail, 10704 tests across 365 files (951 s). No fixture, LSP or transpiler change in this change, so no
+      fixture-map regeneration.
