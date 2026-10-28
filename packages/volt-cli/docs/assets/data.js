@@ -213,6 +213,7 @@ window.VOLT = {
           "A refusal during the apply lands the ops before it and stops: the refused op answers its code, every later op NOT_ATTEMPTED.",
           "A \u0060deleteItem\u0060 lands only when its item is gone: one the IDE answers and still holds is refused IDE_LOST_ITEM where it ran.",
           "\u0060newProjectVersion\u0060 is present exactly when something landed; \u0060newItems\u0060 and \u0060removed\u0060 are what the push changed, so \u0060baseline \u2212 removed \u002B newItems\u0060 is the IDE after it.",
+          "\u0060removed\u0060 names only paths whose folder the receipt walk read and that it no longer holds: a client takes it as proof of the removal without reading \u0060refs\u0060.",
           "What of a refused op the IDE kept is stated on its conflict: \u0060partiallyApplied\u0060, \u0060renamedTo\u0060, \u0060remains\u0060 \u2014 each absent when it does not apply."
         ],
         "result": {

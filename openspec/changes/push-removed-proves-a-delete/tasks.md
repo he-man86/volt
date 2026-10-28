@@ -49,4 +49,23 @@
 
 ## 2. Docs
 
-- [ ] 2.1 `push` outcome sentence: `removed` names only paths the receipt walk read and no longer holds.
+- [x] 2.1 `push` outcome sentence: `removed` names only paths whose folder the receipt walk read and that it no longer
+      holds.
+      Outcome line added in `DocDataTests` (push), `PushResponse.Removed` summary says the same; `data.js` and
+      `volt-bridge.openrpc.json` regenerated (`VOLT_WRITE_DOCS=1`); wire shape re-pinned without a bump (outcome text
+      only). Numbers: Volt.Engine.Tests 2444 pass / 1 skip, Volt.Repo.Gates 276/276, Volt.Contracts.Tests 56/56.
+
+### Gate 2 (2026-10-28)
+
+- [x] Review finding (low, the outcome sentence read "paths the receipt walk read and no longer holds" — the walk cannot
+      have read a path it no longer holds): fixed. The condition is on the FOLDER (`Receipt` → `Gone`: held before, folder
+      not under a receipt `unwalkedFolders` entry, not held now), as the spec delta says. Reworded to "`removed` names only
+      paths whose folder the receipt walk read and that it no longer holds" in the `DocDataTests` push outcome, the
+      `PushResponse.Removed` summary and the pin comment; `data.js` / `volt-bridge.openrpc.json` regenerated. Red first —
+      `The_committed_doc_data_is_what_the_code_generates` and `The_wire_shape_is_pinned_beside_its_protocol_number` failed
+      on the new sentence; re-pinned without a bump (outcome text only, no member added, removed or re-meant; protocol 1).
+- Numbers: Volt.Engine.Tests 2444 pass / 1 skip, Volt.Cli.Tests 378/378, Volt.Contracts.Tests 56/56,
+  Volt.Connector.Tests 156/156, Volt.Ide.Twincat.Tests 784/784, Volt.Ide.Codesys.Tests 535/535, Volt.Repo.Gates 276/276,
+  `bun run typecheck` clean. The two IDE suites ran in a clean worktree of HEAD + this step's diff: in the shared tree they
+  do not compile because of another lane's untracked `Scratch*.cs` census probes (CS0104 `Parallel` ambiguous), not this
+  change's paths. No fixture, LSP or transpiler change, so no fixture-map regeneration and no LSP suite.

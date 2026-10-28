@@ -156,6 +156,8 @@ public class PushResponse
 
     /// <summary>Every path the push made disappear: a landed delete, the old path of a landed rename or move, and what of
     /// a refused op is gone (the old path of a rename that stays, an item a forced replace deleted). Always present.
+    /// It names only paths whose folder the receipt walk read and that it no longer holds, so a client takes it as
+    /// proof of the removal.
     /// A baseline updated as <c>baseline − removed + newItems</c> is the IDE's state for every item the push named.</summary>
     [JsonPropertyName("removed")]
     public List<string> Removed { get; set; } = new();

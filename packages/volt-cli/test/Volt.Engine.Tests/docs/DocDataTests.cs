@@ -142,6 +142,8 @@ public class DocDataTests
             + "where it ran.",
             "`newProjectVersion` is present exactly when something landed; `newItems` and `removed` are what the push "
             + "changed, so `baseline − removed + newItems` is the IDE after it.",
+            "`removed` names only paths whose folder the receipt walk read and that it no longer holds: a client takes "
+            + "it as proof of the removal without reading `refs`.",
             "What of a refused op the IDE kept is stated on its conflict: `partiallyApplied`, `renamedTo`, `remains` — each "
             + "absent when it does not apply.",
         }),
@@ -1046,8 +1048,11 @@ public class DocDataTests
     // network-text-st 3.2 re-pinned without a bump: the four NETWORK_* codes of the deleted v2 reader left the vocabulary;
     // no bridge a peer meets raises them (LD and FBD are behind NetworkTextSwitch, off in every shipped build), so no old
     // peer reads a different meaning.
+    // push-removed-proves-a-delete 2.1 re-pinned without a bump: one push outcome sentence states what `removed` already
+    // meant since 1a (only paths whose folder the receipt walk read and that it no longer holds); no member added,
+    // removed or re-meant.
     private const int PinnedProtocol = 1;
-    private const string PinnedWireShape = "67d17e4585f86b0ee20321fce2e43ee390f55676364b3e45ef0ae206ce79244b";
+    private const string PinnedWireShape = "19bb73710389d1011a695d140b3aef787351456c6007fda4a8988fec5cf781ef";
 
     /// <summary>The document names the protocol it describes, and <c>health</c> states it: every bridge writes
     /// <c>protocol</c>, so the schema requires it (C# reads it as <c>int?</c> only so the connector can still read a bridge
