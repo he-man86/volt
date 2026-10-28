@@ -149,6 +149,8 @@ namespace Volt.Ide.Codesys
 
         internal static void WriteNetwork(object impl, object net, Network model, BodyLanguage language, NetworkScope scope)
         {
+            // an FB box holds every input its declaration names, the unconnected ones as an empty operand
+            model = NetworkDerivation.WithLeftOutPins(model, scope);
             SetIfChanged(net, "Title", model.Title ?? "");
             SetIfChanged(net, "Label", model.Label ?? "");
             SetIfChanged(net, "Comment", model.Comment ?? "");

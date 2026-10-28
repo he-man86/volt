@@ -15,14 +15,24 @@ public static class NetworkDerivation
     /// given its derived input names (<see cref="WithCallee"/>) — what the push builds, on either vendor, and so what the
     /// next pull shows. A body with nothing to derive comes back as it is.</summary>
     public static NetworkBody Derive(NetworkBody body, NetworkScope scope) =>
-        Derive(body, b => WithLeftOutPins(WithOutputSlot(b.Instance is null && b.StCode is null && scope.Callee(b.Type) is { } callee ? WithCallee(b, callee) : b, scope), scope));
+        Derive(body, b => WithOutputSlot(b.Instance is null && b.StCode is null && scope.Callee(b.Type) is { } callee ? WithCallee(b, callee) : b, scope));
+
+    /// <summary><paramref name="network"/> with every FB box's left-out inputs restored (<see cref="WithLeftOutPins(Box, NetworkScope)"/>)
+    /// — CODESYS's box, which holds an unconnected pin as an empty operand (its writer builds a box so). TwinCAT holds an
+    /// empty operand as the rail, so its writer builds the box as the text states it.</summary>
+    public static Network WithLeftOutPins(Network network, NetworkScope scope)
+    {
+        var body = new NetworkBody(BodyLanguage.Fbd, new[] { network });
+        var derived = Derive(body, b => WithLeftOutPins(b, scope));
+        return ReferenceEquals(derived, body) ? network : derived.Networks[0];
+    }
 
     /// <summary>
     /// <paramref name="box"/> with the inputs its text leaves out restored, unconnected (an empty operand), in its type's
-    /// declaration order: an FB box the editor draws holds every input its declaration names, the unconnected ones too,
-    /// and a pin left out of the call runs as that unconnected pin (measured, network-text-st design "2.1"). Only where
-    /// every pin the text names is a declared input in the declaration's order; any other box is returned as it is (the
-    /// build names a pin the FB does not declare).
+    /// declaration order: an FB box the CODESYS editor draws holds every input its declaration names, the unconnected ones
+    /// too, and a pin left out of the call runs as that unconnected pin (measured, network-text-st design "2.1"). Only
+    /// where every pin the text names is a declared input in the declaration's order; any other box is returned as it is
+    /// (the build names a pin the FB does not declare).
     /// </summary>
     private static Box WithLeftOutPins(Box box, NetworkScope scope)
     {

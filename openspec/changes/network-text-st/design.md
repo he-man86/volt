@@ -530,8 +530,9 @@ coils, negated/edge coils) left the push suite: the first wait on the owner (3.0
 v2 is gone: the C# reader, lexer, writer, gate and shape validator, the v2 case set (`test/fixtures/network-text`), and
 the LSP's network parser, typer, checks and services. An LD/FBD body is read by the ST parser on both sides; the LSP's
 outline and folds come from the `%NETWORK` lines, semantic tokens colour the `%` keys and the wires, and references,
-rename and hover are ST's. A rebuild restores the FB pins the text left out, unconnected, in declaration order
-(`NetworkDerivation.WithLeftOutPins`). The writer refuses by name a box read at a slot that is not its value's and shows
+rename and hover are ST's. CODESYS's writer builds an FB box with the pins the text left out, unconnected, in
+declaration order, as its editor draws one (`NetworkDerivation.WithLeftOutPins`); TwinCAT holds an empty operand as the
+rail, so it builds the box as stated (the release matrix found `t1();` pulled back as `t1(IN := TRUE, PT := TRUE);`). The writer refuses by name a box read at a slot that is not its value's and shows
 no ENO (`a box read by an unstated slot`, found by the doubles oracle).
 
 The LSP conformance fixtures written in v2 (96) were respelled from the v2 model by the writer and re-recorded live

@@ -24,12 +24,13 @@ public class CalleeDerivationTests
     const string Split = "FUNCTION F_split : INT\nVAR_INPUT\n\tsource : INT;\nEND_VAR\nVAR_IN_OUT\n\tacc : INT;\nEND_VAR\n" +
                          "VAR_INPUT\n\tscale : INT;\nEND_VAR\nVAR_OUTPUT\n\tdoubled : INT;\nEND_VAR\nVAR\n\tlocal : INT;\nEND_VAR";
     const string Block = "FUNCTION_BLOCK FB_Motor\nVAR_INPUT\n\trun : BOOL;\nEND_VAR";
+    const string TwoPins = "FUNCTION_BLOCK FB_Two\nVAR_INPUT\n\ta : BOOL;\n\tb : BOOL;\nEND_VAR";
     const string Prog = "PROGRAM P_Main\nVAR_INPUT\n\tgo : BOOL;\nEND_VAR";
     const string Commented = "(* FUNCTION_BLOCK no *)\n// PROGRAM no\nFUNCTION {attribute 'x'} F_c : BOOL\nVAR_INPUT\n\ta, b : BOOL; // c : BOOL;\nEND_VAR";
 
     static readonly Dictionary<string, string> Items = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["AwF"] = AwF, ["F_split"] = Split, ["FB_Motor"] = Block, ["P_Main"] = Prog, ["F_c"] = Commented,
+        ["AwF"] = AwF, ["F_split"] = Split, ["FB_Motor"] = Block, ["P_Main"] = Prog, ["F_c"] = Commented, ["FB_Two"] = TwoPins,
     };
 
     static NetworkScope Scope(string? own = "VAR\n\tm : FB_Motor;\n\ty : INT;\nEND_VAR") =>
@@ -284,6 +285,22 @@ public class CalleeDerivationTests
         Assert.Contains("y := AwF(i := v);", gate.Canonical);
         var box = (Box)((Assign)gate.Body!.Networks[0].Trees[0]).Value;
         Assert.Equal(new[] { "i" }, box.Inputs.Select(i => i.Formal));
+    }
+
+    /// <summary>A pin the text leaves out of an FB call: the push's derivation keeps the box as stated — TwinCAT builds it
+    /// so, an empty operand being its rail — and CODESYS's writer restores it unconnected in the declaration's order, as
+    /// its editor draws the box (found by the release matrix: TwinCAT pulled `t1();` back as `t1(IN := TRUE, PT := TRUE);`).</summary>
+    [Fact]
+    public void A_left_out_FB_pin_is_kept_out_by_the_push_and_restored_unconnected_for_CODESYS()
+    {
+        var scope = Scope("VAR\n\tt2 : FB_Two;\nEND_VAR");
+        var gate = StNetworkGate.Validate(Body("t2(b := TRUE);"), scope);
+        Assert.True(gate.Ok);
+        var network = gate.Body!.Networks[0];
+        Assert.Equal(new[] { "b" }, ((Box)network.Trees[0]).Inputs.Select(i => i.Formal));
+        var restored = (Box)NetworkDerivation.WithLeftOutPins(network, scope).Trees[0];
+        Assert.Equal(new[] { "a", "b" }, restored.Inputs.Select(i => i.Formal));
+        Assert.Equal("", ((Leaf)restored.Inputs[0].Value).Operand.Text);
     }
 
     /// <summary>A body with no callee to derive is the body read, the same object.</summary>

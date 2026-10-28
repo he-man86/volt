@@ -381,4 +381,13 @@ switch and vendor-reader wiring, test updates) is kept: continue it, change only
   named niche exceptions (X3/X9 implicit variables). The recorder drops TwinCAT's failed-build closing line. Numbers:
   C# Engine 2437 pass / 1 skip, Codesys 523, Twincat 729, Cli 377, Connector 156, Contracts 56, Repo.Gates 276; LSP
   10237 pass / 0 fail (10704 tests); volt-cli unit 235; volt-vscode 34; typecheck, lint, `bun run check` 16/16 green.
-- [ ] 3.3 Close: cold full suites, the release matrix, archive.
+- [x] 3.3 Close: cold full suites, the release matrix, archive.
+
+  Done 2026-10-28: LSP cold (`VOLT_RUSTC_CACHE=0 VOLT_REQUIRE_FULL=1`) 10237 pass / 36 skip / 431 todo / 0 fail (10704
+  tests). Release matrix, the small one (owner, 2026-10-23: latest CODESYS + TwinCAT): codesys-3.5.22.40-64 558 pass /
+  82 skip, transcript identical; twincat-32 first RED — 2 e2e fails (`t1();` and `fbs[1](…)` pulled back with their
+  left-out pins as `TRUE`: the push's derivation restored left-out FB pins as empty operands, which TwinCAT holds as
+  the rail) and its transcript still the v2 text of its two LD items. Fixed: the restoration moved to CODESYS's writer
+  (`NetworkDerivation.WithLeftOutPins` per network, pinned in `CalleeDerivationTests`); the transcripts re-recorded
+  (`--record-transcripts`: CODESYS unchanged, TwinCAT only the two LD items' text and the hashes over them); both cells
+  then GREEN (CODESYS 558 / 82, TwinCAT 557 / 86). C# after the fix: Engine 2438 pass / 1 skip, Codesys 523, Twincat 754.
