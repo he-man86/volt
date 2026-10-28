@@ -14,10 +14,9 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     3169
+ *     confirmed     3176
  *     refused       2214
  *     not-lowered    388
- *     unasked          7
  *     lsp-gap         90
  *     diverges         5
  *     unaskable      145
@@ -2390,8 +2389,8 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   lex_enum_value_dt: { evidence: "refused" },
   lex_enum_value_dword: { evidence: "refused" },
   lex_enum_value_final: { evidence: "refused" },
-  lex_enum_value_get: { evidence: "unasked", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 1.6, shape: "32c43fc226" },
-  lex_enum_value_get_default: { evidence: "unasked", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.6, shape: "32c43fc226" },
+  lex_enum_value_get: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 1.6, shape: "32c43fc226" },
+  lex_enum_value_get_default: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "32c43fc226" },
   lex_enum_value_int: { evidence: "refused" },
   lex_enum_value_internal: { evidence: "refused" },
   lex_enum_value_jmpc: { evidence: "refused" },
@@ -2408,7 +2407,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   lex_enum_value_ltod: { evidence: "refused" },
   lex_enum_value_lword: { evidence: "refused" },
   lex_enum_value_orn: { evidence: "refused" },
-  lex_enum_value_override: { evidence: "unasked", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 1.6, shape: "32c43fc226" },
+  lex_enum_value_override: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 1.6, shape: "32c43fc226" },
   lex_enum_value_private: { evidence: "refused" },
   lex_enum_value_protected: { evidence: "refused" },
   lex_enum_value_public: { evidence: "refused" },
@@ -2418,7 +2417,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   lex_enum_value_retc: { evidence: "refused" },
   lex_enum_value_retcn: { evidence: "refused" },
   lex_enum_value_s: { evidence: "refused" },
-  lex_enum_value_set: { evidence: "unasked", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 1.6, shape: "32c43fc226" },
+  lex_enum_value_set: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 1.6, shape: "32c43fc226" },
   lex_enum_value_sint: { evidence: "refused" },
   lex_enum_value_st: { evidence: "refused" },
   lex_enum_value_stn: { evidence: "refused" },
@@ -2448,7 +2447,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   lex_implicit_enum_value_dt: { evidence: "refused" },
   lex_implicit_enum_value_dword: { evidence: "refused" },
   lex_implicit_enum_value_final: { evidence: "refused" },
-  lex_implicit_enum_value_get: { evidence: "unasked", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.8, shape: "581715ad74" },
+  lex_implicit_enum_value_get: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "581715ad74" },
   lex_implicit_enum_value_int: { evidence: "refused" },
   lex_implicit_enum_value_internal: { evidence: "refused" },
   lex_implicit_enum_value_jmpc: { evidence: "refused" },
@@ -2465,7 +2464,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   lex_implicit_enum_value_ltod: { evidence: "refused" },
   lex_implicit_enum_value_lword: { evidence: "refused" },
   lex_implicit_enum_value_orn: { evidence: "refused" },
-  lex_implicit_enum_value_override: { evidence: "unasked", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.8, shape: "581715ad74" },
+  lex_implicit_enum_value_override: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "581715ad74" },
   lex_implicit_enum_value_private: { evidence: "refused" },
   lex_implicit_enum_value_protected: { evidence: "refused" },
   lex_implicit_enum_value_public: { evidence: "refused" },
@@ -2475,7 +2474,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   lex_implicit_enum_value_retc: { evidence: "refused" },
   lex_implicit_enum_value_retcn: { evidence: "refused" },
   lex_implicit_enum_value_s: { evidence: "refused" },
-  lex_implicit_enum_value_set: { evidence: "unasked", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.8, shape: "581715ad74" },
+  lex_implicit_enum_value_set: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "581715ad74" },
   lex_implicit_enum_value_sint: { evidence: "refused" },
   lex_implicit_enum_value_st: { evidence: "refused" },
   lex_implicit_enum_value_stn: { evidence: "refused" },
