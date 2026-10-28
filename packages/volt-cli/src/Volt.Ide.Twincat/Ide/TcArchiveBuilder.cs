@@ -97,6 +97,8 @@ internal sealed class TcArchiveBuilder
             Raw("FBDValid", "false"),
             Raw("ILValid", "false"),
             List("ILLines", Array.Empty<(string, XElement)>()),
+            // The model's null is the "" every vendor network without one stores (578 of 578,
+            // A_null_header_or_symbol_comment_is_built_as_the_empty_string_every_vendor_archive_holds_for_none).
             Str("Comment", n.Comment ?? ""),
             Str("Title", n.Title ?? ""),
             Str("Label", n.Label ?? ""),
@@ -415,6 +417,9 @@ internal sealed class TcArchiveBuilder
         var id = Next();
         return new XElement("o",
             o is null ? Null("Operand") : Str("Operand", o.Text),
+            // A null type is the "" TwinCAT's importer writes (950 operands; the 13 drawn ones holding the explicit null
+            // are a stored value a rebuild resets, named by RebuildLoss's Operand.Type); a null symbol comment the "" every
+            // vendor operand holds (916 of 916, TcArchiveBuilderTests).
             Str("Type", o?.Type ?? ""),
             Str("Comment", ""),
             Str("SymbolComment", o?.Comment ?? ""),

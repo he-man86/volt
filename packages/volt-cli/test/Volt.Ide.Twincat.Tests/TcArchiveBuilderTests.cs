@@ -270,6 +270,46 @@ public sealed class TcArchiveBuilderTests(Xunit.Abstractions.ITestOutputHelper o
         Assert.True(failures.Count == 0, string.Join("\n", failures.Take(10)));
     }
 
+    /// <summary>THE BUILDER'S <c>?? ""</c> IS THE IDE'S OWN SPELLING OF "NONE", PROVED, NOT A DEFAULT (zero-fallback review
+    /// 2026-10-28). The model's null title, label, comment and operand symbol comment are built as the quoted empty string —
+    /// and every vendor network and operand whose model holds null there stores exactly <c>""</c> (no explicit null, no
+    /// absence), so null ↔ <c>""</c> is one to one and the build writes back what the IDE holds.</summary>
+    [Fact]
+    public void A_null_header_or_symbol_comment_is_built_as_the_empty_string_every_vendor_archive_holds_for_none()
+    {
+        static string? Raw(XElement owner, string name) =>
+            owner.Elements().FirstOrDefault(m => (string?)m.Attribute("n") == name) is { } m
+                ? m.Name.LocalName == "v" ? m.Value : "<" + m.Name.LocalName + ">"
+                : "(absent)";
+        int networks = 0, operands = 0;
+        foreach (var a in Vendor.Value)
+        {
+            var impl = TcArchiveWriter.ParseObject(a.Object);
+            if (Model(a) is not { } model) continue;
+            var stored = TcArchive.List(impl, "NetworkList");
+            Assert.Equal(stored.Count, model.Networks.Count);
+            for (var i = 0; i < stored.Count; i++)
+            {
+                var n = model.Networks[i];
+                var built = TcArchiveBuilder.NetworkGraph(n with { Trees = Array.Empty<Node>() }, TcText.ScopeOf(model));
+                foreach (var (name, value) in new[] { ("Title", n.Title), ("Label", n.Label), ("Comment", n.Comment) })
+                {
+                    if (value is not null) continue;
+                    Assert.Equal("\"\"", Raw(stored[i], name));
+                    Assert.Equal("\"\"", Raw(built, name));
+                    networks++;
+                }
+            }
+            foreach (var op in impl.Descendants("o").Where(o => TcArchive.TypeOf(o) == "Operand"))
+            {
+                Assert.Equal("\"\"", Raw(op, "SymbolComment"));
+                operands++;
+            }
+        }
+        output.WriteLine($"{networks} null header members, {operands} operands checked");
+        Assert.True(networks > 100 && operands > 100);
+    }
+
     /// <summary>An Execute box the text states without EN is built showing no EN: EN shown over an input list holding no EN
     /// pin read back as the "no slot of that name" marker (live, refused-shapes.test.ts "an EXECUTE box" edit).</summary>
     [Fact]
