@@ -243,3 +243,19 @@ EXECUTE(EN := go, CODE := 'IF start THEN
 END_IF');
 ok := EXECUTE(EN := go, CODE := 'count := count + 1;');
 ```
+
+## Wires: `VAR_TEMP w1 : ANY; END_VAR` at the network start (owner, 2026-10-28: "what about var section with ANY type … it should be VAR_TEMP actually")
+
+Replaces `%WIRES w1, w2`. A network's wires are declared at its start in a `VAR_TEMP … END_VAR` block, each `: ANY`: the
+type is the definition's, which the LSP infers (Volt states no type NWL does not store). One block per network, after
+the network's `%` lines and before its comment and label. A name also declared in reach is refused by name, as today.
+The exec twin declares each wire in `VAR_TEMP` with its inferred type. After this and 2.6, a network's only Volt lines
+are `%NETWORK` and `%DISABLED`.
+
+```
+%NETWORK "Start"
+VAR_TEMP w1 : ANY; END_VAR
+w1 := AND(a, b);
+x := w1;
+y := OR(w1, c);
+```
