@@ -162,6 +162,12 @@ test("a POU whose lines end in a lone CR reads as the same POU with LF (repro 5'
   expect(all(lines.join("\r"))).toEqual([])
 })
 
+// openspec lsp-field-false-positives 3: repro 3 as PLC Assist sent it — a persistent list's instance path through an
+// array element — is no syntax error (CODESYS builds it, `parse/declarations.test.ts` cites the measurement).
+test("a persistent list's instance path through an array element is no syntax error (repro 3)", () => {
+  expect(syntaxErrors("VAR_GLOBAL PERSISTENT RETAIN\n\tGVL.fbMain.afbModule[1].stPers : ST_Pers;\nEND_VAR\n%CLASS PERSISTENT\n")).toEqual([])
+})
+
 // openspec lsp-field-false-positives 4: PLC Assist saw "an IMPLEMENTATION line inside a body" on reads whose line stood
 // right after END_VAR. The line is `%LANGUAGE <LANG>` now (language-line); repro 4 re-run in today's format — the line
 // right after the last END_VAR of every body kind, several VAR sections before it — is clean through the whole pipeline.

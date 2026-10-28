@@ -202,6 +202,27 @@ test("U23 — a VAR section inside a STRUCT is refused whole, echoed as the comp
   expect(facts("VAR_EXTERNAL")).toEqual([])
 })
 
+// openspec lsp-field-false-positives 3: a persistent variable list's INSTANCE PATHS, as CODESYS's "Add all instance paths"
+// writes them — an array element on the way, one index or several (CODESYS 3.5.21.40, 2026-10-28, a single-use probe on a
+// fixture copy: a VarPersistentObject holding `GVL.fbMain.afbModule[1].stPers`, `…aafbModule[1, 2].stPers` and
+// `GVL.fbMain.fbOne.stPers` builds clean; an index out of the array's range is refused, "The constant index '5' is not
+// within the range from '1' to '2'", so the list is compiled, not skipped). The LSP said "':' expected instead of '['".
+test("an instance path in a persistent list may index an array on its way, with one index or several", () => {
+  const src =
+    "{attribute 'qualified_only'}\nVAR_GLOBAL PERSISTENT RETAIN\n" +
+    "\tGVL.fbMain.afbModule[1].stPers : ST_Pers;\n\tGVL.fbMain.aafbModule[1, 2].stPers : ST_Pers;\n" +
+    "\tGVL.fbMain.aafbModule[2,1].stPers : ST_Pers;\n\tGVL.fbMain.fbOne.stPers : ST_Pers;\nEND_VAR\n%CLASS PERSISTENT\n"
+  const r = parse(src)
+  expect(r.errors.map((e) => e.message)).toEqual([])
+  const names = (r.units[0] as GlobalVarList).varSections[0]!.decls.map((d) => d.names[0]!.text)
+  expect(names).toEqual([
+    "GVL.fbMain.afbModule[1].stPers",
+    "GVL.fbMain.aafbModule[1, 2].stPers",
+    "GVL.fbMain.aafbModule[2, 1].stPers",
+    "GVL.fbMain.fbOne.stPers",
+  ])
+})
+
 test("an operator's trailing comma in an initializer is refused at the `)`, as in a body; no value is kept", () => {
   // `expr_trailing_comma_operator_call_in_initializer` (both vendors 2026-10-02; the vendors' value
   // `MAX(MAX(SINT#1, 2), !!!'ERROR'!!!)` and its two type messages are a known divergence)

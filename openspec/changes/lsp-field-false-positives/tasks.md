@@ -9,7 +9,20 @@
   Already recorded (`cc_reserved_name_s_string`, `cc_reserved_name_r`, `cc_reserved_name_s_upper`, replayed by
   `lsp-replay.test.ts`). Added `parse-errors.test.ts` "a variable named s, S or r is refused…": repro 2's FUNCTION, its
   declaration cascade compared word for word with each recording.
-- [ ] 3 Persistent-list instance paths with indexes (repro 3).
+- [x] 3 Persistent-list instance paths with indexes (repro 3). MEASURED (CODESYS 3.5.21.40, 2026-10-28, single-use
+  runscript in an `ide.ps1 -RunScript` IDE on a fixture copy, run `lsp-field`; not kept — the recorder cannot make the
+  object, the bridge refuses a `%CLASS PERSISTENT` create): a `VarPersistentObject` (its own factory) holding every path
+  "Add all instance paths" writes — `VltP_GVL.fbMain.afbModule[1].stPers`, `…[2].stPers`, `…aafbModule[1, 1]`…`[2, 2].stPers`,
+  `VltP_GVL.fbMain.fbOne.stPers`, each `: VltP_Pers` — builds CLEAN. Controls, so the list is really compiled: an
+  index out of range "The constant index '5' is not within the range from '1' to '2'"; a wrong type "Type of mapped
+  variable is not equal to original type"; an unknown member a warning "Not used instance path …: variable is used as a
+  placeholder"; an empty list "No matching instance path in VAR_PERSISTENT list found for variable … [1, 1].stPers" (the
+  vendor spells a 2-D index `[1, 1]`). (Leaving a 2-D path out made CODESYS generate broken dummies,
+  `Dummy__…__aafbModule__1` / "Identifier expected instead of '1____'", that stayed in the object for every later build
+  of the run — so only the first build and the control lines read on top of it count; the plain-GVL questions asked
+  after it are unanswered.) Fix: a declared name reads an array element on its way (`names.ts` `readDeclaredName`: an
+  index group only where `.` and a part follow its `]`), spelled as the vendor spells it. Tests: `declarations.test.ts`
+  (1-D, 2-D, `[2,1]` → `[2, 1]`), `parse-errors.test.ts` (repro 3).
 - [ ] 4 `IMPLEMENTATION ST` after `END_VAR` (repro 4): the line is now `%LANGUAGE <LANG>` (language-line, archived 2026-10-27; the old line is refused by name). Re-run repro 4 with `%LANGUAGE ST`; the family was never reproduced, so close it if the re-run is clean.
   CLOSED, clean: re-run with `%LANGUAGE ST` right after the last END_VAR of a FUNCTION, a PROGRAM, and a FUNCTION_BLOCK with
   a METHOD, a PROPERTY's GET/SET and an ACTION, through the whole pipeline — no diagnostic. Held by `parse-errors.test.ts`

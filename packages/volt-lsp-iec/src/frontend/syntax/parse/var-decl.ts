@@ -11,7 +11,7 @@ import { addressShape } from "../literal/address.js"
 import { joinSpans } from "../span.js"
 import type { Cursor } from "./cursor.js"
 import { parseInitializer } from "./initializer.js"
-import { readQualifiedName, identFromToken, joinedName, readNameList } from "./names.js"
+import { readDeclaredName, readQualifiedName, identFromToken, readNameList } from "./names.js"
 import { parseTypeExpression } from "./type-expr.js"
 
 /**
@@ -112,10 +112,10 @@ export function parseVarDecl(c: Cursor, list: DeclList): VarDecl | DeclFailure |
     return "bad-name"
   }
   const names: Identifier[] = [
-    joinedName(readQualifiedName(c, firstName, "consume")),
+    readDeclaredName(c, firstName),
     ...readNameList(c, () => {
       const more = c.expectName()
-      return more === undefined ? undefined : joinedName(readQualifiedName(c, more, "consume"))
+      return more === undefined ? undefined : readDeclaredName(c, more)
     }),
   ]
   if (refuseNameAfterName(c)) return undefined
