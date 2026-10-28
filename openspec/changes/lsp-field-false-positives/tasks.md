@@ -11,6 +11,10 @@
   declaration cascade compared word for word with each recording.
 - [ ] 3 Persistent-list instance paths with indexes (repro 3).
 - [ ] 4 `IMPLEMENTATION ST` after `END_VAR` (repro 4): the line is now `%LANGUAGE <LANG>` (language-line, archived 2026-10-27; the old line is refused by name). Re-run repro 4 with `%LANGUAGE ST`; the family was never reproduced, so close it if the re-run is clean.
+  CLOSED, clean: re-run with `%LANGUAGE ST` right after the last END_VAR of a FUNCTION, a PROGRAM, and a FUNCTION_BLOCK with
+  a METHOD, a PROPERTY's GET/SET and an ACTION, through the whole pipeline — no diagnostic. Held by `parse-errors.test.ts`
+  "%LANGUAGE ST right after END_VAR draws nothing, on every body kind (repro 4)". The field message was the retired
+  IMPLEMENTATION line's, which the bridge no longer writes.
 - [ ] 5 Cyrillic comment left early: PLC Assist runs candidate fixes over the field text and reports back (repro 5).
 - [x] 6 Item names in messages not URI-encoded (repro 6). Root: a GVL's name (`gvlName`, the "already defined in
   '<list>'" message, the outline, `ambiguous-global`, the transpiler's qualified globals) split the RAW uri on `/`,

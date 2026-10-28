@@ -139,3 +139,20 @@ test("a variable named s, S or r is refused at its declaration as CODESYS refuse
   )
   expect(declarationCascade("cc_reserved_name_s_string")[0]).toBe("Unexpected token 's' found")
 })
+
+// openspec lsp-field-false-positives 4: PLC Assist saw "an IMPLEMENTATION line inside a body" on reads whose line stood
+// right after END_VAR. The line is `%LANGUAGE <LANG>` now (language-line); repro 4 re-run in today's format — the line
+// right after the last END_VAR of every body kind, several VAR sections before it — is clean through the whole pipeline.
+test("%LANGUAGE ST right after END_VAR draws nothing, on every body kind (repro 4)", () => {
+  const all = (src: string) => diagnose(src).map((d) => `${d.code}: ${d.message}`)
+  expect(all(`FUNCTION F_Add : INT\nVAR_INPUT\n\ta : INT;\n\tb : INT;\nEND_VAR\nVAR\n\tt : INT;\nEND_VAR\n%LANGUAGE ST\nt := a + b;\nF_Add := t;\nEND_FUNCTION`)).toEqual([])
+  expect(all(`PROGRAM PRG_A\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE ST\nn := n + 1;\nEND_PROGRAM`)).toEqual([])
+  expect(
+    all(
+      `FUNCTION_BLOCK FB_A\nVAR_INPUT\n\tstart : BOOL;\nEND_VAR\nVAR_OUTPUT\n\tlamp : BOOL;\nEND_VAR\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\nlamp := start;\nEND_FUNCTION_BLOCK\n\n` +
+        `METHOD M_Run : BOOL\nVAR_INPUT\n\tn : INT;\nEND_VAR\nVAR\n\tt : INT;\nEND_VAR\n%LANGUAGE ST\nt := n;\nM_Run := t > x;\nEND_METHOD\n\n` +
+        `PROPERTY P_X : INT\nGET\nVAR\nEND_VAR\n%LANGUAGE ST\nP_X := x;\nEND_GET\nSET\nVAR\nEND_VAR\n%LANGUAGE ST\nx := P_X;\nEND_SET\nEND_PROPERTY\n\n` +
+        `ACTION A_Reset\n%LANGUAGE ST\nx := 0;\nEND_ACTION\n`,
+    ),
+  ).toEqual([])
+})
