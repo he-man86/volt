@@ -1,5 +1,4 @@
 %LANGUAGE FBD
-NETWORK
-  t1 : TON(IN := a, PT := pt);
-  out := t1.Q;
-END_NETWORK
+%NETWORK
+t1(IN := a, PT := pt);
+out := t1.Q;

@@ -6,7 +6,7 @@
  * anyone is what it has never pushed AT ALL — and that is the shape of every bug it has missed.
  *
  * It missed one. `ladderLabel.pou`, pulled from a real TwinCAT project, is two networks: one holding a coil
- * with nothing driving it (`coil := ;`) and one holding NOTHING but a label. Pushed back into an empty
+ * with nothing driving it (`coil := TRUE;` today) and one holding NOTHING but a label. Pushed back into an empty
  * project it came back gutted — declaration gone, LD turned to FBD, both labels gone, one network gone —
  * with `volt push` reporting success (`twincat-graphical-create-loss`). Neither shape appears anywhere in
  * `test/e2e`, so 175 passing tests on both vendors said nothing about either.
@@ -51,38 +51,37 @@ const line = (rest: string): RegExp => new RegExp(AT_LINE + rest, 'm')
  * reported apart.
  */
 const CONSTRUCTS: { name: string; where: string; match: RegExp; archive?: RegExp }[] = [
-	{ name: "split (split<VarId> := …)", where: "#split", match: /\bsplit\d+\s*:=/ },
-	{ name: "coil (lvalue := operand)", where: "#assign", match: line("\\w[\\w.]*\\s*:=\\s*[^;\\s]") },
-	{ name: "chained assign (x := y S= v)", where: "#assign", match: /:=(\s|\\n)+\w[\w.]*\s*(:=|S=|R=)/ },
-	{ name: "operator word", where: "#group", match: /\w\s+(AND|OR|XOR|ADD|MUL|SUB|DIV|MOD|GT|GE|EQ|NE|LE|LT)\s+\w/ },
-	{ name: "function call", where: "#fb", match: /:=\s*[A-Z_]\w*\(/ },
-	{ name: "FB instance call", where: "#fb", match: /\b\w+\((\w+\s*:=|\s*\))/ },
-	{ name: "output read (inst.Pin)", where: "#fb", match: /:=\s*\w+\.\w+/ },
-	{ name: "unnamed instance (??? : TYPE)", where: "#unnamed-instance", match: /\?\?\?\s*:\s*\w+\(/ },
-	{ name: "output pin (=>)", where: "#eneno", match: /=>/, archive: /n="OutputItems"[\s\S]{0,400}?<n \/>[\s\S]{0,400}?<v n="Operand">"[^"]+"/ },
-	{ name: "EN after a box", where: "#eneno", match: /[)\w]\s+EN\b/ },
-	{ name: "ENO consumer (an open line read by ENO)", where: "#eno", match: /:=\s*(NOT\s+)?ENO\b|\bEN\s+ENO\b/ },
-	{ name: "Execute box", where: "#execute", match: /\bEXECUTE\b/, archive: /<v n="ProvidesSTSnippet">true<|n="STSnippet"[^\/]*>\s*<o/ },
-	{ name: "modifier NOT", where: "#group", match: /:=\s*NOT\s|\bAND\s+NOT\b|\bOR\s+NOT\b/ },
-	{ name: "rising edge (R_EDGE)", where: "#edge", match: /\bR_EDGE\(/ },
-	{ name: "falling edge (F_EDGE)", where: "#edge", match: /\bF_EDGE\(/ },
-	{ name: "BRANCH", where: "#branch", match: /\bBRANCH\s*\(/ },
-	{ name: "backticked operand", where: "#opaque", match: /`[^`\s]*\(/ },
-	{ name: "SET coil (S=)", where: "#assign", match: /\sS=\s/ },
-	{ name: "RESET coil (R=)", where: "#assign", match: /\sR=\s/ },
-	{ name: "JMP", where: "#control", match: /\bJMP\s+\w+/, archive: /<v n="Flags">4</ },
-	{ name: "RETURN", where: "#control", match: /\bRETURN\s*;/, archive: /<v n="Flags">8</ },
-	{ name: "network LABEL", where: "#comments", match: /NETWORK\s+LABEL:/ },
-	{ name: "network TITLE", where: "#comments", match: /TITLE:/ },
-	{ name: "network COMMENT", where: "#comments", match: line("\\/\\/ ") },
-	{ name: "network DISABLED", where: "#comments", match: /\bDISABLED\b/ },
-	{ name: "language LD", where: "#whitespace", match: /%LANGUAGE LD\b/ },
-	{ name: "language FBD", where: "#whitespace", match: /%LANGUAGE FBD\b/ },
+	{ name: "wire (%WIRES w1)", where: "#wires", match: /%WIRES\s+w\d+/ },
+	{ name: "coil (lvalue := operand)", where: "#elements", match: line("\\w[\\w.]*\\s*:=\\s*[^;\\s]") },
+	{ name: "chained assign (x := y S= v)", where: "#elements", match: /:=(\s|\\n)+\w[\w.]*\s*(:=|S=|R=)/ },
+	{ name: "contact (a AND b)", where: "#elements", match: /\w\s+(AND|OR)\s+(NOT\s+)?\w/ },
+	{ name: "operator box (ADD(a, b))", where: "#elements", match: /\b(AND|OR|XOR|ADD|MUL|SUB|DIV|MOD|GT|GE|EQ|NE|LE|LT|NOT)\(/ },
+	{ name: "function call", where: "#elements", match: /:=\s*[A-Z_]\w*\(/ },
+	{ name: "FB instance call", where: "#elements", match: /\b\w+\((\w+\s*:=|\s*\))/ },
+	{ name: "output pin (=>)", where: "#elements", match: /=>/, archive: /n="OutputItems"[\s\S]{0,400}?<n \/>[\s\S]{0,400}?<v n="Operand">"[^"]+"/ },
+	{ name: "EN and ENO (X_EN)", where: "#en-eno", match: /\w_EN\(EN\s*:=/ },
+	{ name: "ENO without EN (X_ENO)", where: "#en-eno", match: /\w_ENO\(/ },
+	{ name: "EN without ENO (X_ENONLY)", where: "#en-eno", match: /\w_ENONLY\(EN\s*:=/ },
+	{ name: "Execute box", where: "#execute", match: /%EXECUTE\b/, archive: /<v n="ProvidesSTSnippet">true<|n="STSnippet"[^\/]*>\s*<o/ },
+	{ name: "negated contact (NOT a)", where: "#elements", match: /:=\s*NOT\s|\bAND\s+NOT\b|\bOR\s+NOT\b/ },
+	{ name: "rising edge (R_EDGE)", where: "#elements", match: /\bR_EDGE\(/ },
+	{ name: "falling edge (F_EDGE)", where: "#elements", match: /\bF_EDGE\(/ },
+	{ name: "BRANCH", where: "#elements", match: /\bBRANCH(_SHORTCIRCUIT)?\(/ },
+	{ name: "SET coil (S=)", where: "#elements", match: /\sS=\s/ },
+	{ name: "RESET coil (R=)", where: "#elements", match: /\sR=\s/ },
+	{ name: "JMP", where: "#elements", match: /\bJMP(\s+\w+|\()/, archive: /<v n="Flags">4</ },
+	{ name: "RETURN", where: "#elements", match: /\bRETURN\s*(;|\()/, archive: /<v n="Flags">8</ },
+	{ name: "network label (l:)", where: "#lines", match: line("[A-Za-z_]\\w*:(\\\\n|\\s)") },
+	{ name: "network title", where: "#lines", match: /%NETWORK\s+"/ },
+	{ name: "network comment", where: "#lines", match: line("\\/\\/ ") },
+	{ name: "network DISABLED", where: "#lines", match: /%DISABLED\b/ },
+	{ name: "language LD", where: "#lines", match: /%LANGUAGE LD\b/ },
+	{ name: "language FBD", where: "#lines", match: /%LANGUAGE FBD\b/ },
 
 	// THE TWO THAT WERE MISSING, and the reason this file exists. Both are shapes a real project holds and
 	// nothing in the suite creates.
-	{ name: "EMPTY network (header straight to END_NETWORK)", where: "#comments", match: /NETWORK[^\n\\`]*\\n\s*END_NETWORK/ },
-	{ name: "undriven coil (x := ;)", where: "#empty-slot", match: line("\\w[\\w.]*\\s*:=\\s*;") },
+	{ name: "EMPTY network (%NETWORK and nothing under it)", where: "#lines", match: /%NETWORK[^\n\\`]*\\n\s*(%NETWORK|[`"'])/ },
+	{ name: "coil on the rail (x := TRUE;)", where: "#elements", match: line("\\w[\\w.]*\\s*:=\\s*TRUE;") },
 ]
 
 function sources(dir: string): string[] {

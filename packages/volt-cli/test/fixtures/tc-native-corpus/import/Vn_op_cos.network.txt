@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  y := COS(x);
-END_NETWORK
+%NETWORK
+y := COS(x);

@@ -94,6 +94,15 @@ public class StNetworkTextTests
         Assert.Equal("an enabled box read by its value showing ENO", Assert.Throws<StNetworkUnspellableException>(() => StNetworkWriter.Write(body, Scope(body))).Reason);
     }
 
+    /// <summary>A call read by a slot other than its value's, with no ENO to name it, has no spelling: the text reads a call
+    /// by its value (found by the doubles oracle, network-text-st 3.2).</summary>
+    [Fact]
+    public void A_box_read_by_a_slot_other_than_its_value_has_no_spelling()
+    {
+        var body = Ld1(Set(Call("ADD", new[] { In(L("a")), In(L("b")) }, connected: 1, kind: CallKind.Operator), T("out")));
+        Assert.Equal("a box read by an unstated slot", Assert.Throws<StNetworkUnspellableException>(() => StNetworkWriter.Write(body, Scope(body))).Reason);
+    }
+
     /// <summary>A box with EN and no ENO at the root: <c>X_ENONLY</c>, its value to its targets through <c>OUT =&gt;</c>.</summary>
     [Fact]
     public void An_enabled_box_without_ENO_at_the_root_is_a_call_statement() =>
@@ -226,7 +235,7 @@ public class StNetworkTextTests
         var plain = new Volt.Engine.Format.Network.Network(1, null, null, null, false, new Node[] { Set(L("a"), T("y")) });
         var body = new NetworkBody(BodyLanguage.Ld, new[] { jump, plain });
         var text = StNetworkWriter.WritePulled(body, Scope(body));
-        Assert.Equal($"%LANGUAGE LD\n%NETWORK \"jump\"\n%UNSUPPORTED \"a coil modifier on a jump\" #{NetworkTextWriter.Hash(jump)}\n%NETWORK\ny := a;\n", text);
+        Assert.Equal($"%LANGUAGE LD\n%NETWORK \"jump\"\n%UNSUPPORTED \"a coil modifier on a jump\" #{NetworkHash.Of(jump)}\n%NETWORK\ny := a;\n", text);
         var back = StNetworkReader.Read(text, Scope(body));
         Assert.Equal("a coil modifier on a jump", back.Networks[0].Unsupported);
         Assert.Throws<StNetworkUnspellableException>(() => StNetworkWriter.Write(body, Scope(body)));

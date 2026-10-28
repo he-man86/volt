@@ -3,7 +3,7 @@
  * runs, each spelled by a rule that already exists once its refusal clause went (design "2R.5") — pushed as the text
  * spells it, pulled back exactly, pushed again: a fixed point, and a clean build.
  *
- * The offline case set (`test/fixtures/network-text/accept/r5-stored-shapes.cases`) proves the text reads to the model
+ * The offline case set (`test/fixtures/network-text-st/accept`) proves the text reads to the model
  * and writes back; only the IDE can say whether it KEEPS what the push builds — a target's own bits beside a jump, an
  * edge on a pin and on the EN pin through `SetInputFlag`, the named ENO's variable on the ENO slot — and whether it
  * compiles. The build answers are the conformance fixtures `ng_r5_*` (volt-lsp-iec, `network-graphical-e.ts`).

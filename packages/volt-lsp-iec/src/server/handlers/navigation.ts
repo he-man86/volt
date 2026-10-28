@@ -1,7 +1,7 @@
 /**
  * THE NAVIGATION HANDLERS — definition, type definition, implementation, references, highlights and linked editing,
  * rename, and the call and type hierarchies. Each converts the LSP position to an offset and calls the matching
- * service; a network-text body answers through its own services where it has them.
+ * service.
  */
 import {
   CallHierarchyIncomingCallsRequest,
@@ -26,17 +26,14 @@ import {
   callIncoming,
   callOutgoing,
   definition,
-  documentHighlightsAnywhere,
+  documentHighlights,
   implementation,
-  inNetworkText,
-  networkDefinition,
-  networkTypeDefinition,
   offsetFromPosition,
   prepareCallHierarchy,
-  prepareRenameAnywhere,
+  prepareRename,
   prepareTypeHierarchy,
-  referencesAnywhere,
-  renameAnywhere,
+  references,
+  rename,
   renameChainRefusal,
   renameRefusal,
   typeDefinition,
@@ -50,12 +47,12 @@ import type { ServerState } from "../state.js"
 export function registerNavigationHandlers(s: ServerState): void {
   s.onRequest(DefinitionRequest.type, (p) =>
     s.at(p.textDocument.uri, p.position, (d, o) =>
-      inNetworkText(d, o) ? networkDefinition(d, s.project(d.uri), o) : definition(d, s.project(d.uri), o),
+      definition(d, s.project(d.uri), o),
     ),
   )
   s.onRequest(TypeDefinitionRequest.type, (p) =>
     s.at(p.textDocument.uri, p.position, (d, o) =>
-      inNetworkText(d, o) ? networkTypeDefinition(d, s.project(d.uri), o) : typeDefinition(d, s.project(d.uri), o),
+      typeDefinition(d, s.project(d.uri), o),
     ),
   )
   s.onRequest(ImplementationRequest.type, (p) =>
@@ -65,20 +62,20 @@ export function registerNavigationHandlers(s: ServerState): void {
     s.at(
       p.textDocument.uri,
       p.position,
-      (d, o) => referencesAnywhere(s.workspace(d.uri), s.project(d.uri), d, o, p.context.includeDeclaration) ?? null,
+      (d, o) => references(s.workspace(d.uri), s.project(d.uri), d, o, p.context.includeDeclaration) ?? null,
     ),
   )
   s.onRequest(DocumentHighlightRequest.type, (p) =>
     s.at(
       p.textDocument.uri,
       p.position,
-      (d, o) => documentHighlightsAnywhere(d, s.project(d.uri), o)?.map((range) => ({ range })) ?? null,
+      (d, o) => documentHighlights(d, s.project(d.uri), o)?.map((range) => ({ range })) ?? null,
     ),
   )
   // Linked editing: the occurrences of the identifier at the cursor, edited together (reuses highlights).
   s.onRequest(LinkedEditingRangeRequest.type, (p) =>
     s.at(p.textDocument.uri, p.position, (d, o) => {
-      const ranges = documentHighlightsAnywhere(d, s.project(d.uri), o)
+      const ranges = documentHighlights(d, s.project(d.uri), o)
       return ranges !== undefined && ranges.length > 0 ? { ranges } : null
     }),
   )
@@ -86,12 +83,12 @@ export function registerNavigationHandlers(s: ServerState): void {
   s.onRequest(PrepareRenameRequest.type, (p) => {
     const chain = s.at(p.textDocument.uri, p.position, (d, o) => renameChainRefusal(d, s.project(d.uri), o) ?? null)
     if (chain !== null) return new ResponseError(LSPErrorCodes.RequestFailed, chain)
-    return s.at(p.textDocument.uri, p.position, (d, o) => prepareRenameAnywhere(d, s.project(d.uri), o))
+    return s.at(p.textDocument.uri, p.position, (d, o) => prepareRename(d, s.project(d.uri), o))
   })
   s.onRequest(RenameRequest.type, (p) => {
     const refused = renameRefusal(p.newName, s.project(p.textDocument.uri)) ?? s.at(p.textDocument.uri, p.position, (d, o) => renameChainRefusal(d, s.project(d.uri), o) ?? null) ?? undefined
     if (refused !== undefined) return new ResponseError(LSPErrorCodes.RequestFailed, refused)
-    return s.at(p.textDocument.uri, p.position, (d, o) => renameAnywhere(s.workspace(d.uri), s.project(d.uri), d, o, p.newName) ?? null)
+    return s.at(p.textDocument.uri, p.position, (d, o) => rename(s.workspace(d.uri), s.project(d.uri), d, o, p.newName) ?? null)
   })
   registerHierarchyHandlers(s)
 }

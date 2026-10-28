@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  dw := ADR(n);
-END_NETWORK
+%NETWORK
+dw := ADR(n);

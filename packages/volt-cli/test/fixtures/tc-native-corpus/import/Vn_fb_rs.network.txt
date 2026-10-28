@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  rs1 : RS(SET := a, RESET1 := b);
-END_NETWORK
+%NETWORK
+rs1(SET := a, RESET1 := b);

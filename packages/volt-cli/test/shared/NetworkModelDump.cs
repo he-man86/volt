@@ -10,7 +10,7 @@ using Parallel = Volt.Engine.Format.Network.Parallel;
 namespace Volt.Tests.Shared;
 
 /// <summary>
-/// THE MODEL AS A LINE OF TEXT — the shared network-text case set's expected model (<c>test/fixtures/network-text</c>,
+/// THE MODEL AS A LINE OF TEXT — the shared network-text case set's expected model (<c>test/fixtures/network-text-st</c>,
 /// openspec <c>ld-fbd-coverage</c> 2R.3): one S-expression per NWL item, over the model as the text CARRIES it
 /// (<see cref="NetworkTextFacts.Carried"/>), so a case states exactly the facts the text is meant to carry and no other.
 ///

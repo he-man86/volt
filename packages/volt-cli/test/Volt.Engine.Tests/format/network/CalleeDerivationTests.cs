@@ -207,7 +207,7 @@ public class CalleeDerivationTests
     [Fact]
     public void The_gate_names_a_library_functions_positional_pin()
     {
-        var gate = NetworkTextGate.Validate(Body("y := LEN(txt);"), WithLibraries(out _, "VAR\n\ty : INT;\n\ttxt : STRING;\nEND_VAR"));
+        var gate = StNetworkGate.Validate(Body("y := LEN(txt);"), WithLibraries(out _, "VAR\n\ty : INT;\n\ttxt : STRING;\nEND_VAR"));
         Assert.True(gate.Ok, string.Join("\n", gate.Diagnostics.Select(d => d.Message)));
         Assert.Contains("y := LEN(STR := txt);", gate.Canonical);
     }
@@ -272,14 +272,14 @@ public class CalleeDerivationTests
     }
 
     const string Own2 = "VAR\n\tv : INT;\n\ty : INT;\nEND_VAR";
-    static string Body(string statement) => $"%LANGUAGE FBD\nNETWORK\n  {statement}\nEND_NETWORK\n";
+    static string Body(string statement) => $"%LANGUAGE FBD\n%NETWORK\n{statement}\n";
 
     /// <summary>The push's gate derives the names once, for either driver, and its canonical text (the next pull's)
     /// spells them: `AwF(v)` is pushed as the box `AwF(i := v)` the IDE then holds.</summary>
     [Fact]
     public void The_gate_derives_the_names_and_its_canonical_text_spells_them()
     {
-        var gate = NetworkTextGate.Validate(Body("y := AwF(v);"), Scope(Own2));
+        var gate = StNetworkGate.Validate(Body("y := AwF(v);"), Scope(Own2));
         Assert.True(gate.Ok);
         Assert.Contains("y := AwF(i := v);", gate.Canonical);
         var box = (Box)((Assign)gate.Body!.Networks[0].Trees[0]).Value;
@@ -290,15 +290,14 @@ public class CalleeDerivationTests
     [Fact]
     public void A_body_with_nothing_to_derive_is_returned_as_read()
     {
-        var read = NetworkTextReader.Read(Body("y := v;"), Scope(Own2));
-        Assert.Same(read.Body, NetworkDerivation.Derive(read.Body!, Scope(Own2), out var origin));
-        Assert.Empty(origin);
+        var read = StNetworkReader.Read(Body("y := v;"), Scope(Own2));
+        Assert.Same(read, NetworkDerivation.Derive(read, Scope(Own2)));
     }
 
     /// <summary><paramref name="box"/> as the push's derivation leaves it, alone in a network.</summary>
     static Box Derived(Box box) =>
         (Box)NetworkDerivation.Derive(new NetworkBody(BodyLanguage.Fbd, new[] { new Network(0, null, null, null, false, new Node[] { box }) }),
-            Scope(), out _).Networks[0].Trees[0];
+            Scope()).Networks[0].Trees[0];
 
     static Box Call(string type, params (string? Formal, string Value)[] pins) =>
         new(type, null, CallKind.Function,

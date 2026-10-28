@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  w := ROL(w, 3);
-END_NETWORK
+%NETWORK
+w := ROL(w, 3);

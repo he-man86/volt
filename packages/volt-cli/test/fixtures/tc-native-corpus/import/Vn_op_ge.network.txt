@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  out := i1 GE i2;
-END_NETWORK
+%NETWORK
+out := GE(i1, i2);

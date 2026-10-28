@@ -417,10 +417,6 @@
           "INTERNAL_ERROR",
           "NOT_ATTEMPTED",
           "NETWORK_PARSE",
-          "NETWORK_NOT_CLOSED",
-          "NETWORK_DUPLICATE_NAME",
-          "NETWORK_BAD_EXPRESSION",
-          "NETWORK_UNKNOWN_OPERATOR",
           "NETWORK_UNSUPPORTED"
         ]
       },

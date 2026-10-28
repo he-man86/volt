@@ -32,8 +32,8 @@ public class TcCalleeDerivationTests
     {
         var scope = NetworkScope.FromDeclarations(Own, n => Items.TryGetValue(n, out var d) ? d : null,
             () => Array.Empty<string>(), n => Items.ContainsKey(n) ? ItemKind.Kinds.Pou : null, Scopes.RefusedPouName, Scopes.NoLibrary);
-        // As the push validates it (NetworkTextGate: the input names are derived there, for either driver).
-        var read = NetworkTextGate.Validate($"%LANGUAGE FBD\nNETWORK\n  {statement}\nEND_NETWORK\n", scope);
+        // As the push validates it (StNetworkGate: the input names are derived there, for either driver).
+        var read = StNetworkGate.Validate($"%LANGUAGE FBD\n%NETWORK\n{statement}\n", scope);
         Assert.True(read.Ok, string.Join("\n", read.Diagnostics.Select(d => d.Message)));
         var impl = TcArchive.Root(TcArchiveBuilder.Body(read.Body!, scope))!;
         return impl.Descendants("o").First(o => TcArchive.Str(o, "BoxType") is not null);
@@ -80,9 +80,9 @@ public class TcCalleeDerivationTests
     /// <summary>A call the scope names no callee for keeps the CallType TwinCAT's own import stored for it (the native
     /// corpus, <see cref="TcArchiveBuilder.Operators"/>).</summary>
     [Theory]
-    [InlineData("fbm : FB_M(run := go);", "FunctionBlock")]
+    [InlineData("fbm(run := go);", "FunctionBlock")]
     [InlineData("y := TO_INT(v);", "Conversion")]
-    [InlineData("y := v ADD 1;", "Add")]
+    [InlineData("y := ADD(v, 1);", "Add")]
     public void Every_other_call_keeps_the_call_type_TwinCAT_stores(string statement, string callType) =>
         Assert.Equal(callType, CallType(Built(statement)));
 }

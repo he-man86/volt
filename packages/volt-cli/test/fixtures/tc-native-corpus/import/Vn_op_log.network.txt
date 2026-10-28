@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  y := LOG(x);
-END_NETWORK
+%NETWORK
+y := LOG(x);

@@ -117,7 +117,6 @@ describe("the run order", () => {
     const network = [
       ...filesUnder(join(CHECKS, "network")),
       ...filesUnder(join(ANALYSIS, "..", "frontend", "syntax", "network")),
-      ...filesUnder(join(ANALYSIS, "..", "frontend", "types", "network")),
     ].map((p) =>
       readFileSync(p, "utf8"),
     )

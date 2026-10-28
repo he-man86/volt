@@ -249,7 +249,7 @@ public class VendorCapabilityParityTests
     /// so a driver answers by reading every such body through it, and the engine suite proves its catch.</para>
     ///
     /// <para>So the gate holds WHERE the reading happens, not only that <c>Pulled</c> is named: every call of the
-    /// vendor's network reader, and every <c>NetworkTextWriter.Write</c> in the driver, must sit inside the
+    /// vendor's network reader, and every <c>StNetworkWriter.WritePulled</c> in the driver, must sit inside the
     /// <c>read</c> argument of a <c>NetworkText.Pulled(</c> call. A reader hoisted out of it — to reuse the model, say —
     /// runs before the switch is asked (a production bridge reads a network it was to hide) and outside the catch
     /// (its refusal escapes and costs the whole POU), while <c>Pulled</c> is still named two lines below.</para>
@@ -276,7 +276,7 @@ public class VendorCapabilityParityTests
             var inside = CallExtents(text, "NetworkText.Pulled(");
             var calls = Occurrences(text, reader).Select(i => (i, reader)).ToList();
             if (file.StartsWith("Driver/", StringComparison.Ordinal))
-                calls.AddRange(Occurrences(text, "NetworkTextWriter.Write(").Select(i => (i, "NetworkTextWriter.Write(")));
+                calls.AddRange(Occurrences(text, "StNetworkWriter.WritePulled(").Select(i => (i, "StNetworkWriter.WritePulled(")));
             foreach (var (at, what) in calls)
                 if (!inside.Any(e => at > e.Start && at < e.End))
                     outside.Add($"{file}:{text[..at].Count(c => c == '\n') + 1} {what}");

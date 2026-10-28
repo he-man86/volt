@@ -646,7 +646,7 @@ sees only the body.
 The bridge SHALL round-trip the vendor's own graphical model ⇄ network text without losing a fact
 (`Read(Write(m)) ≅ m` on models, the offline oracle). Canonical spelling is NOT a refusal (openspec
 `bridge-refusal-review` 2.12): a push whose network text reads into a complete model the writer can spell SHALL be
-written, whatever its layout or spelling, and the canonical text (`NetworkTextWriter(model)`) comes back — the next
+written, whatever its layout or spelling, and the canonical text (`StNetworkWriter(model)`) comes back — the next
 pull shows it. A push SHALL be refused before it reaches the IDE only for what the text does not say completely (the
 reader's `NETWORK_*` diagnostics) or a model the writer has no spelling for (`NETWORK_UNSUPPORTED`). So a graphical
 body can be read, edited, and written entirely as network text without drift.

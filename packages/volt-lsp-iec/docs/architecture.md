@@ -36,7 +36,7 @@ D  analysis      diagnostics orchestrator · messages · the checks
 C  types         elementary facts · Type model · resolve · const · infer · compat · arith · render   ┐
 B  symbols       symbol table · binder · scope-nav · scoped-bodies (the shared ST-body iterator)    │ frontend/
 A  syntax        vocabulary · lexer · complete AST · parser · literals · pragmas · file format      │ (+ library)
-                 (network text: a network/ folder inside each layer)
+                 (network text: ST with % lines — a network/ folder in syntax and in the checks)
                       ↘ transpile (Rust backend) consumes the front-end directly — headless test execution
 ```
 
@@ -44,8 +44,8 @@ A  syntax        vocabulary · lexer · complete AST · parser · literals · pr
 
 One line per folder, held to the disk both ways by `test/package/structure.test.ts`: a folder missing here, or a line
 naming a folder that is gone, fails it — so does a loose file at the top of `src/`, and a
-script not in `scripts/README.md`. Network text (LD/FBD) is another language the LSP reads, so it has no root folder:
-each layer holds its part in a `network/` folder. Unit tests sit beside their module; `test/` holds what crosses
+script not in `scripts/README.md`. Network text (LD/FBD) is ST with `%` lines, so it has no root folder: the syntax
+layer reads its `%` lines and the checks hold what a network may hold, each in a `network/` folder. Unit tests sit beside their module; `test/` holds what crosses
 modules.
 
 ```
@@ -58,7 +58,7 @@ src/  the product code, one folder per layer; imports point down the stack (scri
       format/  the Volt workspace file format: the %LANGUAGE line, folders, which reader reads a body
       lex/  the vocabulary, the token kinds and the hand-written ST lexer
       literal/  literal values: numbers, strings, durations, calendar values, direct addresses
-      network/  the network-text (LD/FBD) words, lexer, AST, value walks and reader
+      network/  network text (LD/FBD): its % lines, its networks, the statement tokens the ST parser reads
       parse/  the ST parser: bodies, statements, expressions, type expressions, declarations
         units/  one parser per top-level unit (PROGRAM, FUNCTION_BLOCK, METHOD, PROPERTY, TYPE, GVL …)
       pragmas/  attributes in the AST, the attribute names each dialect knows, and the conditional-compilation pragmas
@@ -67,14 +67,13 @@ src/  the product code, one folder per layer; imports point down the stack (scri
       arith/  the operators' typing rules: runtime and checked arithmetic, temporal arithmetic
       const/  constancy and the AST constant fold
       infer/  expression type inference and a call's callee
-      network/  network text typed: the reader composed, each network's split scope
   analysis/  D — the diagnostics: pipeline and registry, per-vendor messages, shared rules, the checks
     checks/  one folder per concern; a check imports no other check, its test sits beside it
       calls/  call arguments against the callee's parameters
       declarations/  declarations, initializers, addresses, VAR sections
       flow/  control flow: CASE labels, jumps, loops, empty blocks
       names/  name resolution: unresolved, ambiguous, shadowed names
-      network/  the network-text (LD/FBD) findings — outside the registry until the LD/FBD coverage change
+      network/  what an LD/FBD network may hold — the one network check, outside the registry
       oop/  function blocks, methods, interfaces, properties, inheritance
       pragmas/  pragma and attribute diagnostics
       syntax/  every parse error the parser recorded, and the body that states no language (outside the registry)
@@ -87,8 +86,7 @@ src/  the product code, one folder per layer; imports point down the stack (scri
   services/  E — the LSP features over the layers below
     assist/  hover (the built-in hover text among it), completion, signature help, inlay hints, code lens, code actions
     formatting/  the formatter
-    navigation/  definition, type definition, the reference set, implementation, hierarchy, the override chain a rename spans
-    network/  the services over a network-text body, and the references, highlight and rename that span both languages
+    navigation/  definition, type definition, the reference set, highlight and rename, implementation, hierarchy, the override chain a rename spans
     shared/  the one cursor-to-symbol resolution, positions, locations, symbol kinds
     structure/  document and workspace symbols, folding, selection, semantic tokens
   workspace/  the WorkspaceStore (documents, the incremental index, per-file disk sync, the quarantine), one scope per application, the workspace scan, the writable-source extension set, the binding's vendor and applications
@@ -270,10 +268,8 @@ suppressing diagnostics on dead code unless `diagnoseDeadCode`, is `pipeline/doc
 The registry's ORDER is a contract (`registry.test.ts` lists it): a check that reads earlier findings says which codes
 in its entry's `reads`, and nothing else of `out` is read. `diagnostic-census.test.ts` (test/analysis) measures every
 check and message builder against both vendors' build recordings and the corpora, with ceilings that only fall.
-**Network text is NOT in the one pipeline yet** — its findings come from `checks/network/`'s own
-`computeNetworkTextDiagnostics`, outside the registry, merged by `pipeline/document`. Making it a registry check is
-PARKED for the LD/FBD coverage change (openspec analysis-conformance design.md §3; the work list is the hand-in in the
-archived `lsp-package-structure` tasks.md).
+**Network text is ST**, so every registry check reads it; the one check of what a network may hold is
+`checks/network/`'s `networkDiagnostics`, outside the registry, merged by `pipeline/document`.
 
 ### E — `services/`
 The LSP features, thin over C/D via `shared/` (`resolve-at` cursor→symbol, positions, `locations`,
@@ -301,14 +297,11 @@ elementary facts, `syntax/pragmas/known-attributes.ts`); the hover TEXT for it i
 `services/assist/builtin-hover.ts`, whose one entry both hover paths ask, in the project's dialect — a built-in or an
 attribute the dialect lacks gets no tooltip. Ranges derive from `frontend/types/elementary`. The FBD/LD family has no folder of its own: it is another
 language the layers read, **reusing the shared core** — one type engine, one orchestrator, one service set.
-`frontend/syntax/network/` reads the text (lexer, AST, reader; the format specified in
-`packages/volt-cli/docs/network-text.html`, its cases in `packages/volt-cli/test/fixtures/network-text`) — the reader one
-concern per file, each building on the one before: `words` (the box words and the text's own) → `cursor` (tokens,
-positions, findings, the ST inside) → `values` → `calls` → `statements` → `parser` (the body, a network, its header,
-its open lines and splits); `frontend/types/network/` composes that reader (`parseNetworkText`) and builds each
-network's split scope over the POU's, a split typed by its feeder (`analyzeNetworkText`); `analysis/checks/network/`
-holds its findings (`network-analysis.ts`, the pass, over one `_<family>.ts` per check family: labels, boxes, operands,
-assignments, format); `services/network/` its services.
+Network text is ST with `%` lines (`packages/volt-cli/docs/network-text.html`, its cases in
+`packages/volt-cli/test/fixtures/network-text-st`): `frontend/syntax/network/plain-st.ts` reads the `%` lines and hands
+the ST parser the statement tokens; `frontend/symbols/network-scope.ts` declares the body's wires over the POU's scope;
+`analysis/checks/network/_plain-st.ts` is the one check of what a network may hold. Every other check and service is
+ST's.
 
 ### G — `server/`
 LSP 3.17 over stdio (`--stdio` only), one vendor-keyed binary: dispatch, framing, capabilities, and lifecycle — the LSP

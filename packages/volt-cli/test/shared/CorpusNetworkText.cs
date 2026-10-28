@@ -22,8 +22,8 @@ public static class CorpusNetworkText
     private static readonly Regex LanguageLine = new(@"^%LANGUAGE (LD|FBD)\s*$", RegexOptions.CultureInvariant);
 
     /// <summary>The body's lines run to the first line that closes or opens an element (<c>END_…</c>, <c>METHOD</c>,
-    /// <c>ACTION</c>, <c>PROPERTY</c>), outside an Execute box's ST — v2's <c>END_NETWORK</c> is a body line.</summary>
-    private static readonly Regex ElementLine = new(@"^(END_(?!NETWORK\b)[A-Z_]+|METHOD|ACTION|PROPERTY)\b", RegexOptions.CultureInvariant);
+    /// <c>ACTION</c>, <c>PROPERTY</c>), outside an Execute box's ST.</summary>
+    private static readonly Regex ElementLine = new(@"^(END_[A-Z_]+|METHOD|ACTION|PROPERTY)\b", RegexOptions.CultureInvariant);
 
     /// <summary><paramref name="file"/>'s text with the LD/FBD body of <paramref name="member"/> (null: the POU's own) put as
     /// <paramref name="pulled"/> — the body as a pull writes it, its <c>%LANGUAGE</c> line first, no newline at its end.</summary>

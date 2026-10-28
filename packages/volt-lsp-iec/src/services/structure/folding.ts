@@ -3,8 +3,7 @@
  * and each multi-line block statement (IF/CASE/FOR/WHILE/REPEAT) in a POU body. Pure AST/structure.
  */
 import type { FoldingRange } from "vscode-languageserver-protocol"
-import { isGraphicalBody, isStBody, sourceStatements, STRUCTURE_ONLY, type Span, unitBodies, walkStatements } from "../../frontend/syntax/index.js"
-import { parseNetworkText } from "../../frontend/types/index.js"
+import { isPlainStNetworkBody, isStBody, plainStText, sourceStatements, type Span, unitBodies, walkStatements } from "../../frontend/syntax/index.js"
 import type { Document } from "../shared/index.js"
 
 export function foldingRanges(doc: Document): FoldingRange[] {
@@ -16,10 +15,7 @@ export function foldingRanges(doc: Document): FoldingRange[] {
     add(unit.span)
     if ("varSections" in unit) for (const s of unit.varSections) add(s.span)
     for (const body of unitBodies(unit)) {
-      if (isGraphicalBody(body)) {
-        for (const n of parseNetworkText(body, STRUCTURE_ONLY, doc.parseResult.dialect).networks) add(n.span) // one fold per NETWORK in an FBD/LD body
-        continue
-      }
+      if (isPlainStNetworkBody(body)) for (const n of plainStText(body).networks) add(n.span) // one fold per network of an FBD/LD body
       if (!isStBody(body)) continue // a hidden body is empty: nothing to fold
       const parsed = sourceStatements(body) // as written: a branch not taken folds too
       if (!parsed.ok) continue

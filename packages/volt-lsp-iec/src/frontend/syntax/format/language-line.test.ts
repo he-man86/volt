@@ -10,7 +10,7 @@ import { expect, test } from "bun:test"
 import {
   type BodySpan,
   graphicalMarkerLanguage,
-  isGraphicalBody,
+  isPlainStNetworkBody,
   isStBody,
   parseDocument,
   parseSource,
@@ -54,7 +54,7 @@ END_SET
 END_PROPERTY
 `
 
-const NETWORK = "NETWORK\nout := a;\nEND_NETWORK"
+const NETWORK = "%NETWORK\nout := a;"
 
 /** A function block whose body is `impl` — its line and what follows it. */
 const fb = (impl: string): string =>
@@ -66,7 +66,7 @@ const bodiesOf = (src: string): BodySpan[] => parseSource(src, { networkText: tr
  *  `parse-errors` check drains them. A graphical body is the network parser's. */
 function syntaxErrors(src: string): string[] {
   const parsed = parseSource(src, { networkText: true }, "codesys")
-  const bodies = parsed.units.flatMap(unitBodies).filter((b) => !isGraphicalBody(b))
+  const bodies = parsed.units.flatMap(unitBodies).filter((b) => !isPlainStNetworkBody(b))
   return [...parsed.errors, ...bodies.flatMap((b) => bodyStatements(b).errors)].map((e) => e.message)
 }
 
@@ -115,7 +115,7 @@ test("the line belongs to no declaration and to no statement", () => {
   const statements = bodyStatements(unitBodies(method)[0]!)
   expect(statements.errors).toEqual([])
   expect(statements.statements.map((s) => s.kind)).toEqual(["assign", "assign"]) // `x := 0;` and `Reset := force;`
-  for (const body of bodiesOf(MOTOR)) expect(isGraphicalBody(body)).toBe(false)
+  for (const body of bodiesOf(MOTOR)) expect(isPlainStNetworkBody(body)).toBe(false)
 })
 
 test("the language word is read in any case, and the line's spacing is free", () => {
@@ -162,7 +162,7 @@ test("the retired comment is no boundary: a body behind it is not graphical", ()
   for (const marker of ["(* @volt-implementation LD *)", "(* @volt-implementation FBD *)"]) {
     const bodies = bodiesOf(fb(`${marker}\n${NETWORK}`))
     expect(bodies.map(graphicalMarkerLanguage)).toEqual([undefined])
-    expect(bodies.some(isGraphicalBody)).toBe(false)
+    expect(bodies.some(isPlainStNetworkBody)).toBe(false)
   }
 })
 
@@ -209,7 +209,7 @@ test("a line that states no body is reported naming it and what it lacks", () =>
     const src = fb(`${line}\n${NETWORK}`)
     const errors = parseSource(src, { networkText: true }, "codesys").errors.map((e) => e.message)
     expect({ line, named: errors.some((m) => m.startsWith(`the body states '${line}': `) && m.includes(lacks)) }).toEqual({ line, named: true })
-    expect({ line, reader: bodiesOf(src).map((b) => [b.languageLine?.statement, isStBody(b), isGraphicalBody(b)]) }).toEqual({
+    expect({ line, reader: bodiesOf(src).map((b) => [b.languageLine?.statement, isStBody(b), isPlainStNetworkBody(b)]) }).toEqual({
       line,
       reader: [[undefined, false, false]],
     })
@@ -262,8 +262,8 @@ END_PROPERTY
 
 test("the stated language wins over what the text looks like: network text under ST is read as ST", () => {
   const src = fb(`%LANGUAGE ST\n${NETWORK}`)
-  expect(bodiesOf(src).some(isGraphicalBody)).toBe(false)
-  expect(syntaxErrors(src)).toEqual(["';' expected instead of 'out'", "';' expected instead of end of POU"])
+  expect(bodiesOf(src).some(isPlainStNetworkBody)).toBe(false)
+  expect(syntaxErrors(src)).toEqual(["Unexpected token '%' found", "';' expected instead of 'NETWORK'", "';' expected instead of 'out'"])
 })
 
 // ── hidden bodies ─────────────────────────────────────────────────────────────────────────────────
@@ -298,7 +298,7 @@ test("code, a comment or a pragma under an UNSUPPORTED line is refused naming th
       const src = fb(`${line}\n${under}`)
       const errors = parseSource(src, { networkText: true }, "codesys").errors.map((e) => e.message)
       expect({ line, under, named: errors.some((m) => m.includes(`under '${line}'`)) }).toEqual({ line, under, named: true })
-      expect({ line, under, reader: bodiesOf(src).map((b) => [isStBody(b), isGraphicalBody(b)]) }).toEqual({
+      expect({ line, under, reader: bodiesOf(src).map((b) => [isStBody(b), isPlainStNetworkBody(b)]) }).toEqual({
         line,
         under,
         reader: [[false, false]],
@@ -327,7 +327,7 @@ test("a member's %FOLDER under its line is taken out with the line, whatever the
     const src = `${fb("%LANGUAGE ST\n")}\nMETHOD M\n${line}\n%FOLDER Sub/Deep\n${code}\nEND_METHOD\n`
     expect({ line, errors: syntaxErrors(src) }).toEqual({ line, errors: [] })
     const method = bodiesOf(src)[1]!
-    expect({ line, folder: method.languageLine?.folder, folderInBody: method.tokens.some((t) => t.text === "%") }).toEqual({
+    expect({ line, folder: method.languageLine?.folder, folderInBody: method.tokens.some((t) => t.text === "FOLDER") }).toEqual({
       line,
       folder: "Sub/Deep",
       folderInBody: false,
@@ -336,7 +336,7 @@ test("a member's %FOLDER under its line is taken out with the line, whatever the
 })
 
 test("a line sharing its line with END_VAR is no boundary", () => {
-  const src = "FUNCTION_BLOCK F\nVAR\n\ta : BOOL;\nEND_VAR %LANGUAGE LD\nNETWORK\nEND_NETWORK\nEND_FUNCTION_BLOCK\n"
+  const src = "FUNCTION_BLOCK F\nVAR\n\ta : BOOL;\nEND_VAR %LANGUAGE LD\n%NETWORK\nEND_FUNCTION_BLOCK\n"
   expect(bodiesOf(src).map((b) => b.languageLine)).toEqual([undefined])
   expect(syntaxErrors(src).length).toBeGreaterThan(0)
 })

@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  out := a AND b ENO EN go;
-END_NETWORK
+%NETWORK
+out := AND_EN(EN := go, a, b);

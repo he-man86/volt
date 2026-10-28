@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  n := (i1 ADD i2) MUL i3;
-END_NETWORK
+%NETWORK
+n := MUL(ADD(i1, i2), i3);

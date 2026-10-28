@@ -71,13 +71,13 @@ internal static class TcUnmeasured
     private static string? FirstUnmeasured(IReadOnlyList<Node> trees) =>
         trees.Select(t => Unmeasured(t, top: true)).FirstOrDefault(x => x != null) ?? SplitBeforeDefinition(trees);
 
-    /// <summary>2R.5 (awkward-sweep #19): a split referenced above its definition.</summary>
+    /// <summary>2R.5 (awkward-sweep #19): a wire referenced above its definition.</summary>
     private static string? SplitBeforeDefinition(IReadOnlyList<Node> trees)
     {
         var defined = new HashSet<int>();
         string? Walk(Node n)
         {
-            if (n is Demux { Input: null } r && !defined.Contains(r.VarId)) return $"the split split{r.VarId} referenced above its definition";
+            if (n is Demux { Input: null } r && !defined.Contains(r.VarId)) return "a wire referenced above its definition";
             foreach (var c in n.Children()) if (Walk(c) is { } hit) return hit;
             if (n is Demux { Input: not null } d) defined.Add(d.VarId);
             return null;
@@ -113,7 +113,7 @@ internal static class TcUnmeasured
     private static string? Unmeasured(Node n, bool top = false) => n switch
     {
         Assign a when UnmeasuredCoil(a) is { } coil => coil,
-        Demux { Input: not null } d when !top => $"the split split{d.VarId} defined below the top level",
+        Demux { Input: not null } when !top => "a wire defined below the top level",
         Terminator { Flags.IsNone: false } => "a negated empty slot",
         Box b when !b.EnableFlags.IsNone => $"a modifier on the EN pin of the '{b.Type}' box",
         _ => n.Children().Select(c => Unmeasured(c)).FirstOrDefault(x => x != null),

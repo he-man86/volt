@@ -13,7 +13,7 @@
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { computeDiagnostics, computeNetworkTextDiagnostics, messagesFor, resolveConfig, type AnalysisInitOptions } from "../../../src/analysis/index.js"
+import { computeDiagnostics, networkDiagnostics, resolveConfig, type AnalysisInitOptions } from "../../../src/analysis/index.js"
 import { parseDocument, parseSource, type CompileEnvironment, type Dialect } from "../../../src/frontend/syntax/index.js"
 import { build, type Scope } from "../../../src/frontend/symbols/index.js"
 import { lowerSource } from "../../../src/transpile/lower/index.js"
@@ -59,9 +59,8 @@ function sourceOf(t: LanguageTest, all: readonly LanguageTest[]): { source: stri
  *   by a semantic check — and the pipeline reports it (`checkParseErrors`), ONCE: this walk added each file's raw
  *   `parseResult.errors` beside it, so every declaration parse error counted twice (analysis-conformance 2.6).
  *
- *   NETWORK TEXT HAS ITS OWN PASS. `computeDiagnostics` SKIPS a graphical body; `computeNetworkTextDiagnostics`
- *   is what reads it (`lsp-replay.test.ts` runs both for exactly this reason). Without it, eleven network fixtures read as
- *   gaps when the LSP flags every one.
+ *   NETWORK TEXT HAS ITS OWN CHECK. What a network may hold is `networkDiagnostics`, outside the registry
+ *   (`lsp-replay.test.ts` runs both for exactly this reason).
  *
  *   THE URI IS PART OF THE INPUT. A signature-name check compares the declared name against the FILE's, so a fixture
  *   analysed under a made-up filename cannot trigger it. The uri is built the way `lsp-replay.test.ts` builds it.
@@ -103,7 +102,7 @@ export function lspMessagesOn(
     const config = resolveConfig({ vendor, diagnostics })
     const diags = [
       ...files.flatMap((f) => computeDiagnostics({ uri: f.uri, parseResult: f.parseResult, source: f.source, project, config })),
-      ...computeNetworkTextDiagnostics(own, project, messagesFor(vendor)),
+      ...networkDiagnostics(own.parseResult, project),
     ]
     return diags.filter((d) => d.severity === "error" || d.severity === "warning").map((d) => `[${d.severity}] ${d.message.replace(/\r\n/g, "\n")}`).sort()
   })
@@ -159,7 +158,7 @@ type FixtureFile = { uri: string; source: string; parseResult: ReturnType<typeof
 function diagnosed(own: { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }, files: readonly { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }[], project: Scope, vendor: Dialect): string[] {
   const config = resolveConfig({ vendor })
   const analysed = files.flatMap((f) => computeDiagnostics({ uri: f.uri, parseResult: f.parseResult, source: f.source, project, config }))
-  const network = computeNetworkTextDiagnostics(own, project, messagesFor(vendor))
+  const network = networkDiagnostics(own.parseResult, project)
   return [...analysed, ...network].filter((d) => d.severity === "error").map((d) => d.message)
 }
 

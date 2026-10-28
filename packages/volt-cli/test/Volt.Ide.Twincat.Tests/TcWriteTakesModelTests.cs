@@ -30,8 +30,8 @@ public class TcWriteTakesModelTests
         var scope = NetworkScope.FromDeclarations("PROGRAM VltProbe_Max\nVAR\n  n : INT;\n  m : INT;\n  t1 : TON;\nEND_VAR",
                                                   _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem,
                                                   BeckhoffDriver.RefusedPouName, Volt.Tests.Shared.Scopes.NoLibrary);
-        var model = V2NetworkText.Validate(
-            NetworkTextWriter.Write(TcNetworkReader.Read(TcArchive.Root(xml)!, BodyLanguage.Ld), scope), scope);
+        var model = NetworkText.Validate(
+            StNetworkWriter.Write(TcNetworkReader.Read(TcArchive.Root(xml)!, BodyLanguage.Ld), scope), scope);
 
         const string decl = "PROGRAM VltProbe_Max\nVAR\nEND_VAR";
         var pou = new TcHiddenBodyWriteTests.Node("VltProbe_Max", ItemKind.PlcPou, decl, xml);
@@ -50,7 +50,7 @@ public class TcWriteTakesModelTests
     {
         const string decl = "PROGRAM P\nVAR\nEND_VAR";
         var pou = new TcHiddenBodyWriteTests.Node("P", ItemKind.PlcPou, decl, "");
-        var content = new ItemContent(ItemKind.Kinds.Pou, decl, "%LANGUAGE LD\nNETWORK\nEND_NETWORK",
+        var content = new ItemContent(ItemKind.Kinds.Pou, decl, "%LANGUAGE LD\n%NETWORK",
                                       new List<Member>(), ObjectProperties.None, Stated: StatedLanguage.Shown("LD"));
 
         var ex = Assert.Throws<VoltInvariantException>(() =>

@@ -1,7 +1,6 @@
 /**
- * THE PLAIN-ST CASE SET'S READER — the editor's side of the bridge's `NetworkTextCases` over
- * `packages/volt-cli/test/fixtures/network-text-st` (openspec network-text-st 2.3, `analysis/checks/network/_plain-st.test.ts`),
- * in the v2 set's `.cases` format (whose own reader is `frontend/types/network/network-cases.test.ts`'s, deleted with v2).
+ * THE NETWORK-TEXT CASE SET'S READER — the editor's side of the bridge's `NetworkTextCases` over
+ * `packages/volt-cli/test/fixtures/network-text-st` (`analysis/checks/network/_plain-st.test.ts`):
  *
  *   #### name — one line: what the case pins
  *   === scope            optional: `instance t1 TON`, `pou f`, `name x` — the declarations the body sees

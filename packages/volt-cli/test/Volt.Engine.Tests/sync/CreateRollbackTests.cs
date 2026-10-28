@@ -23,8 +23,7 @@ namespace Volt.Engine.Tests;
 ///   VAR
 ///   END_VAR
 ///
-///   NETWORK 0 FBD
-///   END_NETWORK
+///   %LANGUAGE FBD
 /// </code>
 /// <para>An empty shell wearing the engineer's POU name, which the next pull materializes as though they had
 /// written it. A corpus migration read that shell back as five separate losses — declaration, language, two

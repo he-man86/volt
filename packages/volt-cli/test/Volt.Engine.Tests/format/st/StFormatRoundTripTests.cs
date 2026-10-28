@@ -63,7 +63,7 @@ public class StFormatRoundTripTests
 
         { "a network-text body",
           new ItemContent(ItemKind.Kinds.Pou, "PROGRAM P\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR",
-              "%LANGUAGE FBD\nNETWORK\n  out := NOT (a);\nEND_NETWORK", new(), ObjectProperties.None) },
+              "%LANGUAGE FBD\n%NETWORK\nout := NOT(a);", new(), ObjectProperties.None) },
 
         { "a hidden CFC body",
           new ItemContent(ItemKind.Kinds.Pou, "PROGRAM P\nVAR\nEND_VAR", "%LANGUAGE CFC UNSUPPORTED", new(), ObjectProperties.None) },

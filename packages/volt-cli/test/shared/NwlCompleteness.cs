@@ -73,19 +73,19 @@ public static class NwlDisposition
     public static readonly IReadOnlyList<NwlRule> Rules = new[]
     {
         R("NWLImplementationObject", "DefaultViewMode", NwlCode.S, "%LANGUAGE LD|FBD"),
-        R("NWLImplementationObject", "NetworkList", NwlCode.S, "the NETWORK … END_NETWORK blocks, in order"),
+        R("NWLImplementationObject", "NetworkList", NwlCode.S, "the %NETWORK blocks, in order"),
         R("NWLImplementationObject", "NetworkListComment", NwlCode.D, "\"\"; else {NetworkListComment := '…'} on the %LANGUAGE line"),
         R("NWLImplementationObject", "BranchCounter", NwlCode.R, "no derivation found; a pragma on the %LANGUAGE line unless a cache", "nwl-branch-counter"),
         R("NWLImplementationObject", "ValidIds", NwlCode.D, "true; else pragma"),
 
         R("Network", "Label", NwlCode.S, "LABEL: x"),
         R("Network", "Title", NwlCode.S, "TITLE: \"…\", every stored character ($R$N, trailing spaces inside the quotes)"),
-        R("Network", "Comment", NwlCode.S, "the // lines (S); their CR LF break D; else {Comment := '…'} on the NETWORK line"),
+        R("Network", "Comment", NwlCode.S, "the // lines (S); their CR LF break D"),
         R("Network", "OutCommented", NwlCode.S, "DISABLED"),
         R("Network", "NetworkItems", NwlCode.S, "the statements, in order"),
         R("Network", "Connectors", NwlCode.X, "X if non-empty", atDefault: EmptyList),
         R("Network", "ILLines", NwlCode.X, "X if non-empty (with ILStatement)", atDefault: EmptyList),
-        R("Network", "ILActive", NwlCode.D, "false; else pragma on the NETWORK line"),
+        R("Network", "ILActive", NwlCode.D, "false"),
         R("Network", "ILValid", NwlCode.D, "false; else pragma"),
         R("Network", "FBDValid", NwlCode.D, "false; else pragma"),
         R("Network", Id, NwlCode.C, IdText, "nwl-item-id"),

@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  y := EXPT(x, y);
-END_NETWORK
+%NETWORK
+y := EXPT(x, y);

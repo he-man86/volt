@@ -361,7 +361,7 @@ internal static class TcNetworkWriter
 
     /// <summary>Does the live network already say exactly what is being pushed?
     ///
-    /// <para>Rendered through <see cref="TcNetworkReader"/> and <c>NetworkTextWriter</c> — the pull path — so
+    /// <para>Rendered through <see cref="TcNetworkReader"/> and <c>StNetworkWriter</c> — the pull path — so
     /// "the same" means the same file, which is the only definition that matters to an engineer. The live side is the
     /// network AS SHOWN (<see cref="TcNetworkReader.ReadNetworkShown"/>): one the reader refuses or the writer cannot
     /// spell renders as its <c>UNSUPPORTED</c> line, equal only to that line pushed back. A PUSHED model the strict
@@ -561,7 +561,7 @@ internal static class TcNetworkWriter
                     // THE ARCHIVE KEEPS A TRAILING BLANK LINE AND NETWORK TEXT DOES NOT, so the counts differ by
                     // one for every box the IDE wrote. Measured on `execute-box.TcPOU`: the archive holds 2 lines
                     // (`iCount:=icount+1;` and an empty one) and the text round trip yields 1, because
-                    // `NetworkTextWriter` trims the trailing newline off an EXECUTE block and nothing restores
+                    // the text writer trims the trailing newline off an EXECUTE block and nothing restores
                     // it. Without this, every ST edit would read as a re-shape and the write below could never
                     // run — the feature would compile and be dead, which is the failure mode this file has
                     // already shipped once.
@@ -702,7 +702,7 @@ internal static class TcNetworkWriter
     ///
     /// <para>A leaf's modifiers have a network-text form - <c>NOT b</c>, parsed straight back - so the model
     /// carries them and the writer can put them back. An assignment TARGET's do not:
-    /// <c>NetworkTextWriter.Lhs</c> renders a target as its bare text with no modifiers, so the reader hands
+    /// the text writer renders a target as its bare text with no modifiers, so the reader hands
     /// back <c>new Operand(name)</c> with no flags, and writing that would erase the vendor's own value (measured on a SET
     /// coil: <c>Flags: 2 -> 0</c> from a push that changed nothing — the coil stops latching, the push reports success).
     /// A target's bits are <see cref="WriteTargetBits"/>'s, set bit-precisely on the item's slot.</para></summary>
@@ -965,7 +965,7 @@ internal static class TcNetworkWriter
     /// <summary>Write ONLY what the pushed model can actually carry.
     ///
     /// <para>This assigned six members unconditionally, from a model that on the push path is ALWAYS text-derived
-    /// - <c>NetworkTextGate.Validate</c> -> <c>NetworkTextReader</c>, which builds <c>new Operand(name)</c>.
+    /// - <c>StNetworkGate.Validate</c> -> <c>StNetworkReader</c>, which builds <c>new Operand(name)</c>.
     /// Network text has no syntax for an operand's declared TYPE, its symbol COMMENT or its l-value marker, so
     /// those fields arrive null/false for every operand of every network, and writing them ERASED the IDE's own
     /// values. Measured on the vendor's own files: <c>Type: "BOOL" -> ""</c> on three operands of POU_PBD, and

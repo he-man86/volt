@@ -1,13 +1,9 @@
 %LANGUAGE FBD
-NETWORK
-  out1 := a AND b;
-END_NETWORK
-NETWORK
-  t1 : TON(IN := out1, PT := pt);
-END_NETWORK
-NETWORK
-  n := MAX(i1, i2);
-END_NETWORK
-NETWORK
-  out2 := t1.Q;
-END_NETWORK
+%NETWORK
+out1 := AND(a, b);
+%NETWORK
+t1(IN := out1, PT := pt);
+%NETWORK
+n := MAX(i1, i2);
+%NETWORK
+out2 := t1.Q;

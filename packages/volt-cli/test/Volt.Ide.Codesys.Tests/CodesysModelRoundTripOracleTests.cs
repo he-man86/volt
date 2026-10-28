@@ -11,15 +11,14 @@ namespace Volt.Ide.Codesys.Tests;
 /// <summary>
 /// THE MODEL ROUND-TRIP ORACLE over the CODESYS reader doubles (task 2.2): every NWL double the offline CODESYS
 /// suites hand <see cref="CodesysNetworkReader"/> and expect to READ — the vendor-read model a pull hands the writer
-/// — must round-trip through network text v2 or be refused by name (<see cref="NetworkModelOracle"/>). The engine
-/// suite runs the same oracle over its goldens and the LSP corpus, and the TwinCAT suite over its archives; this
-/// third half lives here because only this suite can reach <see cref="CodesysNetworkReader"/>.
+/// — must round-trip through plain-ST network text or be refused by name (<see cref="StNetworkOracle"/>). The vendor
+/// suites run the same oracle over the recorded archives and the TwinCAT archives; this half lives here because only
+/// this suite can reach <see cref="CodesysNetworkReader"/>.
 ///
 /// <para><b>Transcribed, keyed by the test that builds each double.</b> A double constructed inside a test method
 /// cannot be harvested, so each is rebuilt here exactly as its test builds it (the engine suite's
-/// <c>V1BuiltModels</c> does the same for the v1 models). The doubles a test builds to be REFUSED by the reader
-/// (a pin flag, a split point, a terminator with an input, …) are not here: they never reach a writer, v1 or v2,
-/// and <see cref="CodesysNetworkReaderTests"/> pins each refusal by name. A copy can fall behind its source, so
+/// <c>V1BuiltModels</c> did the same for the v1 models). The doubles a test builds to be REFUSED by the reader
+/// (a pin flag, a split point, a terminator with an input, …) are not here: they never reach a writer, and <see cref="CodesysNetworkReaderTests"/> pins each refusal by name. A copy can fall behind its source, so
 /// <see cref="Every_reader_test_is_transcribed_or_says_why_not"/> holds the two lists to the reader tests that exist:
 /// a new reader test fails it until its double is here or its reason is.</para>
 ///
@@ -306,7 +305,7 @@ public class CodesysModelRoundTripOracleTests
     [Theory]
     [MemberData(nameof(Ids))]
     public void Every_reader_double_round_trips_or_is_refused_by_name(string id) =>
-        NetworkModelOracle.Check(id, Read.Value[id]);
+        StNetworkOracle.CheckBody(id, Read.Value[id]);
 
     /// <summary>The reader tests whose double is NOT transcribed above, each with why. Everything else a
     /// <see cref="CodesysNetworkReaderTests"/> test reads must be in <see cref="Doubles"/> under its test's name.</summary>
@@ -314,11 +313,10 @@ public class CodesysModelRoundTripOracleTests
     {
         ["A_boolean_where_a_node_belongs_is_never_a_node"] = "refused by the reader: an assignment with no value",
         ["A_box_showing_EN_with_no_slot_named_EN_is_refused_by_name"] = "refused by the reader: a box showing EN or ENO with no slot of that name",
-        // network-text-st 2.2: the model reads EN/ENO from the stored flags, and v2 text keys them on the pin's NAME (`EN :=`
-        // is its enable, `.ENO` its ENO), so v2 cannot spell a callee's own EN/ENO. The plain-ST oracle (StNetworkProbe) checks
-        // these two shapes; v2 is deleted in 3.2.
-        ["A_slot_named_EN_on_a_box_not_showing_EN_is_the_callees_own_pin"] = "v2 has no spelling for a callee's own EN pin (plain-ST: StNetworkProbe)",
-        ["An_output_named_ENO_on_a_box_not_showing_ENO_is_the_callees_own_output"] = "v2 has no spelling for a callee's own ENO output (plain-ST: StNetworkProbe)",
+        // network-text-st 2.2: the model reads EN/ENO from the stored flags; a callee's own EN/ENO is a formal pin of a plain
+        // call, pinned in StNetworkTextTests.A_callees_own_EN_and_ENO_are_formal_pins_of_a_plain_call.
+        ["A_slot_named_EN_on_a_box_not_showing_EN_is_the_callees_own_pin"] = "a callee's own EN pin: StNetworkTextTests",
+        ["An_output_named_ENO_on_a_box_not_showing_ENO_is_the_callees_own_output"] = "a callee's own ENO output: StNetworkTextTests",
         ["Formal_pin_names_are_read_from_the_param_list"] = "the TON double of A_box_whose_first_pin_is_not_EN_keeps_all_of_its_inputs",
         ["A_network_missing_its_item_count_throws_rather_than_reading_as_empty"] = "refused by the reader",
         ["A_terminator_with_an_input_is_refused_by_name"] = "refused by the reader",
@@ -340,7 +338,7 @@ public class CodesysModelRoundTripOracleTests
 
     /// <summary>THE TRANSCRIPTION IS COMPLETE. The doubles above are copied by hand, because a double built inside
     /// a test method cannot be harvested — so a reader test added (or renamed) without its entry here would never
-    /// reach the v2 oracle, and the tally would not notice. Every reader test is either transcribed under its
+    /// reach the oracle, and the tally would not notice. Every reader test is either transcribed under its
     /// name or listed in <see cref="NotTranscribed"/> with the reason; neither list names a test that is gone.</summary>
     [Fact]
     public void Every_reader_test_is_transcribed_or_says_why_not()
@@ -362,30 +360,13 @@ public class CodesysModelRoundTripOracleTests
 
     [Fact]
     public void Reader_double_tally() =>
-        NetworkModelOracle.AssertTally("CODESYS reader doubles",
-            Read.Value.Select(kv => NetworkModelOracle.Check(kv.Key, kv.Value)),
-            // Every double round-trips since the reader fills the output slots, the connection slot and whether a box has
-            // an ENO output (task 3.10): the one refusal this table held — MOVE's result pin, "a box whose ENO output
-            // was not read" — was those facts missing, and its double is now the measured MOVE (`OutputParams ['']`). The
-            // 34th is the data box whose stored output type (`OutputParams.Types`) declares the wire it feeds. The three
-            // refusals are the pin-flag doubles the reader reads since task 4.1: the text has no spelling for a flag on a
-            // box input pin (phase-1 decision), so the pull names it rather than write the pin without it. Four more
-            // round-trip since the reader takes a Volt-built box's slot from the measured compiler reading (N21); the
-            // enabled MOVE whose list names no ENO is the one shape that reading leaves unstated, refused by name. The 39th
-            // is the symbol comment read from the archive (ld-fbd-coverage 1b.3): the model's operand equality does not
-            // hold the comment, which the text does not spell yet (the NWL completeness oracle holds that loss). The 40th is a
-            // negated pin, spelled since ld-fbd-coverage 2.3 (S6, `AND(a, NOT IN2 := b)`); the 42nd an EDGE on a pin, spelled
-            // since 2R.5 (`AND(R_EDGE IN1 := c, one)`, awkward-sweep #15: it stores, builds and runs), while MOVE's negated
-            // pin beside EN is the call form naming its default formal since 2R.3 (P5, `MOVE(NOT IN := value) EN rung`). The
-            // 43rd and 44th are the EN pin's flag and the named ENO pin (2R.5). Network text v2.1 (2R.6b) refuses four of the
-            // doubles by the shared validator: the two Volt-built enabled MOVEs hold two inputs (a MOVE with 0 or 2 inputs is
-            // not measured), the Volt-built enabled AND is read through its ENO with its value wired nowhere (X3, 3c: it does
-            // not build), and the named ENO pin beside a consumer (X12, 7b: it does not build).
-            bodies: 41, networks: 41, refused: new Dictionary<string, int>
+        StNetworkOracle.AssertTally(Read.Value.SelectMany(kv => StNetworkOracle.CheckBody(kv.Key, kv.Value)).ToList(), "CODESYS reader doubles",
+            identical: 27, stored: 16, new Dictionary<string, int>(StringComparer.Ordinal)
             {
-                ["a MOVE with no input or two"] = 2,
-                ["an operator box read through its ENO with no output wired"] = 1,
-                ["an ENO pin wired beside a consumer"] = 1,
+                // the enabled MOVE whose output list names no ENO: read at no slot the text can state (the reader's own test)
+                ["a box read by an unstated slot"] = 1,
+                // a function declaring an output named OUT, which the text reads as a call's result pin
+                ["a named output called OUT"] = 1,
             });
 
 }

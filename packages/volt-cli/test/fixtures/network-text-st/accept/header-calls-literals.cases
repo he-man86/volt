@@ -1,4 +1,4 @@
-#### header-order — the v2 case header-calls-literals/header-order, as a pull writes it
+#### header-order
 === text
 %LANGUAGE LD
 %NETWORK "Calc"
@@ -9,7 +9,7 @@ x := a;
 NETWORK label:Start disabled title:"Calc"
   (:= x a)
 
-#### title-escapes — the v2 case header-calls-literals/title-escapes, as a pull writes it
+#### title-escapes
 === text
 %LANGUAGE LD
 %NETWORK "Calc $"A$" $$5 $R$L"
@@ -18,7 +18,7 @@ x := a;
 NETWORK title:"Calc \"A\" $5 \r\n"
   (:= x a)
 
-#### title-other-escapes — the v2 case header-calls-literals/title-other-escapes, as a pull writes it
+#### title-other-escapes
 === text
 %LANGUAGE LD
 %NETWORK "a$R$Lb	c'd"
@@ -27,7 +27,7 @@ x := a;
 NETWORK title:"a\r\nb\tc'd"
   (:= x a)
 
-#### comment-lines — the v2 case header-calls-literals/comment-lines, as a pull writes it
+#### comment-lines
 === text
 %LANGUAGE LD
 %NETWORK
@@ -40,7 +40,7 @@ x := a;
 NETWORK comment:"first line\r\n  indented\r\n\r\nlast"
   (:= x a)
 
-#### comment-trailing-line — the v2 case header-calls-literals/comment-trailing-line, as a pull writes it
+#### comment-trailing-line
 === text
 %LANGUAGE LD
 %NETWORK
@@ -51,7 +51,7 @@ x := a;
 NETWORK comment:"only\r\n"
   (:= x a)
 
-#### comment-escapes — the v2 case header-calls-literals/comment-escapes, as a pull writes it
+#### comment-escapes
 === text
 %LANGUAGE LD
 %NETWORK
@@ -61,14 +61,14 @@ x := a;
 NETWORK comment:"cost $5\nnext\rend"
   (:= x a)
 
-#### empty-network — the v2 case header-calls-literals/empty-network, as a pull writes it
+#### empty-network
 === text
 %LANGUAGE LD
 %NETWORK
 === model
 NETWORK
 
-#### empty-item — the v2 case header-calls-literals/empty-item, as a pull writes it
+#### empty-item
 === text
 %LANGUAGE LD
 %NETWORK
@@ -77,7 +77,7 @@ NETWORK
 NETWORK
   ``
 
-#### unsupported-line — the v2 case header-calls-literals/unsupported-line, as a pull writes it
+#### unsupported-line
 === text
 %LANGUAGE LD
 %NETWORK "kept"
@@ -85,7 +85,7 @@ NETWORK
 === model
 NETWORK title:"kept" unsupported:"a flag on a box input pin" hash:3f9a01c2
 
-#### fb-call-empty-pin — the v2 case header-calls-literals/fb-call-empty-pin, as a pull writes it
+#### fb-call-empty-pin
 === scope
 instance t2 TON
 === text
@@ -98,7 +98,7 @@ output := w1;
 NETWORK
   (:= output (TON@t2 IN=TRUE PT=e1 name:Q))
 
-#### unnamed-instance — the v2 case header-calls-literals/unnamed-instance, as a pull writes it
+#### unnamed-instance
 === scope
 fb Axis
 === text
@@ -109,7 +109,7 @@ Axis(xEnable := go);
 NETWORK
   (Axis@??? xEnable=go)
 
-#### undeclared-instance — the v2 case header-calls-literals/undeclared-instance, as a pull writes it
+#### undeclared-instance — an instance the declarations do not name: the call names its type, which the build judges
 === scope
 fb TON
 === text
@@ -120,7 +120,7 @@ TON(IN := go);
 NETWORK
   (TON@??? IN=go)
 
-#### array-element-instance — the v2 case header-calls-literals/array-element-instance, as a pull writes it
+#### array-element-instance
 === scope
 instance fbs[] CTU
 === text
@@ -131,7 +131,7 @@ fbs[1](CU := go, PV := 10, CV => n);
 NETWORK
   (CTU@`fbs[1]` CU=go PV=10 =>CV:n)
 
-#### method-call — the v2 case header-calls-literals/method-call, as a pull writes it
+#### method-call
 === scope
 instance fbm FB_M
 === text
@@ -142,7 +142,7 @@ x := fbm.Visible(on := go);
 NETWORK
   (:= x (fbm.Visible on=go conn:0))
 
-#### positional-pins — the v2 case header-calls-literals/positional-pins, as a pull writes it
+#### positional-pins — a pin stored with no name is positional, in slot order
 === text
 %LANGUAGE FBD
 %NETWORK
@@ -151,7 +151,7 @@ y := LIMIT(0, v, 100);
 NETWORK
   (:= y (LIMIT 0 v 100 conn:0))
 
-#### pin-vs-contact — the v2 case header-calls-literals/pin-vs-contact, as a pull writes it
+#### pin-vs-contact
 === scope
 instance t1 TON
 instance t2 TON
@@ -168,7 +168,7 @@ NETWORK
   (:= q (TON@t1 IN=not:v PT=T#1S name:Q))
   (:= p (TON@t2 IN=not:v PT=T#1S name:Q))
 
-#### negated-contact — the v2 case header-calls-literals/negated-contact, as a pull writes it
+#### negated-contact
 === text
 %LANGUAGE LD
 %NETWORK
@@ -177,7 +177,7 @@ x := a AND NOT b;
 NETWORK
   (:= x (AND a not:b))
 
-#### edges — the v2 case header-calls-literals/edges, as a pull writes it
+#### edges
 === text
 %LANGUAGE LD
 %NETWORK
@@ -190,7 +190,7 @@ NETWORK
   (:= b fall:x)
   (:= c rise:not:x)
 
-#### negated-call — the v2 case header-calls-literals/negated-call, as a pull writes it
+#### negated-call
 === text
 %LANGUAGE FBD
 %NETWORK
@@ -199,7 +199,7 @@ x := NOT(f(IN := a));
 NETWORK
   (:= x (NOT (f IN=a conn:0)))
 
-#### literals — the v2 case header-calls-literals/literals, as a pull writes it
+#### literals — a literal is bare
 === text
 %LANGUAGE LD
 %NETWORK
@@ -216,7 +216,7 @@ NETWORK
   (:= t T#1S)
   (:= w 16#FF)
 
-#### expression-operand — the v2 case header-calls-literals/expression-operand, as a pull writes it
+#### expression-operand
 === text
 %LANGUAGE LD
 %NETWORK
@@ -225,7 +225,7 @@ MOVE_EN(EN := go, DIV(DINT_TO_LREAL(pos), 10), OUT => target);
 NETWORK
   (MOVE (DIV (DINT_TO_LREAL pos conn:0) 10 conn:0) =>1:target en:go eno:1)
 
-#### backtick-escapes — the v2 case header-calls-literals/backtick-escapes, as a pull writes it
+#### backtick-escapes
 === text
 %LANGUAGE LD
 %NETWORK
@@ -233,7 +233,7 @@ NETWORK
 === model
 NETWORK unsupported:"an operand that is no ST expression" hash:06cb118c
 
-#### empty-text-operand — the v2 case header-calls-literals/empty-text-operand, as a pull writes it
+#### empty-text-operand
 === scope
 instance ton1 TON
 === text
@@ -246,7 +246,7 @@ q := w1;
 NETWORK
   (:= q (TON@ton1 IN=TRUE name:Q))
 
-#### reserved-backticked — the v2 case header-calls-literals/reserved-backticked, as a pull writes it
+#### reserved-backticked
 === text
 %LANGUAGE LD
 %NETWORK
@@ -259,7 +259,7 @@ NETWORK
   (:= EN c)
   (:= z (AND Branch ShortCircuit))
 
-#### non-words-are-names — the v2 case header-calls-literals/non-words-are-names, as a pull writes it
+#### non-words-are-names
 === text
 %LANGUAGE LD
 %NETWORK
@@ -267,7 +267,7 @@ NETWORK
 === model
 NETWORK unsupported:"an operand named like an ST keyword" hash:b2b1dedd
 
-#### reserved-pin-and-head-backticked — the v2 case header-calls-literals/reserved-pin-and-head-backticked, as a pull writes it
+#### reserved-pin-and-head-backticked
 === text
 %LANGUAGE LD
 %NETWORK
@@ -276,7 +276,7 @@ Execute(branch := b, en => x);
 NETWORK
   (Execute branch=b =>en:x)
 
-#### header-disabled-title — the v2 case header-calls-literals/header-disabled-title, as a pull writes it
+#### header-disabled-title
 === text
 %LANGUAGE FBD
 %NETWORK "x"

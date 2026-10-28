@@ -238,8 +238,8 @@ test("formatting keeps every body's %LANGUAGE line, and a member's %FOLDER under
       kept: ["END_VAR\n%LANGUAGE ST\nx := x + 1;\n"],
     },
     "a ladder": {
-      src: "FUNCTION_BLOCK G\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR\n%LANGUAGE LD\nNETWORK\n  out := a;\nEND_NETWORK\nEND_FUNCTION_BLOCK\n",
-      kept: ["END_VAR\n%LANGUAGE LD\nNETWORK\n  out := a;\nEND_NETWORK\n"],
+      src: "FUNCTION_BLOCK G\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\nout := a;\nEND_FUNCTION_BLOCK\n",
+      kept: ["END_VAR\n%LANGUAGE LD\n%NETWORK\nout := a;\n"],
     },
     "a method in a folder": {
       src: "METHOD M : INT\n%LANGUAGE ST\n%FOLDER Sub/Deep\nM := 1;\nEND_METHOD\n",
@@ -334,8 +334,8 @@ test("formatting keeps a property's and an interface member's %FOLDER, and an in
  */
 test("formatting a CRLF file adds no blank line under the %LANGUAGE line or a member's %FOLDER", () => {
   const cases = {
-    "a ladder": "FUNCTION_BLOCK F\r\nVAR\r\n\tx : BOOL;\r\nEND_VAR\r\n%LANGUAGE LD\r\nNETWORK\r\n  x := TRUE;\r\nEND_NETWORK\r\nEND_FUNCTION_BLOCK\r\n",
-    "a ladder method in a folder": "METHOD M\r\n%LANGUAGE LD\r\n%FOLDER a\r\nNETWORK\r\n  M := TRUE;\r\nEND_NETWORK\r\nEND_METHOD\r\n",
+    "a ladder": "FUNCTION_BLOCK F\r\nVAR\r\n\tx : BOOL;\r\nEND_VAR\r\n%LANGUAGE LD\r\n%NETWORK\r\nx := TRUE;\r\nEND_FUNCTION_BLOCK\r\n",
+    "a ladder method in a folder": "METHOD M\r\n%LANGUAGE LD\r\n%FOLDER a\r\n%NETWORK\r\nM := TRUE;\r\nEND_METHOD\r\n",
     "a commented ST body": "FUNCTION_BLOCK F\r\nVAR\r\n\tx : INT;\r\nEND_VAR\r\n%LANGUAGE ST\r\n// c\r\nx := 1;\r\nEND_FUNCTION_BLOCK\r\n",
   }
   for (const [name, src] of Object.entries(cases)) {

@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  y := SIN(x);
-END_NETWORK
+%NETWORK
+y := SIN(x);

@@ -10,7 +10,7 @@
     "fixtures twincat: refused with a syntax message, no LSP parse error": 0
   },
   "resolution-dump": {
-    "findings": 5,
+    "findings": 4,
     "corpus Library Manager: bare name NONE": 81,
     "corpus Library Manager: bare name NOSCOPE": 1934,
     "corpus Library Manager: member NONE": 157,
@@ -36,7 +36,7 @@
     "messages codesys: LSP only": 0,
     "messages codesys: recorded only": 0,
     "messages twincat: LSP only": 0,
-    "messages twincat: recorded only": 3
+    "messages twincat: recorded only": 2
   },
   "type-dump": {
     "findings": 0,

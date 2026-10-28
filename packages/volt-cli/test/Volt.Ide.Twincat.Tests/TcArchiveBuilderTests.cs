@@ -140,30 +140,30 @@ public sealed class TcArchiveBuilderTests(Xunit.Abstractions.ITestOutputHelper o
     /// <c>test/e2e/graphical/native-writer.test.ts</c>.</summary>
     public static readonly (string Name, string Body)[] BeyondTheImport =
     {
-        ("single_consumer_branch", "NETWORK\n  split1 := a AND b;\n  out := split1;\nEND_NETWORK\n"),
-        ("fanout_two_coils", "NETWORK\n  split1 := a AND b;\n  out1 := split1;\n  out2 := split1;\nEND_NETWORK\n"),
-        ("leaf_fed_split", "NETWORK\n  split1 := a;\n  out1 := split1;\n  out2 := split1;\nEND_NETWORK\n"),
-        ("unconnected_pin", "NETWORK\n  t1 : TON(IN := , PT := pt);\nEND_NETWORK\n"),
-        ("pin_to_variable", "NETWORK\n  t1 : TON(IN := a, PT := pt, ET => el);\nEND_NETWORK\n"),
-        ("pin_to_variable_consumed", "NETWORK\n  out := t1 : TON(IN := a, PT := pt, ET => el).Q;\nEND_NETWORK\n"),
-        ("negated_input", "NETWORK\n  out := NOT a AND b;\nEND_NETWORK\n"),
-        ("set_coil", "NETWORK\n  out S= a;\nEND_NETWORK\n"),
-        ("reset_coil", "NETWORK\n  out R= a AND b;\nEND_NETWORK\n"),
-        ("rising_edge", "NETWORK\n  out := R_EDGE a AND b;\nEND_NETWORK\n"),
-        ("execute", "NETWORK\n  EXECUTE\nn := n + 1;\n  END_EXECUTE ENO EN go;\nEND_NETWORK\n"),
-        ("execute_consumed", "NETWORK\n  out := EXECUTE\nn := 1;\n         END_EXECUTE ENO EN go;\nEND_NETWORK\n"),
-        ("multi_rung", "NETWORK\n  out1 := a AND b;\n  out2 := c OR d;\n  t1 : TON(IN := e, PT := pt);\nEND_NETWORK\n"),
-        ("assign_below_top", "NETWORK\n  t1 : TON(IN := (out := go), PT := pt);\nEND_NETWORK\n"),
-        ("jump_and_label", "NETWORK\n  JMP L1 := a;\nEND_NETWORK\nNETWORK LABEL: L1\n  out := a OR b;\nEND_NETWORK\n"),
-        ("return_uncond", "NETWORK\n  out := a AND b;\nEND_NETWORK\nNETWORK\n  RETURN := ;\nEND_NETWORK\n"),
-        ("unconnected_coil", "NETWORK\n  out := ;\nEND_NETWORK\n"),
-        ("empty_network", "NETWORK\n  out := a AND b;\nEND_NETWORK\nNETWORK\nEND_NETWORK\n"),
-        ("header", "NETWORK LABEL: Here DISABLED TITLE: \"a rung\"\n  // two lines\n  // of comment\n  out := a AND b;\nEND_NETWORK\n"),
-        ("enable_and", "NETWORK\n  a AND b => out ENO EN go;\nEND_NETWORK\n"),
-        ("enable_move", "NETWORK\n  out := MOVE b => n ENO EN go;\nEND_NETWORK\n"),
-        ("function_named", "NETWORK\n  n := F_Custom(A := i1, B := i2);\nEND_NETWORK\n"),
+        ("single_consumer_branch", "%NETWORK\n%WIRES w1\nw1 := a AND b;\nout := w1;\n"),
+        ("fanout_two_coils", "%NETWORK\n%WIRES w1\nw1 := a AND b;\nout1 := w1;\nout2 := w1;\n"),
+        ("leaf_fed_split", "%NETWORK\n%WIRES w1\nw1 := a;\nout1 := w1;\nout2 := w1;\n"),
+        ("unconnected_pin", "%NETWORK\nt1(PT := pt);\n"),
+        ("pin_to_variable", "%NETWORK\nt1(IN := a, PT := pt, ET => el);\n"),
+        ("pin_to_variable_consumed", "%NETWORK\n%WIRES w1\nt1(IN := a, PT := pt, ET => el, Q => w1);\nout := w1;\n"),
+        ("negated_input", "%NETWORK\nout := NOT a AND b;\n"),
+        ("set_coil", "%NETWORK\nout S= a;\n"),
+        ("reset_coil", "%NETWORK\nout R= a AND b;\n"),
+        ("rising_edge", "%NETWORK\nout := R_EDGE(a) AND b;\n"),
+        ("execute", "%NETWORK\n%EXECUTE(EN := go)\nn := n + 1;\n%END_EXECUTE\n"),
+        ("execute_consumed", "%NETWORK\n%WIRES w1\n%EXECUTE(EN := go, ENO => w1)\nn := 1;\n%END_EXECUTE\nout := w1;\n"),
+        ("multi_rung", "%NETWORK\nout1 := a AND b;\nout2 := c OR d;\nt1(IN := e, PT := pt);\n"),
+        ("assign_below_top", "%NETWORK\nt1(IN := (out := go), PT := pt);\n"),
+        ("jump_and_label", "%NETWORK\nJMP(L1, a);\n%NETWORK\nL1:\nout := a OR b;\n"),
+        ("return_uncond", "%NETWORK\nout := a AND b;\n%NETWORK\nRETURN;\n"),
+        ("unconnected_coil", "%NETWORK\nout := TRUE;\n"),
+        ("empty_network", "%NETWORK\nout := a AND b;\n%NETWORK\n"),
+        ("header", "%NETWORK \"a rung\"\n%DISABLED\n// two lines\n// of comment\nHere:\nout := a AND b;\n"),
+        ("enable_and", "%NETWORK\nAND_EN(EN := go, a, b, OUT => out);\n"),
+        ("enable_move", "%NETWORK\nout := MOVE_EN(EN := go, b, OUT => n);\n"),
+        ("function_named", "%NETWORK\nn := F_Custom(A := i1, B := i2);\n"),
         // 2R.5 #23: the named ENO pin — the variable stored on the ENO slot, in place of its null, as CODESYS's writer builds it.
-        ("named_eno", "NETWORK\n  MOVE 7 => n ENO => out EN go;\nEND_NETWORK\n"),
+        ("named_eno", "%NETWORK\nMOVE_EN(EN := go, 7, ENO => out, OUT => n);\n"),
     };
 
     /// <summary>The shapes the builder refuses, by the phrase of the reason.</summary>
@@ -195,8 +195,8 @@ public sealed class TcArchiveBuilderTests(Xunit.Abstractions.ITestOutputHelper o
         var built = TcArchiveBuilder.Body(model, TcNativeCorpusTests.Scope);
         var scope = TcNativeCorpusTests.Scope;
         // The shapes are written as a pull writes them, so the live suite (native-writer.test.ts) can compare by text.
-        Assert.Equal($"%LANGUAGE {language}\n" + body, NetworkTextWriter.Write(model, scope));
-        Assert.Equal(NetworkTextWriter.Write(model, scope), NetworkTextWriter.Write(ReadBack(built), scope));
+        Assert.Equal($"%LANGUAGE {language}\n" + body, StNetworkWriter.Write(model, scope));
+        Assert.Equal(StNetworkWriter.Write(model, scope), StNetworkWriter.Write(ReadBack(built), scope));
         // And the text TwinCAT will hold is the vendor's layout, by the identity gate's own writer.
         Assert.Equal(built, TcArchiveWriter.WriteBody(Graph(built)));
     }
@@ -260,9 +260,9 @@ public sealed class TcArchiveBuilderTests(Xunit.Abstractions.ITestOutputHelper o
             try { body = TcArchiveBuilder.Body(model, TcNativeCorpusTests.Scope); }
             catch (Exception e) when (e is NotSupportedException or NetworkTextException) { refused.Add($"{name}: {e.Message}"); continue; }
             var scope = TcNativeCorpusTests.Scope;
-            var want = NetworkTextWriter.Write(model, scope);
+            var want = StNetworkWriter.Write(model, scope);
             string got;
-            try { got = NetworkTextWriter.Write(ReadBack(body), scope); }
+            try { got = StNetworkWriter.Write(ReadBack(body), scope); }
             catch (Exception e) { failures.Add($"{name}: {e.GetType().Name} {e.Message}"); continue; }
             if (got != want) failures.Add($"{name}:\n--- text\n{want}--- built, pulled\n{got}");
         }

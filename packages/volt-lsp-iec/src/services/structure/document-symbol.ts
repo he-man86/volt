@@ -4,7 +4,7 @@
  * Pure AST walk — no resolution needed.
  */
 import { SymbolKind as Lsp, type DocumentSymbol } from "vscode-languageserver-protocol"
-import type { TopLevel, VarSection } from "../../frontend/syntax/index.js"
+import { isPlainStNetworkBody, plainStText, unitBodies, type TopLevel, type VarSection } from "../../frontend/syntax/index.js"
 import { rangeFromSpan } from "../shared/index.js"
 import type { Document } from "../shared/index.js"
 import { gvlName } from "../../frontend/symbols/index.js"
@@ -13,7 +13,20 @@ export function documentSymbols(doc: Document): DocumentSymbol[] {
   const out: DocumentSymbol[] = []
   for (const unit of doc.parseResult.units) {
     const sym = unitSymbol(unit, doc.uri)
-    if (sym !== undefined) out.push(sym)
+    if (sym === undefined) continue
+    out.push(sym)
+    // an LD/FBD body shows its networks, `NETWORK n: title`, under its unit
+    for (const body of unitBodies(unit))
+      if (isPlainStNetworkBody(body))
+        for (const n of plainStText(body).networks) {
+          const title = n.header.args.find((t) => t.kind === "string_lit")?.text.slice(1, -1)
+          ;(sym.children ??= []).push({
+            name: `NETWORK ${n.index + 1}${title ? `: ${title}` : ""}`,
+            kind: Lsp.Namespace,
+            range: rangeFromSpan(n.span),
+            selectionRange: rangeFromSpan(n.header.span),
+          })
+        }
   }
   return out
 }

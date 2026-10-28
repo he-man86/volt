@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  tp1 : TP(IN := a, PT := T#500MS);
-END_NETWORK
+%NETWORK
+tp1(IN := a, PT := T#500MS);

@@ -172,10 +172,9 @@ export const RULES_I: readonly Rule[] = [
         title: "IMPLEMENTATION is a name like any other, in every file and every naming position: no diagnostic",
       },
       {
-        file: "src/frontend/types/network/network-parse.test.ts",
-        title: "the header carries LABEL, DISABLED and TITLE, exact, IEC's escapes decoded",
+        file: "src/frontend/syntax/network/plain-st.test.ts",
+        title: "networks and their % lines: the title, %DISABLED, %WIRES, an Execute box from its line to %END_EXECUTE",
       },
-      { file: "src/frontend/types/network/network-parse.test.ts", title: "an unclosed network is NETWORK_NOT_CLOSED" },
     ],
     design: "rcc_st_body_network, rcc_implementation_variable",
   },

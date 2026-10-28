@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  out := i1 LT i2;
-END_NETWORK
+%NETWORK
+out := LT(i1, i2);

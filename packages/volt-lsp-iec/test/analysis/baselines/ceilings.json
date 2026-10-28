@@ -13,7 +13,7 @@
     "group names: never-fired builders": 1,
     "group names: open FP": 0,
     "group network: GAP": 0,
-    "group network: never-fired builders": 1,
+    "group network: never-fired builders": 0,
     "group network: open FP": 0,
     "group oop: GAP": 7,
     "group oop: never-fired builders": 0,
@@ -28,7 +28,7 @@
     "group types: never-fired builders": 4,
     "group types: open FP": 0,
     "total: FP": 76,
-    "total: GAP": 434,
+    "total: GAP": 430,
     "total: never-fired builders": 3,
     "total: open FP": 0,
     "total: unowned GAP": 66
@@ -47,7 +47,7 @@
     "group names: never-fired builders": 2,
     "group names: open FP": 0,
     "group network: GAP": 0,
-    "group network: never-fired builders": 2,
+    "group network: never-fired builders": 0,
     "group network: open FP": 0,
     "group oop: GAP": 2,
     "group oop: never-fired builders": 6,
@@ -62,8 +62,8 @@
     "group types: never-fired builders": 4,
     "group types: open FP": 0,
     "total: FP": 304,
-    "total: GAP": 780,
-    "total: never-fired builders": 26,
+    "total: GAP": 779,
+    "total: never-fired builders": 25,
     "total: open FP": 0,
     "total: unowned GAP": 99
   },
@@ -74,7 +74,7 @@
   },
   "coverage": {
     "builders with 0 TP on codesys": 4,
-    "builders with 0 TP on twincat": 28,
+    "builders with 0 TP on twincat": 27,
     "checks firing on 0 fixtures": 0
   }
 }

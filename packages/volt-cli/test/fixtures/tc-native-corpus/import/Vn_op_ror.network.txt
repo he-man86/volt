@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  w := ROR(w, 3);
-END_NETWORK
+%NETWORK
+w := ROR(w, 3);

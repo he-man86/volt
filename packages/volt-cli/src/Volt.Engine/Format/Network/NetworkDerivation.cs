@@ -13,11 +13,30 @@ public static class NetworkDerivation
 {
     /// <summary><paramref name="body"/> with every call box whose callee the scope names (<see cref="NetworkScope.Callee"/>)
     /// given its derived input names (<see cref="WithCallee"/>) — what the push builds, on either vendor, and so what the
-    /// next pull shows. <paramref name="origin"/> maps each rebuilt node to the node it replaces, so a refusal raised on a
-    /// derived node is reported where the engineer wrote it. A body with nothing to derive comes back as it is.</summary>
-    public static NetworkBody Derive(NetworkBody body, NetworkScope scope, out IReadOnlyDictionary<Node, Node> origin) =>
-        Derive(body, b => WithOutputSlot(b.Instance is null && b.StCode is null && scope.Callee(b.Type) is { } callee ? WithCallee(b, callee) : b, scope),
-            out origin);
+    /// next pull shows. A body with nothing to derive comes back as it is.</summary>
+    public static NetworkBody Derive(NetworkBody body, NetworkScope scope) =>
+        Derive(body, b => WithLeftOutPins(WithOutputSlot(b.Instance is null && b.StCode is null && scope.Callee(b.Type) is { } callee ? WithCallee(b, callee) : b, scope), scope));
+
+    /// <summary>
+    /// <paramref name="box"/> with the inputs its text leaves out restored, unconnected (an empty operand), in its type's
+    /// declaration order: an FB box the editor draws holds every input its declaration names, the unconnected ones too,
+    /// and a pin left out of the call runs as that unconnected pin (measured, network-text-st design "2.1"). Only where
+    /// every pin the text names is a declared input in the declaration's order; any other box is returned as it is (the
+    /// build names a pin the FB does not declare).
+    /// </summary>
+    private static Box WithLeftOutPins(Box box, NetworkScope scope)
+    {
+        if (box.Instance is null || box.StCode is not null || scope.BlockInputs(box.Type) is not { } declared) return box;
+        if (box.Inputs.Count >= declared.Count || box.Inputs.Any(i => i.Formal is null)) return box;
+        var at = 0;
+        var inputs = new List<Input>(declared.Count);
+        foreach (var name in declared)
+        {
+            if (at < box.Inputs.Count && string.Equals(box.Inputs[at].Formal, name, StringComparison.OrdinalIgnoreCase)) inputs.Add(box.Inputs[at++]);
+            else inputs.Add(new Input(name, new Leaf(new Operand(""), Flags.None), Flags.None));
+        }
+        return at == box.Inputs.Count ? box with { Inputs = inputs } : box;
+    }
 
     /// <summary>
     /// <paramref name="box"/> with the SLOT of the FB output a consumer reads by <c>.name</c> (v2-spec section 7): the text
@@ -49,7 +68,7 @@ public static class NetworkDerivation
     public static NetworkBody NamedAs(NetworkBody pushed, NetworkBody held)
     {
         var boxes = new List<Box>();
-        Derive(held, b => { boxes.Add(b); return b; }, out _);
+        Derive(held, b => { boxes.Add(b); return b; });
         var at = 0;
         return Derive(pushed, b =>
         {
@@ -59,20 +78,18 @@ public static class NetworkDerivation
                    h is not null && h.Type == b.Type && h.Inputs.Count == b.Inputs.Count && h.Inputs.All(i => i.Formal is not null)
                 ? WithCallee(b, new Callee(Callee.FunctionCallType, h.Inputs.Select(i => i.Formal!).ToList(), null))
                 : b;
-        }, out _);
+        });
     }
 
     // The one walk both derivations share: every call box with no instance and no ST asked once, in one fixed order — a
     // box's enable and inputs before the box itself, networks and trees in order.
-    private static NetworkBody Derive(NetworkBody body, Func<Box, Box> calleeOf, out IReadOnlyDictionary<Node, Node> origin)
+    private static NetworkBody Derive(NetworkBody body, Func<Box, Box> calleeOf)
     {
-        var map = new Dictionary<Node, Node>(NetworkTextReader.ByIdentity.Instance);
-        origin = map;
         var changed = false;
         var networks = new List<Network>(body.Networks.Count);
         foreach (var n in body.Networks)
         {
-            var trees = n.Trees.Select(t => Node(t, calleeOf, map)).ToList();
+            var trees = n.Trees.Select(t => Node(t, calleeOf)).ToList();
             if (trees.Where((t, i) => !ReferenceEquals(t, n.Trees[i])).Any())
             {
                 networks.Add(n with { Trees = trees });
@@ -83,35 +100,33 @@ public static class NetworkDerivation
         return changed ? body with { Networks = networks } : body;
     }
 
-    private static Node Node(Node n, Func<Box, Box> calleeOf, Dictionary<Node, Node> map)
+    private static Node Node(Node n, Func<Box, Box> calleeOf)
     {
-        Node Kid(Node k) => Node(k, calleeOf, map);
-        Node result = n switch
+        Node Kid(Node k) => Node(k, calleeOf);
+        return n switch
         {
-            Box b => BoxOf(b, calleeOf, map),
+            Box b => BoxOf(b, calleeOf),
             Assign a when Kid(a.Value) is var v && !ReferenceEquals(v, a.Value) => a with { Value = v },
-            Parallel p => ParallelOf(p, calleeOf, map),
+            Parallel p => ParallelOf(p, calleeOf),
             Demux { Input: { } i } d when Kid(i) is var v && !ReferenceEquals(v, i) => d with { Input = v },
             _ => n,
         };
-        if (!ReferenceEquals(result, n)) map[result] = n;
-        return result;
     }
 
-    private static Box BoxOf(Box b, Func<Box, Box> calleeOf, Dictionary<Node, Node> map)
+    private static Box BoxOf(Box b, Func<Box, Box> calleeOf)
     {
-        var enable = b.Enable is null ? null : Node(b.Enable, calleeOf, map);
-        var inputs = b.Inputs.Select(i => Node(i.Value, calleeOf, map) is var v && !ReferenceEquals(v, i.Value) ? i with { Value = v } : i).ToList();
+        var enable = b.Enable is null ? null : Node(b.Enable, calleeOf);
+        var inputs = b.Inputs.Select(i => Node(i.Value, calleeOf) is var v && !ReferenceEquals(v, i.Value) ? i with { Value = v } : i).ToList();
         var inner = ReferenceEquals(enable, b.Enable) && inputs.Where((x, i) => !ReferenceEquals(x, b.Inputs[i])).Any() == false
             ? b
             : b with { Enable = enable, Inputs = inputs };
         return calleeOf(inner);
     }
 
-    private static Node ParallelOf(Parallel p, Func<Box, Box> calleeOf, Dictionary<Node, Node> map)
+    private static Node ParallelOf(Parallel p, Func<Box, Box> calleeOf)
     {
-        var input = p.Input is null ? null : Node(p.Input, calleeOf, map);
-        var branches = p.Branches.Select(x => Node(x, calleeOf, map)).ToList();
+        var input = p.Input is null ? null : Node(p.Input, calleeOf);
+        var branches = p.Branches.Select(x => Node(x, calleeOf)).ToList();
         return ReferenceEquals(input, p.Input) && !branches.Where((x, i) => !ReferenceEquals(x, p.Branches[i])).Any()
             ? p
             : p with { Input = input, Branches = branches };

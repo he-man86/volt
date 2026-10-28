@@ -19,7 +19,7 @@
  *     not-lowered    388
  *     lsp-gap         90
  *     diverges         5
- *     unaskable      152
+ *     unaskable      145
  *
  *   tier                     lowered    clean
  *     decl                    844      844
@@ -3461,19 +3461,14 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   ng_r5_coil_and_jump: { evidence: "unaskable" },
   ng_r5_coil_and_return: { evidence: "unaskable" },
   ng_r5_comparison_eno: { evidence: "unaskable" },
-  ng_r5_edge_coils: { evidence: "unaskable" },
   ng_r5_edge_pin: { evidence: "unaskable" },
   ng_r5_empty_branch: { evidence: "unaskable" },
   ng_r5_enabled_comparison_value: { evidence: "unaskable" },
-  ng_r5_jump_set: { evidence: "unaskable" },
   ng_r5_named_eno: { evidence: "unaskable" },
-  ng_r5_negated_coil: { evidence: "unaskable" },
-  ng_r5_negated_empty: { evidence: "unaskable" },
   ng_r5_negated_en: { evidence: "unaskable" },
   ng_r5_nested_jump: { evidence: "unaskable" },
   ng_r5_one_input_add: { evidence: "unaskable" },
   ng_r5_one_input_and: { evidence: "unaskable" },
-  ng_r5_return_set: { evidence: "unaskable" },
   ng_r5_split_before_definition: { evidence: "unaskable" },
   ng_r5_split_nested: { evidence: "unaskable" },
   ng_r5_two_eno: { evidence: "unaskable" },
@@ -3487,7 +3482,6 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   ng_s6_negated_int_pin: { evidence: "unaskable" },
   ng_s6_negated_pin: { evidence: "unaskable" },
   ng_sink_type_mismatch: { evidence: "unaskable" },
-  ng_two_languages_one_body: { evidence: "unaskable" },
   no_assign: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.9, shape: "4b70673805" },
   no_check: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 1, edge: "agree", size: 2.6, shape: "d644083038" },
   no_copy: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.7, shape: "1219638616" },
@@ -4277,7 +4271,6 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   rcc_network_second_var_temp: { evidence: "unaskable" },
   rcc_network_undeclared_wire_shape: { evidence: "unaskable" },
   rcc_network_var_temp_after_statement: { evidence: "unaskable" },
-  rcc_network_wire_named_like_variable: { evidence: "unaskable" },
   rcc_property_empty_type: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
   rcc_property_no_type: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
   rcc_retired_comment_in_body: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2, shape: "c19bf2911c" },

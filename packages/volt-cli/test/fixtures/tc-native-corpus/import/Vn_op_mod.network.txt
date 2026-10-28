@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  n := i1 MOD i2;
-END_NETWORK
+%NETWORK
+n := MOD(i1, i2);

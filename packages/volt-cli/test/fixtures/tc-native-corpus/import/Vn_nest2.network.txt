@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  out := (a AND b) OR c;
-END_NETWORK
+%NETWORK
+out := OR(AND(a, b), c);

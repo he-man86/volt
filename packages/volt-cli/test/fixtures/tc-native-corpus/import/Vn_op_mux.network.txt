@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  n := MUX(i1, i2, i3, i4);
-END_NETWORK
+%NETWORK
+n := MUX(i1, i2, i3, i4);

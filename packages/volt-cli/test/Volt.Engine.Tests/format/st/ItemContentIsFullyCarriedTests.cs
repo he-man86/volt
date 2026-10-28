@@ -19,7 +19,7 @@ namespace Volt.Engine.Tests;
 ///
 /// <para><b>Be exact about what this gate does and does not reach, because over-claiming coverage is how the
 /// next one gets through.</b> Those three were dropped at the VENDOR boundary
-/// (<c>AccessorDeclaration.Keep</c>, <c>NetworkTextWriter.AssignOp</c>, <c>RebuildCallList</c>) — above the
+/// (<c>AccessorDeclaration.Keep</c>, <c>RebuildCallList</c>) — above the
 /// drivers, where only a live IDE can be the oracle, which is why all three needed a probe. This file gates the
 /// FORMAT boundary: a field that reaches <see cref="ItemContent"/> intact and is then lost by
 /// <see cref="StWriter"/> or <see cref="StReader"/>. Same failure shape, different seam, and the one seam that

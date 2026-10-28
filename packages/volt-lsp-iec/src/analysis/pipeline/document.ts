@@ -17,18 +17,18 @@
  *   names it (`checks/syntax/missing-language.ts`). That finding follows the PUSH, not the build: it is NOT dead-gated
  *   (the push refuses the file whether or not anything calls it) and it is appended AFTER the quiet (its range lies
  *   inside the body). In a workspace another materialization wrote, the manifests say so once
- *   (`checks/workspace/materialization.ts`) and neither it nor any network-text finding is given.
+ *   (`checks/workspace/materialization.ts`) and neither it nor any finding inside a network body is given — the network
+ *   text is the materialization's own form.
  *
  * Takes what the store holds — `workspace` ranks above `analysis`, so not the store itself.
  */
 import { isLibrarySymbol, type Scope } from "../../frontend/symbols/index.js"
-import type { ParseResult, Span } from "../../frontend/syntax/index.js"
+import { allUnits, isPlainStNetworkBody, unitBodies, type ParseResult, type Span } from "../../frontend/syntax/index.js"
 import { materializationMismatch, type LibraryManifest } from "../../frontend/library/index.js"
-import { computeNetworkTextDiagnostics } from "../checks/network/network-analysis.js"
+import { networkDiagnostics } from "../checks/network/_plain-st.js"
 import { PARSE_ERROR_CODES } from "../checks/syntax/parse-errors.js"
 import { missingLanguage, unstatedBodies } from "../checks/syntax/missing-language.js"
 import type { ResolvedConfig } from "../config.js"
-import { messagesFor } from "../messages/index.js"
 import { effectivelyExcluded, inExcluded } from "../reachability/exclusion.js"
 import { inDeadMember, ownerPou } from "../reachability/reachability.js"
 import type { DiagnosticItem } from "../shared/diagnostic-item.js"
@@ -56,12 +56,17 @@ export function documentFindings(args: DocumentFindingsArgs): DiagnosticItem[] {
   const otherFormat = materializationMismatch(args.manifests)
   const unstated = unstatedBodies(doc.parseResult.units)
   const missing = otherFormat ? [] : unstated.map(missingLanguage)
-  const inUnstated = (span: Span): boolean =>
-    unstated.some(({ body }) => span.start >= body.span.start && span.end <= body.span.end)
+  const within = (bodies: readonly { span: Span }[], span: Span): boolean =>
+    bodies.some((b) => span.start >= b.span.start && span.end <= b.span.end)
+  const unread = otherFormat
+    ? allUnits(doc.parseResult.units).flatMap(unitBodies).filter(isPlainStNetworkBody)
+    : []
   const quiet = (it: DiagnosticItem): boolean =>
-    (inDeadMember(it.span, dm) && !PARSE_ERROR_CODES.has(it.code)) || inExcluded(it.span, excluded.objects) || inUnstated(it.span)
+    (inDeadMember(it.span, dm) && !PARSE_ERROR_CODES.has(it.code)) ||
+    inExcluded(it.span, excluded.objects) ||
+    within(unstated.map((u) => u.body), it.span) ||
+    within(unread, it.span)
   const items = silent ? [] : computeDiagnostics({ parseResult: doc.parseResult, source: doc.source, project, config, uri: doc.uri })
-  // The network pass stays its own call (analysis-conformance §3 is parked: network text is not rewired here).
-  const network = silent || otherFormat ? [] : computeNetworkTextDiagnostics(doc, project, messagesFor(config.vendor))
+  const network = silent || otherFormat ? [] : networkDiagnostics(doc.parseResult, project)
   return [...[...items, ...network].filter((it) => !quiet(it)), ...missing]
 }

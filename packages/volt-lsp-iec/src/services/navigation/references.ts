@@ -18,7 +18,7 @@ import { rangeFromSpan } from "../shared/index.js"
 import type { Location, Range } from "vscode-languageserver-protocol"
 import type { Document } from "../shared/index.js"
 
-export interface Ref {
+interface Ref {
   uri: string
   range: Range
 }
@@ -31,7 +31,7 @@ interface Targets {
 }
 
 /** One symbol, or several — an override chain, whose members a rename edits together (`override-chain`, B6). */
-export function targetsOf(target: Symbol | readonly Symbol[]): Targets {
+function targetsOf(target: Symbol | readonly Symbol[]): Targets {
   const all = Array.isArray(target) ? (target as readonly Symbol[]) : [target as Symbol]
   const set = new Set(all)
   const names = new Set(all.map((s) => s.name.toLowerCase()))

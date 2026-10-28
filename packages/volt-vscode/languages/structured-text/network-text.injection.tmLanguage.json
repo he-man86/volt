@@ -1,12 +1,12 @@
 {
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
-  "name": "Network text (FBD/LD) networks",
+  "name": "Network text (FBD/LD) bodies",
   "scopeName": "network-text.injection",
   "injectionSelector": "L:source.structured-text -comment -string",
   "patterns": [
     {
-      "comment": "A body whose %LANGUAGE line states LD or FBD — the ONE place networks are read (openspec language-line: the stated language decides how a body is read, never its content). ST may hold `NETWORK := TRUE;` (a variable named NETWORK), so sniffing a NETWORK line would paint the rest of an ST file as network text; an UNSUPPORTED body holds nothing. The line itself is coloured with the main grammar`s language-line names, since this injection wins the line. Ends, by lookahead, at the closing keyword of the unit that owns the body, which the main grammar then colours.",
-      "name": "meta.body.network.vg",
+      "comment": "A body whose %LANGUAGE line states LD or FBD — the ONE place network text is read (the stated language decides how a body is read, never its content). Network text is ST with % lines (volt-cli docs/network-text.html): the ST grammar colours its code, this adds the % lines and the network elements. Ends, by lookahead, at the closing keyword of the unit that owns the body, which the main grammar then colours.",
+      "name": "meta.body.network-text",
       "begin": "(?i)^\\s*(%LANGUAGE)[ \\t]+(LD|FBD)[ \\t]*$",
       "beginCaptures": {
         "1": {
@@ -19,65 +19,43 @@
       "end": "(?i)^(?=\\s*END_(?:FUNCTION_BLOCK|PROGRAM|FUNCTION|METHOD|ACTION|GET|SET)\\b)",
       "patterns": [
         {
-          "comment": "A network-text network — the textual form of an FBD/LD body (volt-cli docs/network-text.html). Read only inside a body stated LD or FBD (meta.body.network.vg). The header carries no order number and no language; its optional fields are NAMED and come in one order — LABEL: the jump target, DISABLED the vendor's bit, TITLE: free text with IEC's $-escapes — and it ends at its newline. `\\b` after NETWORK keeps a variable such as NETWORK_OK an identifier. Mirrors the LSP's network-text parser header.",
-          "name": "meta.network.vg",
-          "begin": "^\\s*(NETWORK)\\b(?:[ \\t]+(LABEL:)[ \\t]*(\\w+))?(?:[ \\t]+(DISABLED))?(?:[ \\t]+(TITLE:)[ \\t]*(\"(?:[^\"$\\n]|\\$.)*\"))?",
-          "beginCaptures": {
+          "comment": "A % line of a network: %NETWORK \"title\", %DISABLED, %WIRES w1, w2, %EXECUTE(…), %END_EXECUTE, %UNSUPPORTED \"shape\" #hash — a % first on its line, the key touching it.",
+          "name": "meta.line.network-text",
+          "match": "(?i)^(%(?:NETWORK|DISABLED|WIRES|EXECUTE|END_EXECUTE|UNSUPPORTED))\\b(.*)$",
+          "captures": {
             "1": {
-              "name": "keyword.control.vg"
+              "name": "keyword.control.network-text"
             },
             "2": {
-              "name": "keyword.other.vg"
-            },
-            "3": {
-              "name": "entity.name.label.vg"
-            },
-            "4": {
-              "name": "keyword.other.vg"
-            },
-            "5": {
-              "name": "keyword.other.vg"
-            },
-            "6": {
-              "name": "string.quoted.double.vg"
+              "patterns": [
+                {
+                  "match": "\"(?:[^\"$\\n]|\\$.)*\"",
+                  "name": "string.quoted.double.network-text"
+                },
+                {
+                  "match": "#[0-9A-Fa-f]{8}\\b",
+                  "name": "constant.numeric.hash.network-text"
+                },
+                {
+                  "include": "source.structured-text"
+                }
+              ]
             }
-          },
-          "end": "^\\s*(END_NETWORK)\\b",
-          "endCaptures": {
-            "1": {
-              "name": "keyword.control.vg"
+          }
+        },
+        {
+          "comment": "A box is a call: an operator box, MOVE, a parallel and an edge are the text's own heads, coloured where a call opens.",
+          "match": "(?i)(?<![\\w.])(ADD|SUB|MUL|DIV|MOD|GT|GE|EQ|NE|LE|LT|AND|OR|XOR|NOT|MOVE|BRANCH|BRANCH_SHORTCIRCUIT|R_EDGE|F_EDGE)(?=\\s*\\()",
+          "name": "keyword.operator.word.network-text"
+        },
+        {
+          "comment": "The EN and ENO a box shows: the suffix of its call head, _EN, _ENO or _ENONLY.",
+          "match": "(?i)(?<![\\w.])([A-Za-z_]\\w*?)(_ENONLY|_ENO|_EN)(?=\\s*\\()",
+          "captures": {
+            "2": {
+              "name": "keyword.other.eno.network-text"
             }
-          },
-          "patterns": [
-            {
-              "comment": "Backticked text is ONE operand, target or call head whose text is not a single token (`fc_dinttotime(T.Start,2)`, `arr[i + 1]`) — verbatim between the backticks (a backtick doubled, IEC's $ escapes), never parsed into boxes. Matched before the ST grammar so its parentheses and operators are not coloured as structure.",
-              "match": "`(?:[^`\\n]|``)*`",
-              "name": "variable.other.quoted.vg"
-            },
-            {
-              "comment": "A split point (B6): `split<VarId>`, the vendor Demux, defined by `split1 := value;` and read by name. The pattern is reserved (P1) — a variable of that shape is backticked — so the name alone tells a split.",
-              "match": "(?<![\\w.`])split[0-9]+\\b",
-              "name": "variable.other.wire.vg"
-            },
-            {
-              "comment": "ENO and EN follow a box's outputs, ENO where the box shows it and EN last (`MOVE 1 => x ENO EN c`); BRANCH opens a parallel's branch list and SHORTCIRCUIT states its mode. Words of the text: a variable spelled like one is backticked.",
-              "match": "(?i)(?<![\\w.`])(ENO|EN|BRANCH|SHORTCIRCUIT)\\b",
-              "name": "keyword.other.eno.vg"
-            },
-            {
-              "comment": "A box is its NAME (B1, B2): ADD SUB MUL DIV GT GE EQ NE LE LT and MOVE, infix or in the call form (AND OR XOR MOD are the ST grammar's operators already).",
-              "match": "(?i)(?<![\\w.`])(ADD|SUB|MUL|DIV|GT|GE|EQ|NE|LE|LT|MOVE)\\b",
-              "name": "keyword.operator.word.vg"
-            },
-            {
-              "comment": "The edge flags R_EDGE x / F_EDGE x, prefixes on their operand (not an R_TRIG box), never part of a longer name or between backticks.",
-              "match": "(?i)(?<![\\w.`])(R_EDGE|F_EDGE)\\b",
-              "name": "keyword.other.construct.vg"
-            },
-            {
-              "include": "source.structured-text"
-            }
-          ]
+          }
         },
         {
           "include": "source.structured-text"

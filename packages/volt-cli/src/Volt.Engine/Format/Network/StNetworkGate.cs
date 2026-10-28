@@ -5,6 +5,18 @@ using Volt.Contracts;
 
 namespace Volt.Engine.Format.Network;
 
+/// <summary>One finding against a network-text body: a <c>NETWORK_*</c> code (<see cref="ConflictCodes"/>), a
+/// message that names what was found, and the 1-based span it was found at.</summary>
+public sealed record NetworkTextDiagnostic(string Code, string Message, int Line, int Column, int Length);
+
+/// <summary>What <see cref="StNetworkGate.Validate"/> returns: the model when the body may be pushed, every diagnostic
+/// otherwise, and the canonical form — the text the next pull shows — whenever the body read and the writer could spell
+/// it.</summary>
+public sealed record NetworkGateResult(NetworkBody? Body, IReadOnlyList<NetworkTextDiagnostic> Diagnostics, string? Canonical)
+{
+    public bool Ok => Body is not null && Diagnostics.Count == 0;
+}
+
 /// <summary>
 /// THE PUSH'S GATE FOR PLAIN-ST NETWORK TEXT (openspec <c>network-text-st</c> 3.1): READ the body
 /// (<see cref="StNetworkReader"/>, which refuses by name what a network may not hold), derive what the push builds from the
@@ -25,7 +37,7 @@ public static class StNetworkGate
         {
             return new NetworkGateResult(null, new[] { new NetworkTextDiagnostic(ConflictCodes.NetworkParse, e.Message, e.Line, 1, 0) }, null);
         }
-        var body = NetworkDerivation.Derive(read, scope, out _);
+        var body = NetworkDerivation.Derive(read, scope);
         try { return new NetworkGateResult(body, Array.Empty<NetworkTextDiagnostic>(), StNetworkWriter.Write(body, scope)); }
         catch (StNetworkUnspellableException e)
         {

@@ -8,7 +8,7 @@
 import { expect, test } from "bun:test"
 import { isPlainStNetworkBody, parseSource, unitBodies } from "../../../frontend/syntax/index.js"
 import { caseRoot, readCases, type Case } from "../../../../test/support/network-cases.js"
-import { vgDiags } from "../../../../test/support/network-docs.js"
+import { networkDiags } from "../../../../test/support/network-docs.js"
 import { diagnose } from "../../../../test/support/diagnose.js"
 
 const CASES = readCases(caseRoot("network-text-st"))
@@ -29,7 +29,7 @@ function programOf(c: Case): string {
   return `${pous.join("")}PROGRAM CaseProgram\nVAR\n\tvolt_case_unused : BOOL;\n${decls.join("\n")}\nEND_VAR\n${c.text}END_PROGRAM\n`
 }
 
-const findings = (src: string) => vgDiags(src).filter((d) => d.code === "network-plain-st")
+const findings = (src: string) => networkDiags(src).filter((d) => d.code === "network-plain-st")
 
 test("the case set is there: every v2 accept case as a pull writes it, and a refusal per rule", () => {
   expect(CASES.filter((c) => c.accept).length).toBeGreaterThanOrEqual(100)
@@ -46,7 +46,7 @@ for (const c of CASES.filter((x) => x.accept))
 
 for (const c of CASES.filter((x) => !x.accept))
   test(`refuse ${c.file}/${c.name}: ${c.code} '${c.phrase}'`, () => {
-    const all = vgDiags(programOf(c))
+    const all = networkDiags(programOf(c))
     const hit = all.some((d) => d.code === c.code && (c.phrase === undefined || d.message.toLowerCase().includes(c.phrase.toLowerCase())))
     expect(hit ? "refused as stated" : all.map((d) => `${d.code} ${d.message}`).join("\n") || "accepted").toBe("refused as stated")
   })
@@ -72,7 +72,7 @@ test("a plain-ST network body is ST: its boxes and wires resolve and type, a wro
     "%NETWORK\n%WIRES w1, w2\nw1 := a AND NOT b;\nx := w1;\ny := w1 OR c;\nt1(IN := w1, Q => w2);\nlamp := w2;\n" +
       "hot := GT(i, 3);\nn := ADD(i, 1, 2);\nx := MOVE_EN(EN := GT_ENONLY(EN := a, i, n), 1, OUT => n);\n",
   )
-  expect([...diagnose(src), ...vgDiags(src)].map((d) => d.message)).toEqual([])
+  expect([...diagnose(src), ...networkDiags(src)].map((d) => d.message)).toEqual([])
   const wrong = ld("\ta, x : BOOL;\n\ti : INT;", "%NETWORK\nx := ADD(i, 1);\n")
   expect(diagnose(wrong).map((d) => d.message)).toEqual(["Cannot convert type 'INT' to type 'BOOL'"])
 })
@@ -84,20 +84,20 @@ test("a disabled network is not compiled: no finding inside it, and its label is
 
 test("a jump and a return are functions on their value: JMP(label, value) names a label, in a tree too, and no IF stands in a network", () => {
   const src = ld("\ta, c, d, y : BOOL;", "%NETWORK\nJMP(l9, a);\nRETURN(c);\ny := JMP(l9, c) AND d;\n%NETWORK\nl9:\ny := a;\n")
-  expect([...diagnose(src), ...vgDiags(src)].map((d) => d.message)).toEqual([])
+  expect([...diagnose(src), ...networkDiags(src)].map((d) => d.message)).toEqual([])
   const missing = ld("\tc, y : BOOL;", "%NETWORK\ny := JMP(nowhere, c);\n")
   expect(diagnose(missing).map((d) => d.message)).toEqual(["No such label 'NOWHERE' within the scope of the JMP statement"])
   const typed = ld("\tc : BOOL;\n\ti : INT;", "%NETWORK\nl1:\ni := JMP(l1, c);\n")
   expect(diagnose(typed).map((d) => d.message)).toEqual(["Cannot convert type 'BOOL' to type 'INT'"])
   const iff = ld("\ta : BOOL;", "%NETWORK\nl1:\nIF a THEN JMP l1; END_IF;\n")
-  expect(vgDiags(iff).map((d) => d.message)).toContain("a network holds no IF: a jump on a value is JMP(label, value), a return RETURN(value)")
+  expect(networkDiags(iff).map((d) => d.message)).toContain("a network holds no IF: a jump on a value is JMP(label, value), a return RETURN(value)")
 })
 
 test("an UNSUPPORTED network keeps its label under its line: still the jump target, and nothing else stands there", () => {
   const ok = ld("\ta : BOOL;", "%NETWORK\n%UNSUPPORTED \"an edge contact\" #0011aabb\nl9:\n%NETWORK\nJMP(l9, a);\n")
-  expect([...diagnose(ok), ...vgDiags(ok)].map((d) => d.message)).toEqual([])
+  expect([...diagnose(ok), ...networkDiags(ok)].map((d) => d.message)).toEqual([])
   const more = ld("\ta, x : BOOL;", "%NETWORK\n%UNSUPPORTED \"an edge contact\" #0011aabb\nl9:\nx := a;\n")
-  expect(vgDiags(more).map((d) => d.message)).toContain("a network shown %UNSUPPORTED holds nothing else but its label")
+  expect(networkDiags(more).map((d) => d.message)).toContain("a network shown %UNSUPPORTED holds nothing else but its label")
 })
 
 test("an Execute box's EN is code: a name it reads resolves, the ST under it is the box's own", () => {
@@ -108,4 +108,54 @@ test("an Execute box's EN is code: a name it reads resolves, the ST under it is 
 test("GT(a, b) stays the vendor's syntax error in ST: only a network spells a box as a call", () => {
   const st = `PROGRAM P\nVAR\n\tx : BOOL;\n\ti : INT;\nEND_VAR\n%LANGUAGE ST\nx := GT(i, 3);\nEND_PROGRAM\n`
   expect(diagnose(st).some((d) => d.message === "Expression expected instead of 'GT'")).toBe(true)
+})
+
+test("an FB box with no instance, the call of its type, is the build's errors over the marker ???", () => {
+  const src = ld("\ta : BOOL;", "%NETWORK\nFB_T(IN := a);\n")
+  expect(diagnose(src)).toEqual([])
+  expect(networkDiags(src).map((d) => d.message)).toEqual([
+    "Expression expected instead of '?'",
+    "Unexpected token '?' found",
+    "Program name, function or function block instance expected instead of '!!!'ERROR'!!!'",
+    "Expression expected instead of '?'",
+  ])
+  expect(networkDiags(src, "twincat").map((d) => d.message)[1]).toBe("Unexpected Token '?' found")
+})
+
+test("an operator box with an input count its symbol does not take is the build's error, in each vendor's words", () => {
+  const src = ld("\ti, j, k : INT;\n\tx : BOOL;", "%NETWORK\ni := SUB(i, j, k);\n%NETWORK\nx := GT_ENONLY(EN := x, i, j, k);\n%NETWORK\nj := ADD(i);\n")
+  expect(networkDiags(src).map((d) => d.message)).toEqual(["'-' needs exactly '2' operands", "'>' needs exactly '2' operands", "'+' needs at least '2' operands"])
+  expect(networkDiags(src, "twincat").map((d) => d.message)[0]).toBe("'-' needs exactly '2' Operands")
+  expect(networkDiags(ld("\ti, j : INT;\n\tx : BOOL;", "%NETWORK\ni := SUB(i, j);\nx := AND(x, x, x);\n"))).toEqual([])
+})
+
+test("a METHOD box given positional pins is the build's count of its inputs: the push names no method's pins", () => {
+  const src = `FUNCTION_BLOCK FB_M\nVAR\nEND_VAR\n%LANGUAGE ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD M_twice : INT\nVAR_INPUT\n\tk : INT;\nEND_VAR\n%LANGUAGE ST\nM_twice := k * 2;\nEND_METHOD\n` +
+    `PROGRAM P\nVAR\n\tfbm : FB_M;\n\tv, y : INT;\nEND_VAR\n%LANGUAGE FBD\n%NETWORK\ny := fbm.M_twice(v);\n%NETWORK\ny := fbm.M_twice(k := v);\nEND_PROGRAM\n`
+  expect(networkDiags(src).map((d) => d.message)).toEqual(["Function 'M_twice' requires exactly '1' inputs"])
+})
+
+test("??? as an operand is the build's reading of the marker as text: the token error beside the parser's", () => {
+  const src = ld("\ta, x : BOOL;", "%NETWORK\nx := AND(???, a);\n")
+  expect(networkDiags(src).map((d) => d.message)).toEqual(["Unexpected token '?' found"])
+  expect(networkDiags(src, "twincat").map((d) => d.message)).toEqual(["Unexpected Token '?' found"])
+})
+
+test("a FUNCTION box given more pins than it declares, positional and named together, is the build's count", () => {
+  const fn = `FUNCTION F_inc : INT\nVAR_INPUT\n\ti : INT;\nEND_VAR\n%LANGUAGE ST\nF_inc := i + 1;\nEND_FUNCTION\n`
+  const src = `${fn}PROGRAM P\nVAR\n\tv, w, y : INT;\nEND_VAR\n%LANGUAGE FBD\n%NETWORK\ny := F_inc(v, i := w);\n%NETWORK\ny := F_inc(v);\nEND_PROGRAM\n`
+  expect(networkDiags(src).map((d) => d.message)).toEqual(["Function 'F_inc' requires exactly '1' inputs"])
+})
+
+test("on CODESYS a library function's box named through its namespace and shown with ENO reads ENO as a member", () => {
+  const src = ld("\tx : BOOL;\n\ttxt : STRING;", "%NETWORK\nx := Standard.LEN_ENO(txt);\n")
+  expect(networkDiags(src).map((d) => d.message)).toEqual(["'ENO' is no component of 'LEN'"])
+  expect(networkDiags(src, "twincat")).toEqual([])
+})
+
+test("a coil nobody named, ??? := v, is the build's own error in each vendor's words, and nothing else", () => {
+  const src = ld("\ta : BOOL;\n\tgo : BOOL;", "%NETWORK\n??? := a;\n%NETWORK\n??? := MOVE_EN(EN := go, 1, OUT => a);\n")
+  expect(diagnose(src)).toEqual([])
+  expect(networkDiags(src).map((d) => d.message)).toEqual(["The assignment target is not specified.", "The assignment target is not specified."])
+  expect(networkDiags(src, "twincat").map((d) => d.message)).toEqual(["Assignment target not specified", "Assignment target not specified"])
 })

@@ -1,4 +1,4 @@
-#### jump-coil — the v2 case coils-jumps-splits/jump-coil, as a pull writes it
+#### jump-coil
 === text
 %LANGUAGE LD
 %NETWORK
@@ -12,7 +12,7 @@ NETWORK
 NETWORK label:Done
   (:= x TRUE)
 
-#### jump-rail — the v2 case coils-jumps-splits/jump-rail, as a pull writes it
+#### jump-rail
 === text
 %LANGUAGE LD
 %NETWORK
@@ -26,7 +26,7 @@ NETWORK
 NETWORK label:Done
   (:= x TRUE)
 
-#### return-coil — the v2 case coils-jumps-splits/return-coil, as a pull writes it
+#### return-coil
 === text
 %LANGUAGE LD
 %NETWORK
@@ -35,7 +35,7 @@ RETURN(NOT xReady);
 NETWORK
   (ret not:xReady)
 
-#### return-rail — the v2 case coils-jumps-splits/return-rail, as a pull writes it
+#### return-rail
 === text
 %LANGUAGE LD
 %NETWORK
@@ -44,7 +44,7 @@ RETURN;
 NETWORK
   (ret _)
 
-#### coil-and-jump — the v2 case coils-jumps-splits/coil-and-jump, as a pull writes it
+#### coil-and-jump — a coil and a jump on one value: one item per target, the coil first
 === text
 %LANGUAGE LD
 %NETWORK
@@ -64,7 +64,7 @@ NETWORK
 NETWORK label:Done
   (:= x TRUE)
 
-#### two-jumps — the v2 case coils-jumps-splits/two-jumps, as a pull writes it
+#### two-jumps — two jumps on one value: one item per jump
 === text
 %LANGUAGE LD
 %NETWORK
@@ -85,7 +85,7 @@ NETWORK label:L1
 NETWORK label:L2
   (:= y TRUE)
 
-#### jump-set — the v2 case coils-jumps-splits/jump-set, as a pull writes it
+#### jump-set — a set jump has no spelling: the network is its %UNSUPPORTED line
 === text
 %LANGUAGE LD
 %NETWORK
@@ -98,7 +98,7 @@ NETWORK unsupported:"a coil modifier on a jump" hash:929f3675
 NETWORK label:Done
   (:= x TRUE)
 
-#### nested-jump — the v2 case coils-jumps-splits/nested-jump, as a pull writes it
+#### nested-jump — a jump inside a tree is the function on its value
 === text
 %LANGUAGE LD
 %NETWORK
@@ -112,7 +112,7 @@ NETWORK
 NETWORK label:Done
   (:= x TRUE)
 
-#### nested-assign — the v2 case coils-jumps-splits/nested-assign, as a pull writes it
+#### nested-assign
 === text
 %LANGUAGE LD
 %NETWORK
@@ -121,7 +121,7 @@ y := (x := a AND b);
 NETWORK
   (:= y (:= x (AND a b)))
 
-#### multi-coil — the v2 case coils-jumps-splits/multi-coil, as a pull writes it
+#### multi-coil
 === text
 %LANGUAGE LD
 %NETWORK
@@ -130,7 +130,7 @@ y := x := a;
 NETWORK
   (:= y x a)
 
-#### set-reset-chain — the v2 case coils-jumps-splits/set-reset-chain, as a pull writes it
+#### set-reset-chain — S= and R= are coils; on one variable the last stored wins (11)
 === text
 %LANGUAGE LD
 %NETWORK
@@ -143,7 +143,7 @@ NETWORK
   (:= S=lamp R=lamp c)
   (:= R=lamp S=lamp c)
 
-#### coil-on-rail — the v2 case coils-jumps-splits/coil-on-rail, as a pull writes it
+#### coil-on-rail
 === text
 %LANGUAGE LD
 %NETWORK
@@ -152,7 +152,7 @@ FirstCycle R= TRUE;
 NETWORK
   (:= R=FirstCycle TRUE)
 
-#### negated-coil — the v2 case coils-jumps-splits/negated-coil, as a pull writes it
+#### negated-coil
 === text
 %LANGUAGE LD
 %NETWORK
@@ -161,7 +161,7 @@ xn := NOT c;
 NETWORK
   (:= xn not:c)
 
-#### edge-coils — the v2 case coils-jumps-splits/edge-coils, as a pull writes it
+#### edge-coils
 === text
 %LANGUAGE LD
 %NETWORK
@@ -174,7 +174,7 @@ NETWORK
   (:= xf c)
   (:= xg not:c)
 
-#### negated-empty-value — the v2 case coils-jumps-splits/negated-empty-value, as a pull writes it
+#### negated-empty-value
 === text
 %LANGUAGE LD
 %NETWORK
@@ -183,7 +183,7 @@ x := NOT TRUE;
 NETWORK
   (:= x not:TRUE)
 
-#### split-defined-and-read — the v2 case coils-jumps-splits/split-defined-and-read, as a pull writes it
+#### split-defined-and-read
 === text
 %LANGUAGE LD
 %NETWORK
@@ -199,7 +199,7 @@ NETWORK
   (:= a #2)
   (:= b (AND #2 c))
 
-#### split-of-a-box — the v2 case coils-jumps-splits/split-of-a-box, as a pull writes it
+#### split-of-a-box
 === text
 %LANGUAGE FBD
 %NETWORK
@@ -211,7 +211,7 @@ NETWORK
   (split 1 (ADD a b conn:0))
   (:= x #1)
 
-#### split-in-en — the v2 case coils-jumps-splits/split-in-en, as a pull writes it
+#### split-in-en
 === text
 %LANGUAGE LD
 %NETWORK
@@ -223,7 +223,7 @@ NETWORK
   (split 1 TRUE)
   (MOVE 0 =>1:t en:#1 eno:1)
 
-#### split-variable-backticked — the v2 case coils-jumps-splits/split-variable-backticked, as a pull writes it
+#### split-variable-backticked
 === scope
 name split1
 === text
@@ -239,7 +239,7 @@ NETWORK
   (:= x #1)
   (:= split1 #1)
 
-#### split-before-definition — the v2 case coils-jumps-splits/split-before-definition, as a pull writes it
+#### split-before-definition
 === text
 %LANGUAGE LD
 %NETWORK
@@ -253,7 +253,7 @@ NETWORK
   (split 1 (AND a b))
   (:= y (AND #1 c))
 
-#### split-nested-definition — the v2 case coils-jumps-splits/split-nested-definition, as a pull writes it
+#### split-nested-definition
 === text
 %LANGUAGE LD
 %NETWORK

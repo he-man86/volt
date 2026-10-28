@@ -1041,8 +1041,11 @@ public class DocDataTests
     }
 
     /// <summary>The protocol number and the hash of the generated <c>volt-bridge.openrpc.json</c> it was decided for.</summary>
+    // network-text-st 3.2 re-pinned without a bump: the four NETWORK_* codes of the deleted v2 reader left the vocabulary;
+    // no bridge a peer meets raises them (LD and FBD are behind NetworkTextSwitch, off in every shipped build), so no old
+    // peer reads a different meaning.
     private const int PinnedProtocol = 1;
-    private const string PinnedWireShape = "fae60cac7c2c8f13f66ae7661a16d598848789e7f55e0cc7c67b183c22cf6d19";
+    private const string PinnedWireShape = "6b4ed8e880125afa90ae6094c4f7f4cb7244f3b150692339f904fe63d50a8245";
 
     /// <summary>The document names the protocol it describes, and <c>health</c> states it: every bridge writes
     /// <c>protocol</c>, so the schema requires it (C# reads it as <c>int?</c> only so the connector can still read a bridge

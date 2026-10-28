@@ -450,11 +450,7 @@ export const ROWS: Row[] = [
 	},
 
 	// ── the graphical body format (owner, 2026-10-03: live network-text tests wait for the LD/FBD design) ───
-	{ code: "NETWORK_PARSE", live: false, reason: `${DEFERRED_LD_FBD} — network text that does not parse` },
-	{ code: "NETWORK_NOT_CLOSED", live: false, reason: `${DEFERRED_LD_FBD} — a NETWORK block with no END_NETWORK` },
-	{ code: "NETWORK_DUPLICATE_NAME", live: false, reason: `${DEFERRED_LD_FBD} — a wire declared twice` },
-	{ code: "NETWORK_BAD_EXPRESSION", live: false, reason: `${DEFERRED_LD_FBD} — a malformed operator group` },
-	{ code: "NETWORK_UNKNOWN_OPERATOR", live: false, reason: `${DEFERRED_LD_FBD} — an operator outside the FBD/LD table` },
+	{ code: "NETWORK_PARSE", live: false, reason: `${DEFERRED_LD_FBD} — network text a network may not hold` },
 	{ code: "NETWORK_UNSUPPORTED", live: false, reason: `${DEFERRED_LD_FBD} — a body shape network text has no spelling for` },
 ]
 

@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  rt : R_TRIG(CLK := a);
-END_NETWORK
+%NETWORK
+rt(CLK := a);

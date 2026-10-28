@@ -1,14 +1,7 @@
 import { test, expect } from "bun:test"
 import { parseSource } from "../../frontend/syntax/index.js"
 import { definition, typeDefinition, implementation } from "./index.js"
-// The paths the server ships (ST and network text alike): one rename, one reference set (lsp-same-standard 3.1, R5).
-import {
-  documentHighlightsAnywhere as documentHighlights,
-  prepareRenameAnywhere as prepareRename,
-  referencesAnywhere as references,
-  renameAnywhere as rename,
-  renameRefusal,
-} from "../network/index.js"
+import { documentHighlights, prepareRename, references, rename, renameRefusal } from "./index.js"
 import type { Document } from "../shared/index.js"
 import { build } from "../../frontend/symbols/index.js"
 

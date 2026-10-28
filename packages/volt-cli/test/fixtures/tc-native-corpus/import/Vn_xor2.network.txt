@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  out := a XOR b;
-END_NETWORK
+%NETWORK
+out := XOR(a, b);

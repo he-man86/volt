@@ -61,6 +61,19 @@ public static class StNetworkOracle
         return new(source, index, Gap, "diff: " + Category(d), members.ToList(), d + "\n" + text, text);
     }
 
+    /// <summary>Every network of <paramref name="body"/> through <see cref="Check"/>, against the scope its model states
+    /// (<see cref="NetworkModelScopes.ScopeOf"/>), for a source with no declarations; a gap fails here, naming it.</summary>
+    public static IReadOnlyList<Result> CheckBody(string source, NetworkBody body)
+    {
+        var scope = NetworkModelScopes.ScopeOf(body);
+        var results = body.Networks.Select((n, i) => Check(source, i, body.Language, n, scope)).ToList();
+        var gaps = results.Where(r => r.Bucket == Gap).ToList();
+        if (gaps.Count > 0)
+            throw new Xunit.Sdk.XunitException("the plain-ST writer wrote text that does not read back to the network it wrote:\n" +
+                string.Join("\n\n", gaps.Select(g => $"{g.Source} #{g.Index}: {g.Category}\n{g.Detail}")));
+        return results;
+    }
+
     /// <summary>The model with each network's Demux VarIds numbered 1, 2, … by where their definitions stand (the trees in
     /// order, a node before its children): the text names wires across the body (design.md 1.4) and does not spell the
     /// vendor's VarId, so the oracle compares wires by position, in its own code.</summary>

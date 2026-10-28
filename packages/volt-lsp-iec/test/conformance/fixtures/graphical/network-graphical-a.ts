@@ -5,7 +5,7 @@
  * held to 400 lines; the map is keyed by fixture name, so a split is map-neutral, and the walk order is kept).
  */
 import type { LanguageTest } from "../../types.js"
-import { doc, ng, x3 } from "./network-graphical-shared.js"
+import { doc, ng } from "./network-graphical-shared.js"
 
 export const NETWORK_GRAPHICAL_TESTS_A: readonly LanguageTest[] = [
 // ─── operator groups (§7) ──────────────────────────────────────────────────
@@ -19,9 +19,8 @@ VAR
 END_VAR
 
 %LANGUAGE FBD
-NETWORK
-  out := (a AND b) OR c;
-END_NETWORK
+%NETWORK
+out := OR(AND(a, b), c);
 
 END_FUNCTION_BLOCK
 `, `${doc}#operator-group--operand-op-operand-op-operand-`),
@@ -35,9 +34,8 @@ VAR
 END_VAR
 
 %LANGUAGE FBD
-NETWORK
-  out := a AND b AND c;
-END_NETWORK
+%NETWORK
+out := AND(a, b, c);
 
 END_FUNCTION_BLOCK
 `, `${doc}#operator-group--operand-op-operand-op-operand-`),
@@ -52,12 +50,10 @@ VAR
 END_VAR
 
 %LANGUAGE FBD
-NETWORK
-  sum := x ADD y ADD z;
-END_NETWORK
-NETWORK
-  rest := x MOD y;
-END_NETWORK
+%NETWORK
+sum := ADD(x, y, z);
+%NETWORK
+rest := MOD(x, y);
 
 END_FUNCTION_BLOCK
 `, `${doc}#7-operators`),
@@ -71,17 +67,15 @@ VAR
 END_VAR
 
 %LANGUAGE FBD
-NETWORK
-  below := x LT y;
-END_NETWORK
-NETWORK
-  same := x EQ y;
-END_NETWORK
+%NETWORK
+below := LT(x, y);
+%NETWORK
+same := EQ(x, y);
 
 END_FUNCTION_BLOCK
 `, `${doc}#7-operators`),
   // ─── wires and fan-out (§6) ────────────────────────────────────────────────
-  ng("ng_fanout_let", "FB_NG_fanout", "a split feeding TWO sinks — the one named thing, `split<VarId>`, defined before its uses (B6)",
+  ng("ng_fanout_let", "FB_NG_fanout", "a wire feeding TWO sinks — named on the `%WIRES` line, defined before its uses",
     `FUNCTION_BLOCK FB_NG_fanout
 VAR
 \ta : BOOL;
@@ -91,15 +85,15 @@ VAR
 END_VAR
 
 %LANGUAGE FBD
-NETWORK
-  split1 := a OR b;
-  out1 := split1;
-  out2 := split1;
-END_NETWORK
+%NETWORK
+%WIRES w1
+w1 := OR(a, b);
+out1 := w1;
+out2 := w1;
 
 END_FUNCTION_BLOCK
 `, `${doc}#wire-definition--let-name--producer`),
-  ng("ng_coil_storage", "FB_NG_coils", "all three coil kinds off ONE split — plain, SET and RESET",
+  ng("ng_coil_storage", "FB_NG_coils", "all three coil kinds off ONE wire — plain, SET and RESET",
     `FUNCTION_BLOCK FB_NG_coils
 VAR
 \ta : BOOL;
@@ -110,17 +104,17 @@ VAR
 END_VAR
 
 %LANGUAGE LD
-NETWORK
-  split1 := a OR b;
-  plain := split1;
-  latched S= split1;
-  cleared R= split1;
-END_NETWORK
+%NETWORK
+%WIRES w1
+w1 := a OR b;
+plain := w1;
+latched S= w1;
+cleared R= w1;
 
 END_FUNCTION_BLOCK
 `, `${doc}#coil-storage--the-assignment-operator`,
     "The storage kind is a property of the COIL, so a fan-out whose coils disagree needs one operator per target — the shape that could not be spelled before `S=`/`R=`, and the shape in which a RESET coil silently came out as a SET coil. Nothing held the compiler's opinion of it until this fixture."),
-  ng("ng_opaque_leaf_negation", "FB_NG_opaque", "`NOT` on a bare leaf INSIDE a group, which becomes an opaque leaf of its own",
+  ng("ng_opaque_leaf_negation", "FB_NG_opaque", "`NOT` on a bare leaf INSIDE a box's inputs — `AND(a, NOT b)`",
     `FUNCTION_BLOCK FB_NG_opaque
 VAR
 \ta : BOOL;
@@ -129,13 +123,12 @@ VAR
 END_VAR
 
 %LANGUAGE FBD
-NETWORK
-  out := a AND \`NOT b\`;
-END_NETWORK
+%NETWORK
+out := AND(a, NOT b);
 
 END_FUNCTION_BLOCK
 `, `${doc}#opaque-leaf--let-i--text`,
-    "ONE vendor operand whose text is `NOT b` — not a token, so it travels between backticks (v1 hoisted it into `LET i1`). Recorded from the v1 body; the model is the same."),
+    "A negated input of a box: the IDE stores it as the pin's negation."),
   // ─── modifiers (§6) ────────────────────────────────────────────────────────
   ng("ng_negation_sink", "FB_NG_negate", "`NOT` riding on a SINK's source — the modifier form, not a statement of its own",
     `FUNCTION_BLOCK FB_NG_negate
@@ -146,13 +139,12 @@ VAR
 END_VAR
 
 %LANGUAGE FBD
-NETWORK
-  out := NOT (a AND b);
-END_NETWORK
+%NETWORK
+out := NOT(AND(a, b));
 
 END_FUNCTION_BLOCK
 `, `${doc}#modifiers--ride-on-the-consumer`),
-  ng("ng_edge_modifiers", "FB_NG_edges", "the edge flags `R_EDGE x` and `F_EDGE x` on an operand",
+  ng("ng_edge_modifiers", "FB_NG_edges", "the edge boxes `R_EDGE(x)` and `F_EDGE(x)` on an operand",
     `FUNCTION_BLOCK FB_NG_edges
 VAR
 \tclk : BOOL;
@@ -161,16 +153,14 @@ VAR
 END_VAR
 
 %LANGUAGE LD
-NETWORK
-  up := R_EDGE clk;
-END_NETWORK
-NETWORK
-  down := F_EDGE clk;
-END_NETWORK
+%NETWORK
+up := R_EDGE(clk);
+%NETWORK
+down := F_EDGE(clk);
 
 END_FUNCTION_BLOCK
 `, `${doc}#modifiers--ride-on-the-consumer`,
-    "The LSP's undeclared-identifier check has to SKIP these two words — they are graphical keywords the lean operand parser leaves in the expression, not names. No fixture has ever put one in front of the compiler."),
+    "The LSP reads `R_EDGE(x)` as the edge, not as a call of an undeclared name."),
   // ─── calls and their pins (§6) ─────────────────────────────────────────────
   ng("ng_fb_call_output_read", "FB_NG_fbcall", "an FB instance call and its output read back by name",
     `FUNCTION_BLOCK FB_NG_fbcall
@@ -182,10 +172,9 @@ VAR
 END_VAR
 
 %LANGUAGE FBD
-NETWORK
-  t1 : TON(IN := go, PT := pt);
-  done := t1.Q;
-END_NETWORK
+%NETWORK
+t1(IN := go, PT := pt);
+done := t1.Q;
 
 END_FUNCTION_BLOCK
 `, `${doc}#fb-instance-call--instpin--arg--and-output-read-instpin`),
@@ -209,15 +198,14 @@ VAR
 END_VAR
 
 %LANGUAGE FBD
-NETWORK
-  next := F_NG_split(src, doubled => twice);
-END_NETWORK
+%NETWORK
+next := F_NG_split(source := src, doubled => twice);
 
 END_FUNCTION_BLOCK
 `, `${doc}#box-output-pins--the-calls-assignment-and-`,
     "208 wired output pins on 171 boxes were DROPPED before this form existed — a pin the engineer wired was simply absent from the file. IEC's own split: a function's result is assigned, its VAR_OUTPUTs use `=>`."),
   // ─── EN/ENO and EXECUTE (§6) ───────────────────────────────────────────────
-  { ...ng("ng_en_eno_sink", "FB_NG_en", "an enabled operator box read through its ENO, its value wired nowhere (X3)",
+  ng("ng_en_eno_sink", "FB_NG_en", "an enabled operator box read through its ENO, its value wired nowhere (X3: it stores, and the build refuses it)",
     `FUNCTION_BLOCK FB_NG_en
 VAR
 \tgo : BOOL;
@@ -227,13 +215,12 @@ VAR
 END_VAR
 
 %LANGUAGE LD
-NETWORK
-  out := a AND b ENO EN go;
-END_NETWORK
+%NETWORK
+out := AND_EN(EN := go, a, b);
 
 END_FUNCTION_BLOCK
-`, `${doc}#eneno`), vendorRefuses: { codesys: x3("AND"), twincat: x3("AND") } },
-  { ...ng("ng_en_eno_named_wire", "FB_NG_enwire", "an enabled operator box whose ENO is a split, its value wired nowhere (X3)",
+`, `${doc}#eneno`),
+  ng("ng_en_eno_named_wire", "FB_NG_enwire", "an enabled operator box whose ENO is a wire, its value wired nowhere (X3: it stores, and the build refuses it)",
     `FUNCTION_BLOCK FB_NG_enwire
 VAR
 \tgo : BOOL;
@@ -244,14 +231,14 @@ VAR
 END_VAR
 
 %LANGUAGE FBD
-NETWORK
-  split1 := b OR c ENO EN go;
-  out := split1;
-  out3 := split1;
-END_NETWORK
+%NETWORK
+%WIRES w1
+w1 := OR_EN(EN := go, b, c);
+out := w1;
+out3 := w1;
 
 END_FUNCTION_BLOCK
-`, `${doc}#eneno`), vendorRefuses: { codesys: x3("OR"), twincat: x3("OR") } },
+`, `${doc}#eneno`),
   ng("ng_execute_box", "FB_NG_execute", "an EXECUTE box — raw ST inside a graphical body, with its own nested END_IF",
     `FUNCTION_BLOCK FB_NG_execute
 VAR
@@ -261,17 +248,16 @@ VAR
 END_VAR
 
 %LANGUAGE FBD
-NETWORK
-  EXECUTE
+%NETWORK
+%EXECUTE(EN := bRun)
 IF bStart THEN
 	target := 40 + 2;
 END_IF
-  END_EXECUTE ENO EN bRun;
-END_NETWORK
+%END_EXECUTE
 
 END_FUNCTION_BLOCK
 `, `${doc}#execute-box--execute--end_execute`,
-    "The explicit `END_EXECUTE` exists so the ST's own `END_IF` cannot end the box. The LSP treats what is between the markers as full ST, not as the network grammar — a claim no fixture has tested against a build."),
+    "The `%END_EXECUTE` line ends the box, so the ST's own `END_IF` cannot. The LSP reads what is between the lines as the ST it is."),
   // ─── control flow (§6) ─────────────────────────────────────────────────────
   ng("ng_label_jmp_resolved", "FB_NG_jump", "a label that DOES resolve, and the jump that reaches it",
     `FUNCTION_BLOCK FB_NG_jump
@@ -281,17 +267,16 @@ VAR
 END_VAR
 
 %LANGUAGE LD
-NETWORK
-  out := TRUE;
-  JMP Onwards := ;
-END_NETWORK
-NETWORK LABEL: Onwards
-  after := TRUE;
-END_NETWORK
+%NETWORK
+out := TRUE;
+JMP Onwards;
+%NETWORK
+Onwards:
+after := TRUE;
 
 END_FUNCTION_BLOCK
 `, `${doc}#control-flow`,
-    "Only the MISSING-label error was covered (`cc_vg_undefined_label`). A jump exists to leave the current network, so the label sits on the DESTINATION network's header — resolving per network flagged every real jump."),
+    "Only the MISSING-label error was covered (`cc_vg_undefined_label`). A jump exists to leave the current network, so the label is the DESTINATION network's first line — resolving per network flagged every real jump."),
   ng("ng_conditional_jump_and_return", "FB_NG_cond", "a conditional JMP and a conditional RETURN, beside an unconditional one",
     `FUNCTION_BLOCK FB_NG_cond
 VAR
@@ -301,24 +286,21 @@ VAR
 END_VAR
 
 %LANGUAGE LD
-NETWORK
-  JMP Tail := cond;
-END_NETWORK
-NETWORK
-  RETURN := cond;
-END_NETWORK
-NETWORK LABEL: Tail
-  done := TRUE;
-  RETURN := ;
-END_NETWORK
-NETWORK
-  later := TRUE;
-END_NETWORK
+%NETWORK
+JMP(Tail, cond);
+%NETWORK
+RETURN(cond);
+%NETWORK
+Tail:
+done := TRUE;
+RETURN;
+%NETWORK
+later := TRUE;
 
 END_FUNCTION_BLOCK
 `, `${doc}#control-flow`),
   // ─── network header fields (§6) ────────────────────────────────────────────
-  ng("ng_network_title_and_comment", "FB_NG_header", "a network carrying TITLE and a leading comment",
+  ng("ng_network_title_and_comment", "FB_NG_header", "a network carrying a title and a leading comment",
     `FUNCTION_BLOCK FB_NG_header
 VAR
 \ta : BOOL;
@@ -327,10 +309,9 @@ VAR
 END_VAR
 
 %LANGUAGE FBD
-NETWORK TITLE: "the interlock"
-  // both have to be true
-  out := a AND b;
-END_NETWORK
+%NETWORK "the interlock"
+// both have to be true
+out := AND(a, b);
 
 END_FUNCTION_BLOCK
 `, `${doc}#networks-comments-flags`),
@@ -343,36 +324,15 @@ VAR
 END_VAR
 
 %LANGUAGE FBD
-NETWORK DISABLED
-  out := nothingDeclaredWithThisName;
-END_NETWORK
-NETWORK
-  live := a;
-END_NETWORK
+%NETWORK
+%DISABLED
+out := nothingDeclaredWithThisName;
+%NETWORK
+live := a;
 
 END_FUNCTION_BLOCK
 `, `${doc}#networks-comments-flags`,
     "The disabled network holds a DELIBERATE error, because a valid one would settle nothing: a disabled network is not compiled, so if CODESYS stays silent then anything the LSP says about its contents is a false positive — and if CODESYS reports it anyway, that is worth knowing too. Nothing has ever checked which."),
-  ng("ng_two_languages_one_body", "FB_NG_mixed", "one body holding an FBD network and an LD network",
-    `FUNCTION_BLOCK FB_NG_mixed
-VAR
-\ta : BOOL;
-\tb : BOOL;
-\tfromFbd : BOOL;
-\tfromLd : BOOL;
-END_VAR
-
-%LANGUAGE LD
-NETWORK
-  fromFbd := a AND b;
-END_NETWORK
-NETWORK
-  fromLd := a OR b;
-END_NETWORK
-
-END_FUNCTION_BLOCK
-`, `${doc}#networks-comments-flags`,
-    "\"A body may even mix FBD and LD networks, vendor permitting\" — the spec's own hedge, and this is what settles it for CODESYS."),
   // ─── an error path the graphical fixtures did not cover ────────────────────
   ng("ng_sink_type_mismatch", "FB_NG_badsink", "a BOOL box driven into an INT coil — the network type-check against a real build",
     `FUNCTION_BLOCK FB_NG_badsink
@@ -383,9 +343,8 @@ VAR
 END_VAR
 
 %LANGUAGE FBD
-NETWORK
-  count := a AND b;
-END_NETWORK
+%NETWORK
+count := AND(a, b);
 
 END_FUNCTION_BLOCK
 `, `${doc}#8-type-system--inference-the-lsps-job`,

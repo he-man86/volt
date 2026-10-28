@@ -327,7 +327,7 @@ test("a parse is told whether LD/FBD bodies are network text: without the option
 test("the option decides who reads an %LANGUAGE LD body: network text on reads it, off reads it by neither", () => {
   const readers = (networkText: boolean) =>
     parseSource(LADDER, { networkText }, "codesys").units.flatMap(unitBodies).map(bodyReader)
-  expect(readers(true)).toEqual(["network"])
+  expect(readers(true)).toEqual(["st"])
   expect(readers(false)).toEqual([undefined])
 })
 

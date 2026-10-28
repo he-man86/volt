@@ -37,7 +37,7 @@ namespace Volt.Ide.Codesys
         /// <summary>One live network AS A PULL SHOWS IT — the read the pull and the writer's pairing and change gate make.
         /// A NETWORK THE TEXT CANNOT HOLD IS SHOWN, NOT ITS BODY HIDDEN (ld-fbd-coverage 1b.4): a refusal met in its trees
         /// makes this one network its UNSUPPORTED line (<see cref="Network.Unsupported"/>), header and comment kept — the
-        /// rule the text writer's pull render follows for its own refusals (<see cref="NetworkTextWriter.WritePulled"/>).
+        /// rule the text writer's pull render follows for its own refusals (<see cref="StNetworkWriter.WritePulled"/>).
         /// A refusal whose reason the line cannot spell still hides the body.</summary>
         internal static Network ReadNetworkShown(object net, int order)
         {
@@ -321,12 +321,13 @@ namespace Volt.Ide.Codesys
                 ? ReadOperand(instanceObj)
                 : null;
 
-            // THE OUTPUT SLOTS (network text v2, task 3.10; DIALECT N16, measured on 1,117 consumed boxes): NWL
-            // stores no connection slot — a consumer reads the box's output at `MainOutputIndex`, so that IS the
-            // slot a consumed box is connected by. `MainOutputIndex` is absent on the AND/OR boxes (census 1.6) and on
-            // every box a push built (read-only, DIALECT N21); where it is absent the slot is the one the COMPILER was
-            // measured to read (`UnstoredMainOutput`), and null where no measurement says — never a default: the
-            // writer refuses a box whose slot nobody read. Whether the box HAS an ENO output is its
+            // THE OUTPUT SLOTS (DIALECT N16, measured on 1,117 consumed boxes): NWL stores no connection slot — a
+            // consumer reads the box's output at `MainOutputIndex`, so that IS the slot a consumed box is connected by.
+            // `MainOutputIndex` is absent only on the CONTACT form of AND/OR (814 in LD-view bodies, 1 in an FBD-view
+            // body), the one a push builds for `a AND b`; every drawn AND/OR/NOT box stores 0 (15 AND/OR, 3 NOT;
+            // network-text-st 1.3). Where it is absent the slot is the one the COMPILER was measured to read
+            // (`UnstoredMainOutput`), and null where no measurement says — never a default: the writer refuses a box
+            // whose slot nobody read. Whether the box HAS an ENO output is its
             // stored `Eno` flag (`Box.ShowsEno`, network-text-st 1c), independent of EN — census 1.6 found 40 enabled comparisons with none.
             var outputNames = Names(n, "OutputParams");
             var hasEno = Box.ShowsEno(NwlInterop.Get(n, "Eno") as bool?, outputNames, CodesysDriver.Row.Display, type);
@@ -356,8 +357,9 @@ namespace Volt.Ide.Codesys
             { EnableFlags = enableFlags };
         }
 
-        /// <summary>THE OUTPUT A CONSUMER READS WHEN THE BOX STORES NO <c>MainOutputIndex</c> — every box a push built
-        /// (the member is read-only, so Volt can never set it) and the AND/OR boxes an engineer drew (census 1.6).
+        /// <summary>THE OUTPUT A CONSUMER READS WHEN THE BOX STORES NO <c>MainOutputIndex</c> — the contact form of AND/OR,
+        /// drawn (814 in LD-view bodies, 1 in an FBD-view body) or built by a push (the member is read-only); every drawn
+        /// AND/OR/NOT box stores 0 (15 AND/OR, 3 NOT; network-text-st 1.3).
         ///
         /// <para>Measured by building and RUNNING each shape (DIALECT N21): without EN the consumer reads the data
         /// output, slot 0 (<c>MAX(1, 2)</c> gave 2, <c>ADD(1, 2)</c> gave 3); with EN it reads the ENO, whatever output

@@ -1,4 +1,4 @@
-#### add-coil — the v2 case words-and-move/add-coil, as a pull writes it
+#### add-coil
 === text
 %LANGUAGE FBD
 %NETWORK
@@ -7,7 +7,7 @@ x := ADD(a, b);
 NETWORK
   (:= x (ADD a b conn:0))
 
-#### every-word — the v2 case words-and-move/every-word, as a pull writes it
+#### every-word
 === text
 %LANGUAGE FBD
 %NETWORK
@@ -42,7 +42,7 @@ NETWORK
   (:= c5 (LE i j conn:0))
   (:= c6 (LT i j conn:0))
 
-#### one-word-three-inputs — the v2 case words-and-move/one-word-three-inputs, as a pull writes it
+#### one-word-three-inputs
 === text
 %LANGUAGE FBD
 %NETWORK
@@ -51,7 +51,7 @@ x := ADD(a, b, c);
 NETWORK
   (:= x (ADD a b c conn:0))
 
-#### brackets-separate-boxes — the v2 case words-and-move/brackets-separate-boxes, as a pull writes it
+#### brackets-separate-boxes
 === text
 %LANGUAGE FBD
 %NETWORK
@@ -64,7 +64,7 @@ NETWORK
   (:= y (MUL (ADD a b conn:0) c conn:0))
   (:= lamp (AND start (OR a b) not:stop))
 
-#### and-nine-inputs — the v2 case words-and-move/and-nine-inputs, as a pull writes it
+#### and-nine-inputs — AND and OR take as many inputs as drawn
 === text
 %LANGUAGE LD
 %NETWORK
@@ -73,7 +73,7 @@ q := a AND b AND c AND d AND e AND f AND g AND h AND i;
 NETWORK
   (:= q (AND a b c d e f g h i))
 
-#### top-level-word-with-output — the v2 case words-and-move/top-level-word-with-output, as a pull writes it
+#### top-level-word-with-output
 === text
 %LANGUAGE FBD
 %NETWORK
@@ -82,7 +82,7 @@ ADD(a, b, OUT => x);
 NETWORK
   (ADD a b =>0:x)
 
-#### lowercase-word — the v2 case words-and-move/lowercase-word, as a pull writes it
+#### lowercase-word
 === text
 %LANGUAGE FBD
 %NETWORK
@@ -91,7 +91,7 @@ x := and(a, b);
 NETWORK
   (:= x (and a b))
 
-#### empty-operand — the v2 case words-and-move/empty-operand, as a pull writes it
+#### empty-operand
 === text
 %LANGUAGE FBD
 %NETWORK
@@ -102,7 +102,7 @@ NETWORK
   (:= x (MUL TRUE m 6 conn:0))
   (:= y (ADD a TRUE c conn:0))
 
-#### negated-box — the v2 case words-and-move/negated-box, as a pull writes it
+#### negated-box
 === text
 %LANGUAGE LD
 %NETWORK
@@ -113,7 +113,7 @@ NETWORK
   (:= x (NOT (AND a b)))
   (:= y rise:(AND a b))
 
-#### word-operand-call — the v2 case words-and-move/word-operand-call, as a pull writes it
+#### word-operand-call
 === text
 %LANGUAGE FBD
 %NETWORK
@@ -122,7 +122,7 @@ x := ADD(a, f(IN := b));
 NETWORK
   (:= x (ADD a (f IN=b conn:0) conn:0))
 
-#### word-in-pin — the v2 case words-and-move/word-in-pin, as a pull writes it
+#### word-in-pin
 === scope
 instance t1 TON
 === text
@@ -135,7 +135,7 @@ q := w1;
 NETWORK
   (:= q (TON@t1 IN=(AND a b) PT=T#1S name:Q))
 
-#### move-to — the v2 case words-and-move/move-to, as a pull writes it
+#### move-to
 === text
 %LANGUAGE FBD
 %NETWORK
@@ -144,7 +144,7 @@ MOVE(b, OUT => a);
 NETWORK
   (MOVE b =>0:a)
 
-#### move-then-coil — the v2 case words-and-move/move-then-coil, as a pull writes it
+#### move-then-coil
 === text
 %LANGUAGE FBD
 %NETWORK
@@ -153,7 +153,7 @@ a := MOVE(b);
 NETWORK
   (:= a (MOVE b conn:0))
 
-#### coil-no-box — the v2 case words-and-move/coil-no-box, as a pull writes it
+#### coil-no-box
 === text
 %LANGUAGE FBD
 %NETWORK
@@ -162,7 +162,7 @@ a := b;
 NETWORK
   (:= a b)
 
-#### move-two-targets — the v2 case words-and-move/move-two-targets, as a pull writes it
+#### move-two-targets — MOVE writes to as many targets as drawn, in slot order
 === text
 %LANGUAGE LD
 %NETWORK
@@ -171,7 +171,7 @@ MOVE(0, OUT => a, OUT => b);
 NETWORK
   (MOVE 0 =>0:a =>1:b)
 
-#### move-empty-operand — the v2 case words-and-move/move-empty-operand, as a pull writes it
+#### move-empty-operand
 === text
 %LANGUAGE FBD
 %NETWORK
@@ -180,7 +180,7 @@ MOVE(TRUE, OUT => x);
 NETWORK
   (MOVE TRUE =>0:x)
 
-#### move-operand-bracketed — the v2 case words-and-move/move-operand-bracketed, as a pull writes it
+#### move-operand-bracketed
 === text
 %LANGUAGE FBD
 %NETWORK
@@ -189,7 +189,7 @@ MOVE(ADD(a, b), OUT => x);
 NETWORK
   (MOVE (ADD a b conn:0) =>0:x)
 
-#### not-box — the v2 case words-and-move/not-box, as a pull writes it
+#### not-box
 === text
 %LANGUAGE FBD
 %NETWORK
@@ -198,7 +198,7 @@ x := NOT(a);
 NETWORK
   (:= x (NOT a))
 
-#### not-box-empty — the v2 case words-and-move/not-box-empty, as a pull writes it
+#### not-box-empty — the NOT box with its one input unconnected names the pin
 === text
 %LANGUAGE FBD
 %NETWORK
@@ -207,7 +207,7 @@ x := NOT(TRUE);
 NETWORK
   (:= x (NOT TRUE))
 
-#### negated-pin-call-form — the v2 case words-and-move/negated-pin-call-form, as a pull writes it
+#### negated-pin-call-form
 === text
 %LANGUAGE FBD
 %NETWORK
@@ -216,7 +216,7 @@ x := AND(a, b, NOT c);
 NETWORK
   (:= x (AND a b not:c))
 
-#### rising-pin-call-form — the v2 case words-and-move/rising-pin-call-form, as a pull writes it
+#### rising-pin-call-form — an edge on an operator's pin, before the pin's name
 === text
 %LANGUAGE LD
 %NETWORK
@@ -225,7 +225,7 @@ x := AND(R_EDGE(c), one);
 NETWORK
   (:= x (AND rise:c one))
 
-#### edge-and-negation-on-a-pin — the v2 case words-and-move/edge-and-negation-on-a-pin, as a pull writes it
+#### edge-and-negation-on-a-pin
 === scope
 instance t1 TON
 === text

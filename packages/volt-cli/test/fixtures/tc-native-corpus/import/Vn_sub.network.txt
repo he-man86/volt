@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  n := i1 SUB i2;
-END_NETWORK
+%NETWORK
+n := SUB(i1, i2);

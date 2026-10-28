@@ -43,8 +43,8 @@ public class HasherTests
     {
         // The materialized network-text body text is what's hashed — so an edit to the body (here: a different
         // operand) yields a different version, while the unchanged body is stable.
-        const string fbd1 = "%LANGUAGE FBD\nNETWORK\n  out := (a AND b);\nEND_NETWORK\n";
-        const string fbd2 = "%LANGUAGE FBD\nNETWORK\n  out := (a OR b);\nEND_NETWORK\n";
+        const string fbd1 = "%LANGUAGE FBD\n%NETWORK\nout := AND(a, b);\n";
+        const string fbd2 = "%LANGUAGE FBD\n%NETWORK\nout := OR(a, b);\n";
         Assert.Equal(Hasher.ComputeItemVersion("", fbd1), Hasher.ComputeItemVersion("", fbd1));
         Assert.NotEqual(Hasher.ComputeItemVersion("", fbd1), Hasher.ComputeItemVersion("", fbd2));
     }

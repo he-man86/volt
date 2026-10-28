@@ -11,7 +11,7 @@ import {
   type CheckContext,
   type DiagnosticItem,
   runRegistry,
-  computeNetworkTextDiagnostics,
+  networkDiagnostics,
   messagesFor,
 } from "../../src/analysis/index.js"
 import { ALL_TESTS } from "../conformance/fixtures/index.js"
@@ -144,7 +144,7 @@ function fixtureFindings(i: number, vendor: Vendor, rec: ReturnType<typeof recor
     }
     for (const doc of networkDocuments(files)) {
       rec.take()
-      const network = computeNetworkTextDiagnostics({ uri: doc.uri, parseResult: doc.parseResult }, project, rec.messages)
+      const network = networkDiagnostics(doc.parseResult, project)
       const window = rec.take()
       for (const it of network)
         if (isReported(it)) out.push({ severity: it.severity, message: it.message, row: NETWORK_ROW, builder: window.get(it.message) ?? INLINE })

@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  out := `NOT`((a OR b));
-END_NETWORK
+%NETWORK
+out := NOT(OR(a, b));

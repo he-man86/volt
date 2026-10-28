@@ -184,7 +184,7 @@ public class LanguageLineTests
     [Theory]
     [InlineData("x := 1;")]
     [InlineData("")]
-    [InlineData("%LANGUAGE LD\nNETWORK\n  x := 1;\nEND_NETWORK")]
+    [InlineData("%LANGUAGE LD\n%NETWORK\nx := 1;")]
     public void Any_other_body_is_written_as_it_is(string body) => Assert.Equal(body, PropertyLines.Written(body));
 
     // ── the writer states it on every kind that has a body, the reader splits on it ──────────────────
@@ -637,7 +637,7 @@ public class LanguageLineTests
 
     // ── the stated language decides the reader ─────────────────────────────────────────────────────────
 
-    private const string LdBody = "NETWORK\n  out := a;\nEND_NETWORK";
+    private const string LdBody = "%NETWORK\nout := a;";
 
     private const string Graphical =
         "FUNCTION_BLOCK FB_G\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR\n%LANGUAGE ST\n\nEND_FUNCTION_BLOCK\n\n" +
@@ -660,12 +660,10 @@ public class LanguageLineTests
     [InlineData(BodyLanguage.Fbd, "%LANGUAGE FBD\n")]
     public void The_network_text_writer_opens_a_body_with_its_line(BodyLanguage language, string first)
     {
-        var text = NetworkTextWriter.Write(new NetworkBody(language, new[] { Net(Set(L("a"), T("out"))) }), NetworkScope.Empty);
+        var text = StNetworkWriter.Write(new NetworkBody(language, new[] { Net(Set(L("a"), T("out"))) }), NetworkScope.Empty);
         Assert.StartsWith(first, text);
-        var back = NetworkTextReader.Read(text, NetworkScope.Empty);
-        Assert.True(back.Ok, string.Join("\n", back.Diagnostics.Select(d => d.Code + " " + d.Message)));
-        Assert.Equal(language, back.Body!.Language);
-        Assert.True(NetworkTextGate.Validate(text, NetworkScope.Empty).Ok);
+        Assert.Equal(language, StNetworkReader.Read(text, NetworkScope.Empty).Language);
+        Assert.True(StNetworkGate.Validate(text, NetworkScope.Empty).Ok);
     }
 
     [Theory]
@@ -676,10 +674,8 @@ public class LanguageLineTests
     [InlineData("%LANGUAGE LD UNSUPPORTED\n" + LdBody)]
     public void The_network_text_reader_reads_only_a_body_stated_LD_or_FBD(string text)
     {
-        var read = NetworkTextReader.Read(text, NetworkScope.Empty);
-        Assert.False(read.Ok);
-        Assert.NotEmpty(read.Diagnostics);
-        Assert.False(NetworkTextGate.Validate(text, NetworkScope.Empty).Ok);
+        Assert.Throws<StNetworkReadException>(() => StNetworkReader.Read(text, NetworkScope.Empty));
+        Assert.False(StNetworkGate.Validate(text, NetworkScope.Empty).Ok);
     }
 
     // ── an ST body the IDE holds ──────────────────────────────────────────────────────────────────
@@ -688,7 +684,7 @@ public class LanguageLineTests
     /// carries no line, so a <c>%LANGUAGE</c> line in its text would be read back as one.</summary>
     [Theory]
     [InlineData("%LANGUAGE LD UNSUPPORTED", "%LANGUAGE LD UNSUPPORTED")]
-    [InlineData("%LANGUAGE LD\nNETWORK\n  x := 1;\nEND_NETWORK", "%LANGUAGE LD")]
+    [InlineData("%LANGUAGE LD\n%NETWORK\nx := 1;", "%LANGUAGE LD")]
     [InlineData("x := 1;\n%LANGUAGE st", "%LANGUAGE st")]
     [InlineData("x := 1;\n%LANGUAGE", "%LANGUAGE")]
     public void An_ST_body_with_a_LANGUAGE_line_is_refused_naming_the_line(string body, string line)

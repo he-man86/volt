@@ -475,59 +475,27 @@ interface ConversionEntry extends ReferenceEntry { sourceType: string; destType:
 
 ## network text (FBD/LD as text)
 
-**As-built (network text v2.1, openspec `ld-fbd-coverage` 2R.6b; `src/frontend/syntax/network/`).** The body is read by
-a port of the bridge reader, recursive descent (`parser.ts` and the files it builds on — `cursor.ts`, `tokens.ts`,
-`boxes.ts`, `values.ts` — over its own `lexer.ts`, with the words in `words.ts`), and checked by a port of the shared
-validator (`validator.ts`): one item per `;`, the values a tree of their own (`NetworkValue`) because the text spells
-things ST has no node for — a box word (`a ADD b`, `MOVE b => a`), an empty slot, an edge FLAG, a `BRANCH` parallel, an
-EXECUTE box, `=> v`, a box's pin state (`ENO [=> v]`, `EN src`) and how its consumer reads it (`readBy`). Every operand,
-target and backticked text is still an ST `Expr`, and `exprs.ts` gives
-each value its ST reading where it has one (`networkValueExpr`) and the operands of the ones it has not
-(`statementExprs`), so the ONE type engine / `resolveMemberChain` / nav / hover / rename run unchanged. An EXECUTE box's
-lines are ordinary ST, parsed with the ST statement parser into a `StatementList`.
+A body stated `%LANGUAGE LD|FBD` is ST with `%` lines (`packages/volt-cli/docs/network-text.html`). The ST parser reads
+it: `src/frontend/syntax/network/plain-st.ts` makes each `%` line trivia (a `%EXECUTE(EN := c)` line the call it states)
+and reads the networks off them; every operand, call and statement is an ST node, so the one type engine, resolution,
+navigation, hover and rename run unchanged.
 
 ```ts
-// The bridge gate's structural codes the text alone decides (raised where the bridge reader raises them, the same
-// cases both sides read from packages/volt-cli/test/fixtures/network-text). The format's own findings are no NETWORK_ code:
-// network-split-reused and network-eno-pin-unwritten (warnings), network-en-unwired and network-coil-on-rail (hints), `_format.ts`.
-type NetworkDiagnosticCode =
-  | "NETWORK_PARSE" | "NETWORK_NOT_CLOSED" | "NETWORK_DUPLICATE_NAME"
-  | "NETWORK_BAD_EXPRESSION" | "NETWORK_UNSUPPORTED" | "NETWORK_UNKNOWN_OPERATOR"
-interface NetworkTextDiagnostic { code: NetworkDiagnosticCode; message: string; span: Span }
-
-interface NetworkTextBody { kind: "network_body"; language?: "FBD" | "LD"; networks: NetworkTextNetwork[]; diagnostics: NetworkTextDiagnostic[]; span: Span }
-interface NetworkTextNetwork {
-  index: number; title?: string; label?: NetworkName; disabled: boolean; comment?: string
-  splits: NetworkSplit[]                    // split<VarId> := value; — its definition and references, no type (B6)
-  unsupported?: NetworkName; unsupportedHash?: string // UNSUPPORTED "<shape>" #<hash>;
-  statements: NetworkTextStatement[]; span: Span; headerSpan: Span
+interface PlainStNetwork {
+  index: number; span: Span
+  header: PlainStLine                       // %NETWORK "title"
+  lines: readonly PlainStLine[]             // the network's % lines, %NETWORK first
+  disabled: boolean                         // %DISABLED
+  wires: readonly PlainStWire[]             // %WIRES w1, w2 — declared in the body's scope (symbols/network-scope.ts)
+  unsupported: boolean                      // %UNSUPPORTED "<shape>" #<hash>
+  executes: readonly { span: Span; header: Span }[] // %EXECUTE … %END_EXECUTE
 }
-type NetworkTextStatement = NetworkAssign | NetworkSplitDef | NetworkValueStatement | NetworkEmpty
-//   assign: t1 := t2 S= … value; (a jump or a return is a coil: JMP l := c; RETURN := ;)   split_def: split1 := value;   value: value;   empty: ;
-type NetworkValue = NetworkNestedAssign | NetworkNestedSplit | NetworkEmptySlot | NetworkOperand | NetworkSplitRef | NetworkNot
-                  | NetworkEdge | NetworkWordBox | NetworkCall | NetworkParallel | NetworkExecute
-// A box (word, call, execute) carries its pin state: eno?: { span; target? }, en?, enFlags?, hasEno, readBy?: "eno" | "value" | "name"
+interface PlainStLine { key: string; span: Span; args: readonly Token[] }
 
-// Analysis (F.2b) — a per-network resolution scope layering the network's splits, each typed by its FEEDER (B6), over the
-// POU scope; the shared infer engine resolves a split like a real variable.
-interface NetworkTextAnalysis { vg: NetworkTextBody; pou: Scope; networkScopes: Map<NetworkTextNetwork, Scope>; splits: Map<Symbol, NetworkSplit> }
+// The bridge gate's codes (the cases both sides read from packages/volt-cli/test/fixtures/network-text-st). The LSP's
+// network check reports network-plain-st for what a network may not hold, and network-unnamed-target for `??? := v`.
+type NetworkDiagnosticCode = "NETWORK_PARSE" | "NETWORK_UNSUPPORTED"
 ```
-
-<details><summary>Pre-rebuild operand tree (historical — NOT built; operands are `Expr`)</summary>
-
-```ts
-interface VgMods { negated: boolean; edge?: "rising" | "falling"; storage?: "set" | "reset"; tokens: Token[] }
-type VgCore = NetworkGroup | VgCall | VgMember | NetworkLeaf
-interface NetworkOperand { kind: "operand"; mods: VgMods; core: VgCore; span: Span }
-interface NetworkGroup   { kind: "group"; op?: VgOperatorSymbol; opTokens: Token[]; operands: NetworkOperand[]; span: Span }
-interface VgCall    { kind: "call"; callee: NetworkName; args: VgArg[]; span: Span }
-interface VgMember  { kind: "member"; base: NetworkName; member: NetworkName; span: Span }
-interface NetworkLeaf    { kind: "leaf"; text: string; tokens: Token[]; isLiteral: boolean; name?: NetworkName; span: Span }
-interface VgArg     { pin?: NetworkName; value: NetworkOperand; span: Span }
-type VgOperatorSymbol = "AND" | "OR" | "XOR" | "+" | "-" | "*" | "/" | "MOD" | ">" | "<" | ">=" | "<=" | "=" | "<>"
-type VgOperatorClass = "logic" | "arithmetic" | "comparison"
-```
-</details>
 
 ## conformance / testing
 

@@ -63,12 +63,12 @@ test("server: didOpen pushes network-text diagnostics for a graphical body", asy
     client.onNotification(PublishDiagnosticsNotification.type, (p) => resolve(p as never))
   })
   await client.sendRequest(InitializeRequest.type, { processId: null, rootUri: null, capabilities: {} })
-  const vg = `FUNCTION_BLOCK F\nVAR out : BOOL;\nEND_VAR\n%LANGUAGE LD\nNETWORK\nout := TRUE;\nEND_FUNCTION_BLOCK` // no END_NETWORK
+  const vg = `FUNCTION_BLOCK F\nVAR out : BOOL;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\nout := out XOR TRUE;\nEND_FUNCTION_BLOCK` // XOR is a box: a call
   await client.sendNotification(DidOpenTextDocumentNotification.type, {
     textDocument: { uri: URI, languageId: "iecst", version: 1, text: vg },
   })
   const params = await got
-  expect(params.diagnostics.some((d) => d.code === "NETWORK_NOT_CLOSED")).toBe(true)
+  expect(params.diagnostics.some((d) => d.code === "network-plain-st")).toBe(true)
   client.dispose()
 })
 

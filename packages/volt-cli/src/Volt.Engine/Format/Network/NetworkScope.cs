@@ -26,6 +26,7 @@ public sealed class NetworkScope
     private readonly Func<string, string?> _instanceType;
     private readonly Func<string, Format.Network.Callee?> _callee;
     private readonly Func<string, IReadOnlyList<string>?> _blockOutputs;
+    private readonly Func<string, IReadOnlyList<string>?> _blockInputs;
     private readonly Func<string, bool> _isBlockType;
 
     /// <param name="names">Every name in scope.</param>
@@ -67,18 +68,20 @@ public sealed class NetworkScope
         // A scope stated as name lists holds no declaration to derive a callee or a block's outputs from.
         _callee = _ => null;
         _blockOutputs = _ => null;
+        _blockInputs = _ => null;
         _isBlockType = blockSet.Contains;
     }
 
     private NetworkScope(Func<string, bool> contains, Func<string, bool> isPou, Func<string, string?> instanceType,
                          Func<string, Format.Network.Callee?> callee, Func<string, IReadOnlyList<string>?> blockOutputs,
-                         Func<string, bool> isBlockType)
+                         Func<string, IReadOnlyList<string>?> blockInputs, Func<string, bool> isBlockType)
     {
         _contains = contains;
         _isPou = isPou;
         _instanceType = instanceType;
         _callee = callee;
         _blockOutputs = blockOutputs;
+        _blockInputs = blockInputs;
         _isBlockType = isBlockType;
     }
 
@@ -237,30 +240,33 @@ public sealed class NetworkScope
                 : null;
         }
 
-        // An FB's VAR_OUTPUTs in declaration order, its inherited ones first (a derived FB's box lists its base's outputs
-        // before its own): a project FB by its declaration, a library's by the IDE's signature. What a `.name` read's slot
-        // is derived from (NetworkDerivation, v2-spec section 7).
-        IReadOnlyList<string>? BlockOutputs(string type)
+        // An FB's VAR_OUTPUTs (its VAR_INPUTs and VAR_IN_OUTs) in declaration order, its inherited ones first (a derived
+        // FB's box lists its base's pins before its own): a project FB by its declaration, a library's by the IDE's
+        // signature. What a `.name` read's slot, and a pin a text leaves unconnected, are derived from (NetworkDerivation).
+        IReadOnlyList<string>? BlockOutputs(string type) => BlockPins(type, outputs: true);
+        IReadOnlyList<string>? BlockInputs(string type) => BlockPins(type, outputs: false);
+
+        IReadOnlyList<string>? BlockPins(string type, bool outputs)
         {
             if (IsPou(type))
             {
                 var own = declarationOf(type);
-                return own is null || St.StDeclaration.IsFunction(own) ? null : InheritedOutputs(type, own, 0);
+                return own is null || St.StDeclaration.IsFunction(own) ? null : InheritedPins(own, 0, outputs);
             }
             var bare = type.Substring(type.LastIndexOf('.') + 1);
             return NetworkSpelling.IsName(type) && kindOf(bare) is null && libraryFunction(bare) is { CallType: Format.Network.Callee.FunctionBlockCallType } block
-                ? block.Outputs
+                ? (outputs ? block.Outputs : block.Inputs)
                 : null;
         }
 
-        IReadOnlyList<string>? InheritedOutputs(string type, string declaration, int depth)
+        IReadOnlyList<string>? InheritedPins(string declaration, int depth, bool outputs)
         {
-            var own = St.StDeclaration.OutputNames(declaration);
+            var own = outputs ? St.StDeclaration.OutputNames(declaration) : St.StDeclaration.InputNames(declaration);
             if (St.StDeclaration.BaseOf(declaration) is not { } baseName || depth > 32) return own;
-            var baseOutputs = IsPou(baseName) && declarationOf(baseName) is { } b
-                ? InheritedOutputs(baseName, b, depth + 1)
-                : libraryFunction(baseName) is { CallType: Format.Network.Callee.FunctionBlockCallType } lib ? lib.Outputs : null;
-            return baseOutputs is null ? null : baseOutputs.Concat(own).ToList();
+            var basePins = IsPou(baseName) && declarationOf(baseName) is { } b
+                ? InheritedPins(b, depth + 1, outputs)
+                : libraryFunction(baseName) is { CallType: Format.Network.Callee.FunctionBlockCallType } lib ? (outputs ? lib.Outputs : lib.Inputs) : null;
+            return basePins is null ? null : basePins.Concat(own).ToList();
         }
 
         // A FUNCTION BLOCK type by name: a project POU whose declaration is a block's, or a library's block by its signature.
@@ -270,7 +276,7 @@ public sealed class NetworkScope
              : kindOf(type) is null && !isRefusedPouName(type) && !local.Contains(type) &&
                libraryFunction(type) is { CallType: Format.Network.Callee.FunctionBlockCallType });
 
-        return new NetworkScope(Contains, IsPou, InstanceType, CalleeOf, BlockOutputs, IsBlockType);
+        return new NetworkScope(Contains, IsPou, InstanceType, CalleeOf, BlockOutputs, BlockInputs, IsBlockType);
     }
 
     public bool Contains(string name) => _contains(name);
@@ -286,6 +292,10 @@ public sealed class NetworkScope
     /// <summary>An FB type's outputs in the order its box lists them (inherited first), or null where no declaration or
     /// library signature in reach states them — what the push derives a <c>.name</c> read's slot from.</summary>
     public IReadOnlyList<string>? BlockOutputs(string fbType) => _blockOutputs(fbType);
+
+    /// <summary>An FB type's inputs in the order its box lists them (inherited first), or null where no declaration or
+    /// library signature in reach states them — what the push restores a pin the text leaves unconnected from.</summary>
+    public IReadOnlyList<string>? BlockInputs(string fbType) => _blockInputs(fbType);
 
     /// <summary>Whether <paramref name="name"/> is a POU or an FB instance — something a call can name.</summary>
     public bool IsCallable(string name) => _isPou(name) || _instanceType(name) is not null;

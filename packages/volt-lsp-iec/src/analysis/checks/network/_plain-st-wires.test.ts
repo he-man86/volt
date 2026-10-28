@@ -3,10 +3,10 @@
  * (`_plain-st.test.ts`) holds the same rules against the bridge's reader.
  */
 import { expect, test } from "bun:test"
-import { vgDiags } from "../../../../test/support/network-docs.js"
+import { networkDiags } from "../../../../test/support/network-docs.js"
 
 const ld = (decls: string, body: string) => `PROGRAM P\nVAR\n${decls}\nEND_VAR\n%LANGUAGE LD\n${body}END_PROGRAM\n`
-const findings = (src: string) => vgDiags(src).filter((d) => d.code === "network-plain-st").map((d) => d.message)
+const findings = (src: string) => networkDiags(src).filter((d) => d.code === "network-plain-st").map((d) => d.message)
 
 test("a wire is defined once and read by its name any number of times, before its definition too", () => {
   expect(findings(ld("\ta, b, x, y : BOOL;", "%NETWORK\n%WIRES w1\nx := w1;\nw1 := a AND b;\ny := w1;\n"))).toEqual([])

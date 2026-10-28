@@ -28,10 +28,10 @@ public class CodesysNetworkWriterGateTests
 
 
     /// <summary>The scope the pushed model was read against â€” here the model's own names and FB instances, as the
-    /// declarations of the POU it came from would state them (<c>NetworkModelOracle.ScopeOf</c>). The change gate
+    /// declarations of the POU it came from would state them (<c>NetworkModelScopes.ScopeOf</c>). The change gate
     /// renders both sides with it: "the same file" is only defined for one scope.</summary>
     private static NetworkScope ScopeOf(Network model, BodyLanguage language) =>
-        Volt.Tests.Shared.NetworkModelOracle.ScopeOf(new NetworkBody(language, new[] { model }));
+        Volt.Tests.Shared.NetworkModelScopes.ScopeOf(new NetworkBody(language, new[] { model }));
     /// <summary>A live network holding `out := (a AND b)`, as the vendor would present it.</summary>
     private static Nwl.Network LiveAndRung()
     {
@@ -201,7 +201,7 @@ public class CodesysNetworkWriterGateTests
 /// the inverse of the committed source, on the vendor's own canonical FBD fixture.</para>
 ///
 /// <para><b>Nothing Volt had could see it.</b> The reader lifts only STORAGE back off a target
-/// (<c>CoilStorage.OntoValue</c>) and <c>NetworkTextWriter.Lhs</c> renders a target with no modifiers at all,
+/// (<c>CoilStorage.OntoValue</c>) and the text writer renders a target with no modifiers at all,
 /// so the next pull was byte-identical and the change gate then said "unchanged". A negated BOOL coil also
 /// COMPILES, so the build oracle was blind to it too. The only instrument that can see a flag landing on the
 /// wrong object is a test that looks at the object — which is this one.</para>
@@ -214,10 +214,10 @@ public class CodesysCoilFlagTests
 
 
     /// <summary>The scope the pushed model was read against â€” here the model's own names and FB instances, as the
-    /// declarations of the POU it came from would state them (<c>NetworkModelOracle.ScopeOf</c>). The change gate
+    /// declarations of the POU it came from would state them (<c>NetworkModelScopes.ScopeOf</c>). The change gate
     /// renders both sides with it: "the same file" is only defined for one scope.</summary>
     private static NetworkScope ScopeOf(Network model, BodyLanguage language) =>
-        Volt.Tests.Shared.NetworkModelOracle.ScopeOf(new NetworkBody(language, new[] { model }));
+        Volt.Tests.Shared.NetworkModelScopes.ScopeOf(new NetworkBody(language, new[] { model }));
     /// <summary>A live network holding a rung unlike any this class pushes — <c>elsewhere := TRUE;</c> — so the
     /// change gate opens and the destroy-and-rebuild path runs. It must be a rung network text can SPELL: the gate
     /// renders the live network to compare, and a live network the text cannot hold is refused rather than rebuilt,
@@ -520,7 +520,7 @@ public class CodesysCoilFlagTests
     /// now (below), and these rows are the consumed shapes that build: an enabled MOVE read by its ENO, and a function
     /// without EN read by its main output.</summary>
     [Theory]
-    [InlineData("x := MOVE a => sv ENO EN c;", true)]
+    [InlineData("x := MOVE_EN(EN := c, a, OUT => sv);", true)]
     [InlineData("n := LIMIT(a, b, n);", false)]
     public void The_ENO_slot_is_written_for_the_box_that_has_one_not_for_every_enabled_box(string statement, bool eno)
     {
@@ -544,7 +544,7 @@ public class CodesysCoilFlagTests
     {
         const string declaration = "PROGRAM P\nVAR\n  x : BOOL;\n  c : BOOL;\n  a : INT;\n  b : INT;\n  n : INT;\n  lamp : BOOL;\n  sv : INT;\nEND_VAR";
         var scope = NetworkScope.FromDeclarations(declaration, _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, CodesysDriver.RefusedPouName, Volt.Tests.Shared.Scopes.NoLibrary);
-        return (V2NetworkText.Validate("%LANGUAGE FBD\nNETWORK\n  " + statement + "\nEND_NETWORK\n", scope).Networks[0], scope);
+        return (NetworkText.Validate("%LANGUAGE FBD\n%NETWORK\n" + statement + "\n", scope).Networks[0], scope);
     }
 
     /// <summary>THE PUSH HALF OF "EN IS A PIN, ENO IS SPELLED" (task 4.1; spec "ENO is the main output", "a box that has
@@ -573,7 +573,7 @@ public class CodesysCoilFlagTests
         Assert.NotEmpty(NetworkSpelling.Comparisons);
         foreach (var op in NetworkSpelling.Comparisons)
         {
-            var (model, scope) = Pushed($"x := a {op} b EN c;");
+            var (model, scope) = Pushed($"x := {op}_ENONLY(EN := c, a, b);");
             var live = Different();
             CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, BodyLanguage.Fbd, scope);
             var cmp = Assert.IsType<Nwl.BoxTreeBox>(Assert.IsType<Nwl.BoxTreeAssign>(live.GetTree(live.NetworkItemCount - 1)).RValue);
@@ -589,9 +589,9 @@ public class CodesysCoilFlagTests
     /// <c>.ENO</c> on an operator with no EN is built too: the box the text describes, which CODESYS's build answers
     /// with "Missing EN pin" (DIALECT N21) — the build's error, not a reason for the push to refuse (1.5).</summary>
     [Theory]
-    [InlineData("MOVE a => sv EN c;")]
-    [InlineData("a GT b => x EN c;")]
-    [InlineData("lamp := MOVE a => sv ENO EN c;")]
+    [InlineData("MOVE_ENONLY(EN := c, a, OUT => sv);")]
+    [InlineData("GT_ENONLY(EN := c, a, b, OUT => x);")]
+    [InlineData("lamp := MOVE_EN(EN := c, a, OUT => sv);")]
     public void A_consumer_the_built_box_reads_as_written_is_built(string statement)
     {
         var (model, scope) = Pushed(statement);
@@ -610,7 +610,9 @@ public class CodesysCoilFlagTests
     [Fact]
     public void A_wire_is_written_under_the_models_VarId_verbatim()
     {
-        var (model, scope) = Pushed("split28 := x AND lamp;\n  x := split28;\n  lamp := split28;");
+        var (read, scope) = Pushed("%WIRES w1\nw1 := AND(x, lamp);\nx := w1;\nlamp := w1;");
+        // the text numbers a network's wires 1, 2, …; the model a pull read carries the vendor's VarId, here 28
+        var model = read with { Trees = read.Trees.Select(t => VarIdAs28(t)).ToList() };
         Assert.Equal(28, Assert.IsType<Demux>(model.Trees[0]).VarId);
         var live = Different();
 
@@ -621,14 +623,21 @@ public class CodesysCoilFlagTests
         Assert.Equal(new[] { 28, 28, 28 }, ids);
     }
 
-    /// <summary>A DATA SPLIT A PUSH BUILDS COMES BACK AS THE SAME TEXT, and pushes again unchanged. B6: the text states no
-    /// type for a split — its feeder's is the push's derivation (<c>NetworkMembers.DerivedOutputTypes</c>: none for an
-    /// ADD) — and with no type in the text a re-read feeder storing none is no longer "a wire of unknown type": the
-    /// next pull writes the same `split1 := a ADD b;`, and the next push of it finds the network unchanged.</summary>
+    static Node VarIdAs28(Node n) => n switch
+    {
+        Demux d => new Demux(28, d.Input is null ? null : VarIdAs28(d.Input)),
+        Assign a => a with { Value = VarIdAs28(a.Value) },
+        _ => n,
+    };
+
+    /// <summary>A DATA WIRE A PUSH BUILDS COMES BACK AS THE SAME TEXT, and pushes again unchanged. B6: the text states no
+    /// type for a wire — its feeder's is the push's derivation (<c>NetworkMembers.DerivedOutputTypes</c>: none for an
+    /// ADD) — and with no type in the text a re-read feeder storing none is no "wire of unknown type": the next pull
+    /// writes the same `w1 := ADD(a, b);`, and the next push of it finds the network unchanged.</summary>
     [Fact]
     public void A_data_split_a_push_built_reads_back_as_written_and_pushes_again()
     {
-        var (model, scope) = Pushed("split1 := a ADD b;\n  n := split1;\n  sv := split1;");
+        var (model, scope) = Pushed("%WIRES w1\nw1 := ADD(a, b);\nn := w1;\nsv := w1;");
         var live = Different();
 
         CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, BodyLanguage.Fbd, scope);
@@ -642,7 +651,7 @@ public class CodesysCoilFlagTests
 
         var reread = CodesysNetworkReader.ReadNetwork(live, 0);
         var body = new NetworkBody(BodyLanguage.Fbd, new[] { reread });
-        Assert.Contains("split1 := a ADD b;", NetworkTextWriter.Write(body, scope));
+        Assert.Contains("w1 := ADD(a, b);", StNetworkWriter.Write(body, scope));
         Assert.Null(Record.Exception(() =>
             CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, BodyLanguage.Fbd, scope)));
     }
@@ -877,7 +886,7 @@ public class CodesysViewFlipParallelTests
                    new[] { new Operand("out2", IsLValue: true) }, Flags.None),
     });
 
-    private static NetworkScope ScopeOf(NetworkBody body) => Volt.Tests.Shared.NetworkModelOracle.ScopeOf(body);
+    private static NetworkScope ScopeOf(NetworkBody body) => Volt.Tests.Shared.NetworkModelScopes.ScopeOf(body);
 
     /// <summary>The live body as a pull reads it: its networks under the view the aspect holds.</summary>
     private static NetworkBody Pull(Nwl.NWLImplementationObject impl)
@@ -900,8 +909,8 @@ public class CodesysViewFlipParallelTests
 
         var pulled = Pull(impl);
         Assert.Equal(BodyLanguage.Ld, pulled.Language);
-        var ldText = NetworkTextWriter.Write(pulled, ScopeOf(pulled));
-        Assert.Contains(" BRANCH (", ldText);
+        var ldText = StNetworkWriter.Write(pulled, ScopeOf(pulled));
+        Assert.Contains("BRANCH(", ldText);
 
         // The flip: the pulled body under the other %LANGUAGE line, nothing else changed.
         var nets = impl.NetworkList.Cast<Nwl.Network>().ToArray();
@@ -915,7 +924,7 @@ public class CodesysViewFlipParallelTests
         Assert.Equal(trees, nets.Select(n => n.GetTree(0)).ToArray());
         var back = Pull(impl);
         Assert.Equal(BodyLanguage.Fbd, back.Language);
-        Assert.Equal(ldText.Replace("%LANGUAGE LD", "%LANGUAGE FBD"), NetworkTextWriter.Write(back, ScopeOf(back)));
+        Assert.Equal(ldText.Replace("%LANGUAGE LD", "%LANGUAGE FBD"), StNetworkWriter.Write(back, ScopeOf(back)));
         Assert.Equal(new[] { ParallelMode.BoxShortCircuit, ParallelMode.Sequential },
             back.Networks.SelectMany(n => n.Trees).SelectMany(Walk).OfType<Volt.Engine.Format.Network.Parallel>().Select(p => p.Mode));
 
@@ -923,7 +932,7 @@ public class CodesysViewFlipParallelTests
         CodesysNetworkWriter.Write(pou, back with { Language = BodyLanguage.Ld }, ScopeOf(back));
         Assert.Equal("Ld", impl.DefaultViewMode);
         Assert.All(nets, n => Assert.Empty(n.Calls));
-        Assert.Equal(ldText, NetworkTextWriter.Write(Pull(impl), ScopeOf(Pull(impl))));
+        Assert.Equal(ldText, StNetworkWriter.Write(Pull(impl), ScopeOf(Pull(impl))));
     }
 
     private static System.Collections.Generic.IEnumerable<Node> Walk(Node n) => n.Children().SelectMany(Walk).Prepend(n);

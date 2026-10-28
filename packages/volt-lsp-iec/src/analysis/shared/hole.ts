@@ -1,6 +1,6 @@
 /**
  * hole — "the compiler could not type this expression", which is the premise of every message in
- * `checks/types/unknown-source` and of the one the network-text sink check reports. One definition, because the
+ * `checks/types/unknown-source`. One definition, because the
  * hard part is not the message but knowing when the LSP's "unknown" is the COMPILER'S unknown.
  *
  * It is unknown for two unrelated reasons: a name that does not RESOLVE, which is the compiler's reason too, and a
@@ -13,10 +13,10 @@ import { lookup, type Scope, scopeUri } from "../../frontend/symbols/index.js"
 import { inferExprType, isConversionName, resolveMemberChain, resolveNamedType } from "../../frontend/types/index.js"
 import type { DiagnosticItem } from "./diagnostic-item.js"
 
-/** The findings that mean the expression has NO TYPE — the ST codes and their network-text counterparts. */
+/** The findings that mean the expression has NO TYPE. */
 const RESOLUTION_FAILURE: ReadonlySet<string> = new Set([
   "unresolved-identifier", "unknown-member", "deref-non-pointer", "indexing-non-array", "this-not-allowed",
-  "super-not-allowed", "self-not-structured", "call-recursion", "network-undeclared-identifier", "network-unknown-member",
+  "super-not-allowed", "self-not-structured", "call-recursion",
   // a call of what is no call target has no type (`types/infer` `callReturnType`), and the C0035 names why: `out :=
   // .gCall(1)` is "Cannot convert type 'Unknown type: '.gCall(1)'' to type 'INT'" beside it
   // (`expr_global_namespace_call_non_callable`, both vendors 2026-10-02)
@@ -37,7 +37,7 @@ const TYPE_CALLED = "type-name-as-value"
  * calling itself.
  */
 const REFUSED_OUTRIGHT: ReadonlySet<string> = new Set([
-  "this-not-allowed", "super-not-allowed", "self-not-structured", "unresolved-identifier", "call-recursion", "network-undeclared-identifier",
+  "this-not-allowed", "super-not-allowed", "self-not-structured", "unresolved-identifier", "call-recursion",
 ])
 
 /** Every code `reported` reads from earlier findings — the `reads` of a check that calls it (`pipeline/registry.ts`). */

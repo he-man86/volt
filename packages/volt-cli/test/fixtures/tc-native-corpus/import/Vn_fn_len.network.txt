@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  n := LEN(s1);
-END_NETWORK
+%NETWORK
+n := LEN(s1);

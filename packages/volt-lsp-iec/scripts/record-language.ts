@@ -156,6 +156,15 @@ async function refs(): Promise<any> {
   return second
 }
 
+/**
+ * TwinCAT's closing line of a failed build — "Error: The operation could not be completed." and the OS's own localized
+ * words for the failure — names no item and says nothing of the fixture's code: it is the build's verdict, which
+ * `buildSuccess` records. The oracle holds the compiler's messages, so it is not one (volt-cli `test/e2e/lib/compile.ts`).
+ */
+function isFailedBuildLine(d: { message?: unknown; line?: unknown }): boolean {
+  return typeof d.message === "string" && d.message.startsWith("Error: The operation could not be completed.") && !d.line
+}
+
 async function pushOps(ops: unknown[]): Promise<void> {
   const r = await call("push", { expectedProjectVersion: (await refs()).projectVersion, ops })
   // A REJECTED PUSH IS FATAL, not a warning. This used to log and carry on, and the next thing the recorder
@@ -348,7 +357,7 @@ for (const t of ALL_TESTS) {
     const r = await call("build", {})
     const durationMs = Math.round(performance.now() - started)
     const diagnostics = (r.diagnostics ?? [])
-      .filter((d: any) => d.severity === "error" || d.severity === "warning")
+      .filter((d: any) => (d.severity === "error" || d.severity === "warning") && !isFailedBuildLine(d))
       .map((d: any) => ({ severity: d.severity, message: d.message, line: d.line ?? 0 }))
     tests[t.name] = { buildSuccess: !!r.success, durationMs, diagnostics }
   } catch (e) {

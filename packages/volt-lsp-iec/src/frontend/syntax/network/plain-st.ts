@@ -22,15 +22,11 @@
  *  - an operator box word heading a call (`GT(`, `ADD(`, `AND(`, `NOT(`, …: the ST lexer reads each as a keyword) where an operand starts is the call of
  *    that box — every box is a call — and after an operand it is the contact (`a AND b`). The same rule the bridge's
  *    reader keeps (`StNetworkReader`): position, never spacing.
- *
- * The form is told from v2 network text by its first line (`%NETWORK`), during the read-only phase only, while both are
- * read (openspec network-text-st 3.2 deletes v2 and this test with it).
  */
 import type { BodySpan, StatementList } from "../ast/nodes/index.js"
 import { isTrivia, type Token } from "../lex/tokens.js"
 import { joinSpans, pointSpan, type Span } from "../span.js"
 import { isPlainStNetworkBody } from "../format/bodies.js"
-import { percentKeyAt } from "../format/network-form.js"
 
 /** The `%` lines of the form, by their key. */
 const PLAIN_ST_LINES: ReadonlySet<string> = new Set(["NETWORK", "DISABLED", "WIRES", "EXECUTE", "END_EXECUTE", "UNSUPPORTED"])
@@ -122,6 +118,16 @@ export function plainStText(body: BodySpan): PlainStText {
   return t
 }
 
+/** The key of the `%` line `tokens[at]` opens — a `%` first on its line, then a word, touching — or undefined. */
+function percentKeyAt(tokens: readonly Token[], at: number): string | undefined {
+  const t = tokens[at]!
+  if (t.kind !== "punct" || t.text !== "%" || t.span.startCol !== 0) return undefined
+  const next = tokens[at + 1]
+  return next !== undefined && (next.kind === "identifier" || next.kind === "keyword") && next.span.start === t.span.end
+    ? next.text.toUpperCase()
+    : undefined
+}
+
 /** The index just past the line `tokens[at]` stands on (the token holding its newline, or the end). */
 function lineEnd(tokens: readonly Token[], at: number): number {
   let k = at
@@ -190,6 +196,12 @@ function read(tokens: readonly Token[]): PlainStText {
     }
     // a network runs to its last token that is not whitespace — a comment after its code is in it
     if (cur !== undefined && t.kind !== "whitespace" && t.kind !== "eof") cur.last = t.span
+    if (cur !== undefined && cur.open === undefined && isUnnamedTarget(tokens, i, out)) {
+      out.push({ kind: "identifier", text: UNNAMED, span: joinSpans(t.span, tokens[i + 2]!.span) })
+      cur.last = tokens[i + 2]!.span
+      i += 2
+      continue
+    }
     out.push(cur?.open === undefined && isKeywordCallHead(tokens, i, out) ? { ...t, kind: "identifier", keyword: undefined } : t)
   }
   close()
@@ -199,6 +211,22 @@ function read(tokens: readonly Token[]): PlainStText {
       ? (t.span.start === t.span.end ? [] : [{ ...t, kind: "whitespace" as const, keyword: undefined }])
       : [t]))
   return { networks, statementTokens: compiled, sourceTokens: out, stray }
+}
+
+/** The name of a coil nobody named, as the IDE stores it: `??? := a;`. */
+export const UNNAMED = "???"
+
+/** Does `tokens[at]` open `???` as a statement's target — three touching `?`, `:=` next, at the start of a statement? */
+function isUnnamedTarget(tokens: readonly Token[], at: number, before: readonly Token[]): boolean {
+  const q = (k: number) => tokens[k]?.kind === "punct" && tokens[k]!.text === "?"
+  if (!q(at) || !q(at + 1) || !q(at + 2)) return false
+  if (tokens[at + 1]!.span.start !== tokens[at]!.span.end || tokens[at + 2]!.span.start !== tokens[at + 1]!.span.end) return false
+  let n = at + 3
+  while (n < tokens.length && isTrivia(tokens[n]!.kind)) n++
+  if (tokens[n]?.kind !== "punct" || tokens[n]!.text !== ":=") return false
+  let p = before.length - 1
+  while (p >= 0 && isTrivia(before[p]!.kind)) p--
+  return p < 0 || before[p]!.text === ";" || before[p]!.text === ":"
 }
 
 /** Does `tokens[at]` head a keyword operator's CALL: a keyword box word, `(` next, and no operand ending before it in

@@ -82,11 +82,11 @@ const V1_BODY = `FUNCTION_BLOCK F\nVAR a : BOOL; out : BOOL;\nEND_VAR\n(* @volt-
 /** …the way format 3 wrote it: network text v2, behind the retired comment marker naming its language… */
 const RETIRED_MARKER_BODY = `FUNCTION_BLOCK F\nVAR a : BOOL; out : BOOL;\nEND_VAR\n(* @volt-implementation LD *)\nNETWORK\n  out := a;\nEND_NETWORK\n\nEND_FUNCTION_BLOCK`
 
-/** …and the way format 4 writes it: network text v2 under the line that states its language. */
-const V2_BODY = `FUNCTION_BLOCK F\nVAR a : BOOL; out : BOOL;\nEND_VAR\n%LANGUAGE LD\nNETWORK\n  out := a;\nEND_NETWORK\n\nEND_FUNCTION_BLOCK`
+/** …and the way a pull writes it: network text under the line that states its language. */
+const NETWORK_BODY = `FUNCTION_BLOCK F\nVAR a : BOOL; out : BOOL;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\nout := a;\n\nEND_FUNCTION_BLOCK`
 
-/** …and a format-3 body with a network-text finding of its own: a wire used without its VAR_TEMP declaration. */
-const V2_FLAWED_BODY = `FUNCTION_BLOCK F\nVAR a : BOOL; out : BOOL;\nEND_VAR\n%LANGUAGE LD\nNETWORK\n  g5 := a;\n  out := g5;\nEND_NETWORK\n\nEND_FUNCTION_BLOCK`
+/** …and one with a finding of its own: a wire used without its `%WIRES` declaration. */
+const FLAWED_NETWORK_BODY = `FUNCTION_BLOCK F\nVAR a : BOOL; out : BOOL;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\nw5 := a;\nout := w5;\n\nEND_FUNCTION_BLOCK`
 
 /** Every diagnostic of a workspace, by file name. */
 async function workspaceDiagnostics(files: Record<string, string>) {
@@ -141,13 +141,13 @@ test("server: a workspace a NEWER Volt pulled names the language server as the s
   // either way, and the suppression would go untested.
   const atOwnFormat = await workspaceDiagnostics({
     "Library Manager/Standard/Standard.library": libAt(`MATERIALIZATION ${MATERIALIZATION}\n`),
-    "F.pou": V2_FLAWED_BODY,
+    "F.pou": FLAWED_NETWORK_BODY,
   })
   expect((atOwnFormat.get("F.pou") ?? []).length).toBeGreaterThan(0)
 
   const diags = await workspaceDiagnostics({
     "Library Manager/Standard/Standard.library": libAt(`MATERIALIZATION ${MATERIALIZATION + 1}\n`),
-    "F.pou": V2_FLAWED_BODY,
+    "F.pou": FLAWED_NETWORK_BODY,
   })
   const manifest = diags.get("Standard.library") ?? []
   expect(manifest.map((d) => d.code)).toEqual(["materialization-newer"])
@@ -159,7 +159,7 @@ test("server: a workspace a NEWER Volt pulled names the language server as the s
 test("server: a workspace at the LSP's own materialization says nothing about it", async () => {
   const diags = await workspaceDiagnostics({
     "Library Manager/Standard/Standard.library": libAt(`MATERIALIZATION ${MATERIALIZATION}\n`),
-    "F.pou": V2_BODY,
+    "F.pou": NETWORK_BODY,
   })
   expect(diags.get("Standard.library") ?? []).toEqual([])
   expect(diags.get("F.pou") ?? []).toEqual([])
@@ -190,13 +190,3 @@ test("server: without a manifest, a file whose bodies state no language is told 
   }
 })
 
-test("server: a numbered NETWORK header under a stated LD line draws the push's own refusal, at the number", async () => {
-  // The shared case `refuse/grammar.cases` header-number pins the phrase on both readers; this pins that the server
-  // reports it for a file, and nothing else in its place.
-  const diags = await workspaceDiagnostics({
-    "F.pou": V1_BODY.replace("(* @volt-implementation *)", "%LANGUAGE LD"),
-  })
-  expect((diags.get("F.pou") ?? []).map((d) => d.message)).toEqual([
-    `'0' in a NETWORK header: the header is NETWORK [LABEL: x] [DISABLED] [TITLE: "…"], and it ends at its newline.`,
-  ])
-})

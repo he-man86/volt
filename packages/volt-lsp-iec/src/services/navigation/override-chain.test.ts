@@ -6,7 +6,7 @@ import { expect, test } from "bun:test"
 import { parseSource } from "../../frontend/syntax/index.js"
 import { build } from "../../frontend/symbols/index.js"
 import { overrideChain } from "./override-chain.js"
-import { prepareRenameAnywhere, renameAnywhere, renameChainRefusal } from "../network/network-services.js"
+import { prepareRename, rename, renameChainRefusal } from "./rename.js"
 import type { Document } from "../shared/index.js"
 
 function setupFiles(files: Record<string, string>) {
@@ -42,7 +42,7 @@ test("B6: renaming a method renames its override chain — the base's, the inter
   const doc = docs[0]!
   const offset = at(CHAIN, "Act : BOOL\nEND_METHOD\nEND_INTERFACE")
   expect(renameChainRefusal(doc, project, offset)).toBeUndefined()
-  const edit = renameAnywhere(docs, project, doc, offset, "Perform")!
+  const edit = rename(docs, project, doc, offset, "Perform")!
   const lines = (edit.changes!["file:///chain.pou"] ?? []).map((e) => e.range.start.line).sort((a, b) => a - b)
   // the interface's METHOD, the base's and the child's declaration, and the child's call
   const lineOf = (needle: string, from = 0) => CHAIN.slice(0, CHAIN.indexOf(needle, from)).split("\n").length - 1
@@ -58,6 +58,6 @@ test("B6: a rename whose chain reaches a LIBRARY member is refused by name", () 
   const offset = at(own, "Act : BOOL")
   expect(overrideChain(project, project.children.flatMap((c) => c.symbols.get("act") ?? []).find((s) => s.uri === doc.uri)!).length).toBe(2)
   expect(renameChainRefusal(doc, project, offset)).toContain("'I_Lib.Act'")
-  expect(prepareRenameAnywhere(doc, project, offset)).toBeDefined() // the cursor itself is renameable; the chain refuses
-  expect(renameAnywhere(docs, project, doc, offset, "Perform")).toBeUndefined()
+  expect(prepareRename(doc, project, offset)).toBeDefined() // the cursor itself is renameable; the chain refuses
+  expect(rename(docs, project, doc, offset, "Perform")).toBeUndefined()
 })

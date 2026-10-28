@@ -2,7 +2,7 @@ import { test, expect } from "bun:test"
 import { pragmaHelp } from "./builtin-hover.js"
 import { BUILTIN_OPERATOR_NAMES, BUILTIN_RESULT, builtinName, COMPILER_IMPLICITS, ELEMENTARY_TYPES, PLATFORM_ALIASES } from "../../frontend/types/index.js"
 import { ELEMENTARY_TYPE_WORDS, KEYWORDS, parseSource, type CompileEnvironment, type Dialect } from "../../frontend/syntax/index.js"
-import { hover, networkHover } from "../index.js"
+import { hover } from "../index.js"
 import type { Document } from "../shared/index.js"
 import { build } from "../../frontend/symbols/index.js"
 
@@ -159,18 +159,17 @@ test("a platform integer's hover names the width the project's target gives it",
 
 /** A function block with an LD body that names `name` in a network, parsed and bound in `dialect`. */
 function networkDoc(name: string, dialect: Dialect): { doc: Document; project: ReturnType<typeof build.buildSymbolTable>; at: number } {
-  const src = `FUNCTION_BLOCK F\nVAR a : BOOL; nm : STRING; out : BOOL; END_VAR\n%LANGUAGE LD\nNETWORK\nnm := ${name}();\nout := a;\nEND_NETWORK\nEND_FUNCTION_BLOCK`
+  const src = `FUNCTION_BLOCK F\nVAR a : BOOL; nm : STRING; out : BOOL; END_VAR\n%LANGUAGE LD\n%NETWORK\nnm := ${name}();\nout := a;\nEND_FUNCTION_BLOCK`
   const parseResult = parseSource(src, { networkText: true }, dialect)
   const doc: Document = { uri: "file:///F.pou", source: src, parseResult }
   return { doc, project: build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }], [], dialect), at: src.indexOf(name) + 2 }
 }
 
-// the step-0 defect, still live in network text until 2.2: `networkHover` asked the catalog dialect-blind
 test("network text hover: a built-in the dialect does not have answers nothing; one it has is described", () => {
   const tc = networkDoc("__POUNAME", "twincat")
-  expect(networkHover(tc.doc, tc.project, tc.at)).toBeUndefined()
+  expect(hover(tc.doc, tc.project, tc.at)).toBeUndefined()
   const cds = networkDoc("__POUNAME", "codesys")
-  expect((networkHover(cds.doc, cds.project, cds.at)?.contents as { value: string }).value).toContain("Enclosing POU name")
+  expect((hover(cds.doc, cds.project, cds.at)?.contents as { value: string }).value).toContain("Enclosing POU name")
 })
 
 test("pragma help: a directive on both dialects; an attribute only where the dialect knows it", () => {

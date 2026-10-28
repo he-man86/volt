@@ -261,12 +261,6 @@ const TOPIC_SUITES: ReadonlyMap<string, string> = new Map([
   ["src/frontend/syntax/parse/fuzz.test.ts", "the parser never throws: a mutation sweep over the whole parser"],
   ["src/transpile/lower/entry/totality.test.ts", "lowering is total: a property of all of lower/, never one file of it"],
   ["src/transpile/lower/diagnostics/classification.test.ts", "every refusal code names one kind of thing: the codes' split, over all of lower/"],
-  ["src/frontend/types/network/network-implementation-line.test.ts", NETWORK_TEXT],
-  ["src/frontend/types/network/network-reader.test.ts", "the network-text reader whole: syntax/network's files, composed by parseNetworkText — no one file of it"],
-  ["src/frontend/types/network/network-cases.test.ts", "the shared network-text case set (volt-cli test/fixtures/network-text), read by this reader and the bridge's alike (ld-fbd-coverage 2R.3)"],
-  ["src/services/network/network-real-shapes.test.ts", NETWORK_TEXT],
-  ["src/services/network/highlight-network-text.test.ts", NETWORK_TEXT],
-  ["src/services/network/named-output.test.ts", NETWORK_TEXT],
   ["src/services/structure/folding-network-text.test.ts", NETWORK_TEXT],
 ])
 

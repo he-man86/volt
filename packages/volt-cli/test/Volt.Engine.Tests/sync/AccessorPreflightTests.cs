@@ -14,7 +14,7 @@ namespace Volt.Engine.Tests;
 /// <para>A push is all-or-nothing for the class of refusal that is decidable from the source TEXT — that is the
 /// whole reason <c>ValidateSourceOrThrow</c> runs over every op before the first write, and
 /// <c>A_batch_refused_on_a_LATER_op_writes_NONE_of_the_earlier_ones</c> asserts it. Non-canonical network text
-/// is squarely in that class: <c>NetworkTextGate.Validate</c> needs no IDE.</para>
+/// is squarely in that class: <c>StNetworkGate.Validate</c> needs no IDE.</para>
 ///
 /// <para><b>It walked past every accessor.</b> A property's code lives in its GET/SET, not in a body of its own
 /// — <c>StReader.ReadProperty</c> gives the member <c>Body: ""</c> and puts the text in

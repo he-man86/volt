@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  t1 : TON(IN := , PT := );
-END_NETWORK
+%NETWORK
+t1(IN := TRUE, PT := TRUE);

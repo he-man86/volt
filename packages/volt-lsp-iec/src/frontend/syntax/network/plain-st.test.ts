@@ -7,7 +7,6 @@ import { expect, test } from "bun:test"
 import { isTrivia, type Token } from "../lex/tokens.js"
 import { lex as lexSource } from "../lex/lexer.js"
 import { plainStText } from "./plain-st.js"
-import { isPlainStNetworkText } from "../format/network-form.js"
 import type { BodySpan } from "../ast/nodes/index.js"
 
 const body = (text: string): BodySpan => {
@@ -15,13 +14,6 @@ const body = (text: string): BodySpan => {
   return { kind: "body", tokens, span: { start: 0, end: text.length, startLine: 1, startCol: 0, endLine: 1, endCol: 0 }, dialect: "codesys" }
 }
 const code = (tokens: readonly Token[]) => tokens.filter((t) => !isTrivia(t.kind)).map((t) => (t.kind === "keyword" ? t.text.toUpperCase() + "!" : t.text)).join(" ")
-
-test("the form is told by its first line: %NETWORK; v2 text and an empty body are not it", () => {
-  expect(isPlainStNetworkText(body("%NETWORK\nx := a;\n").tokens)).toBe(true)
-  expect(isPlainStNetworkText(body("// c\n%NETWORK \"t\"\n").tokens)).toBe(true)
-  expect(isPlainStNetworkText(body("NETWORK\n  x := a;\nEND_NETWORK\n").tokens)).toBe(false)
-  expect(isPlainStNetworkText(body("").tokens)).toBe(false)
-})
 
 test("networks and their % lines: the title, %DISABLED, %WIRES, an Execute box from its line to %END_EXECUTE", () => {
   const t = plainStText(body("%NETWORK \"one\"\n%DISABLED\n%WIRES w1, w2\nx := a;\n%NETWORK\n%EXECUTE(EN := c)\nn := 1;\n%END_EXECUTE\n"))

@@ -5,7 +5,6 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
 import { join, relative } from "node:path"
 import {
-  isGraphicalBody,
   isPlainStNetworkBody,
   isStBody,
   parseDocument,
@@ -13,7 +12,6 @@ import {
   type BodySpan,
   type TopLevel,
   type TypeExpr,
-  STRUCTURE_ONLY,
   type ParseResult,
 } from "../../../src/frontend/syntax/index.js"
 import { isLibrarySymbol, lookupLocal, scopeForUnit, type Scope } from "../../../src/frontend/symbols/index.js"
@@ -21,7 +19,6 @@ import { libraryRank } from "../../../src/frontend/symbols/index.js"
 import { lowerUnit } from "../../../src/transpile/index.js"
 import type { IrPou, IrRoutine, IrStmt } from "../../../src/transpile/ir/index.js"
 import { formatDocument } from "../../../src/services/index.js"
-import { parseNetworkText } from "../../../src/frontend/types/index.js"
 import { corpusVendor, loweringProject, walkSources } from "./project.js"
 import type { Vendor } from "../../../src/analysis/index.js"
 
@@ -150,11 +147,9 @@ export interface Pass {
   parseFailures: string[]
   stBodies: number
   materializeFailures: string[]
-  graphicalBodies: number
   /** LD/FBD bodies in plain-ST network text (openspec network-text-st 2.1: the corpus is pulled through the plain-ST
    *  writer) — read by the ST parser, so each is in `stBodies` and its parse in `materializeFailures` too. */
   networkStBodies: number
-  networkFailures: string[]
   formatFailures: string[]
   extendsBases: number
   /** question 3 */
@@ -185,9 +180,7 @@ export function pass(): Pass {
     parseFailures: [],
     stBodies: 0,
     materializeFailures: [],
-    graphicalBodies: 0,
     networkStBodies: 0,
-    networkFailures: [],
     formatFailures: [],
     extendsBases: 0,
     bodies: 0,
@@ -211,7 +204,6 @@ export function pass(): Pass {
   return p
 }
 
-const STRUCTURAL = new Set(["NETWORK_PARSE", "NETWORK_NOT_CLOSED"])
 
 /** One project: every file read (question 1), then its one symbol table bound and lowered (questions 1 and 3). */
 function walkProject(p: Pass, dir: string, routines: Set<string>, routinesFromRunning: Set<string>): void {
@@ -237,28 +229,17 @@ function walkProject(p: Pass, dir: string, routines: Set<string>, routinesFromRu
   lowerPous(p, lowering, routines, routinesFromRunning)
 }
 
-/** Question 1 over one file: it parses, its bodies materialize (ST) or parse as network text, and it formats back. */
+/** Question 1 over one file: it parses, its bodies materialize (ST and network text), and it formats back. */
 function readFile(p: Pass, { file, source, parseResult }: { file: string; source: string; parseResult: ParseResult }, vendor: Vendor): void {
   // ── every file parses with zero declaration errors ──
   if (parseResult.errors.length > 0) p.parseFailures.push(`${file}: ${parseResult.errors[0]?.message}`)
 
-  // ── every ST body materializes; every graphical body parses as network text ──
+  // ── every ST body materializes, network text included ──
   for (const u of parseResult.units)
     for (const body of bodiesOf(u)) {
       if (body.tokens.length === 0) continue
-      // Which parser reads a body is what its %LANGUAGE line states (`isGraphicalBody`/`isStBody`), the one
-      // signal the push reads too — never the text's first token. A read-only body (CFC/SFC/IL, LD|FBD
-      // UNSUPPORTED) is read by neither and counted by neither.
-      if (isGraphicalBody(body)) {
-        // Layer F: every graphical body in the corpus is valid IDE-exported FBD/LD, so the network-text parser
-        // must find its networks and emit ZERO structural errors. Duplicate name/network warnings are not
-        // structural parse failures and are not counted.
-        p.graphicalBodies += 1
-        const vg = parseNetworkText(body, STRUCTURE_ONLY, parseResult.dialect)
-        if (vg.networks.length === 0) p.networkFailures.push(`${file}: no networks parsed`)
-        for (const d of vg.diagnostics) if (STRUCTURAL.has(d.code)) p.networkFailures.push(`${file} [${d.code}] ${d.message}`)
-        continue
-      }
+      // Which parser reads a body is what its %LANGUAGE line states (`isStBody`) — never the text's first token. A
+      // read-only body (CFC/SFC/IL, LD|FBD UNSUPPORTED) is read by none and counted by none.
       if (!isStBody(body)) continue
       p.stBodies += 1
       if (isPlainStNetworkBody(body)) p.networkStBodies += 1

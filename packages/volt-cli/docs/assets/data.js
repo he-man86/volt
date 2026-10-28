@@ -421,10 +421,6 @@ window.VOLT = {
             "INTERNAL_ERROR",
             "NOT_ATTEMPTED",
             "NETWORK_PARSE",
-            "NETWORK_NOT_CLOSED",
-            "NETWORK_DUPLICATE_NAME",
-            "NETWORK_BAD_EXPRESSION",
-            "NETWORK_UNKNOWN_OPERATOR",
             "NETWORK_UNSUPPORTED"
           ]
         },
@@ -1370,10 +1366,6 @@ window.VOLT = {
     ],
     "network": [
       "NETWORK_PARSE",
-      "NETWORK_NOT_CLOSED",
-      "NETWORK_DUPLICATE_NAME",
-      "NETWORK_BAD_EXPRESSION",
-      "NETWORK_UNKNOWN_OPERATOR",
       "NETWORK_UNSUPPORTED"
     ],
     "apply": [
@@ -1612,34 +1604,6 @@ window.VOLT = {
     },
     {
       "code": "NETWORK_PARSE",
-      "channels": [
-        "conflict"
-      ],
-      "frameOn": []
-    },
-    {
-      "code": "NETWORK_NOT_CLOSED",
-      "channels": [
-        "conflict"
-      ],
-      "frameOn": []
-    },
-    {
-      "code": "NETWORK_DUPLICATE_NAME",
-      "channels": [
-        "conflict"
-      ],
-      "frameOn": []
-    },
-    {
-      "code": "NETWORK_BAD_EXPRESSION",
-      "channels": [
-        "conflict"
-      ],
-      "frameOn": []
-    },
-    {
-      "code": "NETWORK_UNKNOWN_OPERATOR",
       "channels": [
         "conflict"
       ],

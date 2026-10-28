@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  y := TAN(x);
-END_NETWORK
+%NETWORK
+y := TAN(x);

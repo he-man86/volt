@@ -1,4 +1,4 @@
-#### branch-fed — the v2 case parallel/branch-fed, as a pull writes it
+#### branch-fed
 === text
 %LANGUAGE LD
 %NETWORK
@@ -7,7 +7,7 @@ lamp := BRANCH(FEED := start, a, b AND LE(speed, 40), c);
 NETWORK
   (:= lamp (par seq start a (AND b (LE speed 40 conn:0)) c))
 
-#### branch-shortcircuit — the v2 case parallel/branch-shortcircuit, as a pull writes it
+#### branch-shortcircuit — the old short-circuit mode says so after the list
 === text
 %LANGUAGE LD
 %NETWORK
@@ -16,7 +16,7 @@ lamp := BRANCH_SHORTCIRCUIT(FEED := start, a, b);
 NETWORK
   (:= lamp (par sc start a b))
 
-#### branch-unfed — the v2 case parallel/branch-unfed, as a pull writes it
+#### branch-unfed
 === text
 %LANGUAGE LD
 %NETWORK
@@ -25,7 +25,7 @@ lamp := BRANCH(a, b);
 NETWORK
   (:= lamp (par seq - a b))
 
-#### branch-nested — the v2 case parallel/branch-nested, as a pull writes it
+#### branch-nested
 === text
 %LANGUAGE LD
 %NETWORK
@@ -34,7 +34,7 @@ lamp := BRANCH(FEED := start, a, BRANCH(FEED := c, b, go));
 NETWORK
   (:= lamp (par seq start a (par seq c b go)))
 
-#### branch-as-operand — the v2 case parallel/branch-as-operand, as a pull writes it
+#### branch-as-operand
 === text
 %LANGUAGE LD
 %NETWORK
@@ -43,7 +43,7 @@ MOVE_EN(EN := BRANCH(FEED := run, NOT low, LE_ENONLY(EN := low, speed, 40)) AND 
 NETWORK
   (MOVE speed =>1:t en:(AND (par seq run not:low (LE speed 40 en:low conn:0)) not:cleaning) eno:1)
 
-#### branch-word-feed — the v2 case parallel/branch-word-feed, as a pull writes it
+#### branch-word-feed
 === text
 %LANGUAGE LD
 %NETWORK
@@ -52,7 +52,7 @@ x := BRANCH(FEED := go AND sync, a, b);
 NETWORK
   (:= x (par seq (AND go sync) a b))
 
-#### branch-negated-feed — the v2 case parallel/branch-negated-feed, as a pull writes it
+#### branch-negated-feed
 === text
 %LANGUAGE LD
 %NETWORK
@@ -61,7 +61,7 @@ x := BRANCH(FEED := NOT go, a, b);
 NETWORK
   (:= x (par seq not:go a b))
 
-#### branch-as-en-source — the v2 case parallel/branch-as-en-source, as a pull writes it
+#### branch-as-en-source
 === text
 %LANGUAGE LD
 %NETWORK
@@ -70,7 +70,7 @@ MOVE_EN(EN := BRANCH(FEED := go, a, b), 1, OUT => x);
 NETWORK
   (MOVE 1 =>1:x en:(par seq go a b) eno:1)
 
-#### branch-of-enabled-comparisons — the v2 case parallel/branch-of-enabled-comparisons, as a pull writes it
+#### branch-of-enabled-comparisons
 === text
 %LANGUAGE LD
 %NETWORK
@@ -79,7 +79,7 @@ cam := BRANCH_SHORTCIRCUIT(FEED := enable, LE_ENONLY(EN := GE_ENONLY(EN := TRUE,
 NETWORK
   (:= cam (par sc enable (LE pos stop en:(GE pos start en:TRUE conn:0) conn:0) (GT start stop en:TRUE conn:0)))
 
-#### branch-per-line — the v2 case parallel/branch-per-line, as a pull writes it
+#### branch-per-line — a branch holding a chain: the writer puts one branch per line, aligned
 === text
 %LANGUAGE LD
 %NETWORK
@@ -88,7 +88,7 @@ lamp := BRANCH(FEED := start, a, MOVE_EN(EN := MOVE_EN(EN := c, 2, OUT => u), 1,
 NETWORK
   (:= lamp (par seq start a (MOVE 1 =>1:t en:(MOVE 2 =>1:u en:c conn:0 eno:1) conn:0 eno:1) d))
 
-#### branch-per-line-read-on-one — the v2 case parallel/branch-per-line-read-on-one, as a pull writes it
+#### branch-per-line-read-on-one — the same tree on one line reads alike, and comes back laid out
 === text
 %LANGUAGE LD
 %NETWORK
@@ -97,7 +97,7 @@ lamp := BRANCH(FEED := start, a, MOVE_EN(EN := MOVE_EN(EN := c, 2, OUT => u), 1,
 NETWORK
   (:= lamp (par seq start a (MOVE 1 =>1:t en:(MOVE 2 =>1:u en:c conn:0 eno:1) conn:0 eno:1) d))
 
-#### empty-branch — the v2 case parallel/empty-branch, as a pull writes it
+#### empty-branch — an empty branch (a shorted branch) is nothing between its commas
 === text
 %LANGUAGE LD
 %NETWORK
@@ -108,7 +108,7 @@ NETWORK
   (:= x (par seq go a TRUE b))
   (:= y (par seq go a TRUE))
 
-#### eno-feeds-a-branch — the v2 case parallel/eno-feeds-a-branch, as a pull writes it
+#### eno-feeds-a-branch
 === text
 %LANGUAGE LD
 %NETWORK

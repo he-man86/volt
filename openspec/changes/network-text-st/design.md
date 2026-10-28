@@ -524,3 +524,27 @@ TwinCAT 4024 e2e 541 pass and one fail fixed (an Execute box without EN was buil
 Deleted e2e case: `real-project-shapes` "a box with an unconnected input" — an empty operand on a FUNCTION's pin has no
 spelling (the writer refuses it by name, unmeasured); the FB form stays (`t1();`). `stored-shapes` #9–#14 (jumps among
 coils, negated/edge coils) left the push suite: the first wait on the owner (3.0), the others are stored members.
+
+## 3.2 As built: one network text
+
+v2 is gone: the C# reader, lexer, writer, gate and shape validator, the v2 case set (`test/fixtures/network-text`), and
+the LSP's network parser, typer, checks and services. An LD/FBD body is read by the ST parser on both sides; the LSP's
+outline and folds come from the `%NETWORK` lines, semantic tokens colour the `%` keys and the wires, and references,
+rename and hover are ST's. A rebuild restores the FB pins the text left out, unconnected, in declaration order
+(`NetworkDerivation.WithLeftOutPins`). The writer refuses by name a box read at a slot that is not its value's and shows
+no ENO (`a box read by an unstated slot`, found by the doubles oracle).
+
+The LSP conformance fixtures written in v2 (96) were respelled from the v2 model by the writer and re-recorded live
+(CODESYS 3.5.21.40, TwinCAT 4024): CODESYS answered 95 exactly as before, and `rcc_network_eno_without_en` (now pushed,
+see below) with two more errors; TwinCAT 74 as before, 17 it refused before now recorded (7 build clean, 9 answer the arity error,
+one the missing EN pin), and 5 with its current builder's answer (an empty pin name no longer reported). Deleted: the jump and return with `S=` (no spelling, the owner's), the negated and
+edge coils and the negated empty slot (stored members the text cannot state), the two-language body (a body has one
+language) and a wire named like a variable (no reserved pattern left). `rcc_st_body_network` keeps its text: it is ST.
+
+The shapes v2's validator refused before the IDE — an operator box read through its ENO with its value nowhere (X3), ENO
+without EN on an operator (X9), an operator box with an input count its symbol does not take (X13) — are written as
+stated since 3.1, and the build answers: the LSP gives the build's arity errors, `???` as a target, an operand and an
+instance, a METHOD box's positional pins and a namespaced library function's ENO; X3 and X9 name implicit variables no
+text holds (accepted loss, the census's named exceptions). TwinCAT refuses X3 and the wire shapes it never measured.
+The recorder drops TwinCAT's closing line of a failed build ("Error: The operation could not be completed. …"): it
+names no item and its tail is the OS's localized words.

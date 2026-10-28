@@ -83,16 +83,14 @@ public class TcRebuildLossTests
     {
         var shown = TcNetworkReader.ReadShown(Impl(XElement.Parse(body, LoadOptions.PreserveWhitespace)), BodyLanguage.Fbd);
         var scope = TcText.ScopeOf(shown);
-        var text = NetworkTextWriter.WritePulled(shown, scope);
+        var text = StNetworkWriter.WritePulled(shown, scope);
         var edited = edit(text);
         Assert.NotEqual(text, edited);
-        var read = NetworkTextReader.Read(edited, scope);
-        Assert.True(read.Ok, string.Join("\n", read.Diagnostics.Select(d => d.Message)) + "\n\n" + edited);
-        return (read.Body!, scope);
+        return (StNetworkReader.Read(edited, scope), scope);
     }
 
     static (NetworkBody Body, NetworkScope Scope) AndGainsAnInput(string body) =>
-        Pushed(body, t => { var at = t.IndexOf(" AND ", StringComparison.Ordinal); return t.Substring(0, at) + " AND extra_in" + t.Substring(at); });
+        Pushed(body, t => { var at = t.IndexOf("AND(", StringComparison.Ordinal) + 4; return t.Substring(0, at) + "extra_in, " + t.Substring(at); });
 
     /// <summary>The first network's AND gains an input — a shape the in-place writer cannot edit, so the builder rebuilds
     /// it: the warning names each stored value the builder does not write back — every item's <c>Fixed</c> (the builder's
@@ -126,12 +124,10 @@ public class TcRebuildLossTests
         $"Operand.Type ×{types} (vendor-facts row nwl-operand-type), EN ×1 (vendor-facts row nwl-box-en-eno), " +
         "ENO ×1 (vendor-facts row nwl-box-en-eno) (openspec";
 
-    /// <summary>The AND's stored output list (<c>['']</c> / <c>['BOOL']</c>, the bit operator's slot, design 2R.2 L),
-    /// which the builder builds as the text's derivation (<c>[]</c>): 2R.3 B7 lost on rebuild, named since the pragma
-    /// went.</summary>
-    const string AndOutputList =
-        "OutputParam.Names ×1 (vendor-facts row nwl-output-param-names), OutputParam.Types ×1 (vendor-facts row " +
-        "nwl-param-types)";
+    /// <summary>The AND's stored output types (<c>['BOOL']</c>), which the builder builds as the text's derivation: lost on
+    /// rebuild. Its output names (<c>['']</c>, the drawn box) the text carries: <c>AND(…)</c> is the drawn box, <c>a AND b</c>
+    /// the contact (network-text-st 1.3).</summary>
+    const string AndOutputList = "OutputParam.Types ×1 (vendor-facts row nwl-param-types)";
 
     /// <summary>The reverse: a pin's operand that stored <c>Fixed = false</c> (533 operands in the fixtures) comes back
     /// true from the builder — a change a vendor-neutral "non-default" test could not see, named here; the values it gives
@@ -159,10 +155,10 @@ public class TcRebuildLossTests
     }
 
     /// <summary>A BIT OPERATOR'S STORED SLOT <c>['']</c> (2R.3 B7; design 2R.2 L, "S1 17": the fan-out's AND in
-    /// <c>fanout.test.ts</c>): the text does not carry it, so a rebuild that does not give it back loses it — and the
-    /// warning names it. Before, the TwinCAT collector held only <c>'   '</c>, and the slot went unnamed.</summary>
+    /// <c>fanout.test.ts</c>): it is the drawn box, which plain-ST network text spells as the call <c>AND(…)</c> (a contact
+    /// stores none), so a rebuild gives it back and the warning names no loss of it.</summary>
     [Fact]
-    public void A_bit_operators_stored_output_slot_the_builder_does_not_give_back_is_named()
+    public void A_bit_operators_stored_output_slot_is_carried_by_its_call_form()
     {
         var doc = XElement.Parse(DrawnBody(), LoadOptions.PreserveWhitespace);
         var first = TcArchive.List(Impl(doc), "NetworkList")[0];
@@ -174,11 +170,11 @@ public class TcRebuildLossTests
         var live = TcArchive.List(Impl(XElement.Parse(body)), "NetworkList")[0];
         var pushed = AndGainsAnInput(body);
 
-        // The builder builds the text's derivation (B7: the text states no member), so the rebuilt AND holds [] — and
-        // that is a loss the warning has to name.
+        // The text states the element (the call is the drawn box), so the rebuilt AND holds [''] again.
         var said = CaptureStdErr(() => TcNetworkWriter.Apply(body, pushed.Body, pushed.Scope, TcArchiveBuilder.NetworkGraph));
 
-        Assert.Contains("OutputParam.Names ×1 (vendor-facts row nwl-output-param-names)", said);
+        Assert.Contains("is rebuilt from its text", said);
+        Assert.DoesNotContain("OutputParam.Names", said);
     }
 
     /// <summary>The builder numbers a network's Ids from 2, as TwinCAT's import did in its scratch POU; spliced into the
@@ -203,8 +199,8 @@ public class TcRebuildLossTests
         var live = TcArchive.List(Impl(XElement.Parse(body)), "NetworkList")[0];
         var pushed = Pushed(body, t =>
         {
-            var at = t.IndexOf(" AND ", StringComparison.Ordinal);   // the FIRST network's AND only
-            return t.Substring(0, at) + " AND extra_in" + t.Substring(at);
+            var at = t.IndexOf("AND(", StringComparison.Ordinal) + 4;   // the FIRST network's AND only
+            return t.Substring(0, at) + "extra_in, " + t.Substring(at);
         });
 
         var written = TcNetworkWriter.Apply(body, pushed.Body, pushed.Scope, TcArchiveBuilder.NetworkGraph);

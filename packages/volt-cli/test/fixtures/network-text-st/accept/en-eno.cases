@@ -1,4 +1,4 @@
-#### move-enabled — the v2 case en-eno/move-enabled, as a pull writes it
+#### move-enabled
 === text
 %LANGUAGE LD
 %NETWORK
@@ -7,7 +7,7 @@ MOVE_ENONLY(EN := c, b, OUT => a);
 NETWORK
   (MOVE b =>0:a en:c)
 
-#### move-enabled-eno — the v2 case en-eno/move-enabled-eno, as a pull writes it
+#### move-enabled-eno
 === text
 %LANGUAGE LD
 %NETWORK
@@ -16,7 +16,7 @@ MOVE_EN(EN := c, 0, OUT => x);
 NETWORK
   (MOVE 0 =>1:x en:c eno:1)
 
-#### add-enabled-two-targets — the v2 case en-eno/add-enabled-two-targets, as a pull writes it
+#### add-enabled-two-targets — the data outputs fill the slots after ENO, in order
 === text
 %LANGUAGE LD
 %NETWORK
@@ -25,7 +25,7 @@ ADD_EN(EN := c, x, 5, OUT => x, OUT => y);
 NETWORK
   (ADD x 5 =>1:x =>2:y en:c eno:1)
 
-#### empty-enable — the v2 case en-eno/empty-enable, as a pull writes it
+#### empty-enable
 === text
 %LANGUAGE LD
 %NETWORK
@@ -34,7 +34,7 @@ ADD_EN(EN := TRUE, x, 1, OUT => x);
 NETWORK
   (ADD x 1 =>1:x en:TRUE eno:1)
 
-#### en-source-is-a-slot — the v2 case en-eno/en-source-is-a-slot, as a pull writes it
+#### en-source-is-a-slot
 === text
 %LANGUAGE LD
 %NETWORK
@@ -45,7 +45,7 @@ NETWORK
   (MOVE 6 =>1:t en:(AND ready btn) eno:1)
   (ADD x (f IN=b conn:0) =>1:y en:c eno:1)
 
-#### read-through-eno — the v2 case en-eno/read-through-eno, as a pull writes it
+#### read-through-eno
 === text
 %LANGUAGE LD
 %NETWORK
@@ -54,7 +54,7 @@ lamp := MOVE_EN(EN := c, 1, OUT => t);
 NETWORK
   (:= lamp (MOVE 1 =>1:t en:c conn:0 eno:1))
 
-#### enabled-value — the v2 case en-eno/enabled-value, as a pull writes it
+#### enabled-value — EN without ENO: a consumer reads the box's value (measurement 5, 6)
 === text
 %LANGUAGE LD
 %NETWORK
@@ -69,7 +69,7 @@ NETWORK
   (:= lamp (GT a 5 en:c conn:0))
   (:= res (f IN=v en:c conn:0))
 
-#### enabled-value-as-operand — the v2 case en-eno/enabled-value-as-operand, as a pull writes it
+#### enabled-value-as-operand
 === text
 %LANGUAGE LD
 %NETWORK
@@ -80,7 +80,7 @@ NETWORK
   (:= x (AND a (GT b 40 en:c conn:0)))
   (:= y (AND (MOVE 1 =>1:t en:c conn:0 eno:1) (MOVE 2 =>1:u en:d conn:0 eno:1)))
 
-#### enabled-call-in-pin — the v2 case en-eno/enabled-call-in-pin, as a pull writes it
+#### enabled-call-in-pin
 === text
 %LANGUAGE LD
 %NETWORK
@@ -89,7 +89,7 @@ done R= fc(iEN := MOVE_EN(EN := go, stop, OUT => start), iPos := pos);
 NETWORK
   (:= R=done (fc iEN=(MOVE stop =>1:start en:go conn:0 eno:1) iPos=pos conn:0))
 
-#### chain — the v2 case en-eno/chain, as a pull writes it
+#### chain
 === text
 %LANGUAGE LD
 %NETWORK
@@ -98,7 +98,7 @@ lamp := MOVE_EN(EN := MOVE_EN(EN := MOVE_EN(EN := start, 1, OUT => a), 2, OUT =>
 NETWORK
   (:= lamp (MOVE 3 =>1:c en:(MOVE 2 =>1:b en:(MOVE 1 =>1:a en:start conn:0 eno:1) conn:0 eno:1) conn:0 eno:1))
 
-#### chain-top-level — the v2 case en-eno/chain-top-level, as a pull writes it
+#### chain-top-level — a chain nothing reads: its last box shows its ENO pin, connected to nothing
 === text
 %LANGUAGE LD
 %NETWORK
@@ -107,7 +107,7 @@ MOVE_EN(EN := MOVE_EN(EN := start, 1, OUT => a), 2, OUT => b);
 NETWORK
   (MOVE 2 =>1:b en:(MOVE 1 =>1:a en:start conn:0 eno:1) eno:1)
 
-#### chain-one-line — the v2 case en-eno/chain-one-line, as a pull writes it
+#### chain-one-line — layout is the writer's: the chain on one line reads to the same tree
 === text
 %LANGUAGE LD
 %NETWORK
@@ -116,7 +116,7 @@ lamp := MOVE_EN(EN := MOVE_EN(EN := MOVE_EN(EN := start, 1, OUT => a), 2, OUT =>
 NETWORK
   (:= lamp (MOVE 3 =>1:c en:(MOVE 2 =>1:b en:(MOVE 1 =>1:a en:start conn:0 eno:1) conn:0 eno:1) conn:0 eno:1))
 
-#### chain-odd-indentation — the v2 case en-eno/chain-odd-indentation, as a pull writes it
+#### chain-odd-indentation — any indentation deeper than the item's first line reads to the same tree
 === text
 %LANGUAGE LD
 %NETWORK
@@ -125,7 +125,7 @@ lamp := MOVE_EN(EN := MOVE_EN(EN := MOVE_EN(EN := start, 1, OUT => a), 2, OUT =>
 NETWORK
   (:= lamp (MOVE 3 =>1:c en:(MOVE 2 =>1:b en:(MOVE 1 =>1:a en:start conn:0 eno:1) conn:0 eno:1) conn:0 eno:1))
 
-#### chain-in-brackets — the v2 case en-eno/chain-in-brackets, as a pull writes it
+#### chain-in-brackets
 === text
 %LANGUAGE LD
 %NETWORK
@@ -134,7 +134,7 @@ x := a AND MOVE_EN(EN := MOVE_EN(EN := c, 2, OUT => u), 1, OUT => t);
 NETWORK
   (:= x (AND a (MOVE 1 =>1:t en:(MOVE 2 =>1:u en:c conn:0 eno:1) conn:0 eno:1)))
 
-#### en-slot-and-input-box — the v2 case en-eno/en-slot-and-input-box, as a pull writes it
+#### en-slot-and-input-box
 === text
 %LANGUAGE LD
 %NETWORK
@@ -143,7 +143,7 @@ MOVE_EN(EN := MOVE_EN(EN := c, 1, OUT => u), MOVE_EN(EN := d, 2, OUT => t), OUT 
 NETWORK
   (MOVE (MOVE 2 =>1:t en:d conn:0 eno:1) =>1:x en:(MOVE 1 =>1:u en:c conn:0 eno:1) eno:1)
 
-#### split-in-en-slot — the v2 case en-eno/split-in-en-slot, as a pull writes it
+#### split-in-en-slot
 === text
 %LANGUAGE LD
 %NETWORK
@@ -153,7 +153,7 @@ y := MOVE_EN(EN := (w1 := a AND b), w1, OUT => t);
 NETWORK
   (:= y (MOVE #1 =>1:t en:(split 1 (AND a b)) conn:0 eno:1))
 
-#### eno-into-split — the v2 case en-eno/eno-into-split, as a pull writes it
+#### eno-into-split
 === text
 %LANGUAGE LD
 %NETWORK
@@ -167,7 +167,7 @@ NETWORK
   (:= a #1)
   (:= b #1)
 
-#### eno-jump — the v2 case en-eno/eno-jump, as a pull writes it
+#### eno-jump — a jump fed through a box's ENO
 === text
 %LANGUAGE LD
 %NETWORK
@@ -181,7 +181,7 @@ NETWORK
 NETWORK label:Done
   ``
 
-#### eno-modifier — the v2 case en-eno/eno-modifier, as a pull writes it
+#### eno-modifier — a modifier on a box read through ENO is the box's flag (measurement 8)
 === text
 %LANGUAGE LD
 %NETWORK
@@ -192,7 +192,7 @@ NETWORK
   (:= lamp (NOT (MOVE 1 =>1:t en:c conn:0 eno:1)))
   (:= edge rise:(MOVE 2 =>1:u en:c conn:0 eno:1))
 
-#### eno-wired-top-level — the v2 case en-eno/eno-wired-top-level, as a pull writes it
+#### eno-wired-top-level
 === text
 %LANGUAGE LD
 %NETWORK
@@ -201,7 +201,7 @@ MOVE_EN(EN := c, 7, ENO => lamp, OUT => x);
 NETWORK
   (MOVE 7 =>ENO:lamp =>1:x en:c eno:1)
 
-#### negated-en-pin — the v2 case en-eno/negated-en-pin, as a pull writes it
+#### negated-en-pin
 === text
 %LANGUAGE LD
 %NETWORK
@@ -212,7 +212,7 @@ NETWORK
   (MOVE 5 =>1:y en:not:c eno:1)
   (MOVE 5 =>1:z en:not:c eno:1)
 
-#### fb-call-read-by-name — the v2 case en-eno/fb-call-read-by-name, as a pull writes it
+#### fb-call-read-by-name
 === scope
 instance t1 TON
 === text
@@ -225,7 +225,7 @@ x := w1;
 NETWORK
   (:= x (TON@t1 IN=a PT=T#1S name:Q))
 
-#### fb-call-read-through-declared-eno — the v2 case en-eno/fb-call-read-through-declared-eno, as a pull writes it
+#### fb-call-read-through-declared-eno — an FB that declares ENO, read with nothing after its call: its declared ENO (4a)
 === scope
 instance d1 Dryer
 === text
@@ -238,7 +238,7 @@ ready := w1;
 NETWORK
   (:= ready (Dryer@d1 iOn=on conn:0 eno:1))
 
-#### fb-call-enabled — the v2 case en-eno/fb-call-enabled, as a pull writes it
+#### fb-call-enabled
 === scope
 instance c1 CTU
 instance c2 CTU
@@ -254,7 +254,7 @@ NETWORK
   (CTU@c1 CU=a PV=10 =>CV:n en:go eno:1)
   (:= lamp (AND (CTU@c2 CU=a PV=10 =>CV:n en:c conn:0 eno:1) d))
 
-#### fb-call-enabled-read-by-name — the v2 case en-eno/fb-call-enabled-read-by-name, as a pull writes it
+#### fb-call-enabled-read-by-name
 === scope
 instance t1 TON
 === text
@@ -267,7 +267,7 @@ x := w1;
 NETWORK
   (:= x (TON@t1 IN=a PT=T#1S en:c name:Q))
 
-#### call-enabled — the v2 case en-eno/call-enabled, as a pull writes it
+#### call-enabled
 === text
 %LANGUAGE LD
 %NETWORK
@@ -276,7 +276,7 @@ LIMIT_EN(EN := c, MN := 0, IN := v, MX := 100, OUT => y);
 NETWORK
   (LIMIT MN=0 IN=v MX=100 =>1:y en:c eno:1)
 
-#### function-eno-without-en — the v2 case en-eno/function-eno-without-en, as a pull writes it
+#### function-eno-without-en — a function's box shows its ENO without EN, and is read through it (recorded: it builds on both vendors)
 === text
 %LANGUAGE LD
 %NETWORK
@@ -287,7 +287,7 @@ NETWORK
   (:= x (f IN=a conn:0 eno:1))
   (f IN=b eno:1)
 
-#### call-read-through-eno — the v2 case en-eno/call-read-through-eno, as a pull writes it
+#### call-read-through-eno — a call read through its ENO with no output wired (a PROGRAM call's box has none)
 === text
 %LANGUAGE LD
 %NETWORK

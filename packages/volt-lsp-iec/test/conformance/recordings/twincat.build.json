@@ -4,7 +4,7 @@
   "recorded": {
     "at": "2026-10-27T20:56:29.825Z",
     "bridgeVersion": "1.0.0",
-    "testCount": 5616
+    "testCount": 5631
   },
   "tests": {
     "xo_tally_struct": {
@@ -2343,22 +2343,22 @@
     },
     "network_unnamed_instance": {
       "buildSuccess": false,
-      "durationMs": 1478,
+      "durationMs": 1717,
       "diagnostics": [
         {
           "severity": "error",
           "message": "Expression expected instead of '?'",
-          "line": 8
+          "line": 0
         },
         {
           "severity": "error",
           "message": "Unexpected Token '?' found",
-          "line": 8
+          "line": 0
         },
         {
           "severity": "error",
           "message": "Program name, function or function block instance expected instead of '!!!'ERROR'!!!'",
-          "line": 8
+          "line": 0
         },
         {
           "severity": "error",
@@ -2369,12 +2369,12 @@
     },
     "network_unnamed_assignment_target": {
       "buildSuccess": false,
-      "durationMs": 790,
+      "durationMs": 1017,
       "diagnostics": [
         {
           "severity": "error",
           "message": "Assignment target not specified",
-          "line": 8
+          "line": 0
         }
       ]
     },
@@ -2401,116 +2401,106 @@
     },
     "network_unnamed_input_pin": {
       "buildSuccess": false,
-      "durationMs": 408,
+      "durationMs": 390,
       "diagnostics": [
         {
           "severity": "error",
           "message": "Expression expected instead of '?'",
-          "line": 11
+          "line": 0
         },
         {
           "severity": "error",
           "message": "Unexpected Token '?' found",
-          "line": 11
+          "line": 0
         }
       ]
     },
     "network_unnamed_group_operand": {
       "buildSuccess": false,
-      "durationMs": 368,
+      "durationMs": 506,
       "diagnostics": [
         {
           "severity": "error",
           "message": "Expression expected instead of '?'",
-          "line": 9
+          "line": 0
         },
         {
           "severity": "error",
           "message": "Unexpected Token '?' found",
-          "line": 9
+          "line": 0
         }
       ]
     },
     "network_unnamed_target_of_void_call": {
       "buildSuccess": false,
-      "durationMs": 2139,
+      "durationMs": 563,
       "diagnostics": [
         {
           "severity": "error",
           "message": "Assignment target not specified",
-          "line": 9
+          "line": 0
         }
       ]
     },
     "network_unnamed_target_of_valued_call": {
       "buildSuccess": false,
-      "durationMs": 427,
+      "durationMs": 549,
       "diagnostics": [
         {
           "severity": "error",
-          "message": "Cannot convert type 'Unknown type: ''' to type 'BOOL'",
-          "line": 0
-        },
-        {
-          "severity": "error",
-          "message": "Identifier '' not defined",
-          "line": 0
-        },
-        {
-          "severity": "error",
           "message": "Assignment target not specified",
-          "line": 10
+          "line": 0
         }
       ]
     },
     "ng_group_nested": {
       "buildSuccess": true,
-      "durationMs": 1091,
+      "durationMs": 1584,
       "diagnostics": []
     },
     "ng_group_nary": {
       "buildSuccess": true,
-      "durationMs": 883,
+      "durationMs": 1074,
       "diagnostics": []
     },
     "ng_group_arithmetic": {
       "buildSuccess": true,
-      "durationMs": 902,
+      "durationMs": 1037,
       "diagnostics": []
     },
     "ng_group_comparison": {
       "buildSuccess": true,
-      "durationMs": 894,
+      "durationMs": 1011,
       "diagnostics": []
     },
     "ng_fanout_let": {
       "buildSuccess": true,
-      "durationMs": 895,
+      "durationMs": 1097,
       "diagnostics": []
     },
     "ng_coil_storage": {
       "buildSuccess": true,
-      "durationMs": 1164,
+      "durationMs": 1265,
       "diagnostics": []
     },
     "ng_opaque_leaf_negation": {
       "buildSuccess": true,
-      "durationMs": 896,
+      "durationMs": 1097,
       "diagnostics": []
     },
     "ng_negation_sink": {
       "buildSuccess": true,
-      "durationMs": 905,
+      "durationMs": 1023,
       "diagnostics": []
     },
     "ng_edge_modifiers": {
       "buildSuccess": true,
-      "durationMs": 892,
+      "durationMs": 1176,
       "diagnostics": []
     },
     "ng_fb_call_output_read": {
       "buildSuccess": true,
-      "durationMs": 863,
+      "durationMs": 1013,
       "diagnostics": []
     },
     "ng_en_eno_sink": {
@@ -2525,27 +2515,22 @@
     },
     "ng_network_title_and_comment": {
       "buildSuccess": true,
-      "durationMs": 867,
+      "durationMs": 977,
       "diagnostics": []
     },
     "ng_network_disabled": {
       "buildSuccess": true,
-      "durationMs": 859,
-      "diagnostics": []
-    },
-    "ng_two_languages_one_body": {
-      "buildSuccess": true,
-      "durationMs": 881,
+      "durationMs": 989,
       "diagnostics": []
     },
     "ng_sink_type_mismatch": {
       "buildSuccess": false,
-      "durationMs": 397,
+      "durationMs": 512,
       "diagnostics": [
         {
           "severity": "error",
           "message": "Cannot convert type 'BOOL' to type 'INT'",
-          "line": 12
+          "line": 0
         }
       ]
     },
@@ -17716,49 +17701,49 @@
     },
     "cc_vg_undeclared": {
       "buildSuccess": false,
-      "durationMs": 370,
+      "durationMs": 384,
       "diagnostics": [
         {
           "severity": "error",
           "message": "Cannot convert type 'Unknown type: 'nope'' to type 'BOOL'",
-          "line": 7
+          "line": 0
         },
         {
           "severity": "error",
           "message": "Identifier 'nope' not defined",
-          "line": 6
+          "line": 0
         }
       ]
     },
     "cc_vg_unknown_member": {
       "buildSuccess": false,
-      "durationMs": 449,
+      "durationMs": 410,
       "diagnostics": [
         {
           "severity": "error",
           "message": "Cannot convert type 'Unknown type: 'p.nope'' to type 'INT'",
-          "line": 8
+          "line": 0
         },
         {
           "severity": "error",
           "message": "'nope' is no component of 'DUT_LANG_CC_VGM_PT'",
-          "line": 7
+          "line": 0
         }
       ]
     },
     "cc_vg_unknown_pin": {
       "buildSuccess": false,
-      "durationMs": 467,
+      "durationMs": 400,
       "diagnostics": [
         {
           "severity": "error",
           "message": "'badPin' is no input of 'FB_LANG_CC_VGPIN_CALLEE'",
-          "line": 6
+          "line": 0
         },
         {
           "severity": "error",
           "message": "Identifier 'badPin' not defined",
-          "line": 7
+          "line": 0
         }
       ]
     },
@@ -23089,66 +23074,66 @@
     },
     "ng_label_jmp_resolved": {
       "buildSuccess": true,
-      "durationMs": 920,
+      "durationMs": 1013,
       "diagnostics": []
     },
     "ng_conditional_jump_and_return": {
       "buildSuccess": true,
-      "durationMs": 907,
+      "durationMs": 1313,
       "diagnostics": []
     },
     "cc_vg_undefined_label": {
       "buildSuccess": false,
-      "durationMs": 384,
+      "durationMs": 372,
       "diagnostics": [
         {
           "severity": "error",
           "message": "No such label 'MISSING' within the scope of the JMP statement.",
-          "line": 8
+          "line": 0
         }
       ]
     },
     "cc_vg_duplicate_label": {
       "buildSuccess": false,
-      "durationMs": 361,
+      "durationMs": 374,
       "diagnostics": [
         {
           "severity": "error",
           "message": "The label 'DONE' is a duplicate",
-          "line": 10
+          "line": 0
         }
       ]
     },
     "cc_vg_label_on_disabled_network": {
       "buildSuccess": false,
-      "durationMs": 373,
+      "durationMs": 369,
       "diagnostics": [
         {
           "severity": "error",
           "message": "No such label 'DONE' within the scope of the JMP statement.",
-          "line": 6
+          "line": 0
         }
       ]
     },
     "cc_vg_jump_in_disabled_network": {
       "buildSuccess": true,
-      "durationMs": 991,
+      "durationMs": 983,
       "diagnostics": [
         {
           "severity": "warning",
           "message": "The label 'DONE' has not been referenced",
-          "line": 7
+          "line": 0
         }
       ]
     },
     "cc_vg_unreferenced_label": {
       "buildSuccess": true,
-      "durationMs": 895,
+      "durationMs": 896,
       "diagnostics": [
         {
           "severity": "warning",
           "message": "The label 'DONE' has not been referenced",
-          "line": 5
+          "line": 0
         }
       ]
     },
@@ -62071,7 +62056,7 @@
     },
     "network_unknown_fb_type": {
       "buildSuccess": false,
-      "durationMs": 369,
+      "durationMs": 419,
       "diagnostics": [
         {
           "severity": "error",
@@ -62081,7 +62066,7 @@
         {
           "severity": "error",
           "message": "Program name, function or function block instance expected instead of 't1'",
-          "line": 8
+          "line": 0
         }
       ]
     },
@@ -62315,23 +62300,23 @@
     },
     "rcc_network_undeclared_wire_shape": {
       "buildSuccess": false,
-      "durationMs": 408,
+      "durationMs": 446,
       "diagnostics": [
         {
           "severity": "error",
           "message": "Cannot convert type 'Unknown type: 'g7'' to type 'BOOL'",
-          "line": 8
+          "line": 0
         },
         {
           "severity": "error",
           "message": "Identifier 'g7' not defined",
-          "line": 7
+          "line": 0
         }
       ]
     },
     "rcc_network_located_wire_shape": {
       "buildSuccess": true,
-      "durationMs": 931,
+      "durationMs": 911,
       "diagnostics": []
     },
     "rcc_retired_comment_in_body": {
@@ -62388,12 +62373,12 @@
     },
     "rcc_network_var_temp_after_statement": {
       "buildSuccess": true,
-      "durationMs": 904,
+      "durationMs": 918,
       "diagnostics": []
     },
     "rcc_network_second_var_temp": {
       "buildSuccess": true,
-      "durationMs": 894,
+      "durationMs": 1057,
       "diagnostics": []
     },
     "rcc_network_empty_var_temp": {
@@ -62404,11 +62389,6 @@
     "rcc_network_wire_never_defined": {
       "buildSuccess": true,
       "durationMs": 870,
-      "diagnostics": []
-    },
-    "rcc_network_wire_named_like_variable": {
-      "buildSuccess": true,
-      "durationMs": 905,
       "diagnostics": []
     },
     "dead_fb_missing_then": {
@@ -70160,7 +70140,7 @@
     },
     "ng_s3b_rail_wire": {
       "buildSuccess": true,
-      "durationMs": 851,
+      "durationMs": 1577,
       "diagnostics": []
     },
     "ng_s1_stored_type_mistyped": {
@@ -70170,277 +70150,261 @@
     },
     "ng_m_function_positional": {
       "buildSuccess": true,
-      "durationMs": 922,
+      "durationMs": 934,
       "diagnostics": []
     },
     "ng_m_function_named": {
       "buildSuccess": true,
-      "durationMs": 888,
+      "durationMs": 938,
       "diagnostics": []
     },
     "ng_m_function_two_inputs": {
       "buildSuccess": true,
-      "durationMs": 898,
+      "durationMs": 1028,
       "diagnostics": []
     },
     "ng_m_function_too_many": {
       "buildSuccess": false,
-      "durationMs": 388,
+      "durationMs": 391,
       "diagnostics": [
         {
           "severity": "error",
           "message": "Function 'F_NG_m_inc' requires exactly '1' inputs",
-          "line": 12
-        },
-        {
-          "severity": "error",
-          "message": "Identifier '' not defined",
-          "line": 12
+          "line": 0
         }
       ]
     },
     "ng_m_function_output_unwired": {
       "buildSuccess": true,
-      "durationMs": 894,
+      "durationMs": 935,
       "diagnostics": []
     },
     "ng_m_method_call": {
       "buildSuccess": true,
-      "durationMs": 911,
+      "durationMs": 985,
       "diagnostics": []
     },
     "ng_m_conversion": {
       "buildSuccess": true,
-      "durationMs": 927,
+      "durationMs": 959,
       "diagnostics": []
     },
     "ng_m_program_call": {
       "buildSuccess": true,
-      "durationMs": 858,
+      "durationMs": 987,
       "diagnostics": []
     },
     "ng_m_function_too_few": {
       "buildSuccess": false,
-      "durationMs": 1491,
+      "durationMs": 399,
       "diagnostics": [
         {
           "severity": "error",
           "message": "Function 'F_NG_m_add' requires exactly '2' inputs",
-          "line": 12
+          "line": 0
         }
       ]
     },
     "ng_m_function_in_out_first": {
       "buildSuccess": true,
-      "durationMs": 1393,
+      "durationMs": 944,
       "diagnostics": []
     },
     "ng_m_function_constant_in_out": {
       "buildSuccess": true,
-      "durationMs": 886,
+      "durationMs": 984,
       "diagnostics": []
     },
     "ng_m_function_positional_then_named_same": {
       "buildSuccess": false,
-      "durationMs": 403,
+      "durationMs": 419,
       "diagnostics": [
         {
           "severity": "error",
           "message": "Function 'F_NG_m_inc' requires exactly '1' inputs",
-          "line": 12
+          "line": 0
         }
       ]
     },
     "ng_m_method_positional": {
       "buildSuccess": false,
-      "durationMs": 397,
+      "durationMs": 450,
       "diagnostics": [
         {
           "severity": "error",
-          "message": "'' is no input of 'M_TWICE'",
-          "line": 13
-        },
-        {
-          "severity": "error",
-          "message": "Identifier '' not defined",
-          "line": 13
+          "message": "Function 'M_twice' requires exactly '1' inputs",
+          "line": 0
         }
       ]
     },
     "ng_m_interface_method": {
       "buildSuccess": true,
-      "durationMs": 928,
+      "durationMs": 1094,
       "diagnostics": []
     },
     "ng_m_action_call": {
       "buildSuccess": true,
-      "durationMs": 918,
+      "durationMs": 942,
       "diagnostics": []
     },
     "ng_m_own_method": {
       "buildSuccess": true,
-      "durationMs": 970,
+      "durationMs": 930,
       "diagnostics": []
     },
     "ng_m_library_function": {
       "buildSuccess": true,
-      "durationMs": 2626,
+      "durationMs": 985,
       "diagnostics": []
     },
     "ng_m_library_function_qualified": {
-      "buildSuccess": false,
-      "durationMs": 393,
-      "diagnostics": [
-        {
-          "severity": "error",
-          "message": "Cannot convert type 'Unknown type: 'Standard.LEN( := txt)'' to type 'INT'",
-          "line": 15
-        },
-        {
-          "severity": "error",
-          "message": "Program name, function or function block instance expected instead of 'Standard.LEN'",
-          "line": 13
-        },
-        {
-          "severity": "error",
-          "message": "Identifier 'Standard' not defined",
-          "line": 13
-        }
-      ]
-    },
-    "ng_m_library_function_named": {
-      "buildSuccess": true,
-      "durationMs": 946,
-      "diagnostics": []
-    },
-    "ng_r5_enabled_comparison_value": {
-      "buildSuccess": true,
-      "durationMs": 2508,
-      "diagnostics": []
-    },
-    "ng_r5_one_input_add": {
-      "buildSuccess": false,
-      "durationMs": 504,
-      "diagnostics": [
-        {
-          "severity": "error",
-          "message": "'+' needs at least '2' Operands",
-          "line": 18
-        }
-      ]
-    },
-    "ng_r5_one_input_and": {
       "buildSuccess": false,
       "durationMs": 420,
       "diagnostics": [
         {
           "severity": "error",
+          "message": "Cannot convert type 'Unknown type: 'Standard.LEN()'' to type 'INT'",
+          "line": 0
+        },
+        {
+          "severity": "error",
+          "message": "Program name, function or function block instance expected instead of 'Standard.LEN'",
+          "line": 0
+        },
+        {
+          "severity": "error",
+          "message": "Identifier 'Standard' not defined",
+          "line": 0
+        }
+      ]
+    },
+    "ng_m_library_function_named": {
+      "buildSuccess": true,
+      "durationMs": 979,
+      "diagnostics": []
+    },
+    "ng_r5_enabled_comparison_value": {
+      "buildSuccess": true,
+      "durationMs": 901,
+      "diagnostics": []
+    },
+    "ng_r5_one_input_add": {
+      "buildSuccess": false,
+      "durationMs": 348,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "'+' needs at least '2' Operands",
+          "line": 0
+        }
+      ]
+    },
+    "ng_r5_one_input_and": {
+      "buildSuccess": false,
+      "durationMs": 381,
+      "diagnostics": [
+        {
+          "severity": "error",
           "message": "'AND' needs at least '2' Operands",
-          "line": 18
+          "line": 0
         }
       ]
     },
     "ng_box_output_arrow": {
       "buildSuccess": true,
-      "durationMs": 869,
+      "durationMs": 1048,
       "diagnostics": []
     },
     "ng_execute_box": {
       "buildSuccess": true,
-      "durationMs": 910,
+      "durationMs": 1128,
       "diagnostics": []
     },
     "ng_s2_nested_assign": {
       "buildSuccess": true,
-      "durationMs": 876,
+      "durationMs": 1019,
       "diagnostics": []
     },
     "ng_s3a_leaf_wire": {
       "buildSuccess": true,
-      "durationMs": 946,
+      "durationMs": 1244,
       "diagnostics": []
     },
     "ng_s5_super_call": {
       "buildSuccess": true,
-      "durationMs": 869,
+      "durationMs": 1128,
       "diagnostics": []
     },
     "ng_s3a_leaf_split_into_int": {
       "buildSuccess": false,
-      "durationMs": 358,
+      "durationMs": 503,
       "diagnostics": [
         {
           "severity": "error",
           "message": "Cannot convert type 'BOOL' to type 'INT'",
-          "line": 13
+          "line": 0
         }
       ]
     },
     "ng_s2_nested_set_reset": {
       "buildSuccess": true,
-      "durationMs": 905,
+      "durationMs": 1080,
       "diagnostics": []
     },
     "ng_m_function_enabled": {
       "buildSuccess": true,
-      "durationMs": 902,
+      "durationMs": 946,
       "diagnostics": []
     },
     "ng_m_library_function_eno": {
-      "buildSuccess": false,
-      "durationMs": 377,
-      "diagnostics": [
-        {
-          "severity": "error",
-          "message": "Function 'LEN' requires exactly '1' inputs",
-          "line": 13
-        }
-      ]
+      "buildSuccess": true,
+      "durationMs": 975,
+      "diagnostics": []
     },
     "ng_m_library_function_qualified_eno": {
       "buildSuccess": false,
-      "durationMs": 378,
+      "durationMs": 396,
       "diagnostics": [
         {
           "severity": "error",
           "message": "Program name, function or function block instance expected instead of 'Standard.LEN'",
-          "line": 13
+          "line": 0
         },
         {
           "severity": "error",
           "message": "Identifier 'Standard' not defined",
-          "line": 13
+          "line": 0
         }
       ]
     },
     "ng_r5_two_eno": {
       "buildSuccess": true,
-      "durationMs": 871,
+      "durationMs": 924,
       "diagnostics": []
     },
     "ng_r5_nested_jump": {
       "buildSuccess": true,
-      "durationMs": 890,
+      "durationMs": 1011,
       "diagnostics": []
     },
     "ng_r5_array_instance": {
       "buildSuccess": true,
-      "durationMs": 905,
+      "durationMs": 898,
       "diagnostics": []
     },
     "ng_r5_comparison_eno": {
       "buildSuccess": true,
-      "durationMs": 882,
+      "durationMs": 971,
       "diagnostics": []
     },
     "ng_r5_named_eno": {
       "buildSuccess": true,
-      "durationMs": 902,
+      "durationMs": 922,
       "diagnostics": []
     },
     "rcc_network_eno_function_without_en": {
       "buildSuccess": true,
-      "durationMs": 878,
+      "durationMs": 943,
       "diagnostics": []
     },
     "expr_inline_assign_chain": {
@@ -70457,6 +70421,167 @@
       "buildSuccess": true,
       "durationMs": 826,
       "diagnostics": []
+    },
+    "ng_s6_negated_pin": {
+      "buildSuccess": true,
+      "durationMs": 1006,
+      "diagnostics": []
+    },
+    "ng_s6_negated_int_pin": {
+      "buildSuccess": true,
+      "durationMs": 1126,
+      "diagnostics": [
+        {
+          "severity": "warning",
+          "message": "Implicit conversion from unsigned Type 'UINT' to signed Type 'INT' : possible change of sign",
+          "line": 0
+        },
+        {
+          "severity": "warning",
+          "message": "Implicit conversion from signed Type 'INT' to unsigned Type 'UINT' : possible change of sign",
+          "line": 0
+        }
+      ]
+    },
+    "ng_r1_sub_three_inputs": {
+      "buildSuccess": false,
+      "durationMs": 644,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "'-' needs exactly '2' Operands",
+          "line": 0
+        }
+      ]
+    },
+    "ng_r1_div_three_inputs": {
+      "buildSuccess": false,
+      "durationMs": 537,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "'/' needs exactly '2' Operands",
+          "line": 0
+        }
+      ]
+    },
+    "ng_r1_mod_three_inputs": {
+      "buildSuccess": false,
+      "durationMs": 449,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "'MOD' needs exactly '2' Operands",
+          "line": 0
+        }
+      ]
+    },
+    "ng_r1_gt_three_inputs": {
+      "buildSuccess": false,
+      "durationMs": 593,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "'>' needs exactly '2' Operands",
+          "line": 0
+        }
+      ]
+    },
+    "ng_r1_ge_three_inputs": {
+      "buildSuccess": false,
+      "durationMs": 387,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "'>=' needs exactly '2' Operands",
+          "line": 0
+        }
+      ]
+    },
+    "ng_r1_lt_three_inputs": {
+      "buildSuccess": false,
+      "durationMs": 452,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "'<' needs exactly '2' Operands",
+          "line": 0
+        }
+      ]
+    },
+    "ng_r1_le_three_inputs": {
+      "buildSuccess": false,
+      "durationMs": 387,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "'<=' needs exactly '2' Operands",
+          "line": 0
+        }
+      ]
+    },
+    "ng_r1_eq_three_inputs": {
+      "buildSuccess": false,
+      "durationMs": 393,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "'=' needs exactly '2' Operands",
+          "line": 0
+        }
+      ]
+    },
+    "ng_r1_ne_three_inputs": {
+      "buildSuccess": false,
+      "durationMs": 380,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "'<>' needs exactly '2' Operands",
+          "line": 0
+        }
+      ]
+    },
+    "ng_r5_coil_and_jump": {
+      "buildSuccess": true,
+      "durationMs": 946,
+      "diagnostics": []
+    },
+    "ng_r5_coil_and_return": {
+      "buildSuccess": true,
+      "durationMs": 1027,
+      "diagnostics": []
+    },
+    "ng_r5_two_jumps": {
+      "buildSuccess": true,
+      "durationMs": 1035,
+      "diagnostics": []
+    },
+    "ng_r5_edge_pin": {
+      "buildSuccess": true,
+      "durationMs": 1056,
+      "diagnostics": []
+    },
+    "ng_r5_negated_en": {
+      "buildSuccess": true,
+      "durationMs": 1133,
+      "diagnostics": []
+    },
+    "rcc_network_eno_without_en": {
+      "buildSuccess": false,
+      "durationMs": 385,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Inconsistent element detected (Missing EN pin). Consider repair",
+          "line": 0
+        },
+        {
+          "severity": "error",
+          "message": "Cannot convert type 'INT' to type 'BOOL'",
+          "line": 0
+        }
+      ]
     }
   }
 }

@@ -24,14 +24,12 @@
     <ProjectReference Include="..\..\src\Volt.Ide.Codesys\Volt.Ide.Codesys.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <!-- The network text v2 model oracle, shared with the engine and TwinCAT suites: the CODESYS reader doubles
-         take the same check (test/shared/NetworkModelOracle.cs). -->
-    <Compile Include="..\shared\NetworkModelOracle.cs" Link="NetworkModelOracle.cs" />
+    <!-- The scope a model's text is read back against, and the model equality the oracles share. -->
+    <Compile Include="..\shared\NetworkModelScopes.cs" Link="NetworkModelScopes.cs" />
     <Compile Include="..\shared\NetworkTextFacts.cs" Link="NetworkTextFacts.cs" />
     <Compile Include="..\shared\NetworkModelEquality.cs" Link="NetworkModelEquality.cs" />
     <!-- The plain-ST round-trip oracle (openspec network-text-st 2.2). -->
     <Compile Include="..\shared\StNetworkOracle.cs" Link="StNetworkOracle.cs" />
-    <Compile Include="..\shared\V2NetworkText.cs" Link="V2NetworkText.cs" />
     <Compile Include="..\shared\CorpusNetworkText.cs" Link="CorpusNetworkText.cs" />
     <Compile Include="..\shared\Scopes.cs" Link="Scopes.cs" />
     <!-- The NWL completeness oracle (openspec ld-fbd-coverage 1b.3): the archive model, the member table and the

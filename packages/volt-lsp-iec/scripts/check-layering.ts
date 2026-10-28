@@ -42,7 +42,7 @@ const ROOTS = ["src", "test", "scripts", "libraries"]
 // Layer rank: import target rank must be <= source rank. There is no catalog rank: the attribute names are a vocabulary
 // of the front-end (`syntax/pragmas/known-attributes.ts`) and the built-in hover text is a service
 // (`services/assist/builtin-hover.ts`) — openspec lsp-same-standard 2.2. Network text (LD/FBD) has no rank of its own: each layer holds its part in a
-// `network/` folder (`frontend/syntax/network`, `frontend/types/network`, `analysis/checks/network`, `services/network`).
+// `network/` folder (`frontend/syntax/network`, `analysis/checks/network`).
 const RANK: Record<string, number> = {
   library: 0,
   syntax: 0,

@@ -153,29 +153,45 @@ const ACTION_VAR_SECTION: readonly CeilingException[] = [
 ]
 
 /**
- * …and a FUNCTION box given one positional value more than it declares, on TwinCAT (ld-fbd-coverage 2R.4,
- * `ng_m_function_too_many`, recorded 2026-10-17): the push derives no name for the extra pin and TwinCAT's in-place
- * write leaves it the empty name, so its build adds "Identifier '' not defined" to the arity error both vendors give —
- * which the LSP gives alone. No corpus network calls a function positionally (every drawn function box names its pins).
+ * …and the shapes the push writes as stated since network-text-st, which store and do not build — an operator box read
+ * through its ENO with its value wired nowhere (X3: `ng_en_eno_sink`, `ng_en_eno_named_wire`,
+ * `network_unnamed_target_behind_enable`) and an operator box showing ENO without EN (X9: `rcc_network_eno_without_en`).
+ * CODESYS's build names the implicit variable it invents with a counter (`__<pou>__ImpVar<n>`) no text holds, and adds
+ * the box's own inconsistency; the LSP gives what the text states. Niche: 0 such boxes in the corpora (which build).
  */
-const EXTRA_POSITIONAL_PIN_TC: readonly CeilingException[] = [
+const UNBUILDABLE_BOXES: readonly CeilingException[] = [
+  ...(["network_unnamed_target_behind_enable", "ng_en_eno_sink", "ng_en_eno_named_wire"] as const).map((fixture) => ({
+    baseline: "fixtures.codesys",
+    measure: "total: GAP",
+    by: 2,
+    fixture,
+    task: "none: niche, accepted loss (0 occurrences in the corpora)",
+    why: "an operator box read through its ENO, its value wired nowhere: CODESYS's errors name the implicit variable it numbers (`__<pou>__ImpVar<n>`)",
+  })),
+  ...(
+    [
+      ["fixtures.codesys", "total: GAP", 4],
+      ["fixtures.codesys", "total: unowned GAP", 2],
+      ["fixtures.codesys", "group network: GAP", 1],
+      ["fixtures.twincat", "total: GAP", 2],
+      ["fixtures.twincat", "total: unowned GAP", 1],
+    ] as const
+  ).map(([baseline, measure, by]) => ({
+    baseline,
+    measure,
+    by,
+    fixture: "rcc_network_eno_without_en",
+    task: "none: niche, accepted loss (0 occurrences in the corpora)",
+    why: "an operator box showing ENO without EN: the build's \"Missing EN pin\", its implicit variable and the value it reads as the ENO",
+  })),
   {
-    baseline: "fixtures.twincat",
+    baseline: "fixtures.codesys",
     measure: "total: GAP",
     by: 1,
-    fixture: "ng_m_function_too_many",
+    fixture: "ng_m_library_function_qualified_eno",
     task: "none: niche, accepted loss (0 occurrences in the corpora)",
-    why: "an extra positional pin on a function box: TwinCAT also answers \"Identifier '' not defined\" for its empty name",
+    why: "a library function's box named through its namespace and shown with ENO: CODESYS's conversion echo of 'Standard.LEN.ENO', beside the member error the LSP gives",
   },
-  // the same message, as the front-end's resolution census counts it (a recorded "not defined" the LSP does not give)
-  ...(["findings", "messages twincat: recorded only"] as const).map((measure) => ({
-    baseline: "resolution-dump",
-    measure,
-    by: 1,
-    fixture: "ng_m_function_too_many",
-    task: "none: niche, accepted loss (0 occurrences in the corpora)",
-    why: "an extra positional pin on a function box: TwinCAT's \"Identifier '' not defined\" for its empty name",
-  })),
 ]
 
 /**
@@ -209,53 +225,37 @@ const UNNAMED_CALL_BOXES: readonly CeilingException[] = [
     task: "none: niche, accepted loss (0 occurrences in the corpora)",
     why: "the FB's own METHOD called without an instance: the push builds its box without CallType Method, \"The assignment source is incorrect.\"",
   })),
-  ...(
-    [
-      ["ng_m_method_positional", 1],
-      ["ng_m_library_function_qualified", 3],
-    ] as const
-  ).map(([fixture, by]) => ({
+  {
     baseline: "fixtures.twincat",
     measure: "total: GAP",
-    by,
-    fixture,
+    by: 3,
+    fixture: "ng_m_library_function_qualified",
     task: "none: niche, accepted loss (0 occurrences in the corpora)",
-    why: "a positional pin no declaration names (TwinCAT's \"'' is no input\" / \"Identifier '' not defined\"), or CODESYS's namespace `Standard` on TwinCAT",
+    why: "CODESYS's namespace `Standard` on TwinCAT",
+  },
+  // the same "not defined" message, as the front-end's resolution census counts it (recorded, not given by the LSP)
+  ...(["findings", "messages twincat: recorded only"] as const).map((measure) => ({
+    baseline: "resolution-dump",
+    measure,
+    by: 1,
+    fixture: "ng_m_library_function_qualified",
+    task: "none: niche, accepted loss (0 occurrences in the corpora)",
+    why: "\"Identifier 'Standard' not defined\" for CODESYS's namespace",
   })),
-  // the same "not defined" messages, as the front-end's resolution census counts them (recorded, not given by the LSP)
-  ...(["ng_m_method_positional", "ng_m_library_function_qualified"] as const).flatMap((fixture) =>
-    (["findings", "messages twincat: recorded only"] as const).map((measure) => ({
-      baseline: "resolution-dump",
-      measure,
-      by: 1,
-      fixture,
-      task: "none: niche, accepted loss (0 occurrences in the corpora)",
-      why: "TwinCAT's \"Identifier '' not defined\" for a positional pin no declaration names, or \"Identifier 'Standard' not defined\" for CODESYS's namespace",
-    })),
-  ),
 ]
 
 export const CEILING_EXCEPTIONS_C: readonly CeilingException[] = [
-  // the native TwinCAT writer (openspec twincat-inproc-host): fixtures the PLCopen route could not push have a TwinCAT
-  // recording since 2026-10-17 (Project13), and on three TwinCAT answers what the LSP does not say — a LIBRARY function's
-  // box read through ENO with no EN ("Function 'LEN' requires exactly '1' inputs"; qualified, "Program name, function or
-  // function block instance expected instead of 'Standard.LEN'" + "Identifier 'Standard' not defined") and a valued `???`
-  // call ("Cannot convert type 'Unknown type: '''…" + "Identifier '' not defined"). Newly measured, not a regression.
-  ...(
-    [
-      ["ng_m_library_function_eno", 1],
-      ["ng_m_library_function_qualified_eno", 2],
-      ["network_unnamed_target_of_valued_call", 2],
-    ] as const
-  ).map(([fixture, by]) => ({
+  // a LIBRARY function's box read through its namespace with ENO on TwinCAT: "Program name, function or function block
+  // instance expected instead of 'Standard.LEN'" + "Identifier 'Standard' not defined" — CODESYS's namespace on TwinCAT
+  {
     baseline: "fixtures.twincat",
     measure: "total: GAP",
-    by,
-    fixture,
-    task: "the LSP's TwinCAT answers for a library function's box read through ENO with no EN, and for a valued `???` call (TwinCAT re-record 2026-10-17)",
-    why: "TwinCAT recordings of shapes the PLCopen route refused, first taken after the native writer (twincat-inproc-host)",
-  })),
-  ...EXTRA_POSITIONAL_PIN_TC,
+    by: 2,
+    fixture: "ng_m_library_function_qualified_eno",
+    task: "none: niche, accepted loss (0 occurrences in the corpora)",
+    why: "CODESYS's namespace `Standard` on TwinCAT",
+  },
+  ...UNBUILDABLE_BOXES,
   ...UNNAMED_CALL_BOXES,
   ...BEFORE_CASCADES,
   ...ROOT_GAPS,

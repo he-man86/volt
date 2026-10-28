@@ -4,7 +4,7 @@
   "recorded": {
     "at": "2026-10-27T20:52:08.995Z",
     "bridgeVersion": "1.0.0",
-    "testCount": 5662
+    "testCount": 5655
   },
   "tests": {
     "xo_tally_struct": {
@@ -2498,7 +2498,7 @@
     },
     "network_unnamed_instance": {
       "buildSuccess": false,
-      "durationMs": 1217,
+      "durationMs": 952,
       "diagnostics": [
         {
           "severity": "error",
@@ -2524,7 +2524,7 @@
     },
     "network_unnamed_assignment_target": {
       "buildSuccess": false,
-      "durationMs": 682,
+      "durationMs": 1117,
       "diagnostics": [
         {
           "severity": "error",
@@ -2535,7 +2535,7 @@
     },
     "network_unnamed_target_behind_enable": {
       "buildSuccess": false,
-      "durationMs": 511,
+      "durationMs": 563,
       "diagnostics": [
         {
           "severity": "error",
@@ -2556,7 +2556,7 @@
     },
     "network_unnamed_input_pin": {
       "buildSuccess": false,
-      "durationMs": 416,
+      "durationMs": 643,
       "diagnostics": [
         {
           "severity": "error",
@@ -2572,7 +2572,7 @@
     },
     "network_unnamed_group_operand": {
       "buildSuccess": false,
-      "durationMs": 443,
+      "durationMs": 595,
       "diagnostics": [
         {
           "severity": "error",
@@ -2588,7 +2588,7 @@
     },
     "network_unnamed_target_of_void_call": {
       "buildSuccess": false,
-      "durationMs": 538,
+      "durationMs": 1054,
       "diagnostics": [
         {
           "severity": "error",
@@ -2599,7 +2599,7 @@
     },
     "network_unnamed_target_of_valued_call": {
       "buildSuccess": false,
-      "durationMs": 515,
+      "durationMs": 606,
       "diagnostics": [
         {
           "severity": "error",
@@ -2610,62 +2610,62 @@
     },
     "ng_group_nested": {
       "buildSuccess": true,
-      "durationMs": 508,
+      "durationMs": 1060,
       "diagnostics": []
     },
     "ng_group_nary": {
       "buildSuccess": true,
-      "durationMs": 513,
+      "durationMs": 1031,
       "diagnostics": []
     },
     "ng_group_arithmetic": {
       "buildSuccess": true,
-      "durationMs": 477,
+      "durationMs": 611,
       "diagnostics": []
     },
     "ng_group_comparison": {
       "buildSuccess": true,
-      "durationMs": 511,
+      "durationMs": 610,
       "diagnostics": []
     },
     "ng_fanout_let": {
       "buildSuccess": true,
-      "durationMs": 474,
+      "durationMs": 706,
       "diagnostics": []
     },
     "ng_coil_storage": {
       "buildSuccess": true,
-      "durationMs": 489,
+      "durationMs": 559,
       "diagnostics": []
     },
     "ng_opaque_leaf_negation": {
       "buildSuccess": true,
-      "durationMs": 553,
+      "durationMs": 554,
       "diagnostics": []
     },
     "ng_negation_sink": {
       "buildSuccess": true,
-      "durationMs": 514,
+      "durationMs": 1037,
       "diagnostics": []
     },
     "ng_edge_modifiers": {
       "buildSuccess": true,
-      "durationMs": 460,
+      "durationMs": 614,
       "diagnostics": []
     },
     "ng_fb_call_output_read": {
       "buildSuccess": true,
-      "durationMs": 484,
+      "durationMs": 1148,
       "diagnostics": []
     },
     "ng_box_output_arrow": {
       "buildSuccess": true,
-      "durationMs": 521,
+      "durationMs": 1101,
       "diagnostics": []
     },
     "ng_en_eno_sink": {
       "buildSuccess": false,
-      "durationMs": 492,
+      "durationMs": 1100,
       "diagnostics": [
         {
           "severity": "error",
@@ -2681,7 +2681,7 @@
     },
     "ng_en_eno_named_wire": {
       "buildSuccess": false,
-      "durationMs": 490,
+      "durationMs": 1161,
       "diagnostics": [
         {
           "severity": "error",
@@ -2697,37 +2697,32 @@
     },
     "ng_execute_box": {
       "buildSuccess": true,
-      "durationMs": 507,
+      "durationMs": 960,
       "diagnostics": []
     },
     "ng_label_jmp_resolved": {
       "buildSuccess": true,
-      "durationMs": 475,
+      "durationMs": 1040,
       "diagnostics": []
     },
     "ng_conditional_jump_and_return": {
       "buildSuccess": true,
-      "durationMs": 540,
+      "durationMs": 1023,
       "diagnostics": []
     },
     "ng_network_title_and_comment": {
       "buildSuccess": true,
-      "durationMs": 503,
+      "durationMs": 1053,
       "diagnostics": []
     },
     "ng_network_disabled": {
       "buildSuccess": true,
-      "durationMs": 478,
-      "diagnostics": []
-    },
-    "ng_two_languages_one_body": {
-      "buildSuccess": true,
-      "durationMs": 505,
+      "durationMs": 558,
       "diagnostics": []
     },
     "ng_sink_type_mismatch": {
       "buildSuccess": false,
-      "durationMs": 516,
+      "durationMs": 1050,
       "diagnostics": [
         {
           "severity": "error",
@@ -16560,7 +16555,7 @@
     },
     "cc_vg_undeclared": {
       "buildSuccess": false,
-      "durationMs": 492,
+      "durationMs": 630,
       "diagnostics": [
         {
           "severity": "error",
@@ -16576,7 +16571,7 @@
     },
     "cc_vg_undefined_label": {
       "buildSuccess": false,
-      "durationMs": 517,
+      "durationMs": 561,
       "diagnostics": [
         {
           "severity": "error",
@@ -16587,7 +16582,7 @@
     },
     "cc_vg_unknown_member": {
       "buildSuccess": false,
-      "durationMs": 540,
+      "durationMs": 574,
       "diagnostics": [
         {
           "severity": "error",
@@ -16603,7 +16598,7 @@
     },
     "cc_vg_unknown_pin": {
       "buildSuccess": false,
-      "durationMs": 574,
+      "durationMs": 1119,
       "diagnostics": [
         {
           "severity": "error",
@@ -21745,7 +21740,7 @@
     },
     "cc_vg_duplicate_label": {
       "buildSuccess": false,
-      "durationMs": 462,
+      "durationMs": 996,
       "diagnostics": [
         {
           "severity": "error",
@@ -21756,7 +21751,7 @@
     },
     "cc_vg_label_on_disabled_network": {
       "buildSuccess": false,
-      "durationMs": 481,
+      "durationMs": 583,
       "diagnostics": [
         {
           "severity": "error",
@@ -21767,7 +21762,7 @@
     },
     "cc_vg_jump_in_disabled_network": {
       "buildSuccess": true,
-      "durationMs": 527,
+      "durationMs": 601,
       "diagnostics": [
         {
           "severity": "warning",
@@ -21778,7 +21773,7 @@
     },
     "cc_vg_unreferenced_label": {
       "buildSuccess": true,
-      "durationMs": 506,
+      "durationMs": 692,
       "diagnostics": [
         {
           "severity": "warning",
@@ -54169,7 +54164,7 @@
     },
     "network_unknown_fb_type": {
       "buildSuccess": false,
-      "durationMs": 437,
+      "durationMs": 636,
       "diagnostics": [
         {
           "severity": "error",
@@ -54383,7 +54378,7 @@
     },
     "rcc_network_undeclared_wire_shape": {
       "buildSuccess": false,
-      "durationMs": 513,
+      "durationMs": 881,
       "diagnostics": [
         {
           "severity": "error",
@@ -54399,16 +54394,26 @@
     },
     "rcc_network_located_wire_shape": {
       "buildSuccess": true,
-      "durationMs": 524,
+      "durationMs": 612,
       "diagnostics": []
     },
     "rcc_network_eno_without_en": {
       "buildSuccess": false,
-      "durationMs": 532,
+      "durationMs": 556,
       "diagnostics": [
         {
           "severity": "error",
+          "message": "Type of lazy typed variable '__FB_LANG_rcc_nw_eno__ImpVar19' could not be resolved",
+          "line": 0
+        },
+        {
+          "severity": "error",
           "message": "An inconsistent element has been detected (Missing EN pin). Consider making a correction.",
+          "line": 0
+        },
+        {
+          "severity": "error",
+          "message": "The assignment target is not specified.",
           "line": 0
         },
         {
@@ -54472,17 +54477,17 @@
     },
     "rcc_network_eno_function_without_en": {
       "buildSuccess": true,
-      "durationMs": 503,
+      "durationMs": 607,
       "diagnostics": []
     },
     "rcc_network_var_temp_after_statement": {
       "buildSuccess": true,
-      "durationMs": 547,
+      "durationMs": 1039,
       "diagnostics": []
     },
     "rcc_network_second_var_temp": {
       "buildSuccess": true,
-      "durationMs": 506,
+      "durationMs": 1029,
       "diagnostics": []
     },
     "rcc_network_empty_var_temp": {
@@ -54493,11 +54498,6 @@
     "rcc_network_wire_never_defined": {
       "buildSuccess": true,
       "durationMs": 863,
-      "diagnostics": []
-    },
-    "rcc_network_wire_named_like_variable": {
-      "buildSuccess": true,
-      "durationMs": 475,
       "diagnostics": []
     },
     "dead_fb_missing_then": {
@@ -62336,27 +62336,27 @@
     },
     "ng_s2_nested_assign": {
       "buildSuccess": true,
-      "durationMs": 536,
+      "durationMs": 619,
       "diagnostics": []
     },
     "ng_s3a_leaf_wire": {
       "buildSuccess": true,
-      "durationMs": 508,
+      "durationMs": 627,
       "diagnostics": []
     },
     "ng_s3b_rail_wire": {
       "buildSuccess": true,
-      "durationMs": 501,
+      "durationMs": 622,
       "diagnostics": []
     },
     "ng_s5_super_call": {
       "buildSuccess": true,
-      "durationMs": 486,
+      "durationMs": 1147,
       "diagnostics": []
     },
     "ng_s6_negated_pin": {
       "buildSuccess": true,
-      "durationMs": 496,
+      "durationMs": 600,
       "diagnostics": []
     },
     "ng_s3a_leaf_wire_mistyped": {
@@ -62377,12 +62377,12 @@
     },
     "ng_s2_nested_set_reset": {
       "buildSuccess": true,
-      "durationMs": 512,
+      "durationMs": 618,
       "diagnostics": []
     },
     "ng_s6_negated_int_pin": {
       "buildSuccess": true,
-      "durationMs": 506,
+      "durationMs": 647,
       "diagnostics": [
         {
           "severity": "warning",
@@ -62403,7 +62403,7 @@
     },
     "ng_r1_sub_three_inputs": {
       "buildSuccess": false,
-      "durationMs": 2013,
+      "durationMs": 578,
       "diagnostics": [
         {
           "severity": "error",
@@ -62414,7 +62414,7 @@
     },
     "ng_r1_div_three_inputs": {
       "buildSuccess": false,
-      "durationMs": 1022,
+      "durationMs": 523,
       "diagnostics": [
         {
           "severity": "error",
@@ -62425,7 +62425,7 @@
     },
     "ng_r1_mod_three_inputs": {
       "buildSuccess": false,
-      "durationMs": 1012,
+      "durationMs": 873,
       "diagnostics": [
         {
           "severity": "error",
@@ -62436,7 +62436,7 @@
     },
     "ng_r1_gt_three_inputs": {
       "buildSuccess": false,
-      "durationMs": 1027,
+      "durationMs": 1036,
       "diagnostics": [
         {
           "severity": "error",
@@ -62447,7 +62447,7 @@
     },
     "ng_r1_ge_three_inputs": {
       "buildSuccess": false,
-      "durationMs": 1020,
+      "durationMs": 517,
       "diagnostics": [
         {
           "severity": "error",
@@ -62458,7 +62458,7 @@
     },
     "ng_r1_lt_three_inputs": {
       "buildSuccess": false,
-      "durationMs": 964,
+      "durationMs": 536,
       "diagnostics": [
         {
           "severity": "error",
@@ -62469,7 +62469,7 @@
     },
     "ng_r1_le_three_inputs": {
       "buildSuccess": false,
-      "durationMs": 1078,
+      "durationMs": 521,
       "diagnostics": [
         {
           "severity": "error",
@@ -62480,7 +62480,7 @@
     },
     "ng_r1_eq_three_inputs": {
       "buildSuccess": false,
-      "durationMs": 1014,
+      "durationMs": 997,
       "diagnostics": [
         {
           "severity": "error",
@@ -62491,7 +62491,7 @@
     },
     "ng_r1_ne_three_inputs": {
       "buildSuccess": false,
-      "durationMs": 990,
+      "durationMs": 527,
       "diagnostics": [
         {
           "severity": "error",
@@ -62502,7 +62502,7 @@
     },
     "ng_s3a_leaf_split_into_int": {
       "buildSuccess": false,
-      "durationMs": 518,
+      "durationMs": 567,
       "diagnostics": [
         {
           "severity": "error",
@@ -62513,22 +62513,22 @@
     },
     "ng_m_function_positional": {
       "buildSuccess": true,
-      "durationMs": 511,
+      "durationMs": 604,
       "diagnostics": []
     },
     "ng_m_function_named": {
       "buildSuccess": true,
-      "durationMs": 491,
+      "durationMs": 600,
       "diagnostics": []
     },
     "ng_m_function_two_inputs": {
       "buildSuccess": true,
-      "durationMs": 544,
+      "durationMs": 625,
       "diagnostics": []
     },
     "ng_m_function_too_many": {
       "buildSuccess": false,
-      "durationMs": 504,
+      "durationMs": 625,
       "diagnostics": [
         {
           "severity": "error",
@@ -62539,32 +62539,32 @@
     },
     "ng_m_method_call": {
       "buildSuccess": true,
-      "durationMs": 471,
+      "durationMs": 581,
       "diagnostics": []
     },
     "ng_m_conversion": {
       "buildSuccess": true,
-      "durationMs": 522,
+      "durationMs": 1017,
       "diagnostics": []
     },
     "ng_m_program_call": {
       "buildSuccess": true,
-      "durationMs": 521,
+      "durationMs": 571,
       "diagnostics": []
     },
     "ng_m_function_output_unwired": {
       "buildSuccess": true,
-      "durationMs": 495,
+      "durationMs": 661,
       "diagnostics": []
     },
     "ng_m_function_enabled": {
       "buildSuccess": true,
-      "durationMs": 471,
+      "durationMs": 1039,
       "diagnostics": []
     },
     "ng_m_function_too_few": {
       "buildSuccess": false,
-      "durationMs": 1226,
+      "durationMs": 569,
       "diagnostics": [
         {
           "severity": "error",
@@ -62575,17 +62575,17 @@
     },
     "ng_m_function_in_out_first": {
       "buildSuccess": true,
-      "durationMs": 495,
+      "durationMs": 572,
       "diagnostics": []
     },
     "ng_m_function_constant_in_out": {
       "buildSuccess": true,
-      "durationMs": 483,
+      "durationMs": 560,
       "diagnostics": []
     },
     "ng_m_function_positional_then_named_same": {
       "buildSuccess": false,
-      "durationMs": 458,
+      "durationMs": 1018,
       "diagnostics": [
         {
           "severity": "error",
@@ -62596,7 +62596,7 @@
     },
     "ng_m_method_positional": {
       "buildSuccess": false,
-      "durationMs": 465,
+      "durationMs": 573,
       "diagnostics": [
         {
           "severity": "error",
@@ -62607,17 +62607,17 @@
     },
     "ng_m_interface_method": {
       "buildSuccess": true,
-      "durationMs": 453,
+      "durationMs": 566,
       "diagnostics": []
     },
     "ng_m_action_call": {
       "buildSuccess": true,
-      "durationMs": 439,
+      "durationMs": 935,
       "diagnostics": []
     },
     "ng_m_own_method": {
       "buildSuccess": false,
-      "durationMs": 468,
+      "durationMs": 1175,
       "diagnostics": [
         {
           "severity": "error",
@@ -62628,17 +62628,17 @@
     },
     "ng_m_library_function": {
       "buildSuccess": true,
-      "durationMs": 492,
+      "durationMs": 614,
       "diagnostics": []
     },
     "ng_m_library_function_eno": {
       "buildSuccess": true,
-      "durationMs": 449,
+      "durationMs": 615,
       "diagnostics": []
     },
     "ng_m_library_function_qualified": {
       "buildSuccess": false,
-      "durationMs": 467,
+      "durationMs": 594,
       "diagnostics": [
         {
           "severity": "error",
@@ -62649,7 +62649,7 @@
     },
     "ng_m_library_function_qualified_eno": {
       "buildSuccess": false,
-      "durationMs": 494,
+      "durationMs": 633,
       "diagnostics": [
         {
           "severity": "error",
@@ -62665,107 +62665,82 @@
     },
     "ng_m_library_function_named": {
       "buildSuccess": true,
-      "durationMs": 509,
+      "durationMs": 631,
       "diagnostics": []
     },
     "ng_r5_two_eno": {
       "buildSuccess": true,
-      "durationMs": 1222,
+      "durationMs": 665,
       "diagnostics": []
     },
     "ng_r5_coil_and_jump": {
       "buildSuccess": true,
-      "durationMs": 474,
+      "durationMs": 583,
       "diagnostics": []
     },
     "ng_r5_coil_and_return": {
       "buildSuccess": true,
-      "durationMs": 442,
+      "durationMs": 612,
       "diagnostics": []
     },
     "ng_r5_two_jumps": {
       "buildSuccess": true,
-      "durationMs": 449,
-      "diagnostics": []
-    },
-    "ng_r5_jump_set": {
-      "buildSuccess": true,
-      "durationMs": 430,
-      "diagnostics": []
-    },
-    "ng_r5_return_set": {
-      "buildSuccess": true,
-      "durationMs": 426,
+      "durationMs": 1069,
       "diagnostics": []
     },
     "ng_r5_nested_jump": {
       "buildSuccess": true,
-      "durationMs": 454,
-      "diagnostics": []
-    },
-    "ng_r5_negated_coil": {
-      "buildSuccess": true,
-      "durationMs": 441,
-      "diagnostics": []
-    },
-    "ng_r5_edge_coils": {
-      "buildSuccess": true,
-      "durationMs": 462,
+      "durationMs": 1059,
       "diagnostics": []
     },
     "ng_r5_edge_pin": {
       "buildSuccess": true,
-      "durationMs": 432,
+      "durationMs": 608,
       "diagnostics": []
     },
     "ng_r5_negated_en": {
       "buildSuccess": true,
-      "durationMs": 452,
-      "diagnostics": []
-    },
-    "ng_r5_negated_empty": {
-      "buildSuccess": true,
-      "durationMs": 450,
+      "durationMs": 976,
       "diagnostics": []
     },
     "ng_r5_array_instance": {
       "buildSuccess": true,
-      "durationMs": 1214,
+      "durationMs": 617,
       "diagnostics": []
     },
     "ng_r5_split_before_definition": {
       "buildSuccess": true,
-      "durationMs": 433,
+      "durationMs": 608,
       "diagnostics": []
     },
     "ng_r5_split_nested": {
       "buildSuccess": true,
-      "durationMs": 460,
+      "durationMs": 615,
       "diagnostics": []
     },
     "ng_r5_comparison_eno": {
       "buildSuccess": true,
-      "durationMs": 446,
+      "durationMs": 636,
       "diagnostics": []
     },
     "ng_r5_named_eno": {
       "buildSuccess": true,
-      "durationMs": 453,
+      "durationMs": 941,
       "diagnostics": []
     },
     "ng_r5_enabled_comparison_value": {
       "buildSuccess": true,
-      "durationMs": 488,
+      "durationMs": 610,
       "diagnostics": []
     },
     "ng_r5_empty_branch": {
       "buildSuccess": true,
-      "durationMs": 463,
+      "durationMs": 585,
       "diagnostics": []
     },
     "ng_r5_one_input_add": {
       "buildSuccess": false,
-      "durationMs": 399,
+      "durationMs": 989,
       "diagnostics": [
         {
           "severity": "error",
@@ -62776,7 +62751,7 @@
     },
     "ng_r5_one_input_and": {
       "buildSuccess": false,
-      "durationMs": 417,
+      "durationMs": 523,
       "diagnostics": [
         {
           "severity": "error",

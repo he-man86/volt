@@ -10,7 +10,6 @@
 import type { BodySpan, TopLevel } from "../ast/nodes/index.js"
 import { allUnits } from "../ast/walk.js"
 import { bodyReader } from "./language-line.js"
-import { isPlainStNetworkText } from "./network-form.js"
 
 /** Every token-body a unit carries (POU body + property accessors) — a NAMESPACE block's are its units' (rule Y17, through
  *  `allUnits`: a walk over a file's units reached none of the bodies inside one). */
@@ -38,15 +37,9 @@ export function graphicalMarkerLanguage(body: BodySpan): "FBD" | "LD" | undefine
   return s?.kind === "read" && s.language !== "ST" ? s.language : undefined
 }
 
-/** True when the network-text parser reads this body: its line states `LD` or `FBD`. A body with no network at all
- *  is graphical by its line alone. */
-export function isGraphicalBody(body: BodySpan): boolean {
-  return bodyReader(body) === "network"
-}
-
-/** True when an LD/FBD body is PLAIN-ST network text (`network/plain-st.ts`): read by the ST parser, as ST with `%` lines. */
+/** True when a read LD/FBD body is network text (`network/plain-st.ts`): ST with `%` lines, read by the ST parser. */
 export function isPlainStNetworkBody(body: BodySpan): boolean {
-  return graphicalMarkerLanguage(body) !== undefined && bodyReader(body) === "st" && isPlainStNetworkText(body.tokens)
+  return graphicalMarkerLanguage(body) !== undefined && bodyReader(body) === "st"
 }
 
 /** True when the ST parser reads this body: its line states `ST`, or it has no line (IDE text — see `splitImplementation`
@@ -57,11 +50,3 @@ export function isStBody(body: BodySpan): boolean {
   return bodyReader(body) === "st"
 }
 
-/**
- * Every graphical (network text) body in a unit list, with its unit — the walk the outline, semantic tokens, the network
- * diagnostics and the network services each wrote out by hand (consolidate-lsp-structure C2). The ST counterpart, with a
- * resolved scope and parsed statements, is `symbols/scoped-bodies`.
- */
-export function* graphicalBodies(units: readonly TopLevel[]): Generator<{ unit: TopLevel; body: BodySpan }> {
-  for (const unit of allUnits(units)) for (const body of unitBodies(unit)) if (isGraphicalBody(body)) yield { unit, body }
-}

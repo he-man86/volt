@@ -42,7 +42,6 @@ import {
 } from "./object-properties.js"
 import { peelClosingProperties, peelProperties } from "./property-peel.js"
 import { lineAround, type ReportAt } from "./lines.js"
-import { isPlainStNetworkText } from "./network-form.js"
 
 /** The line in its one spelling — as the refusals quote it and the formatter prints it; one that states no body, as
  *  written. */
@@ -214,19 +213,18 @@ export function readNoNetworkText(body: BodySpan): void {
   NO_NETWORK_TEXT.add(body)
 }
 
-/** Which parser reads a body: `st`, `network`, or — for a hidden (UNSUPPORTED) body, or an LD/FBD body parsed with
- *  network text off (`ParseOptions.networkText`) — neither. A body with no line is ST to the PARSER, which also reads
- *  fixture ST and the library repo (IDE text, no line); a member with no slot holds nothing to read, and in a workspace
- *  file any other body with no line is reported as stating no language, with none of its findings shown. An LD/FBD body
- *  in PLAIN-ST network text (openspec network-text-st, `network/plain-st.ts`) is read by the ST parser: it is ST. */
-export function bodyReader(body: BodySpan): "st" | "network" | undefined {
+/** Which parser reads a body: `st`, or — for a hidden (UNSUPPORTED) body, or an LD/FBD body parsed with network text
+ *  off (`ParseOptions.networkText`) — none. A body with no line is ST to the PARSER, which also reads fixture ST and the
+ *  library repo (IDE text, no line); a member with no slot holds nothing to read, and in a workspace file any other body
+ *  with no line is reported as stating no language, with none of its findings shown. An LD/FBD body is network text,
+ *  which is ST with `%` lines (`network/plain-st.ts`): the ST parser reads it. */
+export function bodyReader(body: BodySpan): "st" | undefined {
   if (body.languageLine === undefined) return "st"
   const s = body.languageLine.statement
   if (s === undefined) return undefined
   if (s.kind !== "read") return undefined
-  if (s.language === "ST") return "st"
-  if (NO_NETWORK_TEXT.has(body)) return undefined
-  return isPlainStNetworkText(body.tokens) ? "st" : "network"
+  if (s.language !== "ST" && NO_NETWORK_TEXT.has(body)) return undefined
+  return "st"
 }
 
 /** The words of a body's `%LANGUAGE` line an editor colours as keywords (`%`, `LANGUAGE`, the language, `UNSUPPORTED`). */

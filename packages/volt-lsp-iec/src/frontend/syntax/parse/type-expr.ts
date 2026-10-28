@@ -249,15 +249,3 @@ function stringDelimiters(written: string): StringLengthDelimiters {
   return d
 }
 
-/**
- * A whole token run parsed as ONE type, or undefined when it is not one (trailing tokens, an error). The type of a
- * network-text wire is written in its network's `VAR_TEMP` block (`g1 : BOOL;`), which the network-text parser reads
- * itself; this is how it hands the type to the one type engine.
- */
-export function parseTypeExprFromTokens(tokens: readonly Token[], dialect: Dialect): TypeExpr | undefined {
-  if (tokens.length === 0) return undefined
-  const last = tokens[tokens.length - 1]!
-  const cur = new Cursor([...tokens, { kind: "eof", text: "", span: eofSpan(last.span) }], dialect)
-  const type = parseTypeExpression(cur)
-  return type !== undefined && cur.atEof() && cur.getErrors().length === 0 ? type : undefined
-}

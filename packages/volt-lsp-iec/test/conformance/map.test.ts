@@ -339,7 +339,7 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // rating was reading the TRANSPILER's assembly, two POUs in one file), the operator call forms, `__POSITION` and
   // `__CURRENTTASK`, the `CALC` family, `ANYNUM_TO_*`, `FB_Init`'s arguments, `__QUERYPOINTER`'s first operand and
   // `__NEW`'s pragma. The two left are the `???` target over a call, where the fixture and the corpus disagree
-  // because the compiler never reads network text — see `network/network-analysis.ts`.
+  // because the compiler never reads network text — see `network/_plain-st.ts`.
   // 2 -> 3. `op_sys_queryinterface` is a gap this session CREATED, by making the fixture ask a real question:
   // its method body named an interface ANOTHER fixture declares, and `withDependencies` scans declarations
   // rather than bodies, so the interface was never pushed and every recording said `Unknown type`. It has never

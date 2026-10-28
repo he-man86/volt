@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  out := a AND b;
-END_NETWORK
+%NETWORK
+out := AND(a, b);

@@ -1,6 +1,6 @@
 %LANGUAGE FBD
-NETWORK
-  split1 := a AND b;
-  out1 := split1 OR c;
-  out2 := split1;
-END_NETWORK
+%NETWORK
+%WIRES w1
+w1 := AND(a, b);
+out1 := OR(w1, c);
+out2 := w1;

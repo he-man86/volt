@@ -22,6 +22,8 @@ export function checkFbInstantiation(ctx: CheckContext, out: DiagnosticItem[]): 
     const name = e.kind === "call" && e.callee.kind === "ident_expr" ? e.callee : e.kind === "member" && e.base.kind === "ident_expr" ? e.base : undefined
     if (name === undefined) return
     const kind = typeNamed(name, scope)
+    // in a network, the call of an FB type is the box with no instance, `???`, which the network check names
+    if (kind === "function_block" && e.kind === "call" && scope.network === true) return
     if (kind !== undefined) out.push(notInstantiated(kind, name, ctx))
     // CALLING an interface says so twice: it must be instantiated, and an interface is not a thing you call at all
     // (conformance `cc5_type_invoked_directly`). Reaching into one for a member says only the first.

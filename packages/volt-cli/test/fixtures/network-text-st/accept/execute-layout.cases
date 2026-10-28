@@ -1,4 +1,4 @@
-#### execute-top-level — the v2 case execute-layout/execute-top-level, as a pull writes it
+#### execute-top-level
 === text
 %LANGUAGE LD
 %NETWORK
@@ -9,7 +9,7 @@ x := 1;
 NETWORK
   (EXECUTE "x := 1;")
 
-#### execute-enabled — the v2 case execute-layout/execute-enabled, as a pull writes it
+#### execute-enabled
 === text
 %LANGUAGE LD
 %NETWORK
@@ -21,7 +21,7 @@ iCount:=icount+1;
 NETWORK
   (EXECUTE "iCount:=icount+1;\n" en:TRUE)
 
-#### execute-read-through-eno — the v2 case execute-layout/execute-read-through-eno, as a pull writes it
+#### execute-read-through-eno — an Execute box read through its ENO, its one output
 === text
 %LANGUAGE LD
 %NETWORK
@@ -34,7 +34,7 @@ done := w1;
 NETWORK
   (:= done (EXECUTE "i := i + 1;" en:go conn:0))
 
-#### execute-in-a-chain — the v2 case execute-layout/execute-in-a-chain, as a pull writes it
+#### execute-in-a-chain
 === text
 %LANGUAGE LD
 %NETWORK
@@ -47,7 +47,7 @@ lamp := MOVE_EN(EN := w1, 1, OUT => t);
 NETWORK
   (:= lamp (MOVE 1 =>1:t en:(EXECUTE "i := i + 1;" en:go conn:0) conn:0 eno:1))
 
-#### execute-as-operand — the v2 case execute-layout/execute-as-operand, as a pull writes it
+#### execute-as-operand
 === text
 %LANGUAGE LD
 %NETWORK
@@ -65,7 +65,7 @@ NETWORK
   (:= x (AND (EXECUTE "i := 1;" en:go conn:0) d))
   (:= y (par seq (EXECUTE "j := 1;" en:go conn:0) d e))
 
-#### execute-verbatim — the v2 case execute-layout/execute-verbatim, as a pull writes it
+#### execute-verbatim
 === text
 %LANGUAGE LD
 %NETWORK
@@ -76,7 +76,7 @@ s := 'a$Nb'; // `x`
 NETWORK
   (EXECUTE "s := 'a$Nb'; // `x`")
 
-#### execute-empty — the v2 case execute-layout/execute-empty, as a pull writes it
+#### execute-empty — an Execute box with no ST is one empty line
 === text
 %LANGUAGE LD
 %NETWORK
@@ -87,7 +87,7 @@ NETWORK
 NETWORK
   (EXECUTE "")
 
-#### execute-end-indent — the v2 case execute-layout/execute-end-indent, as a pull writes it
+#### execute-end-indent
 === text
 %LANGUAGE LD
 %NETWORK
@@ -98,7 +98,7 @@ x := 1;
 NETWORK
   (EXECUTE "x := 1;")
 
-#### layout-free — the v2 case execute-layout/layout-free, as a pull writes it
+#### layout-free
 === text
 %LANGUAGE LD
 %NETWORK
@@ -112,7 +112,7 @@ NETWORK
   (split 2 (AND #1 enable ready not:stop))
   (:= x (f IN1=a IN2=b conn:0))
 
-#### layout-any-item-indent — the v2 case execute-layout/layout-any-item-indent, as a pull writes it
+#### layout-any-item-indent — an item's first line may stand at any column
 === text
 %LANGUAGE LD
 %NETWORK

@@ -19,7 +19,7 @@ namespace Volt.Ide.Twincat.Tests;
 ///
 /// <para>This drives the REAL path end to end:</para>
 /// <code>
-/// .TcPOU archive → TcNetworkReader → NetworkTextWriter → the .fb text an engineer sees in git
+/// .TcPOU archive → TcNetworkReader → StNetworkWriter → the .fb text an engineer sees in git
 ///                                  → NetworkText.Validate → TcNetworkWriter.Apply → the archive again
 /// </code>
 /// <para>and asserts the thing that actually matters: <b>a push that changes nothing must change nothing.</b>
@@ -381,7 +381,7 @@ public class TcRoundTripTests
     /// <para>A CODESYS Execute box carries raw ST on the box itself, and the archive records that with
     /// <c>ProvidesSTSnippet</c> + <c>STSnippet</c> — both measured members of <c>BoxTreeBox</c> (DIALECT N4).
     /// The reader hard-coded <c>StCode</c> to null and never looked at either, so
-    /// <c>NetworkTextWriter</c>'s Execute arm could not fire and the box rendered as a bare
+    /// the text writer's Execute arm could not fire and the box rendered as a bare
     /// <c>EXECUTE();</c>: the ST it runs absent from git, with no marker, no diagnostic, no unreadable tally,
     /// and <c>volt status</c> clean.</para>
     ///

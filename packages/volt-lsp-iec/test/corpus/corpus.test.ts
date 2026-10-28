@@ -59,10 +59,8 @@ describe.skipIf(!hasCorpus)("1. the LSP can read real code", () => {
     expect(pass().materializeFailures).toEqual([])
   }, LOWERING_TIMEOUT)
 
-  test("every graphical body is plain-ST network text, read by the ST parser (network-text-st 2.1: the corpus is pulled so)", () => {
+  test("every graphical body is network text, read by the ST parser", () => {
     expect(pass().networkStBodies).toBe(46) // every `%LANGUAGE LD|FBD` body of the six corpora
-    expect(pass().graphicalBodies).toBe(0)
-    expect(pass().networkFailures).toEqual([])
   }, LOWERING_TIMEOUT)
 
   test("the binder links EXTENDS bases across files", () => {

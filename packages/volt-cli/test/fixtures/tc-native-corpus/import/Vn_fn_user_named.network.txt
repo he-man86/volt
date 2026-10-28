@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  n := F_Custom(A := i1, B := i2);
-END_NETWORK
+%NETWORK
+n := F_Custom(A := i1, B := i2);

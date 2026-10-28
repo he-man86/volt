@@ -84,7 +84,7 @@ public static class StNetworkWriter
                 when (perNetwork && !e.OnHeader && net.Unsupported is null && NetworkSpelling.UnsupportedShape.IsMatch(e.Reason))
             {
                 wires.Next = mark;
-                text = new Emitter(net with { Trees = Array.Empty<Node>(), Unsupported = e.Reason, UnsupportedHash = NetworkTextWriter.Hash(net) }, scope, body.Language, wires).Emit();
+                text = new Emitter(net with { Trees = Array.Empty<Node>(), Unsupported = e.Reason, UnsupportedHash = NetworkHash.Of(net) }, scope, body.Language, wires).Emit();
             }
             catch (StNetworkUnspellableException e) when (e.Network is null)
             {
@@ -328,7 +328,7 @@ public static class StNetworkWriter
                 Comment(sb);
                 // A network a VENDOR reader refused carries no hash yet: it is the network's own (its shape), as a writer
                 // refusal's is its trees'.
-                var hash = _net.UnsupportedHash ?? NetworkTextWriter.Hash(_net);
+                var hash = _net.UnsupportedHash ?? NetworkHash.Of(_net);
                 if (!NetworkSpelling.UnsupportedShape.IsMatch(shape))
                     throw HeaderUnspellable("an unsupported network whose shape is no phrase", $"network {_net.Order + 1} is UNSUPPORTED for '{shape}'.");
                 sb.Append(UnsupportedLine).Append(" \"").Append(shape).Append("\" #").Append(hash).Append('\n');
@@ -689,14 +689,16 @@ public static class StNetworkWriter
         private string Call(Box b, List<string> pre, bool consumed)
         {
             var suffix = Suffix(b);
-            // A box showing ENO returns it, and is read by it. MEASURED (CODESYS 3.5.21.40, 2026-10-28,
-            // design.md "3.0"): an enabled MOVE showing ENO, built read at its
-            // value slot, is held by the IDE read by its ENO, and its coil does not build ("Cannot convert type 'BOOL' to
-            // type 'INT'"); a box with EN read by its value is `X_ENONLY`.
+            // A box showing ENO returns it, and is read by it. MEASURED (CODESYS 3.5.21.40, 2026-10-28, design.md "3.0"): an
+            // enabled MOVE showing ENO, built read at its value slot, is held by the IDE read by its ENO, and its coil does not
+            // build ("Cannot convert type 'BOOL' to type 'INT'"); a box with EN read by its value is `X_ENONLY`.
             if (suffix == EnabledSuffix && consumed && !NetworkSpelling.ConnectedByEno(b))
                 throw Unspellable("an enabled box read by its value showing ENO", $"the enabled '{b.Type}' box shows ENO and is read by its value, and its call returns ENO.");
             if (suffix == EnoSuffix && consumed && !NetworkSpelling.ConnectedByEno(b))
                 throw Unspellable("a box showing ENO without EN read by its value", $"the '{b.Type}' box shows ENO and is read by its value, and its call returns ENO.");
+            // A call read by its value reads its value slot; a box the IDE holds read by no slot it states has no spelling.
+            if (consumed && !b.HasEnoOutput && NetworkSpelling.MainSlotOfCall(b.Type) is { } main && b.ConnectedSlot != main)
+                throw Unspellable("a box read by an unstated slot", $"the '{b.Type}' box is read at slot {b.ConnectedSlot?.ToString(CultureInfo.InvariantCulture) ?? "(none)"}, not its value's.");
             if (string.Equals(b.Type, NetworkSpelling.NotBox, StringComparison.OrdinalIgnoreCase) && b.Enable is null &&
                 (b.Inputs.Count != 1 || b.Outputs.Count > 0 || !NetworkSpelling.IsDefaultFormal(b.Type, 0, b.Inputs[0].Formal)))
                 throw Unspellable("a NOT box with pins", "a NOT box with outputs, a named pin or several inputs.");

@@ -129,7 +129,7 @@ namespace Volt.Ide.Codesys
         /// empty. There is no reading under which that is "this node has none": it is the object model having a
         /// different shape than this code believes, which is the one thing every other member access here
         /// reports loudly. Answering empty instead let a lost <c>Outputs</c> on an assignment render as valid
-        /// network text — <c>NetworkTextWriter</c> emits a bare <c>value;</c> for zero targets — after which the
+        /// network text — the writer emits a bare <c>value;</c> for zero targets — after which the
         /// writer's rebuild deleted the coil from the live PLC.</para>
         public static IReadOnlyList<object> Items(object? collection, string listMember = "List")
         {

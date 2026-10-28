@@ -4,7 +4,7 @@ import { markImplementations } from "./mark-implementations.js"
 test("an ST body gains %LANGUAGE ST, a body that states its language keeps its line and gains none", () => {
   const st = "FUNCTION_BLOCK F\nVAR\n\ta : BOOL;\nEND_VAR\na := TRUE;\nEND_FUNCTION_BLOCK\n"
   expect(markImplementations(st)).toBe("FUNCTION_BLOCK F\nVAR\n\ta : BOOL;\nEND_VAR\n%LANGUAGE ST\na := TRUE;\nEND_FUNCTION_BLOCK\n")
-  const graphical = "FUNCTION_BLOCK F\nVAR\n\ta : BOOL;\nEND_VAR\n%LANGUAGE LD\nNETWORK\n  a := TRUE;\nEND_NETWORK\nEND_FUNCTION_BLOCK\n"
+  const graphical = "FUNCTION_BLOCK F\nVAR\n\ta : BOOL;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\na := TRUE;\nEND_FUNCTION_BLOCK\n"
   expect(markImplementations(graphical)).toBe(graphical)
   const stated = "FUNCTION_BLOCK F\nVAR\n\ta : BOOL;\nEND_VAR\n%LANGUAGE ST\na := TRUE;\nEND_FUNCTION_BLOCK\n"
   expect(markImplementations(stated)).toBe(stated)

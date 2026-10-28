@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  out := t1.Q OR t2.Q OR c1.Q OR rt.Q;
-END_NETWORK
+%NETWORK
+out := OR(t1.Q, t2.Q, c1.Q, rt.Q);

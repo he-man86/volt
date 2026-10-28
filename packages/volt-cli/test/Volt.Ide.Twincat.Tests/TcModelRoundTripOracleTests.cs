@@ -13,9 +13,8 @@ namespace Volt.Ide.Twincat.Tests;
 /// <summary>
 /// THE MODEL ROUND-TRIP ORACLE over the TwinCAT archive fixtures (task 2.2): every <c>&lt;NWL&gt;</c> body in
 /// <c>fixtures/tc-pou</c>, read with the production <see cref="TcNetworkReader"/> — the vendor-read model a pull
-/// hands the writer — must round-trip through network text v2 or be refused by name
-/// (<see cref="NetworkModelOracle"/>). The engine suite runs the same oracle over the v1 tests and the LSP corpus;
-/// this half lives here because only this suite can reach <see cref="TcNetworkReader"/>.
+/// hands the writer — must round-trip through plain-ST network text or be refused by name
+/// (<see cref="StNetworkOracle"/>); this half lives here because only this suite can reach <see cref="TcNetworkReader"/>.
 ///
 /// <para>Every archive is swept, not listed, so a fixture added later is in the oracle by being added. The
 /// refusal table is pinned by reason: a count moving means the text learned or lost a spelling, or the reader
@@ -59,7 +58,7 @@ public class TcModelRoundTripOracleTests
     [Theory]
     [MemberData(nameof(Ids))]
     public void Every_archive_body_round_trips_or_is_refused_by_name(string id) =>
-        NetworkModelOracle.Check(id, Archives.Value.Read[id]);
+        StNetworkOracle.CheckBody(id, Archives.Value.Read[id]);
 
     [Fact]
     public void Archive_tally()
@@ -67,15 +66,10 @@ public class TcModelRoundTripOracleTests
         // The fixture that exists to hold an Execute box whose ST cannot be read (TcExecuteBoxTests): the
         // driver's UNSUPPORTED reason, before any writer.
         Assert.Equal(new Dictionary<string, string> { ["ExecuteBox.derived.TcPOU#0"] = BoxRefusals.UnreadableExecuteMarker }, Archives.Value.ReaderRefused);
-        NetworkModelOracle.AssertTally("TwinCAT archives",
-            Archives.Value.Read.Select(kv => NetworkModelOracle.Check(kv.Key, kv.Value)),
-            // execute-box and ladder-demux round-trip since the reader reads which output slot a consumed call's
-            // consumer is connected to (task 3.10) — the one null output item, where CODESYS states MainOutputIndex.
-            // importer-max and importer-unwired (task 4.4, real XAE output of bodies the PLCopen import built) are the
-            // 14th and 15th: a box's one declared output is its connection slot, and an empty operand on a pin is the
-            // empty slot. The 16th is the rung drawn by hand to hold a coil and a jump on one assign — a jump is a coil
-            // since 2R.5 (JumpDestinationTests).
-            bodies: 16, networks: 28, refused: new Dictionary<string, int>());
+        StNetworkOracle.AssertTally(Archives.Value.Read.SelectMany(kv => StNetworkOracle.CheckBody(kv.Key, kv.Value)).ToList(), "TwinCAT archives",
+            // every archive body round-trips; the stored members (a rail as TRUE, a negated pin on its value, …) are listed by
+            // StNetworkOracle.Report
+            identical: 23, stored: 5, new Dictionary<string, int>());
 
     }
 }

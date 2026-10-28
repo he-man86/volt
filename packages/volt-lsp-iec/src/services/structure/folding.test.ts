@@ -82,12 +82,12 @@ VAR
 \ta : BOOL; b : BOOL; out : BOOL;
 END_VAR
 %LANGUAGE LD
-NETWORK
-out := (a AND b);
-END_NETWORK
-NETWORK
-out := (a OR b);
-END_NETWORK
+%NETWORK
+out := a AND b;
+
+%NETWORK
+out := a OR b;
+
 END_FUNCTION_BLOCK`
 
   test("folding: each NETWORK of a body stated %LANGUAGE LD is a foldable range", () => {
@@ -98,8 +98,8 @@ END_FUNCTION_BLOCK`
     })
     const networks = folds.filter((f) => f.startLine >= 5)
     expect(networks.map((f) => [f.startLine, f.endLine])).toEqual([
-      [5, 7],
-      [8, 10],
+      [5, 6],
+      [8, 9],
     ])
   })
 

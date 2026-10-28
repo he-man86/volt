@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  out := MOVE i1 ENO EN a;
-END_NETWORK
+%NETWORK
+out := MOVE_EN(EN := a, i1);

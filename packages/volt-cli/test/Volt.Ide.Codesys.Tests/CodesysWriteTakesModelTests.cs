@@ -52,7 +52,7 @@ namespace Volt.Ide.Codesys.Tests
             {
                 var content = new ItemContent(ItemKind.Kinds.Pou, Decl, null, new List<Member>
                 {
-                    new(ItemKind.Kinds.Method, "Step", "METHOD Step : BOOL", "%LANGUAGE FBD\nNETWORK\nEND_NETWORK", ObjectProperties.None,
+                    new(ItemKind.Kinds.Method, "Step", "METHOD Step : BOOL", "%LANGUAGE FBD\n%NETWORK", ObjectProperties.None,
                         Stated: StatedLanguage.Shown("FBD")),
                 }, ObjectProperties.None);
 

@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  n := LIMIT(i1, i2, i3);
-END_NETWORK
+%NETWORK
+n := LIMIT(i1, i2, i3);

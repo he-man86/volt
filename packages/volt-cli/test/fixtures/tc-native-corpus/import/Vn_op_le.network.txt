@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  out := i1 LE i2;
-END_NETWORK
+%NETWORK
+out := LE(i1, i2);

@@ -22,11 +22,6 @@ import { NOT_ST } from "../graphical/network-graphical-shared.js"
 const doc = "openspec bridge-refusal-review — What the LSP must pick up (task 5.1)"
 const asSent = "bridge-refusal-review: the item's text as a workspace file holds it — the push writes it as sent"
 
-/** The push's refusal of `rcc_network_eno_without_en` (X9, v2-measurements 4c: it does not build, "Missing EN pin"): an
- *  operator box shows ENO only with EN — Volt's reader, before either IDE sees it. */
-const OPERATOR_ENO_WITHOUT_EN =
-  "NETWORK_BAD_EXPRESSION: ENO without EN: the text shows ENO on an enabled box, `MOVE b => a ENO EN c`, or on a function's, `x := f(a) ENO` — an operator's does not build without EN, and an FB's declared ENO and an EXECUTE box's are read with nothing after the box (X9). — Volt's push, before the IDE is asked (2R.6b)"
-
 /** A graphical FB, instantiated in PLC_PRG — the shape of `network-graphical.ts`'s fixtures. */
 function network(
   name: string,
@@ -42,7 +37,7 @@ function network(
     kind: "function_block",
     feature,
     fromDoc: doc,
-    source: `FUNCTION_BLOCK ${pouName}\nVAR\n${vars}\nEND_VAR\n\n%LANGUAGE FBD\nNETWORK\n${statements}\nEND_NETWORK\n\nEND_FUNCTION_BLOCK\n`,
+    source: `FUNCTION_BLOCK ${pouName}\nVAR\n${vars}\nEND_VAR\n\n%LANGUAGE FBD\n%NETWORK\n${statements}\n\nEND_FUNCTION_BLOCK\n`,
     plcPrgVar: `inst : ${pouName};`,
     plcPrgBody: "inst();",
     execSkip: NOT_ST,
@@ -51,12 +46,12 @@ function network(
 }
 
 export const REMOVED_PUSH_CHECK_TESTS: readonly LanguageTest[] = [
-  // ─── 1.1 — an ST body holding NETWORK … END_NETWORK ───
+  // ─── 1.1 — an ST body holding text that is no ST ───
   {
     name: "rcc_st_body_network",
     pouName: "FB_LANG_rcc_st_network",
     kind: "function_block",
-    feature: "an `%LANGUAGE ST` body holding NETWORK … END_NETWORK — ST to the build, which reads `NETWORK` as code",
+    feature: "an `%LANGUAGE ST` body holding text that is no ST (`NETWORK … END_NETWORK`) — ST to the build, which reads `NETWORK` as code",
     fromDoc: doc,
     asSent,
     source: `FUNCTION_BLOCK FB_LANG_rcc_st_network
@@ -140,26 +135,25 @@ END_TYPE
   network(
     "rcc_network_undeclared_wire_shape",
     "FB_LANG_rcc_nw_g7",
-    "an operand shaped like a v2 wire (`g7`) that nothing declares — the build's undeclared identifier",
+    "an operand nothing declares (`g7`) — the build's undeclared identifier",
     "\tout : BOOL;",
-    "  out := g7;",
+    "out := g7;",
   ),
   network(
     "rcc_network_located_wire_shape",
     "FB_LANG_rcc_nw_g5",
-    "a real variable named like a wire (`g5 AT %IX0.0 : BOOL;`), read in a network",
+    "a located variable (`g5 AT %IX0.0 : BOOL;`), read in a network",
     "\tg5 AT %IX0.0 : BOOL;\n\tout : BOOL;",
-    "  out := g5;",
+    "out := g5;",
   ),
 
   // ─── 1.5 — ENO on a box with no EN ───
   network(
     "rcc_network_eno_without_en",
     "FB_LANG_rcc_nw_eno",
-    "ENO read on an ADD box that has no EN — CODESYS built it and refused it (\"Missing EN pin\"); the push refuses it by name (X9)",
+    "ENO read on an ADD box that has no EN — `ADD_ENO(a, b)`: it stores, and the build refuses it (\"Missing EN pin\", X9)",
     "\ta : INT;\n\tb : INT;\n\tx : BOOL;",
-    "  x := a ADD b ENO;",
-    { vendorRefuses: { codesys: OPERATOR_ENO_WITHOUT_EN, twincat: OPERATOR_ENO_WITHOUT_EN } },
+    "x := ADD_ENO(a, b);",
   ),
 
   // …and on a user FUNCTION's box: the push derives a project FUNCTION's CallType and output list from its declaration
@@ -186,9 +180,8 @@ VAR
 END_VAR
 
 %LANGUAGE FBD
-NETWORK
-  x := FUN_LANG_rcc_twice(a, b) ENO;
-END_NETWORK
+%NETWORK
+x := FUN_LANG_rcc_twice_ENO(a := a, b := b);
 
 END_FUNCTION_BLOCK
 `,
@@ -197,29 +190,20 @@ END_FUNCTION_BLOCK
     execSkip: NOT_ST,
   },
 
-  // ─── 2.7–2.10 — the network layout rules the push dropped (task 5.2d). 2R.3 deleted VAR_TEMP (B6): a split is
-  // `split<VarId>`, defined once before its references, wherever in the network — so an empty block, a declared wire
-  // nothing defines and a late block shadowing a read have no spelling left, and their fixtures went with it ───
+  // ─── 2.7 — a wire is defined wherever in its network ───
   network(
     "rcc_network_var_temp_after_statement",
     "FB_LANG_rcc_nw_late",
-    "a split defined after the network's first statement (2.7)",
+    "a wire defined after the network's first statement (2.7)",
     "\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\n\tlamp1 : BOOL;\n\tlamp2 : BOOL;",
-    "  out := a;\n  split1 := a OR b;\n  lamp1 := split1;\n  lamp2 := split1;",
+    "%WIRES w1\nout := a;\nw1 := OR(a, b);\nlamp1 := w1;\nlamp2 := w1;",
   ),
   network(
     "rcc_network_second_var_temp",
     "FB_LANG_rcc_nw_two_blocks",
-    "two splits in one network, the second defined after the first's uses (2.7)",
+    "two wires in one network, the second defined after the first's uses (2.7)",
     "\ta : BOOL;\n\tb : BOOL;\n\tc : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;\n\tout3 : BOOL;\n\tout4 : BOOL;",
-    "  split1 := a AND b;\n  out1 := split1;\n  out2 := split1;\n  split2 := b OR c;\n  out3 := split2;\n  out4 := split2;",
-  ),
-  network(
-    "rcc_network_wire_named_like_variable",
-    "FB_LANG_rcc_nw_wire_shadow",
-    "a split spelled like a variable of the POU (`split1 : INT`) — P1 reserves the pattern, so the bare word is the split and the variable `split1` (2.10; refused by the push until the 2R.3 review)",
-    "\tsplit1 : INT;\n\ta : BOOL;\n\tb : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;",
-    "  split1 := a OR b;\n  out1 := split1;\n  out2 := split1;",
+    "%WIRES w1, w2\nw1 := AND(a, b);\nout1 := w1;\nout2 := w1;\nw2 := OR(b, c);\nout3 := w2;\nout4 := w2;",
   ),
 
   // ─── 2.1 — a retired `(* @volt-… *)` comment in a current-format POU ───

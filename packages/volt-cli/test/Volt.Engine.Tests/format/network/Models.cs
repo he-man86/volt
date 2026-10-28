@@ -8,7 +8,7 @@ namespace Volt.Engine.Tests;
 
 /// <summary>
 /// Model builders for the network text reader and gate tests. (The writer goldens run the model oracle
-/// <c>Read(Write(m)) ≅ m</c> themselves, on every model they write — <c>NetworkTextWriterTests.Write</c>.)
+/// <c>Read(Write(m)) ≅ m</c> themselves, on every model they write — <c>StNetworkTextTests.RoundTrips</c>.)
 /// </summary>
 internal static class NetworkModels
 {
@@ -62,15 +62,14 @@ internal static class NetworkModels
     public const string FbdMarker = "%LANGUAGE FBD\n";
     public const string LdMarker = "%LANGUAGE LD\n";
 
-    /// <summary>A one-network FBD body holding exactly these statement lines, in the page's layout (two-space
-    /// statement indentation).</summary>
+    /// <summary>A one-network FBD body holding exactly these statement lines (plain-ST network text).</summary>
     public static string Src(params string[] lines) => OneNetwork(FbdMarker, lines);
 
     /// <summary>A one-network LD body holding exactly these statement lines.</summary>
     public static string LdSrc(params string[] lines) => OneNetwork(LdMarker, lines);
 
     private static string OneNetwork(string marker, string[] lines) =>
-        marker + "NETWORK\n" + string.Concat(lines.Select(l => "  " + l + "\n")) + "END_NETWORK\n";
+        marker + "%NETWORK\n" + string.Concat(lines.Select(l => l + "\n"));
 
     public static NetworkBody Fbd1(params Node[] trees) => new(BodyLanguage.Fbd, new[] { Net(trees) });
     public static NetworkBody Ld1(params Node[] trees) => new(BodyLanguage.Ld, new[] { Net(trees) });
@@ -83,6 +82,6 @@ internal static class NetworkModels
     /// <summary>The scope a model's text needs to be read back: its FB instances (the declarations would carry
     /// them) plus <paramref name="names"/>.</summary>
     public static NetworkScope ScopeOf(NetworkBody body, params string[] names) =>
-        new(names, Array.Empty<string>(), NetworkModelOracle.Instances(body));
+        new(names, Array.Empty<string>(), NetworkModelScopes.Instances(body));
 
 }

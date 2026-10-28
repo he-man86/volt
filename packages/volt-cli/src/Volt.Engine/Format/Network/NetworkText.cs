@@ -40,7 +40,7 @@ public static class NetworkText
     }
 
     /// <summary>An LD or FBD body as a PULL hands it up: its network text, from <paramref name="read"/> — the driver's
-    /// own reader and <see cref="NetworkTextWriter"/> — or its UNSUPPORTED line and why. The ONE decision every driver's
+    /// own reader and <see cref="StNetworkWriter"/> — or its UNSUPPORTED line and why. The ONE decision every driver's
     /// pull (and <c>FakeIde</c>) makes for such a body, so the vendors cannot answer the same body differently.
     ///
     /// <para>Hidden, with the reason the pull message names, when network text is off in this process
@@ -48,7 +48,7 @@ public static class NetworkText
     /// not read is hidden for the same reason as every other — or when the body holds a fact the text has no spelling
     /// for that no network can be shown around (<see cref="UnrepresentableBodyException"/>, raised by the reader or the
     /// writer: since ld-fbd-coverage 1b.4 a fact in a network's TREES makes that one network its UNSUPPORTED line instead,
-    /// <see cref="NetworkTextWriter.WritePulled"/>, and only a header the text cannot carry reaches here). That is never a missing
+    /// <see cref="StNetworkWriter.WritePulled"/>, and only a header the text cannot carry reaches here). That is never a missing
     /// POU: an escaping throw costs the whole item (<c>Versioning.SafeVersion</c> stamps it unreadable and the fetch
     /// drops it, declaration and siblings with it).</para>
     ///
@@ -105,7 +105,7 @@ public static class NetworkText
 
     /// <summary>Whether a refusal met in a network's trees can stand as that network's <c>UNSUPPORTED</c> line
     /// (<see cref="Network.Unsupported"/>): its reason is a phrase the line can spell. The door the drivers' readers have to
-    /// the rule the text writer shows a network by (<see cref="NetworkTextWriter.WritePulled"/>).</summary>
+    /// the rule the text writer shows a network by (<see cref="StNetworkWriter.WritePulled"/>).</summary>
     public static bool ShownAsUnsupported(string reason) => NetworkSpelling.UnsupportedShape.IsMatch(reason);
 
     /// <summary>Whether a box type is a bit operator (AND, OR, XOR, NOT) — the boxes the vendor stores no main output for

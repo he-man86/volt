@@ -21,7 +21,7 @@ namespace Volt.Engine.Tests;
 public class LanguageChangeGuardTests
 {
     const string Decl = "PROGRAM P\nVAR\n\ta : BOOL;\n\tq : BOOL;\nEND_VAR";
-    const string Fbd = "%LANGUAGE FBD\nNETWORK\n  q := a;\nEND_NETWORK";
+    const string Fbd = "%LANGUAGE FBD\n%NETWORK\nq := a;";
 
     static ItemContent Pou(string? body, StatedLanguage? stated) =>
         new(ItemKind.Kinds.Pou, Decl, body, new List<Member>(), ObjectProperties.None, Stated: stated);
@@ -49,7 +49,7 @@ public class LanguageChangeGuardTests
     [Fact]
     public void The_pushed_body_is_judged_by_its_stated_language_not_its_text() =>
         BodyFormatGuard.RequireWritable(Pou("q := a;", StatedLanguage.St),
-                                        Pou("NETWORK\n  q := a;\nEND_NETWORK", StatedLanguage.St), Refuses);
+                                        Pou("%NETWORK\nq := a;", StatedLanguage.St), Refuses);
 
     /// <summary>A body WITH text and no stated language is a reader that forgot the fact — refused loud, never guessed
     /// at. (No text at all is an empty body, which states nothing and is ST's.)</summary>
@@ -212,7 +212,7 @@ public class LanguageChangeGuardTests
             Getter: new Accessor("", get, Stated: get.StartsWith("%LANGUAGE") ? StatedLanguage.Shown(Languages.Ld) : StatedLanguage.St));
         static ItemContent Fb(params Member[] ms) => new(ItemKind.Kinds.Pou, Decl, "", ms.ToList(), ObjectProperties.None, Stated: StatedLanguage.St);
         Assert.Throws<BridgeException>(() => BodyFormatGuard.RequireWritable(
-            Fb(Prop("%LANGUAGE LD\nNETWORK\nEND_NETWORK")), Fb(Prop("q := a;")), Record));
+            Fb(Prop("%LANGUAGE LD\n%NETWORK")), Fb(Prop("q := a;")), Record));
         Assert.Equal(new[] { ItemKind.Kinds.PropertyGet }, asked);
     }
 }

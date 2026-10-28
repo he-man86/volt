@@ -314,7 +314,7 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     //   `__FB_LANG_network_unnamed_target_en__ImpVar15`. Both messages in each of these three quote that name,
     //   so matching them would mean reproducing the numbering of a pass the LSP does not have and does not
     //   want — it creates no implicit variables at all. The SHAPE is already reported: the unnamed sink draws
-    //   the compiler's own "The assignment target is not specified." from `network-analysis`.
+    //   the compiler's own "The assignment target is not specified." from the network check (`_plain-st.ts`).
     "network_unnamed_target_behind_enable",
     "ng_en_eno_sink",
     "ng_en_eno_named_wire",

@@ -9,18 +9,16 @@
 import type { SemanticTokens, SemanticTokensEdit } from "vscode-languageserver-protocol"
 import {
   allUnits,
-  graphicalBodies,
+  isPlainStNetworkBody,
   languageLineWords,
-  type Span,
+  plainStText,
   type Token,
   type TokenKind,
   type TopLevel,
   unitBodies,
-  NETWORK_TEXT_KEYWORDS,
-  walkValues,
 } from "../../frontend/syntax/index.js"
 import { bareEnumMember, dialectOf, lookup, type Scope } from "../../frontend/symbols/index.js"
-import { analyzeNetworkText, isKnownPrimitive } from "../../frontend/types/index.js"
+import { isKnownPrimitive } from "../../frontend/types/index.js"
 import { scopeAtOffset, SYMBOL_KINDS } from "../shared/index.js"
 import type { Document } from "../shared/index.js"
 
@@ -43,10 +41,9 @@ export const SEMANTIC_TOKEN_TYPES = [
   "comment",
   "macro",
   "namespace",
-  // A network-text wire — a vendor Demux, the one named fan-out point of a drawing, declared in its network's own
-  // `VAR_TEMP` block. Its own class so an editor can tell it from a variable the POU declares (openspec
-  // network-text-literal-nwl 5.3); volt-vscode declares it with `variable` as its super type, so a theme that knows
-  // nothing of it still paints it as a variable. LAST, so every other type keeps its index.
+  // A network-text wire — a name on a `%WIRES` line. Its own class so an editor can tell it from a variable the POU
+  // declares; volt-vscode declares it with `variable` as its super type, so a theme that knows nothing of it still
+  // paints it as a variable. LAST, so every other type keeps its index.
   "wire",
 ] as const
 
@@ -65,11 +62,9 @@ interface TokenRecord {
 /** Every classified token of a document, in order, absolute-positioned. */
 function tokenRecords(doc: Document, project: Scope): TokenRecord[] {
   const out: TokenRecord[] = []
-  const graphical = graphicalBodySpans(doc)
-  const wires = wireOccurrences(doc, project)
   const stated = languageLineWordStarts(doc.parseResult.units)
   for (const tok of doc.parseResult.tokens) {
-    const type = wires.has(tok.span.start) ? "wire" : stated.has(tok.span.start) ? "keyword" : classify(tok, doc, project, graphical)
+    const type = stated.has(tok.span.start) ? "keyword" : classify(tok, doc, project)
     if (type === undefined) continue
     // One record per LINE of the token: LSP allows a multi-line token only to a client stating `multilineTokenSupport`,
     // which this server does not ask (a block comment was coloured on its first line alone).
@@ -132,7 +127,7 @@ export function diffSemanticTokens(prev: readonly number[], next: readonly numbe
   return [{ start: p, deleteCount: prev.length - p - s, data: next.slice(p, next.length - s) }]
 }
 
-function classify(tok: Token, doc: Document, project: Scope, graphical: readonly Span[]): TokenType | undefined {
+function classify(tok: Token, doc: Document, project: Scope): TokenType | undefined {
   const byKind = KIND_TYPE[tok.kind]
   if (byKind !== undefined) return byKind
   if (tok.kind === "keyword") return "keyword"
@@ -140,50 +135,26 @@ function classify(tok: Token, doc: Document, project: Scope, graphical: readonly
   // Identifier — refine by the symbol it names in scope, else an elementary type name, else a plain variable.
   const scope = scopeAtOffset(doc, project, tok.span.start)
   const sym = lookup(scope, tok.text)?.symbol ?? bareEnumMember(scope, tok.text)
-  if (sym !== undefined) return SYMBOL_KINDS[sym.kind].token
-  // A network-text keyword. These are syntax of the FBD/LD sublanguage but NOT of ST, so the lexer returns
-  // them as identifiers and `NETWORK`/`END_NETWORK`/`PARALLEL` painted the same as a variable. Only inside a
-  // graphical body, and only AFTER the symbol lookup: a declared name wins, so a project that really has an
-  // FB called `Execute` still colours its calls as that FB while a bare `EXECUTE` block reads as syntax.
-  if (NETWORK_TEXT_KEYWORDS.has(tok.text.toUpperCase()) && graphical.some((s) => tok.span.start >= s.start && tok.span.end <= s.end))
-    return "keyword"
+  if (sym !== undefined) return sym.wire !== undefined ? "wire" : SYMBOL_KINDS[sym.kind].token
   if (isKnownPrimitive(tok.text, dialectOf(project))) return "type" // INT/BOOL/… are type names where the dialect has them
   return "variable"
 }
 
 /**
- * Where each network-text split is spelled — its definition and every reference — as start offsets (B6: `split<VarId>`,
- * a pattern the text reserves, so a POU variable named like one is backticked and is no split). Read off the same
- * analysis every other network service reads — the parse depends on the POU's scope, so a parse of its own could see
- * other statements than the diagnostics do.
- */
-function wireOccurrences(doc: Document, project: Scope): Set<number> {
-  const at = new Set<number>()
-  for (const { unit, body } of graphicalBodies(doc.parseResult.units))
-    for (const network of analyzeNetworkText(unit, body, project, doc.uri).vg.networks)
-      for (const split of network.splits) {
-        at.add(split.name.span.start)
-        for (const r of split.references) at.add(r.span.start)
-      }
-  return at
-}
-
-/**
- * Where the words of every body's `%LANGUAGE <LANG>` line start — `%`, `LANGUAGE`, the language, `UNSUPPORTED`.
- * They are syntax of a Volt file, not ST: the lexer hands them back as identifiers, and a lookup would paint them as
- * variables. Read off the parse, so only the line the splitter took as a body's boundary is coloured — never a
- * look-alike in a comment, or a variable someone named `ST`.
+ * Where the words of every body's `%LANGUAGE <LANG>` line start — `%`, `LANGUAGE`, the language, `UNSUPPORTED` — and
+ * the `%` and key of each `%` line of a network body (`%NETWORK`, `%WIRES`, …). They are syntax of a Volt file, not ST:
+ * the lexer hands them back as identifiers, and a lookup would paint them as variables. Read off the parse, so only a
+ * line the reader took is coloured — never a look-alike in a comment, or a variable someone named `ST`.
  */
 function languageLineWordStarts(units: readonly TopLevel[]): Set<number> {
   const at = new Set<number>()
   for (const unit of allUnits(units))
-    for (const body of unitBodies(unit)) for (const w of languageLineWords(body)) at.add(w.span.start)
+    for (const body of unitBodies(unit)) {
+      for (const w of languageLineWords(body)) at.add(w.span.start)
+      if (isPlainStNetworkBody(body))
+        for (const n of plainStText(body).networks) for (const l of n.lines) at.add(l.span.start).add(l.span.start + 1)
+    }
   return at
-}
-
-/** The spans of this document's graphical bodies — computed once per document, not per token. */
-function graphicalBodySpans(doc: Document): Span[] {
-  return [...graphicalBodies(doc.parseResult.units)].map((b) => b.body.span)
 }
 
 const KIND_TYPE: Partial<Record<TokenKind, TokenType>> = {

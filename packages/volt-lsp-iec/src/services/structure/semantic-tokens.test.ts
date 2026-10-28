@@ -21,21 +21,21 @@ test("an elementary type name colors as `type`, not `variable`", () => {
   expect(types).toContain("type") // INT / BOOL
 })
 
-// ─── network-text keywords ────────────────────────────────────────────────────
-// FBD/LD structure words are syntax of the sublanguage but not of ST, so the lexer returns them as plain
-// identifiers. Nothing coloured them — not the TextMate grammar either — so `NETWORK` and `END_NETWORK`
-// rendered exactly like a variable in a real graphical POU.
+// ─── network text ─────────────────────────────────────────────────────────────
+// The `%` lines of a network body are syntax of a Volt file, not ST, so the lexer returns their keys as plain
+// identifiers: they colour as keywords, and the code under them as the ST it is.
 
 const GRAPHICAL = `FUNCTION_BLOCK FB
 VAR
-\ta : BOOL; out : BOOL; g2 : BOOL; st : INT;
+\ta : BOOL; out : BOOL; g2 : BOOL; n : INT;
 END_VAR
 %LANGUAGE LD
-NETWORK DISABLED TITLE: "A title"
-  split1 := R_EDGE a;
-  out S= split1 BRANCH (g2, a);
-  out := MOVE 0 => st ENO EN split1;
-END_NETWORK
+%NETWORK "A title"
+%DISABLED
+%WIRES w1
+w1 := a AND g2;
+out := w1 OR a;
+n := SEL(w1, 0, 1);
 
 END_FUNCTION_BLOCK
 `
@@ -59,33 +59,22 @@ function typesOf(src: string, of: readonly string[]): Record<string, string> {
   return out
 }
 
-test("semantic tokens: network structure words colour as keywords, not variables", () => {
-  const t = typesOf(GRAPHICAL, ["NETWORK", "END_NETWORK", "TITLE", "DISABLED", "R_EDGE", "BRANCH", "ENO"])
-  expect(t).toEqual({
-    NETWORK: "keyword",
-    END_NETWORK: "keyword",
-    TITLE: "keyword",
-    DISABLED: "keyword",
-    R_EDGE: "keyword",
-    BRANCH: "keyword",
-    ENO: "keyword",
-  })
+test("semantic tokens: the keys of a network's % lines colour as keywords, not variables", () => {
+  expect(typesOf(GRAPHICAL, ["NETWORK", "DISABLED", "WIRES"])).toEqual({ NETWORK: "keyword", DISABLED: "keyword", WIRES: "keyword" })
 })
 
 test("semantic tokens: operands inside a network still colour as what they are", () => {
-  // The point is to colour the SYNTAX, not to repaint the body — `a`/`out` are still variables, and `g2`, a
-  // variable the POU declares that merely LOOKS like a wire, is one too.
-  const t = typesOf(GRAPHICAL, ["a", "out", "g2", "st"])
+  // The point is to colour the SYNTAX, not to repaint the body — `a`/`out`/`g2`/`n` are still variables.
+  const t = typesOf(GRAPHICAL, ["a", "out", "g2", "n"])
   expect(t.a).toBe("variable")
   expect(t.out).toBe("variable")
   expect(t.g2).toBe("variable")
-  expect(t.st).toBe("variable")
+  expect(t.n).toBe("variable")
 })
 
-test("semantic tokens: a wire has its own class, resolved through its network's scope", () => {
-  // A split is a vendor Demux — a fan-out point on the drawing — spelled `split<VarId>` and defined in its network
-  // (B6, no declaration), so it resolves only there: the POU scope has no `split1`, and without the network scope the
-  // classifier painted it a plain variable of nothing. Every occurrence gets the class: the definition and each reference.
+test("semantic tokens: a wire has its own class, resolved through its body's scope", () => {
+  // A wire is declared on its network's `%WIRES` line, so it resolves only in the body: the POU scope has no `w1`.
+  // Every occurrence gets the class: the declaration, the definition and each reference.
   const src = GRAPHICAL
   const doc = { uri: "file:///FB.pou", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
   const project = build.buildSymbolTable([{ uri: doc.uri, source: src, parseResult: doc.parseResult }], [], "codesys")
@@ -101,28 +90,7 @@ test("semantic tokens: a wire has its own class, resolved through its network's 
     if (SEMANTIC_TOKEN_TYPES[data[i + 3]!] === "wire")
       wires.push(`${line}:${lines[line]!.slice(ch, ch + data[i + 2]!)}`)
   }
-  expect(wires).toEqual(["6:split1", "7:split1", "8:split1"])
-})
-
-test("semantic tokens: a declared name beats the keyword list", () => {
-  // Resolution runs first, so a project that really has an FB called `Execute` still colours its calls as
-  // that FB. Only an unresolvable structure word falls through to `keyword`.
-  const src = `FUNCTION_BLOCK Outer
-VAR
-\tExecute : Inner;
-END_VAR
-
-%LANGUAGE FBD
-NETWORK
-  Execute(x := TRUE);
-END_NETWORK
-
-END_FUNCTION_BLOCK
-FUNCTION_BLOCK Inner
-VAR_INPUT x : BOOL; END_VAR
-END_FUNCTION_BLOCK
-`
-  expect(typesOf(src, ["Execute"]).Execute).toBe("variable")
+  expect(wires).toEqual(["7:w1", "8:w1", "9:w1", "10:w1"])
 })
 
 test("semantic tokens: a network word outside a graphical body is NOT a keyword", () => {
@@ -217,9 +185,8 @@ VAR
 	a : BOOL; b : BOOL; out : BOOL;
 END_VAR
 %LANGUAGE LD
-NETWORK
-out := (a AND b);
-END_NETWORK
+%NETWORK
+out := a AND b;
 END_FUNCTION_BLOCK`
     const { doc, project } = setup(src)
     const { data } = semanticTokens(doc, project)
@@ -285,12 +252,10 @@ VAR
 \ta : BOOL; b : BOOL; out : BOOL;
 END_VAR
 %LANGUAGE LD
-NETWORK
-out := (a AND b);
-END_NETWORK
-NETWORK
-out := (a OR b);
-END_NETWORK
+%NETWORK
+out := a AND b;
+%NETWORK
+out := a OR b;
 END_FUNCTION_BLOCK`
 
   test("semantic tokens: %LANGUAGE and its stated language colour as keywords", () => {

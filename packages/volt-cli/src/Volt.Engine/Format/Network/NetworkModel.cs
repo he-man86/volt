@@ -38,9 +38,9 @@ public enum BodyLanguage { Fbd, Ld }
 /// <para><see cref="Title"/>, <see cref="Label"/>, <see cref="Comment"/> and <see cref="Disabled"/> are the vendor's
 /// <c>INetwork</c> <c>Title</c> / <c>Label</c> / <c>Comment</c> / <c>OutCommented</c>, carried exactly as stored.</para>
 /// <para><see cref="Unsupported"/> (ld-fbd-coverage 1b.4): a network the text has no spelling for is SHOWN as one line,
-/// <c>UNSUPPORTED "&lt;shape&gt;" #&lt;hash&gt;;</c>, its header and comment kept. The field is the shape (the refusal's
+/// <c>%UNSUPPORTED "&lt;shape&gt;" #&lt;hash&gt;</c>, its header and comment kept. The field is the shape (the refusal's
 /// reason) and <see cref="UnsupportedHash"/> the 8 hex digits that tell two such networks apart
-/// (<see cref="NetworkTextWriter.Hash"/>); such a network holds no trees. A push keeps it untouched when its line pairs with
+/// (<see cref="NetworkHash.Of"/>); such a network holds no trees. A push keeps it untouched when its line pairs with
 /// the live network, and refuses it otherwise (<see cref="NetworkPairing"/>).</para></summary>
 public sealed record Network(
     int Order,
@@ -156,8 +156,7 @@ public sealed record Box(
 
     /// <summary>The vendor's literal marker for a call box whose INSTANCE has not been named — CODESYS stores
     /// the string <c>???</c> in the box's instance operand and draws it in the editor, so the engineer sees the
-    /// compile error. It is content, not a Volt spelling (which is why network text has no magic token for an
-    /// unconnected pin — see <c>NetworkTextReader.IsEmptyOperand</c>).
+    /// compile error. It is content, not a Volt spelling.
     ///
     /// <para><b>Such a box still has a real TYPE, and network text could not carry it.</b> Measured on
     /// `Lenze_MID-S100`'s `POU.pou` (<c>git show b2496efb4b:packages/volt-cli/scripts/probe-nwl-dump.py</c>): four boxes, each

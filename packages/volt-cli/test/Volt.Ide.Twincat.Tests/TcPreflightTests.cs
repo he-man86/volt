@@ -35,12 +35,12 @@ public class TcPreflightTests
         var scope = new NetworkScope(Array.Empty<string>(), Array.Empty<string>(),
                                      new Dictionary<string, string> { ["t1"] = "TON" });
         return new(site ?? BodySite.Item,
-                   V2NetworkText.Validate($"%LANGUAGE LD\nNETWORK\n  {statement}\nEND_NETWORK\n", scope), scope);
+                   NetworkText.Validate($"%LANGUAGE LD\n%NETWORK\n{statement}\n", scope), scope);
     }
 
     /// <summary>A shape the native builder refuses (a parallel branch: TwinCAT never wrote one to build it from). It was a
     /// box output pin wired to a variable, which only the PLCopen import could not take.</summary>
-    private const string Unimportable = "out := go BRANCH (a, b);";
+    private const string Unimportable = "out := BRANCH(FEED := go, a, b);";
 
     private static BodySite Method(string name) => new(name, ItemKind.Kinds.Method, null);
 

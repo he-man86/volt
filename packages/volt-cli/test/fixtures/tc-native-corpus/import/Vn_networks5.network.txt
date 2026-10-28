@@ -1,16 +1,11 @@
 %LANGUAGE FBD
-NETWORK
-  out2 := a AND b;
-END_NETWORK
-NETWORK
-  out3 := a AND b;
-END_NETWORK
-NETWORK
-  out1 := a AND b;
-END_NETWORK
-NETWORK
-  out2 := a AND b;
-END_NETWORK
-NETWORK
-  out3 := a AND b;
-END_NETWORK
+%NETWORK
+out2 := AND(a, b);
+%NETWORK
+out3 := AND(a, b);
+%NETWORK
+out1 := AND(a, b);
+%NETWORK
+out2 := AND(a, b);
+%NETWORK
+out3 := AND(a, b);

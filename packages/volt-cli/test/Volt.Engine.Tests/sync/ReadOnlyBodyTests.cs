@@ -310,7 +310,7 @@ public class ReadOnlyBodyTests
     [Theory]
     [InlineData("CFC", null, "\nx := 1;")]
     [InlineData("IL", null, "\n\nx := 1;")]
-    [InlineData("LD", "a vendor split point", "\nNETWORK\n  x := 1;\nEND_NETWORK")]
+    [InlineData("LD", "a vendor split point", "\n%NETWORK\nx := 1;")]
     [InlineData("SFC", null, " x := 1;")]                       // after the line, on it
     [InlineData("FBD", "a vendor split point", " x := 1;")]
     // A comment or pragma is text under the line too: no driver writes a hidden body, so it would be silently lost.

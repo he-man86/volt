@@ -7,14 +7,14 @@ using Volt.Engine.Format.Network;
 namespace Volt.Tests.Shared;
 
 /// <summary>
-/// THE SHARED NETWORK-TEXT CASE SET (openspec <c>ld-fbd-coverage</c> design "2R.3"): <c>test/fixtures/network-text/</c>,
+/// THE SHARED NETWORK-TEXT CASE SET (openspec <c>network-text-st</c> design oracle 2): <c>test/fixtures/network-text-st/</c>,
 /// <c>accept/*.cases</c> (a text and the model it reads to) and <c>refuse/*.cases</c> (a text and the refusal it gets),
-/// read by this suite and by the LSP's (<c>packages/volt-lsp-iec/src/frontend/types/network/network-cases.test.ts</c>) —
+/// read by this suite and by the LSP's (<c>packages/volt-lsp-iec/src/analysis/checks/network/_plain-st.test.ts</c>) —
 /// one source, so "the LSP refuses while typing what a push would refuse" is a parity both suites check, not two lists
 /// kept in step by hand. A case one side accepts and the other refuses fails both.
 ///
 /// <code>
-///   #### name — one line: what the case pins, and the rule (B1 … B8, P1 … P13)
+///   #### name — optional: one line, what the case pins
 ///   === scope            optional: `instance t1 TON`, `pou f`, `name x` — the declarations the body sees
 ///   === text             the body, its %LANGUAGE line first
 ///   === model            accept: the model it reads to (NetworkModelDump)
@@ -54,11 +54,9 @@ public sealed record NetworkTextCase(string File, string Name, string Text, stri
 
 public static class NetworkTextCases
 {
-    public static string Root() => Path.Combine(CorpusProjects.CliRoot().FullName, "test", "fixtures", "network-text");
-
-    /// <summary>The PLAIN-ST case set (openspec network-text-st 2.3): the same format, in plain-ST network text, read by
-    /// <c>StNetworkCaseTests</c> and by the LSP's network check (<c>_plain-st.test.ts</c>).</summary>
-    public static string StRoot() => Path.Combine(CorpusProjects.CliRoot().FullName, "test", "fixtures", "network-text-st");
+    /// <summary>The case set: <c>test/fixtures/network-text-st</c>, read by <c>StNetworkCaseTests</c> and by the LSP's
+    /// network check (<c>_plain-st.test.ts</c>).</summary>
+    public static string Root() => Path.Combine(CorpusProjects.CliRoot().FullName, "test", "fixtures", "network-text-st");
 
     public static IReadOnlyList<NetworkTextCase> All() => AllIn(Root());
 

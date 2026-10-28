@@ -22,10 +22,6 @@ export const doc = "network-text.html"
 export const NOT_ST = "the exec oracle checks the ST transpiler, which has no graphical lowering — nothing would read it"
 
 /** A graphical FB, instantiated in PLC_PRG — an uninstantiated POU is dead code CODESYS never compiles. */
-/** Volt's push refusing an operator box with EN read through its ENO, its value wired nowhere (X3, v2-measurements 3c: it
- *  stores and does not build — the recordings of the shape fail on both vendors) — the shared validator's words. */
-export const x3 = (box: string): string =>
-  `NETWORK_UNSUPPORTED: an operator box read through its ENO with no output wired: the '${box}' box is read through its ENO and writes its value nowhere: it stores and does not build (X3) — wire it, \`=> t\`. — Volt's push, before the IDE is asked (2R.6b)`
 
 export function ng(name: string, pouName: string, feature: string, source: string, fromDoc = doc, note?: string): LanguageTest {
   return {
@@ -44,44 +40,22 @@ export function ng(name: string, pouName: string, feature: string, source: strin
 }
 
 /**
- * The bodies VOLT'S TWINCAT DRIVER refuses, in its own words — as the push gives them, re-recorded 2026-10-17 (Project13,
- * LCID 1033) after the native archive writer replaced TwinCAT's PLCopen import (openspec twincat-inproc-host). Every
- * shape the import refused or reshaped and the writer builds left this list with a TwinCAT recording (an output pin, an
- * Execute box, a nested assignment, a leaf-fed split, a SUPER^ call, a result pin, a nested jump, a named ENO, an array
- * element's call, …). What stays is refused by the native builder for a reason of its own — an enabled bit operator
- * read through ENO does not compile as built, this reader cannot read a pin's InputFlags back, TwinCAT never wrote a
- * parallel branch — or is a 2R.5 shape no TwinCAT build has measured yet (`TcUnmeasured`). `volt-cli`'s
- * `test/e2e/graphical/stored-shapes.test.ts` holds the same shapes against a LIVE IDE.
+ * The bodies VOLT'S TWINCAT DRIVER refuses, in its own words — as the push gives them (Project13, LCID 1033): an enabled
+ * bit operator read through its ENO does not compile as built, TwinCAT never wrote a parallel branch, and a 2R.5 shape no
+ * TwinCAT build has measured yet (`TcUnmeasured`). `volt-cli`'s `test/e2e/graphical/stored-shapes.test.ts` holds the same
+ * shapes against a LIVE IDE.
  */
 export const TWINCAT_REFUSES: Record<string, string | undefined> = {
-  ng_s6_negated_pin:
-    "TwinCAT: the 'AND' box carries a modifier on its input pin (positional), which TwinCAT keeps in the box's InputFlags — a member this vendor's reader cannot read back (TcNetworkReader refuses a populated InputFlags), so the next pull could not show it. Put the modifier on what feeds the pin.",
-  ng_s6_negated_int_pin:
-    "TwinCAT: the 'ADD' box carries a modifier on its input pin (positional), which TwinCAT keeps in the box's InputFlags — a member this vendor's reader cannot read back (TcNetworkReader refuses a populated InputFlags), so the next pull could not show it. Put the modifier on what feeds the pin.",
-  ng_r5_coil_and_jump:
-    "TwinCAT: network 1 is built and holds a jump or a return beside another coil on one rung, which no TwinCAT build has been measured for (stored, reloaded, built and pulled back), so Volt does not write it by a guess. The IDE can make this change.",
-  ng_r5_coil_and_return:
-    "TwinCAT: network 1 is built and holds a jump or a return beside another coil on one rung, which no TwinCAT build has been measured for (stored, reloaded, built and pulled back), so Volt does not write it by a guess. The IDE can make this change.",
-  ng_r5_two_jumps:
-    "TwinCAT: network 1 is built and holds a jump or a return beside another coil on one rung, which no TwinCAT build has been measured for (stored, reloaded, built and pulled back), so Volt does not write it by a guess. The IDE can make this change.",
-  ng_r5_jump_set:
-    "TwinCAT: network 1 is built and holds a jump or a return with S= or R=, which no TwinCAT build has been measured for (stored, reloaded, built and pulled back), so Volt does not write it by a guess. The IDE can make this change.",
-  ng_r5_return_set:
-    "TwinCAT: network 1 is built and holds a jump or a return with S= or R=, which no TwinCAT build has been measured for (stored, reloaded, built and pulled back), so Volt does not write it by a guess. The IDE can make this change.",
-  ng_r5_negated_coil:
-    "TwinCAT: network 1 is built and holds a negated coil on 'x', which no TwinCAT build has been measured for (stored, reloaded, built and pulled back), so Volt does not write it by a guess. The IDE can make this change.",
-  ng_r5_edge_coils:
-    "TwinCAT: network 1 is built and holds an edge coil on 'x', which no TwinCAT build has been measured for (stored, reloaded, built and pulled back), so Volt does not write it by a guess. The IDE can make this change.",
-  ng_r5_edge_pin:
-    "TwinCAT: the 'AND' box carries a modifier on its input pin (positional), which TwinCAT keeps in the box's InputFlags — a member this vendor's reader cannot read back (TcNetworkReader refuses a populated InputFlags), so the next pull could not show it. Put the modifier on what feeds the pin.",
-  ng_r5_negated_en:
-    "TwinCAT: network 1 is built and holds a modifier on the EN pin of the 'MOVE' box, which no TwinCAT build has been measured for (stored, reloaded, built and pulled back), so Volt does not write it by a guess. The IDE can make this change.",
-  ng_r5_negated_empty:
-    "TwinCAT: network 1 is built and holds a negated empty slot, which no TwinCAT build has been measured for (stored, reloaded, built and pulled back), so Volt does not write it by a guess. The IDE can make this change.",
+  network_unnamed_target_behind_enable:
+    "TwinCAT: the 'NOT' box has an EN pin, and TwinCAT does not compile an enabled NOT built with only its ENO output (measured: \"__ImpVar not defined\"); the box its editor draws keeps a result slot the text has no position for. Draw it in the IDE, or feed the rung into the box as an input.",
+  ng_en_eno_sink:
+    "TwinCAT: the 'AND' box has an EN pin, and TwinCAT does not compile an enabled AND built with only its ENO output (measured: \"__ImpVar not defined\"); the box its editor draws keeps a result slot the text has no position for. Draw it in the IDE, or feed the rung into the box as an input.",
+  ng_en_eno_named_wire:
+    "TwinCAT: the 'OR' box has an EN pin, and TwinCAT does not compile an enabled OR built with only its ENO output (measured: \"__ImpVar not defined\"); the box its editor draws keeps a result slot the text has no position for. Draw it in the IDE, or feed the rung into the box as an input.",
   ng_r5_split_before_definition:
-    "TwinCAT: network 1 is built and holds the split split1 referenced above its definition, which no TwinCAT build has been measured for (stored, reloaded, built and pulled back), so Volt does not write it by a guess. The IDE can make this change.",
+    "TwinCAT: network 1 is built and holds a wire referenced above its definition, which no TwinCAT build has been measured for (stored, reloaded, built and pulled back), so Volt does not write it by a guess. The IDE can make this change.",
   ng_r5_split_nested:
-    "TwinCAT: network 1 is built and holds the split split1 defined below the top level, which no TwinCAT build has been measured for (stored, reloaded, built and pulled back), so Volt does not write it by a guess. The IDE can make this change.",
+    "TwinCAT: network 1 is built and holds a wire defined below the top level, which no TwinCAT build has been measured for (stored, reloaded, built and pulled back), so Volt does not write it by a guess. The IDE can make this change.",
   ng_r5_empty_branch:
-    "TwinCAT: this network holds a parallel branch (`feed BRANCH (a, b)`), and TwinCAT has never been seen to write one: its own importer lowers parallel contacts to an OR box (the native corpus, Vn_ld_parallel*), and the editor cannot be driven to draw one, so there is no TwinCAT-written BoxTreeParallel to build it from. Draw it in the IDE.",
+    "TwinCAT: this network holds a parallel branch (`BRANCH(FEED := feed, a, b)`), and TwinCAT has never been seen to write one: its own importer lowers parallel contacts to an OR box (the native corpus, Vn_ld_parallel*), and the editor cannot be driven to draw one, so there is no TwinCAT-written BoxTreeParallel to build it from. Draw it in the IDE.",
 }

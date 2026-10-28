@@ -47,8 +47,8 @@ public class CodesysCalleeDerivationTests
         var scope = NetworkScope.FromDeclarations(Own, n => Items.TryGetValue(n, out var d) ? d : null,
             () => Array.Empty<string>(), n => Items.ContainsKey(n) ? ItemKind.Kinds.Pou : null, Scopes.RefusedPouName,
             n => Volt.Engine.Library.LibraryFunctions.Of(Libraries, n));
-        // As the push validates it (NetworkTextGate: the input names are derived there, for either driver).
-        var read = NetworkTextGate.Validate($"%LANGUAGE FBD\nNETWORK\n  {statement}\nEND_NETWORK\n", scope);
+        // As the push validates it (StNetworkGate: the input names are derived there, for either driver).
+        var read = StNetworkGate.Validate($"%LANGUAGE FBD\n%NETWORK\n{statement}\n", scope);
         Assert.True(read.Ok, string.Join("\n", read.Diagnostics.Select(d => d.Message)));
         var impl = new Nwl.NWLImplementationObject { DefaultViewMode = "Fbd" };
         CodesysNetworkWriter.Write(new Holder(impl), read.Body!, scope);

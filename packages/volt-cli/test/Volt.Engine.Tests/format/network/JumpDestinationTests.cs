@@ -45,21 +45,21 @@ public class JumpDestinationTests
     {
         var body = jumpFirst ? Rung(("Onwards", true), ("out", false)) : Rung(("out", false), ("Onwards", true));
 
-        var text = NetworkTextWriter.Write(body, NetworkScope.Empty);
+        var text = StNetworkWriter.Write(body, NetworkScope.Empty);
 
-        Assert.Contains(jumpFirst ? "  JMP Onwards := out := ;\n" : "  out := JMP Onwards := ;\n", text);
-        var read = NetworkTextReader.Read(text, NetworkScope.Empty);
-        Assert.True(read.Ok, string.Join("\n", read.Diagnostics.Select(d => d.Message)));
-        var assign = Assert.IsType<Assign>(Assert.Single(read.Body!.Networks[0].Trees));
-        Assert.Equal(new[] { "Onwards" }, assign.Targets.Where(t => t.Flags?.Jump == true).Select(t => t.Text));
-        Assert.Equal(new[] { "out" }, assign.Targets.Where(t => t.Flags?.Jump != true).Select(t => t.Text));
+        // one item per target, the coil first (openspec network-text-st 3.0), on the rail
+        Assert.Contains("\nout := TRUE;\nJMP Onwards;\n", text);
+        var read = StNetworkReader.Read(text, NetworkScope.Empty);
+        var items = read.Networks[0].Trees.Cast<Assign>().ToList();
+        Assert.Equal(new[] { "Onwards" }, items.SelectMany(a => a.Targets).Where(t => t.Flags?.Jump == true).Select(t => t.Text));
+        Assert.Equal(new[] { "out" }, items.SelectMany(a => a.Targets).Where(t => t.Flags?.Jump != true).Select(t => t.Text));
     }
 
     [Fact]
     public void A_lone_jump_names_its_flagged_target()
     {
-        var text = NetworkTextWriter.Write(Rung(("Onwards", true)), NetworkScope.Empty);
+        var text = StNetworkWriter.Write(Rung(("Onwards", true)), NetworkScope.Empty);
 
-        Assert.Contains("  JMP Onwards := ;\n", text);
+        Assert.Contains("\nJMP Onwards;\n", text);
     }
 }

@@ -6,7 +6,7 @@
 import { test, expect } from "bun:test"
 import { parseSource } from "../../frontend/syntax/index.js"
 import { definition } from "./index.js"
-import { referencesAnywhere as references, renameAnywhere as rename } from "../network/index.js" // the shipped path
+import { references, rename } from "./rename.js"
 import type { Document } from "../shared/index.js"
 import { build } from "../../frontend/symbols/index.js"
 

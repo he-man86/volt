@@ -1,6 +1,6 @@
 %LANGUAGE FBD
-NETWORK
-  split1 := MAX(i1, i2);
-  n := split1 ADD 1;
-  sv := split1 MUL 2;
-END_NETWORK
+%NETWORK
+%WIRES w1
+w1 := MAX(i1, i2);
+n := ADD(w1, 1);
+sv := MUL(w1, 2);

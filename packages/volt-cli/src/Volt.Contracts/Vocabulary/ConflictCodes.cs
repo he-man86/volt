@@ -16,7 +16,7 @@ namespace Volt.Contracts;
 ///
 /// <para><b>Why the NETWORK family lives here and not in the Engine that raises it.</b> Clients observe these
 /// strings, so they belong to the contract a client reads (and the generated docs), not to literals inside
-/// <c>NetworkTextReader</c>.</para>
+/// <c>StNetworkReader</c>.</para>
 ///
 /// <para>Contracts holds no Engine reference, so the Engine cannot import these — the gate in
 /// <c>DocDataTests</c> checks the other way instead: every <c>NETWORK_*</c> literal the Engine raises must be
@@ -26,35 +26,17 @@ public static class ConflictCodes
 {
     // ── the graphical body format (see docs/network-text.html#diagnostics) ──────────────────────────
 
-    /// <summary>Any other structural parse failure: a statement before any network, an unexpected
-    /// <c>END_NETWORK</c>, a statement without its <c>;</c>.</summary>
+    /// <summary>Network text a network may not hold, refused by name with its line: the reader's every refusal (a
+    /// statement no network holds, an infix box, a wire defined twice, …).</summary>
     public const string NetworkParse = "NETWORK_PARSE";
 
-    /// <summary>A <c>NETWORK</c> block with no <c>END_NETWORK</c>.</summary>
-    public const string NetworkNotClosed = "NETWORK_NOT_CLOSED";
-
-    /// <summary>A wire declared or defined twice in one network, or named like a name in scope (case-insensitively).</summary>
-    public const string NetworkDuplicateName = "NETWORK_DUPLICATE_NAME";
-
-    /// <summary>A malformed operator group — partial parens, mixed operators in one group, or an operator
-    /// with no right-hand operand.</summary>
-    public const string NetworkBadExpression = "NETWORK_BAD_EXPRESSION";
-
-    /// <summary>An operator symbol that is not in the FBD/LD operator table.</summary>
-    public const string NetworkUnknownOperator = "NETWORK_UNKNOWN_OPERATOR";
-
-    /// <summary>A body shape network text has no spelling for, refused by name — raised by the reader (a flag
-    /// on a wire reference, nested edges, a POU named like a construct) and by the gate when the WRITER has no
-    /// spelling for a fact of the model the text reads to.</summary>
+    /// <summary>A body shape network text has no spelling for, refused by name — when the WRITER has no spelling for a
+    /// fact of the model the text reads to, and a pushed UNSUPPORTED line a push cannot pair.</summary>
     public const string NetworkUnsupported = "NETWORK_UNSUPPORTED";
 
     /// <summary>The whole <c>NETWORK_*</c> family, for a client that wants to branch on "is this a graphical
     /// body problem" without listing them.</summary>
-    public static readonly string[] Network =
-    {
-        NetworkParse, NetworkNotClosed,
-        NetworkDuplicateName, NetworkBadExpression, NetworkUnknownOperator, NetworkUnsupported,
-    };
+    public static readonly string[] Network = { NetworkParse, NetworkUnsupported };
 
     // ── the optimistic-concurrency gate ────────────────────────────────────────────────────────────
 

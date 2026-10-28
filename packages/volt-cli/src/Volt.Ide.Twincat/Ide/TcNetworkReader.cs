@@ -545,7 +545,7 @@ internal static class TcNetworkReader
     /// <c>&lt;o n="Instance" t="Operand"&gt;</c> on EVERY box and spells emptiness inside it, as an explicit
     /// <c>&lt;n n="Operand" /&gt;</c> null scalar - the same serializer writes real nulls that way everywhere,
     /// so the element is never evidence of a value. Testing the member instead of the scalar made
-    /// <c>Instance</c> non-null for every box, so <c>NetworkTextWriter.Definition</c> took its instance arm for
+    /// <c>Instance</c> non-null for every box, so the text writer took its instance arm for
     /// anything outside the operator table and rendered the callee's NAME away:
     /// <c>xoutput := ( := xtest,  := xtest2);</c> - unparseable, so the POU could never be pushed back. It also
     /// made <c>CallKindOf</c> incapable of ever answering <c>Function</c>.</para></summary>

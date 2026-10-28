@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  out := (((i1 ADD i2) GT i3) AND a) OR (b AND `NOT`(c));
-END_NETWORK
+%NETWORK
+out := OR(AND(GT(ADD(i1, i2), i3), a), AND(b, NOT(c)));

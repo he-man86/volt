@@ -179,7 +179,7 @@ internal sealed class TcArchiveBuilder
 
             case Parallel:
                 throw Unbuildable(
-                    "this network holds a parallel branch (`feed BRANCH (a, b)`), and TwinCAT has never been seen to write one: its own " +
+                    "this network holds a parallel branch (`BRANCH(FEED := feed, a, b)`), and TwinCAT has never been seen to write one: its own " +
                     "importer lowers parallel contacts to an OR box (the native corpus, Vn_ld_parallel*), and the editor cannot " +
                     "be driven to draw one, so there is no TwinCAT-written BoxTreeParallel to build it from. Draw it in the IDE.");
 

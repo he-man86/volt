@@ -33,7 +33,7 @@ public class ChildDirectiveTests
             Body: "",
             Members: new List<Member>
             {
-                Child("action", "BF01", "ACTION BF01", "%LANGUAGE FBD\nNETWORK\n  i1 := a;\n  out := i1;\nEND_NETWORK", "MFB01_Basic Functions"),
+                Child("action", "BF01", "ACTION BF01", "%LANGUAGE FBD\n%NETWORK\n%WIRES w1\nw1 := a;\nout := w1;", "MFB01_Basic Functions"),
                 Child("action", "TA01", "ACTION TA01", "x := 1;", "Sub/Deep"),
             }, ObjectProperties.None);
 
@@ -51,10 +51,10 @@ public class ChildDirectiveTests
             "ACTION BF01",
             "%LANGUAGE FBD",   // the graphical body's own marker, in the bare one's place
             "%FOLDER MFB01_Basic Functions",
-            "NETWORK",
-            "  i1 := a;",
-            "  out := i1;",
-            "END_NETWORK",
+            "%NETWORK",
+            "%WIRES w1",
+            "w1 := a;",
+            "out := w1;",
             "END_ACTION",
             "",
             "ACTION TA01",
@@ -74,7 +74,7 @@ public class ChildDirectiveTests
 
         var bf = split.Members.First(ch => ch.Name == "BF01");
         Assert.Equal("MFB01_Basic Functions", bf.Folder);
-        Assert.Equal("%LANGUAGE FBD\nNETWORK\n  i1 := a;\n  out := i1;\nEND_NETWORK", bf.Body);   // %FOLDER peeled off, the marker back in front
+        Assert.Equal("%LANGUAGE FBD\n%NETWORK\n%WIRES w1\nw1 := a;\nout := w1;", bf.Body);   // %FOLDER peeled off, the marker back in front
         Assert.True(NetworkText.Is(bf.Body));
 
         var ta = split.Members.First(ch => ch.Name == "TA01");
@@ -84,30 +84,27 @@ public class ChildDirectiveTests
     }
 
     [Fact]
-    public void Graphical_pou_var_temp_stays_in_impl_not_decl()
+    public void Graphical_pou_body_stays_in_impl_not_decl()
     {
-        // Regression: a graphical body's VAR_TEMP must NOT be split into the POU declaration. (It used
-        // to: the decl/impl split scanned for the LAST END_VAR, which is the network text VAR_TEMP's — so push
-        // wrote temp vars into the POU and corrupted it, breaking every later read.)
+        // A graphical body's lines are the body's: the decl/impl split is the language line, so nothing of the
+        // network text reaches the POU declaration.
         var st = "PROGRAM POU\nVAR\n  out1 : BOOL;\n  R_TRIG_0 : R_TRIG;\nEND_VAR\n\n" +
-                 "%LANGUAGE FBD\nNETWORK\n  VAR_TEMP\n    g1 : BOOL;\n  END_VAR\n" +
-                 "  g1 := (a AND a);\n  out1 := g1;\nEND_NETWORK\n\nEND_PROGRAM\n";
+                 "%LANGUAGE FBD\n%NETWORK\n%WIRES w1\n" +
+                 "w1 := AND(a, a);\nout1 := w1;\n\nEND_PROGRAM\n";
         var s = StReader.Read(st, ItemKind.Kinds.Pou);
         Assert.Contains("PROGRAM POU", s.Declaration);
         Assert.Contains("out1 : BOOL;", s.Declaration);
-        Assert.DoesNotContain("VAR_TEMP", s.Declaration);   // network text temps never leak into the decl
         Assert.DoesNotContain("NETWORK", s.Declaration);
-        Assert.StartsWith("%LANGUAGE FBD\nNETWORK", s.Body);
-        Assert.Contains("VAR_TEMP", s.Body);      // they stay in the body
-        Assert.Contains("g1 := (a AND a);", s.Body);
+        Assert.DoesNotContain("WIRES", s.Declaration);
+        Assert.StartsWith("%LANGUAGE FBD\n%NETWORK\n%WIRES w1", s.Body);
+        Assert.Contains("w1 := AND(a, a);", s.Body);
     }
 
     [Theory]
-    [InlineData("%LANGUAGE FBD\nNETWORK\n  out := i1;\nEND_NETWORK", "FBD", true)]   // editable: language on the marker
-    [InlineData("%LANGUAGE LD\nNETWORK\n  out := i1;\nEND_NETWORK", "LD", true)]
+    [InlineData("%LANGUAGE FBD\n%NETWORK\nout := i1;", "FBD", true)]   // editable: language on the marker
+    [InlineData("%LANGUAGE LD\n%NETWORK\nout := i1;", "LD", true)]
     [InlineData("%LANGUAGE LD", "LD", true)]   // a graphical body with no network is still one
     [InlineData("x := 1;", null, false)]      // textual ST — and read-only CFC/SFC (declaration-only) too: not a network-text body
-    [InlineData("NETWORK 0 LD\n  out := i1;\nEND_NETWORK", null, false)]   // v1: refused by name on push, never read as network text
     public void NetworkText_classifies_language_and_editability(string impl, string? lang, bool editable)
     {
         Assert.Equal(lang != null, NetworkText.Is(impl));
@@ -121,8 +118,8 @@ public class ChildDirectiveTests
     [Fact]
     public void An_ST_function_block_with_an_LD_method_and_an_FBD_getter()
     {
-        const string ld = "%LANGUAGE LD\nNETWORK\n  out := a;\nEND_NETWORK";
-        const string fbd = "%LANGUAGE FBD\nNETWORK\n  Speed := a;\nEND_NETWORK";
+        const string ld = "%LANGUAGE LD\n%NETWORK\nout := a;";
+        const string fbd = "%LANGUAGE FBD\n%NETWORK\nSpeed := a;";
         var pou = new ItemContent(
             Kind: ItemKind.Kinds.Pou,
             Declaration: "FUNCTION_BLOCK FB\nVAR\n  a : BOOL;\n  out : BOOL;\nEND_VAR",
@@ -149,17 +146,15 @@ public class ChildDirectiveTests
             "",
             "METHOD Run : BOOL",
             "%LANGUAGE LD",
-            "NETWORK",
-            "  out := a;",
-            "END_NETWORK",
+            "%NETWORK",
+            "out := a;",
             "END_METHOD",
             "",
             "PROPERTY Speed : BOOL",
             "GET",
             "%LANGUAGE FBD",
-            "NETWORK",
-            "  Speed := a;",
-            "END_NETWORK",
+            "%NETWORK",
+            "Speed := a;",
             "END_GET",
             "END_PROPERTY",
             ""), st);

@@ -74,10 +74,11 @@ public class CodesysRebuildLossTests
         var shown = CodesysNetworkReader.ReadShown(impl, BodyLanguage.Ld);
         var scope = new NetworkScope(new[] { "a", "b", "c", "x1", "x2", "x3", "x4", "x5", "x6", "x7" },
             Array.Empty<string>(), new Dictionary<string, string>());
-        var text = edit(NetworkTextWriter.WritePulled(shown, scope));
-        var read = NetworkTextReader.Read(text, scope);
-        Assert.True(read.Ok, string.Join("\n", read.Diagnostics.Select(d => d.Message)) + "\n\n" + text);
-        return CaptureStdErr(() => CodesysNetworkWriter.Write(new Holder(impl), read.Body!, scope));
+        var pulled = StNetworkWriter.WritePulled(shown, scope);
+        var text = edit(pulled);
+        Assert.NotEqual(pulled, text);
+        var read = StNetworkReader.Read(text, scope);
+        return CaptureStdErr(() => CodesysNetworkWriter.Write(new Holder(impl), read, scope));
     }
 
     static Nwl.NWLImplementationObject Body(params Nwl.BoxTreeAssign[] rungs)
@@ -172,13 +173,12 @@ public class CodesysRebuildLossTests
         var shown = CodesysNetworkReader.ReadShown(impl, BodyLanguage.Fbd);
         var scope = new NetworkScope(new[] { "a", "b", "c", "x6", "t1" }, Array.Empty<string>(),
             new Dictionary<string, string> { ["t1"] = "TON" });
-        var pulled = NetworkTextWriter.WritePulled(shown, scope);
+        var pulled = StNetworkWriter.WritePulled(shown, scope);
         var edited = pulled.Replace("IN := a", "IN := c");
         Assert.NotEqual(pulled, edited);
-        var read = NetworkTextReader.Read(edited, scope);
-        Assert.True(read.Ok, string.Join("\n", read.Diagnostics.Select(d => d.Message)) + "\n\n" + edited);
+        var read = StNetworkReader.Read(edited, scope);
 
-        var said = CaptureStdErr(() => CodesysNetworkWriter.Write(new Holder(impl), read.Body!, scope));
+        var said = CaptureStdErr(() => CodesysNetworkWriter.Write(new Holder(impl), read, scope));
 
         Assert.Contains("OutputParam.Names ×1 (vendor-facts row nwl-output-param-names)", said);
         Assert.Contains("OutputParam.Types ×1 (vendor-facts row nwl-param-types)", said);
@@ -192,7 +192,7 @@ public class CodesysRebuildLossTests
         var impl = Body(DrawnRung("x1", 10), DrawnRung("x2", 20), DrawnRung("x3", 30), DrawnRung("x4", 40),
             DrawnRung("x5", 50), DrawnRung("x7", 70));
 
-        var said = Push(impl, t => t.Replace("NETWORK\n  x7 :=", "NETWORK TITLE: \"seven\"\n  x7 :="));
+        var said = Push(impl, t => t.Replace("%NETWORK\nx7 :=", "%NETWORK \"seven\"\nx7 :="));
 
         Assert.DoesNotContain("is rebuilt from its text", said);
         Assert.Equal("seven", ((Nwl.Network)impl.NetworkList[5]).Title);

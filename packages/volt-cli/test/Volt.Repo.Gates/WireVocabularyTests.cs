@@ -205,27 +205,13 @@ public class WireVocabularyTests
             ("Volt.Engine/Sync/PushService.cs", 2))),   // +1 every op a refusal before the first write did not reach (wire-final-shape §5)
 
         // ── the graphical body format ──────────────────────────────────────────────────────────────────────────
-        new("network text that does not parse", "fix the text at the line", "NETWORK_PARSE", At(
-            ("Volt.Engine/Format/Network/NetworkLexer.cs", 8),   // 2R.6b: a bad escape in a comment, title or backtick, and text after EXECUTE on its line
+        new("network text a network may not hold", "fix the text at the line", "NETWORK_PARSE", At(
             ("Volt.Engine/Format/Network/StNetworkGate.cs", 1),   // network-text-st 3.1: the plain-ST reader refuses the text, by name, with its line
-            ("Volt.Engine/Format/Network/NetworkText.cs", 1),
-            ("Volt.Engine/Format/Network/NetworkTextReader.cs", 26))),   // 2R.6b (v2-spec): the old spellings that fail as no parse, each naming the new one; -1 the v1 detector (volt-cli-rework 3.1)
-        new("a NETWORK block with no END_NETWORK", "close the block", "NETWORK_NOT_CLOSED", At(
-            ("Volt.Engine/Format/Network/NetworkTextReader.cs", 1))),
-        new("a wire declared twice, or named like a name in scope", "rename the wire", "NETWORK_DUPLICATE_NAME", At(
-            ("Volt.Engine/Format/Network/NetworkValidator.cs", 1))),   // 2R.6b: a split defined twice (X17), checked once over the model
-        new("a malformed operator group", "fix the expression", "NETWORK_BAD_EXPRESSION", At(
-            ("Volt.Engine/Format/Network/NetworkTextReader.cs", 59),   // 2R.6b (v2-spec): the indentation check ("missing `;`?"), the bracket rules, one tree one text (a redundant bracket, the call form where a word holds it), ENO without EN, `.name` misuse, the split's type, the old symbols
-            ("Volt.Engine/Format/Network/NetworkValidator.cs", 1))),   // 2R.6b: a split read and defined nowhere (X17)
-        new("an operator outside the FBD/LD table", "use an operator of the table", "NETWORK_UNKNOWN_OPERATOR", At(
-            ("Volt.Engine/Format/Network/NetworkTextReader.cs", 1))),
+            ("Volt.Engine/Format/Network/NetworkText.cs", 1))),
         new("a body shape network text has no spelling for", "draw it in the IDE", "NETWORK_UNSUPPORTED", At(
             ("Volt.Engine/Format/Network/StNetworkGate.cs", 1),   // network-text-st 3.1: a pushed model the plain-ST writer cannot spell
             ("Volt.Engine/Format/Network/NetworkText.cs", 1),
-            ("Volt.Engine/Format/Network/NetworkValidator.cs", 1),   // 2R.6b: the shape refusals (X3–X17, the MEASURE shapes), checked once over the model
-            ("Volt.Engine/Format/Network/NetworkTextWriter.cs", 1),   // 2R.6b: the validator's refusals (X3–X17, the MEASURE shapes) raised as one exception, by the code each names
             ("Volt.Engine/Format/Network/NetworkPairing.cs", 3),   // a pushed UNSUPPORTED line no live network pairs with (1b.4); +2 a removal that would erase what the text does not show — beside an insertion, or beside a network showing the same text (gate 1b-4)
-            ("Volt.Engine/Format/Network/NetworkTextReader.cs", 8),   // 2R.6b: the reader keeps only what the grammar itself refuses (an UNSUPPORTED line beside other statements, a function read by `.name`, …); the shape refusals moved to the shared validator (NetworkValidator), raised through NetworkTextWriter
             // A shape the native builder has no TwinCAT form for (PARALLEL, a pin flag, an enabled bit operator,
             // a consumed call with no slot for its consumer) — it replaced the PLCopen import's refusals (twincat-inproc-host).
             ("Volt.Ide.Twincat/Ide/TcArchiveBuilder.cs", 1),
@@ -482,8 +468,6 @@ public class WireVocabularyTests
     private static readonly Dictionary<string, int> Invariants = At(
         ("Volt.Engine/Format/Body/BodyFormatGuard.cs", 1),       // a body with text and no stated language from its reader
         ("Volt.Engine/Format/Network/NetworkMembers.cs", 1),     // a stored member value read as a list of strings it is not
-        ("Volt.Engine/Format/Network/NetworkTextGate.cs", 2),    // the writer refused a node, or a network, the reader did not mark
-        ("Volt.Engine/Format/Network/NetworkTextReader.cs", 1),  // a language word LanguageOf found and LanguageNamed does not name
         ("Volt.Engine/Format/St/PropertyLines.cs", 2),           // a line no key opens, or a key with no reader, handed to Read
         ("Volt.Engine/Format/St/StReader.cs", 2),                // a boundary line stating no language; a U+FEFF StTrivia classed impossibly
         ("Volt.Engine/Format/Task/TaskDescriptorFormat.cs", 1),  // call comments not index-aligned with the calls

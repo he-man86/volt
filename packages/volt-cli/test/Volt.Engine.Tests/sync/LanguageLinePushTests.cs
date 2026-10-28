@@ -32,10 +32,8 @@ namespace Volt.Engine.Tests;
 public class LanguageLinePushTests
 {
     private const string Decl = "FUNCTION_BLOCK FB_Motor\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR";
-    private const string Network = "NETWORK\n  out := a;\nEND_NETWORK";
-
-    /// <summary>One network in plain-ST network text (openspec network-text-st): what an LD/FBD body states.</summary>
-    private const string PlainNetwork = "%NETWORK\nout := a;";
+    /// <summary>One network in network text: what an LD/FBD body states.</summary>
+    private const string Network = "%NETWORK\nout := a;";
 
     /// <summary>The motor with one method, <c>DoReset</c>, whose implementation is <paramref name="methodImpl"/> —
     /// its boundary line and body, exactly as they stand in the file.</summary>
@@ -102,7 +100,7 @@ public class LanguageLinePushTests
     {
         var ide = new FakeIde();
 
-        var resp = Create(ide, Motor($"%LANGUAGE {language}\n{PlainNetwork}"));
+        var resp = Create(ide, Motor($"%LANGUAGE {language}\n{Network}"));
 
         Assert.True(resp.Landed(), "push refused: " + Why(resp));
         Assert.Contains("FB_Motor", ide.CreatedItems);
@@ -143,8 +141,7 @@ public class LanguageLinePushTests
 
     /// <summary>NETWORK TEXT UNDER <c>%LANGUAGE ST</c> IS WRITTEN AS SENT (openspec <c>bridge-refusal-review</c>
     /// 1.1). The line states ST, so the body is ST: written into the ST implementation verbatim, and the IDE's build
-    /// reports its <c>NETWORK</c> / <c>END_NETWORK</c> tokens. It used to be refused by a content sniff — a check on the
-    /// CODE, which the bridge does not make.</summary>
+    /// reports its <c>%NETWORK</c> line. Nothing sniffs the CODE.</summary>
     [Fact]
     public void Network_text_under_LANGUAGE_ST_is_written_as_sent_as_an_ST_body()
     {
@@ -165,8 +162,8 @@ public class LanguageLinePushTests
 
         var resp = Create(ide, Motor($"%LANGUAGE {language}\nDoReset := TRUE;"));
 
-        // The NETWORK READER answers (openspec bridge-refusal-review 2.3): a body stated LD/FBD is read as network text,
-        // and ST is no network — NETWORK_PARSE, with the line. The ST reader's own sniffed copy of that rule is gone.
+        // The NETWORK READER answers: a body stated LD/FBD is read as network text, and code before its first %NETWORK
+        // line is no network — NETWORK_PARSE, with the line.
         Assert.False(resp.Landed(), "the push must be refused");
         var conflict = Assert.Single(resp.Conflicts!);
         Assert.Equal(Volt.Contracts.ConflictCodes.NetworkParse, conflict.Code);

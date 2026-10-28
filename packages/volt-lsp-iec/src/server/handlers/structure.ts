@@ -14,7 +14,7 @@ import {
 import {
   clampedOffset,
   diffSemanticTokens,
-  documentSymbolsWithVg,
+  documentSymbols,
   foldingRanges,
   offsetFromPosition,
   selectionRange,
@@ -25,7 +25,7 @@ import {
 import type { ServerState } from "../state.js"
 
 export function registerStructureHandlers(s: ServerState): void {
-  s.onRequest(DocumentSymbolRequest.type, (p) => s.whole(p.textDocument.uri, documentSymbolsWithVg))
+  s.onRequest(DocumentSymbolRequest.type, (p) => s.whole(p.textDocument.uri, documentSymbols))
   s.onRequest(WorkspaceSymbolRequest.type, (p) => workspaceSymbols(s.project(), p.query))
   s.onRequest(FoldingRangeRequest.type, (p) => s.whole(p.textDocument.uri, foldingRanges))
   s.onRequest(SelectionRangeRequest.type, (p) => {

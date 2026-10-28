@@ -1,6 +1,6 @@
 %LANGUAGE FBD
-NETWORK
-  split1 := i1 ADD i2;
-  n := split1;
-  sv := split1;
-END_NETWORK
+%NETWORK
+%WIRES w1
+w1 := ADD(i1, i2);
+n := w1;
+sv := w1;

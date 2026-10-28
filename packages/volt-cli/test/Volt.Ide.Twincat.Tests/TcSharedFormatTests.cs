@@ -83,10 +83,9 @@ public class TcSharedFormatTests
     /// amount of network-level drift.</para>
     ///
     /// <para><c>ladderLabel.pou</c> earns its place by holding two shapes that are easy to get wrong and that no
-    /// hand-written fixture had: a network whose LABEL is its only content (<c>NETWORK LABEL: testLabe2</c> with
-    /// nothing between it and <c>END_NETWORK</c>), and a coil with nothing driving it — <c>coil := ;</c>, which
-    /// reads back as the TERMINATOR the archive actually holds rather than as a null. The fixture is in network
-    /// text v2 (the language on the implementation marker, no order numbers); the shapes are the ones TwinCAT drew.</para>
+    /// hand-written fixture had: a network whose label is its only content (<c>testLabe2:</c> with nothing after it), and
+    /// a coil with nothing driving it — the rail, written <c>coil := TRUE;</c> (a stored member). The shapes are the ones
+    /// TwinCAT drew.</para>
     ///
     /// <para>Read the way a push reads it: the body against the scope its own declaration builds (task 3.9).</para></summary>
     [Fact]
@@ -96,11 +95,11 @@ public class TcSharedFormatTests
         var body = pou.Body!;
 
         Assert.StartsWith("%LANGUAGE LD\n", body);
-        Assert.Contains("NETWORK LABEL: testLabel\n  coil := ;", body);
-        Assert.Contains("NETWORK LABEL: testLabe2\nEND_NETWORK", body);
+        Assert.Contains("%NETWORK\ntestLabel:\ncoil := TRUE;", body);
+        Assert.EndsWith("%NETWORK\ntestLabe2:", body.TrimEnd());
 
-        // Throws NetworkTextException naming the canonical form if it would not round-trip.
-        var model = V2NetworkText.Validate(body,
+        // Throws NetworkTextException naming the refusal if it would not read.
+        var model = NetworkText.Validate(body,
             NetworkScope.FromDeclarations(pou.Declaration, _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName, Volt.Tests.Shared.Scopes.NoLibrary));
 
         Assert.Equal(2, model.Networks.Count);

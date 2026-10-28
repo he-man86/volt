@@ -25,7 +25,7 @@ namespace Volt.Engine.Tests;
 /// FIELD name that happens to equal a vocabulary word (e.g. the <c>degraded</c> bool, the <c>init</c> flag) is a
 /// different thing from the vocabulary VALUE. The per-vocabulary allowlist names the files where the same word is a
 /// separate vocabulary: CLI verbs (<c>Program.cs</c>/<c>Git.cs</c> — "init"/"push"/"build"), the PLCopen-XML and network text
-/// sublanguages (<c>PouReader</c>/<c>NetworkTextReader</c> — "program"/"function"/"method"), and the
+/// sublanguage (<c>PouReader</c> — "program"/"function"/"method"), and the
 /// TwinCAT menu-name match (<c>TcObjectModel</c> — Contains("TwinCAT")).
 /// </summary>
 public class WireVocabularyGuardTests
@@ -103,7 +103,7 @@ public class WireVocabularyGuardTests
             //
             // Listed by the PARTIAL-CLASS key (`BeckhoffDriver.cs`, not `BeckhoffDriver.Content.cs`) because
             // `AllowKey` strips the suffix - see its own summary for why.
-            new HashSet<string> { "ItemKind.cs", "NetworkTextReader.cs", "BeckhoffDriver.cs" }),
+            new HashSet<string> { "ItemKind.cs", "BeckhoffDriver.cs" }),
 
         // THE RETIRED POU KINDS AND EXTENSIONS (openspec push-without-header-check 5.Q). A program, a function block
         // and a function are ONE kind, `pou`, under one extension, `.pou`: whether a POU is which is its TEXT's on both

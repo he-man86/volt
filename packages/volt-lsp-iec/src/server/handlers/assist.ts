@@ -1,6 +1,5 @@
 /**
- * THE ASSIST HANDLERS — hover, completion, signature help, inlay hints, code lenses and code actions. A network-text
- * body answers hover and completion through its own services.
+ * THE ASSIST HANDLERS — hover, completion, signature help, inlay hints, code lenses and code actions.
  */
 import {
   CodeActionRequest,
@@ -17,9 +16,6 @@ import {
   completion,
   hover,
   inlayHints,
-  inNetworkText,
-  networkCompletion,
-  networkHover,
   pragmaHover,
   readOnlyBodyHover,
   signatureHelp,
@@ -30,14 +26,12 @@ import type { ServerState } from "../state.js"
 export function registerAssistHandlers(s: ServerState): void {
   s.onRequest(HoverRequest.type, (p) =>
     s.at(p.textDocument.uri, p.position, (d, o) =>
-      inNetworkText(d, o)
-        ? networkHover(d, s.project(d.uri), o)
-        : (readOnlyBodyHover(d, o) ?? hover(d, s.project(d.uri), o) ?? pragmaHover(d, s.project(d.uri), o)),
+      readOnlyBodyHover(d, o) ?? hover(d, s.project(d.uri), o) ?? pragmaHover(d, s.project(d.uri), o),
     ),
   )
   s.onRequest(CompletionRequest.type, (p) =>
     s.at(p.textDocument.uri, p.position, (d, o) =>
-      inNetworkText(d, o) ? networkCompletion(d, s.project(d.uri), o) : completion(d, s.project(d.uri), o),
+      completion(d, s.project(d.uri), o),
     ),
   )
   s.onRequest(SignatureHelpRequest.type, (p) =>

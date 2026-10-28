@@ -15,106 +15,102 @@
 
 <h1>Network text</h1>
 <p class="lede">
-  The text form of an LD or FBD body: the vendor's network model (NWL) written one to one. Each item is its tree, root
-  first, ending with <code>;</code>. A box is its <b>name</b>; <code>:=</code>, <code>S=</code> and <code>R=</code> are
-  coils. Writer, reader and validator are <code>NetworkTextWriter</code>, <code>NetworkTextReader</code> and
-  <code>NetworkValidator</code> in <code>Volt.Engine/Format/Network/</code>; the LSP ports the reader and the validator.
+  An LD or FBD body is ST: every box is a call, a contact is <code>AND</code>, <code>OR</code> or <code>NOT</code>
+  between operands, a coil is an assignment. Lines starting with <code>%</code> carry what is not code. Writer and
+  reader are <code>StNetworkWriter</code> and <code>StNetworkReader</code> in <code>Volt.Engine/Format/Network/</code>;
+  the language server reads the body with its ST parser.
 </p>
 <pre>%LANGUAGE LD
-NETWORK TITLE: "Start the motor"
-  // runs while auto is on
-  split1 := start AND NOT stop;
-  motor := lamp := split1;
-  ready := MOVE 100 =&gt; speed ENO EN split1;
-  alarm := a BRANCH (b, c AND d);
-END_NETWORK</pre>
+%NETWORK "Start the motor"
+%WIRES w1
+// runs while auto is on
+w1 := start AND NOT stop;
+motor := w1;
+lamp := MOVE_EN(EN := w1, 100, OUT => speed);</pre>
 
-<h2 id="grammar">Grammar</h2>
-<pre>body      = "%LANGUAGE" , ( "LD" | "FBD" ) , NL , { network } ;
-network   = header , NL , { comment } , ( unsupported | { item } ) , "END_NETWORK" ;
-header    = "NETWORK" , [ "LABEL:" , name ] , [ "DISABLED" ] , [ "TITLE:" , string ] ;
-comment   = "//" , [ " " , text ] , NL ;
-unsupported = "UNSUPPORTED" , string , "#" , hex8 , ";" ;
-item      = [ top ] , ";" ;
-top       = assign | split | slot ;
-assign    = coil , { coil } , slot ;
-coil      = [ edge ] , ( [ "NOT" ] , head , ":=" | head , ( "S=" | "R=" ) ) ;
-head      = target | "JMP" , name | "RETURN" ;
-split     = splitname , ":=" , slot ;
-slot      = box | parallel | term | "(" , ( assign | split ) , ")" ;
-term      = [ mods ] , ( atom | call ) | mods , "(" , box , ")" | splitname | "NOT" | (* empty *) ;
-operand   = term | "(" , ( box | parallel | assign | split ) , ")" ;
-box       = ( wordbox | movebox | call | execute ) , pinstate ;
-wordbox   = operand , word , operand , { word , operand } , { "=&gt;" , target } ;
-movebox   = "MOVE" , operand , { "=&gt;" , target } ;
-call      = [ name , ":" ] , ( target | "`" , word , "`" ) , "(" , [ pin , { "," , pin } ] , ")" , [ "." , name ] ;
-pin       = [ mods ] , name , ":=" , slot | name , "=&gt;" , target | "=&gt;" , [ target ] | operand ;
-execute   = "EXECUTE" , NL , { st-line , NL } , "END_EXECUTE" ;
-pinstate  = [ "ENO" , [ "=&gt;" , target ] ] , [ [ mods ] , "EN" , slot ] ;
-parallel  = [ operand ] , "BRANCH" , "(" , slot , "," , slot , { "," , slot } , ")" , [ "SHORTCIRCUIT" ] ;
-mods      = edge , [ "NOT" ] | "NOT" ;
-edge      = "R_EDGE" | "F_EDGE" ;
-target    = token | backtick ;
-splitname = "split" , digits ;
-word      = "AND" | "OR" | "XOR" | "ADD" | "SUB" | "MUL" | "DIV" | "MOD" | "GT" | "GE" | "EQ" | "NE" | "LE" | "LT" ;</pre>
-<p id="layout">
-  Whitespace and newlines are layout, except in the header line, a <code>//</code> line and an EXECUTE body. A
-  continuation line of an item is indented deeper than the item's first line. Words are case-insensitive. Reserved:
-  <code>EN ENO BRANCH SHORTCIRCUIT JMP RETURN EXECUTE END_EXECUTE NOT R_EDGE F_EDGE NETWORK END_NETWORK UNSUPPORTED
-  MOVE</code>, the words and <code>split&lt;n&gt;</code>; a name spelled like one is backticked.
-</p>
-
-<h2 id="rules">The rules</h2>
+<h2 id="lines">Lines</h2>
 <table>
-  <tr><th>rule</th><th>example</th></tr>
-  <tr><td class="name">R1 coils</td><td><code>lamp := motor := start;</code> <code>x S= a;</code> <code>NOT x := a;</code> <code>R_EDGE x := a;</code></td></tr>
-  <tr><td class="name">R2 jumps</td><td><code>JMP done := a;</code> <code>RETURN := ;</code></td></tr>
-  <tr><td class="name">R3 words</td><td><code>x := a ADD b ADD c;</code> — one word, one box; <code>x := (a ADD b) MUL c;</code></td></tr>
-  <tr><td class="name">R4 MOVE</td><td><code>MOVE b =&gt; a =&gt; c;</code> <code>a := MOVE b;</code></td></tr>
-  <tr><td class="name">R5 empty slot</td><td><code>x := MUL a MUL 6;</code> <code>c1 : CTU(CU := a, RESET := , PV := 10);</code> <code>lamp := ;</code></td></tr>
-  <tr><td class="name">R6 modifiers</td><td><code>x := a AND NOT b;</code> <code>up := R_EDGE NOT clk;</code> <code>y := NOT (a AND b);</code></td></tr>
-  <tr><td class="name">R7 pin flags</td><td><code>t1 : TON(NOT IN := v, PT := T#1S);</code> vs <code>t1 : TON(IN := NOT v, PT := T#1S);</code></td></tr>
-  <tr><td class="name">R8 calls</td><td><code>y := LIMIT(MN := 0, IN := v, MX := 100);</code> <code>f(IN := a, err =&gt; e);</code></td></tr>
-  <tr><td class="name">R9 FBs</td><td><code>t1 : TON(IN := a, PT := T#1S);</code> <code>??? : TON(IN := a);</code> <code>x := t1 : TON(IN := a, PT := T#1S).Q;</code></td></tr>
-  <tr><td class="name">R10 operator call</td><td><code>x := `NOT`(a);</code> <code>x := `AND`(IN1 := a, NOT IN2 := b);</code></td></tr>
-  <tr><td class="name">R11 EN, ENO</td><td><code>lamp := MOVE 1 =&gt; t ENO EN c;</code> <code>sum := a ADD b EN c;</code> <code>MOVE 5 =&gt; y ENO NOT EN c;</code> <code>x := f(a) ENO;</code></td></tr>
-  <tr><td class="name">R12 parallel</td><td><code>lamp := start BRANCH (a, , b) SHORTCIRCUIT;</code> <code>lamp := BRANCH (a, b);</code></td></tr>
-  <tr><td class="name">R13 splits</td><td><code>split1 := a AND b;</code> <code>y := split1 AND c;</code> <code>x := (split2 := a);</code></td></tr>
-  <tr><td class="name">R14 EXECUTE</td><td><code>done := EXECUTE</code> ⏎ <code>i := i + 1;</code> ⏎ <code>END_EXECUTE ENO EN go;</code></td></tr>
-  <tr><td class="name">R15 brackets</td><td>Only a compound as an operand, after a modifier, or a nested assignment: <code>y := (x := a);</code></td></tr>
-  <tr><td class="name">R16 text</td><td><code>`arr[i + 1]`</code> <code>`a``b`</code> <code>// cost $$5</code>; escapes <code>$$ $' $" $L $N $R $T</code></td></tr>
-  <tr><td class="name">R17 literals</td><td>Bare: <code>-1</code>, <code>'text'</code>, <code>T#1S</code>, <code>16#FF</code></td></tr>
+  <tr><th>line</th><th>says</th></tr>
+  <tr><td class="name"><code>%LANGUAGE LD</code></td><td>the body's language, <code>LD</code> or <code>FBD</code>; first line of the body</td></tr>
+  <tr><td class="name"><code>%NETWORK "title"</code></td><td>a network starts; the title is optional</td></tr>
+  <tr><td class="name"><code>%DISABLED</code></td><td>the network is not compiled</td></tr>
+  <tr><td class="name"><code>%WIRES w1, w2</code></td><td>the network's wires</td></tr>
+  <tr><td class="name"><code>// text</code></td><td>the network's comment, before its code</td></tr>
+  <tr><td class="name"><code>l:</code></td><td>the network's label, its first code line</td></tr>
+  <tr><td class="name"><code>%EXECUTE</code> … <code>%END_EXECUTE</code></td><td>an Execute box; the lines between are its ST</td></tr>
+  <tr><td class="name"><code>%UNSUPPORTED "shape" #hash</code></td><td>a network the text cannot spell (<a href="#unsupported">below</a>)</td></tr>
+</table>
+<p>The <code>%</code> lines of a network stand in this order, before its code.</p>
+
+<h2 id="elements">Elements</h2>
+<table>
+  <tr><th>element</th><th>text</th></tr>
+  <tr><td class="name">contact</td><td><code>x := a AND NOT b;</code> <code>x := a OR b;</code></td></tr>
+  <tr><td class="name">coil</td><td><code>x := a;</code> <code>x S= a;</code> <code>x R= a;</code> <code>y := x := a;</code></td></tr>
+  <tr><td class="name">operator box</td><td><code>x := AND(a, b);</code> <code>i := ADD(j, k, 1);</code> <code>x := GT(i, 3);</code> <code>x := NOT(a);</code></td></tr>
+  <tr><td class="name">MOVE</td><td><code>x := MOVE(a);</code> <code>MOVE(a, OUT => x, OUT => y);</code></td></tr>
+  <tr><td class="name">function</td><td><code>y := LIMIT(MN := 0, IN := v, MX := 100);</code> <code>y := f(a, b);</code></td></tr>
+  <tr><td class="name">FB</td><td><code>t1(IN := a, PT := T#1S, Q => x);</code></td></tr>
+  <tr><td class="name">output pin</td><td><code>y := f(IN := a, err => e);</code></td></tr>
+  <tr><td class="name">edge</td><td><code>x := R_EDGE(a);</code> <code>x := F_EDGE(a);</code></td></tr>
+  <tr><td class="name">negated pin</td><td><code>t1(IN := NOT a, PT := T#1S);</code></td></tr>
+  <tr><td class="name">rail</td><td><code>x := TRUE;</code> <code>t1(IN := TRUE);</code></td></tr>
+  <tr><td class="name">parallel</td><td><code>x := BRANCH(FEED := start, a, b);</code> <code>x := BRANCH_SHORTCIRCUIT(FEED := start, a, b);</code></td></tr>
+  <tr><td class="name">jump</td><td><code>JMP l;</code> <code>JMP(l, a);</code> <code>x := JMP(l, a);</code></td></tr>
+  <tr><td class="name">return</td><td><code>RETURN;</code> <code>RETURN(a);</code></td></tr>
+  <tr><td class="name">mid-rung coil</td><td><code>y := (x := a) AND b;</code></td></tr>
+  <tr><td class="name">unnamed instance</td><td><code>TON(IN := a);</code> — the call names the type</td></tr>
 </table>
 
-<h2 id="eneno">How a box is read</h2>
-<pre>lamp := MOVE 1 =&gt; t ENO EN c;          // through its ENO: it shows ENO
-sum := a ADD b EN c;                    // by its value
-x := t1 : TON(IN := a, PT := T#1S).Q;   // an FB by its .name
-ready := v1 : Valve(open := on);        // an FB that declares ENO, by it
-ok := f(IN := a) ENO;                   // a function through its ENO, without EN</pre>
+<h2 id="en-eno">EN and ENO</h2>
+<p>The suffix names the pins a box shows; the call returns what the suffix says.</p>
+<table>
+  <tr><th>suffix</th><th>shows</th><th>returns</th><th>example</th></tr>
+  <tr><td class="name"><code>_EN</code></td><td>EN, ENO</td><td>ENO</td><td><code>lamp := MOVE_EN(EN := c, 1, OUT => x);</code></td></tr>
+  <tr><td class="name"><code>_ENO</code></td><td>ENO</td><td>ENO</td><td><code>ok := f_ENO(IN := a);</code></td></tr>
+  <tr><td class="name"><code>_ENONLY</code></td><td>EN</td><td>the value</td><td><code>x := GT_ENONLY(EN := c, i, 3);</code></td></tr>
+</table>
+<p>A box read by its ENO hands its value on only through <code>OUT =&gt;</code>. ENO wired beside the outputs:</p>
+<pre>MOVE_EN(EN := c, 7, ENO => lamp, OUT => x);</pre>
+<p>An FB called on its instance takes the suffix on the instance: <code>t1_EN(EN := c, IN := a, Q => x);</code>.</p>
+
+<h2 id="wires">Wires</h2>
+<pre>%NETWORK
+%WIRES w1
+w1 := a AND b;
+x := w1;
+y := w1 AND c;</pre>
 <p>
-  <code>ENO</code> shows the box's ENO pin and comes after its outputs; <code>EN</code> comes last. An operator shows
-  <code>ENO</code> only with <code>EN</code>. A box in the
-  <code>EN</code> slot of another runs first; the writer lays such a chain out as a staircase:
+  A value read twice is a wire: named on the <code>%WIRES</code> line, defined once (<code>w1 := …</code> or
+  <code>Q =&gt; w1</code>), read by name. A box read once stands where it is read. The writer names wires
+  <code>w1</code>, <code>w2</code>, … across the body.
 </p>
-<pre id="chain">lamp := MOVE 3 =&gt; c ENO EN
-          MOVE 2 =&gt; b ENO EN
-            MOVE 1 =&gt; a ENO EN start;</pre>
+
+<h2 id="execute">Execute box</h2>
+<pre>%NETWORK
+%EXECUTE(EN := go)
+IF start THEN
+    count := count + 1;
+END_IF
+%END_EXECUTE</pre>
+
+<h2 id="subset">What a network holds</h2>
+<p>
+  A network holds assignments, calls, jumps and returns. No <code>IF</code>, <code>CASE</code>, loop or
+  <code>EXIT</code>; no infix box (<code>i + 1</code>, <code>a XOR b</code>, <code>i &gt; 3</code> — write the call:
+  <code>ADD(i, 1)</code>). ST of any kind stands only in an Execute box.
+</p>
 
 <h2 id="unsupported">A network that cannot be spelled</h2>
-<pre>NETWORK TITLE: "Calc"
-  UNSUPPORTED "a flag on a box input pin" #3f9a01c2;
-END_NETWORK</pre>
+<pre>%NETWORK "Calc"
+%UNSUPPORTED "a coil modifier on a jump" #929f3675</pre>
 <p>
-  Pull never fails: the network keeps its header and comment and shows this one line, with the stored network's hash.
-  Pushed back unchanged it is kept exactly as the IDE holds it; edited, it is refused.
+  A pull never fails: the network keeps its title and shows this line, with the stored network's hash. Pushed back
+  unchanged it stays as the IDE holds it; edited, the push is refused.
 </p>
 
 <h2 id="body-line">The body line</h2>
 <pre>METHOD Run : BOOL
-VAR_INPUT
-    a : BOOL;
-END_VAR
 %LANGUAGE ST
 Run := a;
 END_METHOD
@@ -123,37 +119,27 @@ ACTION Step
 %LANGUAGE SFC UNSUPPORTED
 END_ACTION</pre>
 <p>
-  The line ends the declaration and its language alone picks the reader: <code>ST</code>, <code>LD</code> or
-  <code>FBD</code>. A body Volt does not show (CFC, SFC, IL) is its language and <code>UNSUPPORTED</code>, with nothing
-  under it: the declaration stays editable and a push never writes the body. A member whose IDE object has no body slot
-  has no line.
+  The line ends the declaration; its language picks the reader. CFC, SFC and IL are their language and
+  <code>UNSUPPORTED</code>, with nothing under it: the declaration stays editable and a push never writes the body.
 </p>
 
 <h2 id="pairing">Pushing</h2>
 <p>
-  A push pairs networks by their text (<code>NetworkPairing</code>). An equal network is not touched; a changed one is
-  rebuilt; inserts and deletes touch no other network. Members the text does not carry are derived from the
-  declarations (a callee's pin names, an FB output's slot) or kept from the stored network; a rebuild that drops a
-  stored value is named (<code>RebuildLoss</code>). Any layout the reader accepts is pushed; the next pull shows the
-  writer's.
+  A push pairs networks by their text (<code>NetworkPairing</code>): an equal network is not touched, a changed one is
+  rebuilt. What the text does not carry is derived from the declarations or kept from the stored network; a rebuild
+  that drops a stored value is named (<code>RebuildLoss</code>). Any layout the reader accepts is pushed; the next pull
+  shows the writer's.
 </p>
 
 <h2 id="diagnostics">Errors</h2>
 <table>
-  <tr><th>code</th><th>raised for</th></tr>
-  <tr><td class="name">NETWORK_PARSE</td><td>Structure: a missing <code>;</code>, header fields out of order, a <code>//</code> after an item, an unclosed backtick, string or EXECUTE body, a bad escape, <code>.ENO</code>.</td></tr>
-  <tr><td class="name">NETWORK_NOT_CLOSED</td><td>A <code>NETWORK</code> with no <code>END_NETWORK</code>.</td></tr>
-  <tr><td class="name">NETWORK_DUPLICATE_NAME</td><td>A split defined twice in one network.</td></tr>
-  <tr><td class="name">NETWORK_BAD_EXPRESSION</td><td>A text no tree prints: a redundant bracket, two words at one level, the call form where the word fits, <code>ENO</code> without <code>EN</code>, an FB call without its type, a split never defined.</td></tr>
-  <tr><td class="name">NETWORK_UNKNOWN_OPERATOR</td><td>A symbol that is no word; ST's <code>+ - * /</code> and comparisons name the word to write.</td></tr>
-  <tr><td class="name">NETWORK_UNSUPPORTED</td><td>A tree the vendor does not store or build, or one not measured, named by its shape: <code>x := MOVE 1 ENO EN c;</code> ("an operator box read through its ENO with no output wired").</td></tr>
+  <tr><th>code</th><th>raised for</th><th>example</th></tr>
+  <tr><td class="name">NETWORK_PARSE</td><td>text a network may not hold, with its line</td><td><code>x := a XOR b;</code> — every box is a call</td></tr>
+  <tr><td class="name">NETWORK_UNSUPPORTED</td><td>a model the writer has no spelling for, and an edited <code>%UNSUPPORTED</code> line</td><td><code>???(IN := a);</code> — a box type that is no call head</td></tr>
 </table>
-
-<h2 id="lsp">The language server and the case set</h2>
 <p>
-  The LSP's reader (<code>volt-lsp-iec/src/frontend/syntax/network/</code>) gives the same error at the same token as
-  the push, and hints that <code>ENO =&gt; v</code> never writes <code>v</code>. Both read
-  <code>test/fixtures/network-text/</code>: <code>accept/*.cases</code> (a text and its model) and
+  The language server gives the same refusals while typing. Both sides read the case set
+  <code>test/fixtures/network-text-st/</code>: <code>accept/*.cases</code> (a text and its model) and
   <code>refuse/*.cases</code> (a text and its error).
 </p>
 

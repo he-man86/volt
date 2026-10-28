@@ -9,7 +9,6 @@ import { localScope } from "./scope.js"
 
 // the model
 export {
-  isPouSymbol,
   type DeviceInstance,
   type Scope,
   type ScopeKind,

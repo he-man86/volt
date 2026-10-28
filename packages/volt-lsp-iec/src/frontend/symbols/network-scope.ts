@@ -15,6 +15,7 @@ import {
   type StatementList,
   plainStText,
   sourceStatements,
+  UNNAMED,
   stmtExprs,
   walkExpr,
   walkStatements,
@@ -24,7 +25,7 @@ import { defineSymbol, localScope, lookupLocal } from "./scope.js"
 import { scopeUri } from "./precedence.js"
 
 // ponytail: a wire is a declaration with no ST AST node; readers of `sym.ast` cast-and-read optional fields (guarded),
-// so an empty object is a placeholder that never throws — as a v2 split was (`types/network/network-analyze.ts`).
+// so an empty object is a placeholder that never throws.
 const WIRE_AST = {} as Symbol["ast"]
 
 const cache = new WeakMap<BodySpan, { parent: Scope; scope: Scope }>()
@@ -53,6 +54,21 @@ export function networkScope(parent: Scope, body: BodySpan): Scope {
         ast: WIRE_AST,
       })
     }
+  // a coil nobody named (`??? := a;`) is the IDE's, not a name the body declares: typed by its value, as a wire is,
+  // so no check reads it as an undeclared name — the network check names it as the IDE's build does
+  const unnamed = definitions.get(UNNAMED)
+  if (unnamed !== undefined)
+    defineSymbol(scope, {
+      kind: "var",
+      name: UNNAMED,
+      span: body.span,
+      declarationSpan: body.span,
+      owner: scope,
+      uri,
+      varSection: "VAR_TEMP",
+      wire: unnamed,
+      ast: WIRE_AST,
+    })
   cache.set(body, { parent, scope })
   return scope
 }

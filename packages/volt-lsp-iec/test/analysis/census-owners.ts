@@ -27,7 +27,7 @@ export interface RegistryRow {
 }
 
 const CHECKS_DIR = join(PACKAGE, "src", "analysis", "checks")
-const NETWORK_FILE = join(PACKAGE, "src", "analysis", "checks", "network", "network-analysis.ts")
+const NETWORK_FILE = join(PACKAGE, "src", "analysis", "checks", "network", "_plain-st.ts")
 const portable = (path: string): string => relative(PACKAGE, path).split(sep).join("/")
 const walkTs = (dir: string): string[] =>
   readdirSync(dir).flatMap((n) => {

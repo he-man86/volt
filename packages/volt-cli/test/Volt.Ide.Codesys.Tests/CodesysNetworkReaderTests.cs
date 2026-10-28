@@ -694,10 +694,10 @@ public class CodesysNetworkReaderTests
         Assert.Equal(new[] { false, true }, pins.Select(p => p.Flags.Negated));
         Assert.True(((Leaf)pins[1].Value).Flags.IsNone, "the bit belongs to the pin, not to the operand feeding it");
 
-        // S6 (ld-fbd-coverage 2.3): the pull spells it on the pin's formal — an operator's default one, `IN2`.
+        // A negated pin is a stored member, spelled on the value the pin reads (network-text-st design "Stored members").
         var body = new NetworkBody(BodyLanguage.Fbd, new[] { read });
-        Assert.Contains("  out := `AND`(IN1 := a, NOT IN2 := xIsWarningInfo);\n",
-            NetworkTextWriter.Write(body, Volt.Tests.Shared.NetworkModelOracle.ScopeOf(body)));
+        Assert.Contains("\nout := a AND NOT xIsWarningInfo;\n",
+            StNetworkWriter.Write(body, Volt.Tests.Shared.NetworkModelScopes.ScopeOf(body)));
     }
 
     /// <summary>An edge on a pin is the same fact through another bit — read onto the pin it sits on.</summary>
@@ -923,9 +923,9 @@ public class CodesysNetworkReaderTests
         });
 
         var body = CodesysNetworkReader.Read(Nwl.Body(assign), BodyLanguage.Ld);
-        var text = NetworkTextWriter.Write(body, NetworkScope.Empty);
+        var text = StNetworkWriter.Write(body, NetworkScope.Empty);
 
-        Assert.Contains("RETURN := ioAxis.xVirtual;", text);
+        Assert.Contains("RETURN(ioAxis.xVirtual);", text);
         Assert.DoesNotContain("???", text);
     }
 
@@ -1010,7 +1010,7 @@ public class CodesysNetworkReaderTests
         Assert.Equal(0, Assert.Single(read.Outputs).Slot);
         Assert.False(read.HasEnoOutput);
         Assert.Null(read.ConnectedSlot);   // a top-level box has no consumer
-        Assert.Contains("  MOVE src => dst;\n", NetworkTextWriter.Write(body, NetworkScope.Empty));
+        Assert.Contains("\nMOVE(src, OUT => dst);\n", StNetworkWriter.Write(body, NetworkScope.Empty));
     }
 
     /// <summary>A CONSUMED box records the slot its consumer reads (task 3.10). NWL stores no connection slot — the
@@ -1052,11 +1052,11 @@ public class CodesysNetworkReaderTests
     // The output names Volt builds an operator with (ld-fbd-coverage 2.3, NetworkMembers.DerivedOutputNames): its data
     // result, unnamed — the IDE's own form — and an ENO echo first where the box has one.
     [InlineData("MAX", false, new[] { "" }, 0, "n := MAX(a, b);")]
-    [InlineData("ADD", false, new[] { "" }, 0, "n := a ADD b;")]
-    // Read through its ENO with its value wired nowhere, an operator stores and does not build (X3, 3c), and a MOVE with
-    // two inputs is not measured: each refused by name.
-    [InlineData("AND", true, new[] { "ENO" }, 0, null)]
-    [InlineData("MOVE", true, new[] { "ENO", "" }, 0, null)]
+    [InlineData("ADD", false, new[] { "" }, 0, "n := ADD(a, b);")]
+    // Read through its ENO: the call returning ENO (whether the IDE builds it is the build's to say: X3, 3c).
+    [InlineData("AND", true, new[] { "ENO" }, 0, "n := AND_EN(EN := c, a, b);")]
+    [InlineData("MOVE", true, new[] { "ENO", "" }, 0, "n := MOVE_EN(EN := c, a, b);")]
+    // An enabled box with no ENO in its list is read by a slot the text cannot state: refused by name.
     [InlineData("MOVE", true, new string[0], null, null)]
     public void A_consumed_box_Volt_built_is_connected_as_the_compiler_reads_it(
         string type, bool enabled, string[] outputNames, int? slot, string? text)
@@ -1083,9 +1083,9 @@ public class CodesysNetworkReaderTests
 
         Assert.Equal(slot, read.ConnectedSlot);
         if (text is null)
-            Assert.Throws<NetworkUnrepresentableException>(() => NetworkTextWriter.Write(body, Volt.Tests.Shared.NetworkModelOracle.ScopeOf(body)));
+            Assert.Throws<StNetworkUnspellableException>(() => StNetworkWriter.Write(body, Volt.Tests.Shared.NetworkModelScopes.ScopeOf(body)));
         else
-            Assert.Contains("  " + text + "\n", NetworkTextWriter.Write(body, Volt.Tests.Shared.NetworkModelOracle.ScopeOf(body)));
+            Assert.Contains("\n" + text + "\n", StNetworkWriter.Write(body, Volt.Tests.Shared.NetworkModelScopes.ScopeOf(body)));
     }
 
     /// <summary>THE STORED OUTPUT TYPES (spec, "a stored output type"): <c>OutputParams.Types</c>, the array beside
@@ -1110,8 +1110,8 @@ public class CodesysNetworkReaderTests
 
         var read = Assert.IsType<Box>(Assert.IsType<Demux>(body.Networks.Single().Trees[0]).Input);
         Assert.Equal(new[] { "INT" }, read.OutputTypes);
-        Assert.Contains("  split1 := a ADD b;\n",
-            NetworkTextWriter.Write(body, Volt.Tests.Shared.NetworkModelOracle.ScopeOf(body)));
+        Assert.Contains("\nw1 := ADD(a, b);\n",
+            StNetworkWriter.Write(body, Volt.Tests.Shared.NetworkModelScopes.ScopeOf(body)));
     }
     /// <summary>A NETWORK THAT REPORTS MORE ITEMS THAN IT HAS reads as the trees it really has — the phantom slot
     /// is SKIPPED, not thrown on and not rendered as an empty body.
@@ -1181,7 +1181,7 @@ public class CodesysNetworkReaderTests
 
         var read = Assert.IsType<Box>(body.Networks.Single().Trees.Single());
         Assert.Equal("", read.StCode);
-        Assert.Contains("END_EXECUTE", NetworkTextWriter.Write(body, NetworkScope.Empty));
+        Assert.Contains("%END_EXECUTE", StNetworkWriter.Write(body, NetworkScope.Empty));
     }
 
     /// <summary>The complement, so the rule above cannot decay into "always empty": a snippet WITH text still

@@ -41,10 +41,13 @@ import {
   unitBodies,
   walkExpr,
   allUnits,
+  UNNAMED,
+  walkStatements,
 } from "../../../frontend/syntax/index.js"
 import { lookup, scopeForUnit, type Scope } from "../../../frontend/symbols/index.js"
-import { NETWORK_ELEMENTS } from "../../../frontend/types/index.js"
-import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { NETWORK_ELEMENTS, resolveCallee } from "../../../frontend/types/index.js"
+import { messagesFor, type Messages } from "../../messages/index.js"
+import { emit, SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import { checkWires, CODE, isVariable } from "./_plain-st-wires.js"
 
 
@@ -59,13 +62,102 @@ const NOT_IN_A_NETWORK: Readonly<Record<string, string>> = {
 /** The infix operators an ST expression has and a network spells as a call (every box is a call). */
 const CALL_ONLY: ReadonlySet<string> = new Set(["XOR", "+", "-", "*", "/", "MOD", "=", "<>", "<", ">", "<=", ">=", "**", "&", "AND_THEN", "OR_ELSE"])
 
-export function checkPlainStNetworks(parseResult: ParseResult, project: Scope, out: DiagnosticItem[]): void {
+/** The network check's findings over every LD/FBD body of a parse: network text is ST, which the registry's checks read;
+ *  this is the one check of what a network may hold. */
+export function networkDiagnostics(parseResult: ParseResult, project: Scope): DiagnosticItem[] {
+  const out: DiagnosticItem[] = []
   for (const unit of allUnits(parseResult.units))
     for (const body of unitBodies(unit)) {
       if (!isPlainStNetworkBody(body)) continue
       const scope = scopeForUnit(project, unit)
-      checkBody(body, scope?.children.find((c) => c.span === body.span) ?? scope, out)
+      const bodyScope = scope?.children.find((c) => c.span === body.span) ?? scope
+      checkBody(body, bodyScope, out)
+      checkUnnamed(body, bodyScope, parseResult.dialect, out)
+      if (bodyScope !== undefined) checkBoxes(body, bodyScope, project, parseResult.dialect === "twincat", messagesFor(parseResult.dialect), out)
     }
+  return out
+}
+
+/**
+ * What the IDE stores as `???` and the build answers in its own words, each vendor's (`network_unnamed_*`, both vendors):
+ *  - a coil nobody named, `??? := a;`: "The assignment target is not specified." Behind an enable CODESYS adds two errors
+ *    about an implicit variable it names itself, which no text holds; this one stands for them;
+ *  - an FB box with no instance, written as the call of its type (`TON(IN := a);`): the build reads the instance `???`
+ *    as text — the two errors of the marker, the instance error over the marker, the marker's first again;
+ *  - `???` as an operand: the build reads it as text, "Expression expected instead of '?'" (the ST parser's, here too)
+ *    and "Unexpected token '?' found".
+ */
+function checkUnnamed(body: BodySpan, scope: Scope | undefined, dialect: ParseResult["dialect"], out: DiagnosticItem[]): void {
+  const tc = dialect === "twincat"
+  const error = (span: Span, message: string) => out.push({ severity: "error", span, source: SOURCE, code: UNNAMED_CODE, message })
+  const target = (t: Expr) => {
+    if (t.kind === "ident_expr" && t.name === UNNAMED) error(t.span, tc ? "Assignment target not specified" : "The assignment target is not specified.")
+  }
+  const marker = "Expression expected instead of '?'"
+  walkStatements(sourceStatements(body).statements, (stmt) => {
+    if (stmt.kind === "assign") target(stmt.target)
+    if (stmt.kind === "call_stmt" && stmt.call.callee.kind === "ident_expr" && scope !== undefined &&
+        lookup(scope, stmt.call.callee.name)?.symbol.kind === "function_block") {
+      const at = stmt.call.callee.span
+      for (const m of [marker, tc ? "Unexpected Token '?' found" : "Unexpected token '?' found",
+        "Program name, function or function block instance expected instead of '!!!'ERROR'!!!'", marker]) error(at, m)
+    }
+    for (const e of stmtExprs(stmt)) walkExpr(e, (x) => { if (x.kind === "assign_expr") target(x.target) })
+  })
+  const tokens = plainStText(body).sourceTokens
+  const q = (k: number) => tokens[k]?.kind === "punct" && tokens[k]!.text === "?"
+  for (let i = 0; i + 2 < tokens.length; i++)
+    if (q(i) && q(i + 1) && q(i + 2) && tokens[i + 2]!.span.start === tokens[i]!.span.end + 1) {
+      error(tokens[i]!.span, tc ? "Unexpected Token '?' found" : "Unexpected token '?' found")
+      i += 2
+    }
+}
+
+const UNNAMED_CODE = "network-unnamed-target"
+
+/** The operator boxes the build counts the inputs of, by the symbol its message names (`ng_r1_*`, `ng_r5_one_input_*`,
+ *  both vendors): two exactly, or two at least. */
+const TWO_EXACTLY: Readonly<Record<string, string>> = { SUB: "-", DIV: "/", MOD: "MOD", GT: ">", GE: ">=", LT: "<", LE: "<=", EQ: "=", NE: "<>" }
+const TWO_AT_LEAST: Readonly<Record<string, string>> = { ADD: "+", MUL: "*", AND: "AND", OR: "OR", XOR: "XOR" }
+
+/**
+ * What the build answers of a box whose inputs a push states as written: an operator box with an input count its symbol
+ * does not take ("'-' needs exactly '2' operands"); a METHOD box given positional pins — the push names no method's
+ * pins, so the build counts none ("Function 'M' requires exactly '1' inputs", `ng_m_method_positional`, both vendors); a
+ * FUNCTION box given more pins than it declares, positional and named together (`ng_m_function_positional_then_named_same`);
+ * and on CODESYS a library function's box named through its namespace and shown with ENO, whose ENO the build reads
+ * as a member of the result (`ng_m_library_function_qualified_eno`: "'ENO' is no component of 'LEN'").
+ */
+function checkBoxes(body: BodySpan, scope: Scope, project: Scope, tc: boolean, messages: Messages, out: DiagnosticItem[]): void {
+  const error = (span: Span, code: string, message: string) => out.push({ severity: "error", span, source: SOURCE, code, message })
+  walkStatements(sourceStatements(body).statements, (stmt) => {
+    for (const e of stmtExprs(stmt))
+      walkExpr(e, (x) => {
+        if (x.kind !== "call") return
+        const inputs = x.args.filter((a) => !a.output && a.param?.name.toUpperCase() !== "EN")
+        if (x.callee.kind === "ident_expr") {
+          const word = x.callee.name.toUpperCase().replace(/_(ENONLY|ENO|EN)$/, "")
+          const exactly = TWO_EXACTLY[word]
+          const atLeast = TWO_AT_LEAST[word]
+          if (exactly !== undefined && inputs.length !== 2) error(x.callee.span, "operator-arity", messages.operatorNeedsExactly(exactly, 2))
+          if (atLeast !== undefined && inputs.length < 2) error(x.callee.span, "operator-arity", messages.operatorNeedsAtLeast(atLeast, 2))
+          if (exactly !== undefined || atLeast !== undefined) return
+          const fn = resolveCallee(x, scope, project)
+          const positional = inputs.filter((a) => a.param === undefined).length
+          if (fn?.sym.kind === "function" && positional > 0 && positional < inputs.length && inputs.length > fn.positionalArity)
+            error(x.callee.span, "function-argument-count", messages.functionRequiresInputs(fn.sym.name, fn.positionalArity))
+          return
+        }
+        if (x.callee.kind !== "member") return
+        const eno = /^(.+)_ENO$/i.exec(x.callee.member.name)
+        const base = x.callee.base.kind === "ident_expr" ? lookup(scope, x.callee.base.name) : undefined
+        if (!tc && eno !== null && x.callee.base.kind === "ident_expr" && (base === undefined || base.symbol.kind === "namespace"))
+          error(x.callee.member.span, "not-a-member", messages.notAMember("ENO", eno[1]!))
+        if (!inputs.some((a) => a.param === undefined)) return
+        const callee = resolveCallee(x, scope, project)
+        if (callee?.sym.kind === "method") error(x.callee.span, "function-argument-count", messages.functionRequiresInputs(callee.sym.name, callee.positionalArity))
+      })
+  })
 }
 
 function checkBody(body: BodySpan, scope: Scope | undefined, out: DiagnosticItem[]): void {

@@ -26,18 +26,18 @@ test("server: didOpen → hover returns the declaration", async () => {
   client.dispose()
 })
 
-test("server: hover inside a network-text body resolves a split to its definition", async () => {
+test("server: hover inside a network-text body resolves a wire", async () => {
   const client = connect()
-  const vg = `FUNCTION_BLOCK F\nVAR a : BOOL; b : BOOL; out : BOOL;\nEND_VAR\n%LANGUAGE LD\nNETWORK\nsplit1 := a AND b;\nout := split1;\nEND_NETWORK\nEND_FUNCTION_BLOCK`
+  const vg = `FUNCTION_BLOCK F\nVAR a : BOOL; b : BOOL; out : BOOL;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\n%WIRES w1\nw1 := a AND b;\nout := w1;\nEND_FUNCTION_BLOCK`
   await client.sendRequest(InitializeRequest.type, { processId: null, rootUri: null, capabilities: {} })
   await client.sendNotification(DidOpenTextDocumentNotification.type, {
     textDocument: { uri: URI, languageId: "iecst", version: 1, text: vg },
   })
   const h = await client.sendRequest(HoverRequest.type, {
     textDocument: { uri: URI },
-    position: { line: 6, character: 7 }, // the `split1` use in `out := split1;`
+    position: { line: 7, character: 7 }, // the `w1` use in `out := w1;`
   })
-  expect((h as { contents: { value: string } })?.contents.value).toContain("split1 := a AND b;")
+  expect((h as { contents: { value: string } })?.contents.value).toContain("w1")
   client.dispose()
 })
 

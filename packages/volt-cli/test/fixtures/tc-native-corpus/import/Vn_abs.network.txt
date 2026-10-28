@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  n := ABS(i1);
-END_NETWORK
+%NETWORK
+n := ABS(i1);

@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  out1 := out2 := out3 := a OR b;
-END_NETWORK
+%NETWORK
+out1 := out2 := out3 := OR(a, b);

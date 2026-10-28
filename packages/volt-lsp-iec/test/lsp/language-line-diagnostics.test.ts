@@ -9,7 +9,7 @@ import { expect, test } from "bun:test"
 import type { Diagnostic } from "vscode-languageserver-protocol"
 import { CAPS, harness } from "./harness.js"
 
-const NETWORK = "NETWORK\nout := a;\nEND_NETWORK"
+const NETWORK = "%NETWORK\nout := a;"
 
 /** A function block whose body is `impl`; its %LANGUAGE line is line 6. */
 const fb = (impl: string): string =>
@@ -227,9 +227,9 @@ test("network text under %LANGUAGE ST is a diagnostic — read as ST, never as a
   expect(ds.some((d) => String(d.code).startsWith("NETWORK_"))).toBe(false)
 })
 
-test("ST under %LANGUAGE LD is a network-text diagnostic — read as a network, never as ST", async () => {
+test("code under %LANGUAGE LD with no %NETWORK line is a network-text diagnostic", async () => {
   const ds = await diagnostics(fb("%LANGUAGE LD\nout := a;"))
-  expect(ds.some((d) => String(d.code).startsWith("NETWORK_"))).toBe(true)
+  expect(ds.some((d) => d.code === "network-plain-st")).toBe(true)
 })
 
 // A body with NO line states no language, which the spec makes an LSP diagnostic as the push makes it a refusal
@@ -256,7 +256,7 @@ test("a property accessor with code and no %LANGUAGE line is the same diagnostic
 })
 
 test("a line-less ladder is not read as ST either", async () => {
-  const ds = await diagnostics(fb("NETWORK\n  out := a;\nEND_NETWORK"))
+  const ds = await diagnostics(fb("%NETWORK\nout := a;"))
   expect(ds.filter((d) => /states no language/.test(text(d))).map((d) => d.range.start.line)).toEqual([KEYWORD_LINE])
 })
 

@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  r := INT_TO_REAL(i1);
-END_NETWORK
+%NETWORK
+%UNSUPPORTED "a target that is no ST variable" #52d69dce

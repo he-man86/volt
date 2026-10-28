@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  c1 : CTU(CU := a, RESET := b, PV := i1);
-END_NETWORK
+%NETWORK
+c1(CU := a, RESET := b, PV := i1);

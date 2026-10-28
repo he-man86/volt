@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  out := (i1 NE i2) AND a;
-END_NETWORK
+%NETWORK
+out := AND(NE(i1, i2), a);

@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  ctud1 : CTUD(CU := a, CD := b, RESET := c, LOAD := d, PV := i1);
-END_NETWORK
+%NETWORK
+ctud1(CU := a, CD := b, RESET := c, LOAD := d, PV := i1);

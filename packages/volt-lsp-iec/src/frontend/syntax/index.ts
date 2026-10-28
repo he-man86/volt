@@ -82,7 +82,6 @@ export type { BodyParse } from "./parse/statements.js"
 export type { PragmaMessage } from "./parse/body-pragmas.js"
 export { BINARY_PRECEDENCE, REFUSED_OPERATORS } from "./parse/precedence.js"
 export { parseExprFromTokens } from "./parse/expression.js"
-export { parseTypeExprFromTokens } from "./parse/type-expr.js"
 
 // literal values
 export { DURATION_UNITS_NS, typedLiteralForm } from "./literal/value.js"
@@ -100,20 +99,11 @@ export type { CompileEnvironment, ConditionNames, ConditionWorld, DeviceFacts, T
 export { bodyReader, languageLineWords, retiredLine, statedLine } from "./format/language-line.js"
 export { LANGUAGE_KEY, languageLine, retiredLineMessage } from "./format/object-properties.js"
 export { objectNameOf, sourceObjectOf } from "./format/source-object.js"
-export { graphicalBodies, graphicalMarkerLanguage, isGraphicalBody, isPlainStNetworkBody, isStBody, unitBodies } from "./format/bodies.js"
+export { graphicalMarkerLanguage, isPlainStNetworkBody, isStBody, unitBodies } from "./format/bodies.js"
 
 // printing a declared type or an expression
 export { compilerTypeText, dimText, exprText, initOperatorText, renderTypeExpr } from "./print.js"
 
-// network text — the LD/FBD bodies' own text (`packages/volt-cli/docs/network-text.html`, openspec ld-fbd-coverage 2R.3):
-// its AST and walks, its words, and the reader
-export * from "./network/ast.js"
-export { callReading, executeBoxes, networkValueExpr, statementExprs } from "./network/exprs.js"
-export { readNetworkText, STRUCTURE_ONLY } from "./network/parser.js"
-export type { NetworkScopeView } from "./network/cursor.js"
-export { BOX_WORDS, COMPARISONS, NETWORK_TEXT_KEYWORDS, NETWORK_TEXT_WORDS } from "./network/words.js"
-
-// plain-ST network text — an LD/FBD body as ST with `%` lines (openspec network-text-st 2.3): its networks and the
-// statement tokens the ST parser reads
-export { plainStText, type PlainStNetwork } from "./network/plain-st.js"
-export { isPlainStNetworkText } from "./format/network-form.js"
+// network text — an LD/FBD body as ST with `%` lines (`packages/volt-cli/docs/network-text.html`): its networks and
+// the statement tokens the ST parser reads
+export { plainStText, UNNAMED, type PlainStNetwork } from "./network/plain-st.js"

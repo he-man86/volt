@@ -1,4 +1,3 @@
 %LANGUAGE FBD
-NETWORK
-  out := `NOT`(a);
-END_NETWORK
+%NETWORK
+out := NOT(a);

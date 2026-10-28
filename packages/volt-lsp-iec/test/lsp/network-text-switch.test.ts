@@ -43,12 +43,12 @@ async function diagnostics(src: string, graphical: "1" | undefined): Promise<{ c
 const fb = (impl: string): string =>
   `FUNCTION_BLOCK F\nVAR\n\ta : BOOL;\n\tout : BOOL;\n\ti : INT;\nEND_VAR\n${impl}\nEND_FUNCTION_BLOCK\n`
 
-// ST under an LD line is a NETWORK_ finding — proof the network parser read the body.
+// Code under an LD line before any %NETWORK line is a network finding — proof the body was read as network text.
 const LADDER_THAT_IS_NOT = fb("%LANGUAGE LD\nout := a;")
 
 test("with VOLT_GRAPHICAL=1, an LD body is read as network text", async () => {
   const ds = await diagnostics(LADDER_THAT_IS_NOT, "1")
-  expect(ds.some((d) => d.code.startsWith("NETWORK_"))).toBe(true)
+  expect(ds.some((d) => d.code === "network-plain-st")).toBe(true)
 }, 30_000)
 
 test("without VOLT_GRAPHICAL, nothing under an LD or FBD line is read: no network finding, no refusal claimed", async () => {
@@ -59,7 +59,7 @@ test("without VOLT_GRAPHICAL, nothing under an LD or FBD line is read: no networ
 test("without VOLT_GRAPHICAL, ST is read as before", async () => {
   const ds = await diagnostics(fb("%LANGUAGE ST\nout := ;"), undefined)
   expect(ds.length).toBeGreaterThan(0)
-  expect(ds.some((d) => d.code.startsWith("NETWORK_"))).toBe(false)
+  expect(ds.some((d) => d.code === "network-plain-st")).toBe(false)
 }, 30_000)
 
 test("without VOLT_GRAPHICAL, the UNSUPPORTED line a bridge with LD and FBD off pulls draws nothing", async () => {

@@ -1,7 +1,4 @@
-/**
- * folding over network text (graphical) bodies (P2). Folding refused graphical bodies outright, so an FBD/LD POU with
- * many networks was unfoldable below the POU level. Emit one fold per NETWORK.
- */
+/** folding over a network body: one fold per network, so an FBD/LD POU with many networks folds below the POU level. */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../frontend/syntax/index.js"
 import { foldingRanges } from "./folding.js"
@@ -12,12 +9,11 @@ VAR
 \ta : BOOL; b : BOOL; out : BOOL;
 END_VAR
 %LANGUAGE LD
-NETWORK
-out := (a AND b);
-END_NETWORK
-NETWORK
-out := (a OR b);
-END_NETWORK
+%NETWORK
+out := a AND b;
+%NETWORK
+out := a OR b;
+out := a;
 END_FUNCTION_BLOCK`
   const folds = foldingRanges({ uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") })
   // unit + VAR + 2 networks; assert both networks fold (multi-line regions past the VAR section).

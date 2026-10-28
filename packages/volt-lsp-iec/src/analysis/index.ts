@@ -40,8 +40,8 @@ export { unresolvedInExprs, unresolvedMembers } from "./shared/resolution.js"
 export { compilerExprText, structEcho } from "./shared/expr-echo.js"
 export { bareConversionArgument, isHole, reported } from "./shared/hole.js"
 export { isStructInit } from "./checks/types/struct-init.js"
-// the network-text pass — outside the registry until the LD/FBD coverage change makes it a check (tasks.md hand-in)
-export { computeNetworkTextDiagnostics } from "./checks/network/network-analysis.js"
+// the network check — what an LD/FBD body's network may hold
+export { networkDiagnostics } from "./checks/network/_plain-st.js"
 // dead-code reachability (openspec lsp-same-standard 2.1): which units and members are dead is an analysis of the
 // program; the policy — suppress diagnostics on dead code unless `diagnoseDeadCode` — is `pipeline/document` `documentFindings`
 export {

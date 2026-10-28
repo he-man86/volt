@@ -364,10 +364,21 @@ switch and vendor-reader wiring, test updates) is kept: continue it, change only
   (refused now; pinned by the `X_ENONLY` twin tests).
 - [x] 3.1 Push through the new reader (NetworkPairing, the derivation, RebuildLoss as today); the full e2e suite on
       both vendors.
-- [ ] 3.2 Delete the old reader, lexer, spelling and the LSP's network parser; rewrite `docs/network-text.html` (much
+- [x] 3.2 Delete the old reader, lexer, spelling and the LSP's network parser; rewrite `docs/network-text.html` (much
       smaller: the mapping table and the subset); the case set re-recorded. Correct DIALECT N21 and the
       `CodesysNetworkReader` `MainOutputIndex` comments by 1.3's 1b note: "absent on every box a push built" holds only
       for the contact AND it builds, and "absent on the AND/OR boxes (census 1.6)" / "the AND/OR boxes an engineer
       drew" (`UnstoredMainOutput`) is false: every drawn AND/OR/NOT box stores 0 (15 AND/OR, 3 NOT); only the
       contact form (814 in LD-view bodies, 1 in an FBD-view body) stores null.
+
+  Done 2026-10-28 (design.md "3.2"): C# v2 reader, lexer, writer, gate, validator and the v2 case set deleted; the LSP's
+  network parser, typer, checks and services deleted (an LD/FBD body is ST to every check and service; outline, folds
+  and semantic tokens from the `%` lines). `docs/network-text.html` rewritten (lines, elements, EN/ENO, wires, Execute,
+  subset, errors). N21 and the reader's `MainOutputIndex` comments corrected. LSP conformance: 96 v2 fixtures respelled
+  and re-recorded live (CODESYS 95 as before; TwinCAT 74 as before, 17 newly recorded, 5 the current builder's answer),
+  7 deleted, `rcc_st_body_network` kept as ST; the network check gives the build's answers for `???`, operator arity,
+  METHOD positional pins, mixed FUNCTION pins and a namespaced library function's ENO; census ceilings fell or hold by
+  named niche exceptions (X3/X9 implicit variables). The recorder drops TwinCAT's failed-build closing line. Numbers:
+  C# Engine 2437 pass / 1 skip, Codesys 523, Twincat 729, Cli 377, Connector 156, Contracts 56, Repo.Gates 276; LSP
+  10237 pass / 0 fail (10704 tests); volt-cli unit 235; volt-vscode 34; typecheck, lint, `bun run check` 16/16 green.
 - [ ] 3.3 Close: cold full suites, the release matrix, archive.

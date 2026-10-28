@@ -20,7 +20,7 @@ const calls = `${doc}#fb`
 function callerFb(name: string, callees: string, statement: string, vars = ""): string {
   return (
     `${callees}FUNCTION_BLOCK ${name}\nVAR\n\tv : INT := 4;\n\tw : INT := 5;\n\ty : INT;\n\td : DINT := 6;\n\tgo : BOOL;\n\tx : BOOL;\n${vars}END_VAR\n\n` +
-    `%LANGUAGE FBD\nNETWORK\n  ${statement}\nEND_NETWORK\n\nEND_FUNCTION_BLOCK\n`
+    `%LANGUAGE FBD\n%NETWORK\n${statement}\n\nEND_FUNCTION_BLOCK\n`
   )
 }
 
@@ -62,7 +62,7 @@ export const NETWORK_GRAPHICAL_TESTS_D: readonly LanguageTest[] = [
   ng("ng_m_function_output_unwired", "FB_NG_m_unwired", "a FUNCTION whose VAR_OUTPUT is not wired: its box lists it all the same, as drawn",
     callerFb("FB_NG_m_unwired", split, "y := F_NG_m_split(v);"), calls),
   ng("ng_m_function_enabled", "FB_NG_m_enabled", "an enabled FUNCTION call with a named output pin: the ENO echo, then its outputs",
-    callerFb("FB_NG_m_enabled", split, "F_NG_m_split(source := v, doubled => y) ENO EN go;"), calls),
+    callerFb("FB_NG_m_enabled", split, "F_NG_m_split_EN(EN := go, source := v, doubled => y);"), calls),
   ng("ng_m_method_call", "FB_NG_m_method", "a METHOD of an instance: its box carries the derived CallType Method",
     callerFb("FB_NG_m_method", owner, "y := fbm.M_twice(k := v);", "\tfbm : FB_NG_m_owner;\n"), calls),
   ng("ng_m_conversion", "FB_NG_m_conv", "a conversion: the vendor's fresh CallType, which runs as the drawn Conversion",
@@ -90,12 +90,12 @@ export const NETWORK_GRAPHICAL_TESTS_D: readonly LanguageTest[] = [
   ng("ng_m_library_function_named", "FB_NG_m_lib_named", "a LIBRARY function's box with its input named, its result consumed — the drawn form (bakon-nano's REPLACE/DELETE)",
     callerFb("FB_NG_m_lib_named", "", "y := LEN(STR := txt);", str), calls),
   ng("ng_m_library_function_eno", "FB_NG_m_lib_eno", "a LIBRARY function's box read through ENO with no EN",
-    callerFb("FB_NG_m_lib_eno", "", "x := LEN(txt) ENO;", str), calls,
+    callerFb("FB_NG_m_lib_eno", "", "x := LEN_ENO(txt);", str), calls,
     "CODESYS builds it clean; TwinCAT does not (\"Function 'LEN' requires exactly '1' inputs\") and the LSP says nothing " +
       "there — niche: accepted loss (0 occurrences in the corpora: no function box in the six shows ENO without EN, " +
       "2026-10-17). A project FUNCTION's box builds on both (`rcc_network_eno_function_without_en`)."),
   ng("ng_m_library_function_qualified", "FB_NG_m_lib_ns", "a LIBRARY function through its namespace, its result consumed: nothing derived (the signature is read by bare name; niche)",
     callerFb("FB_NG_m_lib_ns", "", "y := Standard.LEN(txt);", str), calls),
   ng("ng_m_library_function_qualified_eno", "FB_NG_m_lib_ns_eno", "a LIBRARY function through its namespace, read through ENO with no EN",
-    callerFb("FB_NG_m_lib_ns_eno", "", "x := Standard.LEN(txt) ENO;", str), calls),
+    callerFb("FB_NG_m_lib_ns_eno", "", "x := Standard.LEN_ENO(txt);", str), calls),
 ]

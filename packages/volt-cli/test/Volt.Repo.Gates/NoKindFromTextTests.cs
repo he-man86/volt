@@ -90,8 +90,6 @@ public class NoKindFromTextTests
             "pushed text; the alternative is the IDE object's own POU type, which no driver reports yet"),
         ["Volt.Engine/Library/LibSignatureRenderer.cs"] = new(8,
             "WRITES a library item's text from the vendor's signature; reads no text"),
-        ["Volt.Engine/Format/Network/NetworkTextReader.cs"] = new(3,
-            "network text's own `??? : TYPE(…)` spelling, in refusal messages"),
         ["Volt.Engine/Sync/PushService.cs"] = new(1,
             "a refused member create's message: which members a POU accepts follows its declaration (a FUNCTION takes none)"),
         ["Volt.Ide.Codesys/Driver/CodesysRefusedNames.cs"] = new(7,
