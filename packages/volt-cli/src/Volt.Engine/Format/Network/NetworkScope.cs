@@ -28,17 +28,20 @@ public sealed class NetworkScope
     private readonly Func<string, IReadOnlyList<string>?> _blockOutputs;
     private readonly Func<string, IReadOnlyList<string>?> _blockInputs;
     private readonly Func<string, bool> _isBlockType;
+    private readonly Func<string, CalleeSignature?> _signature;
 
     /// <param name="names">Every name in scope.</param>
     /// <param name="pous">The POUs the body can call (functions, FB types, programs). Each is also a name in scope.</param>
     /// <param name="blockTypes">The FUNCTION BLOCK types the body can name (each also a POU): a box of one with no instance
     /// is the vendor's unnamed-instance box, spelled by its type. None where null.</param>
+    /// <param name="signatures">The callees whose pins a declaration states, by type (<see cref="Signature"/>): what a box's
+    /// <c>EN :=</c>, <c>.ENO</c> and <c>.NAME</c> read as. None where null: every callee but an operator unstated.</param>
     /// <param name="instanceTypes">FB instance name → its FB type. Each instance is also a name in scope. A key is
     /// a NAME a declaration makes — an identifier, or a qualified one (<c>GVL.fbTimer</c>), or <c>SUPER^</c> — never an expression
     /// such as <c>fbs[1]</c>: no declaration produces that key, so a scope holding one would let the text round-trip
     /// an instance the push path cannot resolve.</param>
     public NetworkScope(IEnumerable<string> names, IEnumerable<string> pous, IReadOnlyDictionary<string, string> instanceTypes,
-                        IEnumerable<string>? blockTypes = null)
+                        IEnumerable<string>? blockTypes = null, IReadOnlyDictionary<string, CalleeSignature>? signatures = null)
     {
         if (names is null) throw new ArgumentNullException(nameof(names));
         if (pous is null) throw new ArgumentNullException(nameof(pous));
@@ -53,8 +56,11 @@ public sealed class NetworkScope
                 throw new ArgumentException($"the FB instance '{kv.Key}' is no name a declaration makes.", nameof(instanceTypes));
             instances[kv.Key] = kv.Value;
         }
-        var pouSet = new HashSet<string>(pous, StringComparer.OrdinalIgnoreCase);
-        var blockSet = new HashSet<string>(blockTypes ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
+        var stated = new Dictionary<string, CalleeSignature>(StringComparer.OrdinalIgnoreCase);
+        foreach (var kv in signatures ?? new Dictionary<string, CalleeSignature>()) stated[kv.Key] = kv.Value;
+        var pouSet = new HashSet<string>(pous.Concat(stated.Keys), StringComparer.OrdinalIgnoreCase);
+        var blockSet = new HashSet<string>((blockTypes ?? Array.Empty<string>()).Concat(stated.Where(kv => kv.Value.Shape == CalleeShape.Block).Select(kv => kv.Key)),
+                                           StringComparer.OrdinalIgnoreCase);
         pouSet.UnionWith(blockSet);
         var nameSet = new HashSet<string>(names, StringComparer.OrdinalIgnoreCase);
         nameSet.UnionWith(pouSet);
@@ -65,16 +71,19 @@ public sealed class NetworkScope
             instances.TryGetValue(n, out var t) ? t
             : ArrayElementBase(n) is { } array && instances.TryGetValue(array + ArrayKey, out var e) ? e
             : null;
-        // A scope stated as name lists holds no declaration to derive a callee or a block's outputs from.
-        _callee = _ => null;
-        _blockOutputs = _ => null;
-        _blockInputs = _ => null;
+        // A scope stated as name lists holds a callee's declaration only where it states its signature.
+        CalleeSignature? Stated(string t, CalleeShape shape) => stated.TryGetValue(t, out var s) && s.Shape == shape ? s : null;
+        _callee = t => Stated(t, CalleeShape.Function) is { } f ? new Format.Network.Callee(Format.Network.Callee.FunctionCallType, f.Inputs, f.Outputs) : null;
+        _blockOutputs = t => Stated(t, CalleeShape.Block)?.Outputs;
+        _blockInputs = t => Stated(t, CalleeShape.Block)?.Inputs;
         _isBlockType = blockSet.Contains;
+        _signature = t => stated.TryGetValue(t, out var s) ? s : null;
     }
 
     private NetworkScope(Func<string, bool> contains, Func<string, bool> isPou, Func<string, string?> instanceType,
                          Func<string, Format.Network.Callee?> callee, Func<string, IReadOnlyList<string>?> blockOutputs,
-                         Func<string, IReadOnlyList<string>?> blockInputs, Func<string, bool> isBlockType)
+                         Func<string, IReadOnlyList<string>?> blockInputs, Func<string, bool> isBlockType,
+                         Func<string, CalleeSignature?> signature)
     {
         _contains = contains;
         _isPou = isPou;
@@ -83,6 +92,7 @@ public sealed class NetworkScope
         _blockOutputs = blockOutputs;
         _blockInputs = blockInputs;
         _isBlockType = isBlockType;
+        _signature = signature;
     }
 
     /// <summary>The key suffix the name-list constructor reads as "an ARRAY of FBs of that type": <c>fbs[]</c>.</summary>
@@ -276,7 +286,31 @@ public sealed class NetworkScope
              : kindOf(type) is null && !isRefusedPouName(type) && !local.Contains(type) &&
                libraryFunction(type) is { CallType: Format.Network.Callee.FunctionBlockCallType });
 
-        return new NetworkScope(Contains, IsPou, InstanceType, CalleeOf, BlockOutputs, BlockInputs, IsBlockType);
+        // THE PINS A CALLEE DECLARES (openspec network-output-member): a block by its declaration or library signature, a
+        // project function or program by its declaration, a library function by its signature. A method's (no top-level
+        // declaration holds it) and a name nothing in reach declares are unstated.
+        CalleeSignature? SignatureOf(string type)
+        {
+            if (IsPou(type))
+            {
+                var own = declarationOf(type);
+                return St.StDeclaration.IsFunctionBlock(own) && BlockInputs(type) is { } blockIn && BlockOutputs(type) is { } blockOut
+                         ? new CalleeSignature(CalleeShape.Block, blockIn, blockOut)
+                     : St.StDeclaration.IsFunction(own) ? new CalleeSignature(CalleeShape.Function, St.StDeclaration.InputNames(own), St.StDeclaration.OutputNames(own))
+                     : St.StDeclaration.IsProgram(own) ? new CalleeSignature(CalleeShape.Program, St.StDeclaration.InputNames(own), St.StDeclaration.OutputNames(own))
+                     : null;
+            }
+            // A library's block (a qualified type names it through its namespace).
+            if (BlockInputs(type) is { } libraryIn && BlockOutputs(type) is { } libraryOut)
+                return new CalleeSignature(CalleeShape.Block, libraryIn, libraryOut);
+            if (!NetworkSpelling.Identifier.IsMatch(type) || InstanceType(type) is not null || local.Contains(type)) return null;
+            return kindOf(type) is null && !isRefusedPouName(type) && !Contains(type) &&
+                   libraryFunction(type) is { CallType: Format.Network.Callee.FunctionCallType, Outputs: { } outputs } library
+                ? new CalleeSignature(CalleeShape.Function, library.Inputs, outputs)
+                : null;
+        }
+
+        return new NetworkScope(Contains, IsPou, InstanceType, CalleeOf, BlockOutputs, BlockInputs, IsBlockType, SignatureOf);
     }
 
     public bool Contains(string name) => _contains(name);
@@ -297,6 +331,11 @@ public sealed class NetworkScope
     /// library signature in reach states them — what the push restores a pin the text leaves unconnected from.</summary>
     public IReadOnlyList<string>? BlockInputs(string fbType) => _blockInputs(fbType);
 
+    /// <summary>THE PINS THE CALLEE <paramref name="type"/> DECLARES (openspec network-output-member), or null where no
+    /// declaration or library signature in reach states them: what a box's <c>EN :=</c>, <c>.ENO</c> and <c>.NAME</c> read as —
+    /// the shown flags where it declares no <c>EN</c>/<c>ENO</c>, its own pins where it does.</summary>
+    public CalleeSignature? Signature(string type) => _signature(type);
+
     /// <summary>Whether <paramref name="name"/> is a POU or an FB instance — something a call can name.</summary>
     public bool IsCallable(string name) => _isPou(name) || _instanceType(name) is not null;
 
@@ -306,6 +345,34 @@ public sealed class NetworkScope
 
     /// <summary>The FB type of <paramref name="head"/> when it is an instance in scope, else null.</summary>
     public string? InstanceType(string head) => _instanceType(head);
+}
+
+/// <summary>What a callee is, for the outputs its box has: a function's value and then its <c>VAR_OUTPUT</c>s, a block's
+/// or a program's <c>VAR_OUTPUT</c>s alone (a program's box has no value).</summary>
+public enum CalleeShape { Function, Block, Program }
+
+/// <summary>THE PINS A CALLEE DECLARES (<see cref="NetworkScope.Signature"/>): its inputs (<c>VAR_INPUT</c>, <c>VAR_IN_OUT</c>)
+/// and its <c>VAR_OUTPUT</c>s in declaration order, a block's inherited ones first.</summary>
+public sealed record CalleeSignature(CalleeShape Shape, IReadOnlyList<string> Inputs, IReadOnlyList<string> Outputs)
+{
+    /// <summary>The name network text gives a function's value: <c>.OUT</c>, <c>OUT =&gt; v</c>. A Volt name: no box stores
+    /// it (NWL stores <c>''</c>, <c>'   '</c> or <c>'Out1'</c>).</summary>
+    public const string Value = "OUT";
+
+    /// <summary>The outputs a consumer of the box can read, as the text names them: a function's value <c>OUT</c> first,
+    /// then the declared outputs.</summary>
+    public IReadOnlyList<string> DataOutputs =>
+        Shape == CalleeShape.Function ? new[] { Value }.Concat(Outputs).ToList() : Outputs;
+
+    /// <summary>The callee declares an input named <c>EN</c>: <c>EN :=</c> on its box is that pin, not the shown EN.</summary>
+    public bool DeclaresEn => Inputs.Any(i => string.Equals(i, Box.EnablePin, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>The callee declares an output named <c>ENO</c>: <c>.ENO</c> on its box is that output, not the shown ENO.</summary>
+    public bool DeclaresEno => Outputs.Any(o => string.Equals(o, Box.EnoPin, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>A function declaring a <c>VAR_OUTPUT</c> named <c>OUT</c>: <c>.OUT</c> and <c>OUT =&gt; v</c> would name its value
+    /// and that output both.</summary>
+    public bool DeclaresOut => Shape == CalleeShape.Function && Outputs.Any(o => string.Equals(o, Value, StringComparison.OrdinalIgnoreCase));
 }
 
 /// <summary>A call box's derived members (B7 D, ld-fbd-coverage 2R.4): the vendor <c>CallType</c> member name, the

@@ -12,7 +12,7 @@
  */
 import { walkAllExprs, type Expr } from "../../../frontend/syntax/index.js"
 import { bodies, type Scope } from "../../../frontend/symbols/index.js"
-import { inferExprType, resolveMemberChain, resolveNamedType } from "../../../frontend/types/index.js"
+import { inferExprType, networkBox, resolveMemberChain, resolveNamedType } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import { unknownTypeName } from "../../shared/resolution.js"
@@ -39,8 +39,10 @@ function calleeName(e: Expr, scope?: Scope, ctx?: CheckContext): string {
 
 export function checkNonCallableCall(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
-    walkAllExprs(statements, (e) => {
-      if (e.kind !== "call") return
+    walkAllExprs(statements, (x) => {
+      if (x.kind !== "call") return
+      // a network box: the call its callee takes, an FB's its instance's (`types` `infer/network-box.ts`)
+      const e = networkBox(x, scope, ctx.project)?.st ?? x
       const sym = resolveMemberChain(e.callee, scope, ctx.project)
       if (sym === undefined || CALLABLE_KINDS.has(sym.kind)) return // unresolved or a real callable → skip
       if (sym.kind === "gvl_block") {

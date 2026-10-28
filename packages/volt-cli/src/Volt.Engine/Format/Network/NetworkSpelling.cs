@@ -72,6 +72,31 @@ internal static class NetworkSpelling
     /// <c>.name</c>): none on a bit operator (census 1.6; a stored one is lost on rebuild, B7), slot 0 on every other.</summary>
     public static int? MainSlotOfCall(string type) => BitOperators.Contains(type) ? null : 0;
 
+    /// <summary>The pins an IEC operator box has (<see cref="IsIecOperator"/>): one value, no input or output of its own named
+    /// EN or ENO.</summary>
+    private static readonly CalleeSignature OperatorSignature = new(CalleeShape.Function, Array.Empty<string>(), Array.Empty<string>());
+
+    /// <summary>THE PINS THE CALLEE OF <paramref name="b"/> DECLARES (openspec network-output-member): an operator's own, an
+    /// FB's its block type's, any other call's its callee's (<see cref="NetworkScope.Signature"/>) — or null where no
+    /// declaration in reach states them, and for the Execute box, which is no call.</summary>
+    public static CalleeSignature? SignatureOf(Box b, NetworkScope scope) =>
+        b.StCode is not null ? null : SignatureOf(b.Type, b.Instance is not null, scope);
+
+    /// <summary>Whether a box type is an IEC operator the compiler provides — the keyword boxes, MOVE and NOT, and every
+    /// other one (LIMIT, SEL, the shifts, the conversions, …, <see cref="NetworkMembers.IsOperatorType"/>): a name no
+    /// declaration makes, whose pins are the operator's (as the LSP reads every builtin, <c>network-box.ts</c>).</summary>
+    public static bool IsIecOperator(string type) => IsOperatorBox(type) || NetworkMembers.IsOperatorType(type);
+
+    /// <summary>The pins a box of <paramref name="type"/> declares, an FB's (<paramref name="block"/>) or a call's.</summary>
+    public static CalleeSignature? SignatureOf(string type, bool block, NetworkScope scope)
+    {
+        if (!block && IsOperatorBox(type)) return OperatorSignature;
+        var signature = scope.Signature(type);
+        // Any other IEC operator: where no declaration in reach names it (a POU named as a conversion is its own).
+        if (signature is null) return !block && IsIecOperator(type) ? OperatorSignature : null;
+        return block == (signature.Shape == CalleeShape.Block) ? signature : null;
+    }
+
     /// <summary>Whether a consumer of <paramref name="b"/> is connected to its ENO.</summary>
     public static bool ConnectedByEno(Box b) => b.HasEnoOutput && b.ConnectedSlot == 0;
 

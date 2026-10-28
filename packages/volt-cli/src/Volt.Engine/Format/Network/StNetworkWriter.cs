@@ -11,10 +11,8 @@ namespace Volt.Engine.Format.Network;
 /// PLAIN-ST NETWORK TEXT (openspec <c>network-text-st</c> 2.1; design.md "1.4 Mapping" and its owner revision): an LD/FBD
 /// body as ST, Volt adding only <c>%</c> lines for what is not code. One spelling per element the IDE's toolbox offers:
 /// <b>every box is a call</b> (<c>GT(i, 3)</c>, <c>AND(a, b, c)</c>, <c>NOT(a)</c>, <c>MOVE(v)</c>), and infix
-/// <c>a AND b</c>, <c>a OR b</c>, <c>NOT a</c> is only what the toolbox draws as CONTACTS (series, parallel, negated). An
-/// enabled box is its own function <c>&lt;name&gt;_EN</c>: <c>EN</c> its first argument, then the box's pins as stored, and
-/// its return value is its ENO (the line that leaves the box toward the next one); its data value leaves through
-/// <c>OUT =&gt;</c>. A chain nests as drawn.
+/// <c>a AND b</c>, <c>a OR b</c>, <c>NOT a</c> is only what the toolbox draws as CONTACTS (series, parallel, negated). A chain
+/// nests as drawn.
 ///
 /// <code>
 /// %LANGUAGE LD
@@ -23,9 +21,8 @@ namespace Volt.Engine.Format.Network;
 /// // runs while auto is on
 /// l1:
 /// w3 := start AND NOT stop;
-/// t1(IN := w3, PT := T#1S, Q => w4);
-/// lamp := w4;
-/// done := MOVE_EN(EN := MOVE_EN(EN := w3, 1, OUT => x), 2, OUT => y);
+/// lamp := TON(FB := t1, IN := w3, PT := T#1S).Q;
+/// done := MOVE(EN := MOVE(EN := w3, 1, OUT => x).ENO, 2, OUT => y).ENO;
 /// hot := GT(temp, 80);
 /// JMP(l1, a);
 /// </code>
@@ -35,18 +32,20 @@ namespace Volt.Engine.Format.Network;
 /// boxes in FBD, whose toolbox has no contacts. An unbracketed chain of one contact operator is one box
 /// (<c>a AND b AND c</c>); brackets nest (<c>(a AND b) AND c</c>).</para>
 ///
-/// <para><b>The suffix names the EN and ENO a box shows</b> (owner, 2026-10-28): <c>X_EN</c> EN and ENO, returning ENO;
-/// <c>X_ENO</c> ENO and no EN, returning ENO; <c>X_ENONLY</c> EN and no ENO, returning its value (CODESYS's enabled
-/// comparisons). The value of a box returning ENO leaves through <c>OUT =&gt;</c>.</para>
+/// <para><b>The call is the box</b> (openspec network-output-member): one call of its toolbox name, an FB's its TYPE with
+/// the instance its first pin <c>FB := t1</c> (<c>FB := ???</c> unbuilt); <c>EN := e</c> written is EN shown. Two members close
+/// a call: <c>.ENO</c> every box that shows ENO (the output it hands on, N16), and <c>.NAME</c> a consumed box without ENO
+/// whose callee declares more than one data output (a function's value <c>OUT</c>, then its <c>VAR_OUTPUT</c>s; an FB's
+/// outputs), naming the one its consumer reads. A callee that DECLARES <c>EN</c> or <c>ENO</c> has them as ordinary pins. A
+/// callee no declaration in reach states is written as its model says (<see cref="NetworkScope.Signature"/>).</para>
 ///
 /// <para><b>Wires.</b> A Demux is a wire <c>w&lt;n&gt;</c>, defined once and read by its name any number of times, before its
-/// definition too (the value it held); a box that has no expression form (an FB call, an Execute box, an enabled box read
-/// by its value) and is read once is a call statement defining a wire, standing where it is read. Every wire is named on
-/// its network's <c>%WIRES</c> line, so the text alone says what is a wire.</para>
+/// definition too (the value it held); an Execute box read once is the statement defining its wire (<c>ENO =&gt; w</c>),
+/// standing where it is read. Every wire is named on its network's <c>%WIRES</c> line, so the text alone says what is a
+/// wire.</para>
 ///
 /// <para><b>The other elements</b> (3.0): the parallel branch <c>BRANCH(FEED := f, b1, b2)</c> /
-/// <c>BRANCH_SHORTCIRCUIT(…)</c>; the edge <c>R_EDGE(x)</c> / <c>F_EDGE(x)</c> on a contact or a box; a box showing ENO
-/// and no EN <c>X_ENO(…)</c>; the vendor's unnamed instance (<c>???</c>) as the box called by its FB type; the empty item
+/// <c>BRANCH_SHORTCIRCUIT(…)</c>; the edge <c>R_EDGE(x)</c> / <c>F_EDGE(x)</c> on a contact or a box; the empty item
 /// <c>;</c>.</para>
 ///
 /// <para><b>Stored members</b> (design "Stored members, not spelled") are written as their spelling, and read back as it:
@@ -98,22 +97,12 @@ public static class StNetworkWriter
 
     // ── the vocabulary the reader shares ─────────────────────────────────────────────────────────────────────────
 
-    /// <summary>The suffix of an enabled box's function: <c>MOVE_EN</c>, <c>ADD_EN</c>, <c>t1_EN</c>.</summary>
-    public const string EnabledSuffix = "_EN";
+    /// <summary>An FB box's first pin, its instance: <c>TON(FB := t1, …)</c>, <c>FB := ???</c> for the vendor's unnamed one.</summary>
+    public const string InstancePin = "FB";
 
-    /// <summary>The suffix of a box that shows its ENO and no EN (its call returns its ENO): <c>f_ENO</c>, <c>d1_ENO</c>.</summary>
-    public const string EnoSuffix = "_ENO";
-
-    /// <summary>The suffix of a box that shows its EN and no ENO (its call returns its VALUE): <c>GT_ENONLY</c>,
-    /// <c>t1_ENONLY</c>.</summary>
-    public const string EnOnlySuffix = "_ENONLY";
-
-    /// <summary>The three suffixes: the one a call head ends in names the EN and ENO its box shows.</summary>
-    internal static readonly string[] Suffixes = { EnOnlySuffix, EnoSuffix, EnabledSuffix };
-
-    /// <summary>The formal through which a call's data value leaves when its return value is its ENO; each <c>OUT =&gt;</c>
-    /// names the next unnamed output slot.</summary>
-    public const string ResultPin = "OUT";
+    /// <summary>The name of a function's value as an output: <c>.OUT</c>, and <c>OUT =&gt; v</c> for each unnamed output slot
+    /// it is wired to.</summary>
+    public const string ResultPin = CalleeSignature.Value;
 
     /// <summary>The LD parallel branch (the vendor's <c>BoxTreeParallel</c>), one function per mode:
     /// <c>BRANCH(FEED := f, b1, b2)</c> runs every branch (<c>Sequential</c>), <c>BRANCH_SHORTCIRCUIT(…)</c> the branches
@@ -277,8 +266,8 @@ public static class StNetworkWriter
         /// <summary>Every Demux definition of the network.</summary>
         private readonly HashSet<int> _definitions = new();
 
-        /// <summary>The Demux definitions over a box that is a call statement (an FB, an Execute box): read once, such a wire
-        /// is the box itself, so a Demux over one is read twice or more.</summary>
+        /// <summary>The Demux definitions over an Execute box (a statement): read once, such a wire is the box itself, so a
+        /// Demux over one is read twice or more.</summary>
         private readonly HashSet<int> _overStatementBox = new();
 
         /// <summary>The wires an enabled box other than a comparison defines by its value (read twice or more).</summary>
@@ -290,7 +279,7 @@ public static class StNetworkWriter
 
         private const string EnabledValueReason = "an enabled box read by its value outside a coil";
 
-        /// <summary>An enabled function box other than a comparison that shows no ENO (<c>X_ENONLY</c>): read, it is read by its
+        /// <summary>An enabled function box other than a comparison that shows no ENO (<c>X(EN := e, …)</c>): read, it is read by its
         /// value.</summary>
         private static bool IsEnabledValueBox(Box b) =>
             b.Enable is not null && b.Instance is null && b.StCode is null && !b.HasEnoOutput &&
@@ -609,7 +598,7 @@ public static class StNetworkWriter
                 }
                 case Box b when IsStatementBox(b):
                 {
-                    if (!b.Flags.IsNone) throw Unspellable("a modifier on an FB or Execute box output", $"the '{b.Type}' box carries {Describe(b.Flags)}.");
+                    if (!b.Flags.IsNone) throw Unspellable("a modifier on an Execute box output", $"the '{b.Type}' box carries {Describe(b.Flags)}.");
                     var tmp = NewTemp();
                     pre.Add(PreStatement(b, pre, tmp));
                     return tmp;
@@ -664,8 +653,8 @@ public static class StNetworkWriter
             return p.Flags.Rising || p.Flags.Falling ? Edge(v, p.Flags, $"the '{b.Type}' box's pin '{p.Formal}'") : v;
         }
 
-        /// <summary>A box that is a statement: an FB call and an Execute box, which have no expression form.</summary>
-        private static bool IsStatementBox(Box b) => b.Instance is not null || b.StCode is not null;
+        /// <summary>A box that is a statement: the Execute box, which is no call.</summary>
+        private static bool IsStatementBox(Box b) => b.StCode is not null;
 
         /// <summary>A contact: an AND/OR box the IDE stores with no output (its <c>OutputParam.Names</c> empty, 1.3), with
         /// no pin of its own; with no stored names, any AND/OR in LD (FBD's toolbox has no contacts).</summary>
@@ -675,40 +664,89 @@ public static class StNetworkWriter
             b.Inputs.Select((p, i) => NetworkSpelling.IsDefaultFormal(b.Type, i, p.Formal)).All(x => x) &&
             (b.Members?[NetworkMembers.OutputNames] is { } names ? names.AsTexts.Count == 0 : _language == BodyLanguage.Ld);
 
-        /// <summary>The suffix of a box's call head, by the EN and ENO it shows (the box's stored flags): <c>X_EN</c> EN and ENO,
-        /// <c>X_ENO</c> ENO and no EN, <c>X_ENONLY</c> EN and no ENO; a plain call neither. An Execute box has its ENO by type.</summary>
-        private static string Suffix(Box b)
-        {
-            if (b.StCode is not null) return "";
-            if (b.Enable is null) return b.HasEnoOutput ? EnoSuffix : "";
-            return b.HasEnoOutput ? EnabledSuffix : EnOnlySuffix;
-        }
-
-        /// <summary>A call expression: <c>T(pins…, outputs…)</c> returning the box's value, or <c>T_EN(EN := e, pins…,
-        /// OUT =&gt; x)</c> / <c>T_ENO(pins…)</c> returning its ENO (a box read by its ENO, or standing at the root).</summary>
+        /// <summary>THE CALL THAT IS THE BOX (openspec network-output-member): <c>T(FB := inst, EN := e, pins…, outputs…)</c>,
+        /// closed by <c>.ENO</c> where the box shows ENO, else by <c>.NAME</c> where it is consumed and its callee declares more
+        /// than one data output (<see cref="DataMember"/>).</summary>
         private string Call(Box b, List<string> pre, bool consumed)
         {
-            var suffix = Suffix(b);
-            // A box showing ENO returns it, and is read by it. MEASURED (CODESYS 3.5.21.40, 2026-10-28, design.md "3.0"): an
-            // enabled MOVE showing ENO, built read at its value slot, is held by the IDE read by its ENO, and its coil does not
-            // build ("Cannot convert type 'BOOL' to type 'INT'"); a box with EN read by its value is `X_ENONLY`.
-            if (suffix == EnabledSuffix && consumed && !NetworkSpelling.ConnectedByEno(b))
-                throw Unspellable("an enabled box read by its value showing ENO", $"the enabled '{b.Type}' box shows ENO and is read by its value, and its call returns ENO.");
-            if (suffix == EnoSuffix && consumed && !NetworkSpelling.ConnectedByEno(b))
-                throw Unspellable("a box showing ENO without EN read by its value", $"the '{b.Type}' box shows ENO and is read by its value, and its call returns ENO.");
-            // A call read by its value reads its value slot; a box the IDE holds read by no slot it states has no spelling.
-            if (consumed && !b.HasEnoOutput && NetworkSpelling.MainSlotOfCall(b.Type) is { } main && b.ConnectedSlot != main)
-                throw Unspellable("a box read by an unstated slot", $"the '{b.Type}' box is read at slot {b.ConnectedSlot?.ToString(CultureInfo.InvariantCulture) ?? "(none)"}, not its value's.");
+            var signature = NetworkSpelling.SignatureOf(b, _scope);
+            if (signature is { DeclaresOut: true })
+                throw Unspellable("a function declaring an output OUT", $"'{b.Type}' declares VAR_OUTPUT OUT, which also names its value.");
+            if (b.Enable is not null && signature is { DeclaresEn: true })
+                throw Unspellable("a box showing EN whose callee declares EN", $"the '{b.Type}' box shows EN, and '{b.Type}' declares an input EN of its own.");
+            // A callee no declaration in reach states is read as written: `EN :=` first is the shown EN, `.ENO` the shown ENO.
+            // Its own pin EN first, or a read through its own output ENO, would read back as another box.
+            if (signature is null && b.StCode is null)
+            {
+                if (b.Enable is null && b.Inputs.Count > 0 && string.Equals(b.Inputs[0].Formal, Box.EnablePin, StringComparison.OrdinalIgnoreCase))
+                    throw Unspellable("a first pin named EN on a box whose callee no declaration states", $"the '{b.Type}' box's first pin is named EN, which reads back as its shown EN: no declaration in reach states '{b.Type}'.");
+                if (!b.HasEnoOutput && string.Equals(b.MainOutputName, Box.EnoPin, StringComparison.OrdinalIgnoreCase))
+                    throw Unspellable("a read through an output named ENO on a box whose callee no declaration states", $"the '{b.Type}' box is read through its output ENO, which reads back as its shown ENO: no declaration in reach states '{b.Type}'.");
+            }
+            string member;
+            if (b.HasEnoOutput)
+            {
+                if (signature is { DeclaresEno: true })
+                    throw Unspellable("a box showing ENO whose callee declares ENO", $"the '{b.Type}' box shows ENO, and '{b.Type}' declares an output ENO of its own.");
+                // A box showing ENO hands its ENO on. MEASURED (CODESYS 3.5.21.40, 2026-10-28, network-text-st design "3.0"): an
+                // enabled MOVE showing ENO, built read at its value slot, is held by the IDE read by its ENO.
+                if (consumed && !NetworkSpelling.ConnectedByEno(b))
+                    throw Unspellable("a box showing ENO read by another output", $"the '{b.Type}' box shows ENO and is read at slot {Slot(b.ConnectedSlot)}, not its ENO.");
+                member = "." + Box.EnoPin;
+            }
+            else member = consumed ? DataMember(b, signature) : "";
             if (string.Equals(b.Type, NetworkSpelling.NotBox, StringComparison.OrdinalIgnoreCase) && b.Enable is null &&
                 (b.Inputs.Count != 1 || b.Outputs.Count > 0 || !NetworkSpelling.IsDefaultFormal(b.Type, 0, b.Inputs[0].Formal)))
                 throw Unspellable("a NOT box with pins", "a NOT box with outputs, a named pin or several inputs.");
-            var head = CallHead(b.Type, suffix);
-            return head + "(" + string.Join(", ", Args(b, pre, wireOut: null)) + ")";
+            if (b.Instance is { Flags: { IsNone: false } f } flagged)
+                throw Unspellable("a flag on an FB instance", $"'{flagged.Text}' carries {Describe(f)}.");
+            if (b.Instance is { } inst && _scope.InstanceType(inst.Text) is { } declared && !St.StDeclaration.SameType(declared, b.Type))
+                throw Unspellable("an FB instance declared with another type", $"'{inst.Text}' is a '{b.Type}' box, declared '{declared}'.");
+            return CallHead(b) + "(" + string.Join(", ", Args(b, pre, wireOut: null, signature)) + ")" + member;
         }
 
-        private List<string> Args(Box b, List<string> pre, (string Formal, string Wire)? wireOut)
+        private static string Slot(int? slot) => slot?.ToString(CultureInfo.InvariantCulture) ?? "(none)";
+
+        /// <summary>THE MEMBER A CONSUMED BOX WITHOUT ENO IS CLOSED BY: <c>.NAME</c>, the output its consumer reads, where its
+        /// callee declares more than one data output, and nothing where it declares one. A callee no declaration in reach
+        /// states is written as its model says: the output it is read through by name (<see cref="Box.MainOutputName"/>), a
+        /// function by its value, an FB a text read named none of with nothing.</summary>
+        private static string DataMember(Box b, CalleeSignature? signature)
+        {
+            // A callee no declaration states, read from text: `.X` as written, or nothing (the push refuses the box by name).
+            if (signature is null && b.MainOutputName is { Length: > 0 } written) return "." + Name(written);
+            if (b.Instance is not null)
+            {
+                if (signature is null && b.MainOutputName is null && b.ConnectedSlot is null) return "";
+                if (b.MainOutputName is not { Length: > 0 } name || signature is null)
+                    throw Unspellable("a consumed box with no named connection", $"the '{b.Type}' box is consumed, neither by its ENO nor by a named output.");
+                Name(name);
+                if (!signature.Outputs.Any(o => string.Equals(o, name, StringComparison.OrdinalIgnoreCase)))
+                    throw Unspellable("an FB read by an output its declaration does not name", $"the '{b.Type}' box is read through '{name}', which '{b.Type}' declares no output of.");
+                return signature.Outputs.Count > 1 ? "." + name : "";
+            }
+            if (signature is null || NetworkSpelling.IsOperatorBox(b.Type))
+            {
+                // A call read by its value reads its value slot; a box the IDE holds read by no slot it states has no spelling.
+                if (NetworkSpelling.MainSlotOfCall(b.Type) is { } main && b.ConnectedSlot != main)
+                    throw Unspellable("a box read by an unstated slot", $"the '{b.Type}' box is read at slot {Slot(b.ConnectedSlot)}, not its value's.");
+                return "";
+            }
+            var outputs = signature.DataOutputs;
+            if (b.ConnectedSlot is not { } slot || slot < 0 || slot >= outputs.Count)
+                throw Unspellable("a box read by an unstated slot", $"the '{b.Type}' box is read at slot {Slot(b.ConnectedSlot)}, which '{b.Type}' declares no output at.");
+            return outputs.Count > 1 ? "." + outputs[slot] : "";
+        }
+
+        private List<string> Args(Box b, List<string> pre, (string Formal, string Wire)? wireOut, CalleeSignature? signature = null)
         {
             var args = new List<string>();
+            if (b.Instance is { } instance)
+            {
+                if (instance.Text != Box.UnnamedInstance && (!StNetworkReader.IsOperand(instance.Text) || StNetworkReader.IsLiteral(instance.Text)))
+                    throw Unspellable("an FB instance that is no operand", $"the '{b.Type}' box's instance '{instance.Text}'.");
+                args.Add(InstancePin + " := " + instance.Text);
+            }
             if (b.Enable is { } en)
             {
                 // A negation or an edge on the EN pin is a stored member: spelled on the value feeding it.
@@ -731,8 +769,16 @@ public static class StNetworkWriter
                 }
                 var value = Expr(PinValue(b, p), 0, pre);
                 var positional = p.Formal is null || op && NetworkSpelling.IsDefaultFormal(b.Type, i, p.Formal);
-                if (!positional && b.Enable is not null && string.Equals(p.Formal, Box.EnablePin, StringComparison.OrdinalIgnoreCase))
-                    throw Unspellable("a data pin named EN on an enabled box", $"the enabled '{b.Type}' box has a data input named EN beside its enable.");
+                if (!positional && string.Equals(p.Formal, Box.EnablePin, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (b.Enable is not null)
+                        throw Unspellable("a data pin named EN on an enabled box", $"the enabled '{b.Type}' box has a data input named EN beside its enable.");
+                    // `EN :=` is the shown EN wherever the callee declares no EN.
+                    if (signature is { DeclaresEn: false })
+                        throw Unspellable("a pin named EN its callee does not declare", $"the '{b.Type}' box has an input named EN, and '{b.Type}' declares none.");
+                }
+                if (!positional && b.Instance is null && args.Count == 0 && string.Equals(p.Formal, InstancePin, StringComparison.OrdinalIgnoreCase))
+                    throw Unspellable("a box whose first pin is named FB", $"the '{b.Type}' box's first pin is named FB, which the text reads as an FB's instance.");
                 args.Add(positional ? value : Name(p.Formal!) + " := " + value);
             }
             var eno = b.HasEnoOutput ? 0 : (int?)null;
@@ -746,6 +792,9 @@ public static class StNetworkWriter
                 {
                     if (b.Instance is null && string.Equals(f, ResultPin, StringComparison.OrdinalIgnoreCase))
                         throw Unspellable("a named output called OUT", $"the '{b.Type}' function declares an output OUT, which the text reads as its result pin.");
+                    // `ENO => v` is a target of the shown ENO wherever the callee declares no ENO.
+                    if (!b.HasEnoOutput && signature is { DeclaresEno: false } && string.Equals(f, Box.EnoPin, StringComparison.OrdinalIgnoreCase))
+                        throw Unspellable("an ENO output on a box showing no ENO", $"the '{b.Type}' box wires an output ENO, shows no ENO, and '{b.Type}' declares none.");
                     args.Add(Name(f) + " => " + Target(o.Value.Text));
                     continue;
                 }
@@ -762,84 +811,44 @@ public static class StNetworkWriter
             return args;
         }
 
-        /// <summary>A box as a call statement (<see cref="IsStatementBox"/>), its connection, where it is consumed, an output to
-        /// the wire <paramref name="consumedInto"/>: its ENO or an FB's named output.</summary>
+        /// <summary>The Execute box as its statement, where it is consumed its ENO wired to <paramref name="consumedInto"/>.</summary>
         private string StatementBox(Box b, List<string> pre, string? consumedInto)
         {
-            if (!b.Flags.IsNone) throw Unspellable("a modifier on an FB or Execute box output", $"the '{b.Type}' box carries {Describe(b.Flags)}.");
-            var suffix = Suffix(b);
+            if (!b.Flags.IsNone) throw Unspellable("a modifier on an Execute box output", $"the '{b.Type}' box carries {Describe(b.Flags)}.");
             (string, string)? wire = null;
             if (consumedInto is not null)
             {
                 if (b.HasEnoOutput && b.ConnectedSlot == 0) wire = (Box.EnoPin, consumedInto);
-                else if (b.Instance is not null && b.MainOutputName is { Length: > 0 } main) wire = (Name(main), consumedInto);
                 else throw Unspellable("a consumed box with no named connection",
                     $"the '{b.Type}' box is consumed, neither by its ENO nor by a named output.");
             }
-            if (b.StCode is { } st)
+            var st = b.StCode!;
+            if (b.Inputs.Count > 0 || b.Outputs.Count > 0 || b.Instance is not null)
+                throw Unspellable("an Execute box with pins", "an Execute box carries pins or an instance beside its ST.");
+            var lines = st.Replace("\r\n", "\n").Split('\n');
+            foreach (var line in lines)
             {
-                if (b.Inputs.Count > 0 || b.Outputs.Count > 0 || b.Instance is not null)
-                    throw Unspellable("an Execute box with pins", "an Execute box carries pins or an instance beside its ST.");
-                var lines = st.Replace("\r\n", "\n").Split('\n');
-                foreach (var line in lines)
-                {
-                    if (line.TrimStart().StartsWith(EndExecuteLine, StringComparison.OrdinalIgnoreCase))
-                        throw Unspellable("a snippet line that ends the snippet", line);
-                    if (line.IndexOf('\r') >= 0) throw Unspellable("a snippet line ending in a carriage return", line);
-                }
-                var args = Args(b, pre, wire);
-                return ExecuteLine + (args.Count > 0 ? "(" + string.Join(", ", args) + ")" : "") + "\n" +
-                       string.Join("\n", lines) + "\n" + EndExecuteLine;
+                if (line.TrimStart().StartsWith(EndExecuteLine, StringComparison.OrdinalIgnoreCase))
+                    throw Unspellable("a snippet line that ends the snippet", line);
+                if (line.IndexOf('\r') >= 0) throw Unspellable("a snippet line ending in a carriage return", line);
             }
-            var inst = b.Instance!;
-            if (inst.Flags is { IsNone: false } f) throw Unspellable("a flag on an FB instance", $"'{inst.Text}' carries {Describe(f)}.");
-            string head;
-            // AN INSTANCE NO DECLARATION HOLDS (owner, 2026-10-28) is written as `???` is, its FB type called (a stored member:
-            // the build refuses both, the undeclared name and the unnamed instance).
-            if (inst.Text == Box.UnnamedInstance || StNetworkReader.IsCallHead(inst.Text) && _scope.InstanceType(inst.Text) is null)
-            {
-                // THE VENDOR'S UNNAMED INSTANCE (`???`): the box is called by its FB TYPE, which names no instance — what the
-                // IDE draws, and the build's error ("Program name, function or function block instance expected").
-                if (!_scope.IsBlockType(b.Type) || _scope.InstanceType(b.Type) is not null)
-                    throw Unspellable("an FB box with no instance whose type is no FB type in reach",
-                        $"the '{b.Type}' box's instance is {inst.Text}, which no declaration holds, and '{b.Type}' names no function block type in reach.");
-                head = b.Type;
-            }
-            else
-            {
-                if (!StNetworkReader.IsCallHead(inst.Text))
-                    throw Unspellable("an FB instance that is no call head", inst.Text);
-                var declared = _scope.InstanceType(inst.Text)!;
-                if (!St.StDeclaration.SameType(declared, b.Type))
-                    throw Unspellable("an FB instance declared with another type", $"'{inst.Text}' is a '{b.Type}' box, declared '{declared}'.");
-                head = inst.Text;
-            }
-            return Suffixed(head, suffix) + "(" + string.Join(", ", Args(b, pre, wire)) + ");";
+            var args = Args(b, pre, wire);
+            return ExecuteLine + (args.Count > 0 ? "(" + string.Join(", ", args) + ")" : "") + "\n" +
+                   string.Join("\n", lines) + "\n" + EndExecuteLine;
         }
 
-        /// <summary>A function's call head (a box type, or an FB type for the unnamed instance) with its suffix.</summary>
-        private string CallHead(string type, string suffix)
+        /// <summary>A box's call head: its type (an FB's its FB type), refused where the text would read another box — a
+        /// keyword, an FB instance in reach, an element of the text.</summary>
+        private string CallHead(Box b)
         {
+            var type = b.Type;
             if ((!StNetworkReader.IsCallHead(type) || StNetworkReader.IsKeyword(type)) && !IsKeywordOperator(type))
                 throw Unspellable("a box type that is no call head", $"the box type '{type}'.");
             if (_scope.InstanceType(type) is not null) throw Unspellable("a function named like an FB instance", type);
-            return Suffixed(type, suffix);
+            if (ElementHeads.Any(e => string.Equals(e, type, StringComparison.OrdinalIgnoreCase)))
+                throw Unspellable("a box named like an element of the text", $"'{type}' reads as a branch or an edge.");
+            return type;
         }
-
-        /// <summary><paramref name="head"/> with its suffix, refused where the text would read another box: a plain head that
-        /// ends in a suffix or names an element of the text, or a suffixed name declared in reach.</summary>
-        private string Suffixed(string head, string suffix)
-        {
-            if (suffix.Length == 0 && Suffixes.Any(x => head.EndsWith(x, StringComparison.OrdinalIgnoreCase)))
-                throw Unspellable("a box name ending in a suffix", $"'{head}' reads as a box showing EN or ENO.");
-            if (suffix.Length == 0 && ElementHeads.Any(e => string.Equals(e, head, StringComparison.OrdinalIgnoreCase)))
-                throw Unspellable("a box named like an element of the text", $"'{head}' reads as a branch or an edge.");
-            if (suffix.Length > 0 && InReach(head + suffix))
-                throw Unspellable(EnabledNameInReach, $"'{head}{suffix}' is itself declared in reach.");
-            return head + suffix;
-        }
-
-        private const string EnabledNameInReach = "an enabled box whose name with its suffix is declared in reach";
 
         /// <summary>Anything declared in reach under <paramref name="name"/>: a POU, an instance or a variable.</summary>
         private bool InReach(string name) => _scope.Contains(name) || _scope.IsCallable(name);

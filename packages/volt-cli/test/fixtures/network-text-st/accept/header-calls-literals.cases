@@ -88,12 +88,11 @@ NETWORK title:"kept" unsupported:"a flag on a box input pin" hash:3f9a01c2
 #### fb-call-empty-pin
 === scope
 instance t2 TON
+fb TON IN PT => Q ET
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
-t2(IN := TRUE, PT := e1, Q => w1);
-output := w1;
+output := TON(FB := t2, IN := TRUE, PT := e1).Q;
 === model
 NETWORK
   (:= output (TON@t2 IN=TRUE PT=e1 name:Q))
@@ -104,7 +103,7 @@ fb Axis
 === text
 %LANGUAGE FBD
 %NETWORK
-Axis(xEnable := go);
+Axis(FB := ???, xEnable := go);
 === model
 NETWORK
   (Axis@??? xEnable=go)
@@ -115,7 +114,7 @@ fb TON
 === text
 %LANGUAGE FBD
 %NETWORK
-TON(IN := go);
+TON(FB := ???, IN := go);
 === model
 NETWORK
   (TON@??? IN=go)
@@ -126,7 +125,7 @@ instance fbs[] CTU
 === text
 %LANGUAGE LD
 %NETWORK
-fbs[1](CU := go, PV := 10, CV => n);
+CTU(FB := fbs[1], CU := go, PV := 10, CV => n);
 === model
 NETWORK
   (CTU@`fbs[1]` CU=go PV=10 =>CV:n)
@@ -155,14 +154,12 @@ NETWORK
 === scope
 instance t1 TON
 instance t2 TON
+fb TON IN PT => Q ET
 === text
 %LANGUAGE FBD
 %NETWORK
-%WIRES w1, w2
-t1(IN := NOT v, PT := T#1S, Q => w1);
-q := w1;
-t2(IN := NOT v, PT := T#1S, Q => w2);
-p := w2;
+q := TON(FB := t1, IN := NOT v, PT := T#1S).Q;
+p := TON(FB := t2, IN := NOT v, PT := T#1S).Q;
 === model
 NETWORK
   (:= q (TON@t1 IN=not:v PT=T#1S name:Q))
@@ -220,7 +217,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-MOVE_EN(EN := go, DIV(DINT_TO_LREAL(pos), 10), OUT => target);
+MOVE(EN := go, DIV(DINT_TO_LREAL(pos), 10), OUT => target).ENO;
 === model
 NETWORK
   (MOVE (DIV (DINT_TO_LREAL pos conn:0) 10 conn:0) =>1:target en:go eno:1)
@@ -236,12 +233,11 @@ NETWORK unsupported:"an operand that is no ST expression" hash:06cb118c
 #### empty-text-operand
 === scope
 instance ton1 TON
+fb TON IN PT => Q ET
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
-ton1(IN := TRUE, Q => w1);
-q := w1;
+q := TON(FB := ton1, IN := TRUE).Q;
 === model
 NETWORK
   (:= q (TON@ton1 IN=TRUE name:Q))

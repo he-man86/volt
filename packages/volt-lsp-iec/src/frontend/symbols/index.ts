@@ -38,6 +38,7 @@ export { bodyConditionWorld, conditionWorld } from "./condition-world.js"
 
 // the bodies analysed, each in its scope
 export { bodies, bodiesAt, bodiesThroughErrors, forEachDecl, forEachExpr, sourceBodies } from "./scoped-bodies.js"
+export { networkScope } from "./network-scope.js"
 
 /**
  * BUILDING THE TABLE — a whole project from its files (`buildSymbolTable`); the incremental unit of work the live

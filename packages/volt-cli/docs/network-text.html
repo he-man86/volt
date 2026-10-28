@@ -24,7 +24,7 @@
 // runs while auto is on
 w1 := start AND NOT stop;
 motor := w1;
-lamp := MOVE_EN(EN := w1, 100, OUT => speed);</pre>
+lamp := MOVE(EN := w1, 100, OUT => speed).ENO;</pre>
 
 <h2 id="lines">Lines</h2>
 <table>
@@ -48,25 +48,31 @@ lamp := MOVE_EN(EN := w1, 100, OUT => speed);</pre>
   <tr><td class="name">operator box</td><td><code>x := AND(a, b);</code> <code>i := ADD(j, k, 1);</code> <code>x := NOT(a);</code></td></tr>
   <tr><td class="name">MOVE</td><td><code>x := MOVE(a);</code> <code>MOVE(a, OUT => x, OUT => y);</code></td></tr>
   <tr><td class="name">function</td><td><code>y := LIMIT(MN := 0, IN := v, MX := 100);</code> <code>y := f(a, b);</code></td></tr>
-  <tr><td class="name">FB</td><td><code>t1(IN := a, PT := T#1S, Q => x);</code></td></tr>
-  <tr><td class="name">output pin</td><td><code>y := f(IN := a, err => e);</code></td></tr>
+  <tr><td class="name">FB</td><td><code>TON(FB := t1, IN := a, PT := T#1S, Q => x);</code></td></tr>
+  <tr><td class="name">output pin</td><td><code>y := f(IN := a, err => e).OUT;</code></td></tr>
   <tr><td class="name">edge</td><td><code>x := R_EDGE(a);</code> <code>x := F_EDGE(a);</code></td></tr>
-  <tr><td class="name">negated pin</td><td><code>t1(IN := NOT a, PT := T#1S);</code></td></tr>
+  <tr><td class="name">negated pin</td><td><code>TON(FB := t1, IN := NOT a, PT := T#1S);</code></td></tr>
   <tr><td class="name">rail</td><td><code>x := TRUE;</code></td></tr>
   <tr><td class="name">parallel</td><td><code>x := BRANCH(FEED := start, a, b);</code> <code>x := BRANCH_SHORTCIRCUIT(FEED := start, a, b);</code></td></tr>
   <tr><td class="name">jump</td><td><code>JMP l;</code> <code>JMP(l, a);</code> <code>x := JMP(l, a);</code></td></tr>
   <tr><td class="name">return</td><td><code>RETURN;</code> <code>RETURN(a);</code></td></tr>
   <tr><td class="name">mid-rung coil</td><td><code>y := (x := a) AND b;</code></td></tr>
-  <tr><td class="name">unnamed instance</td><td><code>TON(IN := a);</code></td></tr>
+  <tr><td class="name">unnamed instance</td><td><code>TON(FB := ???, IN := a);</code></td></tr>
 </table>
 
-<h2 id="en-eno">EN and ENO</h2>
-<table>
-  <tr><th>suffix</th><th>shows</th><th>returns</th><th>example</th></tr>
-  <tr><td class="name"><code>_EN</code></td><td>EN, ENO</td><td>ENO</td><td><code>lamp := MOVE_EN(EN := c, 1, OUT => x);</code> <code>MOVE_EN(EN := c, 7, ENO => lamp, OUT => x);</code> <code>t1_EN(EN := c, IN := a, Q => x);</code></td></tr>
-  <tr><td class="name"><code>_ENO</code></td><td>ENO</td><td>ENO</td><td><code>ok := f_ENO(IN := a);</code></td></tr>
-  <tr><td class="name"><code>_ENONLY</code></td><td>EN</td><td>the value</td><td><code>x := GT_ENONLY(EN := c, i, 3);</code></td></tr>
-</table>
+<h2 id="outputs">EN, ENO and outputs</h2>
+<p>
+  The call is the box. <code>EN :=</code> written first shows EN; <code>.ENO</code> closes the call of a box showing ENO;
+  <code>.NAME</code> names the output a box hands on where its callee declares more than one (<code>OUT</code> is a
+  function's value).
+</p>
+<pre>x    := GT(EN := c, a, b);
+done := MOVE(EN := MOVE(EN := c, 1, OUT => x).ENO, 2, OUT => y).ENO;
+y    := f(IN := a).ENO;
+x    := AND(R_TRIG(FB := r1, CLK := a), b);
+t    := TON(FB := t1, IN := a, PT := T#1S).ET;
+q    := g(a, Q => v).OUT;
+MOVE(EN := c, 7, ENO => lamp, OUT => x).ENO;</pre>
 
 <h2 id="wires">Wires</h2>
 <pre>%NETWORK
@@ -74,7 +80,7 @@ lamp := MOVE_EN(EN := w1, 100, OUT => speed);</pre>
 w1 := a AND b;
 x := w1;
 y := w1 AND c;</pre>
-<p>A value read twice is a wire, defined once (<code>w1 := …</code> or <code>Q =&gt; w1</code>). A box read once stands where it is read.</p>
+<p>A value read twice is a wire, defined once (<code>w1 := …</code>, or an Execute box's <code>ENO =&gt; w1</code>). A box read once stands where it is read.</p>
 
 <h2 id="execute">Execute box</h2>
 <pre>%NETWORK
@@ -85,7 +91,7 @@ END_IF
 %END_EXECUTE</pre>
 
 <h2 id="subset">What a network holds</h2>
-<p>Assignments, calls, jumps and returns. Any other ST stands only in an Execute box.</p>
+<p>Assignments, calls (a box at a root closed by <code>.ENO</code> or by nothing), jumps and returns. Any other ST stands only in an Execute box.</p>
 
 <h2 id="unsupported">A network that cannot be spelled</h2>
 <pre>%NETWORK "Calc"
@@ -99,7 +105,7 @@ END_IF
 <table>
   <tr><th>code</th><th>raised for</th><th>example</th></tr>
   <tr><td class="name">NETWORK_PARSE</td><td>text a network may not hold, with its line</td><td><code>x := a XOR b;</code> — every box is a call</td></tr>
-  <tr><td class="name">NETWORK_UNSUPPORTED</td><td>a model the writer has no spelling for, and an edited <code>%UNSUPPORTED</code> line</td><td><code>???(IN := a);</code></td></tr>
+  <tr><td class="name">NETWORK_UNSUPPORTED</td><td>a model the writer has no spelling for, an edited <code>%UNSUPPORTED</code> line, and a box whose callee no declaration in reach states</td><td><code>x := Fx(FB := f1, IN := a).Q;</code> with <code>Fx</code> declared nowhere</td></tr>
 </table>
 <p>The language server gives the same refusals while typing.</p>
 

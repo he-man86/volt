@@ -219,21 +219,7 @@ public static class StNetworkOracle
                 var outputs = b.Outputs.ToList();
                 if (outputs.RemoveAll(o => o.Formal is null && o.Value.Text == Box.UnnamedInstance) > 0)
                     fired.Add("extra output slot (???)");
-                var type = b.Type;
-                var instance = b.Instance;
-                if (b.Instance is { } undeclared && undeclared.Text != Box.UnnamedInstance && scope.InstanceType(undeclared.Text) is null
-                    && scope.IsBlockType(type))
-                {
-                    fired.Add("an FB instance no declaration holds as the unnamed instance");
-                    instance = undeclared with { Text = Box.UnnamedInstance };
-                }
-                if (b.Instance is { } inst && scope.InstanceType(inst.Text) is { } declared && declared != type
-                    && Volt.Engine.Format.St.StDeclaration.SameType(declared, type))
-                {
-                    fired.Add("an FB type spelled as its declaration");
-                    type = declared;
-                }
-                Node box = b with { Type = type, Instance = instance, Inputs = inputs, Enable = enable, Outputs = outputs, EnableFlags = enableFlags };
+                Node box = b with { Inputs = inputs, Enable = enable, Outputs = outputs, EnableFlags = enableFlags };
                 if (b.Flags.Negated && !root)
                 {
                     fired.Add("negated box output as a NOT box");

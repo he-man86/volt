@@ -23,14 +23,14 @@ Alarms_V5_1_100(AlarmDB := Mach1_Alarms, iCond := Mach1_AuxData.MIDS_Active AND 
 %NETWORK
 tbool := Alarms_V5_1_100(AlarmDB := Mach1_Alarms, iCond := Mach1_AuxData.MIDS_Active AND Mach1.Genflags.DelayAfterEmergStop AND LST_InputsOutputs.I100_3_Selector_switch_auto_manual_OP0a, iReset := True, iAlm := Mach1_Alarms.Alm018, ioAction := Mach1.GenFlags.warning) OR Alarms_V5_1_100(AlarmDB := Mach1_Alarms, iCond := Mach1_AuxData.MIDS_Active AND Mach1.Genflags.DelayAfterEmergStop AND LST_InputsOutputs.I132_3_SW_Auto_Man, iReset := True, iAlm := Mach1_Alarms.Alm019, ioAction := Mach1.GenFlags.warning);
 %NETWORK "Reset of alarmlogging"
-HMI_Var.ResetAlarmLogging R= Alarms_ResetAlarmLogging_EN(EN := HMI_Var.ResetAlarmLogging, AlarmDB := Mach1_Alarms);
+HMI_Var.ResetAlarmLogging R= Alarms_ResetAlarmLogging(EN := HMI_Var.ResetAlarmLogging, AlarmDB := Mach1_Alarms).ENO;
 %NETWORK "Adding product counters$R$L"
-HMI_Var.Mach1.PRDCounterIncr R= ADD_EN(EN := ADD_EN(EN := ADD_EN(EN := HMI_Var.Mach1.PRDCounterIncr, HMI_Var.Mach1.PRDTotalCounter, 1, OUT => HMI_Var.Mach1.PRDTotalCounter), HMI_Var.Mach1.PRDCigDayCounter, 1, OUT => HMI_Var.Mach1.PRDCigDayCounter), HMI_Var.Mach1.PRDCigCurrentCntr, 1, OUT => HMI_Var.Mach1.PRDCigCurrentCntr);
+HMI_Var.Mach1.PRDCounterIncr R= ADD(EN := ADD(EN := ADD(EN := HMI_Var.Mach1.PRDCounterIncr, HMI_Var.Mach1.PRDTotalCounter, 1, OUT => HMI_Var.Mach1.PRDTotalCounter).ENO, HMI_Var.Mach1.PRDCigDayCounter, 1, OUT => HMI_Var.Mach1.PRDCigDayCounter).ENO, HMI_Var.Mach1.PRDCigCurrentCntr, 1, OUT => HMI_Var.Mach1.PRDCigCurrentCntr).ENO;
 %NETWORK "Reset Day Counter$R$L"
-HMI_Var.Mach1.PRDDayCounterReset_01 R= MOVE_EN(EN := MOVE_EN(EN := HMI_Var.Mach1.PRDDayCounterReset_01, 0, OUT => HMI_Var.Mach1.PRDWrapDayCounter), 0, OUT => HMI_Var.Mach1.PRDCigDayCounter);
+HMI_Var.Mach1.PRDDayCounterReset_01 R= MOVE(EN := MOVE(EN := HMI_Var.Mach1.PRDDayCounterReset_01, 0, OUT => HMI_Var.Mach1.PRDWrapDayCounter).ENO, 0, OUT => HMI_Var.Mach1.PRDCigDayCounter).ENO;
 %NETWORK "Reset Current Counter$R$L"
-HMI_Var.Mach1.PRDDayCounterReset R= MOVE_EN(EN := MOVE_EN(EN := HMI_Var.Mach1.PRDDayCounterReset, 0, OUT => HMI_Var.Mach1.PRDWrapCurrentCntr), 0, OUT => HMI_Var.Mach1.PRDCigCurrentCntr);
+HMI_Var.Mach1.PRDDayCounterReset R= MOVE(EN := MOVE(EN := HMI_Var.Mach1.PRDDayCounterReset, 0, OUT => HMI_Var.Mach1.PRDWrapCurrentCntr).ENO, 0, OUT => HMI_Var.Mach1.PRDCigCurrentCntr).ENO;
 %NETWORK
-PRG_AlarmsToDWord_EN(EN := TRUE);
+PRG_AlarmsToDWord(EN := TRUE).ENO;
 
 END_PROGRAM

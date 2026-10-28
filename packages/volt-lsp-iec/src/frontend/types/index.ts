@@ -95,4 +95,5 @@ export {
 } from "./arith/operators.js"
 export { atomicOperand, BUILTIN_OPERATOR_NAMES, BUILTIN_RESULT, builtinName, COMPILER_IMPLICITS, exptResultType, selectionValueArguments, type BuiltinName } from "./builtins.js"
 export { NETWORK_ELEMENTS, resolveBareName, resolveGlobalName, type BareName } from "./names.js"
+export { boxMember, dataOutputs, declaresEn, declaresEno, declaresOut, isInstancePin, networkBox, VALUE, type NetworkBox } from "./infer/network-box.js"
 

@@ -134,6 +134,11 @@ export function callReturnType(call: CallExpr, scope: Scope, project: Scope): Ty
   // a plain-ST network body's own boxes (`network-call.ts`): only there, so ST keeps its answers
   const network = networkCallType(call, scope, project)
   if (network !== undefined) return network
+  return stCallReturnType(call, scope, project)
+}
+
+/** The value an ST call hands back — a network box's own call too, its `FB :=` and shown EN left out (`network-call.ts`). */
+export function stCallReturnType(call: CallExpr, scope: Scope, project: Scope): Type {
   // A project function/method wins (user code can shadow a built-in name).
   const sym = resolveMemberChain(call.callee, scope, project)
   // a FUNCTION called inside its own body calls its RESULT VARIABLE (rule Y20), which is no call target: the call has no

@@ -94,13 +94,14 @@ public class NetworkScopeTests
 
     // ── FB instances, from the declarations ─────────────────────────────────────────────────────
 
-    /// <summary>The call head's FB type comes from the declaration that makes the instance: the owner's member in a
-    /// method, a GVL's bare global, and a qualified path through a GVL and a struct.</summary>
+    /// <summary>An FB box is the call of its type, its instance the first pin (network-output-member): the instance the
+    /// declaration makes — the owner's member in a method, a GVL's bare global, a qualified path through a GVL and a struct —
+    /// of the type the declaration gives it.</summary>
     [Theory]
-    [InlineData("t1(IN := a);", "t1", "TON")]
-    [InlineData("fbGlobal(IN := a);", "fbGlobal", "TOF")]
-    [InlineData("Machine.timers.offDelay(IN := a);", "Machine.timers.offDelay", "TOF")]
-    public void An_FB_instance_takes_its_type_from_its_declaration(string statement, string instance, string type)
+    [InlineData("TON(FB := t1, IN := a);", "t1", "TON")]
+    [InlineData("TOF(FB := fbGlobal, IN := a);", "fbGlobal", "TOF")]
+    [InlineData("TOF(FB := Machine.timers.offDelay, IN := a);", "Machine.timers.offDelay", "TOF")]
+    public void An_FB_box_is_the_call_of_its_declared_instances_type(string statement, string instance, string type)
     {
         var r = Gate(Src(statement), InMethod);
 
@@ -175,7 +176,7 @@ public class NetworkScopeTests
         var scope = ScopeOf(Derived);
         Assert.Equal("Standard.TON", scope.InstanceType("t2"));
 
-        var r = Gate(LdSrc("t2(IN := a);"), scope);
+        var r = Gate(LdSrc("Standard.TON(FB := t2, IN := a);"), scope);
 
         Assert.True(r.Ok, Diagnostics(r));
         var box = Assert.IsType<Box>(r.Body!.Networks[0].Trees[0]);
@@ -184,14 +185,14 @@ public class NetworkScopeTests
 
     /// <summary>…and a pulled box of that instance is written with the type the vendor stores, bare (<c>TON</c>) or as
     /// declared: a declaration naming a type through its namespace names the type the box calls, so the two are one type
-    /// and no refusal (<c>StDeclaration.SameType</c>).</summary>
+    /// and no refusal (<c>StDeclaration.SameType</c>); the call names the stored type.</summary>
     [Theory]
     [InlineData("TON", Derived)]
     [InlineData("Standard.TON", Derived)]
     [InlineData("Standard.TON", "FUNCTION_BLOCK FB\nVAR\n    a : BOOL;\n    t2 : TON;\nEND_VAR")]
     public void A_pulled_box_of_a_namespace_qualified_instance_is_written(string storedType, string declaration) =>
         RoundTrips(Ld1(Fb("t2", new[] { NetworkModels.In(L("a"), "IN") }, type: storedType)), ScopeOf(declaration),
-                   LdSrc("t2(IN := a);"));
+                   LdSrc(storedType + "(FB := t2, IN := a);"));
 
     /// <summary>Write, compare the text, read it back against the same scope, and compare the model as the oracle
     /// does — so a test of what the writer accepts also proves what the reader rebuilds from it.</summary>
@@ -217,7 +218,7 @@ public class NetworkScopeTests
     [Fact]
     public void An_instance_type_differing_only_in_case_is_the_same_type() =>
         RoundTrips(Ld1(Fb("T1", new[] { NetworkModels.In(L("a"), "IN") }, type: "TON")),
-            ScopeOf("PROGRAM P\nVAR\n    a : BOOL;\n    t1 : Ton;\nEND_VAR"), LdSrc("T1(IN := a);"));
+            ScopeOf("PROGRAM P\nVAR\n    a : BOOL;\n    t1 : Ton;\nEND_VAR"), LdSrc("TON(FB := T1, IN := a);"));
 
     const string Base = "FUNCTION_BLOCK FB_Base\nVAR\n    tBase : TON;\n    G3 : BOOL;\n    split3 : BOOL;\nEND_VAR";
     const string Child = "FUNCTION_BLOCK FB_Child EXTENDS FB_Base\nVAR\n    a : BOOL;\nEND_VAR";
@@ -243,18 +244,18 @@ public class NetworkScopeTests
         var scope = InChild(where);
         Assert.Equal("TON", scope.InstanceType("tBase"));
 
-        var r = Gate(LdSrc("tBase(IN := a);"), scope);
+        var r = Gate(LdSrc("TON(FB := tBase, IN := a);"), scope);
 
         Assert.True(r.Ok, Diagnostics(r));
         var box = Assert.IsType<Box>(r.Body!.Networks[0].Trees[0]);
         Assert.Equal(("tBase", "TON", CallKind.FunctionBlock), (box.Instance!.Text, box.Type, box.Kind));
     }
 
-    /// <summary>…and the pull writes it as a call of the instance, not of its type (the unnamed instance's spelling).</summary>
+    /// <summary>…and the pull writes it as the call of its type with that instance.</summary>
     [Theory]
     [MemberData(nameof(InheritingBodies))]
     public void A_pulled_call_of_an_inherited_instance_is_written(string where) =>
-        Assert.Equal(LdSrc("tBase(IN := a);"),
+        Assert.Equal(LdSrc("TON(FB := tBase, IN := a);"),
             StNetworkWriter.Write(Ld1(Fb("tBase", new[] { NetworkModels.In(L("a"), "IN") }, type: "TON")), InChild(where)));
 
     /// <summary>A base that extends in turn is followed to the root (a header may wrap <c>EXTENDS</c> onto its own
@@ -341,7 +342,7 @@ public class NetworkScopeTests
         var scope = InProgram("t1 : FB_Broken;");
         Assert.Equal("FB_Broken", scope.InstanceType("t1"));
 
-        var r = Gate(LdSrc("t1(IN := a);"), scope);
+        var r = Gate(LdSrc("FB_Broken(FB := t1, IN := a);"), scope);
 
         Assert.True(r.Ok, Diagnostics(r));
         var box = Assert.IsType<Box>(r.Body!.Networks[0].Trees[0]);

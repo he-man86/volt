@@ -21,8 +21,8 @@ END_VAR
 
 %LANGUAGE FBD
 %NETWORK
-RecipeManager_EN(EN := TRUE, sDatabaseName := 'Recipes', iNumberOfRecipes => iNumberOfRecipes, dwReturnValue => dwRecipeReturnValue, ActiveRecipe => ActiveRecipe, xLoadedNewRecipe => xLoadedNewRecipe, xRcpVisuPlcAreEqual => xRcpVisuPlcAreEqual);
+fbRecipeManager(FB := RecipeManager, EN := TRUE, sDatabaseName := 'Recipes', iNumberOfRecipes => iNumberOfRecipes, dwReturnValue => dwRecipeReturnValue, ActiveRecipe => ActiveRecipe, xLoadedNewRecipe => xLoadedNewRecipe, xRcpVisuPlcAreEqual => xRcpVisuPlcAreEqual).ENO;
 %NETWORK
-MachineParManager_EN(EN := TRUE, sDatabaseName := 'MachinePar', iNumberOfRecipes => iNumberOfMachinePar, dwReturnValue => dwMachineParReturnValue);
+fbMachineParManager(FB := MachineParManager, EN := TRUE, sDatabaseName := 'MachinePar', iNumberOfRecipes => iNumberOfMachinePar, dwReturnValue => dwMachineParReturnValue).ENO;
 
 END_PROGRAM

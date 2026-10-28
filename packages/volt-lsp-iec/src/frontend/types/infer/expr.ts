@@ -27,7 +27,7 @@ import {
   staticNameOf,
 } from "./member.js"
 import { callReturnType } from "./builtin-call.js"
-import { wireType } from "./network-call.js"
+import { networkMemberType, wireType } from "./network-call.js"
 
 /** A CODESYS partial access's member name (`%X0`, `%b3`), one token (`lex/lexer`): its width letter. */
 const PARTIAL_ACCESS = /^%([XBWD])\d+$/i
@@ -99,6 +99,9 @@ function identType(expr: Extract<Expr, { kind: "ident_expr" }>, scope: Scope, pr
 }
 
 function memberType(expr: Extract<Expr, { kind: "member" }>, scope: Scope, project: Scope): Type {
+  // the member closing a network box's call (`<box>.ENO`, `<box>.Q`, `network-call.ts`): only in a network body
+  const box = networkMemberType(expr, scope, project)
+  if (box !== undefined) return box
   // CODESYS's PARTIAL ACCESS `d.%W0` is of the part it names: %X a BOOL, %B a BYTE, %W a WORD, %D a DWORD
   // (`operand_partial_*`, `accepts_partial_access`, `expr_partial_access_beside_undefined` build into those)
   const part = PARTIAL_ACCESS.exec(expr.member.name)?.[1]?.toUpperCase()

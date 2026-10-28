@@ -2,7 +2,7 @@
 === text
 %LANGUAGE LD
 %NETWORK
-MOVE_ENONLY(EN := c, b, OUT => a);
+MOVE(EN := c, b, OUT => a);
 === model
 NETWORK
   (MOVE b =>0:a en:c)
@@ -11,7 +11,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-MOVE_EN(EN := c, 0, OUT => x);
+MOVE(EN := c, 0, OUT => x).ENO;
 === model
 NETWORK
   (MOVE 0 =>1:x en:c eno:1)
@@ -20,7 +20,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-ADD_EN(EN := c, x, 5, OUT => x, OUT => y);
+ADD(EN := c, x, 5, OUT => x, OUT => y).ENO;
 === model
 NETWORK
   (ADD x 5 =>1:x =>2:y en:c eno:1)
@@ -29,7 +29,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-ADD_EN(EN := TRUE, x, 1, OUT => x);
+ADD(EN := TRUE, x, 1, OUT => x).ENO;
 === model
 NETWORK
   (ADD x 1 =>1:x en:TRUE eno:1)
@@ -38,8 +38,8 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-MOVE_EN(EN := ready AND btn, 6, OUT => t);
-ADD_EN(EN := c, x, f(IN := b), OUT => y);
+MOVE(EN := ready AND btn, 6, OUT => t).ENO;
+ADD(EN := c, x, f(IN := b), OUT => y).ENO;
 === model
 NETWORK
   (MOVE 6 =>1:t en:(AND ready btn) eno:1)
@@ -49,7 +49,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-lamp := MOVE_EN(EN := c, 1, OUT => t);
+lamp := MOVE(EN := c, 1, OUT => t).ENO;
 === model
 NETWORK
   (:= lamp (MOVE 1 =>1:t en:c conn:0 eno:1))
@@ -58,10 +58,10 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-y := MOVE_ENONLY(EN := c, k);
-sum := ADD_ENONLY(EN := c, a, b);
-lamp := GT_ENONLY(EN := c, a, 5);
-res := f_ENONLY(EN := c, IN := v);
+y := MOVE(EN := c, k);
+sum := ADD(EN := c, a, b);
+lamp := GT(EN := c, a, 5);
+res := f(EN := c, IN := v);
 === model
 NETWORK
   (:= y (MOVE k en:c conn:0))
@@ -73,8 +73,8 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-x := a AND GT_ENONLY(EN := c, b, 40);
-y := MOVE_EN(EN := c, 1, OUT => t) AND MOVE_EN(EN := d, 2, OUT => u);
+x := a AND GT(EN := c, b, 40);
+y := MOVE(EN := c, 1, OUT => t).ENO AND MOVE(EN := d, 2, OUT => u).ENO;
 === model
 NETWORK
   (:= x (AND a (GT b 40 en:c conn:0)))
@@ -84,7 +84,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-done R= fc(iEN := MOVE_EN(EN := go, stop, OUT => start), iPos := pos);
+done R= fc(iEN := MOVE(EN := go, stop, OUT => start).ENO, iPos := pos);
 === model
 NETWORK
   (:= R=done (fc iEN=(MOVE stop =>1:start en:go conn:0 eno:1) iPos=pos conn:0))
@@ -93,7 +93,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-lamp := MOVE_EN(EN := MOVE_EN(EN := MOVE_EN(EN := start, 1, OUT => a), 2, OUT => b), 3, OUT => c);
+lamp := MOVE(EN := MOVE(EN := MOVE(EN := start, 1, OUT => a).ENO, 2, OUT => b).ENO, 3, OUT => c).ENO;
 === model
 NETWORK
   (:= lamp (MOVE 3 =>1:c en:(MOVE 2 =>1:b en:(MOVE 1 =>1:a en:start conn:0 eno:1) conn:0 eno:1) conn:0 eno:1))
@@ -102,7 +102,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-MOVE_EN(EN := MOVE_EN(EN := start, 1, OUT => a), 2, OUT => b);
+MOVE(EN := MOVE(EN := start, 1, OUT => a).ENO, 2, OUT => b).ENO;
 === model
 NETWORK
   (MOVE 2 =>1:b en:(MOVE 1 =>1:a en:start conn:0 eno:1) eno:1)
@@ -111,7 +111,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-lamp := MOVE_EN(EN := MOVE_EN(EN := MOVE_EN(EN := start, 1, OUT => a), 2, OUT => b), 3, OUT => c);
+lamp := MOVE(EN := MOVE(EN := MOVE(EN := start, 1, OUT => a).ENO, 2, OUT => b).ENO, 3, OUT => c).ENO;
 === model
 NETWORK
   (:= lamp (MOVE 3 =>1:c en:(MOVE 2 =>1:b en:(MOVE 1 =>1:a en:start conn:0 eno:1) conn:0 eno:1) conn:0 eno:1))
@@ -120,7 +120,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-lamp := MOVE_EN(EN := MOVE_EN(EN := MOVE_EN(EN := start, 1, OUT => a), 2, OUT => b), 3, OUT => c);
+lamp := MOVE(EN := MOVE(EN := MOVE(EN := start, 1, OUT => a).ENO, 2, OUT => b).ENO, 3, OUT => c).ENO;
 === model
 NETWORK
   (:= lamp (MOVE 3 =>1:c en:(MOVE 2 =>1:b en:(MOVE 1 =>1:a en:start conn:0 eno:1) conn:0 eno:1) conn:0 eno:1))
@@ -129,7 +129,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-x := a AND MOVE_EN(EN := MOVE_EN(EN := c, 2, OUT => u), 1, OUT => t);
+x := a AND MOVE(EN := MOVE(EN := c, 2, OUT => u).ENO, 1, OUT => t).ENO;
 === model
 NETWORK
   (:= x (AND a (MOVE 1 =>1:t en:(MOVE 2 =>1:u en:c conn:0 eno:1) conn:0 eno:1)))
@@ -138,7 +138,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-MOVE_EN(EN := MOVE_EN(EN := c, 1, OUT => u), MOVE_EN(EN := d, 2, OUT => t), OUT => x);
+MOVE(EN := MOVE(EN := c, 1, OUT => u).ENO, MOVE(EN := d, 2, OUT => t).ENO, OUT => x).ENO;
 === model
 NETWORK
   (MOVE (MOVE 2 =>1:t en:d conn:0 eno:1) =>1:x en:(MOVE 1 =>1:u en:c conn:0 eno:1) eno:1)
@@ -148,7 +148,7 @@ NETWORK
 %LANGUAGE LD
 %NETWORK
 %WIRES w1
-y := MOVE_EN(EN := (w1 := a AND b), w1, OUT => t);
+y := MOVE(EN := (w1 := a AND b), w1, OUT => t).ENO;
 === model
 NETWORK
   (:= y (MOVE #1 =>1:t en:(split 1 (AND a b)) conn:0 eno:1))
@@ -158,7 +158,7 @@ NETWORK
 %LANGUAGE LD
 %NETWORK
 %WIRES w1
-w1 := MOVE_EN(EN := go, 860, OUT => speed);
+w1 := MOVE(EN := go, 860, OUT => speed).ENO;
 a := w1;
 b := w1;
 === model
@@ -171,7 +171,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-JMP(Done, MOVE_EN(EN := c, 1, OUT => x));
+JMP(Done, MOVE(EN := c, 1, OUT => x).ENO);
 %NETWORK
 Done:
 ;
@@ -185,8 +185,8 @@ NETWORK label:Done
 === text
 %LANGUAGE LD
 %NETWORK
-lamp := NOT(MOVE_EN(EN := c, 1, OUT => t));
-edge := R_EDGE(MOVE_EN(EN := c, 2, OUT => u));
+lamp := NOT(MOVE(EN := c, 1, OUT => t).ENO);
+edge := R_EDGE(MOVE(EN := c, 2, OUT => u).ENO);
 === model
 NETWORK
   (:= lamp (NOT (MOVE 1 =>1:t en:c conn:0 eno:1)))
@@ -196,7 +196,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-MOVE_EN(EN := c, 7, ENO => lamp, OUT => x);
+MOVE(EN := c, 7, ENO => lamp, OUT => x).ENO;
 === model
 NETWORK
   (MOVE 7 =>ENO:lamp =>1:x en:c eno:1)
@@ -205,38 +205,36 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-MOVE_EN(EN := NOT c, 5, OUT => y);
-MOVE_EN(EN := NOT c, 5, OUT => z);
+MOVE(EN := NOT c, 5, OUT => y).ENO;
+MOVE(EN := NOT c, 5, OUT => z).ENO;
 === model
 NETWORK
   (MOVE 5 =>1:y en:not:c eno:1)
   (MOVE 5 =>1:z en:not:c eno:1)
 
-#### fb-call-read-by-name
+#### fb-call-read-by-name — an FB with two outputs: its call is closed by the one its consumer reads
 === scope
 instance t1 TON
+fb TON IN PT => Q ET
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
-t1(IN := a, PT := T#1S, Q => w1);
-x := w1;
+x := TON(FB := t1, IN := a, PT := T#1S).Q;
 === model
 NETWORK
   (:= x (TON@t1 IN=a PT=T#1S name:Q))
 
-#### fb-call-read-through-declared-eno — an FB that declares ENO, read with nothing after its call: its declared ENO (4a)
+#### fb-call-read-through-declared-eno — an FB that declares ENO: .ENO is that output, read by name; no ENO shown (1c)
 === scope
 instance d1 Dryer
+fb Dryer iOn => ENO xReady
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
-d1_ENO(iOn := on, ENO => w1);
-ready := w1;
+ready := Dryer(FB := d1, iOn := on).ENO;
 === model
 NETWORK
-  (:= ready (Dryer@d1 iOn=on conn:0 eno:1))
+  (:= ready (Dryer@d1 iOn=on name:ENO))
 
 #### fb-call-enabled
 === scope
@@ -245,10 +243,8 @@ instance c2 CTU
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
-c1_EN(EN := go, CU := a, PV := 10, CV => n);
-c2_EN(EN := c, CU := a, PV := 10, CV => n, ENO => w1);
-lamp := w1 AND d;
+CTU(FB := c1, EN := go, CU := a, PV := 10, CV => n).ENO;
+lamp := CTU(FB := c2, EN := c, CU := a, PV := 10, CV => n).ENO AND d;
 === model
 NETWORK
   (CTU@c1 CU=a PV=10 =>CV:n en:go eno:1)
@@ -257,12 +253,11 @@ NETWORK
 #### fb-call-enabled-read-by-name
 === scope
 instance t1 TON
+fb TON IN PT => Q ET
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
-t1_ENONLY(EN := c, IN := a, PT := T#1S, Q => w1);
-x := w1;
+x := TON(FB := t1, EN := c, IN := a, PT := T#1S).Q;
 === model
 NETWORK
   (:= x (TON@t1 IN=a PT=T#1S en:c name:Q))
@@ -271,7 +266,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-LIMIT_EN(EN := c, MN := 0, IN := v, MX := 100, OUT => y);
+LIMIT(EN := c, MN := 0, IN := v, MX := 100, OUT => y).ENO;
 === model
 NETWORK
   (LIMIT MN=0 IN=v MX=100 =>1:y en:c eno:1)
@@ -280,8 +275,8 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-x := f_ENO(IN := a);
-f_ENO(IN := b);
+x := f(IN := a).ENO;
+f(IN := b).ENO;
 === model
 NETWORK
   (:= x (f IN=a conn:0 eno:1))
@@ -291,7 +286,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-lamp := Drive_EN(EN := TRUE) AND running;
+lamp := Drive(EN := TRUE).ENO AND running;
 === model
 NETWORK
   (:= lamp (AND (Drive en:TRUE conn:0 eno:1) running))

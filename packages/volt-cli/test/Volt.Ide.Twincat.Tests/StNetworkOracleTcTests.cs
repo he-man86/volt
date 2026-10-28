@@ -65,6 +65,32 @@ public class StNetworkOracleTcTests
         Assert.True(stale.Count == 0, CorpusNetworkText.Regenerate + ": " + string.Join(", ", stale));
     }
 
+    /// <summary>THE CALLEES A PUSH MEETS OUT OF REACH on the TwinCAT corpus (openspec network-output-member 2.1): every box
+    /// whose reading needs its callee's declaration while none in reach states it, against the scope a PUSH reads the body
+    /// in — the project's declarations and every library's signatures. The push refuses such a box by name.</summary>
+    [Fact]
+    public void The_callees_a_push_meets_out_of_reach_are_counted()
+    {
+        var project = CorpusProject.At(Path.Combine(CorpusProjects.CorpusRoot(), "twincat-project14"));
+        var found = new List<string>();
+        foreach (var archive in Directory.EnumerateFiles(Path.Combine(Fixtures, "nwl-corpus", "twincat-project14"), "*.TcPOU").OrderBy(f => f, StringComparer.Ordinal))
+        {
+            var pou = Path.GetFileNameWithoutExtension(archive);
+            var scope = project.PushScope(project.DeclarationOf(pou));
+            foreach (var nwl in XDocument.Load(archive, LoadOptions.PreserveWhitespace).Descendants("NWL"))
+            {
+                var impl = nwl.DescendantsAndSelf("o").First(o => (string?)o.Attribute("t") == "NWLImplementationObject");
+                var view = impl.Elements("v").FirstOrDefault(v => (string?)v.Attribute("n") == "DefaultViewMode")?.Value.Trim('"');
+                foreach (var net in TcNetworkReader.Read(impl, view == "Ld" ? BodyLanguage.Ld : BodyLanguage.Fbd).Networks)
+                {
+                    try { NetworkPairing.RefuseUnbuildableBoxes("TwinCAT", net, scope); }
+                    catch (NetworkTextException e) { found.Add($"{pou} #{net.Order}: {e.Message}"); }
+                }
+            }
+        }
+        Assert.True(found.Count == 0, string.Join(", ", found));
+    }
+
     const char NL = (char)10;
 
     static void Check(string source, XElement nwl, List<StNetworkOracle.Result> results)

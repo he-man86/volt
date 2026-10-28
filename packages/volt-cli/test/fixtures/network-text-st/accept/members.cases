@@ -1,0 +1,127 @@
+#### fb-one-output — an FB with one output: its call names none
+=== scope
+instance r1 R_TRIG
+fb R_TRIG CLK => Q
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := AND(R_TRIG(FB := r1, CLK := a), b);
+=== model
+NETWORK
+  (:= x (AND (R_TRIG@r1 CLK=a name:Q) b))
+
+#### fb-moved-pin — the engineer moved the output pin: the call names the output that chains on
+=== scope
+instance t1 TON
+fb TON IN PT => Q ET
+=== text
+%LANGUAGE FBD
+%NETWORK
+t := TON(FB := t1, IN := a, PT := T#1S).ET;
+=== model
+NETWORK
+  (:= t (TON@t1 IN=a PT=T#1S name:ET))
+
+#### fb-at-a-root — a root hands nothing on: its outputs are its targets
+=== scope
+instance t1 TON
+fb TON IN PT => Q ET
+=== text
+%LANGUAGE FBD
+%NETWORK
+TON(FB := t1, IN := a, PT := T#1S, Q => lamp);
+=== model
+NETWORK
+  (TON@t1 IN=a PT=T#1S =>Q:lamp)
+
+#### function-value-beside-an-output — a function with a VAR_OUTPUT: .OUT names its value
+=== scope
+function g IN => Q
+=== text
+%LANGUAGE FBD
+%NETWORK
+q := g(a, Q => v).OUT;
+=== model
+NETWORK
+  (:= q (g a =>Q:v conn:0))
+
+#### function-output-chains — a function read through its VAR_OUTPUT: .Q names it, slot 1 after the value
+=== scope
+function g IN => Q
+=== text
+%LANGUAGE FBD
+%NETWORK
+q := g(a).Q;
+=== model
+NETWORK
+  (:= q (g a conn:1))
+
+#### declared-en-and-eno — a callee declaring EN and ENO: EN := and .ENO are its own pins, no flag shown
+=== scope
+instance w1 WSM
+fb WSM EN xOn => ENO xBusy
+=== text
+%LANGUAGE FBD
+%NETWORK
+ok := WSM(FB := w1, EN := TRUE, xOn := a).ENO;
+=== model
+NETWORK
+  (:= ok (WSM@w1 EN=TRUE xOn=a name:ENO))
+
+#### fb-shows-en-and-eno — EN := and .ENO on an FB that declares neither: its shown EN and ENO
+=== scope
+instance t1 TON
+fb TON IN PT => Q ET
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := AND(TON(FB := t1, EN := c, IN := a, PT := T#1S).ENO, b);
+=== model
+NETWORK
+  (:= x (AND (TON@t1 IN=a PT=T#1S en:c conn:0 eno:1) b))
+
+#### unstated-callee-as-written — a callee no declaration in reach states: EN := and .ENO the shown flags, .NAME the output named so
+=== scope
+instance t1 TON
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := TON(FB := t1, IN := a, PT := T#1S).Q;
+y := h(EN := c, a).ENO;
+=== model
+NETWORK
+  (:= x (TON@t1 IN=a PT=T#1S name:Q))
+  (:= y (h a en:c conn:0 eno:1))
+
+#### unstated-fb-read-by-no-name — an FB no declaration states, read with nothing named: the push refuses it by name
+=== scope
+instance t1 TON
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := AND(TON(FB := t1, IN := a, PT := T#1S), b);
+=== model
+NETWORK
+  (:= x (AND (TON@t1 IN=a PT=T#1S) b))
+
+#### program-one-output — a program box read by its one VAR_OUTPUT: nothing to name
+=== scope
+program p IN => Q
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := AND(p(IN := a), b);
+=== model
+NETWORK
+  (:= x (AND (p IN=a conn:0) b))
+
+#### program-two-outputs — a program box with two VAR_OUTPUTs: .NAME names the one that chains on
+=== scope
+program p IN => Q1 Q2
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := p(IN := a).Q2;
+=== model
+NETWORK
+  (:= x (p IN=a conn:1))

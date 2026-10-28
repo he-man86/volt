@@ -8,7 +8,7 @@
 import type { LanguageTest } from "../../types.js"
 import { ng } from "./network-graphical-shared.js"
 
-const naryDoc = "network-text.html#operator-group--operand-op-operand-op-operand-"
+const naryDoc = "network-text.html#elements"
 
 /** A FUNCTION_BLOCK with INT operands and an INT and a BOOL result, one network holding `statement`. */
 function threeFb(name: string, statement: string): string {

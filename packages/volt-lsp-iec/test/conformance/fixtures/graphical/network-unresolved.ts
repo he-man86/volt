@@ -65,8 +65,8 @@ export const NETWORK_UNRESOLVED_TESTS: readonly LanguageTest[] = [
     pouName: "FB_LANG_network_unnamed_instance",
     kind: "function_block",
     feature: "`???` in a call box's INSTANCE position",
-    fromDoc: "network-text.html#unnamed-instance",
-    note: "The shape Lenze_MID-S100's `MotionControl/POU` holds four of. Network text spells the type inline here (`??? : TYPE(…)`) because `???` is declared nowhere for the push to read it from.",
+    fromDoc: "network-text.html#elements",
+    note: "The shape Lenze_MID-S100's `MotionControl/POU` holds four of. Network text spells the box as the call of its type, its instance `FB := ???`.",
     plcPrgVar: "fb_nui : FB_LANG_network_unnamed_instance;",
     plcPrgBody: "fb_nui();",
     source: `FUNCTION_BLOCK FB_LANG_network_unnamed_instance
@@ -77,7 +77,7 @@ END_VAR
 
 %LANGUAGE FBD
 %NETWORK
-TON(IN := a, PT := t);
+TON(FB := ???, IN := a, PT := t);
 
 END_FUNCTION_BLOCK
 `,
@@ -87,7 +87,7 @@ END_FUNCTION_BLOCK
     pouName: "FB_LANG_network_unnamed_target",
     kind: "function_block",
     feature: "`???` as an assignment TARGET (a coil / outVariable nobody named)",
-    fromDoc: "network-text.html#sink",
+    fromDoc: "network-text.html#elements",
     note: "CODESYS answers `The assignment target is not specified.` — a different error from the instance case, which is why both shapes are held here rather than one standing in for the other.",
     plcPrgVar: "fb_nut : FB_LANG_network_unnamed_target;",
     plcPrgBody: "fb_nut();",
@@ -108,7 +108,7 @@ END_FUNCTION_BLOCK
     pouName: "FB_LANG_network_unnamed_target_en",
     kind: "function_block",
     feature: "`???` as the assignment target of an OPERATOR read through its ENO behind an UNCONNECTED enable",
-    fromDoc: "network-text.html#eneno",
+    fromDoc: "network-text.html#outputs",
     note:
       "The shape the two LIVE Lenze POUs carry: an unconnected EN does NOT excuse the marker, the compiler still errors, so " +
       "'the rung is not generated' does not explain those POUs building clean, leaving exclude-from-build. Its operator box " +
@@ -124,7 +124,7 @@ END_VAR
 
 %LANGUAGE LD
 %NETWORK
-??? := NOT_EN(EN := TRUE, a);
+??? := NOT(EN := TRUE, a).ENO;
 
 END_FUNCTION_BLOCK
 `,
@@ -134,7 +134,7 @@ END_FUNCTION_BLOCK
     pouName: "FB_LANG_network_unnamed_input_pin",
     kind: "function_block",
     feature: "`???` on a NAMED INPUT pin of an FB call",
-    fromDoc: "network-text.html#fb",
+    fromDoc: "network-text.html#elements",
     note: "The position NO real project has shown us yet — pinned because 'never seen' is not 'cannot happen'. Same two parse errors as an operand: the compiler chokes on the marker text wherever it stands.",
     plcPrgVar: "fb_nip : FB_LANG_network_unnamed_input_pin;",
     plcPrgBody: "fb_nip();",
@@ -146,7 +146,7 @@ END_VAR
 
 %LANGUAGE FBD
 %NETWORK
-t1(IN := ???, PT := pt);
+TON(FB := t1, IN := ???, PT := pt);
 
 END_FUNCTION_BLOCK
 `,
@@ -156,7 +156,7 @@ END_FUNCTION_BLOCK
     pouName: "FB_LANG_network_unnamed_group_operand",
     kind: "function_block",
     feature: "`???` as an operand inside a group",
-    fromDoc: "network-text.html#group",
+    fromDoc: "network-text.html#elements",
     note: "The marker where a plain variable belongs. Grouped with the pin case because the compiler answers both identically — which is itself the finding: position matters for the TARGET case and nowhere else.",
     plcPrgVar: "fb_ngo : FB_LANG_network_unnamed_group_operand;",
     plcPrgBody: "fb_ngo();",
@@ -178,7 +178,7 @@ END_FUNCTION_BLOCK
     pouName: "PRG_LANG_network_unnamed_void_caller",
     kind: "program",
     feature: "`???` as the target of a call that RETURNS NOTHING (a PROGRAM box)",
-    fromDoc: "network-text.html#sink",
+    fromDoc: "network-text.html#elements",
     note:
       "THE SHAPE THE CORPUS ACTUALLY CARRIES, and the one the other target fixtures do not reach. " +
       "`network_unnamed_assignment_target` measures `??? := a` and the EN variant `??? := NOT(IN := a)`; both have a " +
@@ -211,7 +211,7 @@ END_VAR
 
 %LANGUAGE LD
 %NETWORK
-??? := PRG_LANG_network_unnamed_void_callee_EN(EN := go);
+??? := PRG_LANG_network_unnamed_void_callee(EN := go).ENO;
 
 END_PROGRAM
 `,
@@ -221,7 +221,7 @@ END_PROGRAM
     pouName: "FB_LANG_network_unnamed_valued_call",
     kind: "function_block",
     feature: "`???` as the target of a FUNCTION call that DOES return a value",
-    fromDoc: "network-text.html#sink",
+    fromDoc: "network-text.html#elements",
     note:
       "The valued twin of `network_unnamed_target_of_void_call`, for lenze-mid's `Alarms_V5_1_100(…, => ???) EN` (a " +
       "`FUNCTION … : BOOL`; now spelled as its unconnected output pin, no coil). Same unconnected enable as the " +
@@ -247,7 +247,7 @@ END_VAR
 
 %LANGUAGE LD
 %NETWORK
-??? := FUN_LANG_network_unnamed_valued_EN(EN := TRUE, a := a);
+??? := FUN_LANG_network_unnamed_valued(EN := TRUE, a := a).ENO;
 
 END_FUNCTION_BLOCK
 `,
@@ -257,7 +257,7 @@ END_FUNCTION_BLOCK
     pouName: "FB_LANG_network_unknown_fb_type",
     kind: "function_block",
     feature: "an FB instance box whose TYPE neither the project nor a library declares",
-    fromDoc: "network-text.html#fb",
+    fromDoc: "network-text.html#elements",
     note:
       "openspec bridge-refusal-review D4. The push used to decide 'instance or function' from a hand copy of IEC type " +
       "words (`NonBlockTypeWords`, deleted); now a variable's type is no block only where the VENDOR refuses that word " +
@@ -275,7 +275,7 @@ END_VAR
 
 %LANGUAGE FBD
 %NETWORK
-t1(IN := a);
+FB_LANG_NoSuchType(FB := t1, IN := a);
 
 END_FUNCTION_BLOCK
 `,

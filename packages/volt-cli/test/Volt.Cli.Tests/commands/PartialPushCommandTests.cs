@@ -238,7 +238,7 @@ public class PartialPushCommandTests
     [Fact]
     public void A_hand_layout_landing_beside_a_refused_op_is_adopted_and_not_reported_as_another_program()
     {
-        const string canonical = "%LANGUAGE LD\n%NETWORK\nt1(IN := a, PT := pt);";
+        const string canonical = "%LANGUAGE LD\n%NETWORK\nTON(FB := t1, IN := a, PT := pt);";
         var refuse = true;
         FakeIde ide = null!;
         ide = new FakeIde(
@@ -257,7 +257,7 @@ public class PartialPushCommandTests
             var path = Path.Combine(root, "src", "A_Prg.pou");
             var pulled = File.ReadAllText(path).Replace("\r\n", "\n");
             Assert.Contains(canonical, pulled);
-            File.WriteAllText(path, pulled.Replace("t1(IN := a, PT := pt);", "t1(\n    IN := a,\n    PT := pt);"));
+            File.WriteAllText(path, pulled.Replace("TON(FB := t1, IN := a, PT := pt);", "TON(\n    FB := t1,\n    IN := a,\n    PT := pt);"));
             Edit(root, "Z_Late.pou", "x := 1;", "x := 3;");
 
             var r = Commands.Push(root, client);
@@ -321,7 +321,7 @@ public class PartialPushCommandTests
     [Fact]
     public void A_partial_push_writes_the_ide_ref_and_the_baseline_before_it_moves_the_working_tree()
     {
-        const string canonical = "%LANGUAGE LD\n%NETWORK\nt1(IN := a, PT := pt);";
+        const string canonical = "%LANGUAGE LD\n%NETWORK\nTON(FB := t1, IN := a, PT := pt);";
         FakeIde ide = null!;
         ide = new FakeIde(
             new FakeIde.Item("A_Prg", ItemKind.PlcPou, "", true,
@@ -342,7 +342,7 @@ public class PartialPushCommandTests
             var otherBefore = Sidecar.LoadIdeRefs(root)!.Items["B_Other.pou"];
             var path = Path.Combine(root, "src", "A_Prg.pou");
             var pulled = File.ReadAllText(path).Replace("\r\n", "\n");
-            File.WriteAllText(path, pulled.Replace("t1(IN := a, PT := pt);", "t1(\n    IN := a,\n    PT := pt);"));
+            File.WriteAllText(path, pulled.Replace("TON(FB := t1, IN := a, PT := pt);", "TON(\n    FB := t1,\n    IN := a,\n    PT := pt);"));
             Edit(root, "B_Other.pou", "x := 1;", "x := 2;");   // lands, and changes its version in the baseline
             Edit(root, "Z_Late.pou", "x := 1;", "x := 3;");
             ide.OnWalkItems = () => File.WriteAllText(indexLock, "");   // after the auto-commit: the push is at the bridge

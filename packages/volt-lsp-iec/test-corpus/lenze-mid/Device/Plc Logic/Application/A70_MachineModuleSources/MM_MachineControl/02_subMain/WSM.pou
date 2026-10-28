@@ -65,52 +65,42 @@ w1 := iInit OR NOT iTest_Prod OR iCleaning OR ioManualStartSupply;
 stRestposition S= w1;
 stSupplyWrapper R= stWrapperPresent R= stNoWrapper R= stPhotocellWrapperFault R= w1;
 %NETWORK "DONE Network 3: State: Restposition"
-%WIRES w2
-stOSN_TakeOverCycle(CLK := iTakeOverCycle, Q => w2);
-stRestposition S= stWrapperPresent R= w2 AND stWrapperPresent;
+stRestposition S= stWrapperPresent R= F_TRIG(FB := stOSN_TakeOverCycle, CLK := iTakeOverCycle) AND stWrapperPresent;
 %NETWORK "DONE Network 4: State: Supply wrapper"
 stSupplyWrapper S= stRestposition R= stNoWrapper R= stPhotocellWrapperFault R= ioManualStartSupply R= stRestposition AND (iTest_Prod AND NOT iCleaning AND iBunchPresent AND NOT iTakeOverCycle AND (iGenFlags.RunMan OR iGenFlags.RunAuto) OR ioManualStartSupply) OR stNoWrapper AND iGenFlags.StartFlag OR stPhotocellWrapperFault AND iGenFlags.StartFlag;
 %NETWORK "DONE Network 5: State: Wrapper Present"
-%WIRES w3
-w3 := iWrapperPresentForLeafCarrier AND stSupplyWrapper;
-stWrapperPresent S= w3;
-ADD_EN(EN := w3, 1, HMI_Var.Mach1.PRDWrapCurrentCntr, OUT => HMI_Var.Mach1.PRDWrapCurrentCntr);
-ADD_EN(EN := w3, 1, HMI_Var.Mach1.PRDWrapDayCounter, OUT => HMI_Var.Mach1.PRDWrapDayCounter);
-stSupplyWrapper R= w3;
+%WIRES w2
+w2 := iWrapperPresentForLeafCarrier AND stSupplyWrapper;
+stWrapperPresent S= w2;
+ADD(EN := w2, 1, HMI_Var.Mach1.PRDWrapCurrentCntr, OUT => HMI_Var.Mach1.PRDWrapCurrentCntr).ENO;
+ADD(EN := w2, 1, HMI_Var.Mach1.PRDWrapDayCounter, OUT => HMI_Var.Mach1.PRDWrapDayCounter).ENO;
+stSupplyWrapper R= w2;
 %NETWORK "DONE Network 6: State: No Wrapper"
-%WIRES w4
-TMR_TimeOutSupply(IN := stSupplyWrapper AND stFeedForward, PT := iTimeOutSupplyWrapper, Q => w4);
-stNoWrapper S= stSupplyWrapper R= w4;
+stNoWrapper S= stSupplyWrapper R= TON(FB := TMR_TimeOutSupply, IN := stSupplyWrapper AND stFeedForward, PT := iTimeOutSupplyWrapper).Q;
 %NETWORK "DONE Network 7: State: Photocell wrapper fault"
-%WIRES w5
-TMR_TimeOutPhotocell(IN := stSupplyWrapper AND stFeedForward AND iPhotocellWrapper, PT := T#10S, Q => w5);
-stPhotocellWrapperFault S= stSupplyWrapper R= w5;
+stPhotocellWrapperFault S= stSupplyWrapper R= TON(FB := TMR_TimeOutPhotocell, IN := stSupplyWrapper AND stFeedForward AND iPhotocellWrapper, PT := T#10S).Q;
 %NETWORK "DONE Network 8: Faults"
-%WIRES w6
-w6 := True;
-oFaultWaitingForWrapper := w6 AND stSupplyWrapper AND iTakeOverCycle;
-oFaultNoWrapper := w6 AND stNoWrapper;
-oFaultPhotocellWrapper := w6 AND stPhotocellWrapperFault;
+%WIRES w3
+w3 := True;
+oFaultWaitingForWrapper := w3 AND stSupplyWrapper AND iTakeOverCycle;
+oFaultNoWrapper := w3 AND stNoWrapper;
+oFaultPhotocellWrapper := w3 AND stPhotocellWrapperFault;
 %NETWORK "DONE Network 9: Ventilation motor"
 oVentilationMotor := iGenFlags.EnableAuxDrive AND iTest_Prod AND NOT iCleaning;
 %NETWORK "DONE Network 10:"
-%WIRES w7
-w7 := iGenFlags.EnableAuxDrive AND stSupplyWrapper AND NOT iGenFlags.StopFlag;
-stFeedForward := w7;
-oPositionMotor := w7;
+%WIRES w4
+w4 := iGenFlags.EnableAuxDrive AND stSupplyWrapper AND NOT iGenFlags.StopFlag;
+stFeedForward := w4;
+oPositionMotor := w4;
 %NETWORK "DONE Network 11: Winding motor"
 oWindingMotor := iGenFlags.EnableAuxDrive AND NOT iGenFlags.StopFlag AND iTest_Prod AND NOT iCleaning;
 %NETWORK "DONE Network 12: Start spray cycle"
-%WIRES w8, w9, w10
-w8 := stFeedForward;
-stRePositionMotor(CLK := w8, Q => w9);
-stSprayCycleActive S= w9;
-TMR_DelayContinuousSpraying(IN := w8, PT := iDelayContSpraying, Q => w10);
-stSprayCycleActive S= w10;
+%WIRES w5
+w5 := stFeedForward;
+stSprayCycleActive S= R_TRIG(FB := stRePositionMotor, CLK := w5);
+stSprayCycleActive S= TON(FB := TMR_DelayContinuousSpraying, IN := w5, PT := iDelayContSpraying).Q;
 %NETWORK "DONE Network 13: Timing spray cycle"
-%WIRES w11
-TMR_SprayTime(IN := stSprayCycleActive, PT := iSprayTime, Q => w11);
-stSprayCycleActive R= w11 AND NOT TMR_DelayContinuousSpraying.Q;
+stSprayCycleActive R= TON(FB := TMR_SprayTime, IN := stSprayCycleActive, PT := iSprayTime).Q AND NOT TMR_DelayContinuousSpraying.Q;
 %NETWORK "DONE Network 14: Spraying valve"
 oSprayingValve := ioEnableSpraying AND stSprayCycleActive;
 %NETWORK "DONE Network 15: Automatic trigger of water"
@@ -118,12 +108,11 @@ ioEnableSpraying S= FALSE AND iGenFlags.EnablePneumEStop AND iWrapperPresentForL
 %NETWORK "DONE Network 16: Water level control"
 oWaterLevelValve := ioEnableSpraying AND iWaterLevelSensor;
 %NETWORK "DONE Network 17: Manual spray cycle"
-%WIRES w12, w13
-w12 := iScreenForOperatorSettingsActivated;
-MOVE_EN(EN := w12 AND iManualSprayCycleReset, 0, OUT => ioManualSprayCycleActualCount);
-stManualSprayCycleStarted := LT_ENONLY(EN := w12 AND iGenFlags.EnablePneumEStop AND (iManualSprayCycleStart OR stManualSprayCycleStarted) AND NOT iManualSprayCycleStop AND NOT iManualSprayCycleReset, ioManualSprayCycleActualCount, iMaxNumberOfSprayPulses);
-TMR_ManualSprayCycleIdle(IN := w12 AND stManualSprayCycleStarted AND NOT stSprayCycleActive, PT := T#300MS, Q => w13);
-stSprayCycleActive S= ADD_EN(EN := w13, ioManualSprayCycleActualCount, 1, OUT => ioManualSprayCycleActualCount);
+%WIRES w6
+w6 := iScreenForOperatorSettingsActivated;
+MOVE(EN := w6 AND iManualSprayCycleReset, 0, OUT => ioManualSprayCycleActualCount).ENO;
+stManualSprayCycleStarted := LT(EN := w6 AND iGenFlags.EnablePneumEStop AND (iManualSprayCycleStart OR stManualSprayCycleStarted) AND NOT iManualSprayCycleStop AND NOT iManualSprayCycleReset, ioManualSprayCycleActualCount, iMaxNumberOfSprayPulses);
+stSprayCycleActive S= ADD(EN := TON(FB := TMR_ManualSprayCycleIdle, IN := w6 AND stManualSprayCycleStarted AND NOT stSprayCycleActive, PT := T#300MS).Q, ioManualSprayCycleActualCount, 1, OUT => ioManualSprayCycleActualCount).ENO;
 %NETWORK "DONE Network 18: SAVE RLO"
 ENO := EN;
 

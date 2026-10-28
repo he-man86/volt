@@ -2,7 +2,7 @@
 %NETWORK
 out1 := AND(a, b);
 %NETWORK
-t1(IN := out1, PT := pt);
+TON(FB := t1, IN := out1, PT := pt);
 %NETWORK
 n := MAX(i1, i2);
 %NETWORK

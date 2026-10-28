@@ -168,7 +168,8 @@ export interface Scope {
   libraryUri?: string
   /**
    * A PLAIN-ST NETWORK BODY's scope (`network-scope.ts`): its wires over the unit's scope, and where the network's own
-   * box names mean something — an enabled box `X_EN`, the Execute box `EXECUTE` (`types/names.ts`).
+   * own functions mean something — the Execute box `EXECUTE`, its branches, edges and jumps (`types/names.ts`), and every
+   * box is a call (`types/infer/network-box.ts`).
    */
   network?: true
   /** For a TOP-LEVEL project child only: the URI of the file that contributed it. Set by `bindFile`, read

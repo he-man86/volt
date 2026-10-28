@@ -51,8 +51,9 @@ TON(FB := t1, IN := a, PT := T#1S, Q => lamp);                        // a root 
   which reads with the body's own declaration only — `PushedText.SameBody`, `declarationOf: _ => null`,
   `libraryFunction: _ => null`; a library without signatures at a push). Three readings need the callee's declaration:
   `EN :=` / `.ENO` / `ENO =>` as the shown flags or declared pins, `.NAME` required or refused, and a consumed FB's one
-  output when no `.NAME` is written. The reader reads such a call AS WRITTEN — `EN :=` a pin named `EN`, `.X` the member
-  named `X` — and decides none of them. The PUSH refuses the box by name (`<callee>: no declaration in reach states its
+  output when no `.NAME` is written. The reader reads such a call AS WRITTEN — `EN :=` first the shown EN and `.ENO` the
+  shown ENO (the reading of a callee that declares neither, 2a "As built"), any other `.X` the output named `X` — and
+  decides nothing a declaration would. The PUSH refuses the box by name (`<callee>: no declaration in reach states its
   pins, so EN/ENO/.X cannot be told from a declared pin`), never a guess, as today's push refuses an FB whose outputs no
   declaration states (`NetworkPairing.NamedMainOutputs`). The POST-PUSH CHECK compares the two texts read as written in
   its one scope: the push resolved the pushed text against the project before writing it, the held text is the IDE's,
@@ -126,16 +127,20 @@ Migration: the writer respells the case set from the model; LSP conformance fixt
   `FB := inst` first) `EN := e` when `Enable` is set, pins, outputs `)`, then `.ENO` when `HasEnoOutput`, else `.NAME` when
   consumed and the declaration (`scope.Callee` / `BlockOutputs`) states more than one data output (`MainOutputName`, or
   `OUT` for slot 0 of a function). Callee unstated: `.NAME` written whenever `MainOutputName` is set — the as-written form.
+  An FB box's head is its stored type and its instance the `FB :=` pin's text, so the reader takes neither from a
+  declaration (an instance declared with another type is refused by name, as the writer refused it).
   A wire defined by an FB output is `w := TON(FB := t1, …).Q;` like any Demux; the "read once = the call statement" rule goes.
 - Reader: the parser gains one postfix, `ACall.Member` (`.` is already a lexer symbol), and the statement form
   "call closed by `.ENO`"; any other member on a statement is refused. `BoxOf` decides from `scope.Callee(type)`: `EN :=`
   first = `Enable` unless the callee declares an `EN` input; `.ENO` = `HasEnoOutput` (consumed: `ConnectedSlot` 0) unless it
-  declares `ENO`; `.NAME` = `MainOutputName` (FB) / the slot (function `OUT`, a `VAR_OUTPUT`). Callee unstated: `EN` an
-  input pin, `.X` `MainOutputName` — writer and reader agree, so `SameBody` compares as written for free.
+  declares `ENO`; `.NAME` = `MainOutputName` (FB) / the slot (function `OUT`, a `VAR_OUTPUT`). Callee unstated: `EN :=`
+  first the shown EN, `.ENO` the shown ENO, `.X` `MainOutputName` — writer and reader agree, so `SameBody` compares as
+  written for free.
 - Push refusal of an unstated callee: beside the existing `NamedMainOutputs` refusal in the three vendor writers, one
-  shared predicate `NetworkPairing.UnstatedCallees(network, scope)` (callee unstated AND the box has an `EN`/`ENO` pin,
-  a `MainOutputName`, or is a consumed FB) — the message 1.2 names. Not in the reader: the reader then needs a "push
-  scope" mode flag, and `SameBody` would need the other mode.
+  shared refusal `NetworkPairing.RefuseUnbuildableBoxes(vendor, network, scope)` (callee unstated AND the box shows EN or
+  ENO, has a pin `EN` / `ENO`, a `MainOutputName`, or is a consumed FB; and a function read through a `VAR_OUTPUT`) — the
+  messages 1.2 names, `NETWORK_UNSUPPORTED`. Not in the reader: the reader then needs a "push scope" mode flag, and
+  `SameBody` would need the other mode.
 - The 1.2 refusals (member on one output, naming no output, other than `.ENO` with ENO/at a root, `VAR_OUTPUT OUT`,
   function `.NAME` on a `VAR_OUTPUT`) are reader errors with the line, in one `MemberOf(call, callee, consumed)`.
 - LSP: the parser already reads `f(…).X` (postfix member) and `f(…).ENO;` (`expr_stmt`). `names.ts` drops the three
@@ -148,6 +153,43 @@ Migration: the writer respells the case set from the model; LSP conformance fixt
 
 Rejected: keep the suffixes and add only `.X` (two ways to say EN/ENO); a model field "unresolved" set by the reader
 (a model fact that is no IDE fact); refusing an unstated callee in the reader (a mode flag, two readings of one text).
+
+**As built (2a), where reality forced a different choice than above:**
+- *An unstated callee's `EN :=` and `.ENO` read as the shown flags, not as pins named `EN`/`ENO`.* Read as pins, every
+  callee a scope cannot state loses its shown EN/ENO on a round trip of the vendor model — every library function and
+  every program in the CLI's post-push scope, and all of TwinCAT's archive oracle, whose scope states no callee — while
+  the flag reading loses only a callee that declares its own `EN`/`ENO` (2 boxes, both stated wherever the declarations
+  are in reach). The push refuses an unstated callee by name either way, and both readings are one reading of one text,
+  so `SameBody` is unaffected.
+- *The scope states a callee's pins in one query*, `NetworkScope.Signature(type)` (`CalleeSignature`: a block's, a
+  function's — its value then its `VAR_OUTPUT`s — or a program's, which has no value), beside `Callee` (the function
+  derivation, unchanged) and `BlockOutputs`. `Callee` answers no program, and a program's box shows EN/ENO on 16 roots.
+  A name-list scope (the case set, the TwinCAT archive oracle) states a callee only through an explicit signature line
+  (`fb TON IN PT => Q ET`, `function g IN => Q`, `program p => …`).
+- *Measured* (2a): the CODESYS round-trip oracle over the five corpora is identical 316 / stored 72 (was 301 / 87: the
+  FB type the text now carries is no stored member), 0 unsupported, 0 gaps; TwinCAT 143 / 8 and its two pinned niche
+  categories, unchanged. Corpus boxes a push meets with a callee out of reach (against the push's scope: declarations
+  and every library signature): 0 of the five CODESYS corpora, 0 of twincat-project14. The root moved pin is pinned as an
+  `ExpectRed` known divergence (`StNetworkOracleCodesysTests`) and `RebuildLoss.RootMainOutput` names it on a rebuild.
+
+**Review of 2a (gate), where the build was corrected:**
+- *Every IEC operator states its pins, not only the 14 keywords, MOVE and NOT.* LIMIT, SEL, MAX, MIN, MUX, the shifts,
+  ABS, SQRT, TRUNC, the `*_TO_*` conversions (`NetworkSpelling.IsIecOperator`, the list `NetworkMembers` already held) have
+  one value and no EN/ENO of their own, where no declaration in reach names them — as the LSP reads every builtin. Without
+  it a push refused an edited `LIMIT(EN := c, …).ENO`, which built before 2a, and the reader read `.OUT` on it as an
+  unstated callee's output where the LSP refused it.
+- *A program box read by a data output is spelled as a function's*, its outputs its `VAR_OUTPUT`s (no value): nothing
+  where it has one, `.NAME` where several. Read through its first output it builds as before 2a; through a later one the
+  push refuses it by name, as a function's moved pin (`NetworkPairing`, no measured build). 0 in the corpora.
+- *An enabled box other than a comparison is read by its value or a data output only as a coil's value*, whatever closes
+  its call but `.ENO`: `MUL(g(EN := c, a).OUT, 2)` is refused by the reader and the LSP as the writer refuses its model.
+- *`FB :=` stands only on an FB box*: the call of an operator, a function or a program, or an instance that is a declared
+  non-FB variable, is refused by name on both sides.
+- *The writer refuses a model its text would read back as another box* when the callee is unstated: its own first pin
+  `EN`, or a read through its own output `ENO`.
+- *The exec twin keeps the evaluation order of network-text-st's text*: an FB box is called before the item that reads it
+  on every scan, whatever enabled box reads it; what an enabled FB's pins evaluate runs under its EN. Which order CODESYS
+  runs is measured in 2.3, not decided here.
 
 Migration (no compat, no users): the case files' `=== model` blocks are the truth; their `=== text` is respelled by the
 new writer from the model (one-shot scratch run, deleted), diffs reviewed; only `fb-call-read-through-declared-eno`'s

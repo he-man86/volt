@@ -30,6 +30,7 @@ import { bodies, isLibrarySymbol, lookupMember, scopeForUnit, visibleNames, type
 import {
   type CalleeInfo,
   constancyOf,
+  networkBox,
   resolveCallee,
   takesNoPositionalArguments,
 } from "../../../frontend/types/index.js"
@@ -42,8 +43,10 @@ import { checkInOutBindings, checkMissingInOuts, countsInOuts } from "./_in-out-
 
 export function checkCallArguments(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
-    walkAllExprs(statements, (e) => {
-      if (e.kind !== "call") return
+    walkAllExprs(statements, (x) => {
+      if (x.kind !== "call") return
+      // a network box: the call its callee takes, its `FB :=` and shown EN left out (`types` `infer/network-box.ts`)
+      const e = networkBox(x, scope, ctx.project)?.st ?? x
       const callee = resolveCallee(e, scope, ctx.project)
       if (callee === undefined) return // unresolved callee → skip (zero-FP)
       // A library FB's or method's materialized signature is lossy — inheritance is flattened, inputs may vanish — so its

@@ -1,13 +1,15 @@
 /**
- * THE WIRES OF A PLAIN-ST NETWORK BODY (openspec network-text-st 2.3; `_plain-st.ts`, the one network check, holds the
- * rest): a name on its network's `%WIRES` line is defined once and read by its name any number of times, before its
- * definition too; a call read once through its wire stands directly before the statement that reads it and defines no
- * other wire; an enabled box other than a comparison (`X_ENONLY`) is read by its value only as a coil's value, however
- * often its wire is read (CODESYS: "A box with EN can be used for comparison operators only."). Refused by name, as the
- * bridge's reader refuses it (`StNetworkReader`).
+ * THE WIRES OF A PLAIN-ST NETWORK BODY (openspec network-text-st 2.3, network-output-member; `_plain-st.ts`, the one
+ * network check, holds the rest): a name on its network's `%WIRES` line is defined once — `w := <box>`, or an Execute
+ * box's `ENO => w` — and read by its name any number of times, before its definition too; an Execute box read once
+ * through its wire stands directly before the statement that reads it and defines no other wire; a box's output reaches
+ * no wire; an enabled box other than a comparison is read by its value only as a coil's value, however often its wire is
+ * read (CODESYS: "A box with EN can be used for comparison operators only."). Refused by name, as the bridge's reader
+ * refuses it (`StNetworkReader`).
  */
 import { type CallExpr, type Expr, type PlainStNetwork, type Span, type Statement, stmtExprs, walkExpr } from "../../../frontend/syntax/index.js"
-import { lookup, type Scope } from "../../../frontend/symbols/index.js"
+import { type Scope } from "../../../frontend/symbols/index.js"
+import { boxMember, declaresEn, networkBox } from "../../../frontend/types/index.js"
 import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export const CODE = "network-plain-st"
@@ -15,7 +17,7 @@ export const CODE = "network-plain-st"
 /** The comparison boxes: the only enabled boxes CODESYS reads by their value inside another box (1.4). */
 const COMPARISONS: ReadonlySet<string> = new Set(["GT", "GE", "LT", "LE", "EQ", "NE"])
 
-/** A wire a call STATEMENT defines through an output: its statement's index, its call, its pin. */
+/** A wire an Execute box defines through its ENO: its statement's index, its call, its pin. */
 type CallWire = { index: number; call: CallExpr; pin: string }
 
 /** A read of a wire: its statement's index, where it stands, whether it is a coil's whole value (an assignment to no
@@ -30,7 +32,7 @@ interface WireTally {
   byCall: Map<string, CallWire>
   readAt: Map<string, WireRead[]>
   early: { key: string; span: Span; name: string }[]
-  /** The wires whose definition's whole value is an enabled box other than a comparison returning its value (`X_ENONLY`). */
+  /** The wires whose definition's whole value is an enabled box other than a comparison read by its value. */
   enOnlyWires: Map<string, string>
 }
 
@@ -41,16 +43,17 @@ export function checkWires(
   of: (span: Span) => PlainStNetwork | undefined,
   inExecute: (span: Span) => boolean,
   scope: Scope | undefined,
+  project: Scope,
   out: DiagnosticItem[],
 ): void {
   const tally: WireTally = { wireOf: new Map(), defined: new Map(), reads: new Map(), byCall: new Map(), readAt: new Map(), early: [], enOnlyWires: new Map() }
   for (const n of networks) for (const w of n.wires) if (!tally.wireOf.has(w.name.toLowerCase())) tally.wireOf.set(w.name.toLowerCase(), { network: n, span: w.span })
   let index = -1
-  for (const stmt of statements) if (!inExecute(stmt.span)) statementWires(stmt, ++index, tally, of, scope, out)
+  for (const stmt of statements) if (!inExecute(stmt.span)) statementWires(stmt, ++index, tally, of, scope, project, out)
   checkCallWires(tally, out)
   for (const [key, name] of tally.enOnlyWires) for (const r of tally.readAt.get(key) ?? []) if (!r.assignValue) emitEnabledValue(out, r.span, name)
-  // A wire may be read before its definition (the value it held), except the one a call read once defines: that read is
-  // the box itself, which stands directly before it.
+  // A wire may be read before its definition (the value it held), except the one an Execute box read once defines: that
+  // read is the box itself, which stands directly before it.
   for (const e of tally.early)
     if (tally.byCall.has(e.key) && tally.reads.get(e.key) === 1) emit(out, e.span, CODE, `the wire ${e.name} is read before it is defined`)
   for (const [key, wire] of tally.wireOf)
@@ -64,6 +67,7 @@ function statementWires(
   t: WireTally,
   of: (span: Span) => PlainStNetwork | undefined,
   scope: Scope | undefined,
+  project: Scope,
   out: DiagnosticItem[],
 ): void {
   const isWire = (e: Expr) => e.kind === "ident_expr" && t.wireOf.has(e.name.toLowerCase())
@@ -85,6 +89,17 @@ function statementWires(
     targets.add(stmt.target)
     for (const c of stmt.chained ?? []) targets.add(c)
   }
+  // the calls closed by `.ENO`, the shown ENO: such a box hands on its ENO, not its value. A call closed by any other
+  // member (`.OUT`, `.Q`) is still read by a data output, and stands where its member does.
+  const closed = new Set<CallExpr>()
+  const memberOf = new Map<CallExpr, Expr>()
+  for (const e of stmtExprs(stmt))
+    walkExpr(e, (x) => {
+      if (x.kind !== "member" || x.base.kind !== "call") return
+      memberOf.set(x.base, x)
+      if (scope !== undefined && boxMember(x, scope, project)?.eno === true) closed.add(x.base)
+    })
+  const at = (x: CallExpr): Expr => memberOf.get(x) ?? x
   for (const e of stmtExprs(stmt))
     walkExpr(e, (x) => {
       if (x.kind === "assign_expr") {
@@ -92,18 +107,20 @@ function statementWires(
         targets.add(x.target)
         if (!isWire(x.target)) assignValues.add(x.value)
       }
-      if (x.kind === "call" && enOnlyValue(x, scope)) {
-        if (x === wireDefValue && stmt.kind === "assign" && stmt.target.kind === "ident_expr") t.enOnlyWires.set(stmt.target.name.toLowerCase(), calleeName(x))
-        else if (!assignValues.has(x) && !(stmt.kind === "call_stmt" && stmt.call === x)) emitEnabledValue(out, x.span, calleeName(x))
+      if (x.kind === "call" && !closed.has(x) && enOnlyValue(x, scope, project)) {
+        if (at(x) === wireDefValue && stmt.kind === "assign" && stmt.target.kind === "ident_expr") t.enOnlyWires.set(stmt.target.name.toLowerCase(), calleeName(x))
+        else if (!assignValues.has(at(x)) && !(stmt.kind === "call_stmt" && stmt.call === x)) emitEnabledValue(out, x.span, calleeName(x))
       }
       if (x.kind === "call") {
-        const statement = stmt.kind === "call_stmt" && stmt.call === x
+        const execute = stmt.kind === "call_stmt" && stmt.call === x && calleeName(x).toUpperCase() === "EXECUTE"
         for (const a of x.args) if (a.output && a.value !== undefined) {
           define(a.value)
           targets.add(a.value)
-          if (statement && isWire(a.value)) t.byCall.set((a.value as { name: string }).name.toLowerCase(), { index, call: x, pin: a.param?.name ?? "" })
-          if (!statement && isWire(a.value))
-            emit(out, a.value.span, CODE, `the call is read by its return and defines the wire ${(a.value as { name: string }).name}: a box read where it stands has no wire`)
+          if (execute && isWire(a.value)) t.byCall.set((a.value as { name: string }).name.toLowerCase(), { index, call: x, pin: a.param?.name ?? "" })
+          else if (isWire(a.value)) {
+            const wire = (a.value as { name: string }).name
+            emit(out, a.value.span, CODE, `the call ${calleeName(x)} wires its output ${a.param?.name ?? ""} to the wire ${wire}: a wire is defined by \`${wire} := <box>\`, its box closed by the output it reads`)
+          }
         }
       }
       if (x.kind !== "ident_expr" || targets.has(x)) return
@@ -118,10 +135,10 @@ function statementWires(
     })
 }
 
-/** The wires call statements define: a call read once stands directly before its reader and defines no other wire. */
+/** The wires Execute boxes define: one read once stands directly before its reader and defines no other wire. */
 function checkCallWires(t: WireTally, out: DiagnosticItem[]): void {
-  // A call read once through its wire is the box itself, standing where it is read: only other such calls stand between
-  // it and the statement that reads it, so the text runs it where the network does.
+  // An Execute box read once through its wire is the box itself, standing where it is read: only other such boxes stand
+  // between it and the statement that reads it, so the text runs it where the network does.
   const readOnce = (key: string) => (t.reads.get(key) ?? 0) === 1
   const runCalls = new Set([...t.byCall].filter(([key]) => readOnce(key)).map(([, c]) => c.index))
   for (const [key, c] of t.byCall) {
@@ -134,7 +151,7 @@ function checkCallWires(t: WireTally, out: DiagnosticItem[]): void {
           emit(out, c.call.span, CODE, `the call ${name} defines the wire ${key}, read once, and does not stand directly before the statement that reads it: a box read once stands where it is read`)
           break
         }
-    // `w2 := w1;` over a box read once through w1 is the box defining w2: the call names w2 itself, so one model has one text.
+    // `w2 := w1;` over a box read once through w1 is the box defining w2: the box names w2 itself, so one model has one text.
     if (r.wireDefValue)
       emit(out, r.span, CODE, `the wire is defined by the box ${name}, read once through the wire ${key}: the box defines the wire itself (${c.pin} => the wire)`)
   }
@@ -144,21 +161,14 @@ function emitEnabledValue(out: DiagnosticItem[], span: Span, name: string): void
   emit(out, span, CODE, `the enabled box ${name} is read by its value where it is no coil's value: a box with EN can be used for comparison operators only (CODESYS), and any other is read by its value only as a coil's value`)
 }
 
-/** Is `call` an enabled box other than a comparison returning its value (`X_ENONLY`, X no FB instance)? CODESYS reads such
- *  a box by its value only as a coil's value. */
-function enOnlyValue(call: CallExpr, scope: Scope | undefined): boolean {
-  const name = calleeName(call)
-  if (!/_ENONLY$/i.test(name) || name.length <= 7) return false
-  const base = name.slice(0, -7)
-  return !COMPARISONS.has(base.toUpperCase()) && !isVariable(scope, base)
+/** Is `call` an enabled function box other than a comparison — `EN :=` its shown EN, no FB? Not closed by `.ENO`
+ *  (`checkWires`), it is read by its value or a data output, which CODESYS reads only as a coil's value. */
+function enOnlyValue(call: CallExpr, scope: Scope | undefined, project: Scope): boolean {
+  if (scope === undefined || COMPARISONS.has(calleeName(call).toUpperCase())) return false
+  const box = networkBox(call, scope, project)
+  return box !== undefined && box.instance === undefined && box.enable !== undefined && !declaresEn(box.signature)
 }
 
 function calleeName(call: CallExpr): string {
   return call.callee.kind === "ident_expr" ? call.callee.name : ""
-}
-
-/** Is `name` a variable in reach (an FB instance, whose `X_EN` is an enabled FB, not an enabled function)? */
-export function isVariable(scope: Scope | undefined, name: string): boolean {
-  const kind = scope === undefined ? undefined : lookup(scope, name)?.symbol.kind
-  return kind === "var" || kind === "gvl_var" || kind === "method_param"
 }

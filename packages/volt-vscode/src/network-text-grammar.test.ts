@@ -54,11 +54,10 @@ test("a box's head is coloured where its call opens; the same word as a contact 
 	expect(matches(words, "s.ADD(a); xADD(a);")).toEqual([])
 })
 
-test("the EN and ENO a box shows are its call head's suffix", () => {
+test("the ENO a box shows is .ENO closing its call; a member of a variable is none", () => {
 	const eno = rule("keyword.other.eno.network-text")
-	expect(matches(eno, "lamp := MOVE_EN(EN := c, 1, OUT => t); ok := f_ENO(a); x := GT_ENONLY(EN := c, i, 3); y := EN;", 2)).toEqual([
-		"_EN",
-		"_ENO",
-		"_ENONLY",
+	expect(matches(eno, "lamp := MOVE(EN := c, 1, OUT => t).ENO; ok := f(a).ENO; x := GT(EN := c, i, 3); y := d.ENO;", 2)).toEqual([
+		"ENO",
+		"ENO",
 	])
 })

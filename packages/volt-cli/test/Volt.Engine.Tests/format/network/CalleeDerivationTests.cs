@@ -294,7 +294,7 @@ public class CalleeDerivationTests
     public void A_left_out_FB_pin_is_kept_out_by_the_push_and_restored_unconnected_for_CODESYS()
     {
         var scope = Scope("VAR\n\tt2 : FB_Two;\nEND_VAR");
-        var gate = StNetworkGate.Validate(Body("t2(b := TRUE);"), scope);
+        var gate = StNetworkGate.Validate(Body("FB_Two(FB := t2, b := TRUE);"), scope);
         Assert.True(gate.Ok);
         var network = gate.Body!.Networks[0];
         Assert.Equal(new[] { "b" }, ((Box)network.Trees[0]).Inputs.Select(i => i.Formal));

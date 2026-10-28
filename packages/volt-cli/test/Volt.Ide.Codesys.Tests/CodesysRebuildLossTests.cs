@@ -72,8 +72,10 @@ public class CodesysRebuildLossTests
     static string Push(Nwl.NWLImplementationObject impl, Func<string, string> edit)
     {
         var shown = CodesysNetworkReader.ReadShown(impl, BodyLanguage.Ld);
+        // `Prg` as its declaration states it (a push builds no box whose callee it cannot read).
         var scope = new NetworkScope(new[] { "a", "b", "c", "x1", "x2", "x3", "x4", "x5", "x6", "x7" },
-            Array.Empty<string>(), new Dictionary<string, string>());
+            Array.Empty<string>(), new Dictionary<string, string>(),
+            signatures: new Dictionary<string, CalleeSignature> { ["Prg"] = new(CalleeShape.Program, Array.Empty<string>(), Array.Empty<string>()) });
         var pulled = StNetworkWriter.WritePulled(shown, scope);
         var text = edit(pulled);
         Assert.NotEqual(pulled, text);
@@ -182,6 +184,40 @@ public class CodesysRebuildLossTests
 
         Assert.Contains("OutputParam.Names ×1 (vendor-facts row nwl-output-param-names)", said);
         Assert.Contains("OutputParam.Types ×1 (vendor-facts row nwl-param-types)", said);
+    }
+
+    /// <summary>A ROOT BOX'S STORED MOVED PIN (openspec network-output-member 1.2, spec "A root's stored moved pin is
+    /// counted when a rebuild loses it"): a root hands nothing on, so no text spells its main output, and MainOutputIndex is
+    /// read-only on a built box (N21) — a rebuild of its network drops a stored index other than 0, and the warning names
+    /// it (Lenze <c>L_GetErrorTextFromFileReadArray</c>, 1 in the corpora; niche, accepted loss).</summary>
+    [Fact]
+    public void A_rebuilt_root_box_names_the_moved_pin_it_drops()
+    {
+        Nwl.BoxTreeBox Root(string input)
+        {
+            var call = new Nwl.BoxTreeBox
+            {
+                BoxType = "TON",
+                Instance = new Nwl.Operand { OperandExpr = "t1", IsInstance = true, Type = "TON" },
+                InputItemList = new object[] { Nwl.Leaf(input), Nwl.Leaf("b") },
+                InputParams = new Nwl.ParamList { Names = new[] { "IN", "PT" }, Types = new[] { "BOOL", "TIME" } },
+                OutputParams = new Nwl.ParamList { Names = new[] { "Q", "ET" }, Types = new[] { "BOOL", "TIME" } },
+                MainOutputIndex = 1,
+            };
+            call.Outputs.List.Add(new Nwl.Operand { OperandExpr = "x6", IsLValue = true });
+            call.Outputs.List.Add(null!);
+            return call;
+        }
+        var impl = new Nwl.NWLImplementationObject { DefaultViewMode = "Fbd" };
+        impl.NetworkList.Add(new Nwl.Network().With(Root("a")));
+        var scope = new NetworkScope(new[] { "a", "b", "c", "x6", "t1" }, Array.Empty<string>(),
+            new Dictionary<string, string> { ["t1"] = "TON" });
+        var pulled = StNetworkWriter.WritePulled(CodesysNetworkReader.ReadShown(impl, BodyLanguage.Fbd), scope);
+        var read = StNetworkReader.Read(pulled.Replace("IN := a", "IN := c"), scope);
+
+        var said = CaptureStdErr(() => CodesysNetworkWriter.Write(new Holder(impl), read, scope));
+
+        Assert.Contains("MainOutputIndex ×1 (no vendor-facts row yet", said);
     }
 
     /// <summary>An unchanged network is kept — nothing is rebuilt and nothing is said about it; a header-only edit is

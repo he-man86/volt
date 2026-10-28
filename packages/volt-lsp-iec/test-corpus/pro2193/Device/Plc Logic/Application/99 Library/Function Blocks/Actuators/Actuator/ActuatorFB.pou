@@ -20,10 +20,10 @@ METHOD PRIVATE Counters
 %LANGUAGE FBD
 %NETWORK
 // Calculate the on-time and the number of switches of the output
-MeasureOnTime(In := output);
+ONTIME(FB := MeasureOnTime, In := output);
 %NETWORK
 // On a rising edge of the output, save the current date/time
-MOVE_EN(EN := R_EDGE(output), TimeSettings.dtNow, OUT => TimeOfLastSwitch);
+MOVE(EN := R_EDGE(output), TimeSettings.dtNow, OUT => TimeOfLastSwitch).ENO;
 END_METHOD
 
 // Maps the actuator to the physical output

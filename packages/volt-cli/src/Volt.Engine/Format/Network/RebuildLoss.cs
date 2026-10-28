@@ -83,7 +83,15 @@ public static class RebuildLoss
         // ['ENO'] (10 corpus boxes, DIALECT N37): a rebuild lays out one slot per name, so the extra slot goes with it.
         // Held as "<slots> slots for <names> names" on a box whose counts differ (gate 2-3 review: it went unnamed).
         new Candidate(ExtraOutputSlots, "nwl-output-param-names"),
+        // A ROOT box's stored main output other than its first (openspec network-output-member 1.2: a moved pin on a box
+        // nothing reads, Lenze L_GetErrorTextFromFileReadArray, 1 in the corpora): no text spells it — a root hands nothing
+        // on — and MainOutputIndex is read-only on a built box (N21), so a rebuild drops it. Held only where the stored
+        // index is not 0; niche, accepted loss, named here.
+        new Candidate(RootMainOutput, null),
     };
+
+    /// <summary>The member a root box's stored main output other than its first is held under (<see cref="Candidates"/>).</summary>
+    public const string RootMainOutput = "MainOutputIndex";
 
     /// <summary>The member a box's extra output slots are held under (<see cref="Candidates"/>).</summary>
     public const string ExtraOutputSlots = "OutputItemList.OutputItems";

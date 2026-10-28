@@ -14,13 +14,16 @@
  */
 import type { CheckContext } from "../../pipeline/context.js"
 import { forEachExpr } from "../../../frontend/symbols/index.js"
+import { boxMember } from "../../../frontend/types/index.js"
 import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkCallResultAccess(ctx: CheckContext, out: DiagnosticItem[]): void {
-  forEachExpr(ctx.parseResult, ctx.project, (e) => {
+  forEachExpr(ctx.parseResult, ctx.project, (e, scope) => {
     const base =
       e.kind === "member" || e.kind === "index" ? e.base : e.kind === "call" ? e.callee : undefined
     if (base?.kind !== "call") return
+    // the member closing a network box's call (`<box>.ENO`, `<box>.Q`): the output the box hands on, no access
+    if (e.kind === "member" && boxMember(e, scope, ctx.project) !== undefined) return
     // an intrinsic's result: the parser ends the expression at its `.` — an index or a call on it is unmeasured
     if (base.callee.kind === "ident_expr" && base.callee.name.startsWith("__")) return
     if (e.kind === "member" && /^\d+$/.test(e.member.name)) return // a bit access — `bit-access-on-call` owns it

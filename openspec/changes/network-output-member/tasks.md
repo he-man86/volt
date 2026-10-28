@@ -127,24 +127,43 @@
 
 ## 2. Build
 
-- [ ] 2.1 C# writer + reader (`StNetworkWriter`/`StNetworkReader`): one name per box, `EN :=`, `.X`, `FB :=`; suffixes
+- [x] 2.1 C# writer + reader (`StNetworkWriter`/`StNetworkReader`): one name per box, `EN :=`, `.X`, `FB :=`; suffixes
       and the FB statement form deleted. Round-trip oracle on the corpora, TwinCAT archives and accept cases: tallies
       no worse than network-text-st's (CODESYS corpora 0 `%UNSUPPORTED`), 0 gaps. The case set re-spelled.
       From 1b: the statement form `f(…).ENO;` (and `.X` other than `.ENO` closing a statement refused); a callee out
       of reach read as written and refused by name at a push, the post-push check comparing as written (count the
       corpus boxes a push meets so); the `VAR_OUTPUT OUT` refusal; a `RebuildLoss` `MainOutputIndex` candidate for a
       root box and the root moved pin listed as a known divergence "niche: accepted loss (1 occurrence in the corpora)".
-- [ ] 2.2 LSP: one signature per box, `.X` typed from the declaration, the subset check updated; agrees with the C#
+      Done 2026-10-28 (design.md 2a "As built"): `StNetworkWriter`/`StNetworkReader` per 2a; the suffixes, the FB statement
+      form and the read-once splice of an FB go (the splice stays for the Execute box only); `NetworkScope.Signature`
+      (`CalleeSignature`) states a callee's pins, a name-list scope through signature lines. Case set re-spelled from the
+      models (130 accept incl. 9 new `members.cases`, 57 refuse; `fb-call-read-through-declared-eno` model now flags false,
+      `name:ENO`). Oracle: CODESYS corpora identical 316 / stored 72 / unsupported 0 / gap 0 (was 301 / 87 / 0 / 0);
+      TwinCAT archives 143 / 8 + its 2 pinned niche categories (unchanged). Corpus boxes a push meets with a callee out of
+      reach: 0 (five CODESYS corpora) and 0 (twincat-project14), against the push's scope (`CorpusProject.PushScope`).
+      `NetworkPairing.RefuseUnbuildableBoxes` (unstated callee; function read through a VAR_OUTPUT) in the three vendor
+      writers; `RebuildLoss.RootMainOutput`; `A_root_box_storing_a_moved_pin_is_a_known_divergence` (ExpectRed, 1 box).
+      The LSP corpora's network bodies regenerated (`VOLT_WRITE_CORPUS_TEXT=1`, 37 files). The completeness ledger's
+      `BoxTreeBox.BoxType — changed` (24) closed: the text carries the stored type.
+- [x] 2.2 LSP: one signature per box, `.X` typed from the declaration, the subset check updated; agrees with the C#
       reader on every accept and refuse case.
       The statement `f(…).ENO;` accepted at a network's top level only (1b).
+      Done 2026-10-28: `types/infer/network-box.ts` (one box per call, its `BoxSignature` from the declaration in reach),
+      `network-call.ts` (value, `.ENO` BOOL, `.OUT`, `.NAME` typed), `_plain-st.ts` / `_plain-st-wires.ts` carry the
+      reader's refusals in its words; the ST checks (call arguments, non-callable, unresolved names, member, call-result
+      access, unknown source) read a box as the call its callee takes. Case set: 187/187 on both sides. Corpus gate (LSP
+      invents nothing) green; frontend and analysis baselines unchanged.
 - [ ] 2.3 Exec twin: translate `.X`, `EN :=`, `FB :=` to ST; twin builds re-recorded live (lenze-mid, pro2193): 0
       errors; exec traces equal on the spelled cases.
       The root `f(…).ENO;` → the call statement. ENO without EN (`function-eno-without-en`) added to
       `st-spellings-run.test.ts` and RUN live before its translation is trusted (1b: only built so far).
-- [ ] 2.4 `docs/network-text.html`: the suffix table becomes one sentence and one example; the FB rows follow the rule.
+- [x] 2.4 `docs/network-text.html`: the suffix table becomes one sentence and one example; the FB rows follow the rule.
       Fix the stale anchors: `test/e2e/graphical/roundtrip.test.ts:53` (`#opaque`, LET/`i*`), the LSP conformance
       fixtures `graphical/network-unresolved.ts`, `network-graphical-a.ts`, `network-graphical-c.ts` (`#unnamed-instance`,
       `#sink`, `#eneno`, `#fb`, `#group`, `#operator-group--…`, `#execute-box--…`), `NetworkModel.cs:167`.
+      Done 2026-10-28: the suffix table is `#outputs`, one paragraph and one example block; FB rows `TON(FB := t1, …)`;
+      every stale anchor points at a section that exists (`#elements`, `#outputs`, `#wires`, `#execute`, `#lines`,
+      `#subset`); the roundtrip.test.ts comment says the current spelling.
 - [ ] 2.5 Live e2e on CODESYS and TwinCAT; the graphical conformance fixtures re-recorded.
 
 ## 3. Close

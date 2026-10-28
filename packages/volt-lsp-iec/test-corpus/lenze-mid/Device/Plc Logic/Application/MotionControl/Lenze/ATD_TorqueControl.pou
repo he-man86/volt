@@ -10,8 +10,8 @@ END_VAR
 
 %LANGUAGE LD
 %NETWORK
-SUPER^(ioAxis := ioAxis, DataIO := DataIO);
+ATD_FQI(FB := SUPER^, ioAxis := ioAxis, DataIO := DataIO);
 %NETWORK
-L_MC1P_CyclicParameterAccessWrite_0(Axis := ioAxis, xEnable := TRUE, wIndex := 16#4008, usiSubIndex := 5, usiSize := 2, xSigned := 1, lrScaleFactor := 1, lrData := lrTorque);
+L_MC1P_CyclicParameterAccessWrite(FB := L_MC1P_CyclicParameterAccessWrite_0, Axis := ioAxis, xEnable := TRUE, wIndex := 16#4008, usiSubIndex := 5, usiSize := 2, xSigned := 1, lrScaleFactor := 1, lrData := lrTorque);
 
 END_FUNCTION_BLOCK

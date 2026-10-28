@@ -10,7 +10,7 @@
  * // runs while auto is on
  * w1 := start AND NOT stop;
  * lamp := w1;
- * done := MOVE_EN(EN := w1, 1, OUT => x);
+ * done := MOVE(EN := w1, 1, OUT => x).ENO;
  * hot := GT(temp, 80);
  * ```
  *
@@ -213,19 +213,25 @@ function read(tokens: readonly Token[]): PlainStText {
   return { networks, statementTokens: compiled, sourceTokens: out, stray }
 }
 
-/** The name of a coil nobody named, as the IDE stores it: `??? := a;`. */
+/** The name of what the IDE stores unnamed, `???`: a coil (`??? := a;`) and an FB box's instance (`TON(FB := ???, …)`). */
 export const UNNAMED = "???"
 
-/** Does `tokens[at]` open `???` as a statement's target — three touching `?`, `:=` next, at the start of a statement? */
+/** Does `tokens[at]` open `???` — three touching `?` — as a statement's target (`:=` next, at the start of a statement) or as
+ *  an FB box's instance (after `FB :=`)? */
 function isUnnamedTarget(tokens: readonly Token[], at: number, before: readonly Token[]): boolean {
   const q = (k: number) => tokens[k]?.kind === "punct" && tokens[k]!.text === "?"
   if (!q(at) || !q(at + 1) || !q(at + 2)) return false
   if (tokens[at + 1]!.span.start !== tokens[at]!.span.end || tokens[at + 2]!.span.start !== tokens[at + 1]!.span.end) return false
+  let p = before.length - 1
+  while (p >= 0 && isTrivia(before[p]!.kind)) p--
+  if (before[p]?.text === ":=") {
+    let f = p - 1
+    while (f >= 0 && isTrivia(before[f]!.kind)) f--
+    return before[f]?.kind === "identifier" && before[f]!.text.toUpperCase() === "FB"
+  }
   let n = at + 3
   while (n < tokens.length && isTrivia(tokens[n]!.kind)) n++
   if (tokens[n]?.kind !== "punct" || tokens[n]!.text !== ":=") return false
-  let p = before.length - 1
-  while (p >= 0 && isTrivia(before[p]!.kind)) p--
   return p < 0 || before[p]!.text === ";" || before[p]!.text === ":"
 }
 

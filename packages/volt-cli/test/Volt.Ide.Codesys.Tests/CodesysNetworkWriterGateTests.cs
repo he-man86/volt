@@ -484,7 +484,10 @@ public class CodesysCoilFlagTests
         });
 
         var live = Different();
-        CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, BodyLanguage.Fbd, ScopeOf(model, BodyLanguage.Fbd));
+        // `f` as its declaration states it: one input, no VAR_OUTPUT (a push builds no box whose callee it cannot read).
+        var scope = new NetworkScope(new[] { "a", "x", "rung" }, Array.Empty<string>(), new System.Collections.Generic.Dictionary<string, string>(),
+            signatures: new System.Collections.Generic.Dictionary<string, CalleeSignature> { ["f"] = new(CalleeShape.Function, new[] { "IN" }, Array.Empty<string>()) });
+        CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, BodyLanguage.Fbd, scope);
 
         var written = Assert.IsType<Nwl.BoxTreeBox>(live.GetTree(live.NetworkItemCount - 1));
         Assert.Equal(slots, written.Outputs.List.Select(o => o is null ? "∅" : Assert.IsType<Nwl.Operand>(o).OperandExpr ?? "").ToArray());
@@ -520,7 +523,7 @@ public class CodesysCoilFlagTests
     /// now (below), and these rows are the consumed shapes that build: an enabled MOVE read by its ENO, and a function
     /// without EN read by its main output.</summary>
     [Theory]
-    [InlineData("x := MOVE_EN(EN := c, a, OUT => sv);", true)]
+    [InlineData("x := MOVE(EN := c, a, OUT => sv).ENO;", true)]
     [InlineData("n := LIMIT(a, b, n);", false)]
     public void The_ENO_slot_is_written_for_the_box_that_has_one_not_for_every_enabled_box(string statement, bool eno)
     {
@@ -573,7 +576,7 @@ public class CodesysCoilFlagTests
         Assert.NotEmpty(NetworkSpelling.Comparisons);
         foreach (var op in NetworkSpelling.Comparisons)
         {
-            var (model, scope) = Pushed($"x := {op}_ENONLY(EN := c, a, b);");
+            var (model, scope) = Pushed($"x := {op}(EN := c, a, b);");
             var live = Different();
             CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, BodyLanguage.Fbd, scope);
             var cmp = Assert.IsType<Nwl.BoxTreeBox>(Assert.IsType<Nwl.BoxTreeAssign>(live.GetTree(live.NetworkItemCount - 1)).RValue);
@@ -589,9 +592,9 @@ public class CodesysCoilFlagTests
     /// <c>.ENO</c> on an operator with no EN is built too: the box the text describes, which CODESYS's build answers
     /// with "Missing EN pin" (DIALECT N21) — the build's error, not a reason for the push to refuse (1.5).</summary>
     [Theory]
-    [InlineData("MOVE_ENONLY(EN := c, a, OUT => sv);")]
-    [InlineData("GT_ENONLY(EN := c, a, b, OUT => x);")]
-    [InlineData("lamp := MOVE_EN(EN := c, a, OUT => sv);")]
+    [InlineData("MOVE(EN := c, a, OUT => sv);")]
+    [InlineData("GT(EN := c, a, b, OUT => x);")]
+    [InlineData("lamp := MOVE(EN := c, a, OUT => sv).ENO;")]
     public void A_consumer_the_built_box_reads_as_written_is_built(string statement)
     {
         var (model, scope) = Pushed(statement);

@@ -51,21 +51,6 @@ export function resolveBareName(scope: Scope, name: string): BareName {
   return member.kind === "member" ? { kind: "enum-member", symbol: member.symbol } : { kind: "ambiguous", candidates: member.candidates, said: member.said }
 }
 
-/** The suffix of an enabled box's function in plain-ST network text: `MOVE_EN`, `GT_EN`, `t1_EN`. */
-const ENABLED_SUFFIX = "_EN"
-
-/** The suffix of a box showing its ENO and no EN: `f_ENO`, `d1_ENO`. */
-const ENO_SUFFIX = "_ENO"
-
-/** The suffix of a box showing its EN and no ENO, returning its VALUE: `GT_ENONLY`, `t1_ENONLY`. */
-export const EN_ONLY_SUFFIX = "_ENONLY"
-
-/** The suffix a network box's name ends in (`_ENONLY`, `_ENO`, `_EN`), with a name before it; else undefined. */
-export function networkSuffix(name: string): string | undefined {
-  const upper = name.toUpperCase()
-  return [EN_ONLY_SUFFIX, ENO_SUFFIX, ENABLED_SUFFIX].find((s) => upper.length > s.length && upper.endsWith(s))
-}
-
 /** The text's own elements, each a function returning BOOL: the parallel branch (`BRANCH(FEED := f, b1, b2)`, one per
  *  mode) and the edge on a contact or a box (`R_EDGE(x)`, `F_EDGE(x)`). */
 export const NETWORK_ELEMENTS: ReadonlySet<string> = new Set(["BRANCH", "BRANCH_SHORTCIRCUIT", "R_EDGE", "F_EDGE"])
@@ -74,20 +59,15 @@ export const NETWORK_ELEMENTS: ReadonlySet<string> = new Set(["BRANCH", "BRANCH_
 export const NETWORK_CONTROLS: ReadonlySet<string> = new Set(["JMP", "RETURN"])
 
 /**
- * IS `name` A NETWORK'S OWN BOX in `scope` (openspec network-text-st: one function per toolbox element) — written inside a
- * plain-ST network body (`Scope.network`) and declared by nothing: `EXECUTE`, the Execute box; `<X>_EN`, the ENABLED box
- * of whatever `X` names (an operator, a function, an FB instance), and `<X>_ENO`, X showing its ENO and no EN — each
- * returning its ENO; `<X>_ENONLY`, X showing its EN and no ENO, returning X's value; and the text's elements
- * (`NETWORK_ELEMENTS`), each returning BOOL.
+ * IS `name` A NETWORK'S OWN FUNCTION in `scope` — written inside a plain-ST network body (`Scope.network`) and declared by
+ * nothing: `EXECUTE`, the Execute box, returning its ENO; the text's elements (`NETWORK_ELEMENTS`), each returning BOOL;
+ * and the jump and the return on a value (`NETWORK_CONTROLS`). Every other box is a call of its toolbox name
+ * (`infer/network-box.ts`).
  */
 export function isNetworkBox(scope: Scope, name: string): boolean {
   if (!inNetwork(scope)) return false
   const upper = name.toUpperCase()
-  if (upper === "EXECUTE" || NETWORK_ELEMENTS.has(upper) || NETWORK_CONTROLS.has(upper)) return true
-  const suffix = networkSuffix(name)
-  if (suffix === undefined) return false
-  const base = resolveBareName(scope, name.slice(0, -suffix.length)).kind
-  return base !== "none" && base !== "ambiguous"
+  return upper === "EXECUTE" || NETWORK_ELEMENTS.has(upper) || NETWORK_CONTROLS.has(upper)
 }
 
 function inNetwork(scope: Scope): boolean {

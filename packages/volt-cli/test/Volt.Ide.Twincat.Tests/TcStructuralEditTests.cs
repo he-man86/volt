@@ -272,7 +272,7 @@ public class TcStructuralEditTests
         // An unwired pin is the rail, TRUE (a stored member, design.md 1.4).
         Assert.Contains("\nn := MUL(TRUE, m, 6);\n", text);
         // The import's output list is a stored member the text derives (B7): not written, kept by an unchanged push.
-        Assert.Contains("\nt1(IN := TRUE, PT := TRUE);\n", text);
+        Assert.Contains("\nTON(FB := t1, IN := TRUE, PT := TRUE);\n", text);
         Assert.Null(TcNetworkWriter.Apply(xml, NetworkText.Validate(text, scope), scope));
     }
 
@@ -297,10 +297,10 @@ public class TcStructuralEditTests
         var box = pulled.Networks.SelectMany(n => n.Trees).OfType<Box>().Single(b => b.Type == "TON");
         Assert.IsType<Terminator>(box.Enable);
 
-        // An enabled box with no ENO at the root is `X_ENONLY` (design.md "3.0", owner 2026-10-28), its unwired enable the
-        // rail, TRUE; pushed back unchanged it is kept.
+        // An enabled box with no ENO at the root is its call with `EN :=` and no member (network-output-member), its unwired
+        // enable the rail, TRUE; pushed back unchanged it is kept.
         var text = StNetworkWriter.WritePulled(pulled, scope);
-        Assert.Contains("\nt1_ENONLY(EN := TRUE, PT := TRUE);\n", text);
+        Assert.Contains("\nTON(FB := t1, EN := TRUE, PT := TRUE);\n", text);
         Assert.Null(TcNetworkWriter.Apply(xml, NetworkText.Validate(text, scope), scope));
     }
 
@@ -373,7 +373,7 @@ public class TcStructuralEditTests
     public void ENO_on_a_box_the_import_gives_no_ENO_output_is_refused_naming_it()
     {
         var ex = Assert.ThrowsAny<NotSupportedException>(() =>
-            TcNetworkWriter.Apply(Ladder(), Pushed("xoutput := AND_EN(EN := c, xtest, xtest2, OUT => xstore);"), Scope, ImportedAs("AND")));
+            TcNetworkWriter.Apply(Ladder(), Pushed("xoutput := AND(EN := c, xtest, xtest2, OUT => xstore).ENO;"), Scope, ImportedAs("AND")));
 
         Assert.Contains("'AND'", ex.Message);
         Assert.Contains("through ENO", ex.Message);

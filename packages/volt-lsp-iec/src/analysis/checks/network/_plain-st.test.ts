@@ -21,10 +21,19 @@ function programOf(c: Case): string {
     if (w[0] === "name") return w.slice(1).map((n) => `\t${n} : BOOL;`)
     return []
   })
-  // a `pou` line is a function the body can call (declaring its own EN, as the 55 library POUs that do, 1c)
+  // a `pou` line is a function the body can call (declaring its own EN, as the 55 library POUs that do, 1c); a signature
+  // line (`fb TON IN PT => Q ET`, `function g IN => Q`, `program p => Q`) the callee as its declaration states it, and a bare
+  // `fb Axis` a block type with no pin
   const pous = c.scope.flatMap((line) => {
     const w = line.split(/\s+/)
-    return w[0] === "pou" && w.length === 2 ? [`FUNCTION ${w[1]} : BOOL\nVAR_INPUT\n\tEN : BOOL;\nEND_VAR\n%LANGUAGE ST\n${w[1]} := EN;\nEND_FUNCTION\n`] : []
+    if (w[0] === "pou" && w.length === 2) return [`FUNCTION ${w[1]} : BOOL\nVAR_INPUT\n\tEN : BOOL;\nEND_VAR\n%LANGUAGE ST\n${w[1]} := EN;\nEND_FUNCTION\n`]
+    if (w[0] === "fb" && w.length === 2) return [`FUNCTION_BLOCK ${w[1]}\nVAR\nEND_VAR\n%LANGUAGE ST\n\nEND_FUNCTION_BLOCK\n`]
+    const arrow = w.indexOf("=>")
+    if (!["fb", "function", "program"].includes(w[0]!) || arrow < 2) return []
+    const vars = (kind: string, names: string[]) => (names.length === 0 ? "" : `${kind}\n${names.map((n) => `\t${n} : BOOL;\n`).join("")}END_VAR\n`)
+    const io = vars("VAR_INPUT", w.slice(2, arrow)) + vars("VAR_OUTPUT", w.slice(arrow + 1))
+    const [head, end] = w[0] === "fb" ? [`FUNCTION_BLOCK ${w[1]}`, "END_FUNCTION_BLOCK"] : w[0] === "function" ? [`FUNCTION ${w[1]} : BOOL`, "END_FUNCTION"] : [`PROGRAM ${w[1]}`, "END_PROGRAM"]
+    return [`${head}\n${io}%LANGUAGE ST\n\n${end}\n`]
   })
   return `${pous.join("")}PROGRAM CaseProgram\nVAR\n\tvolt_case_unused : BOOL;\n${decls.join("\n")}\nEND_VAR\n${c.text}END_PROGRAM\n`
 }
@@ -69,8 +78,8 @@ const ld = (decls: string, body: string) =>
 test("a plain-ST network body is ST: its boxes and wires resolve and type, a wrong type is the ST error", () => {
   const src = ld(
     "\ta, b, c, x, y, lamp, hot : BOOL;\n\ti, n : INT;\n\tt1 : FB_T;",
-    "%NETWORK\n%WIRES w1, w2\nw1 := a AND NOT b;\nx := w1;\ny := w1 OR c;\nt1(IN := w1, Q => w2);\nlamp := w2;\n" +
-      "hot := GT(i, 3);\nn := ADD(i, 1, 2);\nx := MOVE_EN(EN := GT_ENONLY(EN := a, i, n), 1, OUT => n);\n",
+    "%NETWORK\n%WIRES w1\nw1 := a AND NOT b;\nx := w1;\ny := w1 OR c;\nlamp := FB_T(FB := t1, IN := w1);\n" +
+      "hot := GT(i, 3);\nn := ADD(i, 1, 2);\nx := MOVE(EN := GT(EN := a, i, n), 1, OUT => n).ENO;\n",
   )
   expect([...diagnose(src), ...networkDiags(src)].map((d) => d.message)).toEqual([])
   const wrong = ld("\ta, x : BOOL;\n\ti : INT;", "%NETWORK\nx := ADD(i, 1);\n")
@@ -110,8 +119,8 @@ test("GT(a, b) stays the vendor's syntax error in ST: only a network spells a bo
   expect(diagnose(st).some((d) => d.message === "Expression expected instead of 'GT'")).toBe(true)
 })
 
-test("an FB box with no instance, the call of its type, is the build's errors over the marker ???", () => {
-  const src = ld("\ta : BOOL;", "%NETWORK\nFB_T(IN := a);\n")
+test("an FB box with no instance, FB := ???, is the build's errors over the marker ???", () => {
+  const src = ld("\ta : BOOL;", "%NETWORK\nFB_T(FB := ???, IN := a);\n")
   expect(diagnose(src)).toEqual([])
   expect(networkDiags(src).map((d) => d.message)).toEqual([
     "Expression expected instead of '?'",
@@ -123,7 +132,7 @@ test("an FB box with no instance, the call of its type, is the build's errors ov
 })
 
 test("an operator box with an input count its symbol does not take is the build's error, in each vendor's words", () => {
-  const src = ld("\ti, j, k : INT;\n\tx : BOOL;", "%NETWORK\ni := SUB(i, j, k);\n%NETWORK\nx := GT_ENONLY(EN := x, i, j, k);\n%NETWORK\nj := ADD(i);\n")
+  const src = ld("\ti, j, k : INT;\n\tx : BOOL;", "%NETWORK\ni := SUB(i, j, k);\n%NETWORK\nx := GT(EN := x, i, j, k);\n%NETWORK\nj := ADD(i);\n")
   expect(networkDiags(src).map((d) => d.message)).toEqual(["'-' needs exactly '2' operands", "'>' needs exactly '2' operands", "'+' needs at least '2' operands"])
   expect(networkDiags(src, "twincat").map((d) => d.message)[0]).toBe("'-' needs exactly '2' Operands")
   expect(networkDiags(ld("\ti, j : INT;\n\tx : BOOL;", "%NETWORK\ni := SUB(i, j);\nx := AND(x, x, x);\n"))).toEqual([])
@@ -148,13 +157,13 @@ test("a FUNCTION box given more pins than it declares, positional and named toge
 })
 
 test("on CODESYS a library function's box named through its namespace and shown with ENO reads ENO as a member", () => {
-  const src = ld("\tx : BOOL;\n\ttxt : STRING;", "%NETWORK\nx := Standard.LEN_ENO(txt);\n")
+  const src = ld("\tx : BOOL;\n\ttxt : STRING;", "%NETWORK\nx := Standard.LEN(txt).ENO;\n")
   expect(networkDiags(src).map((d) => d.message)).toEqual(["'ENO' is no component of 'LEN'"])
   expect(networkDiags(src, "twincat")).toEqual([])
 })
 
 test("a coil nobody named, ??? := v, is the build's own error in each vendor's words, and nothing else", () => {
-  const src = ld("\ta : BOOL;\n\tgo : BOOL;", "%NETWORK\n??? := a;\n%NETWORK\n??? := MOVE_EN(EN := go, 1, OUT => a);\n")
+  const src = ld("\ta : BOOL;\n\tgo : BOOL;", "%NETWORK\n??? := a;\n%NETWORK\n??? := MOVE(EN := go, 1, OUT => a).ENO;\n")
   expect(diagnose(src)).toEqual([])
   expect(networkDiags(src).map((d) => d.message)).toEqual(["The assignment target is not specified.", "The assignment target is not specified."])
   expect(networkDiags(src, "twincat").map((d) => d.message)).toEqual(["Assignment target not specified", "Assignment target not specified"])

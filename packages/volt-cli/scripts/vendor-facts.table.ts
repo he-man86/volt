@@ -779,7 +779,7 @@ const NWL_R_CALLS = nwlProgram(
   "LD",
   [
     "k := VltF_RFn(x := i);",
-    "VltF_RPrg_ENONLY(EN := b);",
+    "VltF_RPrg(EN := b);",
     "t1(IN := a, PT := T#1S);",
     "o1 := a AND b;",
     "j := ADD(i, 1);",
@@ -806,8 +806,8 @@ const NWL_EDITOR = nwlProgram(
     "o3 := GT(i, j);",
     "o4 := a AND NOT b;",
     "o5 := BRANCH_SHORTCIRCUIT(FEED := a, b, NOT c);",
-    "MOVE_ENONLY(EN := a, 750, OUT => m);",
-    "o6 := VltF_RFn_EN(EN := b, i);",
+    "MOVE(EN := a, 750, OUT => m);",
+    "o6 := VltF_RFn(EN := b, i).ENO;",
   ],
 )
 /** The FBD half of C1: an operator tree, a negated operator PIN (FBD's negation, `InputFlags`), an enabled function
@@ -819,8 +819,8 @@ const NWL_EDITOR_FBD = nwlProgram(
   [
     "o := AND(OR(AND(a, b, c), AND(a, b)), q);",
     "p := AND(NOT a, b);",
-    "ok := VltF_RFn_EN(EN := a, i);",
-    "MOVE_ENONLY(EN := b, 7, OUT => m);",
+    "ok := VltF_RFn(EN := a, i).ENO;",
+    "MOVE(EN := b, 7, OUT => m);",
   ],
 )
 /** The members C1 reads at every point (the input pin flags too: FBD's negation). */
@@ -873,8 +873,8 @@ const NWL_S1_PLAIN = nwlProgram(
 )
 /** S2, S6 and S5 in the spelling design 1.1 gives them — what the push answers before 2.3 spells them. */
 const NWL_S2 = nwlProgram("VltF_S2", ["a : BOOL", "b : BOOL", "o1 : BOOL", "o2 : BOOL", "k : INT"], "LD", [
-  "MOVE_ENONLY(EN := (o1 := a AND b), 750, OUT => k);",
-  "MOVE_ENONLY(EN := (o2 S= a AND b), 7, OUT => k);",
+  "MOVE(EN := (o1 := a AND b), 750, OUT => k);",
+  "MOVE(EN := (o2 S= a AND b), 7, OUT => k);",
 ])
 const NWL_S6 = nwlProgram("VltF_S6", ["a : BOOL", "b : BOOL", "o1 : BOOL", "fb1 : VltF_S6Fb"], "FBD", [
   "fb1(xEnable := NOT a);",
@@ -1801,7 +1801,7 @@ export const ROWS: Row[] = [
           "VltF_Seed_FE",
           "FBD",
           "\tgo : BOOL;\n\tn : INT;\n\tok : BOOL;",
-          "ok := VltF_Seed_F_EN(EN := go, n);",
+          "ok := VltF_Seed_F(EN := go, n).ENO;",
         ),
       },
       {
@@ -1820,7 +1820,7 @@ export const ROWS: Row[] = [
         name: "VltF_Seed_PE",
         parent: "folder",
         via: "push",
-        source: SRC.caller("VltF_Seed_PE", "LD", "\tgo : BOOL;\n\tdone : BOOL;", "done := VltF_Seed_P_EN(EN := go);"),
+        source: SRC.caller("VltF_Seed_PE", "LD", "\tgo : BOOL;\n\tdone : BOOL;", "done := VltF_Seed_P(EN := go).ENO;"),
       },
       {
         op: "create",
@@ -1842,7 +1842,7 @@ export const ROWS: Row[] = [
           "VltF_Seed_BE",
           "LD",
           "\tgo : BOOL;\n\tdone : BOOL;\n\tb : VltF_Seed_B;",
-          "done := b_EN(EN := go);",
+          "done := VltF_Seed_B(FB := b, EN := go).ENO;",
         ),
       },
       { tag: "built", op: "build" },

@@ -49,8 +49,8 @@
           "name": "keyword.operator.word.network-text"
         },
         {
-          "comment": "The EN and ENO a box shows: the suffix of its call head, _EN, _ENO or _ENONLY.",
-          "match": "(?i)(?<![\\w.])([A-Za-z_]\\w*?)(_ENONLY|_ENO|_EN)(?=\\s*\\()",
+          "comment": "The ENO a box shows: .ENO closing its call (the call is the box; .NAME names any other output it hands on).",
+          "match": "(?i)(?<=\\))\\s*(\\.)(ENO)\\b",
           "captures": {
             "2": {
               "name": "keyword.other.eno.network-text"

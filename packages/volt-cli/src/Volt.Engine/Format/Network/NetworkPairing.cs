@@ -230,4 +230,59 @@ public static class NetworkPairing
             .Select(b => (b, b.MainOutputName!));
 
     private static IEnumerable<Node> Walk(Node n) => new[] { n }.Concat(n.Children().SelectMany(Walk));
+
+    /// <summary>
+    /// THE BOXES A PUSH CANNOT BUILD FOR WANT OF THEIR CALLEE'S DECLARATION (openspec network-output-member 1.2, "A callee no
+    /// declaration in reach states"): a box whose callee nothing in reach declares (<see cref="NetworkSpelling.SignatureOf(Box, NetworkScope)"/>
+    /// null) and whose reading needs it — an <c>EN :=</c> / <c>.ENO</c> / <c>ENO =&gt;</c> (the shown flag, or a pin the callee
+    /// declares), a <c>.NAME</c>, or an FB a consumer reads by no named output. The text reads such a call as written; the
+    /// push never builds a guess.
+    /// </summary>
+    private static IEnumerable<Box> UnstatedCallees(Network network, NetworkScope scope)
+    {
+        if (network is null) throw new ArgumentNullException(nameof(network));
+        if (scope is null) throw new ArgumentNullException(nameof(scope));
+        foreach (var (box, root) in Boxes(network))
+        {
+            if (box.StCode is not null || NetworkSpelling.SignatureOf(box, scope) is not null) continue;
+            if (box.Enable is not null || box.HasEnoOutput || box.MainOutputName is not null || box.Instance is not null && !root
+                || box.Inputs.Any(i => string.Equals(i.Formal, Box.EnablePin, StringComparison.OrdinalIgnoreCase))
+                || box.Outputs.Any(o => string.Equals(o.Formal, Box.EnoPin, StringComparison.OrdinalIgnoreCase)))
+                yield return box;
+        }
+    }
+
+    /// <summary>A FUNCTION or PROGRAM box a consumer reads past its first data output (a function's <c>VAR_OUTPUT</c>, slot
+    /// past its value; a program's second <c>VAR_OUTPUT</c> on): the text spells it, but no build route for a call's moved
+    /// pin is measured (network-output-member 1.2; 0 in the corpora) — the null-slot route is an FB's
+    /// (<see cref="NetworkDerivation"/>).</summary>
+    private static IEnumerable<Box> CallMovedPins(Network network, NetworkScope scope) =>
+        Boxes(network).Select(x => x.Box).Where(b =>
+            b.Instance is null && b.StCode is null && !b.HasEnoOutput && b.ConnectedSlot is > 0 &&
+            NetworkSpelling.SignatureOf(b, scope) is { Shape: CalleeShape.Function or CalleeShape.Program });
+
+    /// <summary>The refusal of the boxes <see cref="UnstatedCallees"/> and <see cref="CallMovedPins"/> name — one rule both
+    /// drivers apply before they build a network, one wording.</summary>
+    public static void RefuseUnbuildableBoxes(string vendor, Network network, NetworkScope scope)
+    {
+        foreach (var box in UnstatedCallees(network, scope))
+            throw new NetworkTextException(
+                $"{vendor}: network {network.Order + 1} changed, and its '{box.Type}' box needs its callee's declaration: " +
+                $"{box.Type}: no declaration in reach states its pins, so EN/ENO/.X cannot be told from a declared pin. " +
+                "Volt refuses to build it rather than guess; a network whose text is unchanged is kept as the IDE holds it.",
+                ConflictCodes.NetworkUnsupported);
+        foreach (var box in CallMovedPins(network, scope))
+            throw new NetworkTextException(
+                $"{vendor}: network {network.Order + 1} changed, and its '{box.Type}' box is read through its output " +
+                $"slot {box.ConnectedSlot}, one of its VAR_OUTPUTs: " +
+                (NetworkSpelling.SignatureOf(box, scope)!.Shape == CalleeShape.Function
+                    ? "a function box read by a VAR_OUTPUT has no measured build. "
+                    : "a program box read by a VAR_OUTPUT other than its first has no measured build. ") +
+                "Volt refuses to build it; a network whose text is unchanged is kept as the IDE holds it. The IDE can draw it.",
+                ConflictCodes.NetworkUnsupported);
+    }
+
+    /// <summary>Every box of <paramref name="network"/>, with whether it stands at a root (an item of its own).</summary>
+    private static IEnumerable<(Box Box, bool Root)> Boxes(Network network) =>
+        network.Trees.SelectMany(t => Walk(t).OfType<Box>().Select(b => (b, ReferenceEquals(b, t))));
 }

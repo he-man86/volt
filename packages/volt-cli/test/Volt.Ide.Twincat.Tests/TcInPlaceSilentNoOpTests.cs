@@ -31,13 +31,14 @@ public class TcInPlaceSilentNoOpTests
 
     /// <summary>Pull <paramref name="fixture"/>, apply <paramref name="edit"/> to its text, and read the result back
     /// through the push's gate — asserting the edit really changed the text, so the premise cannot pass vacuously.</summary>
-    private static (string Before, NetworkBody Model) Edited(string fixture, BodyLanguage language, string from, string to)
+    private static (string Before, NetworkBody Model) Edited(string fixture, BodyLanguage language, string from, string to,
+        System.Collections.Generic.IReadOnlyDictionary<string, CalleeSignature>? signatures = null)
     {
         var before = Body(fixture);
         var pulled = TcNetworkReader.Read(Impl(before), language);
         var text = TcText.Write(pulled);
         Assert.Contains(from, text);
-        var model = TcText.Validate(text.Replace(from, to), TcText.ScopeOf(pulled));
+        var model = TcText.Validate(text.Replace(from, to), signatures is null ? TcText.ScopeOf(pulled) : TcText.ScopeOf(pulled, signatures));
         Assert.NotEqual(TextOf(pulled), TextOf(model));
         return (before, model);
     }
@@ -62,13 +63,14 @@ public class TcInPlaceSilentNoOpTests
     /// ENO — a connection and an ENO fact the text carries (task 3.10). The in-place write compared neither, so it wrote
     /// nothing.</summary>
     [Theory]
-    [InlineData("execute-box.TcPOU", BodyLanguage.Fbd, "t1(IN := TRUE, PT := T#5s, Q => w1);", "t1_ENO(IN := TRUE, PT := T#5s, ENO => w1);")]
-    [InlineData("ladder-demux.TcPOU", BodyLanguage.Ld, "t1(IN := in1, PT := e1, Q => w1);", "t1_ENO(IN := in1, PT := e1, ENO => w1);")]
+    [InlineData("execute-box.TcPOU", BodyLanguage.Fbd, "TON(FB := t1, IN := TRUE, PT := T#5s).Q;", "TON(FB := t1, IN := TRUE, PT := T#5s).ENO;")]
+    [InlineData("ladder-demux.TcPOU", BodyLanguage.Ld, "TON(FB := t1, IN := in1, PT := e1).Q;", "TON(FB := t1, IN := in1, PT := e1).ENO;")]
     public void A_consumer_moved_to_the_ENO_output_is_not_swallowed(string fixture, BodyLanguage language, string from, string to)
     {
-        var (before, model) = Edited(fixture, language, from, to);
+        // TON as its library signature states it: a push reads its callee's declaration (network-output-member).
+        var (before, model) = Edited(fixture, language, from, to, TcText.Ton);
 
         // ThrowsAny: the refusal is the named ENO one (TcEnoRefusal, a NotSupportedException), task 4.2.
-        Assert.ThrowsAny<NotSupportedException>(() => TcText.Apply(before, model));
+        Assert.ThrowsAny<NotSupportedException>(() => TcText.Apply(before, model, TcText.Ton));
     }
 }

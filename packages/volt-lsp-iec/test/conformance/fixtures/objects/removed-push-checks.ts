@@ -151,9 +151,9 @@ END_TYPE
   network(
     "rcc_network_eno_without_en",
     "FB_LANG_rcc_nw_eno",
-    "ENO read on an ADD box that has no EN — `ADD_ENO(a, b)`: it stores, and the build refuses it (\"Missing EN pin\", X9)",
+    "ENO read on an ADD box that has no EN — `ADD(a, b).ENO`: it stores, and the build refuses it (\"Missing EN pin\", X9)",
     "\ta : INT;\n\tb : INT;\n\tx : BOOL;",
-    "x := ADD_ENO(a, b);",
+    "x := ADD(a, b).ENO;",
   ),
 
   // …and on a user FUNCTION's box: the push derives a project FUNCTION's CallType and output list from its declaration
@@ -181,7 +181,7 @@ END_VAR
 
 %LANGUAGE FBD
 %NETWORK
-x := FUN_LANG_rcc_twice_ENO(a := a, b := b);
+x := FUN_LANG_rcc_twice(a := a, b := b).ENO;
 
 END_FUNCTION_BLOCK
 `,

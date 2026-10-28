@@ -42,7 +42,7 @@ NETWORK
 %EXECUTE(EN := go, ENO => w1)
 i := i + 1;
 %END_EXECUTE
-lamp := MOVE_EN(EN := w1, 1, OUT => t);
+lamp := MOVE(EN := w1, 1, OUT => t).ENO;
 === model
 NETWORK
   (:= lamp (MOVE 1 =>1:t en:(EXECUTE "i := i + 1;" en:go conn:0) conn:0 eno:1))

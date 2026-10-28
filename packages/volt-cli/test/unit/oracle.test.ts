@@ -15,7 +15,7 @@ const wrap = (lang: string, b: string) => `PROGRAM P\nVAR\nEND_VAR\n%LANGUAGE ${
 describe("oracle self-check", () => {
 	it("catches an unconsumed block deleted by the writer", () => {
 		expect(() => expectNoOperandsLost(
-			wrap("LD", "%NETWORK\ntmr(IN := a, PT := T#5S);\nout := b;"),
+			wrap("LD", "%NETWORK\nTON(FB := tmr, IN := a, PT := T#5S);\nout := b;"),
 			wrap("LD", "%NETWORK\nout := b;"))).toThrow()
 	})
 	it("catches a jump's discarded condition spine", () => {
@@ -25,7 +25,7 @@ describe("oracle self-check", () => {
 	})
 	it("catches an FB instance type written as empty", () => {
 		expect(() => expectNoOperandsLost(
-			wrap("FBD", "%NETWORK\n%WIRES w1\nfbUp(CLK := a, Q => w1);\nout := w1;"),
+			wrap("FBD", "%NETWORK\nout := R_TRIG(FB := fbUp, CLK := a);"),
 			wrap("FBD", "%NETWORK\nout := a;"))).toThrow()
 	})
 	it("tolerates reparenthesisation, a wire the importer folds into one assign, and rung splitting", () => {

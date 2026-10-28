@@ -20,17 +20,13 @@ iCount:=icount+1;
 
 %END_EXECUTE
 %NETWORK
+output := TON(FB := t1, IN := in1, PT := e1).Q;
+%NETWORK
 %WIRES w1
-t1(IN := in1, PT := e1, Q => w1);
-output := w1;
+w1 := b;
+out1 := AND(OR(a, w1), c);
+out2 := w1;
 %NETWORK
-%WIRES w2
-w2 := b;
-out1 := AND(OR(a, w2), c);
-out2 := w2;
-%NETWORK
-%WIRES w3
-t2(IN := TRUE, PT := e1, Q => w3);
-output := w3;
+output := TON(FB := t2, IN := TRUE, PT := e1).Q;
 
 END_PROGRAM

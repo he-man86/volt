@@ -103,7 +103,7 @@ internal static class TcNetworkWriter
                     // A network whose trees did not change is a header edit, written in place, building nothing — an
                     // UNSUPPORTED network's title included.
                     if (TreesUnchanged(net, model, scope)) { changed |= WriteHeader(net, model); break; }
-                    RefuseUnbuildable(model);
+                    RefuseUnbuildable(model, scope);
                     try
                     {
                         changed |= WriteNetwork(net, model, scope);
@@ -131,7 +131,7 @@ internal static class TcNetworkWriter
                 case NetworkStep.Insert:
                 {
                     var model = body.Networks[move.Pushed!.Value];
-                    RefuseUnbuildable(model);
+                    RefuseUnbuildable(model, scope);
                     var built = Built(model, scope, resolve ?? throw new VoltInvariantException(
                         $"TwinCAT: this push adds network {move.Pushed.Value + 1}, and a new network is built by the native " +
                         "builder, which this in-place write was not handed. This is a Volt bug."));
@@ -319,7 +319,7 @@ internal static class TcNetworkWriter
     /// line (<see cref="NetworkPairing.RefuseUnpairedUnsupported"/>) and a box read through a named main output (S4) —
     /// unmeasured on TwinCAT: no TwinCAT project holds one (S4 is one Lenze CODESYS network), in place or built
     /// (<see cref="TcArchiveBuilder"/> refuses it too).</summary>
-    internal static void RefuseUnbuildable(Network model)
+    internal static void RefuseUnbuildable(Network model, NetworkScope scope)
     {
         NetworkPairing.RefuseUnpairedUnsupported(BeckhoffDriver.Row.Display, model);
         foreach (var (box, output) in NetworkPairing.NamedMainOutputs(model))
@@ -328,6 +328,8 @@ internal static class TcNetworkWriter
                 $"'{output}', which is not the box's first output. No TwinCAT project Volt measured holds such a box, so " +
                 "writing one is unmeasured here. Refusing to write this network; a network whose text is unchanged is kept " +
                 "as the IDE holds it. The IDE can edit this network.");
+        // A box whose callee no declaration in reach states, and a function read through a VAR_OUTPUT (network-output-member).
+        NetworkPairing.RefuseUnbuildableBoxes(BeckhoffDriver.Row.Display, model, scope);
     }
 
     /// <summary>Whether the live network's TREES already say what is pushed: its render with the pushed header.

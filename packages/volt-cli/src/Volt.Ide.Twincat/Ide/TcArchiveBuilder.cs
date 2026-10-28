@@ -90,6 +90,8 @@ internal sealed class TcArchiveBuilder
                 $"TwinCAT: network {n.Order + 1}'s '{box.Type}' box is read through its output '{output}', which neither the " +
                 $"project's declarations nor the libraries' signatures name an output of '{box.Type}', so the slot the " +
                 "consumer reads is unknown. The IDE can draw it.");
+        // A box whose callee no declaration in reach states, and a function read through a VAR_OUTPUT (network-output-member).
+        NetworkPairing.RefuseUnbuildableBoxes(BeckhoffDriver.Row.Display, n, _scope);
         var id = Next();
         var items = n.Trees.Select(t => Node(t, consumed: false)).ToList();
         return new XElement("o",

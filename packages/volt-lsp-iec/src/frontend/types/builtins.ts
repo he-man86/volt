@@ -50,7 +50,7 @@ export const BUILTIN_OPERATOR_NAMES: ReadonlySet<string> = new Set([
 export const COMPILER_IMPLICITS: ReadonlySet<string> = new Set(["THIS", "SUPER", "IOCONFIG_GLOBALS", "TYPE_CLASS"])
 
 /** What kind of compiler-provided name a bare name is (`builtinName`) — and, in a plain-ST network body, a network's own
- *  box (`names.ts` `isNetworkBox`: an enabled box `X_EN`, the Execute box). */
+ *  function (`names.ts` `isNetworkBox`: the Execute box, a branch, an edge, a jump on a value). */
 export type BuiltinName = "system-operator" | "conversion" | "implicit" | "operator" | "type" | "network-box"
 
 /**

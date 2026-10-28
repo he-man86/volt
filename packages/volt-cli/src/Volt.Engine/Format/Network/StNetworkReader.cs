@@ -13,13 +13,15 @@ namespace Volt.Engine.Format.Network;
 /// formal and positional pins, the infix operators by ST precedence, <c>NOT</c>, <c>JMP(l, c)</c> /
 /// <c>RETURN</c>, a leading label, and the <c>%</c> lines. Anything else is refused by name, with its line.
 ///
-/// <para>Two structural rules beside the syntax. A call whose head is <c>&lt;name&gt;_EN</c> is the ENABLED box of
-/// <c>&lt;name&gt;</c> (a function, an operator, or an FB instance), its first argument <c>EN :=</c>; any other call's
-/// <c>EN</c>/<c>ENO</c> are the callee's own pins (<c>&lt;name&gt;_ENO</c>: the box showing ENO and no EN). A name on a
-/// network's <c>%WIRES</c> line is a wire: a Demux over its definition, read by its name any number of times — except
-/// a wire a call statement defines through an output (<c>t1(IN := a, Q =&gt; w4)</c>) and that is read once, which is that
-/// call, standing where it is read. <c>BRANCH</c>, <c>BRANCH_SHORTCIRCUIT</c>, <c>R_EDGE</c> and <c>F_EDGE</c> are the
-/// text's own elements (<see cref="StNetworkWriter.ElementHeads"/>).</para>
+/// <para>The call is the box (openspec network-output-member): <c>FB := inst</c> as its first pin makes it an FB box of the
+/// type its head names; <c>EN :=</c> first (after <c>FB :=</c>) is the shown EN and <c>.ENO</c> closing the call the shown
+/// ENO, where the callee declares no <c>EN</c>/<c>ENO</c> of its own; any other <c>.NAME</c> names the output a consumer
+/// reads, required where the callee declares more than one data output and refused where it declares one
+/// (<see cref="NetworkSpelling.SignatureOf(string, bool, NetworkScope)"/>). A statement is an assignment, a call, a call
+/// closed by <c>.ENO</c>, a jump or a return, a label. A name on a network's <c>%WIRES</c> line is a wire: a Demux over its
+/// definition, read by its name any number of times — except a wire an Execute box defines through its ENO and that is read
+/// once, which is that box, standing where it is read. <c>BRANCH</c>, <c>BRANCH_SHORTCIRCUIT</c>, <c>R_EDGE</c> and
+/// <c>F_EDGE</c> are the text's own elements (<see cref="StNetworkWriter.ElementHeads"/>).</para>
 ///
 /// <para>The push reads every LD/FBD body through it (<see cref="StNetworkGate"/>, <see cref="NetworkBodyReader"/>), as
 /// the round-trip oracle does.</para>
@@ -248,6 +250,7 @@ public static class StNetworkReader
                 trees, unsupported, hash);
         }
 
+        public NetworkScope Scope => _scope;
         public string? InstanceType(string head) => _scope.InstanceType(head);
         public bool IsBlockType(string head) => _scope.IsBlockType(head);
         /// <summary>Whether anything is declared in reach under <paramref name="name"/>: a POU, an instance or a variable.</summary>
@@ -272,7 +275,8 @@ public static class StNetworkReader
     private sealed class ANot : AExpr { public AExpr Inner = null!; }
     private sealed class ABin : AExpr { public string Type = ""; public List<AExpr> Operands = new(); }
     private sealed class AAssign : AExpr { public List<(string Text, string Op)> Targets = new(); public AExpr Value = null!; }
-    private sealed class ACall : AExpr { public string Head = ""; public List<AArg> Args = new(); }
+    /// <summary>A call: <c>Head(args)</c>, closed by <c>.Member</c> where written.</summary>
+    private sealed class ACall : AExpr { public string Head = ""; public List<AArg> Args = new(); public string? Member; }
     /// <summary><c>JMP(label, value)</c> (a label) / <c>RETURN(value)</c> (none).</summary>
     private sealed class AJump : AExpr { public string? Label; public AExpr Value = null!; }
     private sealed class AArg { public string? Formal; public bool Out; public AExpr? Value; public string? Target; }
@@ -485,23 +489,29 @@ public static class StNetworkReader
             if (KeywordCallHead() is { } op)
             {
                 _i++;
-                var call = CallArgs(op, line);
-                Expect(";");
-                return new SCall { Call = call, Line = line };
+                return CallStatement(CallArgs(op, line), line);
             }
             var at = _i;
             var span = TryOperandSpan(_i, allowCall: true) ?? throw Error("a statement (an assignment, a call, a jump or a return)");
             if (span.IsCall)
             {
                 _i = span.Next;
-                var call = CallArgs(span.Text, line);
-                Expect(";");
-                return new SCall { Call = call, Line = line };
+                return CallStatement(CallArgs(span.Text, line), line);
             }
             _i = at;
             var a = AssignTail(line);
             Expect(";");
             return new SAssign { Assign = a, Line = line };
+        }
+
+        /// <summary>A call standing as a statement: a box at a root, its call closed by <c>.ENO</c> where it shows ENO and by
+        /// nothing else — a root hands nothing on, so no other output is named.</summary>
+        private SCall CallStatement(ACall call, int line)
+        {
+            if (call.Member is { } member && !string.Equals(member, Box.EnoPin, StringComparison.OrdinalIgnoreCase))
+                throw new StNetworkReadException(line, $"the call {call.Head} stands as a statement closed by .{member}: a box at a root hands nothing on, and its call is closed by .ENO (it shows ENO) or by nothing");
+            Expect(";");
+            return new SCall { Call = call, Line = line };
         }
 
         /// <summary><c>JMP l;</c> / <c>RETURN;</c> on the rail, <c>JMP(l, value);</c> / <c>RETURN(value);</c> on a value.</summary>
@@ -681,8 +691,20 @@ public static class StNetworkReader
             return _isWire(span.Text) ? new AWire { Name = span.Text, Line = line } : new AOperand { Text = span.Text, Line = line };
         }
 
-        /// <summary>After the head: <c>(args)</c>.</summary>
+        /// <summary>After the head: <c>(args)</c>, then the member closing the call, <c>.NAME</c>, where written.</summary>
         private ACall CallArgs(string head, int line)
+        {
+            var call = Args(head, line);
+            if (Is(".") && Peek(1) is { Kind: Tk.Ident } m && !IsKeyword(m.Text))
+            {
+                if (head.StartsWith("@", StringComparison.Ordinal)) throw Error("a member after an Execute box: it is no call");
+                call.Member = m.Text;
+                _i += 2;
+            }
+            return call;
+        }
+
+        private ACall Args(string head, int line)
         {
             var call = new ACall { Head = head, Line = line };
             if (head.StartsWith("@", StringComparison.Ordinal) && !Is("(")) return call;
@@ -790,7 +812,7 @@ public static class StNetworkReader
         private static StNetworkReadException EnabledValueNotACoil(int line, string head) =>
             Error(line, $"the enabled box {head} is read by its value where it is no coil's value: a box with EN can be used for comparison operators only (CODESYS), and any other is read by its value only as a coil's value");
 
-        /// <summary>The wires whose definition's whole value is an enabled box other than a comparison (<c>X_ENONLY</c>).</summary>
+        /// <summary>The wires whose definition's whole value is an enabled box other than a comparison read by its value.</summary>
         private readonly Dictionary<string, string> _enabledValue = new(StringComparer.OrdinalIgnoreCase);
 
         public Node Tree(AExpr e) => Expr(e);
@@ -807,9 +829,9 @@ public static class StNetworkReader
                     _pendingAt[w.Target!] = k;
                     pendingWire[_stmts[k]] = w.Target!;
                 }
-            // A call statement read once is the box itself, STANDING WHERE IT IS READ: the run of such calls right before an
-            // item is that item's, each read by it or by a call of the run read by it. The model runs a box where it is read,
-            // so a call the text runs elsewhere (after its reader, or past another statement) would run in another order
+            // An Execute box read once is the box itself, STANDING WHERE IT IS READ: the run of such boxes right before an
+            // item is that item's, each read by it or by a box of the run read by it. The model runs a box where it is read,
+            // so a box the text runs elsewhere (after its reader, or past another statement) would run in another order
             // than the text spells.
             var run = new List<AStmt>();
             for (var k = 0; k < _stmts.Count; k++)
@@ -861,8 +883,11 @@ public static class StNetworkReader
             }
         }
 
+        /// <summary>The output of an Execute box that defines a wire (its <c>ENO =&gt; w</c>), or null: a call's output to a wire
+        /// is refused where the call is read (<see cref="CallBox"/>), a wire being defined by <c>w := &lt;box&gt;</c>.</summary>
         private AArg? WireOut(ACall c)
         {
+            if (!IsExecute(c)) return null;
             var outs = c.Args.Where(a => a.Out && _net.IsWire(a.Target!)).ToList();
             if (outs.Count > 1) throw Error(c.Line, $"the call {c.Head} defines {outs.Count} wires: a box defines one");
             return outs.FirstOrDefault();
@@ -1016,123 +1041,99 @@ public static class StNetworkReader
             {
                 case Leaf { Flags: { Rising: false, Falling: false } } l:
                     return l with { Flags = l.Flags with { Rising = rising, Falling = !rising } };
-                case Box { Flags: { Rising: false, Falling: false }, Instance: null, StCode: null } b when b.Enable is null || NetworkSpelling.ConnectedByEno(b):
+                case Box { Flags: { Rising: false, Falling: false }, StCode: null } b when b.Enable is null || b.Instance is not null || NetworkSpelling.ConnectedByEno(b):
                     return b with { Flags = b.Flags with { Rising = rising, Falling = !rising } };
                 default:
-                    throw Error(c.Line, $"the edge {c.Head} over a wire, a branch, a coil, a box written as a statement or another edge: an edge is on a contact or on a box read where it stands");
+                    throw Error(c.Line, $"the edge {c.Head} over a wire, a branch, a coil, an Execute box or another edge: an edge is on a contact or on a box read where it stands");
             }
         }
 
-        /// <summary>The box type of an enabled FUNCTION box other than a comparison that returns its value (<c>X_ENONLY</c>),
+        /// <summary>The box type of an enabled FUNCTION box other than a comparison read by its value or a data output (it shows EN
+        /// and no ENO: its call closed by nothing or by a member other than <c>.ENO</c>),
         /// else null.</summary>
         private string? EnOnlyByValue(ACall c)
         {
-            if (Suffix(c.Head) != StNetworkWriter.EnOnlySuffix) return null;
-            var type = c.Head.Substring(0, c.Head.Length - StNetworkWriter.EnOnlySuffix.Length);
-            return _net.InstanceType(type) is null && !_net.IsBlockType(type) && !NetworkSpelling.Comparisons.Contains(type) ? type : null;
+            if (IsExecute(c) || IsInstancePin(c.Args.FirstOrDefault())) return null;
+            if (c.Args.FirstOrDefault() is not { Out: false } first || !Is(first.Formal, Box.EnablePin)) return null;
+            var signature = NetworkSpelling.SignatureOf(c.Head, block: false, _net.Scope);
+            if (NetworkSpelling.Comparisons.Contains(c.Head) || signature is { DeclaresEn: true }) return null;
+            // Closed by `.ENO`, the shown ENO, it hands on its ENO; closed by any other member it is still read by a data output.
+            if (c.Member is { } member && Is(member, Box.EnoPin) && signature is not { DeclaresEno: true }) return null;
+            return c.Head;
         }
 
-        /// <summary>The suffix a call head ends in (<see cref="StNetworkWriter.Suffixes"/>), with a name before it; else null.</summary>
-        private static string? Suffix(string head) =>
-            StNetworkWriter.Suffixes.FirstOrDefault(x => head.Length > x.Length && head.EndsWith(x, StringComparison.OrdinalIgnoreCase));
+        private static bool Is(string? a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
 
+        private static bool IsExecute(ACall c) => c.Head.StartsWith("@EXEC", StringComparison.Ordinal);
+
+        private static bool IsInstancePin(AArg? a) => a is { Out: false } && Is(a.Formal, StNetworkWriter.InstancePin);
+
+        /// <summary>THE BOX A CALL IS (openspec network-output-member): <c>FB := inst</c> first an FB box of the head's type;
+        /// <c>EN :=</c> first after it the shown EN and <c>.ENO</c> the shown ENO, where the callee declares no EN / ENO of its
+        /// own; <c>.NAME</c> the output a consumer reads (<see cref="Member"/>).</summary>
         private Box CallBox(ACall c, bool consumed)
         {
-            string type;
+            if (IsExecute(c)) return ExecuteBox(c, consumed);
+            var type = c.Head;
             Operand? instance = null;
-            string? stCode = null;
-            var enabled = false;
-            var enoOnly = false;
-            var enOnly = false;
-            if (c.Head.StartsWith("@EXEC", StringComparison.Ordinal))
+            var at = 0;
+            if (IsInstancePin(c.Args.FirstOrDefault()))
             {
-                type = NetworkSpelling.ExecuteType;
-                stCode = _net.Snippet(int.Parse(c.Head.Substring(5), CultureInfo.InvariantCulture));
-                enabled = c.Args.Count > 0 && !c.Args[0].Out && string.Equals(c.Args[0].Formal, Box.EnablePin, StringComparison.OrdinalIgnoreCase);
+                instance = new Operand(InstanceText(c), IsInstance: true);
+                at = 1;
+                // FB := names an FB box's instance: the call of an operator, a function or a program has none.
+                var stated = _net.Scope.Signature(type);
+                if (stated is { Shape: not CalleeShape.Block } || stated is null && NetworkSpelling.IsIecOperator(type))
+                    throw Error(c.Line, $"{StNetworkWriter.InstancePin} := on a call of {type}, which is no function block: {StNetworkWriter.InstancePin} := names an FB box's instance");
+                if (_net.InstanceType(instance.Text) is { } declared)
+                {
+                    if (!St.StDeclaration.SameType(declared, type))
+                        throw Error(c.Line, $"the FB box {type} names the instance {instance.Text}, declared {declared}: an FB box is the call of its instance's type");
+                }
+                else if (NetworkSpelling.Identifier.IsMatch(instance.Text) && _net.Scope.Contains(instance.Text) && !_net.Scope.IsCallable(instance.Text))
+                    throw Error(c.Line, $"the FB box {type} names {instance.Text} as its instance: {instance.Text} is no FB instance");
             }
-            else
-            {
-                var head = c.Head;
-                // The suffix names the EN and ENO the box shows: `X_EN` both, `X_ENO` ENO and no EN, `X_ENONLY` EN and no
-                // ENO. Anything declared in reach under that very name (a POU, an instance, a variable) would give the text
-                // a second meaning, which the writer refuses to write, so the reader refuses to read it.
-                var suffix = Suffix(head);
-                if (suffix is not null && _net.InReach(head))
-                    throw Error(c.Line, $"the call {head} names something declared in reach (a POU, an instance or a variable) whose name ends in {suffix}, which the text reads as " +
-                        (suffix == StNetworkWriter.EnoSuffix ? "a box showing ENO" : suffix == StNetworkWriter.EnabledSuffix ? "an enabled box" : "an enabled box showing no ENO"));
-                if (suffix is not null)
-                {
-                    head = head.Substring(0, head.Length - suffix.Length);
-                    enabled = suffix != StNetworkWriter.EnoSuffix;
-                    enoOnly = suffix == StNetworkWriter.EnoSuffix;
-                    enOnly = suffix == StNetworkWriter.EnOnlySuffix;
-                    if (enabled && (c.Args.Count == 0 || c.Args[0].Out || !string.Equals(c.Args[0].Formal, Box.EnablePin, StringComparison.OrdinalIgnoreCase)))
-                        throw Error(c.Line, $"the enabled box {c.Head} takes EN := as its first argument");
-                }
-                if (_net.InstanceType(head) is { } fbType)
-                {
-                    type = fbType;
-                    instance = new Operand(head, IsInstance: true);
-                }
-                // A call headed by an FB TYPE is the vendor's unnamed-instance box (`???`): what the IDE draws.
-                else if (_net.IsBlockType(head))
-                {
-                    type = head;
-                    instance = new Operand(Box.UnnamedInstance, IsInstance: true);
-                }
-                // The box type as the IDE stores it, in the case it was typed (`and(a, b)` is a box of type `and`).
-                else type = head;
-            }
+            else if (_net.InstanceType(type) is not null)
+                throw Error(c.Line, $"the call {type} names an FB instance: an FB box is the call of its type, its instance its first pin ({StNetworkWriter.InstancePin} := {type})");
+            else if (_net.IsBlockType(type))
+                throw Error(c.Line, $"the FB box {type} names no instance: its first pin is {StNetworkWriter.InstancePin} := <instance>, {StNetworkWriter.InstancePin} := {Box.UnnamedInstance} for none");
+            var signature = NetworkSpelling.SignatureOf(type, instance is not null, _net.Scope);
+            if (signature is { DeclaresOut: true })
+                throw Error(c.Line, $"{type} declares VAR_OUTPUT OUT, which also names its value: the text cannot tell the two apart");
+            var declaresEn = signature is { DeclaresEn: true };
+            var declaresEno = signature is { DeclaresEno: true };
 
             Node? enable = null;
+            if (!declaresEn && at < c.Args.Count && c.Args[at] is { Out: false } en && Is(en.Formal, Box.EnablePin))
+            {
+                enable = Expr(en.Value!);
+                at++;
+            }
             var inputs = new List<Input>();
             var outputs = new List<(string? Formal, string Target)>();
-            string? byName = null;
-            var byEno = false;
-            var function = instance is null && stCode is null;
-            for (var k = 0; k < c.Args.Count; k++)
+            for (var k = at; k < c.Args.Count; k++)
             {
                 var a = c.Args[k];
                 if (a.Out)
                 {
-                    var isEno = string.Equals(a.Formal, Box.EnoPin, StringComparison.OrdinalIgnoreCase);
-                    var isResult = string.Equals(a.Formal, StNetworkWriter.ResultPin, StringComparison.OrdinalIgnoreCase);
-                    if (enOnly && isEno)
-                        throw Error(c.Line, $"the box {c.Head} shows no ENO: {StNetworkWriter.EnOnlySuffix} is a box with EN and no ENO");
                     if (_net.IsWire(a.Target!))
-                    {
-                        if (enOnly && function && isResult)
-                            throw Error(c.Line, $"the box {c.Head} returns its value, read where it stands (`{a.Target} := {c.Head}(…)` where it is read twice or more), not through OUT => {a.Target}");
-                        // A box showing ENO returns it, and is read by it (measured, design.md "3.0": an enabled box showing ENO
-                        // built read at its value is held by the IDE read by its ENO).
-                        if (enabled && function && isResult)
-                            throw Error(c.Line, $"the box {c.Head} returns its ENO, and its value reaches no wire: a box with EN read by its value is {type}{StNetworkWriter.EnOnlySuffix}, which returns it");
-                        if (isEno && (enabled || enoOnly || stCode is not null)) byEno = true;
-                        else if (instance is null)
-                            throw Error(c.Line, $"the call {c.Head} defines the wire {a.Target} through '{a.Formal}': an FB is read through an output, a box showing ENO through its ENO");
-                        else byName = a.Formal;
-                        continue;
-                    }
-                    // `OUT =>` is a function's result pin, each the next unnamed slot; on an FB call it is the FB's own output
-                    // named OUT. `ENO =>` a variable is the ENO pin wired to it.
-                    outputs.Add((string.Equals(a.Formal, StNetworkWriter.ResultPin, StringComparison.OrdinalIgnoreCase) && instance is null ? null : a.Formal, a.Target!));
+                        throw Error(c.Line, $"the call {c.Head} wires its output {a.Formal} to the wire {a.Target}: a wire is defined by `{a.Target} := <box>`, its box closed by the output it reads");
+                    // `OUT =>` is a function's value, each the next unnamed slot; on an FB call it is the FB's own output named OUT.
+                    outputs.Add((Is(a.Formal, StNetworkWriter.ResultPin) && instance is null ? null : a.Formal, a.Target!));
                     continue;
                 }
-                if (k == 0 && enabled)
-                {
-                    enable = Expr(a.Value!);
-                    continue;
-                }
+                if (signature is not null && !declaresEn && Is(a.Formal, Box.EnablePin))
+                    throw Error(c.Line, enable is null
+                        ? $"EN := stands first in the call {c.Head}{(instance is null ? "" : $", after {StNetworkWriter.InstancePin} :=")}: it is the box's shown EN"
+                        : $"the call {c.Head} holds EN := twice");
+                if (Is(a.Formal, StNetworkWriter.InstancePin) && instance is null && k == 0)
+                    throw Error(c.Line, $"the call {c.Head} names its instance first: {StNetworkWriter.InstancePin} := <instance>");
                 inputs.Add(new Input(a.Formal, Expr(a.Value!), Flags.None));
             }
-            if (enabled && enable is null) throw Error(c.Line, $"the enabled box {c.Head} has no EN := argument");
-            // `X_EN` and `X_ENO` show ENO, their return being the ENO; `X_ENONLY` shows none, its return being its value.
-            var hasEno = stCode is not null || enabled && !enOnly || enoOnly;
-            int? connected = !consumed ? null
-                : byEno ? 0
-                : byName is not null ? null
-                : hasEno ? 0
-                : NetworkSpelling.MainSlotOfCall(type);
+
+            var (hasEno, connected, byName) = Member(c, type, instance is not null, signature, consumed, declaresEno);
+            if (signature is not null && !hasEno && !declaresEno && outputs.Any(o => Is(o.Formal, Box.EnoPin)))
+                throw Error(c.Line, $"the call {c.Head} wires ENO => and shows no ENO: ENO => v is a target of the shown ENO, which its call closed by .ENO states");
             var eno = hasEno ? 0 : (int?)null;
             var next = 0;
             var outs = new List<Output>();
@@ -1142,9 +1143,86 @@ public static class StNetworkReader
                 next = NetworkSpelling.NextFreeSlot(next, eno, connected);
                 outs.Add(new Output(null, new Operand(target, IsLValue: true), next++));
             }
-            return new Box(type, instance, NetworkSpelling.KindOf(type, instance is not null), inputs, outs, enable, stCode, Flags.None,
+            return new Box(type, instance, NetworkSpelling.KindOf(type, instance is not null), inputs, outs, enable, null, Flags.None,
                 ConnectedSlot: connected, HasEnoOutput: hasEno, MainOutputName: byName,
-                Members: enabled || instance is not null || outs.Count > 0 ? null : StNetworkWriter.ElementMembers(type, contact: false));
+                Members: enable is not null || instance is not null || outs.Count > 0 ? null : StNetworkWriter.ElementMembers(type, contact: false));
+        }
+
+        /// <summary>The instance an FB box's first pin names: an operand (a name, a path, an element of an array of FBs,
+        /// <c>SUPER^</c>) or the vendor's unnamed <c>???</c>.</summary>
+        private string InstanceText(ACall c) =>
+            c.Args[0].Value is AOperand { Text: var text } && (text == Box.UnnamedInstance || !IsLiteral(text))
+                ? text
+                : throw Error(c.Line, $"the FB box {c.Head} takes its instance as {StNetworkWriter.InstancePin} := <instance>: a variable, or {Box.UnnamedInstance}");
+
+        /// <summary>
+        /// WHAT CLOSES THE CALL: <c>.ENO</c> the shown ENO (read through it where consumed); <c>.NAME</c> the data output a
+        /// consumer reads, where the callee declares more than one, refused where it declares one; nothing, a consumed box
+        /// reading its one data output. A callee no declaration in reach states is read as written: <c>.NAME</c> the output
+        /// named so (its slot unknown, which the push refuses by name), nothing an FB read by no named output, a function by
+        /// its value.
+        /// </summary>
+        private (bool HasEno, int? Connected, string? ByName) Member(ACall c, string type, bool block, CalleeSignature? signature,
+                                                                     bool consumed, bool declaresEno)
+        {
+            var member = c.Member;
+            if (member is not null && Is(member, Box.EnoPin) && !declaresEno) return (true, consumed ? 0 : null, null);
+            if (!consumed)
+            {
+                if (member is not null)
+                    throw Error(c.Line, $"the box {c.Head} stands at a root closed by .{member}: a root hands nothing on, and its call is closed by .ENO (it shows ENO) or by nothing");
+                return (false, null, null);
+            }
+            if (signature is null)
+                return member is not null ? (false, null, member) : (false, block ? null : NetworkSpelling.MainSlotOfCall(type), null);
+            var outputs = block ? signature.Outputs : signature.DataOutputs;
+            if (member is null)
+            {
+                if (outputs.Count == 1)
+                    return block ? (false, null, outputs[0]) : (false, NetworkSpelling.MainSlotOfCall(type), null);
+                throw Error(c.Line, outputs.Count == 0
+                    ? $"the box {c.Head} is read, and {type} declares no output to read"
+                    : $"the box {c.Head} is read and names no output: {type} has {outputs.Count} ({string.Join(", ", outputs)}), so its call is closed by the one its consumer reads, .{outputs[0]}");
+            }
+            var slot = outputs.Select((o, i) => (o, i)).Where(x => Is(x.o, member)).Select(x => (int?)x.i).FirstOrDefault();
+            if (slot is null)
+                throw Error(c.Line, $"the box {c.Head} is closed by .{member}, which names no output of {type} ({string.Join(", ", outputs)})");
+            if (outputs.Count == 1)
+                throw Error(c.Line, $"the box {c.Head} is closed by .{member}, the one output {type} has: a box with one output names none");
+            return block ? (false, null, member) : (false, slot, null);
+        }
+
+        /// <summary>The Execute box: <c>%EXECUTE(EN := c, ENO =&gt; w)</c>, its ENO by type, read through it where consumed.</summary>
+        private Box ExecuteBox(ACall c, bool consumed)
+        {
+            var stCode = _net.Snippet(int.Parse(c.Head.Substring(5), CultureInfo.InvariantCulture));
+            var enabled = c.Args.Count > 0 && !c.Args[0].Out && Is(c.Args[0].Formal, Box.EnablePin);
+            Node? enable = null;
+            var inputs = new List<Input>();
+            var outs = new List<Output>();
+            for (var k = 0; k < c.Args.Count; k++)
+            {
+                var a = c.Args[k];
+                if (a.Out)
+                {
+                    if (_net.IsWire(a.Target!))
+                    {
+                        if (!Is(a.Formal, Box.EnoPin))
+                            throw Error(c.Line, $"the Execute box defines the wire {a.Target} through '{a.Formal}': an Execute box is read through its ENO");
+                        continue;
+                    }
+                    outs.Add(new Output(a.Formal, new Operand(a.Target!, IsLValue: true)));
+                    continue;
+                }
+                if (k == 0 && enabled)
+                {
+                    enable = Expr(a.Value!);
+                    continue;
+                }
+                inputs.Add(new Input(a.Formal, Expr(a.Value!), Flags.None));
+            }
+            return new Box(NetworkSpelling.ExecuteType, null, NetworkSpelling.KindOf(NetworkSpelling.ExecuteType, false), inputs, outs,
+                enable, stCode, Flags.None, ConnectedSlot: consumed ? 0 : null, HasEnoOutput: true);
         }
     }
 

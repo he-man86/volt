@@ -150,6 +150,11 @@ public static class StDeclaration
         @"^\s*FUNCTION_BLOCK\b",
         RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
+    // A PROGRAM's header.
+    private static readonly Regex ProgramHeader = new(
+        @"^\s*PROGRAM\b",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+
     // A VAR block's opening keyword (any: VAR, VAR_INPUT, VAR_IN_OUT, …) or its END_VAR, a section's qualifier (as
     // StatementEnd has them: `VAR_IN_OUT CONSTANT` opens the block, the word is no part of its first statement), and a
     // statement's `;`, in the comment-free code.
@@ -175,6 +180,15 @@ public static class StDeclaration
         if (string.IsNullOrEmpty(declaration)) return false;
         var code = string.Join("\n", StTrivia.Code(declaration!.Replace("\r", "").Split('\n')));
         return BlockHeader.IsMatch(code);
+    }
+
+    /// <summary>Whether a POU's declaration is a PROGRAM's, comments and pragmas skipped: a program's box has no value, its
+    /// outputs are its <c>VAR_OUTPUT</c>s (openspec network-output-member).</summary>
+    public static bool IsProgram(string? declaration)
+    {
+        if (string.IsNullOrEmpty(declaration)) return false;
+        var code = string.Join("\n", StTrivia.Code(declaration!.Replace("\r", "").Split('\n')));
+        return ProgramHeader.IsMatch(code);
     }
 
     /// <summary>The names a positional call fills, in order: every <c>VAR_INPUT</c> and <c>VAR_IN_OUT</c> variable as

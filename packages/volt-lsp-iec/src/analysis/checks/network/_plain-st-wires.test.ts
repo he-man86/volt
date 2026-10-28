@@ -15,9 +15,9 @@ test("a wire is defined once and read by its name any number of times, before it
 })
 
 test("an enabled box other than a comparison is read by its value only as a coil's value, through a wire too", () => {
-  const ok = ld("\tc : BOOL;\n\ti, j, x, y : INT;", "%NETWORK\n%WIRES w1\nw1 := ADD_ENONLY(EN := c, i, j);\nx := w1;\ny := w1;\n")
+  const ok = ld("\tc : BOOL;\n\ti, j, x, y : INT;", "%NETWORK\n%WIRES w1\nw1 := ADD(EN := c, i, j);\nx := w1;\ny := w1;\n")
   expect(findings(ok)).toEqual([])
-  const inBox = ld("\tc : BOOL;\n\ti, j, x, y : INT;", "%NETWORK\n%WIRES w1\nw1 := ADD_ENONLY(EN := c, i, j);\nx := MUL(w1, 2);\ny := w1;\n")
+  const inBox = ld("\tc : BOOL;\n\ti, j, x, y : INT;", "%NETWORK\n%WIRES w1\nw1 := ADD(EN := c, i, j);\nx := MUL(w1, 2);\ny := w1;\n")
   expect(findings(inBox).some((m) => m.includes("comparison operators only"))).toBe(true)
-  expect(findings(ld("\tc, x : BOOL;\n\ti : INT;", "%NETWORK\nx := AND(c, GT_ENONLY(EN := c, i, 3));\n"))).toEqual([])
+  expect(findings(ld("\tc, x : BOOL;\n\ti : INT;", "%NETWORK\nx := AND(c, GT(EN := c, i, 3));\n"))).toEqual([])
 })

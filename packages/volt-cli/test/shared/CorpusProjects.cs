@@ -86,6 +86,23 @@ public sealed class CorpusProject
         return source is null ? null : new Callee(Callee.FunctionBlockCallType, StDeclaration.InputNames(source), StDeclaration.OutputNames(source));
     }
 
+    /// <summary>A referenced library's FUNCTION or FUNCTION BLOCK as the IDE's signature states it — what a push's scope asks
+    /// live (<c>ProjectDeclarations.LibraryFunction</c>: a function of that name in any library wins over a block). The
+    /// pull-text oracles keep <see cref="LibraryBlock"/>; this one is the push's whole answer, for the callees a push meets
+    /// out of reach (openspec network-output-member 2.1).</summary>
+    public Callee? LibraryCallee(string name)
+    {
+        if (!_libraryPous.TryGetValue(name, out var files)) return null;
+        var sources = files.Select(f => File.ReadAllText(f).Replace("\r\n", "\n")).ToList();
+        if (sources.FirstOrDefault(s => StDeclaration.IsFunction(s)) is { } function)
+            return new Callee(Callee.FunctionCallType, StDeclaration.InputNames(function), StDeclaration.OutputNames(function));
+        return LibraryBlock(name);
+    }
+
+    /// <summary>The scope a PUSH reads a body against: the project's declarations and every library's signatures.</summary>
+    public NetworkScope PushScope(string? declaration) =>
+        NetworkScope.FromDeclarations(declaration, DeclarationOf, Globals, KindOfName, Scopes.RefusedPouName, LibraryCallee);
+
     /// <summary>Every file of the project directory <paramref name="root"/>.</summary>
     public static CorpusProject At(string root) =>
         new(Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories));

@@ -1,22 +1,9 @@
 /**
  * WHAT THE EXEC TWIN READS OFF A NETWORK BODY'S STATEMENTS before it writes them (`network-twin.ts`): each wire's
- * occurrences, the call statements a short-circuit branch runs only when the branch runs, and the FB output a wire is.
+ * occurrences, and the call statements (an Execute box defining a wire) a short-circuit branch runs only when the branch
+ * runs.
  */
-import { type BodySpan, type CallExpr, type Expr, plainStText, type Statement, stmtExprs, walkExpr } from "../../src/frontend/syntax/index.js"
-import { lookup, type Scope } from "../../src/frontend/symbols/index.js"
-import { inferExprType } from "../../src/frontend/types/index.js"
-
-/** `t1.Q` for a wire `t1(…, Q => w)` / `t1_EN(…, Q => w)` defines, where `t1` is an FB instance; else undefined. */
-export function fbOutputOf(call: CallExpr, param: string, source: string, scope: Scope, project: Scope): { member: string; at: number; pin: string } | undefined {
-  if (call.callee.kind !== "ident_expr" && call.callee.kind !== "member" && call.callee.kind !== "index") return undefined
-  const text = source.slice(call.callee.span.start, call.callee.span.end)
-  const suffix = /_EN(O|ONLY)?$/i.exec(text)?.[0]
-  const enabled = call.callee.kind === "ident_expr" && suffix !== undefined && lookup(scope, text) === undefined
-  const instance = enabled ? text.slice(0, -suffix!.length) : text
-  const head: Expr = enabled ? { kind: "ident_expr", name: instance, span: call.callee.span } : call.callee
-  if (inferExprType(head, scope, project).kind !== "function_block") return undefined
-  return { member: `${instance}.${param}`, at: call.span.start, pin: param.toLowerCase() }
-}
+import { type BodySpan, type Expr, plainStText, type Statement, stmtExprs, walkExpr } from "../../src/frontend/syntax/index.js"
 
 /** The guarded call statements `e` reads through their wires (`guardedCalls`), and the ones those read in turn, in source
  *  order. */

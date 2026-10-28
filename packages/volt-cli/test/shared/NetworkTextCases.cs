@@ -15,7 +15,9 @@ namespace Volt.Tests.Shared;
 ///
 /// <code>
 ///   #### name — optional: one line, what the case pins
-///   === scope            optional: `instance t1 TON`, `pou f`, `name x` — the declarations the body sees
+///   === scope            optional: `instance t1 TON`, `pou f`, `name x`, `fb TON IN PT => Q ET`,
+///                        `function f IN => Q`, `program p => …` — the declarations the body sees; a signature line states
+///                        the callee's pins (what EN :=, .ENO and .NAME read as), a callee without one is unstated
 ///   === text             the body, its %LANGUAGE line first
 ///   === model            accept: the model it reads to (NetworkModelDump)
 ///   === canonical        accept, optional: the text the writer gives back where the case's text is not it
@@ -35,20 +37,28 @@ public sealed record NetworkTextCase(string File, string Name, string Text, stri
         var pous = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var instances = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var blocks = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var signatures = new Dictionary<string, CalleeSignature>(StringComparer.OrdinalIgnoreCase);
         foreach (var line in Scope)
         {
             var w = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
             if (w.Length == 0) continue;
+            var arrow = Array.IndexOf(w, "=>");
             switch (w[0])
             {
                 case "instance" when w.Length == 3: instances[w[1]] = w[2]; break;
                 case "pou" when w.Length == 2: pous.Add(w[1]); break;
                 case "fb" when w.Length == 2: blocks.Add(w[1]); break;
+                case "fb" or "function" or "program" when w.Length >= 3 && arrow >= 2:
+                    signatures[w[1]] = new CalleeSignature(
+                        w[0] == "fb" ? CalleeShape.Block : w[0] == "function" ? CalleeShape.Function : CalleeShape.Program,
+                        w.Skip(2).Take(arrow - 2).ToList(), w.Skip(arrow + 1).ToList());
+                    break;
                 case "name" when w.Length >= 2: foreach (var n in w.Skip(1)) names.Add(n); break;
-                default: throw new InvalidDataException($"{this}: a scope line is `instance <name> <type>`, `pou <name>`, `fb <type>` or `name <n>…`, not '{line}'.");
+                default: throw new InvalidDataException($"{this}: a scope line is `instance <name> <type>`, `pou <name>`, `fb <type>`, " +
+                    $"`fb|function|program <name> <input>… => <output>…` or `name <n>…`, not '{line}'.");
             }
         }
-        return new NetworkScope(names, pous, instances, blocks);
+        return new NetworkScope(names, pous, instances, blocks, signatures);
     }
 }
 

@@ -12,7 +12,7 @@ namespace Volt.Engine.Tests;
 
 /// <summary>
 /// openspec <c>ld-fbd-coverage</c> 1b.4 (design "Shown always, refused per network"), in plain-ST network text: (a) every
-/// FB consumer reading a data output names it, <c>t(…, name =&gt; w1)</c>, the name the box itself stores; (b) a network
+/// FB consumer reading a data output names it, <c>T(FB := t, …).name</c>, the name the box itself stores; (b) a network
 /// whose trees the text cannot spell is shown as its header, its comment and the one line
 /// <c>%UNSUPPORTED "&lt;shape&gt;" #&lt;hash&gt;</c>; (c) a push pairs the live and pushed networks by TEXT
 /// (<see cref="NetworkPairing"/>), so only a changed network is rebuilt and only a changed unbuildable one refused.
@@ -36,17 +36,17 @@ public class ShownPerNetworkTests
     public void An_FB_read_by_a_data_output_is_spelled_by_the_name_the_box_stores()
     {
         var model = One(Set(Capture(L("src")), T("out")));
-        Assert.Equal(FbdMarker + "%NETWORK\n%WIRES w1\nfbCap(xEnable := src, xErrorActive => w1);\nout := w1;\n",
+        Assert.Equal(FbdMarker + "%NETWORK\nout := L_FECA.L_FirstFASTErrCapture(FB := fbCap, xEnable := src).xErrorActive;\n",
             StNetworkWriter.Write(model, Scope));
         var slot0 = Capture(L("src")) with { ConnectedSlot = 0, MainOutputName = "xBusy" };
-        Assert.Equal(FbdMarker + "%NETWORK\n%WIRES w1\nfbCap(xEnable := src, xBusy => w1);\nout := w1;\n",
+        Assert.Equal(FbdMarker + "%NETWORK\nout := L_FECA.L_FirstFASTErrCapture(FB := fbCap, xEnable := src).xBusy;\n",
             StNetworkWriter.Write(One(Set(slot0, T("out"))), Scope));
     }
 
     [Fact]
     public void A_named_output_reads_back_as_the_name_and_no_slot()
     {
-        var read = StNetworkReader.Read(Src("%WIRES w1", "fbCap(xEnable := src, xErrorActive => w1);", "out := w1;"), Scope);
+        var read = StNetworkReader.Read(Src("out := L_FECA.L_FirstFASTErrCapture(FB := fbCap, xEnable := src).xErrorActive;"), Scope);
         var box = Assert.IsType<Box>(Assert.IsType<Assign>(read.Networks[0].Trees[0]).Value);
         Assert.Equal(("xErrorActive", (int?)null), (box.MainOutputName, box.ConnectedSlot));
         // The round-trip oracle: what the text carries of the vendor's box comes back.
@@ -72,7 +72,7 @@ public class ShownPerNetworkTests
             Refused(() => StNetworkWriter.Write(One(Set(Capture(L("src")) with { MainOutputName = null }, T("out"))), Scope)).Reason);
         // A named pin is the pin's own name.
         var named = Capture(L("src")) with { Outputs = new[] { Out("x", null, "xBusy") } };
-        Assert.Equal(FbdMarker + "%NETWORK\n%WIRES w1\nfbCap(xEnable := src, xBusy => x, xErrorActive => w1);\nout := w1;\n",
+        Assert.Equal(FbdMarker + "%NETWORK\nout := L_FECA.L_FirstFASTErrCapture(FB := fbCap, xEnable := src, xBusy => x).xErrorActive;\n",
             StNetworkWriter.Write(One(Set(named, T("out"))), Scope));
     }
 
