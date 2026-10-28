@@ -29,12 +29,6 @@
   "%LANGUAGE ST right after END_VAR draws nothing, on every body kind (repro 4)". The field message was the retired
   IMPLEMENTATION line's, which the bridge no longer writes.
 - [ ] 5 Cyrillic comment left early: PLC Assist runs candidate fixes over the field text and reports back (repro 5).
-<<<<<<< HEAD
-- [ ] 6 Item names in messages not URI-encoded (repro 6).
-- [ ] 6b Candidate, unverified (PLC Assist, 2026-10-28): an ENUM value named `GET` in a `.dut` →
-      `syntax-error` "Unexpected token 'GET' found" (1 field item, silent build). Synthetic repro:
-      `TYPE E_Method : (GET, POST, PUT) := GET; END_TYPE` as `E_Method.dut`. A compiler probe decides, as for `s`/`r`.
-=======
   - [x] 5.1 Volt's side (2026-10-28). The lexer CANNOT leave a `(* … *)` comment before its `*)`: one lex of the whole
     text, comments nest as CODESYS nests them (`lex_nested_block_comment` builds clean), and every `%`-line / body split
     reads tokens, never raw lines. 26 synthetic candidates — a 44-line Cyrillic comment as a POU header, between and
@@ -73,5 +67,4 @@
   (`baseline-c.ts`), as for the number-name fixtures. TwinCAT not recorded (no XAE free: the engineer's CODESYS was
   open); the parse census holds those 98 fixtures by name until it is — 6b.1 below.
   - [ ] 6b.1 Record `lex_enum_value_*` / `lex_implicit_enum_value_*` on TwinCAT and drop `ENUM_VALUE_TWINCAT_UNRECORDED`.
->>>>>>> worktree-agent-a1b64d2e6bd2c1880
 - [ ] 7 A release with these; PLC Assist re-bundles `volt-lsp-iec.generated.mjs` and re-runs its 14-day scan.
