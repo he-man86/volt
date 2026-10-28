@@ -21,9 +21,9 @@ public static class BridgeErrorCodes
 
     public const string PlcDisconnected = "PLC_DISCONNECTED";
     public const string WrongProject = "WRONG_PROJECT";
-    /// <summary>A POST-CONDITION of the apply: the IDE no longer holds what Volt just wrote or read — a member it
-    /// created and cannot find again, a node it moved that is not where the move put it, a task the IDE acknowledged
-    /// and does not list. Never "the request names nothing": that is <see cref="ConflictCodes.ItemMissing"/>, answered
+    /// <summary>A POST-CONDITION of the apply: the IDE does not hold what Volt just did — a member it created and cannot
+    /// find again, a node it moved that is not where the move put it, a task the IDE acknowledged and does not list, an
+    /// item whose delete it answered and still holds (openspec <c>push-removed-proves-a-delete</c>). Never "the request names nothing": that is <see cref="ConflictCodes.ItemMissing"/>, answered
     /// by the gate before anything is written. Raised only during a push, so it reaches a client as a conflict, and
     /// since <c>push-keeps-what-landed</c> the earlier ops are written. Remedy: <c>volt pull</c> to see what landed,
     /// then push again (openspec <c>bridge-refusal-review</c> 7.2).</summary>

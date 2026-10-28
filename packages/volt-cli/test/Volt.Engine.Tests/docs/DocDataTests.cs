@@ -138,6 +138,8 @@ public class DocDataTests
             + "NOT_ATTEMPTED.",
             "A refusal during the apply lands the ops before it and stops: the refused op answers its code, every later op "
             + "NOT_ATTEMPTED.",
+            "A `deleteItem` lands only when its item is gone: one the IDE answers and still holds is refused IDE_LOST_ITEM "
+            + "where it ran.",
             "`newProjectVersion` is present exactly when something landed; `newItems` and `removed` are what the push "
             + "changed, so `baseline − removed + newItems` is the IDE after it.",
             "What of a refused op the IDE kept is stated on its conflict: `partiallyApplied`, `renamedTo`, `remains` — each "
@@ -1045,7 +1047,7 @@ public class DocDataTests
     // no bridge a peer meets raises them (LD and FBD are behind NetworkTextSwitch, off in every shipped build), so no old
     // peer reads a different meaning.
     private const int PinnedProtocol = 1;
-    private const string PinnedWireShape = "6b4ed8e880125afa90ae6094c4f7f4cb7244f3b150692339f904fe63d50a8245";
+    private const string PinnedWireShape = "67d17e4585f86b0ee20321fce2e43ee390f55676364b3e45ef0ae206ce79244b";
 
     /// <summary>The document names the protocol it describes, and <c>health</c> states it: every bridge writes
     /// <c>protocol</c>, so the schema requires it (C# reads it as <c>int?</c> only so the connector can still read a bridge

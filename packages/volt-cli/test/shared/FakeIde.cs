@@ -795,6 +795,11 @@ public sealed class FakeIde : VendorDriverBase, IVendorDriver, IIecTree
     /// stays in the project, as it does on the live IDE when its removal faults.</summary>
     public Func<string, Exception?>? FailDelete { get; init; }
 
+    /// <summary>Items (by bare name) whose delete ANSWERS SUCCESS AND LEAVES THE ITEM — the CODESYS delete-child shape:
+    /// the parent's call returns, which is the bridge saying it ran the call, not that the object is gone (openspec
+    /// <c>push-removed-proves-a-delete</c> 1.1). Recorded like any delete; nothing is removed.</summary>
+    public IReadOnlyCollection<string> DeletesThatDoNotTake { get; init; } = System.Array.Empty<string>();
+
     /// <summary>Records AND removes. It only recorded, so nothing could observe that a delete actually
     /// happened: a test could not tell "deleted" from "reported deleted", and a push that removed a member and
     /// then read the POU back still saw it. An audit found a foldered member that could never be deleted at all,
@@ -803,6 +808,7 @@ public sealed class FakeIde : VendorDriverBase, IVendorDriver, IIecTree
     {
         if (FailDelete?.Invoke(name) is { } failure) throw failure;
         Recorded.Add($"delete:{name}");
+        if (DeletesThatDoNotTake.Contains(name)) return;
         UnopenedItems.Remove(name);
         // A FOLDER IS NOT AN ITEM, so it is not in `_items` and the item path below would silently no-op on
         // one. Deleting a folder is what `PruneEmptied` does, so the fake has to honour it — including the

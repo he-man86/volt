@@ -476,7 +476,8 @@ public static class PushService
     /// it is not the push's and is not claimed: the client's next read sees it.
     /// <list type="bullet">
     /// <item>a landed <c>set</c>: its item where it now is (<c>to</c> ?? <c>name</c>); a landed rename or move, its old path
-    /// removed; a landed delete, its path removed — a removal only when the walks agree (held before, gone after);</item>
+    /// removed; a landed delete, its path removed — a removal only when the walks agree (held before, and gone from a
+    /// folder the receipt walk read);</item>
     /// <item>the refused op, when part of it stays (<c>partiallyApplied</c>): each of its paths whose version moved
     /// (<c>name</c>, <c>to</c>, <c>renamedTo</c>), or that was held and is gone from a folder the receipt walk read.</item>
     /// </list></summary>
@@ -503,13 +504,18 @@ public static class PushService
             if (nowAt.TryGetValue(path, out var spelled) && receipt.FullVersions.TryGetValue(spelled, out var v))
                 newItems[spelled] = v;
         }
+        // GONE = HELD BEFORE, AND THE RECEIPT WALK READ ITS FOLDER AND NO LONGER HOLDS IT (openspec
+        // `push-removed-proves-a-delete`). A landed op is not that proof — "landed" is the bridge saying it ran the call
+        // (a CODESYS delete-child can answer and leave the object) — and a path under a folder the receipt walk could not
+        // read is unseen, never gone. So `removed` is proof a client may act on without reading the project again.
         void Gone(string path)
         {
+            if (receipt.UnwalkedFolders.Any(f => ItemPath.IsUnder(ItemPath.FolderOf(path), f))) return;
             if (heldAt.TryGetValue(path, out var spelled) && !nowExact.Contains(spelled) && removedSeen.Add(spelled))
                 removed.Add(spelled);
         }
 
-        // A LANDED op is its own evidence: the IDE did what it names, so the path it left is gone.
+        // A LANDED op names the paths it left; the receipt walk decides whether each is gone.
         foreach (var op in landed)
         {
             if (op is SetItemOp set)
@@ -519,8 +525,7 @@ public static class PushService
             }
             else Gone(op.Name);
         }
-        // The REFUSED op's evidence is the receipt walk alone: a path it could not see (under its `unwalkedFolders`) is
-        // unseen, never gone.
+        // The REFUSED op's paths, when part of it stays: changed if the version moved, removed on the same evidence.
         if (refusedAt is { PartiallyApplied: true } && refusedOp is not null)
         {
             var paths = new[] { refusedOp.Name, (refusedOp as SetItemOp)?.To, refusedAt.RenamedTo }.OfType<string>();
@@ -528,7 +533,7 @@ public static class PushService
             {
                 if (nowAt.TryGetValue(path, out var spelled) && receipt.FullVersions.TryGetValue(spelled, out var v)
                     && (!before.TryGetValue(spelled, out var was) || was != v)) newItems[spelled] = v;
-                if (!receipt.UnwalkedFolders.Any(f => ItemPath.IsUnder(ItemPath.FolderOf(path), f))) Gone(path);
+                Gone(path);
             }
         }
         return (newItems, removed);
@@ -934,6 +939,7 @@ public static class PushService
                 // `link.Driver.Name(del)`, NOT the wire `name`: itemCache resolves case-INSENSITIVELY while the drivers'
                 // child scan matches case-SENSITIVELY, so only the item's ACTUAL IDE name reaches it.
                 link.Driver.Delete(link.Driver.Parent(del), link.Driver.Name(del));
+                RequireDeleted(link, op.Name);
                 return "deleted";
             case DeleteItemOp:
                 return "no-op";  // a delete quoting no version of an item that isn't there (a quoted one: the gate refused it)
@@ -942,6 +948,19 @@ public static class PushService
                 // PushOp is abstract: an op with no discriminator is refused when the body is read (BridgePipeHost.Body).
                 throw new VoltInvariantException($"no apply arm for {op.GetType().Name}");
         }
+    }
+
+    /// <summary>A DELETE IS LANDED ONLY WHEN THE ITEM IS GONE (openspec <c>push-removed-proves-a-delete</c> 1.4): the IDE
+    /// answering the call is the bridge saying it ran it, not that the object is gone — a CODESYS delete-child can answer
+    /// and leave it. So the path is looked up again where it was, and an item still there (read or not) is a post-condition
+    /// of the apply the IDE broke: refused <c>IDE_LOST_ITEM</c> where it ran, and the push stops there like any apply-time
+    /// refusal. Nothing of the op stays, so the client keeps its delete outgoing and is never told the item is gone.</summary>
+    private static void RequireDeleted(HostLink link, string path)
+    {
+        var (item, untouchable) = TreeLookup.Locate(link, path);
+        if (item is not null || untouchable is not null)
+            throw new BridgeException(BridgeErrorCodes.IdeLostItem,
+                $"'{path}': the IDE answered the delete and still holds the item");
     }
 
     /// <summary>An op on an item the driver names but must not OPEN (<see cref="ItemLookup.Untouchable"/>: a TwinCAT POU
@@ -964,6 +983,7 @@ public static class PushService
         {
             case DeleteItemOp:
                 link.Driver.Delete(u.Parent, u.Name);
+                RequireDeleted(link, op.Name);
                 return "deleted";
             case SetItemOp set:
                 if (set.SourceText is null)
