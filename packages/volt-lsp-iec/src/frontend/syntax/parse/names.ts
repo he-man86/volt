@@ -88,7 +88,7 @@ function indexGroupAhead(c: Cursor): Token[] | undefined {
 }
 
 /** A dotted name as ONE identifier node: its parts joined with `.`, spanning them all (the first part alone as is). */
-export function joinedName(parts: readonly Token[]): Identifier {
+function joinedName(parts: readonly Token[]): Identifier {
   if (parts.length === 1) return identFromToken(parts[0]!)
   return { kind: "identifier", text: parts.map((p) => p.text).join("."), span: joinSpans(parts[0]!.span, parts.at(-1)!.span) }
 }
