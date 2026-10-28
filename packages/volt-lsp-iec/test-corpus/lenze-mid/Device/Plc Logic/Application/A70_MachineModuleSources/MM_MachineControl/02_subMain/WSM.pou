@@ -118,13 +118,12 @@ ioEnableSpraying S= FALSE AND iGenFlags.EnablePneumEStop AND iWrapperPresentForL
 %NETWORK "DONE Network 16: Water level control"
 oWaterLevelValve := ioEnableSpraying AND iWaterLevelSensor;
 %NETWORK "DONE Network 17: Manual spray cycle"
-%WIRES w12, w13, w14
+%WIRES w12, w13
 w12 := iScreenForOperatorSettingsActivated;
 MOVE_EN(EN := w12 AND iManualSprayCycleReset, 0, OUT => ioManualSprayCycleActualCount);
-LT_EN(EN := w12 AND iGenFlags.EnablePneumEStop AND (iManualSprayCycleStart OR stManualSprayCycleStarted) AND NOT iManualSprayCycleStop AND NOT iManualSprayCycleReset, ioManualSprayCycleActualCount, iMaxNumberOfSprayPulses, OUT => w13);
-stManualSprayCycleStarted := w13;
-TMR_ManualSprayCycleIdle(IN := w12 AND stManualSprayCycleStarted AND NOT stSprayCycleActive, PT := T#300MS, Q => w14);
-stSprayCycleActive S= ADD_EN(EN := w14, ioManualSprayCycleActualCount, 1, OUT => ioManualSprayCycleActualCount);
+stManualSprayCycleStarted := LT_ENONLY(EN := w12 AND iGenFlags.EnablePneumEStop AND (iManualSprayCycleStart OR stManualSprayCycleStarted) AND NOT iManualSprayCycleStop AND NOT iManualSprayCycleReset, ioManualSprayCycleActualCount, iMaxNumberOfSprayPulses);
+TMR_ManualSprayCycleIdle(IN := w12 AND stManualSprayCycleStarted AND NOT stSprayCycleActive, PT := T#300MS, Q => w13);
+stSprayCycleActive S= ADD_EN(EN := w13, ioManualSprayCycleActualCount, 1, OUT => ioManualSprayCycleActualCount);
 %NETWORK "DONE Network 18: SAVE RLO"
 ENO := EN;
 

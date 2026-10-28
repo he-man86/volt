@@ -14,7 +14,7 @@
  * materialized declaration, and nowhere else: in a project that does not reference its library it is the unknown name
  * CODESYS says it is.
  */
-import { compilerTypeText, walkExpr, type Expr, type Identifier, type MemberExpr, type Span, type TypeExpr } from "../../frontend/syntax/index.js"
+import { compilerTypeText, walkExpr, type CallExpr, type Expr, type Identifier, type MemberExpr, type Span, type TypeExpr } from "../../frontend/syntax/index.js"
 import { gvlBlockOf, hasUnresolvedBase, isLibrarySymbol, lookupLocal, lookupMember, resolveGvlMember, rootOf, type Scope, type Symbol } from "../../frontend/symbols/index.js"
 import { ANY_FAMILIES, builtinName, GENERIC_PARAMETER_TYPES, inferExprType, isDialectType, isSfcStepBase, resolveBareName, sfcStepTypeScope } from "../../frontend/types/index.js"
 
@@ -44,7 +44,7 @@ function collectBareRefs(root: Expr, emit: (ref: BareRef) => void, isStep: (acce
         return
       case "call":
         collect(e.callee)
-        for (const a of e.args) if (a.value !== undefined) collect(a.value) // skip a.param
+        for (const a of e.args) if (a.value !== undefined && !isJumpLabel(e, a.value)) collect(a.value) // skip a.param
         return
       case "index":
         collect(e.base)
@@ -70,6 +70,12 @@ function collectBareRefs(root: Expr, emit: (ref: BareRef) => void, isStep: (acce
     }
   }
   collect(root)
+}
+
+/** The label of a network's jump in a tree, `JMP(label, value)` (only a plain-ST network body has a call named JMP: the ST
+ *  lexer reads the word as a keyword): a label, no value. */
+export function isJumpLabel(call: CallExpr, arg: Expr): boolean {
+  return call.callee.kind === "ident_expr" && call.callee.name.toUpperCase() === "JMP" && call.args[0]?.value === arg && arg.kind === "ident_expr"
 }
 
 /** Whether the bare name `name`, written in `scope`, names anything — the search order's answer (`types/names`

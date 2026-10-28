@@ -79,13 +79,10 @@ ioUDT_ServoDrive.CAM.X_Offset_ToSlave := ioUDT_ServoDrive.CAM.X_Offset_FromMaste
 oServoControl.XOffset := INT_TO_WORD(ioUDT_ServoDrive.CAM.X_Offset_Base + ioUDT_ServoDrive.CAM.X_Offset_ToSlave);
 %END_EXECUTE
 %NETWORK "DONE Network 20: Scaling of the Y value"
-%WIRES w3, w4, w5, w6
+%WIRES w3
 w3 := True;
-GE_EN(EN := w3, ioUDT_ServoDrive.CAM.CamType, ctCurveIs0ToMax, OUT => w4);
-MOVE_EN(EN := w4, 1000, OUT => oServoControl.YScale);
-GE_EN(EN := w3, ioUDT_ServoDrive.CAM.CamType, ctCurveIs0To0, OUT => w5);
-GE_EN(EN := TRUE, ioUDT_ServoDrive.CAM.CamType, ctCurveIsSpeed, OUT => w6);
-ADD_EN(EN := OR(w5, w6), ioUDT_ServoDrive.CAM.Y_Scale_Base, ioUDT_ServoDrive.CAM.Y_Scale_Recipe, OUT => oServoControl.YScale);
+MOVE_EN(EN := GE_ENONLY(EN := w3, ioUDT_ServoDrive.CAM.CamType, ctCurveIs0ToMax), 1000, OUT => oServoControl.YScale);
+ADD_EN(EN := OR(GE_ENONLY(EN := w3, ioUDT_ServoDrive.CAM.CamType, ctCurveIs0To0), GE_ENONLY(EN := TRUE, ioUDT_ServoDrive.CAM.CamType, ctCurveIsSpeed)), ioUDT_ServoDrive.CAM.Y_Scale_Base, ioUDT_ServoDrive.CAM.Y_Scale_Recipe, OUT => oServoControl.YScale);
 %NETWORK "DONE Network 21: Y-offset"
 %EXECUTE(EN := TRUE)
 oServoControl.YOffset := INT_TO_WORD(ioUDT_ServoDrive.CAM.Y_Offset_Base + ioUDT_ServoDrive.CAM.Y_Offset_Recipe);
@@ -93,13 +90,13 @@ oServoControl.YOffset := INT_TO_WORD(ioUDT_ServoDrive.CAM.Y_Offset_Base + ioUDT_
 %NETWORK "TODO Network 22: Status inputs from drive"
 %NETWORK "TODO Network 23: SetOuput bits to drive"
 %NETWORK "DONE Network 24: Output to Program"
-%WIRES w7, w8
-w7 := True;
-ioUDT_ServoDrive.Status.DriveIsReady := w7 AND iServoStatus.ReadyForMotion;
-ioUDT_ServoDrive.Status.InSync := w7 AND iServoStatus.InSync;
-ioUDT_ServoDrive.Status.DriveTorqueError := w7 AND iServoStatus.TorqueLimit;
-HomingDoneDelay(IN := w7 AND NOT STATE_Prehoming AND NOT STATE_HomePosNOK, PT := T#2S, Q => w8);
-ioUDT_ServoDrive.Status.DriveIsHomed := w8;
+%WIRES w4, w5
+w4 := True;
+ioUDT_ServoDrive.Status.DriveIsReady := w4 AND iServoStatus.ReadyForMotion;
+ioUDT_ServoDrive.Status.InSync := w4 AND iServoStatus.InSync;
+ioUDT_ServoDrive.Status.DriveTorqueError := w4 AND iServoStatus.TorqueLimit;
+HomingDoneDelay(IN := w4 AND NOT STATE_Prehoming AND NOT STATE_HomePosNOK, PT := T#2S, Q => w5);
+ioUDT_ServoDrive.Status.DriveIsHomed := w5;
 %NETWORK "DONE Network 25: ActualXPos/Ypos"
 MOVE_EN(EN := TRUE, LREAL_TO_INT(iServoStatus.ActPos), OUT => ioUDT_ServoDrive.CAM.ActualYPos);
 %NETWORK "DONE Network 26: ActualSpeed"

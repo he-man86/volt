@@ -100,9 +100,9 @@ VAR
 END_VAR
 %LANGUAGE LD
 %NETWORK
-IF cond THEN JMP Tail; END_IF;
+JMP(Tail, cond);
 %NETWORK
-IF cond THEN RETURN; END_IF;
+RETURN(cond);
 %NETWORK
 Tail:
 done := TRUE;
@@ -286,16 +286,16 @@ describe(`graphical / editing a body INTO a refused shape (${BASE})`, () => {
 			// Editing a conditional jump into an unconditional one is the swap DIRECTLY — no import at all,
 			// because only the RValue element changes. This is what was measured first.
 			vars: BOOLS,
-			nets: ["%NETWORK", "IF a THEN JMP Done; END_IF;", "%NETWORK", "Done:", "out := a;"],
-			from: "IF a THEN JMP Done; END_IF;",
+			nets: ["%NETWORK", "JMP(Done, a);", "%NETWORK", "Done:", "out := a;"],
+			from: "JMP(Done, a);",
 			to: "JMP Done;",
 		},
 		{
 			key: "eret",
 			what: "an unconditional RETURN",
 			vars: BOOLS,
-			nets: ["%NETWORK", "IF a THEN RETURN; END_IF;", "%NETWORK", "out := a;"],
-			from: "IF a THEN RETURN; END_IF;",
+			nets: ["%NETWORK", "RETURN(a);", "%NETWORK", "out := a;"],
+			from: "RETURN(a);",
 			to: "RETURN;",
 		},
 		{

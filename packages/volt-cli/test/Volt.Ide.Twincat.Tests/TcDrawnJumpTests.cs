@@ -117,7 +117,7 @@ public class TcDrawnJumpTests
 
     /// <summary>The <c>&lt;NWL&gt;</c> body holding a <c>BoxTreeParallel</c> in <paramref name="mode"/> where the fixture's
     /// empty terminator was — the archive shape <see cref="A_Parallel_reads_its_mode_and_refuses_a_flag"/> reads — and
-    /// the drawn rung's COIL dropped, so the rung is a conditional jump: <c>IF PARALLEL(…) THEN JMP owrods; END_IF;</c>.
+    /// the drawn rung's COIL dropped, so the rung is a conditional jump: <c>JMP(owrods, BRANCH(…));</c>.
     /// The coil is dropped so the rung is the one shape the in-place writer's Parallel row measures (the drawn rung itself
     /// is <see cref="The_drawn_rung_is_a_jump_beside_a_coil"/>).</summary>
     internal static XElement NwlWithParallel(string mode)
@@ -211,16 +211,16 @@ public class TcDrawnJumpTests
     }
 
     /// <summary>THE DRAWN RUNG IS A JUMP BESIDE A COIL — two targets on one terminator: the jump destination <c>owrods</c>
-    /// (<c>Flags = 4</c>) and the coil <c>out</c> (<c>Flags = 0</c>). Plain-ST network text has a jump only as a statement
-    /// (<c>JMP l;</c>), so a jump among coils has no spelling yet (openspec network-text-st design.md "3.0", open for the
-    /// owner): the pull shows the network as its <c>%UNSUPPORTED</c> line, its label — still the jump target — under it,
-    /// and a push keeps it as the IDE holds it.</summary>
+    /// (<c>Flags = 4</c>) and the coil <c>out</c> (<c>Flags = 0</c>), the jump stored first. Plain-ST network text writes a
+    /// coil and a jump on one value as one item per target, the coils first (openspec network-text-st design.md "3.0", owner
+    /// 2026-10-28): here on the rail, <c>out := TRUE; JMP owrods;</c>; and a push of that text unchanged keeps the network
+    /// as the IDE holds it.</summary>
     [Fact]
-    public void The_drawn_rung_is_shown_as_its_UNSUPPORTED_line_under_its_label()
+    public void The_drawn_rung_is_its_coil_then_its_jump()
     {
         var pulled = TcNetworkReader.Read(Impl(), BodyLanguage.Ld);
 
-        Assert.StartsWith("%LANGUAGE LD\n%NETWORK\n%UNSUPPORTED \"a jump with several targets\" #", TcText.Write(pulled));
+        Assert.StartsWith("%LANGUAGE LD\n%NETWORK\nowrods:\nout := TRUE;\nJMP owrods;\n", TcText.Write(pulled));
         Assert.Contains("\nowrods:\n", TcText.Write(pulled));
         var nwl = XDocument.Load(Fixtures.Path("tc-pou", "drawn-refused-shapes.TcPOU"), LoadOptions.PreserveWhitespace)
             .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting);

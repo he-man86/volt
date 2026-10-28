@@ -341,7 +341,7 @@ public class CodesysCoilFlagTests
     }
 
     /// <summary>A RETURN'S `???` TARGET CARRIES THE RETURN BIT — DIALECT C13's correction, on the write side. Network
-    /// text v2 reads `IF cond THEN RETURN; END_IF;` as the vendor draws a return: an Assign whose one target is the
+    /// text reads `RETURN(cond);` as the vendor draws a return: an Assign whose one target is the
     /// unresolved-instance marker `???` with `Return` on it (and on the item). The writer carried only the coil bits and
     /// `Jump` onto a target, so the IDE got a COIL assigning to `???`: the conformance fixture
     /// `ng_conditional_jump_and_return`, recorded clean from v1 text (which built a return with no target at all), built

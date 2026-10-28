@@ -50,7 +50,7 @@ const SHAPES: Record<string, (lang: string) => string> = {
 	execute: () => "%NETWORK\n%EXECUTE(EN := go)\nn := n + 1;\n%END_EXECUTE\n",
 	multi_rung: (l) => `%NETWORK\nout1 := ${and(l, "a", "b")};\nout2 := ${or(l, "c", "d")};\nt1(IN := e, PT := pt);\n`,
 	assign_below_top: () => "%NETWORK\nt1(IN := (out := go), PT := pt);\n",
-	jump_and_label: (l) => `%NETWORK\nIF a THEN JMP L1; END_IF;\n%NETWORK\nL1:\nout := ${or(l, "a", "b")};\n`,
+	jump_and_label: (l) => `%NETWORK\nJMP(L1, a);\n%NETWORK\nL1:\nout := ${or(l, "a", "b")};\n`,
 	return_uncond: (l) => `%NETWORK\nout := ${and(l, "a", "b")};\n%NETWORK\nRETURN;\n`,
 	rail_coil: () => "%NETWORK\nout := TRUE;\n",
 	empty_network: (l) => `%NETWORK\nout := ${and(l, "a", "b")};\n%NETWORK\n`,

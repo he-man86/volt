@@ -8,8 +8,9 @@
  *                                                enabled box runs only when enabled, and its ENO is its EN (1.3); an
  *                                                enabled COMPARISON is FALSE when disabled (1.3), so its value is
  *                                                written FALSE in the ELSE; read where it stands, the call is its `eno`;
- *   `X_EN(…, OUT => w); y := w;`                 any other enabled box read by its value is an assignment's value, which
- *                                                HOLDS when disabled (1.4): `IF e THEN y := X(pins…); END_IF`;
+ *   `X_ENONLY(EN := e, pins…)`                   the box with EN and no ENO, its value: a comparison's FALSE when disabled
+ *                                                (1.3), any other an assignment's whole value, held when disabled (1.4):
+ *                                                `IF e THEN y := X(pins…); END_IF`; at the root as `X_EN`;
  *   `t1_EN(EN := e, IN := a, Q => w)`            `IF e THEN t1(IN := a, Q => w); … END_IF` — the FB is not called;
  *   `%EXECUTE(EN := e, ENO => w)` … `%END_EXECUTE` `IF e THEN <its ST> END_IF; w := e;`;
  *   `X_ENO(…)`                                   the call, on every scan; its ENO TRUE;
@@ -17,6 +18,8 @@
  *   `BRANCH_SHORTCIRCUIT(FEED := f, b1, b2)`     a branch holding a box runs, with the calls it reads, unless the feed
  *                                                and a box-free branch are both TRUE (1.4): `IF NOT (f AND free) THEN …`;
  *   `R_EDGE(x)`, `F_EDGE(x)`                     an `R_TRIG` / `F_TRIG` called every scan with x, read by its Q (1.3);
+ *   `JMP(l, v)`, `RETURN(v)`                     `IF v THEN JMP l; END_IF;` / `IF v THEN RETURN; END_IF;`; in a tree its
+ *                                                value held in a temp, the jump taken where the tree is evaluated;
  *   a wire                                       a variable of its definition's type (`types` `network-call.ts`),
  *                                                renamed into the twin's own names (`vtw<k>_w1`), as is every ENO;
  *   a `%DISABLED` network                        nothing: CODESYS compiles none of it (1c).
@@ -35,7 +38,7 @@ import {
 } from "../../src/frontend/syntax/index.js"
 import { lookup, type Scope } from "../../src/frontend/symbols/index.js"
 import { inferExprType, renderType } from "../../src/frontend/types/index.js"
-import { type AssignStatement, guardedCalls, type ValueReads, valueReads } from "./network-twin-reads.js"
+import { type AssignStatement, fbOutputOf, guardedCalls, guardedReadBy, valueReads } from "./network-twin-reads.js"
 
 export class TwinRefusal extends Error {}
 
@@ -55,11 +58,9 @@ export interface BodyTwin {
 export function twinOf(body: BodySpan, statements: readonly Statement[], scope: Scope, project: Scope, source: string, k: number): BodyTwin {
   const skip = plainStText(body).networks.flatMap((n) => n.executes)
   const code = statements.filter((s) => skip.find((x) => s.span.start > x.header.end && s.span.start < x.span.end) === undefined)
-  const reads = valueReads(body, code)
-  const t = new Twinner(body, scope, project, source, `vtw${k}_`, reads, guardedCalls(body, code, reads))
+  const t = new Twinner(body, scope, project, source, `vtw${k}_`, guardedCalls(body, code, valueReads(body, code)))
   const lines: string[] = []
   for (const s of code) {
-    if (t.heldAssigns.has(s)) continue // written inside its enabled box's IF
     if (t.guarded.has(s)) continue // written inside its short-circuit branch's guard
     lines.push(...t.statement(s))
   }
@@ -67,9 +68,6 @@ export function twinOf(body: BodySpan, statements: readonly Statement[], scope: 
 }
 
 class Twinner {
-  /** The assignments an enabled box's value is written into inside its IF (held when disabled), by their wire. */
-  readonly heldAssigns = new Set<Statement>()
-  private readonly held = new Map<string, AssignStatement>()
   private readonly wires = new Map<string, string>()
   /** The wires an FB's output defines: read as that output (`t1.Q`), which holds what the call left in it — no
    *  variable to declare, and no type to name (a library's STRUCT may be named only through its namespace). */
@@ -89,14 +87,13 @@ class Twinner {
     private readonly project: Scope,
     private readonly source: string,
     private readonly prefix: string,
-    private readonly reads: ValueReads,
     private readonly guardedByWire: ReadonlyMap<string, Statement>,
   ) {
     this.guarded = new Set(guardedByWire.values())
     for (const net of plainStText(body).networks)
       for (const w of net.wires) {
         const def = lookup(scope, w.name)?.symbol.wire
-        const output = def?.kind === "output" && def.param.toUpperCase() !== "ENO" ? this.fbOutputOf(def.call, def.param) : undefined
+        const output = def?.kind === "output" && def.param.toUpperCase() !== "ENO" ? fbOutputOf(def.call, def.param, source, scope, project) : undefined
         if (output === undefined) this.wires.set(w.name.toLowerCase(), prefix + w.name)
         else {
           this.wires.set(w.name.toLowerCase(), output.member)
@@ -106,22 +103,10 @@ class Twinner {
       }
   }
 
-  /** `t1.Q` for a wire `t1(…, Q => w)` / `t1_EN(…, Q => w)` defines, where `t1` is an FB instance; else undefined. */
-  private fbOutputOf(call: CallExpr, param: string): { member: string; at: number; pin: string } | undefined {
-    if (call.callee.kind !== "ident_expr" && call.callee.kind !== "member" && call.callee.kind !== "index") return undefined
-    const text = this.text(call.callee)
-    const suffix = /_ENO?$/i.exec(text)?.[0]
-    const enabled = call.callee.kind === "ident_expr" && suffix !== undefined && lookup(this.scope, text) === undefined
-    const instance = enabled ? text.slice(0, -suffix!.length) : text
-    const head: Expr = enabled ? { kind: "ident_expr", name: instance, span: call.callee.span } : call.callee
-    if (inferExprType(head, this.scope, this.project).kind !== "function_block") return undefined
-    return { member: `${instance}.${param}`, at: call.span.start, pin: param.toLowerCase() }
-  }
-
   declarations(): string[] {
     const out: string[] = []
     for (const [lower, renamed] of this.wires) {
-      if (this.fbOutputs.has(lower) || this.held.has(lower)) continue
+      if (this.fbOutputs.has(lower)) continue
       const type = inferExprType({ kind: "ident_expr", name: lower, span: this.body.span }, this.scope, this.project)
       if (type.kind === "unknown") throw new TwinRefusal(`the wire ${lower} has no type the twin can declare`)
       out.push(`${renamed} : ${renderType(type)};`)
@@ -145,6 +130,18 @@ class Twinner {
     const pre: string[] = []
     switch (s.kind) {
       case "assign": {
+        // an enabled box other than a comparison, the assignment's whole value: the assignment runs only when enabled, and
+        // its targets hold when disabled (1.4)
+        if (s.value.kind === "call" && this.isEnOnly(s.value) && !COMPARISON.has(this.enOnlyBase(s.value).toUpperCase())) {
+          const call = s.value
+          const [en, ...rest] = call.args
+          if (en === undefined || en.param?.name.toUpperCase() !== "EN") throw new TwinRefusal(`${this.enOnlyBase(call)}_ENONLY without EN`)
+          const cond = this.expr(en.value!, pre)
+          const inner: string[] = []
+          const value = this.boxValue(call, this.enOnlyBase(call), rest.filter((a) => !a.output), inner)
+          const text = this.assign(s, value, inner)
+          return [...pre, `IF ${cond} THEN\n\t${[...inner, text].join("\n\t")}\nEND_IF;`]
+        }
         const text = this.assign(s, this.expr(s.value, pre), pre)
         return [...pre, text]
       }
@@ -154,8 +151,13 @@ class Twinner {
         return []
       case "jmp":
       case "return":
+        if (s.value !== undefined) {
+          const cond = this.expr(s.value, pre)
+          return [...pre, `IF ${cond} THEN ${s.kind === "jmp" ? `JMP ${this.text(s.target)}` : "RETURN"}; END_IF;`]
+        }
+        return [this.text(s) + (this.text(s).trimEnd().endsWith(";") ? "" : ";")]
       case "label":
-        return [this.text(s) + (s.kind === "label" || this.text(s).trimEnd().endsWith(";") ? "" : ";")]
+        return [this.text(s)]
       case "if": {
         const branch = s.branches[0]!
         const cond = this.expr(branch.cond, pre)
@@ -178,7 +180,7 @@ class Twinner {
   private callStatement(call: CallExpr, pre: string[]): string[] {
     const head = call.callee.kind === "ident_expr" ? call.callee.name : undefined
     if (head?.toUpperCase() === "EXECUTE") return this.execute(call, pre)
-    if (head !== undefined && head.toUpperCase().endsWith("_EN") && lookup(this.scope, head) === undefined) {
+    if (head !== undefined && (head.toUpperCase().endsWith("_EN") || this.isEnOnly(call)) && lookup(this.scope, head) === undefined) {
       this.enabled(call, pre, false)
       return pre.splice(0)
     }
@@ -206,10 +208,43 @@ class Twinner {
     return out
   }
 
+  /** Is `call` a box with EN and no ENO (`X_ENONLY`), X no declared name? */
+  private isEnOnly(call: CallExpr): boolean {
+    return call.callee.kind === "ident_expr" && /.(_ENONLY)$/i.test(call.callee.name) && lookup(this.scope, call.callee.name) === undefined
+  }
+
+  private enOnlyBase(call: CallExpr): string {
+    return (call.callee as { name: string }).name.slice(0, -"_ENONLY".length)
+  }
+
+  /** `X(pins…)` as the value a function box hands back: an operator infix, MOVE the value it moves (which then takes its
+   *  target's type, as the box's output does: `x := 0`, not a SINT). */
+  private boxValue(call: CallExpr, base: string, args: readonly CallArg[], pre: string[]): string {
+    const baseExpr: Expr = { kind: "ident_expr", name: base, span: call.callee.span }
+    if (base.toUpperCase() === "MOVE" && args.length === 1 && args[0]!.param === undefined) return this.expr(args[0]!.value!, pre)
+    if (INFIX[base.toUpperCase()] !== undefined) return this.operator(base, args.filter((a) => !a.output), pre)
+    return this.callText({ ...call, callee: baseExpr }, args, pre)
+  }
+
+  /** `X_ENONLY(EN := e, pins…)` read by its value inside a tree: an enabled COMPARISON, FALSE when disabled (1.3). Any other
+   *  is read by its value only as an assignment's whole value (`statement`). */
+  private enOnlyRead(call: CallExpr, pre: string[]): string {
+    const base = this.enOnlyBase(call)
+    if (!COMPARISON.has(base.toUpperCase())) throw new TwinRefusal(`the enabled ${base} box is read by its value other than as an assignment's whole value`)
+    const [en, ...rest] = call.args
+    if (en === undefined || en.param?.name.toUpperCase() !== "EN") throw new TwinRefusal(`${base}_ENONLY without EN`)
+    const cond = this.expr(en.value!, pre)
+    const inner: string[] = []
+    const value = this.boxValue(call, base, rest.filter((a) => !a.output), inner)
+    const t = this.temp()
+    pre.push(`IF ${cond} THEN\n\t${[...inner, `${t} := ${value};`].join("\n\t")}\nELSE\n\t${t} := FALSE;\nEND_IF;`)
+    return t
+  }
+
   /** An enabled box: runs under its EN; its ENO is EN (1.3). Returns the ENO's temp where `read`. */
   private enabled(call: CallExpr, pre: string[], read: boolean): string {
     const name = (call.callee as { name: string }).name
-    const base = name.slice(0, -3)
+    const base = name.slice(0, -(/_ENONLY$/i.test(name) ? 7 : 3))
     const [en, ...rest] = call.args
     if (en === undefined || en.param?.name.toUpperCase() !== "EN") throw new TwinRefusal(`${name} without EN`)
     const cond = this.expr(en.value!, pre)
@@ -224,22 +259,8 @@ class Twinner {
     if (isFb) inner.push(this.callText({ ...call, callee: baseExpr }, rest.filter((a) => a !== enoOut), inner) + ";")
     else {
       const result = outs.find((a) => a.param?.name.toUpperCase() === "OUT")
-      const named = outs.filter((a) => a !== result && a !== enoOut)
-      // MOVE is the value it moves, which then takes its target's type, as the box's output does (`x := 0`, not a SINT)
-      const moved = base.toUpperCase() === "MOVE" && ins.length === 1 && ins[0]!.param === undefined && named.length === 0
-      const value = moved ? this.expr(ins[0]!.value!, inner)
-        : INFIX[base.toUpperCase()] !== undefined ? this.operator(base, ins, inner) : this.callText({ ...call, callee: baseExpr }, [...ins, ...named], inner)
-      const wire = result?.value?.kind === "ident_expr" && this.wires.has(result.value.name.toLowerCase()) ? result.value.name.toLowerCase() : undefined
-      const holder = wire === undefined ? undefined : this.reads.assignedBy.get(wire)
-      // read once by its value (its definition and one read): only as an assignment's whole value, which holds when the
-      // box is disabled (1.4); CODESYS refuses it inside a box
-      if (wire !== undefined && !COMPARISON.has(base.toUpperCase()) && this.reads.occurrences.get(wire) === 2) {
-        if (holder === undefined)
-          throw new TwinRefusal(`the enabled ${base} box is read by its value other than as an assignment's whole value`)
-        this.held.set(wire, holder)
-        this.heldAssigns.add(holder)
-        inner.push(this.assign(holder, value, inner))
-      } else if (result !== undefined) {
+      const value = this.boxValue(call, base, [...ins, ...outs.filter((a) => a !== result && a !== enoOut)], inner)
+      if (result !== undefined) {
         const target = this.expr(result.value!, inner)
         inner.push(`${target} := ${value};`)
         if (COMPARISON.has(base.toUpperCase())) elseLines.push(`${target} := FALSE;`)
@@ -298,7 +319,7 @@ class Twinner {
     const inner: string[] = []
     const values: string[] = []
     for (const b of branches.filter(holdsBox)) {
-      for (const s of this.guardedReadBy(b)) inner.push(...this.statement(s))
+      for (const s of guardedReadBy(b, this.guardedByWire)) inner.push(...this.statement(s))
       const v = this.temp()
       inner.push(`${v} := ${this.expr(b, inner)};`)
       values.push(v)
@@ -307,18 +328,12 @@ class Twinner {
     return `(${f} AND (${[free, ...values].join(" OR ")}))`
   }
 
-  /** The guarded call statements `e` reads through their wires, and the ones those read in turn, in source order. */
-  private guardedReadBy(e: Expr): Statement[] {
-    const found = new Set<Statement>()
-    const visit = (x: Expr) =>
-      walkExpr(x, (y) => {
-        const s = y.kind === "ident_expr" ? this.guardedByWire.get(y.name.toLowerCase()) : undefined
-        if (s === undefined || found.has(s)) return
-        found.add(s)
-        if (s.kind === "call_stmt") for (const a of s.call.args) if (!a.output && a.value !== undefined) visit(a.value)
-      })
-    visit(e)
-    return [...found].sort((a, b) => a.span.start - b.span.start)
+  /** `JMP(l, v)` / `RETURN(v)` in a tree: the value in a temp, the jump taken on it, the temp handed on. */
+  private control(call: CallExpr, upper: string, pre: string[]): string {
+    const t = this.temp()
+    pre.push(`${t} := ${this.expr(call.args.at(-1)!.value!, pre)};`)
+    pre.push(`IF ${t} THEN ${upper === "JMP" ? `JMP ${this.text(call.args[0]!.value!)}` : "RETURN"}; END_IF;`)
+    return t
   }
 
   /** `R_EDGE(x)` / `F_EDGE(x)`: an edge detector called on every scan with x, read by its Q (1.3). */
@@ -355,9 +370,11 @@ class Twinner {
         if (upper !== undefined && (INFIX[upper] !== undefined || upper === "NOT") && e.args.every((a) => a.param === undefined && !a.output))
           return this.operator(head!, e.args, pre)
         if (head !== undefined && upper!.endsWith("_EN") && lookup(this.scope, head) === undefined) return this.enabled(e, pre, true)
+        if (this.isEnOnly(e)) return this.enOnlyRead(e, pre)
         if (head !== undefined && upper!.endsWith("_ENO") && lookup(this.scope, head) === undefined) return this.enoOnly(e, pre)
         if (upper === "BRANCH" || upper === "BRANCH_SHORTCIRCUIT") return this.branch(e, pre)
         if (upper === "R_EDGE" || upper === "F_EDGE") return this.edge(e, pre)
+        if (upper === "JMP" || upper === "RETURN") return this.control(e, upper, pre)
         return this.callText(e, e.args, pre)
       }
       case "binary":

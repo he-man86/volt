@@ -30,22 +30,31 @@ CASE i OF 1: x := a; END_CASE;
 === refused
 network-plain-st cannot hold a CASE
 
-#### if-with-code — an IF holds one JMP or RETURN
+#### if-with-code — a network holds no IF
 === text
 %LANGUAGE LD
 %NETWORK
 IF a THEN x := b; END_IF;
 === refused
-network-plain-st holds one JMP or RETURN
+network-plain-st holds no IF
 
-#### if-with-else — an IF has no ELSE
+#### if-around-a-jump — a jump on a value is JMP(label, value)
 === text
 %LANGUAGE LD
 %NETWORK
 l:
-IF a THEN JMP l; ELSE RETURN; END_IF;
+IF a THEN JMP l; END_IF;
 === refused
-network-plain-st no ELSE
+network-plain-st a jump on a value is JMP(label, value)
+
+#### jump-label-not-first — JMP(label, value) takes the label first
+=== text
+%LANGUAGE LD
+%NETWORK
+l:
+JMP(c AND d, l);
+=== refused
+network-plain-st JMP(label, value)
 
 #### infix-comparison — every box is a call
 === text
@@ -114,15 +123,15 @@ MOVE_EN(1, OUT => x);
 === refused
 network-plain-st takes EN := as its first argument
 
-#### out-twice — an enabled box read by its value has one value
+#### enabled-value-through-out — X_EN returns its ENO; a box with EN read by its value is X_ENONLY
 === text
 %LANGUAGE LD
 %NETWORK
 %WIRES w1
-MOVE_EN(EN := c, 1, OUT => x, OUT => w1);
+MOVE_EN(EN := c, 1, OUT => w1);
 y := w1;
 === refused
-network-plain-st wires an unnamed output too
+network-plain-st returns its ENO, and its value reaches no wire
 
 #### return-and-wire — a box read where it stands has no wire
 === text
@@ -315,16 +324,6 @@ instance t1 TON
 === refused
 network-plain-st is read before it is defined
 
-#### enabled-wire-read-before-its-call — a box read once stands before the statement that reads it
-=== text
-%LANGUAGE LD
-%NETWORK
-%WIRES w1
-lamp := w1;
-GT_EN(EN := c, a, 5, OUT => w1);
-=== refused
-network-plain-st is read before it is defined
-
 #### call-wire-not-directly-before-its-read — nothing stands between a box read once and the statement that reads it
 === text
 %LANGUAGE FBD
@@ -336,16 +335,6 @@ y := w1;
 === refused
 network-plain-st directly before the statement that reads it
 
-#### enabled-value-inside-a-box — only an enabled comparison is read by its value inside a box
-=== text
-%LANGUAGE FBD
-%NETWORK
-%WIRES w1
-MOVE_EN(EN := c, k, OUT => w1);
-y := ADD(w1, 2);
-=== refused
-network-plain-st comparison operators only
-
 #### function-named-like-an-enabled-box — a POU whose name ends in _EN reads as an enabled box
 === text
 %LANGUAGE FBD
@@ -356,27 +345,17 @@ pou Foo_EN
 === refused
 network-plain-st reads as an enabled box
 
-#### wire-defined-by-a-box-read-once — a box read once through a wire defines the next wire itself
+#### wire-defined-by-a-box-read-once — one model, one text: a box read once through a wire defines the next wire itself
 === text
 %LANGUAGE FBD
 %NETWORK
 %WIRES w1, w2
-ADD_EN(EN := c, i, j, OUT => w1);
+t1(IN := a, PT := T#1S, Q => w1);
 w2 := w1;
 x := w2;
 y := w2;
-=== refused
-network-plain-st defines the wire itself
-
-#### comparison-wire-defined-by-a-box-read-once — one model, one text: the box defines its wire
-=== text
-%LANGUAGE FBD
-%NETWORK
-%WIRES w1, w2
-GT_EN(EN := c, i, 3, OUT => w1);
-w2 := w1;
-x := w2;
-y := w2;
+=== scope
+instance t1 TON
 === refused
 network-plain-st defines the wire itself
 
@@ -386,19 +365,7 @@ network-plain-st defines the wire itself
 %NETWORK
 %WIRES w1
 l:
-AND_EN(EN := c, a, b, OUT => w1);
-IF w1 THEN JMP l; END_IF;
-=== refused
-network-plain-st comparison operators only
-
-#### enabled-value-through-a-wire-read-twice — every read of an enabled box's value is a coil's value
-=== text
-%LANGUAGE FBD
-%NETWORK
-%WIRES w1
-ADD_EN(EN := c, i, j, OUT => w1);
-x := MUL(w1, 2);
-y := w1;
+JMP(l, AND_ENONLY(EN := c, a, b));
 === refused
 network-plain-st comparison operators only
 
@@ -406,9 +373,8 @@ network-plain-st comparison operators only
 === text
 %LANGUAGE FBD
 %NETWORK
-%WIRES w1, w2
-ADD_EN(EN := c, i, j, OUT => w1);
-y := MUL((w2 := w1), 2);
+%WIRES w2
+y := MUL((w2 := ADD_ENONLY(EN := c, i, j)), 2);
 z := w2;
 v := w2;
 === refused
@@ -488,3 +454,59 @@ pou foo
 name foo_ENO
 === refused
 network-plain-st reads as a box showing ENO
+
+#### en-only-box-with-eno — X_ENONLY shows no ENO
+=== text
+%LANGUAGE FBD
+%NETWORK
+ADD_ENONLY(EN := c, i, 1, ENO => lamp, OUT => x);
+=== refused
+network-plain-st shows no ENO
+
+#### en-only-value-through-out — X_ENONLY returns its value, read where it stands
+=== text
+%LANGUAGE FBD
+%NETWORK
+%WIRES w1
+GT_ENONLY(EN := c, i, 3, OUT => w1);
+x := w1;
+=== refused
+network-plain-st returns its value
+
+#### en-only-value-inside-a-box — only a comparison with EN is read by its value inside a box
+=== text
+%LANGUAGE FBD
+%NETWORK
+y := MUL(ADD_ENONLY(EN := c, i, j), 2);
+=== refused
+network-plain-st comparison operators only
+
+#### en-only-value-through-a-wire-read-in-a-box — every read of an enabled box's value is a coil's value
+=== text
+%LANGUAGE FBD
+%NETWORK
+%WIRES w1
+w1 := ADD_ENONLY(EN := c, i, j);
+x := MUL(w1, 2);
+y := w1;
+=== refused
+network-plain-st comparison operators only
+
+#### en-only-box-without-en — X_ENONLY takes EN first
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := ADD_ENONLY(i, j);
+=== refused
+network-plain-st takes EN := as its first argument
+
+#### en-only-box-named-in-reach — X_ENONLY names nothing declared in reach
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := foo_ENONLY(EN := a, b);
+=== scope
+pou foo
+name foo_ENONLY
+=== refused
+network-plain-st reads as an enabled box showing no ENO

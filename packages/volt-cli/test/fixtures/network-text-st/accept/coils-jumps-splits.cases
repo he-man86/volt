@@ -2,7 +2,7 @@
 === text
 %LANGUAGE LD
 %NETWORK
-IF a AND b THEN JMP Done; END_IF;
+JMP(Done, a AND b);
 %NETWORK
 Done:
 x := TRUE;
@@ -30,7 +30,7 @@ NETWORK label:Done
 === text
 %LANGUAGE LD
 %NETWORK
-IF NOT xReady THEN RETURN; END_IF;
+RETURN(NOT xReady);
 === model
 NETWORK
   (ret not:xReady)
@@ -48,12 +48,19 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-%UNSUPPORTED "a jump with several targets" #60c407ba
+x1 := c;
+JMP(Done, c);
+x2 := c;
+RETURN(c);
 %NETWORK
 Done:
 x := TRUE;
 === model
-NETWORK unsupported:"a jump with several targets" hash:60c407ba
+NETWORK
+  (:= x1 c)
+  (jmp Done c)
+  (:= x2 c)
+  (ret c)
 NETWORK label:Done
   (:= x TRUE)
 
@@ -61,7 +68,8 @@ NETWORK label:Done
 === text
 %LANGUAGE LD
 %NETWORK
-%UNSUPPORTED "a jump with several targets" #98bc5765
+JMP(L1, c);
+JMP(L2, c);
 %NETWORK
 L1:
 x := TRUE;
@@ -69,7 +77,9 @@ x := TRUE;
 L2:
 y := TRUE;
 === model
-NETWORK unsupported:"a jump with several targets" hash:98bc5765
+NETWORK
+  (jmp L1 c)
+  (jmp L2 c)
 NETWORK label:L1
   (:= x TRUE)
 NETWORK label:L2
@@ -92,12 +102,13 @@ NETWORK label:Done
 === text
 %LANGUAGE LD
 %NETWORK
-%UNSUPPORTED "a jump inside a tree" #b0633ffa
+y := JMP(Done, c);
 %NETWORK
 Done:
 x := TRUE;
 === model
-NETWORK unsupported:"a jump inside a tree" hash:b0633ffa
+NETWORK
+  (:= y (jmp Done c))
 NETWORK label:Done
   (:= x TRUE)
 

@@ -292,10 +292,10 @@ public class TcStructuralEditTests
         var box = pulled.Networks.SelectMany(n => n.Trees).OfType<Box>().Single(b => b.Type == "TON");
         Assert.IsType<Terminator>(box.Enable);
 
-        // An enabled box with no ENO at the root has no plain-ST spelling yet (design.md "3.0", open for the owner): shown
-        // as its UNSUPPORTED line, and pushed back unchanged it is kept.
+        // An enabled box with no ENO at the root is `X_ENONLY` (design.md "3.0", owner 2026-10-28), its unwired enable the
+        // rail, TRUE; pushed back unchanged it is kept.
         var text = StNetworkWriter.WritePulled(pulled, scope);
-        Assert.Contains("%UNSUPPORTED \"an enabled box without ENO\"", text);
+        Assert.Contains("\nt1_ENONLY(EN := TRUE, PT := TRUE);\n", text);
         Assert.Null(TcNetworkWriter.Apply(xml, NetworkText.Validate(text, scope), scope));
     }
 

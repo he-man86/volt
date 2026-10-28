@@ -38,9 +38,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
-LE_EN(EN := low, speed, 40, OUT => w1);
-MOVE_EN(EN := BRANCH(FEED := run, NOT low, w1) AND NOT cleaning, speed, OUT => t);
+MOVE_EN(EN := BRANCH(FEED := run, NOT low, LE_ENONLY(EN := low, speed, 40)) AND NOT cleaning, speed, OUT => t);
 === model
 NETWORK
   (MOVE speed =>1:t en:(AND (par seq run not:low (LE speed 40 en:low conn:0)) not:cleaning) eno:1)
@@ -76,11 +74,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1, w2, w3
-GE_EN(EN := TRUE, pos, start, OUT => w2);
-LE_EN(EN := w2, pos, stop, OUT => w1);
-GT_EN(EN := TRUE, start, stop, OUT => w3);
-cam := BRANCH_SHORTCIRCUIT(FEED := enable, w1, w3);
+cam := BRANCH_SHORTCIRCUIT(FEED := enable, LE_ENONLY(EN := GE_ENONLY(EN := TRUE, pos, start), pos, stop), GT_ENONLY(EN := TRUE, start, stop));
 === model
 NETWORK
   (:= cam (par sc enable (LE pos stop en:(GE pos start en:TRUE conn:0) conn:0) (GT start stop en:TRUE conn:0)))

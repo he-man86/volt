@@ -110,12 +110,15 @@ NETWORK
   (Axis@??? xEnable=go)
 
 #### undeclared-instance — the v2 case header-calls-literals/undeclared-instance, as a pull writes it
+=== scope
+fb TON
 === text
 %LANGUAGE FBD
 %NETWORK
-%UNSUPPORTED "an FB instance the scope does not declare" #7f931bc3
+TON(IN := go);
 === model
-NETWORK unsupported:"an FB instance the scope does not declare" hash:7f931bc3
+NETWORK
+  (TON@??? IN=go)
 
 #### array-element-instance — the v2 case header-calls-literals/array-element-instance, as a pull writes it
 === scope

@@ -122,6 +122,8 @@ NETWORK
   (Axis@??? xEnable=go)
 
 #### undeclared-instance — an instance the declarations do not name: the call names its type, which the build judges
+=== scope
+fb TON
 === text
 %LANGUAGE FBD
 NETWORK

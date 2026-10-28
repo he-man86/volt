@@ -78,12 +78,27 @@ public class StNetworkTextTests
         RoundTrips(Ld1(Call("ADD", new[] { In(L("o")), In(L("1")) }, new[] { Out("o", 1) }, en: L("go"), eno: true, kind: CallKind.Operator)),
             "%LANGUAGE LD\n%NETWORK\nADD_EN(EN := go, o, 1, OUT => o);\n");
 
-    /// <summary>An enabled box returns its ENO, a comparison too (owner). CODESYS's enabled comparison read by its VALUE
-    /// stores no ENO (1.3): its value leaves through <c>OUT =&gt;</c> a wire, the call standing where the wire is read.</summary>
+    /// <summary>A box with EN and no ENO is <c>X_ENONLY</c>, returning its value (owner, 2026-10-28): CODESYS's enabled
+    /// comparison read by its VALUE stores no ENO (1.3).</summary>
     [Fact]
-    public void An_enabled_comparison_read_by_its_value_is_its_OUT_wire() =>
+    public void An_enabled_box_without_ENO_returns_its_value() =>
         RoundTrips(Ld1(Set(Op("AND", L("a"), Call("GT", new[] { In(L("i")), In(L("3")) }, en: L("en"), connected: 0, kind: CallKind.Operator)), T("out"))),
-            "%LANGUAGE LD\n%NETWORK\n%WIRES w1\nGT_EN(EN := en, i, 3, OUT => w1);\nout := a AND w1;\n");
+            "%LANGUAGE LD\n%NETWORK\nout := a AND GT_ENONLY(EN := en, i, 3);\n");
+
+    /// <summary>A box with EN and ENO read by its value has no spelling: <c>X_EN</c> returns ENO. Measured (design.md "3.0"):
+    /// CODESYS holds such a box, built read at its value, read by its ENO.</summary>
+    [Fact]
+    public void An_enabled_box_with_ENO_read_by_its_value_has_no_spelling()
+    {
+        var body = Ld1(Set(Call("MOVE", new[] { In(L("v")) }, en: L("en"), connected: 1, eno: true), T("out")));
+        Assert.Equal("an enabled box read by its value showing ENO", Assert.Throws<StNetworkUnspellableException>(() => StNetworkWriter.Write(body, Scope(body))).Reason);
+    }
+
+    /// <summary>A box with EN and no ENO at the root: <c>X_ENONLY</c>, its value to its targets through <c>OUT =&gt;</c>.</summary>
+    [Fact]
+    public void An_enabled_box_without_ENO_at_the_root_is_a_call_statement() =>
+        RoundTrips(Ld1(Call("MOVE", new[] { In(L("b")) }, new[] { Out("a", 0) }, en: L("c"))),
+            "%LANGUAGE LD\n%NETWORK\nMOVE_ENONLY(EN := c, b, OUT => a);\n");
 
     [Fact]
     public void An_enabled_comparison_read_by_its_ENO_returns_it() =>
@@ -161,10 +176,35 @@ public class StNetworkTextTests
     }
 
     [Fact]
-    public void A_jump_and_a_return_are_IF_statements_and_unconditional_ones_bare() =>
+    public void A_jump_and_a_return_are_functions_on_their_value_and_unconditional_ones_bare() =>
         RoundTrips(Ld1(new Assign(L("a"), new[] { T("done", JumpBit) }, JumpBit),
+                       new Assign(L("b"), new[] { T("???", ReturnBit) }, ReturnBit),
+                       new Assign(Empty, new[] { T("done", JumpBit) }, JumpBit),
                        new Assign(Empty, new[] { T("???", ReturnBit) }, ReturnBit)),
-            "%LANGUAGE LD\n%NETWORK\nIF a THEN JMP done; END_IF;\nRETURN;\n");
+            "%LANGUAGE LD\n%NETWORK\nJMP(done, a);\nRETURN(b);\nJMP done;\nRETURN;\n");
+
+    /// <summary>A jump inside a tree is the function on its value, which it passes on (owner, 2026-10-28).</summary>
+    [Fact]
+    public void A_jump_inside_a_tree_passes_its_value_on() =>
+        RoundTrips(Ld1(Set(Op("AND", new Assign(L("c"), new[] { T("done", JumpBit) }, JumpBit), L("d")), T("y"))),
+            "%LANGUAGE LD\n%NETWORK\ny := JMP(done, c) AND d;\n");
+
+    /// <summary>A coil and a jump on one value (one stored item) are one item per target, each on the value, the coils first
+    /// (owner, 2026-10-28: <c>lamp := c; JMP(done, c);</c>), the coils first — a stored member; a value holding a box is not
+    /// repeated.</summary>
+    [Fact]
+    public void A_coil_and_a_jump_on_one_value_are_one_item_per_target()
+    {
+        var shared = Ld1(new Assign(Op("AND", L("a"), L("b")), new[] { T("lamp"), T("done", JumpBit), T("???", ReturnBit) }, JumpBit with { Return = true }));
+        var text = StNetworkWriter.Write(shared, Scope(shared));
+        Assert.Equal("%LANGUAGE LD\n%NETWORK\nlamp := a AND b;\nJMP(done, a AND b);\nRETURN(a AND b);\n", text);
+        Assert.Equal(3, StNetworkReader.Read(text, Scope(shared)).Networks[0].Trees.Count);
+        var boxed = Ld1(new Assign(Call("f", new[] { In(L("a"), "IN") }, connected: 0), new[] { T("lamp"), T("done", JumpBit) }, JumpBit));
+        Assert.Equal("a jump sharing a value that holds a box", Assert.Throws<StNetworkUnspellableException>(() => StNetworkWriter.Write(boxed, Scope(boxed))).Reason);
+        // the coils first, whatever order the IDE stores the targets in (TwinCAT's drawn rung stores its jump first)
+        var jumpFirst = Ld1(new Assign(L("a"), new[] { T("done", JumpBit), T("lamp") }, JumpBit));
+        Assert.Equal("%LANGUAGE LD\n%NETWORK\nlamp := a;\nJMP(done, a);\n", StNetworkWriter.Write(jumpFirst, Scope(jumpFirst)));
+    }
 
     [Fact]
     public void A_mid_rung_coil_is_an_assignment_expression() =>
@@ -182,13 +222,13 @@ public class StNetworkTextTests
     public void A_pull_shows_an_unspellable_network_as_its_UNSUPPORTED_line()
     {
         var jump = new Volt.Engine.Format.Network.Network(0, "jump", null, null, false,
-            new Node[] { new Assign(L("c"), new[] { T("x1"), T("done", JumpBit) }, JumpBit) });
+            new Node[] { new Assign(L("c"), new[] { T("done", JumpBit with { Set = true }) }, JumpBit) });
         var plain = new Volt.Engine.Format.Network.Network(1, null, null, null, false, new Node[] { Set(L("a"), T("y")) });
         var body = new NetworkBody(BodyLanguage.Ld, new[] { jump, plain });
         var text = StNetworkWriter.WritePulled(body, Scope(body));
-        Assert.Equal($"%LANGUAGE LD\n%NETWORK \"jump\"\n%UNSUPPORTED \"a jump with several targets\" #{NetworkTextWriter.Hash(jump)}\n%NETWORK\ny := a;\n", text);
+        Assert.Equal($"%LANGUAGE LD\n%NETWORK \"jump\"\n%UNSUPPORTED \"a coil modifier on a jump\" #{NetworkTextWriter.Hash(jump)}\n%NETWORK\ny := a;\n", text);
         var back = StNetworkReader.Read(text, Scope(body));
-        Assert.Equal("a jump with several targets", back.Networks[0].Unsupported);
+        Assert.Equal("a coil modifier on a jump", back.Networks[0].Unsupported);
         Assert.Throws<StNetworkUnspellableException>(() => StNetworkWriter.Write(body, Scope(body)));
     }
 
@@ -250,8 +290,8 @@ public class StNetworkTextTests
     [InlineData("FOR i := 1 TO 2 DO x := a; END_FOR;", "cannot hold a FOR")]
     [InlineData("WHILE a DO x := b; END_WHILE;", "cannot hold a WHILE")]
     [InlineData("CASE i OF 1: x := a; END_CASE;", "cannot hold a CASE")]
-    [InlineData("IF a THEN x := b; END_IF;", "holds one JMP or RETURN")]
-    [InlineData("IF a THEN JMP l; ELSE RETURN; END_IF;", "no ELSE")]
+    [InlineData("IF a THEN x := b; END_IF;", "holds no IF")]
+    [InlineData("IF a THEN JMP l; END_IF;", "a jump on a value is JMP(label, value)")]
     [InlineData("x := a; (* note *)", "comment")]
     [InlineData("MOVE_EN(1, OUT => x);", "EN := as its first argument")]
     [InlineData("x := i > 3;", "every box is a call")]
@@ -284,10 +324,10 @@ public class StNetworkTextTests
         Assert.Equal("AND", Assert.IsType<Box>(body.Networks[0].Trees[1]).Type);
     }
 
-    /// <summary>An enabled box read by its value has one value: another <c>OUT</c> is refused, and so is a call read by its
-    /// return that also defines a wire.</summary>
+    /// <summary>A box showing ENO returns it: its value reaches no wire (a box with EN read by its value is <c>X_ENONLY</c>),
+    /// and a call read by its return defines no wire.</summary>
     [Theory]
-    [InlineData("%WIRES w1\nMOVE_EN(EN := c, 1, OUT => x, OUT => w1);\ny := w1;", "wires an unnamed output too")]
+    [InlineData("%WIRES w1\nMOVE_EN(EN := c, 1, OUT => w1);\ny := w1;", "returns its ENO, and its value reaches no wire")]
     [InlineData("%WIRES w1\ny := MOVE_EN(EN := c, 1, OUT => w1);\nz := w1;", "read by its return and defines the wire")]
     public void An_enabled_box_with_two_values_is_refused_by_name(string code, string named)
     {
@@ -315,7 +355,7 @@ public class StNetworkTextTests
         }
         // read by coils only, through a wire read twice, it is spelled
         RoundTrips(Fbd1(Def(1, Add()), Set(Ref(1), T("x")), Set(Ref(1), T("y"))),
-            "%LANGUAGE FBD\n%NETWORK\n%WIRES w1\nADD_EN(EN := c, i, 3, OUT => w1);\nx := w1;\ny := w1;\n");
+            "%LANGUAGE FBD\n%NETWORK\n%WIRES w1\nw1 := ADD_ENONLY(EN := c, i, 3);\nx := w1;\ny := w1;\n");
     }
 
     /// <summary><c>X_EN(…)</c> is the enabled box of <c>X</c>: where anything declared in reach (a POU, an instance, a
@@ -323,7 +363,7 @@ public class StNetworkTextTests
     [Fact]
     public void An_enabled_box_whose_EN_name_is_declared_in_reach_has_no_spelling()
     {
-        const string reason = "an enabled box whose name with _EN is declared in reach";
+        const string reason = "an enabled box whose name with its suffix is declared in reach";
         var none = new System.Collections.Generic.Dictionary<string, string>();
         var body = Fbd1(Set(Call("Foo", new[] { In(L("b")) }, en: L("a"), connected: 0, eno: true), T("x")));
         foreach (var scope in new[] { new NetworkScope(Array.Empty<string>(), new[] { "Foo", "Foo_EN" }, none), new NetworkScope(new[] { "Foo_EN" }, new[] { "Foo" }, none) })

@@ -30,17 +30,15 @@ public class StNetworkOracleTests
         }
         var report = StNetworkOracle.Report("accept cases", results);
         StNetworkOracle.Save("cases", report, results);
-        StNetworkOracle.AssertTally(results, report, identical: 97, stored: 23, new Dictionary<string, int>(StringComparer.Ordinal)
+        StNetworkOracle.AssertTally(results, report, identical: 100, stored: 26, new Dictionary<string, int>(StringComparer.Ordinal)
         {
-            // Volt's own v2 cases, 0 in the corpora and the TwinCAT archives; each a grammar decision for the owner (design.md
-            // "3.0 As built: open for the owner").
-            ["a coil modifier on a jump"] = 1,             // `JMP Done S= c`
-            ["a jump inside a tree"] = 1,                  // `y := (JMP Done := c)`
-            ["a jump with several targets"] = 2,           // a coil and a jump, two jumps, on one value
-            ["an FB instance the scope does not declare"] = 1,
-            ["an enabled box without ENO"] = 2,            // EN and no ENO, at the root or read by an FB output's name
+            // Volt's own v2 cases, 0 in the corpora and the TwinCAT archives. A name ST cannot write: niche, accepted loss
+            // (owner, 2026-10-28; CODESYS ST refuses the names too).
             ["an operand named like an ST keyword"] = 1,   // `Then`
             ["an operand that is no ST expression"] = 1,   // `a``b`
+            // `JMP Done S= c`: the IDE's jump element has no set or reset (a coil's modifier), a v2 grammar shape. Niche:
+            // accepted loss (0 occurrences in the corpora); for the owner (design.md "3.0").
+            ["a coil modifier on a jump"] = 1,
         });
     }
 }

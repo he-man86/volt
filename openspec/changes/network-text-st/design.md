@@ -479,6 +479,32 @@ the corpora).
 - Also: an unconnected pin on a FUNCTION box (`MUL(m, , 6)`), measured like the FB pin in 2.1; if it runs as the pin left
   out, that is its spelling and the deleted e2e case (`real-project-shapes` "a box with an unconnected input") comes back.
 
+**Built (2026-10-28), each measured live** (CODESYS 3.5.21.40, `test/e2e/graphical/st-spellings-run.test.ts`: the network
+and the LSP's twin run side by side on a 16-scan stimulus, every output equal on every scan):
+- (b) the suffix names the EN and ENO a box shows, and its return follows: `X_EN` / `X_ENO` return ENO, `X_ENONLY`
+  returns the value (`lamp := GT_ENONLY(EN := c, i, 3)`, `MOVE_ENONLY(EN := d, j, OUT => y)` at the root,
+  `t1_ENONLY(EN := c, …, Q => w1)`). A box returning ENO is read by it: its value reaches a variable through `OUT =>`,
+  never a wire. Measured: an enabled MOVE showing ENO, built read at its value slot, is held by CODESYS read by its ENO
+  (its coil then does not build), so that shape has no spelling (`an enabled box read by its value showing ENO`, 0 in the
+  corpora). The 40 enabled comparisons of the corpora now read `GT_ENONLY(…)` where they stand.
+- (a) the jump and the return are functions on their value: `JMP(label, value)`, `RETURN(value)`, an item or a node in a
+  tree, the value handed on; on the rail ST's own `JMP l;` / `RETURN;`. A network holds no `IF`. A coil and a jump on one
+  value are one item per target, the coils first (a stored member; a value holding a box, a wire or an edge is not
+  repeated: `a jump sharing a value that holds a box`, 0 in the corpora). Measured: a jump inside a tree
+  (`x := JMP(l, c) AND d`) builds and runs as its twin (the jump taken before the tree's coil is written).
+- (d) an instance no declaration holds is written as `???` is, its FB type called (a stored member; both do not build).
+- (c) a name ST cannot write stays refused by name: `an operand named like an ST keyword`, `an operand that is no ST
+  expression`, TwinCAT's coil `r` (niche, accepted loss).
+- The unconnected pin on a FUNCTION box does not run as the pin left out: measured, CODESYS compiles it as `???`
+  ("Identifier '???' not defined"), so no text runs as it. It stays refused by name (`an empty operand on a pin`, 0 in
+  the corpora); the deleted e2e case does not come back.
+- `JMP Done S= c` (a set or reset on a jump) stays refused by name: the IDE's jump element has no set or reset, a v2
+  grammar shape (0 in the corpora). For the owner: whether to spell it at all.
+
+Oracle 1 after 3.0: CODESYS corpora 388 networks: 301 identical, 87 stored members, 0 `%UNSUPPORTED`; TwinCAT archives
+153: 143 / 8 / 2 (the fan-out archive, the coil `r`); accept cases 129: 100 / 26 / 3 (`Then`, a backtick name, the set
+jump). Twin builds re-recorded live for lenze-mid: 0 errors.
+
 **Was open for the owner (the decisions above answer each):**
 - a jump among coils or jumps on one value, a jump with `S=`, a jump nested in a tree (4 accept cases): ST has a jump only
   as a statement;

@@ -182,34 +182,31 @@ w27 := Alarms_V5_1_100(AlarmDB := Mach1_Alarms, iCond := Mach1.GenFlags.DelayAft
 Mach1.GenFlags.StopDriveDirect S= w27;
 Mach1_Data.Drives.Fan.Control.ResetError S= w27 AND Mach1.GenFlags.ResetFlag;
 %NETWORK "DONE Network 20: Bobbin"
-%WIRES w28, w29, w30, w31, w32
+%WIRES w28, w29, w30, w31
 w28 := TRUE;
-GT_EN(EN := w28 AND Mach1.GenFlags.EnableAuxDrive AND NOT HMI_Var.Btn_Cleaning, Mach1_Data.Settings.Ints.TorqueControlBobbin, 0, OUT => w30);
-w29 := w30 AND Mach1_Safety.Status.AllDoorsActuallyClosed;
+w29 := GT_ENONLY(EN := w28 AND Mach1.GenFlags.EnableAuxDrive AND NOT HMI_Var.Btn_Cleaning, Mach1_Data.Settings.Ints.TorqueControlBobbin, 0) AND Mach1_Safety.Status.AllDoorsActuallyClosed;
 Mach1_Data.Drives.Bobbine.Control.Enable := w29;
 Mach1_Data.Drives.Bobbine.Control.StartAuto := MOVE_EN(EN := w29, 860, OUT => Mach1_Data.Drives.Bobbine.Control.AutoSpeed);
 FBBobbin_EN(EN := w28, iStatusWord := Data_Exchange_Motion.FQI_Bobbin.Status, iGearRatioNumerator := 2790.0, iGearRatioDenominator := 111.0, iNominalMotorSpeedwoSlipComp_RPM := 3000.0, iNominalMotorFrequency_Hz := 50.0, iAxisJogSpeed_RPM := 10.0, ioUDT := Mach1_Data.Drives.Bobbine, oControlWord => Data_Exchange_Motion.FQI_Bobbin.Controlword, oRefSpeed => Data_Exchange_Motion.FQI_Bobbin.RefSpeed);
-w31 := w28 AND HMI_Var.Mach1.CalibrateTorqueValues;
-MOVE_EN(EN := w31, Mach1_AuxData.TorqueCalibrationValue, OUT => Data_Exchange_Motion.BobbinTorque);
-HMI_Var.Mach1.setMinTorqueValue R= MOVE_EN(EN := w31 AND HMI_Var.Mach1.setMinTorqueValue, Mach1_AuxData.TorqueCalibrationValue, OUT => Mach1_Data.Settings.Dints.minTorqueValue);
-HMI_Var.Mach1.setMaxTorqueValue R= MOVE_EN(EN := w31 AND HMI_Var.Mach1.setMaxTorqueValue, Mach1_AuxData.TorqueCalibrationValue, OUT => Mach1_Data.Settings.Dints.maxTorqueValue);
-ScaleBobbinTorque_EN(EN := w28 AND NOT HMI_Var.Mach1.CalibrateTorqueValues, IN := Mach1_Data.Settings.Ints.TorqueControlBobbin, IN_MIN := 0, IN_MAX := 1000, OUT_MIN := DINT_TO_REAL(Mach1_Data.Settings.Dints.minTorqueValue), OUT_MAX := DINT_TO_REAL(Mach1_Data.Settings.Dints.maxTorqueValue), OUT => tBobbinTorque, ENO => w32);
-MOVE_EN(EN := w32, REAL_TO_DINT(tBobbinTorque), OUT => Data_Exchange_Motion.BobbinTorque);
+w30 := w28 AND HMI_Var.Mach1.CalibrateTorqueValues;
+MOVE_EN(EN := w30, Mach1_AuxData.TorqueCalibrationValue, OUT => Data_Exchange_Motion.BobbinTorque);
+HMI_Var.Mach1.setMinTorqueValue R= MOVE_EN(EN := w30 AND HMI_Var.Mach1.setMinTorqueValue, Mach1_AuxData.TorqueCalibrationValue, OUT => Mach1_Data.Settings.Dints.minTorqueValue);
+HMI_Var.Mach1.setMaxTorqueValue R= MOVE_EN(EN := w30 AND HMI_Var.Mach1.setMaxTorqueValue, Mach1_AuxData.TorqueCalibrationValue, OUT => Mach1_Data.Settings.Dints.maxTorqueValue);
+ScaleBobbinTorque_EN(EN := w28 AND NOT HMI_Var.Mach1.CalibrateTorqueValues, IN := Mach1_Data.Settings.Ints.TorqueControlBobbin, IN_MIN := 0, IN_MAX := 1000, OUT_MIN := DINT_TO_REAL(Mach1_Data.Settings.Dints.minTorqueValue), OUT_MAX := DINT_TO_REAL(Mach1_Data.Settings.Dints.maxTorqueValue), OUT => tBobbinTorque, ENO => w31);
+MOVE_EN(EN := w31, REAL_TO_DINT(tBobbinTorque), OUT => Data_Exchange_Motion.BobbinTorque);
 %NETWORK "DONE Network 21: Alarms Bobbine $R$L"
-%WIRES w33
-w33 := Alarms_V5_1_100(AlarmDB := Mach1_Alarms, iCond := Mach1_AuxData.MIDS_Active AND Mach1.GenFlags.DelayAfterEmergStop AND NOT Mach1_Data.Drives.Bobbine.Status.DriveReady AND Mach1_AuxData.AllDrivesHomed, iReset := True, iAlm := Mach1_Alarms.Alm010, ioAction := Mach1.GenFlags.MinorAlarm);
-Mach1.GenFlags.StopDriveDirect S= w33;
-Mach1_Data.Drives.Bobbine.Control.ResetError S= w33 AND Mach1.GenFlags.ResetFlag;
+%WIRES w32
+w32 := Alarms_V5_1_100(AlarmDB := Mach1_Alarms, iCond := Mach1_AuxData.MIDS_Active AND Mach1.GenFlags.DelayAfterEmergStop AND NOT Mach1_Data.Drives.Bobbine.Status.DriveReady AND Mach1_AuxData.AllDrivesHomed, iReset := True, iAlm := Mach1_Alarms.Alm010, ioAction := Mach1.GenFlags.MinorAlarm);
+Mach1.GenFlags.StopDriveDirect S= w32;
+Mach1_Data.Drives.Bobbine.Control.ResetError S= w32 AND Mach1.GenFlags.ResetFlag;
 %NETWORK "TODO Network 22:"
 // WRAPPER
 %NETWORK "TODO Network 23: Limit Wrapper stop position"
-%WIRES w34, w35, w36
-w34 := TRUE;
-GT_EN(EN := w34, Mach1_Data.Settings.Dints.WrapperStopPosition, 400, OUT => w35);
-MOVE_EN(EN := w35, 400, OUT => Mach1_Data.Settings.Dints.WrapperStopPosition);
-LT_EN(EN := w34, Mach1_Data.Settings.Dints.WrapperStopPosition, 5, OUT => w36);
-MOVE_EN(EN := w36, 5, OUT => Mach1_Data.Settings.Dints.WrapperStopPosition);
-MUL_EN(EN := w34, Mach1_Data.Settings.Dints.WrapperStopPosition, 100, OUT => tWrapperStopPosition);
+%WIRES w33
+w33 := TRUE;
+MOVE_EN(EN := GT_ENONLY(EN := w33, Mach1_Data.Settings.Dints.WrapperStopPosition, 400), 400, OUT => Mach1_Data.Settings.Dints.WrapperStopPosition);
+MOVE_EN(EN := LT_ENONLY(EN := w33, Mach1_Data.Settings.Dints.WrapperStopPosition, 5), 5, OUT => Mach1_Data.Settings.Dints.WrapperStopPosition);
+MUL_EN(EN := w33, Mach1_Data.Settings.Dints.WrapperStopPosition, 100, OUT => tWrapperStopPosition);
 %NETWORK "TODO Network 25:"
 Data_Exchange_Motion.FeedForwardWrapper.Control.Enable := TRUE AND Mach1.GenFlags.DelayAfterEmergStop AND NOT Mach1_Alarms.Alm066;
 %NETWORK "TODO Network 26:"

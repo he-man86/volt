@@ -34,7 +34,7 @@ public class StNetworkOracleTcTests
         StNetworkOracle.AssertTally(results, report, identical: 143, stored: 8, new Dictionary<string, int>(StringComparer.Ordinal)
         {
             // Vn_int_to_real's coil `r`: CODESYS ST takes `s` and `r` for no name (1.2), and the LSP reads ST as CODESYS does.
-            // For the owner (design.md "3.0"): 0 occurrences in the corpora.
+            // A name ST cannot write: niche, accepted loss (owner, 2026-10-28; 0 occurrences in the corpora).
             ["a target that is no ST variable"] = 1,
             // Vn_fanout_two_wires: TwinCAT stored the import of two fan-outs with one wire defined twice and the other never
             // (no ST can define a variable it never assigns). Niche: accepted loss (0 occurrences in the corpora).

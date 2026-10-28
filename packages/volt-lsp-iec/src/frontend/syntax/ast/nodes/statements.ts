@@ -123,6 +123,8 @@ export interface RepeatStatement {
 }
 export interface ReturnStatement {
   kind: "return"
+  /** In a plain-ST network body, the value the return is on: `RETURN(value)` (`network/plain-st.ts`). */
+  value?: Expr
   span: Span
 }
 export interface ExitStatement {
@@ -145,6 +147,8 @@ export interface JmpStatement {
   /** The token the vendor took for the destination where no label stands — `JMP;` takes its `;` (`rec_jmp_without_label`);
    *  `target` is then the refused placeholder. The analysis words it (`checks/flow/jump-labels`). */
   refusedDestination?: string
+  /** In a plain-ST network body, the value the jump is on: `JMP(label, value)` (`network/plain-st.ts`). */
+  value?: Expr
   span: Span
 }
 /** A jump label `<name>:` at statement start (distinct from `:=` assignment and CASE labels). */

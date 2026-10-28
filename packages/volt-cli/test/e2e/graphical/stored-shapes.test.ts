@@ -84,7 +84,7 @@ describe(`graphical / stored shapes, ld-fbd-coverage 2R.5 (${BASE})`, () => {
 	it("#22, #23, #26: a comparison's ENO, the named ENO pin, an enabled comparison as a value", async () => {
 		await shape("r5ce", (n) => fb(n, "LD", ["lamp := GT_EN(EN := c, v, 5, OUT => x);"]), TC.comparisonEno)
 		await shape("r5ne2", (n) => fb(n, "FBD", ["MOVE_EN(EN := c, 7, ENO => lamp, OUT => i);"]), TC.namedEno)
-		await shape("r5cv", (n) => fb(n, "FBD", ["%WIRES w1\nGT_EN(EN := c, v, 40, OUT => w1);\nx := AND(a, w1);"]), TC.comparisonValue)
+		await shape("r5cv", (n) => fb(n, "FBD", ["x := AND(a, GT_ENONLY(EN := c, v, 40));"]), TC.comparisonValue)
 	})
 })
 

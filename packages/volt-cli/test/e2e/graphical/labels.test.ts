@@ -92,7 +92,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`%LANGUAGE FBD\n%NETWORK\nIF a THEN JMP Done; END_IF;\n` +
+			`%LANGUAGE FBD\n%NETWORK\nJMP(Done, a);\n` +
 			`%NETWORK\nDone:\nout := OR(a, b);\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
@@ -100,7 +100,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 
 		const v1 = await pull(item)
 		expect(v1).toBeDefined()
-		expect(v1.sourceText, "the jump was dropped").toMatch(/JMP\s+Done/i)
+		expect(v1.sourceText, "the jump was dropped").toMatch(/^JMP\(Done, a\);$/m)
 		expect(v1.sourceText, "the jump's target label was dropped").toContain("\nDone:\n")
 
 		const refs = await bridge.refs()
@@ -133,7 +133,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`%LANGUAGE FBD\n%NETWORK\nIF a THEN RETURN; END_IF;\n` +
+			`%LANGUAGE FBD\n%NETWORK\nRETURN(a);\n` +
 			`%NETWORK\nout := AND(a, b);\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
@@ -141,7 +141,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 
 		const v1 = await pull(item)
 		expect(v1, "the item vanished after its create").toBeDefined()
-		expect(v1.sourceText, "the return was dropped").toMatch(/RETURN/i)
+		expect(v1.sourceText, "the return was dropped").toMatch(/^RETURN\(a\);$/m)
 
 		// The FIXED POINT is the half that matters: TwinCAT imported the return happily and then refused to
 		// push the body back, so a POU Volt had just created could never be pushed again.
@@ -225,9 +225,9 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 	 */
 	const SHAPES: readonly (readonly [string, string])[] = [
 		["twice", "%NETWORK\nDone:\nout := AND(a, b);\n%NETWORK\nDONE:\nq := a;\n"],
-		["disabled_target", "%NETWORK\nIF a THEN JMP Done; END_IF;\n%NETWORK\n%DISABLED\nDone:\nout := OR(a, b);\n"],
-		["jump_disabled", "%NETWORK\n%DISABLED\nIF a THEN JMP Done; END_IF;\n%NETWORK\nDone:\nout := AND(a, b);\n"],
-		["missing", "%NETWORK\nIF a THEN JMP Nowhere; END_IF;\n%NETWORK\nout := AND(a, b);\n"],
+		["disabled_target", "%NETWORK\nJMP(Done, a);\n%NETWORK\n%DISABLED\nDone:\nout := OR(a, b);\n"],
+		["jump_disabled", "%NETWORK\n%DISABLED\nJMP(Done, a);\n%NETWORK\nDone:\nout := AND(a, b);\n"],
+		["missing", "%NETWORK\nJMP(Nowhere, a);\n%NETWORK\nout := AND(a, b);\n"],
 	]
 	for (const [key, nets] of SHAPES) {
 		it(`the IDE holds a label shape (${key}): it round-trips exactly`, async () => {

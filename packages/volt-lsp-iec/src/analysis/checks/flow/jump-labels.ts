@@ -6,7 +6,8 @@
  * Labels and JMPs are collected across the whole body (nested blocks included, via `walkStatements`). Matching
  * is case-insensitive (IEC identifiers).
  */
-import { walkStatements, type Expr, type Span } from "../../../frontend/syntax/index.js"
+import { stmtExprs, walkExpr, walkStatements, type Expr, type Span } from "../../../frontend/syntax/index.js"
+import { isJumpLabel } from "../../shared/resolution.js"
 import { bodiesThroughErrors } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { emit, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
@@ -35,6 +36,11 @@ export function checkJumpLabels(ctx: CheckContext, out: DiagnosticItem[]): void 
       } else if (s.kind === "jmp") {
         jmps.push(s.target)
       }
+      // a network's jump inside a tree, `JMP(label, value)` (plain-ST network text)
+      for (const e of stmtExprs(s))
+        walkExpr(e, (x) => {
+          if (x.kind === "call" && x.args[0]?.value !== undefined && isJumpLabel(x, x.args[0].value)) jmps.push(x.args[0].value)
+        })
     })
 
     // C0116 — the same label declared twice (flag each occurrence after the first).

@@ -2,9 +2,10 @@
 === text
 %LANGUAGE LD
 %NETWORK
-%UNSUPPORTED "an enabled box without ENO" #9340c3b3
+MOVE_ENONLY(EN := c, b, OUT => a);
 === model
-NETWORK unsupported:"an enabled box without ENO" hash:9340c3b3
+NETWORK
+  (MOVE b =>0:a en:c)
 
 #### move-enabled-eno — the v2 case en-eno/move-enabled-eno, as a pull writes it
 === text
@@ -57,15 +58,10 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1, w2, w3, w4
-MOVE_EN(EN := c, k, OUT => w1);
-y := w1;
-ADD_EN(EN := c, a, b, OUT => w2);
-sum := w2;
-GT_EN(EN := c, a, 5, OUT => w3);
-lamp := w3;
-f_EN(EN := c, IN := v, OUT => w4);
-res := w4;
+y := MOVE_ENONLY(EN := c, k);
+sum := ADD_ENONLY(EN := c, a, b);
+lamp := GT_ENONLY(EN := c, a, 5);
+res := f_ENONLY(EN := c, IN := v);
 === model
 NETWORK
   (:= y (MOVE k en:c conn:0))
@@ -77,9 +73,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
-GT_EN(EN := c, b, 40, OUT => w1);
-x := a AND w1;
+x := a AND GT_ENONLY(EN := c, b, 40);
 y := MOVE_EN(EN := c, 1, OUT => t) AND MOVE_EN(EN := d, 2, OUT => u);
 === model
 NETWORK
@@ -177,7 +171,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-IF MOVE_EN(EN := c, 1, OUT => x) THEN JMP Done; END_IF;
+JMP(Done, MOVE_EN(EN := c, 1, OUT => x));
 %NETWORK
 Done:
 ;
@@ -266,9 +260,12 @@ instance t1 TON
 === text
 %LANGUAGE LD
 %NETWORK
-%UNSUPPORTED "an enabled box without ENO" #e37443dd
+%WIRES w1
+t1_ENONLY(EN := c, IN := a, PT := T#1S, Q => w1);
+x := w1;
 === model
-NETWORK unsupported:"an enabled box without ENO" hash:e37443dd
+NETWORK
+  (:= x (TON@t1 IN=a PT=T#1S en:c name:Q))
 
 #### call-enabled — the v2 case en-eno/call-enabled, as a pull writes it
 === text

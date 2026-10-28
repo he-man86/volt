@@ -17,16 +17,30 @@ function twin(decls: string, body: string, before = ""): { source: string; refus
 /** The ST lines of the twin's body, without its VAR block. */
 const code = (source: string) => source.slice(source.lastIndexOf("%LANGUAGE ST\n") + "%LANGUAGE ST\n".length, source.indexOf("END_PROGRAM")).trim()
 
-test("an enabled box read by its value under a coil holds the coil when disabled (1.4: IF en THEN x := <box>; END_IF)", () => {
-  const t = twin("\ty : INT := 5;\n\tk : INT := 7;\n\tc : BOOL;", "%NETWORK\n%WIRES w1\nMOVE_EN(EN := c, k, OUT => w1);\ny := w1;\n")
+test("a box with EN and no ENO read by its value under a coil holds the coil when disabled (1.4)", () => {
+  const t = twin("\ty : INT := 5;\n\tk : INT := 7;\n\tc : BOOL;", "%NETWORK\ny := MOVE_ENONLY(EN := c, k);\n")
   expect(t.refused).toEqual([])
   expect(code(t.source)).toBe("IF c THEN\n\ty := k;\nEND_IF;")
 })
 
-test("an enabled comparison read by its value is FALSE when disabled (1.3)", () => {
-  const t = twin("\tx : BOOL;\n\ti : INT;\n\tc : BOOL;", "%NETWORK\n%WIRES w1\nGT_EN(EN := c, i, 3, OUT => w1);\nx := w1;\n")
+test("a comparison with EN and no ENO read by its value is FALSE when disabled (1.3)", () => {
+  const t = twin("\tx, a : BOOL;\n\ti : INT;\n\tc : BOOL;", "%NETWORK\nx := a AND GT_ENONLY(EN := c, i, 3);\n")
   expect(t.refused).toEqual([])
-  expect(code(t.source)).toBe("IF c THEN\n\tvtw1_w1 := (i > 3);\nELSE\n\tvtw1_w1 := FALSE;\nEND_IF;\nx := vtw1_w1;")
+  expect(code(t.source)).toBe("IF c THEN\n\tvtw1_eno1 := (i > 3);\nELSE\n\tvtw1_eno1 := FALSE;\nEND_IF;\nx := (a AND vtw1_eno1);")
+})
+
+test("a box with EN and no ENO at the root runs under its EN", () => {
+  const t = twin("\ta, b : INT;\n\tc : BOOL;", "%NETWORK\nMOVE_ENONLY(EN := c, b, OUT => a);\n")
+  expect(t.refused).toEqual([])
+  expect(code(t.source)).toBe("IF c THEN\n\ta := b;\nEND_IF;")
+})
+
+test("a jump and a return on a value are the IF that takes them; in a tree, on the value held", () => {
+  const t = twin("\tx, a, c, d : BOOL;", "%NETWORK\nJMP(l1, a);\nRETURN(c);\nx := JMP(l1, c) AND d;\n%NETWORK\nl1:\nx := a;\n")
+  expect(t.refused).toEqual([])
+  expect(code(t.source)).toBe(
+    "IF a THEN JMP l1; END_IF;\nIF c THEN RETURN; END_IF;\nvtw1_eno1 := c;\nIF vtw1_eno1 THEN JMP l1; END_IF;\nx := (vtw1_eno1 AND d);\nl1:\nx := a;",
+  )
 })
 
 test("an edge is an edge detector called on every scan, read by its Q (1.3: rt(CLK := a); out := en AND rt.Q)", () => {

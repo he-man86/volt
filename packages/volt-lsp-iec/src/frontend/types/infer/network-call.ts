@@ -7,6 +7,8 @@
  *   `NOT(a)`                                  the NOT box: `NOT a`'s;
  *   `X_EN(EN := e, …)`, `EXECUTE(EN := e)`    an enabled box and the Execute box: their ENO, a BOOL (`names.ts`
  *                                             `isNetworkBox`);
+ *   `X_ENONLY(EN := e, …)`                    the box with EN and no ENO: the value `X(…)` has, EN and outputs left out;
+ *   `JMP(label, value)`, `RETURN(value)`      the jump and the return in a tree: the value they hand on;
  *   a wire                                    its definition's: the expression assigned to it, or the output a call
  *                                             binds to it — an ENO a BOOL, an enabled box's `OUT` its box's value, an FB's
  *                                             output the FB's (`Symbol.wire`).
@@ -15,7 +17,7 @@
  */
 import type { Scope, Symbol } from "../../symbols/index.js"
 import type { CallArg, CallExpr, Expr } from "../../syntax/index.js"
-import { ENABLED_SUFFIX, ENO_SUFFIX, isNetworkBox, NETWORK_ELEMENTS } from "../names.js"
+import { EN_ONLY_SUFFIX, isNetworkBox, NETWORK_CONTROLS, NETWORK_ELEMENTS, networkSuffix } from "../names.js"
 import { elementaryRef, UNKNOWN, type Type } from "../type.js"
 import { inferExprType } from "./expr.js"
 
@@ -34,7 +36,11 @@ function inNetwork(scope: Scope): boolean {
 export function networkCallType(call: CallExpr, scope: Scope, project: Scope): Type | undefined {
   if (call.callee.kind !== "ident_expr" || !inNetwork(scope)) return undefined
   const name = call.callee.name
-  if (isNetworkBox(scope, name)) return elementaryRef("BOOL")
+  if (NETWORK_CONTROLS.has(name.toUpperCase())) {
+    const value = call.args.at(-1)?.value
+    return value === undefined ? UNKNOWN : inferExprType(value, scope, project)
+  }
+  if (isNetworkBox(scope, name)) return networkSuffix(name) === EN_ONLY_SUFFIX ? baseValue(call, name, scope, project) : elementaryRef("BOOL")
   const values = positional(call.args)
   if (values === undefined) return undefined
   const upper = name.toUpperCase()
@@ -42,6 +48,14 @@ export function networkCallType(call: CallExpr, scope: Scope, project: Scope): T
   const op = OPERATOR_OF[upper]
   if (op === undefined || values.length < 2) return undefined
   return inferExprType(chain(op, values, call), scope, project)
+}
+
+/** The value `X_ENONLY(EN := e, pins…)` hands back: `X(pins…)`'s, EN and the outputs left out — an operator box's as
+ *  `networkCallType` types it. */
+function baseValue(call: CallExpr, name: string, scope: Scope, project: Scope): Type {
+  const callee: Expr = { kind: "ident_expr", name: name.slice(0, -EN_ONLY_SUFFIX.length), span: call.callee.span }
+  const args = call.args.filter((a) => !a.output && a.param?.name.toUpperCase() !== "EN")
+  return inferExprType({ kind: "call", callee, args, span: call.span }, scope, project)
 }
 
 /** A call's arguments when every one is positional (the operator boxes' form), else undefined. */
@@ -77,7 +91,7 @@ function outputType(call: CallExpr, param: string, scope: Scope, project: Scope)
   if (upper === "ENO") return elementaryRef("BOOL")
   const callee = call.callee.kind === "ident_expr" ? call.callee.name.toUpperCase() : ""
   if (call.callee.kind === "ident_expr" && isNetworkBox(scope, call.callee.name) && callee !== "EXECUTE" && !NETWORK_ELEMENTS.has(callee)) {
-    const suffix = callee.endsWith(ENO_SUFFIX) ? ENO_SUFFIX : ENABLED_SUFFIX
+    const suffix = networkSuffix(callee)!
     const base: Expr = { kind: "ident_expr", name: call.callee.name.slice(0, -suffix.length), span: call.callee.span }
     const baseType = inferExprType(base, scope, project)
     // an enabled FB's output by name is the FB's own, `OUT` included where the FB declares one

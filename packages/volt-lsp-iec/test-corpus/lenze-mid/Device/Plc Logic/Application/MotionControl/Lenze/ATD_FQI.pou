@@ -16,7 +16,7 @@ VAR_IN_OUT
 END_VAR
 %LANGUAGE LD
 %NETWORK "Return when virtual axis"
-IF ioAxis.xVirtual THEN RETURN; END_IF;
+RETURN(ioAxis.xVirtual);
 %NETWORK
 %WIRES w1
 OffDelay(IN := DataIO.Controlword.Bit4_RunForward, PT := T#1S, Q => w1);

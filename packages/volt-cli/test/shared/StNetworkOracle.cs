@@ -55,7 +55,7 @@ public static class StNetworkOracle
         if (NetworkModelEquality.FirstDifference(want, got) is null) return new(source, index, Identical, "", Array.Empty<string>(), null, text);
 
         var members = new SortedSet<string>(StringComparer.Ordinal);
-        var spelled = new NetworkBody(language, body.Networks.Select(n => n with { Trees = n.Trees.Select(t => Spelled(t, members, scope, root: true)).ToList() }).ToList());
+        var spelled = new NetworkBody(language, body.Networks.Select(n => n with { Trees = n.Trees.SelectMany(t => SpelledItems(t, members, scope)).ToList() }).ToList());
         var d = NetworkModelEquality.FirstDifference(Canonical(NetworkTextFacts.Carried(spelled)), got);
         if (d is null) return new(source, index, Stored, "", members.ToList(), null, text);
         return new(source, index, Gap, "diff: " + Category(d), members.ToList(), d + "\n" + text, text);
@@ -100,6 +100,23 @@ public static class StNetworkOracle
     }
 
     // ── the design's stored members, in their spelled form ──────────────────────────────────────────────────────
+
+    /// <summary>An item as the text spells it: one item, or (owner, 2026-10-28) a coil or jump sharing its value with a jump as
+    /// one item per target, the coils first.</summary>
+    static IEnumerable<Node> SpelledItems(Node t, ISet<string> fired, NetworkScope scope)
+    {
+        static bool Control(Operand x) => x.Flags is { Jump: true } or { Return: true };
+        if (t is Assign a && a.Targets.Count > 1 && a.Targets.Any(Control))
+        {
+            fired.Add("a coil or jump sharing its value with a jump as one item per target");
+            var coils = a.Targets.Where(x => !Control(x)).ToList();
+            if (coils.Count > 0) yield return Spelled(new Assign(a.Value, coils, Flags.None), fired, scope, root: true);
+            foreach (var c in a.Targets.Where(Control))
+                yield return Spelled(new Assign(a.Value, new[] { c }, c.Flags!.Jump ? Flags.None with { Jump = true } : Flags.None with { Return = true }), fired, scope, root: true);
+            yield break;
+        }
+        yield return Spelled(t, fired, scope, root: true);
+    }
 
     /// <summary>design.md "Stored members, not spelled": the tree as the text spells it. Each rule that changes the tree
     /// names itself in <paramref name="fired"/>.</summary>
@@ -190,13 +207,20 @@ public static class StNetworkOracle
                 if (outputs.RemoveAll(o => o.Formal is null && o.Value.Text == Box.UnnamedInstance) > 0)
                     fired.Add("extra output slot (???)");
                 var type = b.Type;
+                var instance = b.Instance;
+                if (b.Instance is { } undeclared && undeclared.Text != Box.UnnamedInstance && scope.InstanceType(undeclared.Text) is null
+                    && scope.IsBlockType(type))
+                {
+                    fired.Add("an FB instance no declaration holds as the unnamed instance");
+                    instance = undeclared with { Text = Box.UnnamedInstance };
+                }
                 if (b.Instance is { } inst && scope.InstanceType(inst.Text) is { } declared && declared != type
                     && Volt.Engine.Format.St.StDeclaration.SameType(declared, type))
                 {
                     fired.Add("an FB type spelled as its declaration");
                     type = declared;
                 }
-                Node box = b with { Type = type, Inputs = inputs, Enable = enable, Outputs = outputs, EnableFlags = enableFlags };
+                Node box = b with { Type = type, Instance = instance, Inputs = inputs, Enable = enable, Outputs = outputs, EnableFlags = enableFlags };
                 if (b.Flags.Negated && !root)
                 {
                     fired.Add("negated box output as a NOT box");

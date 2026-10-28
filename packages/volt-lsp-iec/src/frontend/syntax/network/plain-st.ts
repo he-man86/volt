@@ -26,7 +26,7 @@
  * The form is told from v2 network text by its first line (`%NETWORK`), during the read-only phase only, while both are
  * read (openspec network-text-st 3.2 deletes v2 and this test with it).
  */
-import type { BodySpan } from "../ast/nodes/index.js"
+import type { BodySpan, StatementList } from "../ast/nodes/index.js"
 import { isTrivia, type Token } from "../lex/tokens.js"
 import { joinSpans, pointSpan, type Span } from "../span.js"
 import { isPlainStNetworkBody } from "../format/bodies.js"
@@ -42,6 +42,9 @@ const KEYWORD_BOXES: ReadonlySet<string> = new Set([
   // the built-in boxes ST calls already, which the ST statement parser does not take as a statement's head (`MOVE(b, OUT => a);`)
   "MOVE", "SEL", "MUX", "LIMIT", "MIN", "MAX", "SHL", "SHR", "ROL", "ROR", "ABS", "SQRT", "LN", "LOG", "EXP", "EXPT",
   "SIN", "COS", "TAN", "ASIN", "ACOS", "ATAN", "TRUNC", "ADR", "SIZEOF", "BITADR", "INDEXOF",
+  // the jump and the return on a value, functions of the text (`JMP(label, value)`, `RETURN(value)`): a statement of them is
+  // the jump statement (`networkStatements`), and one in a tree the call
+  "JMP", "RETURN",
 ])
 
 interface PlainStWire {
@@ -85,6 +88,24 @@ interface PlainStText {
 }
 
 const cache = new WeakMap<BodySpan, PlainStText>()
+
+/**
+ * A NETWORK'S JUMP AND RETURN STATEMENTS (owner, 2026-10-28): the call statements `JMP(label, value);` and `RETURN(value);`
+ * as the ST statements they are — a `JmpStatement` / `ReturnStatement` on that value — so the label checks and every
+ * statement walk see a jump. A call of another shape stays the call, which the network check refuses by name.
+ */
+export function networkStatements(list: StatementList): StatementList {
+  return list.map((s) => {
+    if (s.kind !== "call_stmt" || s.call.callee.kind !== "ident_expr") return s
+    const head = s.call.callee.name.toUpperCase()
+    const args = s.call.args
+    const positional = args.every((a) => !a.output && a.param === undefined && a.value !== undefined)
+    if (head === "JMP" && positional && args.length === 2 && args[0]!.value!.kind === "ident_expr")
+      return { kind: "jmp", target: args[0]!.value!, value: args[1]!.value!, span: s.span }
+    if (head === "RETURN" && positional && args.length === 1) return { kind: "return", value: args[0]!.value!, span: s.span }
+    return s
+  })
+}
 
 /** The tokens the ST statement parser reads of a body: its own, or a plain-ST network body's statement tokens — as
  *  compiled, or (`asWritten`) with its disabled networks' code in. */

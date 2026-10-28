@@ -342,12 +342,26 @@ switch and vendor-reader wiring, test updates) is kept: continue it, change only
 
 ## 3. Push and cleanup
 
-- [ ] 3.0 100% coverage (owner, 2026-10-27: "of course we need 100% coverage in the end"; memory support-all-ld-fbd):
+- [x] 3.0 100% coverage (owner, 2026-10-27: "of course we need 100% coverage in the end"; memory support-all-ld-fbd):
       every shape the IDE can store gets a plain-ST spelling — the four open-list shapes, the lone empty leaf, the
       Demux read once, and every accept-case gap of the probe; and every stored member that is its own toolbox element
       gets its own function name (design.md "Revision": one function per toolbox element), so a rebuilt network keeps it. Gate: 0 `%UNSUPPORTED` on the corpora, the TwinCAT archives
       and the accept cases. The v2 reader is not deleted (3.2) before this is green. Each new spelling measured in
       CODESYS first (compiles, runs as the network).
+
+  Done 2026-10-28 (design.md "3.0", "Built"): the owner's decisions (a)–(d) built — `X_ENONLY` (a box returning ENO is
+  read by it; measured: CODESYS holds an enabled box showing ENO read at its value read by its ENO, so that shape is
+  refused), `JMP(label, value)` / `RETURN(value)` (no `IF` in a network; a coil and a jump on one value one item per
+  target, the coils first), an undeclared instance as `???`. Measured live in CODESYS 3.5.21.40
+  (`test/e2e/graphical/st-spellings-run.test.ts`: each spelling and its twin, equal on every scan); the unconnected
+  FUNCTION pin compiles as `???` and stays refused. Oracle 1: CODESYS corpora 0 `%UNSUPPORTED`; TwinCAT archives 2 and
+  accept cases 3, each a niche accepted loss (owner (c); the fan-out archive; the set jump, for the owner). Twin build
+  re-recorded live for lenze-mid. Graphical e2e green on CODESYS (149) and TwinCAT (152). Deleted refuse cases, each
+  pinned elsewhere: `out-twice` (its rule went with the spelling; `enabled-value-through-out`),
+  `enabled-wire-read-before-its-call` (`call-wire-read-before-its-call`), `enabled-value-inside-a-box`
+  (`en-only-value-inside-a-box`), `enabled-value-through-a-wire-read-twice` (`en-only-value-through-a-wire-read-in-a-box`),
+  `comparison-wire-defined-by-a-box-read-once` (`wire-defined-by-a-box-read-once`); two twin tests over `X_EN(…, OUT => w)`
+  (refused now; pinned by the `X_ENONLY` twin tests).
 - [x] 3.1 Push through the new reader (NetworkPairing, the derivation, RebuildLoss as today); the full e2e suite on
       both vendors.
 - [ ] 3.2 Delete the old reader, lexer, spelling and the LSP's network parser; rewrite `docs/network-text.html` (much
