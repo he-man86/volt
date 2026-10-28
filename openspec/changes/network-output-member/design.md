@@ -196,3 +196,20 @@ new writer from the model (one-shot scratch run, deleted), diffs reviewed; only 
 model changes (flags false, read by name `ENO`, its scope declaring `Dryer`'s outputs). LSP conformance fixtures and
 `st-spellings-run.test.ts` respelled by hand, re-recorded in one batch per vendor (2.3/2.5). Corpus count of boxes a
 push meets with an unstated callee: from the round-trip oracle in 2.1.
+
+## FB boxes: the instance is the call head (owner, 2026-10-28: "that looks clean yes")
+
+Overrides `TYPE(FB := inst, …)`. An FB box is a call ON ITS INSTANCE, plain ST: the instance's type is in the POU's VAR
+section, where the IDE stores it. Each output wired to a variable is `X => v` in the call; the ONE output that chains
+to the next element is `.X` on the call. Only a box with no usable instance (`???`, an undeclared instance) has its
+TYPE as the call head. No network VAR section: the POU declares the instance; `%WIRES` names the network's wires.
+
+```
+t1(IN := a, PT := T#1S, Q => x);                              // nothing chains
+x  := AND(t1(IN := a, PT := T#1S).Q, b);                       // Q chains
+ok := t1(EN := c, IN := a, PT := T#1S, Q => x).ENO;           // enabled: ENO chains, Q to x
+y  := t1(EN := c, IN := a, PT := T#1S).Q;                     // moved pin: Q chains
+```
+
+`x := t1.Q;` on its own line is a different stored element (a read of the instance's variable), written only where the
+IDE stores that.
