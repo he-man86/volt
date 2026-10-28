@@ -3,7 +3,7 @@
  * CODESYS SP21 (2026-09-30, conformance `objects/written-as-sent.ts`, push-without-header-check 4.1/4.2).
  */
 import { expect, test } from "bun:test"
-import { objectNameOf, parseDocument, parseSource, sourceObjectOf } from "../index.js"
+import { baseNameOf, objectNameOf, parseDocument, parseSource, sourceObjectOf } from "../index.js"
 
 const read = (uri: string, source: string) => {
   const r = parseDocument(uri, source, { networkText: true }, "codesys")
@@ -77,4 +77,15 @@ test("the object's name is the file's base name without its kind extension, and 
   expect(objectNameOf(String.raw`C:\w\FB_A.pou`)).toBe("FB_A")
   expect(objectNameOf("DUT_A.dut")).toBe("DUT_A")
   expect(objectNameOf("unit.st")).toBeUndefined()
+})
+
+// openspec lsp-field-false-positives 1/6: a client percent-encodes every character past ASCII in a file URI. The object's
+// name is the IDE's — `FB_主控制`, not `FB_%E4%B8%BB%E6%8E%A7%E5%88%B6` — however the document is named.
+test("a URI's path is decoded: the object's name is the one the IDE gives it", () => {
+  expect(objectNameOf("file:///c%3A/w/FB_%E4%B8%BB%E6%8E%A7%E5%88%B6.pou")).toBe("FB_主控制")
+  expect(objectNameOf("file:///c%3A/w/%E7%B3%BB%E7%BB%9F%E5%B8%B8%E9%87%8F.dut")).toBe("系统常量")
+  expect(objectNameOf("file:///c%3A/w/My%20List.gvl")).toBe("My List")
+  // a plain string: bun's transpiler re-escapes a non-ASCII character inside String.raw as `\uXXXX`
+  expect(objectNameOf("C:\\w\\FB_主控制.pou")).toBe("FB_主控制")
+  expect(baseNameOf("git:/c%3A/w/%E7%B3%BB.dut?%7B%22ref%22%3A%22HEAD%22%7D")).toBe("系.dut")
 })

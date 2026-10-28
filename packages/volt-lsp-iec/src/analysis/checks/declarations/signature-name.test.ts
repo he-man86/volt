@@ -4,6 +4,8 @@
  * an FB implementing it.
  */
 import { test, expect } from "bun:test"
+import { join } from "node:path"
+import { pathToFileURL } from "node:url"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig } from "../../index.js"
@@ -54,4 +56,16 @@ test("an ALIAS, an ENUM and a UNION whose signature names another object", () =>
   expect(at("DUT_EnumObject.dut", `TYPE DUT_EnumSignature :\n(\n\ta,\n\tb\n);\nEND_TYPE`)).toEqual(MISMATCH)
   expect(at("DUT_UnionObject.dut", `TYPE DUT_UnionSignature :\nUNION\n\ti : INT;\n\tw : WORD;\nEND_UNION\nEND_TYPE`)).toEqual(MISMATCH)
   expect(at("DUT_AliasSame.dut", `TYPE DUT_AliasSame : INT;\nEND_TYPE`)).toEqual([])
+})
+
+// openspec lsp-field-false-positives 1 (PLC Assist's field traffic, 199 findings on items that built clean): the server
+// names a document by its file URI, which percent-encodes every character past ASCII, and the object's name was read
+// from the ENCODED path — `FB_%E4%B8%BB…` never equals the signature's `FB_主控制`. The object is named as the IDE names it.
+test("an object with a non-ASCII name agrees with its signature when the server names it by its file URI", () => {
+  const uri = (name: string) => pathToFileURL(join(process.cwd(), name)).href
+  expect(at(uri("FB_主控制.pou"), `FUNCTION_BLOCK FB_主控制\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\nx := 1;\nEND_FUNCTION_BLOCK\n`)).toEqual([])
+  expect(at(uri("系统常量.dut"), `TYPE 系统常量 :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE\n`)).toEqual([])
+  expect(at(uri("FB_Привод.pou"), `FUNCTION_BLOCK FB_Привод\nEND_FUNCTION_BLOCK\n`)).toEqual([])
+  // …and a real disagreement is still one
+  expect(at(uri("FB_主控制.pou"), `FUNCTION_BLOCK FB_副控制\nEND_FUNCTION_BLOCK\n`)).toEqual(MISMATCH)
 })

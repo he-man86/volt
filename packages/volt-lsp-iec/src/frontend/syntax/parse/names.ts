@@ -45,8 +45,50 @@ export function readQualifiedName(c: Cursor, first: Token, dangling: "report" | 
   return parts
 }
 
+/**
+ * A DECLARED name that opens with `first` (already consumed) as ONE identifier node: a dotted name (`consume`), and an
+ * INSTANCE PATH's array element on its way — `GVL.fbMain.afbModule[1].stPers`, `…aafbModule[1, 2].stPers`, as a
+ * persistent variable list holds them (CODESYS 3.5.21.40 builds them clean, openspec lsp-field-false-positives 3). An
+ * index group is read only where a `.` and a part follow its `]`; its indexes are spelled as CODESYS spells the path in
+ * its messages (`[1, 2]`). Anything else is left for the declaration to refuse as before.
+ */
+export function readDeclaredName(c: Cursor, first: Token): Identifier {
+  const parts = [first]
+  let text = first.text
+  for (;;) {
+    const indexes = indexGroupAhead(c)
+    if (indexes !== undefined) {
+      for (let k = 0; k < indexes.length; k++) parts.push(c.consume())
+      text += `[${indexes.filter((t) => t.text !== "[" && t.text !== "]").map((t) => t.text).join("").split(",").join(", ")}]`
+    }
+    if (c.eatPunct(".") === undefined) break
+    const part = c.eatIdent()
+    if (part === undefined) break
+    parts.push(part)
+    text += `.${part.text}`
+  }
+  if (parts.length === 1) return identFromToken(first)
+  return { kind: "identifier", text, span: joinSpans(first.span, parts.at(-1)!.span) }
+}
+
+/** The tokens of an index group `[ … ]` at the cursor — `[` to `]`, one level, no `;` or `:` inside — when a `.` follows
+ *  it; else undefined. Nothing is consumed. */
+function indexGroupAhead(c: Cursor): Token[] | undefined {
+  if (!(c.peek().kind === "punct" && c.peek().text === "[")) return undefined
+  const out: Token[] = [c.peek()]
+  for (let k = 1; ; k++) {
+    const t = c.peek(k)
+    out.push(t)
+    if (t.kind === "eof" || (t.kind === "punct" && (t.text === ";" || t.text === ":" || t.text === "["))) return undefined
+    if (t.kind === "punct" && t.text === "]") {
+      const dot = c.peek(k + 1)
+      return out.length > 2 && dot.kind === "punct" && dot.text === "." ? out : undefined
+    }
+  }
+}
+
 /** A dotted name as ONE identifier node: its parts joined with `.`, spanning them all (the first part alone as is). */
-export function joinedName(parts: readonly Token[]): Identifier {
+function joinedName(parts: readonly Token[]): Identifier {
   if (parts.length === 1) return identFromToken(parts[0]!)
   return { kind: "identifier", text: parts.map((p) => p.text).join("."), span: joinSpans(parts[0]!.span, parts.at(-1)!.span) }
 }

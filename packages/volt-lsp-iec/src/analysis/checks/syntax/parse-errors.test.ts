@@ -6,6 +6,8 @@
  * closed, so these valid CODESYS forms produce no diagnostic.
  */
 import { test, expect } from "bun:test"
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig } from "../../index.js"
@@ -117,4 +119,68 @@ test("a Chinese project's DUT, FB with CJK methods and their caller produce no d
     ),
   )
   expect(found).toEqual([])
+})
+
+// openspec lsp-field-false-positives 2 — NOT a false positive. PLC Assist's field traffic flagged `s`/`r` variables;
+// CODESYS refuses the same declaration with the same words (3.5.21.40: `cc_reserved_name_s_string`, `cc_reserved_name_r`,
+// `cc_reserved_name_s_upper`, and the field chat's own build failed until `s` was renamed). The LSP must keep saying it:
+// the declaration's cascade, word for word, is the one each recording holds.
+test("a variable named s, S or r is refused at its declaration as CODESYS refuses it (repro 2)", () => {
+  const recorded = JSON.parse(readFileSync(join(import.meta.dir, "../../../../test/conformance/recordings/codesys.build.json"), "utf8"))
+    .tests as Record<string, { diagnostics: { message: string }[] }>
+  const declarationCascade = (fixture: string) => recorded[fixture]!.diagnostics.map((d) => d.message).slice(0, 5)
+  const declaration = (src: string) => syntaxErrors(src).slice(0, 5)
+  expect(declaration(`FUNCTION F_T : STRING\nVAR\n\ts : STRING;\nEND_VAR\n%LANGUAGE ST\ns := 'a'; F_T := s;\nEND_FUNCTION`)).toEqual(
+    declarationCascade("cc_reserved_name_s_string"),
+  )
+  expect(declaration(`FUNCTION F_T : INT\nVAR\n\tr : INT;\nEND_VAR\n%LANGUAGE ST\nF_T := 1;\nEND_FUNCTION`)).toEqual(declarationCascade("cc_reserved_name_r"))
+  expect(declaration(`FUNCTION F_T : INT\nVAR\n\tS : BOOL;\nEND_VAR\n%LANGUAGE ST\nF_T := 1;\nEND_FUNCTION`)).toEqual(
+    declarationCascade("cc_reserved_name_s_upper"),
+  )
+  expect(declarationCascade("cc_reserved_name_s_string")[0]).toBe("Unexpected token 's' found")
+})
+
+// openspec lsp-field-false-positives 5 (along the way): a POU whose lines end in a lone CR is the POU the push sends with
+// LF (`StReader.LfLines`) — its `%LANGUAGE` line is a line, and a long Cyrillic header comment hides nothing it should not.
+test("a POU whose lines end in a lone CR reads as the same POU with LF (repro 5's line-ending candidate)", () => {
+  const lines = [
+    "FUNCTION_BLOCK FB_Привод",
+    "(* Функциональный блок управления приводом.",
+    "   1) Инициализация: проверка 2 датчиков",
+    "   2) Работа: скорость 0..100 % // не код",
+    "*)",
+    "VAR",
+    "\tnStep : INT; // шаг",
+    "END_VAR",
+    "%LANGUAGE ST",
+    "nStep := 2; // шаг 2",
+    "nStep := 3;",
+    "END_FUNCTION_BLOCK",
+  ]
+  const all = (src: string) => diagnose(src).map((d) => `${d.span.startLine}: ${d.code}: ${d.message}`)
+  expect(all(lines.join("\r"))).toEqual(all(lines.join("\n")))
+  expect(all(lines.join("\r"))).toEqual([])
+})
+
+// openspec lsp-field-false-positives 3: repro 3 as PLC Assist sent it — a persistent list's instance path through an
+// array element — is no syntax error (CODESYS builds it, `parse/declarations.test.ts` cites the measurement).
+test("a persistent list's instance path through an array element is no syntax error (repro 3)", () => {
+  expect(syntaxErrors("VAR_GLOBAL PERSISTENT RETAIN\n\tGVL.fbMain.afbModule[1].stPers : ST_Pers;\nEND_VAR\n%CLASS PERSISTENT\n")).toEqual([])
+})
+
+// openspec lsp-field-false-positives 4: PLC Assist saw "an IMPLEMENTATION line inside a body" on reads whose line stood
+// right after END_VAR. The line is `%LANGUAGE <LANG>` now (language-line); repro 4 re-run in today's format — the line
+// right after the last END_VAR of every body kind, several VAR sections before it — is clean through the whole pipeline.
+test("%LANGUAGE ST right after END_VAR draws nothing, on every body kind (repro 4)", () => {
+  const all = (src: string) => diagnose(src).map((d) => `${d.code}: ${d.message}`)
+  expect(all(`FUNCTION F_Add : INT\nVAR_INPUT\n\ta : INT;\n\tb : INT;\nEND_VAR\nVAR\n\tt : INT;\nEND_VAR\n%LANGUAGE ST\nt := a + b;\nF_Add := t;\nEND_FUNCTION`)).toEqual([])
+  expect(all(`PROGRAM PRG_A\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE ST\nn := n + 1;\nEND_PROGRAM`)).toEqual([])
+  expect(
+    all(
+      `FUNCTION_BLOCK FB_A\nVAR_INPUT\n\tstart : BOOL;\nEND_VAR\nVAR_OUTPUT\n\tlamp : BOOL;\nEND_VAR\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\nlamp := start;\nEND_FUNCTION_BLOCK\n\n` +
+        `METHOD M_Run : BOOL\nVAR_INPUT\n\tn : INT;\nEND_VAR\nVAR\n\tt : INT;\nEND_VAR\n%LANGUAGE ST\nt := n;\nM_Run := t > x;\nEND_METHOD\n\n` +
+        `PROPERTY P_X : INT\nGET\nVAR\nEND_VAR\n%LANGUAGE ST\nP_X := x;\nEND_GET\nSET\nVAR\nEND_VAR\n%LANGUAGE ST\nx := P_X;\nEND_SET\nEND_PROPERTY\n\n` +
+        `ACTION A_Reset\n%LANGUAGE ST\nx := 0;\nEND_ACTION\n`,
+    ),
+  ).toEqual([])
 })

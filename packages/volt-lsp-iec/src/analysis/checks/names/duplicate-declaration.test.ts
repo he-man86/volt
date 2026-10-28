@@ -4,6 +4,8 @@
  * duplicate variable keeps the generic "local variable" wording.
  */
 import { test, expect } from "bun:test"
+import { join } from "node:path"
+import { pathToFileURL } from "node:url"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig } from "../../index.js"
@@ -112,4 +114,16 @@ test("a global list's VAR_ACCESS name or refused-AT declaration does not duplica
   }
   expect(gvl(`VAR_GLOBAL\n a : INT;\nEND_VAR\nVAR_ACCESS\n a : P.d : INT READ_WRITE;\nEND_VAR`)).toEqual([])
   expect(gvl(`VAR_GLOBAL\n a : INT;\n a AT ABC : INT;\nEND_VAR`)).toEqual([])
+})
+
+// openspec lsp-field-false-positives 6 (PLC Assist's field traffic): the server names a document by its file URI, which
+// percent-encodes every character past ASCII. A GVL's name is read from that name, so the list the IDE calls `A14_升降`
+// was reported as "already defined in 'A14_%E5%8D%87…'". The name is the object's, as given.
+test("a GVL with a non-ASCII name is named as given, not as its URI encodes it", () => {
+  const uri = pathToFileURL(join(process.cwd(), "A14_升降.gvl")).href
+  const src = `VAR_GLOBAL\n g : INT;\n g : INT;\nEND_VAR`
+  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri, parseResult, source: src }], [], "codesys")
+  const ds = computeDiagnostics({ uri, parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  expect(ds.map((d) => `${d.code}: ${d.message}`)).toEqual(["duplicate-declaration: A local variable named 'g' is already defined in 'A14_升降'"])
 })

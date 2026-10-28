@@ -98,7 +98,7 @@ export type { CompileEnvironment, ConditionNames, ConditionWorld, DeviceFacts, T
 // the Volt workspace file format
 export { bodyReader, languageLineWords, retiredLine, statedLine } from "./format/language-line.js"
 export { LANGUAGE_KEY, languageLine, retiredLineMessage } from "./format/object-properties.js"
-export { objectNameOf, sourceObjectOf } from "./format/source-object.js"
+export { baseNameOf, objectNameOf, sourceObjectOf } from "./format/source-object.js"
 export { graphicalMarkerLanguage, isPlainStNetworkBody, isStBody, unitBodies } from "./format/bodies.js"
 
 // printing a declared type or an expression

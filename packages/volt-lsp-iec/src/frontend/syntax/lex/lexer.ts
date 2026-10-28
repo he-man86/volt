@@ -30,7 +30,11 @@ import { scanWord } from "./words.js"
  * passes the dialect it has.
  */
 export function lex(src: string, dialect: Dialect): Token[] {
-  const s = new Scanner(src, dialect === "twincat")
+  // A LONE CR ENDS A LINE, as the push reads the text (`StReader.LfLines`: CRLF and a lone CR end a line exactly as LF
+  // does, wherever they stand — the IDE never receives a CR) and as an LSP client counts lines. Read as LF here, ONCE,
+  // one character for one, so every offset stays the document's and every line rule below (a `//` comment, a string, a
+  // `%`-line, a position) sees the line the IDE sees.
+  const s = new Scanner(src.replace(/\r(?!\n)/g, "\n"), dialect === "twincat")
   while (s.more) {
     s.mark()
     // the order decides where two classes share a first character: `//` and `(*` before the punctuators `/` and `(`,

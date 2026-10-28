@@ -63,6 +63,23 @@ test("nestable block comments are trivia", () => {
   expect(code("(* outer (* inner *) still *) x").map((t) => t.text)).toEqual(["x", ""])
 })
 
+// A LONE CR ENDS A LINE, as the push reads it (`StReader.LfLines`, the wire's one line-ending rule: CRLF and a lone CR end
+// a line exactly as LF does, wherever they stand — so the IDE never receives one) and as an LSP client counts lines (LSP
+// 3.17: `\n`, `\r\n` and `\r`). Read as whitespace, a `//` comment ran on over the next line (code the IDE compiles), a
+// `%LANGUAGE` line after it was no line, and every position after it named a line too few — a finding later in the file
+// reported on a line of an earlier comment (openspec lsp-field-false-positives 5, the strongest candidate found).
+test("a lone CR ends a line exactly as LF does — a line comment, a position, a string", () => {
+  const cr = lex("a := 1; // note\rb := 2;", "codesys").filter((t) => !isTrivia(t.kind))
+  const lf = lex("a := 1; // note\nb := 2;", "codesys").filter((t) => !isTrivia(t.kind))
+  expect(cr.map((t) => t.text)).toEqual(lf.map((t) => t.text))
+  expect(cr.map((t) => [t.span.startLine, t.span.startCol])).toEqual(lf.map((t) => [t.span.startLine, t.span.startCol]))
+  // a CRLF stays ONE line end, and the source's offsets are the document's, character for character
+  const crlf = code("(* x\r\n*)\r\r\nb")
+  expect(crlf[0]).toMatchObject({ text: "b", span: { startLine: 4, startCol: 0, start: 11 } })
+  // a string does not span the line a lone CR ends
+  expect(code("s := 'ab\rc';").map((t) => [t.kind, t.span.startLine])).toEqual(code("s := 'ab\nc';").map((t) => [t.kind, t.span.startLine]))
+})
+
 test("eof always terminates the stream", () => {
   const toks = lex("", "codesys")
   expect(toks.at(-1)?.kind).toBe("eof")

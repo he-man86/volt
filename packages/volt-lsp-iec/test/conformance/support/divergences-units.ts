@@ -48,7 +48,8 @@ export const TYPE_EXPRESSION_RECOVERY: readonly string[] = [
  * TYPE enum's, both vendors alike:
  *   `decl_implicit_enum_number_name` — `e : (nn_a, 5);`: the TYPE enum's list says "Identifier expected instead of '5'"
  *     (`decl_type_enum_number_name`), the implicit one does NOT, and goes on to "Type definition expected instead of ')'".
- *     The LSP reads both lists with one parser and says the Identifier line in both (LSP-only here).
+ *     The LSP says that first line (`enum-values.ts` `readValueName`, openspec lsp-field-false-positives 6b); the
+ *     vendors' recovery past it — the next declaration swallowed — is missing-only.
  *   `decl_implicit_enum_missing_close` — `e : (mc_a, mc_b;`: no "')' expected" at all, but "Type definition expected
  *     instead of 'END_VAR'" and the recovery; the LSP says "', or )' expected instead of ';'" (LSP-only — TwinCAT's words
  *     for a value followed by neither, `lit_char_typed_in_enum_value`).
