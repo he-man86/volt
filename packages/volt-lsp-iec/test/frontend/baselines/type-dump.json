@@ -211,8 +211,8 @@
     "run: an enum holding a value no member names, printed as its base type": 4,
     "run: path inferred UNKNOWN": 0,
     "run: path inferred UNKNOWN, an inherited member through an instance (H2, task 3.2.3)": 0,
-    "run: path inferred as recorded": 12023,
-    "run: recorded values": 12028,
+    "run: path inferred as recorded": 12033,
+    "run: recorded values": 12038,
     "run: value names no type": 1
   },
   "findings": [
