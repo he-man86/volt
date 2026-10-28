@@ -93,20 +93,54 @@
       Gate (docs only, no code or fixture changed, so no map regeneration): typecheck clean; LSP full suite
       (VOLT_REQUIRE_FULL=1) 10,237 pass / 0 fail / 36 skip / 431 todo; Volt.Engine.Tests `~Network` 368/368.
       `openspec validate` still reports no spec delta (none exists yet; 1.2 writes it).
-- [ ] 1.2 design.md: the rule, the member names (`OUT` for a function's value, the declared name for an FB output,
+- [x] 1.2 design.md: the rule, the member names (`OUT` for a function's value, the declared name for an FB output,
       `ENO`), when `.X` is required (more than one output can chain) and when it is refused (only one can), a declared
       `EN`/`ENO` pin vs the shown EN/ENO, the root rule; measured in CODESYS through the exec twin where behaviour is
       new.
+      Done 2026-10-28 (design.md "1.2"): `.ENO` closes every box showing ENO, root or consumed (N16: the shown ENO is
+      the handed-on output); `.NAME` closes a consumed box without ENO with more than one data output (a function's
+      `OUT` + `VAR_OUTPUT`s, an FB's declared outputs); `EN :=` = EN shown. The four EN/ENO pairs are four spellings, so
+      the draft's comparison exception and its refusal of `move-enabled`, `execute-enabled`, `function-eno-without-en`
+      (measured running in network-text-st 3.0) are gone. Consumed 1,117: no member 1,018, `.ENO` 56, `.NAME` 43 (FB 37,
+      `.OUT` 6 `RuntimeGuard`); roots 183: `.ENO` 117, none 55, Execute 11; TwinCAT `.Q` 2, none 142 + 20 roots, Execute 1.
+      No new run-time behaviour (every spelling translates to ST the twin runs today), so no exec recording; the one
+      open vendor fact is the push of a function's moved `VAR_OUTPUT` (0 in the corpora), refused by name until 2.5.
+      Niche, accepted loss: a root FB's stored moved pin (1). Spec delta `specs/network-text/spec.md` added.
+- [x] 1b Review of 1.2 (2026-10-28), six findings, all fixed in design.md / spec.md / proposal.md (docs only):
+      (1) unknown callee: design "A callee no declaration in reach states" — the reader reads such a call as written,
+      the push refuses the box by name, the CLI's post-push check (`PushedText.SameBody`, scope with
+      `declarationOf: _ => null`) compares both texts as written and refuses nothing for it; 2.1 counts the boxes.
+      (2) root moved pin: the claim "the oracle counts it under stored members" was false (`CodesysNetworkReader` sets
+      `ConnectedSlot`/`MainOutputName` on consumed boxes only; `RebuildLoss` names no `MainOutputIndex`) — now a
+      `RebuildLoss` candidate + a known divergence "niche: accepted loss (1 occurrence in the corpora)", both in 2.1.
+      (3) root `f(…).ENO;`: named as network text's one added statement form (reader + LSP subset check), the twin
+      translates it to the call statement (2.1-2.3). (4) spec delta: Execute excepted, `EN :=` = EN shown only where
+      the callee declares none, the root/function-`.NAME`/`OUT` refusals and the moved-pin count added; split into four
+      requirements; proposal's "1:1 with NWL" line says `.OUT` is Volt's name and a root `.ENO` the flag. (5) a
+      function declaring `VAR_OUTPUT OUT`: refused by name; 0 occurrences in the six corpora (no FUNCTION in
+      `test-corpus` declares an `OUT`; 1,042 function files with `VAR_OUTPUT` scanned). (6) the run claim corrected:
+      `st-spellings-run.test.ts` runs `X_EN`/`X_ENONLY` only (no `_ENO(`); ENO without EN is recorded building, never
+      run — 2.3 adds the run. No failing test: no code or fixture changed in this step (design phase).
+      Gate (docs only, no code or fixture changed, so no map regeneration): typecheck clean; LSP full suite
+      (VOLT_REQUIRE_FULL=1) 10,237 pass / 0 fail / 36 skip / 431 todo; Volt.Engine.Tests `~Network` 368/368;
+      `openspec validate network-output-member` valid, no warnings.
 
 ## 2. Build
 
 - [ ] 2.1 C# writer + reader (`StNetworkWriter`/`StNetworkReader`): one name per box, `EN :=`, `.X`, `FB :=`; suffixes
       and the FB statement form deleted. Round-trip oracle on the corpora, TwinCAT archives and accept cases: tallies
       no worse than network-text-st's (CODESYS corpora 0 `%UNSUPPORTED`), 0 gaps. The case set re-spelled.
+      From 1b: the statement form `f(…).ENO;` (and `.X` other than `.ENO` closing a statement refused); a callee out
+      of reach read as written and refused by name at a push, the post-push check comparing as written (count the
+      corpus boxes a push meets so); the `VAR_OUTPUT OUT` refusal; a `RebuildLoss` `MainOutputIndex` candidate for a
+      root box and the root moved pin listed as a known divergence "niche: accepted loss (1 occurrence in the corpora)".
 - [ ] 2.2 LSP: one signature per box, `.X` typed from the declaration, the subset check updated; agrees with the C#
       reader on every accept and refuse case.
+      The statement `f(…).ENO;` accepted at a network's top level only (1b).
 - [ ] 2.3 Exec twin: translate `.X`, `EN :=`, `FB :=` to ST; twin builds re-recorded live (lenze-mid, pro2193): 0
       errors; exec traces equal on the spelled cases.
+      The root `f(…).ENO;` → the call statement. ENO without EN (`function-eno-without-en`) added to
+      `st-spellings-run.test.ts` and RUN live before its translation is trusted (1b: only built so far).
 - [ ] 2.4 `docs/network-text.html`: the suffix table becomes one sentence and one example; the FB rows follow the rule.
       Fix the stale anchors: `test/e2e/graphical/roundtrip.test.ts:53` (`#opaque`, LET/`i*`), the LSP conformance
       fixtures `graphical/network-unresolved.ts`, `network-graphical-a.ts`, `network-graphical-c.ts` (`#unnamed-instance`,

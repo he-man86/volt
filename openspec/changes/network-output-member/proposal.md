@@ -29,4 +29,4 @@ t    := TON(FB := t1, IN := a, PT := T#1S).ET;                       // moved pi
   `.X`. The FB call statement form, `Q => w` wires for a box read once, and `t1_EN` go.
 - Other outputs stay `NAME => target`; the value of a box with ENO is `OUT`.
 - The LSP knows one signature per box; the type of `.X` is the declared output's.
-- 1:1 with NWL: EN/ENO shown are the box's flags, `.X` is the stored connected output.
+- 1:1 with NWL: `EN :=` and `.ENO` are the box's EN/ENO flags, an FB's `.NAME` its stored connected output (`MainOutputName`); `.OUT` is Volt's name for a function's value (NWL stores no `OUT`), and a root's `.ENO` states the flag, no connection.
