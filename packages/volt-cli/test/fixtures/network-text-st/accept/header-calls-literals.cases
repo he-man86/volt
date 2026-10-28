@@ -72,9 +72,10 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-%UNSUPPORTED "an empty item" #de457d8e
+;
 === model
-NETWORK unsupported:"an empty item" hash:de457d8e
+NETWORK
+  ``
 
 #### unsupported-line — the v2 case header-calls-literals/unsupported-line, as a pull writes it
 === text
@@ -98,12 +99,15 @@ NETWORK
   (:= output (TON@t2 IN=TRUE PT=e1 name:Q))
 
 #### unnamed-instance — the v2 case header-calls-literals/unnamed-instance, as a pull writes it
+=== scope
+fb Axis
 === text
 %LANGUAGE FBD
 %NETWORK
-%UNSUPPORTED "an FB box with no instance" #aa7b4927
+Axis(xEnable := go);
 === model
-NETWORK unsupported:"an FB box with no instance" hash:aa7b4927
+NETWORK
+  (Axis@??? xEnable=go)
 
 #### undeclared-instance — the v2 case header-calls-literals/undeclared-instance, as a pull writes it
 === text
@@ -151,9 +155,15 @@ instance t2 TON
 === text
 %LANGUAGE FBD
 %NETWORK
-%UNSUPPORTED "a target that is no ST variable" #58d2a0f3
+%WIRES w1, w2
+t1(IN := NOT v, PT := T#1S, Q => w1);
+q := w1;
+t2(IN := NOT v, PT := T#1S, Q => w2);
+p := w2;
 === model
-NETWORK unsupported:"a target that is no ST variable" hash:58d2a0f3
+NETWORK
+  (:= q (TON@t1 IN=not:v PT=T#1S name:Q))
+  (:= p (TON@t2 IN=not:v PT=T#1S name:Q))
 
 #### negated-contact — the v2 case header-calls-literals/negated-contact, as a pull writes it
 === text
@@ -168,9 +178,14 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-%UNSUPPORTED "an edge contact" #29a2a67c
+a := R_EDGE(x);
+b := F_EDGE(x);
+c := R_EDGE(NOT x);
 === model
-NETWORK unsupported:"an edge contact" hash:29a2a67c
+NETWORK
+  (:= a rise:x)
+  (:= b fall:x)
+  (:= c rise:not:x)
 
 #### negated-call — the v2 case header-calls-literals/negated-call, as a pull writes it
 === text
@@ -185,9 +200,18 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-%UNSUPPORTED "a target that is no ST variable" #5ea1687f
+sName := 'Recipes';
+n := -1;
+re := -1.5;
+t := T#1S;
+w := 16#FF;
 === model
-NETWORK unsupported:"a target that is no ST variable" hash:5ea1687f
+NETWORK
+  (:= sName 'Recipes')
+  (:= n -1)
+  (:= re -1.5)
+  (:= t T#1S)
+  (:= w 16#FF)
 
 #### expression-operand — the v2 case header-calls-literals/expression-operand, as a pull writes it
 === text

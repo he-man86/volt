@@ -30,29 +30,17 @@ public class StNetworkOracleTests
         }
         var report = StNetworkOracle.Report("accept cases", results);
         StNetworkOracle.Save("cases", report, results);
-        StNetworkOracle.AssertTally(results, report, identical: 68, stored: 23, new Dictionary<string, int>(StringComparer.Ordinal)
+        StNetworkOracle.AssertTally(results, report, identical: 97, stored: 23, new Dictionary<string, int>(StringComparer.Ordinal)
         {
-            // The hand-written cases only; every one is a 3.0 spelling (design.md "Open for the owner" and the probe's accept-case gaps).
-            ["a Parallel with a side effect on a branch"] = 2,
-            ["a box showing ENO without EN"] = 2,
-            ["a box type that is no call head"] = 1,        // an operator box typed 'and' (lower case)
-            ["a coil modifier on a jump"] = 1,
-            ["a jump inside a tree"] = 1,
-            ["a jump with several targets"] = 2,
-            ["a second unnamed output"] = 2,
-            ["a target that is no ST variable"] = 3,     // a coil on `s` or `r`, which CODESYS ST takes for no name (1.2)
-            ["a variable on the ENO of an enabled function"] = 1,
-            ["a wire read before its definition"] = 1,
-            ["a wire read fewer than twice"] = 6,           // a Demux read once (design: no spelling)
-            ["an FB box with no instance"] = 1,
+            // Volt's own v2 cases, 0 in the corpora and the TwinCAT archives; each a grammar decision for the owner (design.md
+            // "3.0 As built: open for the owner").
+            ["a coil modifier on a jump"] = 1,             // `JMP Done S= c`
+            ["a jump inside a tree"] = 1,                  // `y := (JMP Done := c)`
+            ["a jump with several targets"] = 2,           // a coil and a jump, two jumps, on one value
             ["an FB instance the scope does not declare"] = 1,
-            ["an edge contact"] = 1,
-            ["an edge on a box output"] = 2,
-            ["an edge on a pin"] = 2,
-            ["an empty item"] = 2,
-            ["an enabled box without ENO"] = 2,
-            ["an operand named like an ST keyword"] = 4,   // `s` / `r` (1.2: no name in CODESYS ST), and one more
-            ["an operand that is no ST expression"] = 1,
+            ["an enabled box without ENO"] = 2,            // EN and no ENO, at the root or read by an FB output's name
+            ["an operand named like an ST keyword"] = 1,   // `Then`
+            ["an operand that is no ST expression"] = 1,   // `a``b`
         });
     }
 }

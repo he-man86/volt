@@ -47,15 +47,7 @@ public class StNetworkOracleCodesysTests
         }
         var report = StNetworkOracle.Report("CODESYS corpora", results);
         StNetworkOracle.Save("codesys", report, results);
-        StNetworkOracle.AssertTally(results, report, identical: 294, stored: 83, new Dictionary<string, int>(StringComparer.Ordinal)
-        {
-            // Open for the owner (design.md): %UNSUPPORTED in the read-only phase, spelled by 3.0.
-            ["a Parallel with a side effect on a branch"] = 5,   // lenze-mid: TOF, TON, 3x fc_CamC_CC_UDT
-            ["an FB box with no instance"] = 4,                  // the ??? instance, lenze-mid POU (excluded from build)
-            ["an edge contact"] = 1,
-            // Niche, accepted loss (design.md 1.1: 1 occurrence in the corpora).
-            ["a lone leaf item"] = 1,
-        });
+        StNetworkOracle.AssertTally(results, report, identical: 301, stored: 87, new Dictionary<string, int>(StringComparer.Ordinal));
     }
 
     /// <summary>The LSP's corpora hold each LD/FBD body as the shipped pull writes it (2.1 "Migration";

@@ -226,7 +226,7 @@ w29 := w28 AND TRUE AND (HMI_Var.Mach1.GlueStart OR HMI_Var.Mach1.GlueStop OR HM
 Mach1_AuxData.ScreenForOperatorSettingsActivated := w29;
 Mach1.GenFlags.StopDriveDirect S= w29;
 MOVE_EN(EN := w28 AND (HMI_Var.Mach1.GlueReset OR NOT LST_InputsOutputs.I100_2_Pushbutton_stop_OP0a), 0, OUT => Mach1_Data.Settings.Ints.ActualNumberOfGluePulses);
-LT_EN(EN := w28 AND Mach1.GenFlags.EnablePneumEStop AND ((HMI_Var.Mach1.GlueStart OR LST_InputsOutputs.I100_4_Pushbutton_request_glue_OP0a) AND NOT LST_General.FF500ms OR Mach1_AuxData.GlueWeighingCycleStarted) AND NOT HMI_Var.Mach1.GlueStop AND NOT HMI_Var.Mach1.GlueReset AND LST_InputsOutputs.I100_2_Pushbutton_stop_OP0a, Mach1_Data.Settings.Ints.ActualNumberOfGluePulses, Mach1_Data.Settings.Ints.MaxNumberOfGluePulses, OUT => w30);
+LT_EN(EN := w28 AND Mach1.GenFlags.EnablePneumEStop AND BRANCH_SHORTCIRCUIT((HMI_Var.Mach1.GlueStart OR LST_InputsOutputs.I100_4_Pushbutton_request_glue_OP0a) AND NOT LST_General.FF500ms, Mach1_AuxData.GlueWeighingCycleStarted) AND NOT HMI_Var.Mach1.GlueStop AND NOT HMI_Var.Mach1.GlueReset AND LST_InputsOutputs.I100_2_Pushbutton_stop_OP0a, Mach1_Data.Settings.Ints.ActualNumberOfGluePulses, Mach1_Data.Settings.Ints.MaxNumberOfGluePulses, OUT => w30);
 Mach1_AuxData.GlueWeighingCycleStarted := w30;
 Mach1_AuxData.Edge.OSN_Gluepump(CLK := w28 AND PneumValveTerminalSMC.Pos6A, Q => w31);
 ADD_EN(EN := w31 AND Mach1_AuxData.GlueWeighingCycleStarted, Mach1_Data.Settings.Ints.ActualNumberOfGluePulses, 1, OUT => Mach1_Data.Settings.Ints.ActualNumberOfGluePulses);
@@ -239,11 +239,11 @@ Mach1_AuxData.MemContinuousGluePumping := w33;
 Mach1_AuxData.IEC_TIMERS.DelayContiniousGluePumping(IN := w33, PT := T#3S);
 Mach1_AuxData.IEC_TIMERS.TON_StopContGluePumping(IN := w32 AND Mach1_AuxData.MemContinuousGluePumping, PT := T#120S);
 %NETWORK "DONE NETWORK 26: PNV Glue pump 1+2+3"
-%UNSUPPORTED "a Parallel with a side effect on a branch" #7a834fe4
+PneumValveTerminalSMC.Pos6A := LST_InputsOutputs.Q101_2_Enable_GluePump := BRANCH_SHORTCIRCUIT(fc_CamC_CC_UDT(iEnable := Mach1.GenFlags.EnablePneumEStop, iMachinePosition := HMI_Var.Mach1.Position, ioCamControl := Mach1_Data.CamControls.GluePump123_C) AND Mach1_AuxData.ShiftRegister.SR_bunch_present_position_1_JL AND HMI_Var.Test_Prod AND NOT HMI_Var.Btn_Cleaning AND NOT Mach1_AuxData.MemContinuousGluePumping AND NOT Mach1_AuxData.ScreenForOperatorSettingsActivated, BRANCH_SHORTCIRCUIT(FEED := Mach1.GenFlags.EnablePneumEStop, LST_General.FF500ms AND Mach1_AuxData.MemContinuousGluePumping, LST_General.FF500ms AND Mach1_AuxData.GlueWeighingCycleStarted)) AND NOT Mach1_Alarms.Alm011;
 %NETWORK "DONE NETWORK 27: PNV Glue pump 4"
-%UNSUPPORTED "a Parallel with a side effect on a branch" #8276f869
+PneumValveTerminalSMC.Pos10A := BRANCH_SHORTCIRCUIT(fc_CamC_CC_UDT(iEnable := Mach1.GenFlags.EnablePneumEStop, iMachinePosition := HMI_Var.Mach1.Position, ioCamControl := Mach1_Data.CamControls.GluePump4_C) AND Mach1_AuxData.ShiftRegister.SR_bunch_present_position_1_JL AND HMI_Var.Test_Prod AND NOT HMI_Var.Btn_Cleaning AND NOT Mach1_AuxData.MemContinuousGluePumping AND NOT Mach1_AuxData.ScreenForOperatorSettingsActivated, BRANCH_SHORTCIRCUIT(FEED := Mach1.GenFlags.EnablePneumEStop, LST_General.FF500ms AND Mach1_AuxData.MemContinuousGluePumping, LST_General.FF500ms AND Mach1_AuxData.GlueWeighingCycleStarted)) AND NOT Mach1_Alarms.Alm011;
 %NETWORK "DONE NETWORK 28: PNV Glue pump 5"
-%UNSUPPORTED "a Parallel with a side effect on a branch" #7b0e3591
+PneumValveTerminalSMC.Pos11A := BRANCH_SHORTCIRCUIT(fc_CamC_CC_UDT(iEnable := Mach1.GenFlags.EnablePneumEStop, iMachinePosition := HMI_Var.Mach1.Position, ioCamControl := Mach1_Data.CamControls.GluePump5_C) AND Mach1_AuxData.ShiftRegister.SR_bunch_present_position_1_JL AND HMI_Var.Test_Prod AND NOT HMI_Var.Btn_Cleaning AND NOT Mach1_AuxData.MemContinuousGluePumping AND NOT Mach1_AuxData.ScreenForOperatorSettingsActivated, BRANCH_SHORTCIRCUIT(FEED := Mach1.GenFlags.EnablePneumEStop, LST_General.FF500ms AND Mach1_AuxData.MemContinuousGluePumping, LST_General.FF500ms AND Mach1_AuxData.GlueWeighingCycleStarted)) AND NOT Mach1_Alarms.Alm011;
 %NETWORK "DONE NETWORK 29: PNV Small gripper"
 PneumValveTerminalSMC.Pos7A := fc_CamC_LS_UDT(iEnable := Mach1.GenFlags.EnablePneumEStop, iActualSpeed := HMI_Var.Mach1.ActualSpeed, iActualPos := HMI_Var.Mach1.Position, iRotflag := Mach1.GenFlags.Rotflag, ioUDTCamControlLS := Mach1_Data.CamControls.SmallGripper_CLS) AND Mach1_AuxData.AllDrivesHomed AND NOT Mach1_Alarms.Alm011;
 %NETWORK "DONE NETWORK 30: Big gripper"
@@ -371,7 +371,7 @@ tRunningSL := MOVE_EN(EN := w58 AND (Mach1.GenFlags.RunMan OR Mach1.GenFlags.Run
 w59 := TRUE;
 LST_InputsOutputs.Q100_2_Pilot_light_Alarm_red_ := w59 AND tAlarmlamp AND tAlarmSL;
 LST_InputsOutputs.Q100_1_Pilot_light_Alarm_orange_ := w59 AND tAlarmlamp AND tWarningSL;
-LST_InputsOutputs.Q100_0_Pilot_light_Alarm_green_ := w59 AND (tAlarmlamp AND tStandbySL OR tRunningSL);
+LST_InputsOutputs.Q100_0_Pilot_light_Alarm_green_ := BRANCH_SHORTCIRCUIT(FEED := w59, tAlarmlamp AND tStandbySL, tRunningSL);
 %NETWORK "TODO NETWORK 51: SL Alarmlamp Buzzer"
 
 END_PROGRAM

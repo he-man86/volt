@@ -39,17 +39,22 @@ namespace Volt.Engine.Format.Network;
 /// whose <c>OUT =&gt;</c> defines a wire, standing where the wire is read: the call's return is its ENO, so its value
 /// leaves through <c>OUT</c>.</para>
 ///
-/// <para><b>Wires.</b> A Demux is the wire <c>w&lt;VarId&gt;</c>, read twice or more; a box that has no expression form (an FB
-/// call, an Execute box) and is read once is a call statement defining a wire <c>w&lt;n&gt;</c> numbered past the network's
-/// VarIds, standing where it is read. Every wire is named on its network's <c>%WIRES</c> line, so the text alone says what
-/// is a wire; a wire name that is an operand of the network or a name in scope is refused by name.</para>
+/// <para><b>Wires.</b> A Demux is a wire <c>w&lt;n&gt;</c>, defined once and read by its name any number of times, before its
+/// definition too (the value it held); a box that has no expression form (an FB call, an Execute box, an enabled box read
+/// by its value) and is read once is a call statement defining a wire, standing where it is read. Every wire is named on
+/// its network's <c>%WIRES</c> line, so the text alone says what is a wire.</para>
+///
+/// <para><b>The other elements</b> (3.0): the parallel branch <c>BRANCH(FEED := f, b1, b2)</c> /
+/// <c>BRANCH_SHORTCIRCUIT(…)</c>; the edge <c>R_EDGE(x)</c> / <c>F_EDGE(x)</c> on a contact or a box; a box showing ENO
+/// and no EN <c>X_ENO(…)</c>; the vendor's unnamed instance (<c>???</c>) as the box called by its FB type; the empty item
+/// <c>;</c>.</para>
 ///
 /// <para><b>Stored members</b> (design "Stored members, not spelled") are written as their spelling, and read back as it:
-/// a negation on a pin, a coil, an EN or a box output as <c>NOT</c> on the value; the rail (Terminator) as <c>TRUE</c>; an
-/// edge flag on a coil dropped; a Parallel with no side effect on a branch as the OR it computes; an extra output slot to
-/// <c>???</c> dropped; an operand holding an ST expression as that expression; TwinCAT's unconditional jump (its empty
-/// operand) as <c>JMP l;</c>. A shape with no spelling throws <see cref="StNetworkUnspellableException"/>, naming it; a
-/// pull shows such a network as <c>%UNSUPPORTED "&lt;shape&gt;" #&lt;hash&gt;</c> (<see cref="WritePulled"/>).</para>
+/// a negation on a pin, a coil, an EN or a box output as <c>NOT</c> on the value; an edge on a pin or an EN as the edge on
+/// its value; the rail (Terminator) as <c>TRUE</c>, and as the empty item; an edge flag on a coil dropped; an extra output
+/// slot to <c>???</c> dropped; an operand holding an ST expression as that expression; TwinCAT's unconditional jump (its
+/// empty operand) as <c>JMP l;</c>. A shape with no spelling throws <see cref="StNetworkUnspellableException"/>, naming
+/// it; a pull shows such a network as <c>%UNSUPPORTED "&lt;shape&gt;" #&lt;hash&gt;</c> (<see cref="WritePulled"/>).</para>
 /// </summary>
 public static class StNetworkWriter
 {
@@ -81,6 +86,11 @@ public static class StNetworkWriter
                 wires.Next = mark;
                 text = new Emitter(net with { Trees = Array.Empty<Node>(), Unsupported = e.Reason, UnsupportedHash = NetworkTextWriter.Hash(net) }, scope, body.Language, wires).Emit();
             }
+            catch (StNetworkUnspellableException e) when (e.Network is null)
+            {
+                e.Network = net.Order;
+                throw;
+            }
             sb.Append(text);
         }
         return sb.ToString();
@@ -91,8 +101,32 @@ public static class StNetworkWriter
     /// <summary>The suffix of an enabled box's function: <c>MOVE_EN</c>, <c>ADD_EN</c>, <c>t1_EN</c>.</summary>
     public const string EnabledSuffix = "_EN";
 
-    /// <summary>The formal through which a call's data value leaves when its return value is its ENO.</summary>
+    /// <summary>The suffix of a box that shows its ENO and no EN (its call returns its ENO): <c>f_ENO</c>, <c>d1_ENO</c>.</summary>
+    public const string EnoSuffix = "_ENO";
+
+    /// <summary>The formal through which a call's data value leaves when its return value is its ENO; each <c>OUT =&gt;</c>
+    /// names the next unnamed output slot.</summary>
     public const string ResultPin = "OUT";
+
+    /// <summary>The LD parallel branch (the vendor's <c>BoxTreeParallel</c>), one function per mode:
+    /// <c>BRANCH(FEED := f, b1, b2)</c> runs every branch (<c>Sequential</c>), <c>BRANCH_SHORTCIRCUIT(…)</c> the branches
+    /// that hold a box only while no box-free branch carries the feed (<c>BoxShortCircuit</c>, measured 1.4). The feed is
+    /// the formal <c>FEED</c>, absent on a branch at the rail.</summary>
+    public const string BranchHead = "BRANCH";
+
+    public const string ShortCircuitHead = "BRANCH_SHORTCIRCUIT";
+
+    public const string FeedPin = "FEED";
+
+    /// <summary>The edge on a contact or on a box's output (the vendor's <c>Rtrig</c>/<c>Ftrig</c> flag): <c>R_EDGE(x)</c>,
+    /// <c>F_EDGE(x)</c>; <c>R_EDGE(NOT x)</c> the edge of the negated contact (the IDE negates first, N17).</summary>
+    public const string RisingHead = "R_EDGE";
+
+    public const string FallingHead = "F_EDGE";
+
+    /// <summary>The function names the text gives an element of its own (a branch, an edge): declared in reach, the text
+    /// would mean two things, and the writer refuses it by name.</summary>
+    internal static readonly string[] ElementHeads = { BranchHead, ShortCircuitHead, RisingHead, FallingHead };
 
     internal const string True = "TRUE";
 
@@ -111,9 +145,9 @@ public static class StNetworkWriter
     internal static readonly HashSet<string> Symbol = new(StringComparer.Ordinal)
         { "AND", "OR", "XOR", "ADD", "SUB", "MUL", "DIV", "MOD", "GT", "GE", "LT", "LE", "EQ", "NE" };
 
-    /// <summary>The operators whose name is an ST keyword: their call head is that keyword before <c>(</c>.</summary>
-    internal static bool IsKeywordOperator(string type) =>
-        Symbol.Contains(type) || string.Equals(type, NetworkSpelling.NotBox, StringComparison.Ordinal);
+    /// <summary>The operators of the table and the NOT box, by their stored name (any case: the IDE stores it as typed).</summary>
+    private static bool IsKeywordOperator(string type) =>
+        Symbol.Contains(type.ToUpperInvariant()) || string.Equals(type, NetworkSpelling.NotBox, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>THE TOOLBOX ELEMENT AN AND/OR IS, as the text spells it and the IDE stores it (1.3): a contact (infix) stores
     /// no output name, a drawn box (the call) one unnamed output. A text read states it, so the element survives a read; null
@@ -142,38 +176,20 @@ public static class StNetworkWriter
     public static Box NotBox(Node n) =>
         new(NetworkSpelling.NotBox, null, CallKind.Operator, new[] { new Input(null, n, Flags.None) }, Array.Empty<Output>(), null, null, Flags.None);
 
-    /// <summary>A Parallel with no side effect on a branch, as the AND/OR it computes.</summary>
-    private static Node ParallelAsBoxes(Parallel p)
+    /// <summary>An edge flag carried onto the node it is spelled on (<c>R_EDGE(x)</c>): a leaf, a box read where it stands,
+    /// the rail as <c>TRUE</c>; an edge on a pin or on EN is a stored member spelled as the edge of its value. Any other node
+    /// (a wire, a branch, a node already carrying an edge) has no spelling.</summary>
+    private static Node Edge(Node n, Flags edge, string where)
     {
-        Node or = new Box("OR", null, CallKind.Operator, p.Branches.Select(b => new Input(null, b, Flags.None)).ToList(),
-            Array.Empty<Output>(), null, null, Flags.None);
-        if (p.Input is null) return or;
-        return new Box("AND", null, CallKind.Operator, new[] { new Input(null, p.Input, Flags.None), new Input(null, or, Flags.None) },
-            Array.Empty<Output>(), null, null, Flags.None);
+        var bits = Flags.None with { Rising = edge.Rising, Falling = edge.Falling };
+        return n switch
+        {
+            Terminator t => Edge(new Leaf(new Operand(True), t.Flags), edge, where),
+            Leaf { Flags: { Rising: false, Falling: false } } l => l with { Flags = l.Flags with { Rising = bits.Rising, Falling = bits.Falling } },
+            Box { Flags: { Rising: false, Falling: false } } b => b with { Flags = b.Flags with { Rising = bits.Rising, Falling = bits.Falling } },
+            _ => throw Unspellable("an edge on a wire, a branch or an edge", $"{where} carries {Describe(bits)} over a {n.GetType().Name}."),
+        };
     }
-
-    /// <summary>A side effect on a Parallel branch: a call, an output wired to a variable, a coil (design "Open for the
-    /// owner"). An operator box (the table, NOT, MOVE) without outputs is none.</summary>
-    private static bool HasSideEffect(Node? n) => n switch
-    {
-        null => false,
-        Assign => true,
-        Box b => b.Instance is not null || b.StCode is not null || b.Outputs.Count > 0 || !IsPureOperator(b.Type)
-                 || b.Children().Any(HasSideEffect),
-        _ => n.Children().Any(HasSideEffect),
-    };
-
-    private static string SideEffect(Node n) => n switch
-    {
-        Assign a => "a coil " + string.Join(" ", a.Targets.Select(t => t.Text)),
-        Box b when b.Instance is not null || b.StCode is not null || b.Outputs.Count > 0 || !IsPureOperator(b.Type) =>
-            (b.Instance is not null ? "an FB " : b.Outputs.Count > 0 ? "a box with outputs " : "a call ") + b.Type,
-        _ => n.Children().Where(HasSideEffect).Select(SideEffect).First(),
-    };
-
-    private static bool IsPureOperator(string type) =>
-        Symbol.Contains(type.ToUpperInvariant()) || string.Equals(type, NetworkSpelling.NotBox, StringComparison.OrdinalIgnoreCase)
-        || string.Equals(type, NetworkSpelling.Move, StringComparison.OrdinalIgnoreCase);
 
     internal static string Describe(Flags f) =>
         string.Join("+", new[] { f.Negated ? "negation" : null, f.Set ? "set" : null, f.Reset ? "reset" : null, f.Jump ? "jump" : null,
@@ -241,14 +257,15 @@ public static class StNetworkWriter
         private readonly Dictionary<int, int> _reads = new();
         private readonly Dictionary<int, string> _names = new();
 
-        /// <summary>The wires the text has defined so far: by a finished item, or by a statement written before its item.</summary>
-        private readonly HashSet<string> _available = new(StringComparer.OrdinalIgnoreCase);
+        /// <summary>The Demux definitions written so far (a wire may be read before its definition, by its name).</summary>
+        private readonly HashSet<int> _defined = new();
 
-        /// <summary>The wires the item being written defines in its own text.</summary>
-        private readonly HashSet<string> _itemDefines = new(StringComparer.OrdinalIgnoreCase);
+        /// <summary>Every Demux definition of the network.</summary>
+        private readonly HashSet<int> _definitions = new();
 
-        /// <summary>The statements being written before their item, innermost on top, each with the wires its text defines.</summary>
-        private readonly Stack<HashSet<string>> _preDefines = new();
+        /// <summary>The Demux definitions over a box that is a call statement (an FB, an Execute box, an enabled box read by
+        /// its value): read once, such a wire is the box itself, so a Demux over one is read twice or more.</summary>
+        private readonly HashSet<int> _overStatementBox = new();
 
         /// <summary>The wires an enabled box other than a comparison defines by its value (read twice or more).</summary>
         private readonly HashSet<string> _enabledValueWires = new(StringComparer.OrdinalIgnoreCase);
@@ -304,9 +321,13 @@ public static class StNetworkWriter
 
             foreach (var t in _net.Trees) Scan(t);
             foreach (var kv in _reads)
-                if (kv.Value < 2)
-                    throw Unspellable("a wire read fewer than twice",
-                        $"the wire (Demux) {kv.Key} is read {kv.Value} time(s): a wire read once is the box itself, and a Demux has no other spelling.");
+            {
+                if (!_definitions.Contains(kv.Key))
+                    throw Unspellable("a wire read and never defined", $"the wire (Demux) {kv.Key} is read and has no definition in its network.");
+                if (kv.Value == 1 && _overStatementBox.Contains(kv.Key))
+                    throw Unspellable("a wire over a call statement read once",
+                        $"the wire (Demux) {kv.Key} over a box written as a call statement is read once: a wire read once is the box itself.");
+            }
 
             var code = new StringBuilder();
             if (_net.Label is { } l) code.Append(l).Append(":\n");
@@ -316,8 +337,6 @@ public static class StNetworkWriter
                 var item = Item(tree, pre);
                 foreach (var p in pre) code.Append(p).Append('\n');
                 code.Append(item).Append('\n');
-                _available.UnionWith(_itemDefines);
-                _itemDefines.Clear();
             }
 
             if (_wires.Count > 0) sb.Append(WiresLine).Append(' ').Append(string.Join(", ", _wires)).Append('\n');
@@ -339,22 +358,29 @@ public static class StNetworkWriter
         {
             if (n is null) return;
             if (n is Demux { Input: null } d) _reads[d.VarId] = (_reads.TryGetValue(d.VarId, out var r) ? r : 0) + 1;
-            else if (n is Demux def && !_reads.ContainsKey(def.VarId)) _reads[def.VarId] = 0;
+            else if (n is Demux def)
+            {
+                _definitions.Add(def.VarId);
+                if (!_reads.ContainsKey(def.VarId)) _reads[def.VarId] = 0;
+                if (def.Input is Box b && IsStatementBox(b)) _overStatementBox.Add(def.VarId);
+            }
             foreach (var c in n.Children()) Scan(c);
         }
 
-        /// <summary>The wire a Demux's definition names: the body's next wire name.</summary>
+        /// <summary>The wire a Demux's definition names: the name a read before it gave it, else the body's next wire name.</summary>
         private string Define(int varId)
         {
-            if (_names.ContainsKey(varId)) throw Unspellable("a wire defined twice", $"the Demux {varId.ToString(CultureInfo.InvariantCulture)} has two definitions.");
-            return _names[varId] = NewTemp();
+            if (!_defined.Add(varId)) throw Unspellable("a wire defined twice", $"the Demux {varId.ToString(CultureInfo.InvariantCulture)} has two definitions.");
+            return WireName(varId);
         }
+
+        /// <summary>The name of the Demux <paramref name="varId"/>, given the first time the text names it.</summary>
+        private string WireName(int varId) => _names.TryGetValue(varId, out var name) ? name : _names[varId] = NewTemp();
 
         private string NewTemp()
         {
             var name = _bodyWires.New();
             _wires.Add(name);
-            (_preDefines.Count > 0 ? _preDefines.Peek() : _itemDefines).Add(name);
             return name;
         }
 
@@ -381,9 +407,13 @@ public static class StNetworkWriter
                 case Box b:
                     if (!b.Flags.IsNone)
                         throw Unspellable("a modifier on a box at the root", $"the '{b.Type}' box at the root carries {Describe(b.Flags)}.");
-                    return Call(b, pre) + ";";
+                    return Call(b, pre, consumed: false) + ";";
+                // The empty item is ST's empty statement: the empty operand CODESYS stores, and the rail a stored member.
+                case Leaf { Operand.Text.Length: 0, Flags.IsNone: true }:
+                case Terminator { Flags.IsNone: true }:
+                    return ";";
                 case Terminator:
-                    throw Unspellable("an empty item", "an item holding only the rail: `;` is no node.");
+                    throw Unspellable("a modifier on an empty item", "an item holding only the rail carries a modifier.");
                 case Leaf:
                     throw Unspellable("a lone leaf item", "an item that is a lone operand: ST has no expression statement.");
                 case Parallel:
@@ -456,10 +486,10 @@ public static class StNetworkWriter
             switch (n)
             {
                 case Terminator t: return Expr(new Leaf(new Operand(True), t.Flags), parent, pre);
+                case Leaf { Flags: { Rising: true } or { Falling: true } } edged:
+                    return EdgeCall(edged.Flags, Expr(edged with { Flags = edged.Flags with { Rising = false, Falling = false } }, 0, pre));
                 case Leaf l:
                 {
-                    if (l.Flags.Rising || l.Flags.Falling)
-                        throw Unspellable("an edge contact", $"the operand '{l.Operand.Text}' carries {Describe(l.Flags)}: ST has no edge operator.");
                     if (l.Flags.Jump || l.Flags.Return || l.Flags.Set || l.Flags.Reset)
                         throw Unspellable("a coil flag on an operand", $"the operand '{l.Operand.Text}' carries {Describe(l.Flags)}.");
                     // An operand holding an ST expression an engineer typed into it is written as the boxes it reads as (a
@@ -470,13 +500,8 @@ public static class StNetworkWriter
                 }
                 case Demux { Input: null } d:
                 {
-                    if (!_names.TryGetValue(d.VarId, out var read))
-                        throw Unspellable("a wire read before its definition", $"the Demux {d.VarId.ToString(CultureInfo.InvariantCulture)} is read before the item that defines it: ST reads a variable after it is set.");
-                    // A statement written before its item runs before the item's text: a wire the item defines is not set yet
-                    // (0 in the corpora; CODESYS's order for a box reading an inline Demux is unmeasured).
-                    if (_preDefines.Count > 0 && !_available.Contains(read) && !_preDefines.Peek().Contains(read))
-                        throw Unspellable("a box before its item reading a wire its item defines",
-                            $"a box written as a statement before its item reads the wire {read}, which that item defines after it.");
+                    // A wire read before its definition is read by its name: the value it held (the previous scan's).
+                    var read = WireName(d.VarId);
                     if (_enabledValueWires.Contains(read)) RequireCoilValue(n, $"the wire {read}");
                     return read;
                 }
@@ -498,10 +523,14 @@ public static class StNetworkWriter
                     if (a.Flags.Jump || a.Flags.Return) throw Unspellable("a jump inside a tree", "a jump or return nested in a tree.");
                     return "(" + AssignText(a, pre) + ")";
                 case Parallel p:
-                    if (p.Branches.Any(HasSideEffect))
-                        throw Unspellable("a Parallel with a side effect on a branch",
-                            "a parallel branch holds " + string.Join(", ", p.Branches.Where(HasSideEffect).Select(SideEffect)) + " (design: open for the owner).");
-                    return Expr(ParallelAsBoxes(p), parent, pre);
+                {
+                    var head = p.Mode == ParallelMode.Sequential ? BranchHead : ShortCircuitHead;
+                    RequireElementHead(head);
+                    var args = new List<string>();
+                    if (p.Input is { } feed) args.Add(FeedPin + " := " + Expr(feed, 0, pre));
+                    foreach (var branch in p.Branches) args.Add(Expr(branch, 0, pre));
+                    return head + "(" + string.Join(", ", args) + ")";
+                }
                 case Box b when IsStatementBox(b):
                 {
                     if (!b.Flags.IsNone) throw Unspellable("a modifier on an FB or Execute box output", $"the '{b.Type}' box carries {Describe(b.Flags)}.");
@@ -512,42 +541,51 @@ public static class StNetworkWriter
                 }
                 case Box b:
                 {
+                    // A negated output is a NOT box over the box (a stored member); the IDE negates before the edge (N17).
+                    if (b.Flags.Negated)
+                        return Expr(NotBox(b with { Flags = Flags.None }) with { Flags = b.Flags with { Negated = false } }, parent, pre);
                     if (b.Flags.Rising || b.Flags.Falling)
-                        throw Unspellable("an edge on a box output", $"the '{b.Type}' box carries {Describe(b.Flags)}.");
-                    if (b.Flags.Negated) return Expr(NotBox(b with { Flags = Flags.None }), parent, pre);
+                        return EdgeCall(b.Flags, Expr(b with { Flags = b.Flags with { Rising = false, Falling = false } }, 0, pre));
                     if (IsContact(b))
                     {
                         var prec = Precedence(b.Type);
                         var parts = b.Inputs.Select(p => Expr(PinValue(b, p), prec, pre));
                         return Bracket(string.Join(" " + b.Type + " ", parts), prec, parent);
                     }
-                    return Call(b, pre);
+                    return Call(b, pre, consumed: true);
                 }
                 default: throw Unspellable("an unknown node", n.GetType().Name);
             }
         }
 
-        /// <summary>A box written as a statement before its item, defining <paramref name="wire"/>: the wires its text defines
-        /// are set once it has run.</summary>
-        private string PreStatement(Box b, List<string> pre, string wire)
+        /// <summary><c>R_EDGE(x)</c> / <c>F_EDGE(x)</c> over the text of the node the edge is on.</summary>
+        private string EdgeCall(Flags f, string inner)
         {
-            _preDefines.Push(new HashSet<string>(StringComparer.OrdinalIgnoreCase));
-            var text = StatementBox(b, pre, consumedInto: wire);
-            _available.UnionWith(_preDefines.Pop());
-            _available.Add(wire);
-            return text;
+            if (f.Rising && f.Falling) throw Unspellable("a rising and falling edge on one node", "a node carries both edges.");
+            var head = f.Rising ? RisingHead : FallingHead;
+            RequireElementHead(head);
+            return head + "(" + inner + ")";
         }
+
+        /// <summary>The text's own function name must name nothing in reach, or the text would mean two things.</summary>
+        private void RequireElementHead(string head)
+        {
+            if (InReach(head)) throw Unspellable("an element whose function name is declared in reach", $"'{head}' is itself declared in reach.");
+        }
+
+        /// <summary>A box written as a statement before its item, defining <paramref name="wire"/>.</summary>
+        private string PreStatement(Box b, List<string> pre, string wire) => StatementBox(b, pre, consumedInto: wire);
 
         private static string Bracket(string s, int prec, int parent) => prec > parent ? s : "(" + s + ")";
 
-        /// <summary>A pin's value with its own negation (a stored member); an edge on a pin has no spelling.</summary>
+        /// <summary>A pin's value with its own negation and edge (stored members: the negation, then the edge, on the value,
+        /// as the IDE applies them, N17).</summary>
         private static Node PinValue(Box b, Input p)
         {
-            if (p.Flags.Rising || p.Flags.Falling)
-                throw Unspellable("an edge on a pin", $"the '{b.Type}' box's pin '{p.Formal}' carries {Describe(p.Flags)}.");
-            if (!p.Flags.IsNone && !p.Flags.Negated)
+            if (p.Flags.Set || p.Flags.Reset || p.Flags.Jump || p.Flags.Return)
                 throw Unspellable("a coil flag on a pin", $"the '{b.Type}' box's pin '{p.Formal}' carries {Describe(p.Flags)}.");
-            return p.Flags.Negated ? Negate(p.Value) : p.Value;
+            var v = p.Flags.Negated ? Negate(p.Value) : p.Value;
+            return p.Flags.Rising || p.Flags.Falling ? Edge(v, p.Flags, $"the '{b.Type}' box's pin '{p.Formal}'") : v;
         }
 
         /// <summary>A box that is a statement: an FB call and an Execute box, which have no expression form, and an enabled box
@@ -563,32 +601,33 @@ public static class StNetworkWriter
             b.Inputs.Select((p, i) => NetworkSpelling.IsDefaultFormal(b.Type, i, p.Formal)).All(x => x) &&
             (b.Members?[NetworkMembers.OutputNames] is { } names ? names.AsTexts.Count == 0 : _language == BodyLanguage.Ld);
 
-        /// <summary>The ENO the text gives a box: <c>X_EN</c> shows EN and ENO — its return — except where it is read by its
-        /// value (then its ENO is no line out of the box: CODESYS's enabled comparisons, 1.3); a plain call shows neither.
-        /// A box that stores another pair has no spelling.</summary>
-        private static void RequireSpelledEno(Box b, bool byValue)
+        /// <summary>The suffix of a box's call head, by the EN and ENO it shows (the box's stored flags): <c>X_EN</c> shows EN and
+        /// ENO — its return — except where it is read by its value (then its ENO is no line out of the box: CODESYS's enabled
+        /// comparisons, 1.3); <c>X_ENO</c> shows ENO and no EN; a plain call shows neither. An Execute box has its ENO by type.</summary>
+        private static string Suffix(Box b, bool byValue)
         {
-            if (b.StCode is not null) return;   // an Execute box has its ENO by type
-            var spelled = b.Enable is not null && !byValue;
-            if (b.HasEnoOutput == spelled) return;
-            throw b.Enable is null
-                ? Unspellable("a box showing ENO without EN", $"the '{b.Type}' box shows ENO and no EN.")
-                : b.HasEnoOutput
-                    ? Unspellable("an enabled box read by its value showing ENO", $"the enabled '{b.Type}' box is read by its value and shows ENO: `{b.Type}{EnabledSuffix}` returns its ENO.")
-                    : Unspellable("an enabled box without ENO", $"the enabled '{b.Type}' box shows no ENO: `{b.Type}{EnabledSuffix}` returns its ENO.");
+            if (b.StCode is not null) return "";
+            if (b.Enable is null) return b.HasEnoOutput ? EnoSuffix : "";
+            var spelled = !byValue;
+            if (b.HasEnoOutput == spelled) return EnabledSuffix;
+            throw b.HasEnoOutput
+                ? Unspellable("an enabled box read by its value showing ENO", $"the enabled '{b.Type}' box is read by its value and shows ENO: `{b.Type}{EnabledSuffix}` returns its ENO.")
+                : Unspellable("an enabled box without ENO", $"the enabled '{b.Type}' box shows no ENO: `{b.Type}{EnabledSuffix}` returns its ENO.");
         }
 
         /// <summary>A call expression: <c>T(pins…, outputs…)</c> returning the box's value, or <c>T_EN(EN := e, pins…,
-        /// OUT =&gt; x)</c> returning its ENO (a box read by its ENO).</summary>
-        private string Call(Box b, List<string> pre)
+        /// OUT =&gt; x)</c> / <c>T_ENO(pins…)</c> returning its ENO (a box read by its ENO, or standing at the root).</summary>
+        private string Call(Box b, List<string> pre, bool consumed)
         {
-            RequireSpelledEno(b, byValue: false);
+            var suffix = Suffix(b, byValue: false);
             if (b.Enable is not null && !NetworkSpelling.ConnectedByEno(b))
                 throw Unspellable("an enabled box read by its value", $"the enabled '{b.Type}' box is read by its value, and its call returns ENO.");
-            if (string.Equals(b.Type, NetworkSpelling.NotBox, StringComparison.Ordinal) && b.Enable is null &&
+            if (suffix == EnoSuffix && consumed && !NetworkSpelling.ConnectedByEno(b))
+                throw Unspellable("a box showing ENO without EN read by its value", $"the '{b.Type}' box shows ENO and is read by its value, and its call returns ENO.");
+            if (string.Equals(b.Type, NetworkSpelling.NotBox, StringComparison.OrdinalIgnoreCase) && b.Enable is null &&
                 (b.Inputs.Count != 1 || b.Outputs.Count > 0 || !NetworkSpelling.IsDefaultFormal(b.Type, 0, b.Inputs[0].Formal)))
                 throw Unspellable("a NOT box with pins", "a NOT box with outputs, a named pin or several inputs.");
-            var head = CallHead(b.Type, b.Enable is not null);
+            var head = CallHead(b.Type, suffix);
             return head + "(" + string.Join(", ", Args(b, pre, wireOut: null)) + ")";
         }
 
@@ -597,9 +636,10 @@ public static class StNetworkWriter
             var args = new List<string>();
             if (b.Enable is { } en)
             {
-                if (b.EnableFlags.Rising || b.EnableFlags.Falling)
-                    throw Unspellable("an edge on EN", $"the '{b.Type}' box's EN carries {Describe(b.EnableFlags)}.");
-                args.Add(Box.EnablePin + " := " + Expr(b.EnableFlags.Negated ? Negate(en) : en, 0, pre));
+                // A negation or an edge on the EN pin is a stored member: spelled on the value feeding it.
+                var value = b.EnableFlags.Negated ? Negate(en) : en;
+                if (b.EnableFlags.Rising || b.EnableFlags.Falling) value = Edge(value, b.EnableFlags, $"the '{b.Type}' box's EN");
+                args.Add(Box.EnablePin + " := " + Expr(value, 0, pre));
             }
             var op = NetworkSpelling.IsOperatorBox(b.Type);
             for (var i = 0; i < b.Inputs.Count; i++)
@@ -631,18 +671,15 @@ public static class StNetworkWriter
                 {
                     if (b.Instance is null && string.Equals(f, ResultPin, StringComparison.OrdinalIgnoreCase))
                         throw Unspellable("a named output called OUT", $"the '{b.Type}' function declares an output OUT, which the text reads as its result pin.");
-                    if (b.Enable is not null && string.Equals(f, Box.EnoPin, StringComparison.OrdinalIgnoreCase) && b.Instance is null)
-                        throw Unspellable("a variable on the ENO of an enabled function", $"the enabled '{b.Type}' box wires its ENO to '{o.Value.Text}', and its call returns its ENO.");
                     args.Add(Name(f) + " => " + Target(o.Value.Text));
                     continue;
                 }
                 if (o.Value.Text == Box.UnnamedInstance) continue;   // an extra slot past the names (stored member)
+                // Each `OUT =>` is the next unnamed output slot: ENO and the slot a consumer reads are skipped.
                 next = NetworkSpelling.NextFreeSlot(next, eno, connected);
                 if (o.Slot != next)
                     throw Unspellable("an unnamed output by an unspellable slot",
-                        $"the '{b.Type}' box wires its unnamed output slot {o.Slot?.ToString(CultureInfo.InvariantCulture) ?? "(none)"} to '{o.Value.Text}'; OUT is slot {next}.");
-                if (args.Any(a => a.StartsWith(ResultPin + " =>", StringComparison.Ordinal)))
-                    throw Unspellable("a second unnamed output", $"the '{b.Type}' box wires two unnamed outputs.");
+                        $"the '{b.Type}' box wires its unnamed output slot {o.Slot?.ToString(CultureInfo.InvariantCulture) ?? "(none)"} to '{o.Value.Text}'; the next OUT is slot {next}.");
                 args.Add(ResultPin + " => " + Target(o.Value.Text));
                 next++;
             }
@@ -657,7 +694,7 @@ public static class StNetworkWriter
             if (!b.Flags.IsNone) throw Unspellable("a modifier on an FB or Execute box output", $"the '{b.Type}' box carries {Describe(b.Flags)}.");
             var function = b.Instance is null && b.StCode is null;
             var byValue = function && consumedInto is not null;
-            RequireSpelledEno(b, byValue);
+            var suffix = Suffix(b, byValue);
             (string, string)? wire = null;
             if (consumedInto is not null)
             {
@@ -672,7 +709,7 @@ public static class StNetworkWriter
                 else throw Unspellable("a consumed box with no named connection",
                     $"the '{b.Type}' box is consumed, neither by its ENO nor by a named output.");
             }
-            if (function) return CallHead(b.Type, enabled: true) + "(" + string.Join(", ", Args(b, pre, wire)) + ");";
+            if (function) return CallHead(b.Type, suffix) + "(" + string.Join(", ", Args(b, pre, wire)) + ");";
             if (b.StCode is { } st)
             {
                 if (b.Inputs.Count > 0 || b.Outputs.Count > 0 || b.Instance is not null)
@@ -690,31 +727,49 @@ public static class StNetworkWriter
             }
             var inst = b.Instance!;
             if (inst.Flags is { IsNone: false } f) throw Unspellable("a flag on an FB instance", $"'{inst.Text}' carries {Describe(f)}.");
+            string head;
             if (inst.Text == Box.UnnamedInstance)
-                throw Unspellable("an FB box with no instance", $"the '{b.Type}' box's instance is ???: `???(…)` is no call (open for the owner).");
-            if (!StNetworkReader.IsCallHead(inst.Text))
-                throw Unspellable("an FB instance that is no call head", inst.Text);
-            if (_scope.InstanceType(inst.Text) is not { } declared)
-                throw Unspellable("an FB instance the scope does not declare", inst.Text);
-            if (!St.StDeclaration.SameType(declared, b.Type))
-                throw Unspellable("an FB instance declared with another type", $"'{inst.Text}' is a '{b.Type}' box, declared '{declared}'.");
-            if (b.Enable is not null && InReach(inst.Text + EnabledSuffix))
-                throw Unspellable(EnabledNameInReach, $"'{inst.Text}{EnabledSuffix}' is itself declared in reach.");
-            if (b.Enable is null && inst.Text.EndsWith(EnabledSuffix, StringComparison.OrdinalIgnoreCase))
-                throw Unspellable("an instance name ending in _EN", $"'{inst.Text}' reads as an enabled box.");
-            return inst.Text + (b.Enable is not null ? EnabledSuffix : "") + "(" + string.Join(", ", Args(b, pre, wire)) + ");";
+            {
+                // THE VENDOR'S UNNAMED INSTANCE (`???`): the box is called by its FB TYPE, which names no instance — what the
+                // IDE draws, and the build's error ("Program name, function or function block instance expected").
+                if (!_scope.IsBlockType(b.Type) || _scope.InstanceType(b.Type) is not null)
+                    throw Unspellable("an FB box with no instance whose type is no FB type in reach",
+                        $"the '{b.Type}' box's instance is ???, and '{b.Type}' names no function block type in reach.");
+                head = b.Type;
+            }
+            else
+            {
+                if (!StNetworkReader.IsCallHead(inst.Text))
+                    throw Unspellable("an FB instance that is no call head", inst.Text);
+                if (_scope.InstanceType(inst.Text) is not { } declared)
+                    throw Unspellable("an FB instance the scope does not declare", inst.Text);
+                if (!St.StDeclaration.SameType(declared, b.Type))
+                    throw Unspellable("an FB instance declared with another type", $"'{inst.Text}' is a '{b.Type}' box, declared '{declared}'.");
+                head = inst.Text;
+            }
+            return Suffixed(head, suffix) + "(" + string.Join(", ", Args(b, pre, wire)) + ");";
         }
 
-        private string CallHead(string type, bool enabled)
+        /// <summary>A function's call head (a box type, or an FB type for the unnamed instance) with its suffix.</summary>
+        private string CallHead(string type, string suffix)
         {
             if ((!StNetworkReader.IsCallHead(type) || StNetworkReader.IsKeyword(type)) && !IsKeywordOperator(type))
                 throw Unspellable("a box type that is no call head", $"the box type '{type}'.");
             if (_scope.InstanceType(type) is not null) throw Unspellable("a function named like an FB instance", type);
-            if (!enabled && type.EndsWith(EnabledSuffix, StringComparison.OrdinalIgnoreCase))
-                throw Unspellable("a function name ending in _EN", $"'{type}' reads as an enabled box.");
-            if (enabled && InReach(type + EnabledSuffix))
-                throw Unspellable(EnabledNameInReach, $"'{type}{EnabledSuffix}' is itself declared in reach.");
-            return enabled ? type + EnabledSuffix : type;
+            return Suffixed(type, suffix);
+        }
+
+        /// <summary><paramref name="head"/> with its suffix, refused where the text would read another box: a plain head that
+        /// ends in a suffix or names an element of the text, or a suffixed name declared in reach.</summary>
+        private string Suffixed(string head, string suffix)
+        {
+            if (suffix.Length == 0 && (head.EndsWith(EnabledSuffix, StringComparison.OrdinalIgnoreCase) || head.EndsWith(EnoSuffix, StringComparison.OrdinalIgnoreCase)))
+                throw Unspellable("a box name ending in _EN or _ENO", $"'{head}' reads as a box showing EN or ENO.");
+            if (suffix.Length == 0 && ElementHeads.Any(e => string.Equals(e, head, StringComparison.OrdinalIgnoreCase)))
+                throw Unspellable("a box named like an element of the text", $"'{head}' reads as a branch or an edge.");
+            if (suffix.Length > 0 && InReach(head + suffix))
+                throw Unspellable(EnabledNameInReach, $"'{head}{suffix}' is itself declared in reach.");
+            return head + suffix;
         }
 
         private const string EnabledNameInReach = "an enabled box whose name with _EN is declared in reach";
@@ -766,4 +821,7 @@ public sealed class StNetworkUnspellableException : UnrepresentableBodyException
 
     /// <summary>The refusal is in the network's HEADER (its title, comment or label), which no network line can show.</summary>
     public bool OnHeader { get; init; }
+
+    /// <summary>The order of the network refused (its index in the body), once the writer knows it.</summary>
+    public int? Network { get; internal set; }
 }

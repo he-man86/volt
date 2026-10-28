@@ -441,3 +441,36 @@ effect stay `%UNSUPPORTED` (3.0).
 - brackets carry meaning between contacts only (`(a AND b) AND c` is two boxes);
 - `s`/`r` are no ST variable names: a target so named is `%UNSUPPORTED`;
 - an empty LD body (no network) still goes through the v2 reader until 3.2.
+
+## 3.0 As built: the shapes 2.x left `%UNSUPPORTED`
+
+Each element the IDE stores and the read-only text could not spell, with the measurement its spelling rests on:
+
+| Stored | Plain ST | Measured |
+|---|---|---|
+| LD parallel branch (both modes, fed or at the rail) | `BRANCH(FEED := f, b1, b2)`, `BRANCH_SHORTCIRCUIT(…)`; no `FEED` at the rail | 1.4 (12 shapes): a box branch runs unless the feed and a box-free branch are both TRUE; the twin writes that guard, the FB statements a branch reads inside it |
+| edge on a contact or a box output | `R_EDGE(x)`, `F_EDGE(NOT x)`, `R_EDGE(x AND y)` | 1.3: `R_TRIG` on the value, called every scan |
+| `???` instance | the box called by its FB type: `Axis(xEnable := go)` (the scope says it is a block type) | the IDE's own build error for `???`; the 4 corpus boxes sit in a POU excluded from build |
+| box showing ENO, no EN | `f_ENO(IN := a)`, its return the ENO | recorded `rcc_network_eno_function_without_en` (builds) |
+| empty item (CODESYS's empty operand; the rail a stored member) | `;` | 1.2: `lbl: ;` builds |
+| Demux read once, never, or before its definition | `w1 := …;` and `w1` anywhere in its network | twins declare wires as `VAR`, so a read before the definition is the previous scan's |
+| several unnamed outputs; `ENO =>` a variable on an enabled function | `MOVE(0, OUT => a, OUT => b)`, `MOVE_EN(EN := c, 7, ENO => lamp, OUT => x)` | each `OUT` the next free slot, as the reader numbers them |
+| an edge on a pin or EN | the edge on its value (a stored member, as the negation) | |
+| a box type stored in lower case (`and`) | `and(a, b)` | |
+
+Oracle 1 now: CODESYS corpora 388 networks, 301 identical, 87 stored members, **0 `%UNSUPPORTED`**; TwinCAT archives 153:
+143 / 8 / 2; accept cases 129: 97 / 23 / 9; 0 gaps. Twin builds (oracle 3) re-recorded live for lenze-mid (40 bodies) and
+pro2193 (2): 0 errors. The six v2 accept cases that used `s`/`r` as incidental names (CODESYS ST takes neither for a name,
+1.2) were renamed (`go`, `u`, `p`, `re`); the v2 unnamed-instance case states its block type (`fb Axis`).
+
+**Niche, accepted loss:** TwinCAT's `Vn_fanout_two_wires` archive stores one Demux defined twice and the other never (0 in
+the corpora).
+
+**Open for the owner (3.0 not ticked: each needs a grammar decision; 0 in the corpora):**
+- a jump among coils or jumps on one value, a jump with `S=`, a jump nested in a tree (4 accept cases): ST has a jump only
+  as a statement;
+- an enabled box without ENO at the root or read by an FB output's name (2 cases): `X_EN` returns ENO. Proposal: a suffix
+  per stored EN/ENO pair, the EN-only box returning its value, which would also retire the context rule "an enabled box
+  read by its value has no ENO";
+- an operand ST cannot name: an ST keyword (`Then`), a backtick (`a``b`), and TwinCAT's coil `r` (1 archive);
+- an FB instance the declarations do not hold (1 case): its type is in no text.

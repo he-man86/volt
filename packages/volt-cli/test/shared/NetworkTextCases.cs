@@ -34,6 +34,7 @@ public sealed record NetworkTextCase(string File, string Name, string Text, stri
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var pous = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var instances = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var blocks = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var line in Scope)
         {
             var w = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
@@ -42,11 +43,12 @@ public sealed record NetworkTextCase(string File, string Name, string Text, stri
             {
                 case "instance" when w.Length == 3: instances[w[1]] = w[2]; break;
                 case "pou" when w.Length == 2: pous.Add(w[1]); break;
+                case "fb" when w.Length == 2: blocks.Add(w[1]); break;
                 case "name" when w.Length >= 2: foreach (var n in w.Skip(1)) names.Add(n); break;
-                default: throw new InvalidDataException($"{this}: a scope line is `instance <name> <type>`, `pou <name>` or `name <n>…`, not '{line}'.");
+                default: throw new InvalidDataException($"{this}: a scope line is `instance <name> <type>`, `pou <name>`, `fb <type>` or `name <n>…`, not '{line}'.");
             }
         }
-        return new NetworkScope(names, pous, instances);
+        return new NetworkScope(names, pous, instances, blocks);
     }
 }
 

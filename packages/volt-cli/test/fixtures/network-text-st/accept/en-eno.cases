@@ -19,9 +19,10 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-%UNSUPPORTED "a second unnamed output" #c15439c0
+ADD_EN(EN := c, x, 5, OUT => x, OUT => y);
 === model
-NETWORK unsupported:"a second unnamed output" hash:c15439c0
+NETWORK
+  (ADD x 5 =>1:x =>2:y en:c eno:1)
 
 #### empty-enable — the v2 case en-eno/empty-enable, as a pull writes it
 === text
@@ -143,17 +144,20 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-%UNSUPPORTED "a target that is no ST variable" #0dfd9ac0
+MOVE_EN(EN := MOVE_EN(EN := c, 1, OUT => u), MOVE_EN(EN := d, 2, OUT => t), OUT => x);
 === model
-NETWORK unsupported:"a target that is no ST variable" hash:0dfd9ac0
+NETWORK
+  (MOVE (MOVE 2 =>1:t en:d conn:0 eno:1) =>1:x en:(MOVE 1 =>1:u en:c conn:0 eno:1) eno:1)
 
 #### split-in-en-slot — the v2 case en-eno/split-in-en-slot, as a pull writes it
 === text
 %LANGUAGE LD
 %NETWORK
-%UNSUPPORTED "a wire read fewer than twice" #e524b4d0
+%WIRES w1
+y := MOVE_EN(EN := (w1 := a AND b), w1, OUT => t);
 === model
-NETWORK unsupported:"a wire read fewer than twice" hash:e524b4d0
+NETWORK
+  (:= y (MOVE #1 =>1:t en:(split 1 (AND a b)) conn:0 eno:1))
 
 #### eno-into-split — the v2 case en-eno/eno-into-split, as a pull writes it
 === text
@@ -175,27 +179,33 @@ NETWORK
 %NETWORK
 IF MOVE_EN(EN := c, 1, OUT => x) THEN JMP Done; END_IF;
 %NETWORK
-%UNSUPPORTED "an empty item" #de457d8e
+Done:
+;
 === model
 NETWORK
   (jmp Done (MOVE 1 =>1:x en:c conn:0 eno:1))
-NETWORK unsupported:"an empty item" hash:de457d8e
+NETWORK label:Done
+  ``
 
 #### eno-modifier — the v2 case en-eno/eno-modifier, as a pull writes it
 === text
 %LANGUAGE LD
 %NETWORK
-%UNSUPPORTED "an edge on a box output" #49420bae
+lamp := NOT(MOVE_EN(EN := c, 1, OUT => t));
+edge := R_EDGE(MOVE_EN(EN := c, 2, OUT => u));
 === model
-NETWORK unsupported:"an edge on a box output" hash:49420bae
+NETWORK
+  (:= lamp (NOT (MOVE 1 =>1:t en:c conn:0 eno:1)))
+  (:= edge rise:(MOVE 2 =>1:u en:c conn:0 eno:1))
 
 #### eno-wired-top-level — the v2 case en-eno/eno-wired-top-level, as a pull writes it
 === text
 %LANGUAGE LD
 %NETWORK
-%UNSUPPORTED "a variable on the ENO of an enabled function" #a961723a
+MOVE_EN(EN := c, 7, ENO => lamp, OUT => x);
 === model
-NETWORK unsupported:"a variable on the ENO of an enabled function" hash:a961723a
+NETWORK
+  (MOVE 7 =>ENO:lamp =>1:x en:c eno:1)
 
 #### negated-en-pin — the v2 case en-eno/negated-en-pin, as a pull writes it
 === text
@@ -227,9 +237,12 @@ instance d1 Dryer
 === text
 %LANGUAGE LD
 %NETWORK
-%UNSUPPORTED "a box showing ENO without EN" #9c8bfe7a
+%WIRES w1
+d1_ENO(iOn := on, ENO => w1);
+ready := w1;
 === model
-NETWORK unsupported:"a box showing ENO without EN" hash:9c8bfe7a
+NETWORK
+  (:= ready (Dryer@d1 iOn=on conn:0 eno:1))
 
 #### fb-call-enabled — the v2 case en-eno/fb-call-enabled, as a pull writes it
 === scope
@@ -270,9 +283,12 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-%UNSUPPORTED "a box showing ENO without EN" #5862bf62
+x := f_ENO(IN := a);
+f_ENO(IN := b);
 === model
-NETWORK unsupported:"a box showing ENO without EN" hash:5862bf62
+NETWORK
+  (:= x (f IN=a conn:0 eno:1))
+  (f IN=b eno:1)
 
 #### call-read-through-eno — the v2 case en-eno/call-read-through-eno, as a pull writes it
 === text

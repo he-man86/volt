@@ -12,6 +12,11 @@
  *                                                HOLDS when disabled (1.4): `IF e THEN y := X(pins…); END_IF`;
  *   `t1_EN(EN := e, IN := a, Q => w)`            `IF e THEN t1(IN := a, Q => w); … END_IF` — the FB is not called;
  *   `%EXECUTE(EN := e, ENO => w)` … `%END_EXECUTE` `IF e THEN <its ST> END_IF; w := e;`;
+ *   `X_ENO(…)`                                   the call, on every scan; its ENO TRUE;
+ *   `BRANCH(FEED := f, b1, b2)`                  `(f AND (b1 OR b2))`: every branch runs;
+ *   `BRANCH_SHORTCIRCUIT(FEED := f, b1, b2)`     a branch holding a box runs, with the calls it reads, unless the feed
+ *                                                and a box-free branch are both TRUE (1.4): `IF NOT (f AND free) THEN …`;
+ *   `R_EDGE(x)`, `F_EDGE(x)`                     an `R_TRIG` / `F_TRIG` called every scan with x, read by its Q (1.3);
  *   a wire                                       a variable of its definition's type (`types` `network-call.ts`),
  *                                                renamed into the twin's own names (`vtw<k>_w1`), as is every ENO;
  *   a `%DISABLED` network                        nothing: CODESYS compiles none of it (1c).
@@ -24,18 +29,13 @@ import {
   type CallArg,
   type CallExpr,
   type Expr,
-  isPlainStNetworkBody,
-  type ParseResult,
   plainStText,
   type Statement,
-  stmtExprs,
-  unitBodies,
   walkExpr,
-  allUnits,
-  type TopLevel,
 } from "../../src/frontend/syntax/index.js"
-import { bodies, lookup, type Scope } from "../../src/frontend/symbols/index.js"
+import { lookup, type Scope } from "../../src/frontend/symbols/index.js"
 import { inferExprType, renderType } from "../../src/frontend/types/index.js"
+import { type AssignStatement, guardedCalls, type ValueReads, valueReads } from "./network-twin-reads.js"
 
 export class TwinRefusal extends Error {}
 
@@ -55,35 +55,15 @@ export interface BodyTwin {
 export function twinOf(body: BodySpan, statements: readonly Statement[], scope: Scope, project: Scope, source: string, k: number): BodyTwin {
   const skip = plainStText(body).networks.flatMap((n) => n.executes)
   const code = statements.filter((s) => skip.find((x) => s.span.start > x.header.end && s.span.start < x.span.end) === undefined)
-  const t = new Twinner(body, scope, project, source, `vtw${k}_`, valueReads(body, code))
+  const reads = valueReads(body, code)
+  const t = new Twinner(body, scope, project, source, `vtw${k}_`, reads, guardedCalls(body, code, reads))
   const lines: string[] = []
   for (const s of code) {
     if (t.heldAssigns.has(s)) continue // written inside its enabled box's IF
+    if (t.guarded.has(s)) continue // written inside its short-circuit branch's guard
     lines.push(...t.statement(s))
   }
   return { code: lines.join("\n"), declarations: t.declarations() }
-}
-
-type AssignStatement = Extract<Statement, { kind: "assign" }>
-
-/** Each wire's occurrences in the network's code (its definition included), and the assignments whose whole value it is. */
-interface ValueReads {
-  occurrences: Map<string, number>
-  assignedBy: Map<string, AssignStatement>
-}
-
-function valueReads(body: BodySpan, statements: readonly Statement[]): ValueReads {
-  const wires = new Set(plainStText(body).networks.flatMap((n) => n.wires.map((w) => w.name.toLowerCase())))
-  const occurrences = new Map<string, number>()
-  const assignedBy = new Map<string, AssignStatement>()
-  for (const s of statements) {
-    for (const e of stmtExprs(s))
-      walkExpr(e, (x) => {
-        if (x.kind === "ident_expr" && wires.has(x.name.toLowerCase())) occurrences.set(x.name.toLowerCase(), (occurrences.get(x.name.toLowerCase()) ?? 0) + 1)
-      })
-    if (s.kind === "assign" && s.value.kind === "ident_expr" && wires.has(s.value.name.toLowerCase())) assignedBy.set(s.value.name.toLowerCase(), s)
-  }
-  return { occurrences, assignedBy }
 }
 
 class Twinner {
@@ -97,6 +77,10 @@ class Twinner {
   /** The output bindings those wires were defined by, by their call's start and their pin: dropped from the call. */
   private readonly droppedArgs = new Set<string>()
   private readonly temps: string[] = []
+  /** The edge detectors an `R_EDGE(x)` / `F_EDGE(x)` runs on: `name : R_TRIG;`, one per edge. */
+  private readonly trigs: string[] = []
+  /** The call statements written inside a short-circuit branch's guard (`guardedCalls`). */
+  readonly guarded: Set<Statement>
   private n = 0
 
   constructor(
@@ -106,7 +90,9 @@ class Twinner {
     private readonly source: string,
     private readonly prefix: string,
     private readonly reads: ValueReads,
+    private readonly guardedByWire: ReadonlyMap<string, Statement>,
   ) {
+    this.guarded = new Set(guardedByWire.values())
     for (const net of plainStText(body).networks)
       for (const w of net.wires) {
         const def = lookup(scope, w.name)?.symbol.wire
@@ -124,8 +110,9 @@ class Twinner {
   private fbOutputOf(call: CallExpr, param: string): { member: string; at: number; pin: string } | undefined {
     if (call.callee.kind !== "ident_expr" && call.callee.kind !== "member" && call.callee.kind !== "index") return undefined
     const text = this.text(call.callee)
-    const enabled = call.callee.kind === "ident_expr" && text.toUpperCase().endsWith("_EN") && lookup(this.scope, text) === undefined
-    const instance = enabled ? text.slice(0, -3) : text
+    const suffix = /_ENO?$/i.exec(text)?.[0]
+    const enabled = call.callee.kind === "ident_expr" && suffix !== undefined && lookup(this.scope, text) === undefined
+    const instance = enabled ? text.slice(0, -suffix!.length) : text
     const head: Expr = enabled ? { kind: "ident_expr", name: instance, span: call.callee.span } : call.callee
     if (inferExprType(head, this.scope, this.project).kind !== "function_block") return undefined
     return { member: `${instance}.${param}`, at: call.span.start, pin: param.toLowerCase() }
@@ -140,6 +127,7 @@ class Twinner {
       out.push(`${renamed} : ${renderType(type)};`)
     }
     for (const t of this.temps) out.push(`${t} : BOOL;`)
+    out.push(...this.trigs)
     return out
   }
 
@@ -162,6 +150,8 @@ class Twinner {
       }
       case "call_stmt":
         return [...pre, ...this.callStatement(s.call, pre)]
+      case "empty":
+        return []
       case "jmp":
       case "return":
       case "label":
@@ -190,6 +180,10 @@ class Twinner {
     if (head?.toUpperCase() === "EXECUTE") return this.execute(call, pre)
     if (head !== undefined && head.toUpperCase().endsWith("_EN") && lookup(this.scope, head) === undefined) {
       this.enabled(call, pre, false)
+      return pre.splice(0)
+    }
+    if (head !== undefined && head.toUpperCase().endsWith("_ENO") && lookup(this.scope, head) === undefined) {
+      this.enoOnly(call, pre)
       return pre.splice(0)
     }
     if (head !== undefined && INFIX[head.toUpperCase()] !== undefined) {
@@ -264,6 +258,78 @@ class Twinner {
     return eno ?? ""
   }
 
+  /** A box showing its ENO and no EN (`X_ENO`): it runs on every scan, and its ENO is TRUE (its EN is the rail). */
+  private enoOnly(call: CallExpr, pre: string[]): string {
+    const name = (call.callee as { name: string }).name
+    const base: Expr = { kind: "ident_expr", name: name.slice(0, -4), span: call.callee.span }
+    const enoOut = call.args.find((a) => a.output && a.param?.name.toUpperCase() === "ENO")
+    const rest = call.args.filter((a) => a !== enoOut)
+    if (inferExprType(base, this.scope, this.project).kind === "function_block") pre.push(this.callText({ ...call, callee: base }, rest, pre) + ";")
+    else {
+      const result = rest.filter((a) => a.output && a.param?.name.toUpperCase() === "OUT")
+      if (result.length === 0) throw new TwinRefusal(`${name}: a function showing ENO whose value nothing reads`)
+      const value = this.callText({ ...call, callee: base }, rest.filter((a) => !result.includes(a)), pre)
+      pre.push(result.map((r) => `${this.expr(r.value!, pre)} := `).join("") + value + ";")
+    }
+    if (enoOut !== undefined) pre.push(`${this.expr(enoOut.value!, pre)} := TRUE;`)
+    return "TRUE"
+  }
+
+  /** `BRANCH(FEED := f, b1, b2)` (every branch runs) and `BRANCH_SHORTCIRCUIT(…)`: a branch holding a box runs unless the
+   *  feed and a box-free branch are both TRUE (1.4), the calls it reads through wires (`guardedCalls`) with it. */
+  private branch(call: CallExpr, pre: string[]): string {
+    const fed = call.args[0]?.param?.name.toUpperCase() === "FEED"
+    const feed = fed ? this.expr(call.args[0]!.value!, pre) : "TRUE"
+    const branches = call.args.slice(fed ? 1 : 0).map((a) => a.value!)
+    if ((call.callee as { name: string }).name.toUpperCase() === "BRANCH")
+      return `(${feed} AND (${branches.map((b) => this.expr(b, pre)).join(" OR ")}))`
+    const holdsBox = (e: Expr) => {
+      let box = false
+      walkExpr(e, (x) => {
+        if (x.kind === "call" || (x.kind === "ident_expr" && this.wires.has(x.name.toLowerCase()))) box = true
+      })
+      return box
+    }
+    const f = this.temp()
+    const free = this.temp()
+    pre.push(`${f} := ${feed};`)
+    const freeBranches = branches.filter((b) => !holdsBox(b))
+    pre.push(`${free} := ${freeBranches.length === 0 ? "FALSE" : freeBranches.map((b) => this.expr(b, pre)).join(" OR ")};`)
+    const inner: string[] = []
+    const values: string[] = []
+    for (const b of branches.filter(holdsBox)) {
+      for (const s of this.guardedReadBy(b)) inner.push(...this.statement(s))
+      const v = this.temp()
+      inner.push(`${v} := ${this.expr(b, inner)};`)
+      values.push(v)
+    }
+    if (inner.length > 0) pre.push(`IF NOT (${f} AND ${free}) THEN\n\t${inner.join("\n\t")}\nEND_IF;`)
+    return `(${f} AND (${[free, ...values].join(" OR ")}))`
+  }
+
+  /** The guarded call statements `e` reads through their wires, and the ones those read in turn, in source order. */
+  private guardedReadBy(e: Expr): Statement[] {
+    const found = new Set<Statement>()
+    const visit = (x: Expr) =>
+      walkExpr(x, (y) => {
+        const s = y.kind === "ident_expr" ? this.guardedByWire.get(y.name.toLowerCase()) : undefined
+        if (s === undefined || found.has(s)) return
+        found.add(s)
+        if (s.kind === "call_stmt") for (const a of s.call.args) if (!a.output && a.value !== undefined) visit(a.value)
+      })
+    visit(e)
+    return [...found].sort((a, b) => a.span.start - b.span.start)
+  }
+
+  /** `R_EDGE(x)` / `F_EDGE(x)`: an edge detector called on every scan with x, read by its Q (1.3). */
+  private edge(call: CallExpr, pre: string[]): string {
+    const rising = (call.callee as { name: string }).name.toUpperCase() === "R_EDGE"
+    const name = `${this.prefix}trig${this.trigs.length + 1}`
+    this.trigs.push(`${name} : ${rising ? "R_TRIG" : "F_TRIG"};`)
+    pre.push(`${name}(CLK := ${this.expr(call.args[0]!.value!, pre)});`)
+    return `${name}.Q`
+  }
+
   private operator(name: string, args: readonly CallArg[], pre: string[]): string {
     const values = args.map((a) => this.expr(a.value!, pre))
     if (name.toUpperCase() === "NOT") return `(NOT ${values[0]})`
@@ -289,6 +355,9 @@ class Twinner {
         if (upper !== undefined && (INFIX[upper] !== undefined || upper === "NOT") && e.args.every((a) => a.param === undefined && !a.output))
           return this.operator(head!, e.args, pre)
         if (head !== undefined && upper!.endsWith("_EN") && lookup(this.scope, head) === undefined) return this.enabled(e, pre, true)
+        if (head !== undefined && upper!.endsWith("_ENO") && lookup(this.scope, head) === undefined) return this.enoOnly(e, pre)
+        if (upper === "BRANCH" || upper === "BRANCH_SHORTCIRCUIT") return this.branch(e, pre)
+        if (upper === "R_EDGE" || upper === "F_EDGE") return this.edge(e, pre)
         return this.callText(e, e.args, pre)
       }
       case "binary":
@@ -303,60 +372,4 @@ class Twinner {
         return this.text(e)
     }
   }
-}
-
-/** Every plain-ST network body of a parse with the scope it resolves in, its compiled statements, its unit. */
-export function* networkBodies(parseResult: ParseResult, project: Scope): Generator<{ unit: TopLevel; body: BodySpan; scope: Scope; statements: readonly Statement[] }> {
-  const wanted = new Set<BodySpan>()
-  for (const unit of allUnits(parseResult.units)) for (const b of unitBodies(unit)) if (isPlainStNetworkBody(b)) wanted.add(b)
-  for (const b of bodies(parseResult.units, project)) if (wanted.has(b.body)) yield b
-}
-
-/** An edit of the source: replace [start, end) with `text`. */
-interface Edit {
-  start: number
-  end: number
-  text: string
-}
-
-/**
- * A file with every plain-ST network body as its twin (`%LANGUAGE ST`), the variables each twin needs declared in a
- * `VAR` block of the unit that owns its scope — a POU's or a METHOD's own declaration; an ACTION, which has none, its
- * POU's. A body the twin cannot write is named in `refused` and left as it is.
- */
-export function twinFile(source: string, parseResult: ParseResult, project: Scope): { source: string; refused: string[]; twinned: number } {
-  const edits: Edit[] = []
-  const refused: string[] = []
-  let k = 0
-  const units = allUnits(parseResult.units)
-  for (const { unit, body, scope, statements } of networkBodies(parseResult, project)) {
-    k++
-    let twin: BodyTwin
-    try {
-      twin = twinOf(body, statements, scope, project, source, k)
-    } catch (e) {
-      if (!(e instanceof TwinRefusal)) throw e
-      refused.push(`${unitName(unit)}: ${e.message}`)
-      continue
-    }
-    const line = body.languageLine!
-    edits.push({ start: line.span.start, end: Math.max(body.span.end, line.span.end), text: `%LANGUAGE ST\n${twin.code}\n` })
-    if (twin.declarations.length === 0) continue
-    // an ACTION's POU is the program or function block before it in the file (a pull writes the members after their POU)
-    const owner = unit.kind === "action" ? [...units].reverse().find((u) => (u.kind === "program" || u.kind === "function_block") && u.span.start < unit.span.start) ?? unit : unit
-    const at = owner === unit ? line.span.start : ("body" in owner && owner.body.kind === "body" ? owner.body.languageLine?.span.start : undefined)
-    if (at === undefined) {
-      refused.push(`${unitName(unit)}: no declaration to hold the twin's variables`)
-      edits.pop()
-      continue
-    }
-    edits.push({ start: at, end: at, text: `VAR\n\t${twin.declarations.join("\n\t")}\nEND_VAR\n` })
-  }
-  let out = source
-  for (const e of edits.sort((a, b) => b.start - a.start || b.end - a.end)) out = out.slice(0, e.start) + e.text + out.slice(e.end)
-  return { source: out, refused, twinned: edits.filter((e) => e.text.startsWith("%LANGUAGE ST")).length }
-}
-
-function unitName(unit: TopLevel): string {
-  return "name" in unit && unit.name !== undefined ? String((unit.name as { text?: string; name?: string }).text ?? (unit.name as { name?: string }).name) : unit.kind
 }

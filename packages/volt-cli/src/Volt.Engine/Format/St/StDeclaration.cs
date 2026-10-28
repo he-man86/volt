@@ -145,6 +145,11 @@ public static class StDeclaration
         @"^\s*FUNCTION\b(?!_)",
         RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
+    // A FUNCTION_BLOCK's header.
+    private static readonly Regex BlockHeader = new(
+        @"^\s*FUNCTION_BLOCK\b",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+
     // A VAR block's opening keyword (any: VAR, VAR_INPUT, VAR_IN_OUT, …) or its END_VAR, a section's qualifier (as
     // StatementEnd has them: `VAR_IN_OUT CONSTANT` opens the block, the word is no part of its first statement), and a
     // statement's `;`, in the comment-free code.
@@ -161,6 +166,15 @@ public static class StDeclaration
         if (string.IsNullOrEmpty(declaration)) return false;
         var code = string.Join("\n", StTrivia.Code(declaration!.Replace("\r", "").Split('\n')));
         return FunctionHeader.IsMatch(code);
+    }
+
+    /// <summary>Whether a POU's declaration is a FUNCTION_BLOCK's, comments and pragmas skipped: a box of that type with no
+    /// instance is the vendor's unnamed-instance box (<c>???</c>), spelled by its type (openspec network-text-st 3.0).</summary>
+    public static bool IsFunctionBlock(string? declaration)
+    {
+        if (string.IsNullOrEmpty(declaration)) return false;
+        var code = string.Join("\n", StTrivia.Code(declaration!.Replace("\r", "").Split('\n')));
+        return BlockHeader.IsMatch(code);
     }
 
     /// <summary>The names a positional call fills, in order: every <c>VAR_INPUT</c> and <c>VAR_IN_OUT</c> variable as

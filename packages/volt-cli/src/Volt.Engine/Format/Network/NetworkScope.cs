@@ -26,14 +26,18 @@ public sealed class NetworkScope
     private readonly Func<string, string?> _instanceType;
     private readonly Func<string, Format.Network.Callee?> _callee;
     private readonly Func<string, IReadOnlyList<string>?> _blockOutputs;
+    private readonly Func<string, bool> _isBlockType;
 
     /// <param name="names">Every name in scope.</param>
     /// <param name="pous">The POUs the body can call (functions, FB types, programs). Each is also a name in scope.</param>
+    /// <param name="blockTypes">The FUNCTION BLOCK types the body can name (each also a POU): a box of one with no instance
+    /// is the vendor's unnamed-instance box, spelled by its type. None where null.</param>
     /// <param name="instanceTypes">FB instance name → its FB type. Each instance is also a name in scope. A key is
     /// a NAME a declaration makes — an identifier, or a qualified one (<c>GVL.fbTimer</c>), or <c>SUPER^</c> — never an expression
     /// such as <c>fbs[1]</c>: no declaration produces that key, so a scope holding one would let the text round-trip
     /// an instance the push path cannot resolve.</param>
-    public NetworkScope(IEnumerable<string> names, IEnumerable<string> pous, IReadOnlyDictionary<string, string> instanceTypes)
+    public NetworkScope(IEnumerable<string> names, IEnumerable<string> pous, IReadOnlyDictionary<string, string> instanceTypes,
+                        IEnumerable<string>? blockTypes = null)
     {
         if (names is null) throw new ArgumentNullException(nameof(names));
         if (pous is null) throw new ArgumentNullException(nameof(pous));
@@ -49,6 +53,8 @@ public sealed class NetworkScope
             instances[kv.Key] = kv.Value;
         }
         var pouSet = new HashSet<string>(pous, StringComparer.OrdinalIgnoreCase);
+        var blockSet = new HashSet<string>(blockTypes ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
+        pouSet.UnionWith(blockSet);
         var nameSet = new HashSet<string>(names, StringComparer.OrdinalIgnoreCase);
         nameSet.UnionWith(pouSet);
         nameSet.UnionWith(instances.Keys);
@@ -61,16 +67,19 @@ public sealed class NetworkScope
         // A scope stated as name lists holds no declaration to derive a callee or a block's outputs from.
         _callee = _ => null;
         _blockOutputs = _ => null;
+        _isBlockType = blockSet.Contains;
     }
 
     private NetworkScope(Func<string, bool> contains, Func<string, bool> isPou, Func<string, string?> instanceType,
-                         Func<string, Format.Network.Callee?> callee, Func<string, IReadOnlyList<string>?> blockOutputs)
+                         Func<string, Format.Network.Callee?> callee, Func<string, IReadOnlyList<string>?> blockOutputs,
+                         Func<string, bool> isBlockType)
     {
         _contains = contains;
         _isPou = isPou;
         _instanceType = instanceType;
         _callee = callee;
         _blockOutputs = blockOutputs;
+        _isBlockType = isBlockType;
     }
 
     /// <summary>The key suffix the name-list constructor reads as "an ARRAY of FBs of that type": <c>fbs[]</c>.</summary>
@@ -254,7 +263,14 @@ public sealed class NetworkScope
             return baseOutputs is null ? null : baseOutputs.Concat(own).ToList();
         }
 
-        return new NetworkScope(Contains, IsPou, InstanceType, CalleeOf, BlockOutputs);
+        // A FUNCTION BLOCK type by name: a project POU whose declaration is a block's, or a library's block by its signature.
+        bool IsBlockType(string type) =>
+            NetworkSpelling.IsName(type) &&
+            (IsPou(type) ? St.StDeclaration.IsFunctionBlock(declarationOf(type))
+             : kindOf(type) is null && !isRefusedPouName(type) && !local.Contains(type) &&
+               libraryFunction(type) is { CallType: Format.Network.Callee.FunctionBlockCallType });
+
+        return new NetworkScope(Contains, IsPou, InstanceType, CalleeOf, BlockOutputs, IsBlockType);
     }
 
     public bool Contains(string name) => _contains(name);
@@ -273,6 +289,10 @@ public sealed class NetworkScope
 
     /// <summary>Whether <paramref name="name"/> is a POU or an FB instance — something a call can name.</summary>
     public bool IsCallable(string name) => _isPou(name) || _instanceType(name) is not null;
+
+    /// <summary>Whether <paramref name="name"/> is a FUNCTION BLOCK type in reach (not an instance): a call headed by it is
+    /// the vendor's unnamed-instance box (<c>???</c>, openspec network-text-st 3.0).</summary>
+    public bool IsBlockType(string name) => _isBlockType(name);
 
     /// <summary>The FB type of <paramref name="head"/> when it is an instance in scope, else null.</summary>
     public string? InstanceType(string head) => _instanceType(head);

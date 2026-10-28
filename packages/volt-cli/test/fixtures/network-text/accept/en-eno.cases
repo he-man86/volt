@@ -173,11 +173,11 @@ NETWORK
 %LANGUAGE LD
 NETWORK
   MOVE (MOVE 2 => t ENO EN d) => x ENO EN
-    MOVE 1 => s ENO EN c;
+    MOVE 1 => u ENO EN c;
 END_NETWORK
 === model
 NETWORK
-  (MOVE (MOVE 2 =>1:t en:d conn:0 eno:1) =>1:x en:(MOVE 1 =>1:s en:c conn:0 eno:1) eno:1)
+  (MOVE (MOVE 2 =>1:t en:d conn:0 eno:1) =>1:x en:(MOVE 1 =>1:u en:c conn:0 eno:1) eno:1)
 
 #### split-in-en-slot — a split defined in the EN slot and read by an input, the stored slots (measurement 2)
 === text

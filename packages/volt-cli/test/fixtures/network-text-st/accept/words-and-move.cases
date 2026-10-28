@@ -86,9 +86,10 @@ NETWORK
 === text
 %LANGUAGE FBD
 %NETWORK
-%UNSUPPORTED "a box type that is no call head" #f5298073
+x := and(a, b);
 === model
-NETWORK unsupported:"a box type that is no call head" hash:f5298073
+NETWORK
+  (:= x (and a b))
 
 #### empty-operand — the v2 case words-and-move/empty-operand, as a pull writes it
 === text
@@ -105,9 +106,12 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-%UNSUPPORTED "an edge on a box output" #4289d1e6
+x := NOT(a AND b);
+y := R_EDGE(a AND b);
 === model
-NETWORK unsupported:"an edge on a box output" hash:4289d1e6
+NETWORK
+  (:= x (NOT (AND a b)))
+  (:= y rise:(AND a b))
 
 #### word-operand-call — the v2 case words-and-move/word-operand-call, as a pull writes it
 === text
@@ -162,9 +166,10 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-%UNSUPPORTED "a second unnamed output" #2f471bc4
+MOVE(0, OUT => a, OUT => b);
 === model
-NETWORK unsupported:"a second unnamed output" hash:2f471bc4
+NETWORK
+  (MOVE 0 =>0:a =>1:b)
 
 #### move-empty-operand — the v2 case words-and-move/move-empty-operand, as a pull writes it
 === text
@@ -215,9 +220,10 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-%UNSUPPORTED "an edge on a pin" #c1aa7b44
+x := AND(R_EDGE(c), one);
 === model
-NETWORK unsupported:"an edge on a pin" hash:c1aa7b44
+NETWORK
+  (:= x (AND rise:c one))
 
 #### edge-and-negation-on-a-pin — the v2 case words-and-move/edge-and-negation-on-a-pin, as a pull writes it
 === scope
@@ -225,6 +231,7 @@ instance t1 TON
 === text
 %LANGUAGE LD
 %NETWORK
-%UNSUPPORTED "an edge on a pin" #b6f41ecf
+t1(IN := R_EDGE(NOT v), PT := T#1S);
 === model
-NETWORK unsupported:"an edge on a pin" hash:b6f41ecf
+NETWORK
+  (TON@t1 IN=rise:not:v PT=T#1S)

@@ -7,12 +7,12 @@ END_VAR
 %NETWORK
 L_TS2P_FlexCamState_0();
 %NETWORK
-%UNSUPPORTED "an FB box with no instance" #a4fe7691
+L_MC1P_AxisBasicControlV2();
 %NETWORK
-%UNSUPPORTED "an FB box with no instance" #9a5c2654
+L_TT1P_BasicMotionBase();
 %NETWORK
-%UNSUPPORTED "an FB box with no instance" #a1cb24cb
+L_TT1P_FlexCamBase();
 %NETWORK
-%UNSUPPORTED "an FB box with no instance" #e16c6605
+L_TT1P_FlexCamState();
 
 END_PROGRAM

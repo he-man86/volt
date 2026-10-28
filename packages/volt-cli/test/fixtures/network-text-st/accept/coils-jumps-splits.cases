@@ -176,25 +176,41 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-%UNSUPPORTED "a wire read fewer than twice" #8731f592
+%WIRES w1, w2
+w1 := TRUE;
+w2 := w1 AND RunAuto;
+a := w2;
+b := w2 AND c;
 === model
-NETWORK unsupported:"a wire read fewer than twice" hash:8731f592
+NETWORK
+  (split 1 TRUE)
+  (split 2 (AND #1 RunAuto))
+  (:= a #2)
+  (:= b (AND #2 c))
 
 #### split-of-a-box — the v2 case coils-jumps-splits/split-of-a-box, as a pull writes it
 === text
 %LANGUAGE FBD
 %NETWORK
-%UNSUPPORTED "a wire read fewer than twice" #d66b3d91
+%WIRES w1
+w1 := ADD(a, b);
+x := w1;
 === model
-NETWORK unsupported:"a wire read fewer than twice" hash:d66b3d91
+NETWORK
+  (split 1 (ADD a b conn:0))
+  (:= x #1)
 
 #### split-in-en — the v2 case coils-jumps-splits/split-in-en, as a pull writes it
 === text
 %LANGUAGE LD
 %NETWORK
-%UNSUPPORTED "a wire read fewer than twice" #1b3781f4
+%WIRES w1
+w1 := TRUE;
+MOVE_EN(EN := w1, 0, OUT => t);
 === model
-NETWORK unsupported:"a wire read fewer than twice" hash:1b3781f4
+NETWORK
+  (split 1 TRUE)
+  (MOVE 0 =>1:t en:#1 eno:1)
 
 #### split-variable-backticked — the v2 case coils-jumps-splits/split-variable-backticked, as a pull writes it
 === scope
@@ -216,14 +232,24 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-%UNSUPPORTED "a wire read before its definition" #89991fe7
+%WIRES w1
+x := w1;
+w1 := a AND b;
+y := w1 AND c;
 === model
-NETWORK unsupported:"a wire read before its definition" hash:89991fe7
+NETWORK
+  (:= x #1)
+  (split 1 (AND a b))
+  (:= y (AND #1 c))
 
 #### split-nested-definition — the v2 case coils-jumps-splits/split-nested-definition, as a pull writes it
 === text
 %LANGUAGE LD
 %NETWORK
-%UNSUPPORTED "a wire read fewer than twice" #f52c73df
+%WIRES w1
+x := (w1 := a AND b);
+y := w1 AND c;
 === model
-NETWORK unsupported:"a wire read fewer than twice" hash:f52c73df
+NETWORK
+  (:= x (split 1 (AND a b)))
+  (:= y (AND #1 c))

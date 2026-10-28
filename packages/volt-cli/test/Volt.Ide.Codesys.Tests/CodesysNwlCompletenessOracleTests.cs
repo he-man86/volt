@@ -601,10 +601,8 @@ public class CodesysNwlCompletenessOracleTests
 
     /// <summary>EVERY CORPUS BODY PULLS AS PLAIN-ST NETWORK TEXT (openspec network-text-st 2.1): the shipped pull read
     /// (<c>ReadShown</c>) and render (<see cref="StNetworkWriter.WritePulled"/>) over the recorded archive, no body hidden
-    /// whole, a network the text cannot spell shown as its <c>%UNSUPPORTED "&lt;shape&gt;" #hash</c> line, its header kept.
-    /// Every body's text reads back (<see cref="StNetworkReader"/>) and writes again to the same text: pulled twice, it is
-    /// one text. The lines are pinned per body; each network behind one is named by the plain-ST oracle
-    /// (<c>StNetworkOracleCodesysTests</c>) and spelled by 3.0.</summary>
+    /// whole, and no network shown as its <c>%UNSUPPORTED</c> line (3.0). Every body's text reads back (<see cref="StNetworkReader"/>)
+    /// and writes again to the same text: pulled twice, it is one text.</summary>
     [Fact]
     public void Every_body_pulls_as_plain_ST_network_text_with_its_unspellable_networks_as_lines()
     {
@@ -627,16 +625,9 @@ public class CodesysNwlCompletenessOracleTests
                 if (n > 0) lines[id] = n;
             }
         }
-        Assert.Equal(new Dictionary<string, int>(StringComparer.Ordinal)
-        {
-            // 11 networks: 5 Parallels with a side effect on a branch, 4 `???` instances, 1 edge contact (open for the owner,
-            // spelled by 3.0), 1 lone empty leaf (niche, accepted loss).
-            ["lenze-mid/Device/Plc Logic/Application/Mach1_Drives"] = 2,
-            ["lenze-mid/Device/Plc Logic/Application/Mach1_MIDS"] = 3,
-            ["lenze-mid/Device/Plc Logic/Application/POU"] = 4,
-            ["lenze-mid/Device/Plc Logic/Application/TrayFiller"] = 1,
-            ["pro2193/Device/Plc Logic/Application/ActuatorFB/Counters"] = 1,
-        }.OrderBy(k => k.Key, StringComparer.Ordinal), lines.OrderBy(k => k.Key, StringComparer.Ordinal));
+        // 3.0: every corpus network is spelled, the five Parallels with a side effect, the four `???` instances, the edge
+        // contact and the lone empty leaf included.
+        Assert.Empty(lines);
     }
 
     /// <summary>The networks the round trip refuses, by reason — the census's UNSUPPORTED shapes (tasks 0.1) and the

@@ -20,6 +20,6 @@ LE_EN(EN := w2, i_lrMachinePosition, i_intStopCam, OUT => w1);
 GT_EN(EN := TRUE, i_intStartCam, i_intStopCam, OUT => w4);
 GE_EN(EN := TRUE, i_lrMachinePosition, i_intStartCam, OUT => w5);
 LE_EN(EN := TRUE, i_lrMachinePosition, i_intStopCam, OUT => w6);
-o_xCamControl := i_xEnable AND (w1 OR w4 AND (w5 OR w6));
+o_xCamControl := BRANCH_SHORTCIRCUIT(FEED := i_xEnable, w1, BRANCH_SHORTCIRCUIT(FEED := w4, w5, w6));
 
 END_FUNCTION

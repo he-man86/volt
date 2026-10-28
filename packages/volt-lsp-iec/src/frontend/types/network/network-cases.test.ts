@@ -99,7 +99,7 @@ function scopeOf(c: Case): NetworkScopeView {
   for (const line of c.scope) {
     const w = line.split(/\s+/)
     if (w[0] === "instance" && w.length === 3) instances.set(w[1]!.toUpperCase(), w[2]!)
-    else if (w[0] === "pou" && w.length === 2) pous.add(w[1]!.toUpperCase())
+    else if ((w[0] === "pou" || w[0] === "fb") && w.length === 2) pous.add(w[1]!.toUpperCase())
     else if (w[0] === "name") for (const n of w.slice(1)) names.add(n.toUpperCase())
     else throw new Error(`${c.file}/${c.name}: a scope line is \`instance <name> <type>\`, \`pou <name>\` or \`name <n>…\`, not '${line}'`)
   }

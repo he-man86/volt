@@ -9,7 +9,7 @@ import { relative } from "node:path"
 import { resolveConfig, type Vendor } from "../../src/analysis/index.js"
 import { WorkspaceStore } from "../../src/workspace/workspace-store.js"
 import { scanWorkspace } from "../../src/workspace/workspace-refs.js"
-import { twinFile } from "./network-twin.js"
+import { twinFile } from "./network-twin-file.js"
 
 export interface ProjectTwins {
   /** Each twinned file's wire path (its path in the project, `/`-separated) and its twin source. */

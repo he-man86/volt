@@ -25,7 +25,7 @@ w3 := w2 AND Mach1.GenFlags.EnableMainDrive AND Mach1.GenFlags.ConditionsReadyFo
 w4 := w3 AND Mach1.GenFlags.RunAuto;
 tMainDriveRun := oMainDriveRun := Mach1_Safety.Control.RequestAutoSpeed := w4;
 LE_EN(EN := Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper, Mach1_Data.AUTOSPEED, 40, OUT => w5);
-MOVE_EN(EN := (w4 AND (NOT Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper OR w5)) AND NOT HMI_Var.Btn_Cleaning, Mach1_Data.AUTOSPEED, OUT => tInt);
+MOVE_EN(EN := BRANCH(FEED := w4, NOT Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper, w5) AND NOT HMI_Var.Btn_Cleaning, Mach1_Data.AUTOSPEED, OUT => tInt);
 GT_EN(EN := w4 AND Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper, Mach1_Data.AUTOSPEED, 40, OUT => w6);
 MOVE_EN(EN := w6 AND NOT HMI_Var.Btn_Cleaning, 30, OUT => tInt);
 MOVE_EN(EN := w4 AND HMI_Var.Btn_Cleaning, 6, OUT => tInt);

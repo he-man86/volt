@@ -88,7 +88,7 @@ w3 := GenFlags.EnableAuxDrive AND NOT GenFlags.StartFlag AND DnStartDelayAuxDriv
 OnDelayStopAuxDrives(IN := w3, PT := iPreStopDelayAuxDrives, Q => w4);
 DnStopDelayAuxDrives := w4;
 EQ_EN(EN := TRUE, iPreStopDelayAuxDrives, T#0MS, OUT => w5);
-DnStopDelayAuxDrives := w3 AND (w5 OR DnStopDelayAuxDrives);
+DnStopDelayAuxDrives := BRANCH_SHORTCIRCUIT(FEED := w3, w5, DnStopDelayAuxDrives);
 %NETWORK "NETWORK 5: Manual stop auxiliary drives"
 %WIRES w6
 OnDelayManStopAuxDrives(IN := GenFlags.EnableAuxDrive AND (NOT iStop1 OR NOT iStop2 OR NOT iStop3), PT := T#2S, Q => w6);
@@ -100,7 +100,7 @@ w8 := w7 AND GenFlags.EnableAuxDrive AND NOT GenFlags.AuxDrivesStarted;
 OnDelayStartAuxDrives(IN := w8, PT := iPreStartDelayAuxDrives, Q => w9);
 DnStartDelayAuxDrives := w9;
 EQ_EN(EN := TRUE, iPreStartDelayAuxDrives, T#0MS, OUT => w10);
-DnStartDelayAuxDrives := w8 AND (w10 OR DnStartDelayAuxDrives);
+DnStartDelayAuxDrives := BRANCH_SHORTCIRCUIT(FEED := w8, w10, DnStartDelayAuxDrives);
 GenFlags.AuxDrivesStarted R= w7;
 %NETWORK "NETWORK 7: Enable markers"
 %WIRES w11, w12

@@ -108,6 +108,9 @@ public static class StNetworkOracle
         Node S(Node x) => Spelled(x, fired, scope);
         switch (n)
         {
+            case Terminator { Flags.IsNone: true } when root:
+                fired.Add("an empty item stored as the rail as the empty operand");
+                return new Leaf(new Operand(""), Flags.None);
             case Terminator t when !root:
                 fired.Add("rail (Terminator) as TRUE");
                 return new Leaf(new Operand("TRUE"), t.Flags);
@@ -115,7 +118,8 @@ public static class StNetworkOracle
             {
                 fired.Add("an operand holding an ST expression as its boxes");
                 var tree = ExpressionTree(l.Operand.Text, scope);
-                return l.Flags.Negated ? Negate(tree) : tree;
+                if (l.Flags.Negated) tree = Negate(tree);
+                return l.Flags.Rising || l.Flags.Falling ? EdgeOn(tree, l.Flags) : tree;
             }
             case Assign a:
             {
@@ -143,12 +147,7 @@ public static class StNetworkOracle
             }
             case Demux d: return d.Input is null ? d : new Demux(d.VarId, S(d.Input));
             case Parallel p:
-            {
-                var sp = new Parallel(p.Input is null ? null : S(p.Input), p.Branches.Select(S).ToList(), p.Mode);
-                if (p.Branches.Any(HasSideEffect)) return sp;
-                fired.Add("side-effect-free Parallel as its AND/OR");
-                return ParallelAsBoxes(sp);
-            }
+                return new Parallel(p.Input is null ? null : S(p.Input), p.Branches.Select(S).ToList(), p.Mode);
             case Box b:
             {
                 // An unconnected FB input (an empty operand on a named pin) is the pin left out (measured, design.md 2.1).
@@ -158,9 +157,20 @@ public static class StNetworkOracle
                 var inputs = kept.Select(i =>
                 {
                     var v = S(i.Value);
-                    if (!i.Flags.Negated) return i with { Value = v };
-                    fired.Add("negated pin");
-                    return new Input(i.Formal, Negate(v), i.Flags with { Negated = false });
+                    var f = i.Flags;
+                    if (f.Negated)
+                    {
+                        fired.Add("negated pin");
+                        v = Negate(v);
+                        f = f with { Negated = false };
+                    }
+                    if (f.Rising || f.Falling)
+                    {
+                        fired.Add("edge on a pin as the edge on its value");
+                        v = EdgeOn(v, f);
+                        f = f with { Rising = false, Falling = false };
+                    }
+                    return new Input(i.Formal, v, f);
                 }).ToList();
                 var enable = b.Enable is null ? null : S(b.Enable);
                 var enableFlags = b.EnableFlags;
@@ -169,6 +179,12 @@ public static class StNetworkOracle
                     fired.Add("negated EN");
                     enable = Negate(enable);
                     enableFlags = enableFlags with { Negated = false };
+                }
+                if (enable is not null && (enableFlags.Rising || enableFlags.Falling))
+                {
+                    fired.Add("edge on EN as the edge on its value");
+                    enable = EdgeOn(enable, enableFlags);
+                    enableFlags = enableFlags with { Rising = false, Falling = false };
                 }
                 var outputs = b.Outputs.ToList();
                 if (outputs.RemoveAll(o => o.Formal is null && o.Value.Text == Box.UnnamedInstance) > 0)
@@ -181,10 +197,10 @@ public static class StNetworkOracle
                     type = declared;
                 }
                 Node box = b with { Type = type, Inputs = inputs, Enable = enable, Outputs = outputs, EnableFlags = enableFlags };
-                if (b.Flags.Negated && !b.Flags.Rising && !b.Flags.Falling && !root)
+                if (b.Flags.Negated && !root)
                 {
                     fired.Add("negated box output as a NOT box");
-                    box = StNetworkWriter.NotBox(((Box)box) with { Flags = b.Flags with { Negated = false } });
+                    box = StNetworkWriter.NotBox(((Box)box) with { Flags = Flags.None }) with { Flags = b.Flags with { Negated = false } };
                 }
                 return box;
             }
@@ -204,27 +220,13 @@ public static class StNetworkOracle
         _ => StNetworkWriter.NotBox(n),
     };
 
-    /// <summary>A Parallel with no side effect on a branch as the AND/OR it computes: the feed AND the OR of the branches.</summary>
-    static Node ParallelAsBoxes(Parallel p)
+    /// <summary>An edge as the text spells it: on the leaf or the box it is carried onto (the rail as a <c>TRUE</c> leaf).</summary>
+    static Node EdgeOn(Node n, Flags f) => n switch
     {
-        Node or = new Box("OR", null, CallKind.Operator, p.Branches.Select(b => new Input(null, b, Flags.None)).ToList(),
-            Array.Empty<Output>(), null, null, Flags.None);
-        return p.Input is null ? or
-            : new Box("AND", null, CallKind.Operator, new[] { new Input(null, p.Input, Flags.None), new Input(null, or, Flags.None) },
-                Array.Empty<Output>(), null, null, Flags.None);
-    }
-
-    /// <summary>A side effect on a branch: a coil, an FB or Execute box, a box with an output wired, a call that is no
-    /// operator (the table, NOT, MOVE).</summary>
-    static bool HasSideEffect(Node? n) => n switch
-    {
-        null => false,
-        Assign => true,
-        Box b => b.Instance is not null || b.StCode is not null || b.Outputs.Count > 0
-                 || !(new[] { "AND", "OR", "XOR", "ADD", "SUB", "MUL", "DIV", "MOD", "GT", "GE", "LT", "LE", "EQ", "NE", "NOT", "MOVE" }
-                      .Contains(b.Type.ToUpperInvariant()))
-                 || b.Children().Any(HasSideEffect),
-        _ => n.Children().Any(HasSideEffect),
+        Terminator t => EdgeOn(new Leaf(new Operand("TRUE"), t.Flags), f),
+        Leaf l => l with { Flags = l.Flags with { Rising = f.Rising, Falling = f.Falling } },
+        Box b => b with { Flags = b.Flags with { Rising = f.Rising, Falling = f.Falling } },
+        _ => n,
     };
 
     /// <summary>The boxes an operand holding an ST expression reads back as: the expression read as ST.</summary>

@@ -15,7 +15,7 @@
  */
 import type { Scope, Symbol } from "../../symbols/index.js"
 import type { CallArg, CallExpr, Expr } from "../../syntax/index.js"
-import { ENABLED_SUFFIX, isNetworkBox } from "../names.js"
+import { ENABLED_SUFFIX, ENO_SUFFIX, isNetworkBox, NETWORK_ELEMENTS } from "../names.js"
 import { elementaryRef, UNKNOWN, type Type } from "../type.js"
 import { inferExprType } from "./expr.js"
 
@@ -75,8 +75,10 @@ export function wireType(sym: Symbol, project: Scope): Type {
 function outputType(call: CallExpr, param: string, scope: Scope, project: Scope): Type {
   const upper = param.toUpperCase()
   if (upper === "ENO") return elementaryRef("BOOL")
-  if (call.callee.kind === "ident_expr" && isNetworkBox(scope, call.callee.name) && call.callee.name.toUpperCase() !== "EXECUTE") {
-    const base: Expr = { kind: "ident_expr", name: call.callee.name.slice(0, -ENABLED_SUFFIX.length), span: call.callee.span }
+  const callee = call.callee.kind === "ident_expr" ? call.callee.name.toUpperCase() : ""
+  if (call.callee.kind === "ident_expr" && isNetworkBox(scope, call.callee.name) && callee !== "EXECUTE" && !NETWORK_ELEMENTS.has(callee)) {
+    const suffix = callee.endsWith(ENO_SUFFIX) ? ENO_SUFFIX : ENABLED_SUFFIX
+    const base: Expr = { kind: "ident_expr", name: call.callee.name.slice(0, -suffix.length), span: call.callee.span }
     const baseType = inferExprType(base, scope, project)
     // an enabled FB's output by name is the FB's own, `OUT` included where the FB declares one
     if (baseType.kind === "function_block") return memberOf(base, param, call, scope, project)

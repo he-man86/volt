@@ -31,11 +31,14 @@ public class StNetworkOracleTcTests
             Check("tc-native-corpus/" + Path.GetFileName(file), XElement.Load(file, LoadOptions.PreserveWhitespace), results);
         var report = StNetworkOracle.Report("TwinCAT archives", results);
         StNetworkOracle.Save("twincat", report, results);
-        StNetworkOracle.AssertTally(results, report, identical: 140, stored: 8, new Dictionary<string, int>(StringComparer.Ordinal)
+        StNetworkOracle.AssertTally(results, report, identical: 143, stored: 8, new Dictionary<string, int>(StringComparer.Ordinal)
         {
-            ["a target that is no ST variable"] = 1,   // Vn_int_to_real's coil `r`: ST takes `s` and `r` for no name (1.2)
-            ["an edge contact"] = 3,                    // design.md: open for the owner, spelled by 3.0
-            ["a wire read before its definition"] = 1,  // Vn_fanout_two_wires: a Demux read in an item before the item defining it (3.0)
+            // Vn_int_to_real's coil `r`: CODESYS ST takes `s` and `r` for no name (1.2), and the LSP reads ST as CODESYS does.
+            // For the owner (design.md "3.0"): 0 occurrences in the corpora.
+            ["a target that is no ST variable"] = 1,
+            // Vn_fanout_two_wires: TwinCAT stored the import of two fan-outs with one wire defined twice and the other never
+            // (no ST can define a variable it never assigns). Niche: accepted loss (0 occurrences in the corpora).
+            ["a wire read and never defined"] = 1,
         });
     }
 

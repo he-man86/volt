@@ -54,17 +54,26 @@ export function resolveBareName(scope: Scope, name: string): BareName {
 /** The suffix of an enabled box's function in plain-ST network text: `MOVE_EN`, `GT_EN`, `t1_EN`. */
 export const ENABLED_SUFFIX = "_EN"
 
+/** The suffix of a box showing its ENO and no EN: `f_ENO`, `d1_ENO`. */
+export const ENO_SUFFIX = "_ENO"
+
+/** The text's own elements, each a function returning BOOL: the parallel branch (`BRANCH(FEED := f, b1, b2)`, one per
+ *  mode) and the edge on a contact or a box (`R_EDGE(x)`, `F_EDGE(x)`). */
+export const NETWORK_ELEMENTS: ReadonlySet<string> = new Set(["BRANCH", "BRANCH_SHORTCIRCUIT", "R_EDGE", "F_EDGE"])
+
 /**
  * IS `name` A NETWORK'S OWN BOX in `scope` (openspec network-text-st: one function per toolbox element) — written inside a
- * plain-ST network body (`Scope.network`) and declared by nothing: `EXECUTE`, the Execute box, and `<X>_EN`, the ENABLED
- * box of whatever `X` names (an operator, a function, an FB instance). Such a call returns its ENO.
+ * plain-ST network body (`Scope.network`) and declared by nothing: `EXECUTE`, the Execute box; `<X>_EN`, the ENABLED box
+ * of whatever `X` names (an operator, a function, an FB instance), and `<X>_ENO`, X showing its ENO and no EN — each
+ * returning its ENO; and the text's elements (`NETWORK_ELEMENTS`), each returning BOOL.
  */
 export function isNetworkBox(scope: Scope, name: string): boolean {
   if (!inNetwork(scope)) return false
   const upper = name.toUpperCase()
-  if (upper === "EXECUTE") return true
-  if (!upper.endsWith(ENABLED_SUFFIX) || upper.length === ENABLED_SUFFIX.length) return false
-  const base = resolveBareName(scope, name.slice(0, -ENABLED_SUFFIX.length)).kind
+  if (upper === "EXECUTE" || NETWORK_ELEMENTS.has(upper)) return true
+  const suffix = upper.endsWith(ENO_SUFFIX) ? ENO_SUFFIX : upper.endsWith(ENABLED_SUFFIX) ? ENABLED_SUFFIX : undefined
+  if (suffix === undefined || upper.length === suffix.length) return false
+  const base = resolveBareName(scope, name.slice(0, -suffix.length)).kind
   return base !== "none" && base !== "ambiguous"
 }
 

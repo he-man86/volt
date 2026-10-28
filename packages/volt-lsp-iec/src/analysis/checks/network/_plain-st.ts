@@ -8,15 +8,19 @@
  *                   code (or its one `%UNSUPPORTED` line); `%EXECUTE` … `%END_EXECUTE` stands among the code, full ST
  *                   between them;
  *   statements      an assignment (`:=`, `S=`, `R=`, chained), a call, `JMP l;`, `RETURN;`, an `IF` holding one `JMP`
- *                   or `RETURN` and no `ELSE`, and the network's label as its first statement;
+ *                   or `RETURN` and no `ELSE`, the empty item `;`, and the network's label as its first statement;
  *   expressions     every box a call; infix only the contacts (`a AND b`, `a OR b`, `NOT a` before an operand);
  *   wires           a name on its network's `%WIRES` line: declared in reach by nothing, named by one network, defined
- *                   once before it is read; one an expression defines is read twice or more (once, it is written
- *                   inline); a call read once through its wire stands directly before the statement that reads it, only
- *                   other such calls between, and defines no other wire (`w2 := w1;`: the call names w2 itself); an
- *                   enabled box other than a comparison is read by its value only as a coil's value, however often its
- *                   wire is read (CODESYS: "A box with EN can be used for comparison operators only.");
- *   enabled boxes   `X_EN(…)` takes `EN :=` first, and names nothing declared in reach (it is the enabled box of `X`).
+ *                   once and read by its name any number of times, before its definition too; a call read once through
+ *                   its wire stands directly before the statement that reads it, only other such calls between, and
+ *                   defines no other wire (`w2 := w1;`: the call names w2 itself); an enabled box other than a
+ *                   comparison is read by its value only as a coil's value, however often its wire is read (CODESYS: "A
+ *                   box with EN can be used for comparison operators only."), and through one `OUT`;
+ *   enabled boxes   `X_EN(…)` takes `EN :=` first, and names nothing declared in reach (it is the enabled box of `X`);
+ *                   `X_ENO(…)` neither (X showing ENO and no EN);
+ *   elements        `BRANCH(FEED := f, b1, b2)` / `BRANCH_SHORTCIRCUIT(…)` take the feed first, if fed, then the
+ *                   branches, positional; `R_EDGE(x)` / `F_EDGE(x)` one value, a contact or a box read where it stands;
+ *                   each is a value in a tree, and none names anything declared in reach.
  *
  * A `%DISABLED` network is held to the subset too (it is text a push writes), though nothing compiles it.
  */
@@ -37,6 +41,7 @@ import {
   allUnits,
 } from "../../../frontend/syntax/index.js"
 import { lookup, scopeForUnit, type Scope } from "../../../frontend/symbols/index.js"
+import { NETWORK_ELEMENTS } from "../../../frontend/types/index.js"
 import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 const CODE = "network-plain-st"
@@ -84,11 +89,12 @@ function checkBody(body: BodySpan, scope: Scope | undefined, out: DiagnosticItem
   const of = (span: Span) => text.networks.find((n) => span.start >= n.span.start && span.start < n.span.end)
   const inExecute = (span: Span) => text.networks.some((n) => n.executes.some((x) => span.start > x.header.end && span.start < x.span.end))
   const first = new Set<PlainStNetwork>()
+  const wires = new Set(text.networks.flatMap((n) => n.wires.map((w) => w.name.toLowerCase())))
   for (const stmt of parsed.statements) {
     if (inExecute(stmt.span)) continue
     const network = of(stmt.span)
     if (network === undefined) continue
-    checkStatement(stmt, !first.has(network), scope, out)
+    checkStatement(stmt, !first.has(network), scope, wires, out)
     first.add(network)
   }
   checkComments(body, text.networks, out)
@@ -119,7 +125,7 @@ function checkLines(n: PlainStNetwork, body: BodySpan, out: DiagnosticItem[]): v
   }
 }
 
-function checkStatement(stmt: Statement, first: boolean, scope: Scope | undefined, out: DiagnosticItem[]): void {
+function checkStatement(stmt: Statement, first: boolean, scope: Scope | undefined, wires: ReadonlySet<string>, out: DiagnosticItem[]): void {
   const word = NOT_IN_A_NETWORK[stmt.kind]
   if (word !== undefined) return emit(out, stmt.span, CODE, `an LD/FBD network cannot hold a ${word}`)
   switch (stmt.kind) {
@@ -131,14 +137,20 @@ function checkStatement(stmt: Statement, first: boolean, scope: Scope | undefine
       const inner = stmt.branches[0]?.body[0]
       if (!only || (inner?.kind !== "jmp" && inner?.kind !== "return"))
         emit(out, stmt.span, CODE, "a network's IF holds one JMP or RETURN and no ELSE: an LD/FBD network cannot hold other code under a condition")
-      checkExprs(stmt, scope, out)
+      checkExprs(stmt, scope, wires, out)
       return
     }
-    case "assign":
     case "call_stmt":
+      if (stmt.call.callee.kind === "ident_expr" && NETWORK_ELEMENTS.has(stmt.call.callee.name.toUpperCase()))
+        emit(out, stmt.span, CODE, `the call ${stmt.call.callee.name} stands alone: a branch or an edge is a value in a tree`)
+      checkExprs(stmt, scope, wires, out)
+      return
+    case "assign":
     case "jmp":
     case "return":
-      checkExprs(stmt, scope, out)
+      checkExprs(stmt, scope, wires, out)
+      return
+    case "empty":
       return
     default:
       emit(out, stmt.span, CODE, "a statement a network cannot hold: an assignment, a call, a jump or a return")
@@ -146,14 +158,14 @@ function checkStatement(stmt: Statement, first: boolean, scope: Scope | undefine
 }
 
 /** Infix only for the contacts; `NOT` only before an operand; an enabled box `EN :=` first. */
-function checkExprs(stmt: Statement, scope: Scope | undefined, out: DiagnosticItem[]): void {
+function checkExprs(stmt: Statement, scope: Scope | undefined, wires: ReadonlySet<string>, out: DiagnosticItem[]): void {
   for (const e of stmtExprs(stmt))
     walkExpr(e, (x) => {
       if (x.kind === "binary" && CALL_ONLY.has(x.op.toUpperCase()))
         emit(out, x.span, CODE, `an infix '${x.op}': in a network every box is a call, and only contacts are infix AND / OR`)
       if (x.kind === "unary" && x.op.toUpperCase() === "NOT" && !isOperand(x.operand))
         emit(out, x.span, CODE, "NOT before a call, a bracket or another NOT: NOT before an operand is a negated contact, and the NOT box is NOT(…)")
-      if (x.kind === "call") checkCall(x, scope, out)
+      if (x.kind === "call") checkCall(x, scope, wires, out)
     })
 }
 
@@ -161,16 +173,51 @@ function isOperand(e: Expr): boolean {
   return e.kind === "ident_expr" || e.kind === "literal" || e.kind === "member" || e.kind === "index" || e.kind === "deref" || e.kind === "global_expr"
 }
 
-function checkCall(call: CallExpr, scope: Scope | undefined, out: DiagnosticItem[]): void {
+function checkCall(call: CallExpr, scope: Scope | undefined, wires: ReadonlySet<string>, out: DiagnosticItem[]): void {
   if (call.callee.kind !== "ident_expr") return
+  const name = call.callee.name
+  const upper = name.toUpperCase()
+  const declared = scope !== undefined && lookup(scope, name) !== undefined
+  if (NETWORK_ELEMENTS.has(upper)) {
+    if (declared) emit(out, call.callee.span, CODE, `the call ${name} names something declared in reach, which the text reads as its own ${upper}`)
+    return upper.startsWith("BRANCH") ? checkBranch(call, name, out) : checkEdge(call, name, wires, out)
+  }
+  if (upper.endsWith("_ENO") && upper.length > 4) {
+    if (declared)
+      emit(out, call.callee.span, CODE, `the call ${name} names something declared in reach (a POU, an instance or a variable) whose name ends in _ENO, which the text reads as a box showing ENO`)
+    return
+  }
+  if (!upper.endsWith("_EN")) return
   const outs = call.args.filter((a) => a.output && a.param?.name.toUpperCase() === "OUT")
-  if (outs.length > 1) emit(out, call.span, CODE, `the call ${call.callee.name} names OUT twice: a box has one value`)
-  if (!call.callee.name.toUpperCase().endsWith("_EN")) return
-  if (scope !== undefined && lookup(scope, call.callee.name) !== undefined)
-    emit(out, call.callee.span, CODE, `the call ${call.callee.name} names something declared in reach (a POU, an instance or a variable) whose name ends in _EN, which the text reads as an enabled box`)
+  if (outs.length > 1 && outs.some((a) => a.value?.kind === "ident_expr" && wires.has(a.value.name.toLowerCase())))
+    emit(out, call.span, CODE, `the enabled box ${name} is read by its value and wires an unnamed output too: its value leaves through one OUT`)
+  if (declared)
+    emit(out, call.callee.span, CODE, `the call ${name} names something declared in reach (a POU, an instance or a variable) whose name ends in _EN, which the text reads as an enabled box`)
   const en = call.args[0]
   if (en === undefined || en.output || en.param?.name.toUpperCase() !== "EN")
-    emit(out, call.callee.span, CODE, `the enabled box ${call.callee.name} takes EN := as its first argument`)
+    emit(out, call.callee.span, CODE, `the enabled box ${name} takes EN := as its first argument`)
+}
+
+/** `BRANCH(FEED := f, b1, b2)`: the feed first if fed, then the branches, positional; at least one branch. */
+function checkBranch(call: CallExpr, name: string, out: DiagnosticItem[]): void {
+  const fed = call.args[0] !== undefined && !call.args[0].output && call.args[0].param?.name.toUpperCase() === "FEED"
+  const branches = call.args.slice(fed ? 1 : 0)
+  if (branches.some((a) => a.output || a.param !== undefined))
+    emit(out, call.span, CODE, `the branch ${name} takes FEED := first, if fed, then its branches, positional`)
+  else if (branches.length === 0) emit(out, call.span, CODE, `the branch ${name} holds no branch`)
+}
+
+/** `R_EDGE(x)`: one positional value — a contact (`x`, `NOT x`) or a box read where it stands, never a wire, a branch, a
+ *  coil or another edge. */
+function checkEdge(call: CallExpr, name: string, wires: ReadonlySet<string>, out: DiagnosticItem[]): void {
+  const [arg, ...rest] = call.args
+  if (arg === undefined || rest.length > 0 || arg.output || arg.param !== undefined || arg.value === undefined)
+    return emit(out, call.span, CODE, `the edge ${name} takes one value, positional`)
+  const v = arg.value
+  const inner = v.kind === "unary" && v.op.toUpperCase() === "NOT" ? v.operand : v
+  const element = v.kind === "call" && v.callee.kind === "ident_expr" && NETWORK_ELEMENTS.has(v.callee.name.toUpperCase())
+  if (element || v.kind === "assign_expr" || (inner.kind === "ident_expr" && wires.has(inner.name.toLowerCase())))
+    emit(out, call.span, CODE, `the edge ${name} over a wire, a branch, a coil, a box written as a statement or another edge: an edge is on a contact or on a box read where it stands`)
 }
 
 /** A `//` comment stands before its network's code; a block comment or a pragma nowhere outside an Execute box. */
@@ -208,17 +255,18 @@ function checkWires(
 ): void {
   const wireOf = new Map<string, { network: PlainStNetwork; span: Span }>()
   for (const n of networks) for (const w of n.wires) if (!wireOf.has(w.name.toLowerCase())) wireOf.set(w.name.toLowerCase(), { network: n, span: w.span })
-  const defined = new Map<string, { at: number; byExpression: boolean }>()
+  const defined = new Map<string, { at: number }>()
   const reads = new Map<string, number>()
   const byCall = new Map<string, CallWire>()
   const readAt = new Map<string, WireRead[]>()
+  const early: { key: string; span: Span; name: string }[] = []
   const isWire = (e: Expr) => e.kind === "ident_expr" && wireOf.has(e.name.toLowerCase())
   let index = -1
-  const define = (target: Expr, byExpression: boolean) => {
+  const define = (target: Expr) => {
     if (target.kind !== "ident_expr" || !wireOf.has(target.name.toLowerCase())) return
     const key = target.name.toLowerCase()
     if (defined.has(key)) emit(out, target.span, CODE, `the wire ${target.name} is defined twice`)
-    else defined.set(key, { at: target.span.start, byExpression })
+    else defined.set(key, { at: target.span.start })
   }
   for (const stmt of statements) {
     if (inExecute(stmt.span)) continue
@@ -229,7 +277,7 @@ function checkWires(
     if (stmt.kind === "assign" && stmt.op === undefined && (stmt.chained ?? []).length === 0 && isWire(stmt.target)) wireDefValue = stmt.value
     else if (stmt.kind === "assign") assignValues.add(stmt.value)
     if (stmt.kind === "assign") {
-      if (stmt.op === undefined && (stmt.chained ?? []).length === 0) define(stmt.target, true)
+      if (stmt.op === undefined && (stmt.chained ?? []).length === 0) define(stmt.target)
       else for (const t of [stmt.target, ...(stmt.chained ?? [])])
         if (t.kind === "ident_expr" && wireOf.has(t.name.toLowerCase()))
           emit(out, t.span, CODE, `the wire ${t.name} is assigned beside other targets or by S=/R=: a wire is defined alone`)
@@ -239,14 +287,14 @@ function checkWires(
     for (const e of stmtExprs(stmt))
       walkExpr(e, (x) => {
         if (x.kind === "assign_expr") {
-          define(x.target, true)
+          define(x.target)
           targets.add(x.target)
           if (!isWire(x.target)) assignValues.add(x.value)
         }
         if (x.kind === "call") {
           const statement = stmt.kind === "call_stmt" && stmt.call === x
           for (const a of x.args) if (a.output && a.value !== undefined) {
-            define(a.value, false)
+            define(a.value)
             targets.add(a.value)
             if (statement && a.value.kind === "ident_expr" && wireOf.has(a.value.name.toLowerCase()))
               byCall.set(a.value.name.toLowerCase(), { index, call: x, pin: a.param?.name ?? "" })
@@ -262,18 +310,16 @@ function checkWires(
         readAt.set(key, [...(readAt.get(key) ?? []), { index, span: x.span, assignValue: assignValues.has(x), wireDefValue: x === wireDefValue }])
         if (of(x.span) !== wire.network) emit(out, x.span, CODE, `the wire ${x.name} is read outside its network: a wire is its network's`)
         const d = defined.get(key)
-        if (d === undefined || d.at > x.span.start) emit(out, x.span, CODE, `the wire ${x.name} is read before it is defined`)
+        if (d === undefined || d.at > x.span.start) early.push({ key, span: x.span, name: x.name })
       })
   }
   checkCallWires(byCall, reads, readAt, scope, out)
-  for (const [key, wire] of wireOf) {
-    const d = defined.get(key)
-    const n = reads.get(key) ?? 0
-    if (d === undefined) emit(out, wire.span, CODE, `the wire ${key} is named and never defined`)
-    else if (n === 0) emit(out, wire.span, CODE, `the wire ${key} is defined and never read`)
-    else if (d.byExpression && n < 2)
-      emit(out, wire.span, CODE, `the wire ${key} is read ${n} time: a wire defined by an expression is read twice or more (written inline when read once)`)
-  }
+  // A wire may be read before its definition (the value it held), except the one a call read once defines: that read is
+  // the box itself, which stands directly before it.
+  for (const e of early)
+    if (byCall.has(e.key) && reads.get(e.key) === 1) emit(out, e.span, CODE, `the wire ${e.name} is read before it is defined`)
+  for (const [key, wire] of wireOf)
+    if (!defined.has(key)) emit(out, wire.span, CODE, `the wire ${key} is named and never defined`)
 }
 
 /** The wires call statements define: a call read once stands directly before its reader and defines no other wire; an

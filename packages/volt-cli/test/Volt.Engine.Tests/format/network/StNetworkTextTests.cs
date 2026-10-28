@@ -137,22 +137,20 @@ public class StNetworkTextTests
         RoundTrips(Fbd1(Set(Fb("t1", new[] { In(L("a"), "IN") }, type: "TON") with { MainOutputName = "Q" }, T("x"))),
             "%LANGUAGE FBD\n%NETWORK\n%WIRES w1\nt1(IN := a, Q => w1);\nx := w1;\n");
 
-    /// <summary>A box written as a statement before its item (an FB, read once) reads only wires the text has defined by
-    /// then: a wire defined INSIDE its own item (<c>(w1 := a OR b)</c>) is set after the call, so the call would read the
-    /// previous scan's value where the network feeds this scan's. That shape has no spelling (0 in the corpora); a wire
-    /// an earlier item defines is read as it stands.</summary>
+    /// <summary>A wire is read by its name, before its definition too (openspec network-text-st 3.0): a box written as a
+    /// statement before its item reads a wire its own item defines inline, as CODESYS runs a tree's FB boxes before the tree
+    /// (1.4) — the value the wire held. A wire an earlier item defines is read as it stands.</summary>
     [Fact]
-    public void A_statement_box_reading_a_wire_its_own_item_defines_has_no_spelling()
+    public void A_statement_box_reads_a_wire_its_own_item_defines_by_its_name()
     {
         var t1 = Fb("t1", new[] { In(Ref(1), "IN"), In(L("T#1S"), "PT") }, type: "TON") with { MainOutputName = "Q" };
-        var inline = Ld1(Set(Op("AND", Def(1, Op("OR", L("a"), L("b"))), t1), T("y")), Set(Ref(1), T("z")));
-        var ex = Assert.Throws<StNetworkUnspellableException>(() => StNetworkWriter.Write(inline, Scope(inline)));
-        Assert.Equal("a box before its item reading a wire its item defines", ex.Reason);
-        Assert.StartsWith("%LANGUAGE LD\n%NETWORK\n%UNSUPPORTED \"a box before its item reading a wire its item defines\"",
-            StNetworkWriter.WritePulled(inline, Scope(inline)));
-
+        RoundTrips(Ld1(Set(Op("AND", Def(1, Op("OR", L("a"), L("b"))), t1), T("y")), Set(Ref(1), T("z"))),
+            "%LANGUAGE LD\n%NETWORK\n%WIRES w1, w2\nt1(IN := w1, PT := T#1S, Q => w2);\ny := (w1 := a OR b) AND w2;\nz := w1;\n");
         RoundTrips(Ld1(Def(1, Op("OR", L("a"), L("b"))), Set(Op("AND", Ref(1), t1), T("y")), Set(Ref(1), T("z"))),
             "%LANGUAGE LD\n%NETWORK\n%WIRES w1, w2\nw1 := a OR b;\nt1(IN := w1, PT := T#1S, Q => w2);\ny := w1 AND w2;\nz := w1;\n");
+        // a Demux read before the item that defines it (TwinCAT stores one): the previous scan's value
+        RoundTrips(Ld1(Set(Ref(1), T("x")), Def(1, Op("AND", L("a"), L("b"))), Set(Ref(1), T("y"))),
+            "%LANGUAGE LD\n%NETWORK\n%WIRES w1\nx := w1;\nw1 := a AND b;\ny := w1;\n");
     }
 
     [Fact]
@@ -183,15 +181,57 @@ public class StNetworkTextTests
     [Fact]
     public void A_pull_shows_an_unspellable_network_as_its_UNSUPPORTED_line()
     {
-        var edge = new Volt.Engine.Format.Network.Network(0, "edge", null, null, false, new Node[] { Set(L("clk", Rise), T("x")) });
+        var jump = new Volt.Engine.Format.Network.Network(0, "jump", null, null, false,
+            new Node[] { new Assign(L("c"), new[] { T("x1"), T("done", JumpBit) }, JumpBit) });
         var plain = new Volt.Engine.Format.Network.Network(1, null, null, null, false, new Node[] { Set(L("a"), T("y")) });
-        var body = new NetworkBody(BodyLanguage.Ld, new[] { edge, plain });
+        var body = new NetworkBody(BodyLanguage.Ld, new[] { jump, plain });
         var text = StNetworkWriter.WritePulled(body, Scope(body));
-        Assert.Equal($"%LANGUAGE LD\n%NETWORK \"edge\"\n%UNSUPPORTED \"an edge contact\" #{NetworkTextWriter.Hash(edge)}\n%NETWORK\ny := a;\n", text);
+        Assert.Equal($"%LANGUAGE LD\n%NETWORK \"jump\"\n%UNSUPPORTED \"a jump with several targets\" #{NetworkTextWriter.Hash(jump)}\n%NETWORK\ny := a;\n", text);
         var back = StNetworkReader.Read(text, Scope(body));
-        Assert.Equal("an edge contact", back.Networks[0].Unsupported);
+        Assert.Equal("a jump with several targets", back.Networks[0].Unsupported);
         Assert.Throws<StNetworkUnspellableException>(() => StNetworkWriter.Write(body, Scope(body)));
     }
+
+    /// <summary>3.0: the LD parallel branch is its own function, one per mode, its feed the formal <c>FEED</c> (absent at the
+    /// rail); a branch holding a box is spelled as any other (the network runs it under the measured short-circuit rule).</summary>
+    [Fact]
+    public void A_parallel_branch_is_BRANCH_or_BRANCH_SHORTCIRCUIT_with_its_feed_as_FEED()
+    {
+        var fed = new Volt.Engine.Format.Network.Parallel(L("start"), new Node[] { L("a"), Op("AND", L("b"), L("c")) }, ParallelMode.Sequential);
+        var rail = new Volt.Engine.Format.Network.Parallel(null, new Node[] { L("a"), Call("f", new[] { In(L("b"), "IN") }, connected: 0) }, ParallelMode.BoxShortCircuit);
+        RoundTrips(Ld1(Set(fed, T("x")), Set(rail, T("y"))),
+            "%LANGUAGE LD\n%NETWORK\nx := BRANCH(FEED := start, a, b AND c);\ny := BRANCH_SHORTCIRCUIT(a, f(IN := b));\n");
+    }
+
+    /// <summary>3.0: an edge is a call on the contact or the box it is on; the IDE negates before the edge (N17).</summary>
+    [Fact]
+    public void An_edge_is_R_EDGE_or_F_EDGE_on_its_contact_or_box() =>
+        RoundTrips(Ld1(Set(L("clk", Rise), T("a")), Set(L("clk", Neg with { Falling = true }), T("b")),
+                       Set(Op("AND", L("x"), L("y")) with { Flags = Rise }, T("c"))),
+            "%LANGUAGE LD\n%NETWORK\na := R_EDGE(clk);\nb := F_EDGE(NOT clk);\nc := R_EDGE(x AND y);\n");
+
+    /// <summary>3.0: the vendor's unnamed instance (<c>???</c>) is the box called by its FB type, which names no instance —
+    /// what the IDE draws; a box showing ENO and no EN is <c>X_ENO</c>, returning its ENO; the empty item is <c>;</c>.</summary>
+    [Fact]
+    public void The_unnamed_instance_the_ENO_only_box_and_the_empty_item_are_spelled()
+    {
+        var none = new System.Collections.Generic.Dictionary<string, string>();
+        var scope = new NetworkScope(new[] { "go", "x", "a" }, new[] { "f" }, none, new[] { "Axis" });
+        RoundTrips(Fbd1(Fb("???", new[] { In(L("go"), "xEnable") }, type: "Axis"),
+                        Set(Call("f", new[] { In(L("a"), "IN") }, connected: 0, eno: true), T("x")),
+                        new Leaf(new Operand(""), Flags.None)),
+            "%LANGUAGE FBD\n%NETWORK\nAxis(xEnable := go);\nx := f_ENO(IN := a);\n;\n", scope);
+    }
+
+    /// <summary>3.0: each <c>OUT =&gt;</c> is the next unnamed output slot; <c>ENO =&gt;</c> a variable is the ENO pin wired;
+    /// a box type is spelled in the case the IDE stores it.</summary>
+    [Fact]
+    public void Several_OUTs_an_ENO_variable_and_a_typed_case_are_spelled() =>
+        RoundTrips(Fbd1(Call("MOVE", new[] { In(L("0")) }, new[] { Out("a", 0), Out("b", 1) }, kind: CallKind.Operator),
+                        Call("MOVE", new[] { In(L("7")) }, new[] { new Output("ENO", new Operand("lamp", IsLValue: true)), Out("x", 1) }, en: L("c"), eno: true, kind: CallKind.Operator),
+                        Set(Op("and", L("a"), L("b")), T("y"))),
+            "%LANGUAGE FBD\n%NETWORK\nMOVE(0, OUT => a, OUT => b);\nMOVE_EN(EN := c, 7, ENO => lamp, OUT => x);\ny := and(a, b);\n");
+
 
     [Fact]
     public void A_wire_name_skips_the_names_in_reach_and_one_declared_in_reach_is_refused_by_name()
@@ -224,13 +264,11 @@ public class StNetworkTextTests
         Assert.Equal(3, ex.Line);
     }
 
+    /// <summary>3.0: a Demux is a wire whatever its reads — once, or none (TwinCAT and the case set store both).</summary>
     [Fact]
-    public void A_wire_read_once_with_an_expression_definition_is_refused_by_name()
-    {
-        var ex = Assert.Throws<StNetworkReadException>(() =>
-            StNetworkReader.Read("%LANGUAGE LD\n%NETWORK\n%WIRES w1\nw1 := a AND b;\nx := w1;\n", NetworkScope.Empty));
-        Assert.Contains("read twice or more", ex.Message);
-    }
+    public void A_wire_read_once_or_never_is_a_Demux() =>
+        RoundTrips(Ld1(Def(1, Op("AND", L("a"), L("b"))), Set(Ref(1), T("x")), Def(2, L("c"))),
+            "%LANGUAGE LD\n%NETWORK\n%WIRES w1, w2\nw1 := a AND b;\nx := w1;\nw2 := c;\n");
 
     /// <summary>A keyword operator heads a call wherever an operand or a statement starts (<c>AND(</c>, <c>XOR(</c>,
     /// <c>MOD(</c>, <c>NOT(</c>); after an operand it is the contact (<c>a AND b</c>).</summary>
@@ -246,10 +284,10 @@ public class StNetworkTextTests
         Assert.Equal("AND", Assert.IsType<Box>(body.Networks[0].Trees[1]).Type);
     }
 
-    /// <summary>An enabled box has one value: <c>OUT</c> named twice is refused, and so is a call read by its return that
-    /// also defines a wire.</summary>
+    /// <summary>An enabled box read by its value has one value: another <c>OUT</c> is refused, and so is a call read by its
+    /// return that also defines a wire.</summary>
     [Theory]
-    [InlineData("%WIRES w1\nMOVE_EN(EN := c, 1, OUT => x, OUT => w1);\ny := w1;", "OUT twice")]
+    [InlineData("%WIRES w1\nMOVE_EN(EN := c, 1, OUT => x, OUT => w1);\ny := w1;", "wires an unnamed output too")]
     [InlineData("%WIRES w1\ny := MOVE_EN(EN := c, 1, OUT => w1);\nz := w1;", "read by its return and defines the wire")]
     public void An_enabled_box_with_two_values_is_refused_by_name(string code, string named)
     {

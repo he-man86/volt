@@ -2,37 +2,37 @@
 === text
 %LANGUAGE LD
 %NETWORK
-lamp := start AND (a OR b AND LE(speed, 40) OR c);
+lamp := BRANCH(FEED := start, a, b AND LE(speed, 40), c);
 === model
 NETWORK
-  (:= lamp (AND start (OR a (AND b (LE speed 40 conn:0)) c)))
+  (:= lamp (par seq start a (AND b (LE speed 40 conn:0)) c))
 
 #### branch-shortcircuit — the v2 case parallel/branch-shortcircuit, as a pull writes it
 === text
 %LANGUAGE LD
 %NETWORK
-lamp := start AND (a OR b);
+lamp := BRANCH_SHORTCIRCUIT(FEED := start, a, b);
 === model
 NETWORK
-  (:= lamp (AND start (OR a b)))
+  (:= lamp (par sc start a b))
 
 #### branch-unfed — the v2 case parallel/branch-unfed, as a pull writes it
 === text
 %LANGUAGE LD
 %NETWORK
-lamp := a OR b;
+lamp := BRANCH(a, b);
 === model
 NETWORK
-  (:= lamp (OR a b))
+  (:= lamp (par seq - a b))
 
 #### branch-nested — the v2 case parallel/branch-nested, as a pull writes it
 === text
 %LANGUAGE LD
 %NETWORK
-lamp := start AND (a OR c AND (b OR go));
+lamp := BRANCH(FEED := start, a, BRANCH(FEED := c, b, go));
 === model
 NETWORK
-  (:= lamp (AND start (OR a (AND c (OR b go)))))
+  (:= lamp (par seq start a (par seq c b go)))
 
 #### branch-as-operand — the v2 case parallel/branch-as-operand, as a pull writes it
 === text
@@ -40,35 +40,37 @@ NETWORK
 %NETWORK
 %WIRES w1
 LE_EN(EN := low, speed, 40, OUT => w1);
-MOVE_EN(EN := (run AND (NOT low OR w1)) AND NOT cleaning, speed, OUT => t);
+MOVE_EN(EN := BRANCH(FEED := run, NOT low, w1) AND NOT cleaning, speed, OUT => t);
 === model
 NETWORK
-  (MOVE speed =>1:t en:(AND (AND run (OR not:low (LE speed 40 en:low conn:0))) not:cleaning) eno:1)
+  (MOVE speed =>1:t en:(AND (par seq run not:low (LE speed 40 en:low conn:0)) not:cleaning) eno:1)
 
 #### branch-word-feed — the v2 case parallel/branch-word-feed, as a pull writes it
 === text
 %LANGUAGE LD
 %NETWORK
-%UNSUPPORTED "an operand named like an ST keyword" #38dc1034
+x := BRANCH(FEED := go AND sync, a, b);
 === model
-NETWORK unsupported:"an operand named like an ST keyword" hash:38dc1034
+NETWORK
+  (:= x (par seq (AND go sync) a b))
 
 #### branch-negated-feed — the v2 case parallel/branch-negated-feed, as a pull writes it
 === text
 %LANGUAGE LD
 %NETWORK
-%UNSUPPORTED "an operand named like an ST keyword" #234d8a99
+x := BRANCH(FEED := NOT go, a, b);
 === model
-NETWORK unsupported:"an operand named like an ST keyword" hash:234d8a99
+NETWORK
+  (:= x (par seq not:go a b))
 
 #### branch-as-en-source — the v2 case parallel/branch-as-en-source, as a pull writes it
 === text
 %LANGUAGE LD
 %NETWORK
-MOVE_EN(EN := go AND (a OR b), 1, OUT => x);
+MOVE_EN(EN := BRANCH(FEED := go, a, b), 1, OUT => x);
 === model
 NETWORK
-  (MOVE 1 =>1:x en:(AND go (OR a b)) eno:1)
+  (MOVE 1 =>1:x en:(par seq go a b) eno:1)
 
 #### branch-of-enabled-comparisons — the v2 case parallel/branch-of-enabled-comparisons, as a pull writes it
 === text
@@ -78,40 +80,45 @@ NETWORK
 GE_EN(EN := TRUE, pos, start, OUT => w2);
 LE_EN(EN := w2, pos, stop, OUT => w1);
 GT_EN(EN := TRUE, start, stop, OUT => w3);
-cam := enable AND (w1 OR w3);
+cam := BRANCH_SHORTCIRCUIT(FEED := enable, w1, w3);
 === model
 NETWORK
-  (:= cam (AND enable (OR (LE pos stop en:(GE pos start en:TRUE conn:0) conn:0) (GT start stop en:TRUE conn:0))))
+  (:= cam (par sc enable (LE pos stop en:(GE pos start en:TRUE conn:0) conn:0) (GT start stop en:TRUE conn:0)))
 
 #### branch-per-line — the v2 case parallel/branch-per-line, as a pull writes it
 === text
 %LANGUAGE LD
 %NETWORK
-%UNSUPPORTED "a Parallel with a side effect on a branch" #95248210
+lamp := BRANCH(FEED := start, a, MOVE_EN(EN := MOVE_EN(EN := c, 2, OUT => u), 1, OUT => t), d);
 === model
-NETWORK unsupported:"a Parallel with a side effect on a branch" hash:95248210
+NETWORK
+  (:= lamp (par seq start a (MOVE 1 =>1:t en:(MOVE 2 =>1:u en:c conn:0 eno:1) conn:0 eno:1) d))
 
 #### branch-per-line-read-on-one — the v2 case parallel/branch-per-line-read-on-one, as a pull writes it
 === text
 %LANGUAGE LD
 %NETWORK
-%UNSUPPORTED "a Parallel with a side effect on a branch" #95248210
+lamp := BRANCH(FEED := start, a, MOVE_EN(EN := MOVE_EN(EN := c, 2, OUT => u), 1, OUT => t), d);
 === model
-NETWORK unsupported:"a Parallel with a side effect on a branch" hash:95248210
+NETWORK
+  (:= lamp (par seq start a (MOVE 1 =>1:t en:(MOVE 2 =>1:u en:c conn:0 eno:1) conn:0 eno:1) d))
 
 #### empty-branch — the v2 case parallel/empty-branch, as a pull writes it
 === text
 %LANGUAGE LD
 %NETWORK
-%UNSUPPORTED "an operand named like an ST keyword" #05612c7b
+x := BRANCH(FEED := go, a, TRUE, b);
+y := BRANCH(FEED := go, a, TRUE);
 === model
-NETWORK unsupported:"an operand named like an ST keyword" hash:05612c7b
+NETWORK
+  (:= x (par seq go a TRUE b))
+  (:= y (par seq go a TRUE))
 
 #### eno-feeds-a-branch — the v2 case parallel/eno-feeds-a-branch, as a pull writes it
 === text
 %LANGUAGE LD
 %NETWORK
-x := MOVE_EN(EN := c, 1, OUT => t) AND (d OR e);
+x := BRANCH(FEED := MOVE_EN(EN := c, 1, OUT => t), d, e);
 === model
 NETWORK
-  (:= x (AND (MOVE 1 =>1:t en:c conn:0 eno:1) (OR d e)))
+  (:= x (par seq (MOVE 1 =>1:t en:c conn:0 eno:1) d e))

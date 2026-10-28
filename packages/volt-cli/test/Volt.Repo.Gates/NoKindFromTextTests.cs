@@ -79,11 +79,13 @@ public class NoKindFromTextTests
             "the END line mirror's three keywords (PouHeaderKeyword); the VAR section words a slotless member's declaration " +
             "runs through (VarSectionKeywords, the LSP's VAR_SECTION_KEYWORDS: where a declaration ENDS — no kind, no name)"),
         ["Volt.Engine/Format/St/StWriter.cs"] = new(1, "the refusal of a POU with no header names the three keywords the END line mirrors"),
-        ["Volt.Engine/Format/St/StDeclaration.cs"] = new(3,
+        ["Volt.Engine/Format/St/StDeclaration.cs"] = new(4,
             "network-text scope's statement reader: the block words (VAR_GLOBAL, STRUCT, UNION …) that end a variable " +
             "statement (D5) — it reads names and types, no header and no kind; and IsFunction, the CALLEE's header a call " +
             "box's CallType is derived from (ld-fbd-coverage 2R.4, DIALECT N40: a FUNCTION's box compiles only with " +
-            "CallType Function) — a box member, never the item's own kind or wire name, which stay its class's (pou). " +
+            "CallType Function) — a box member, never the item's own kind or wire name, which stay its class's (pou); " +
+            "IsFunctionBlock the same, the CALLEE a call box headed by a type names (network-text-st 3.0: a block type " +
+            "called with no instance is the vendor's unnamed-instance box, a PROGRAM's call is none). " +
             "OPEN FOR THE OWNER (tasks 2R.4 gate, finding 6): a callee pushed in the same batch is read off its unchecked " +
             "pushed text; the alternative is the IDE object's own POU type, which no driver reports yet"),
         ["Volt.Engine/Library/LibSignatureRenderer.cs"] = new(8,

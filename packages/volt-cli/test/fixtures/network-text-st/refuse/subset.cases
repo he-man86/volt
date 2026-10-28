@@ -114,7 +114,7 @@ MOVE_EN(1, OUT => x);
 === refused
 network-plain-st takes EN := as its first argument
 
-#### out-twice — a box has one value
+#### out-twice — an enabled box read by its value has one value
 === text
 %LANGUAGE LD
 %NETWORK
@@ -122,7 +122,7 @@ network-plain-st takes EN := as its first argument
 MOVE_EN(EN := c, 1, OUT => x, OUT => w1);
 y := w1;
 === refused
-network-plain-st names OUT twice
+network-plain-st wires an unnamed output too
 
 #### return-and-wire — a box read where it stands has no wire
 === text
@@ -185,27 +185,6 @@ y := split1;
 === refused
 network-plain-st a wire is w<n>
 
-#### wire-read-once — an expression read once is written inline
-=== text
-%LANGUAGE LD
-%NETWORK
-%WIRES w1
-w1 := a AND b;
-x := w1;
-=== refused
-network-plain-st read twice or more
-
-#### wire-read-before-definition — a wire is defined before it is read
-=== text
-%LANGUAGE LD
-%NETWORK
-%WIRES w1
-x := w1;
-w1 := a AND b;
-y := w1;
-=== refused
-network-plain-st is read before it is defined
-
 #### wire-defined-twice — a wire is defined once
 === text
 %LANGUAGE LD
@@ -228,17 +207,6 @@ y := w1;
 z := w1;
 === refused
 network-plain-st a wire is defined alone
-
-#### wire-never-read — a wire is read
-=== text
-%LANGUAGE LD
-%NETWORK
-%WIRES w1
-t1(IN := a, Q => w1);
-=== scope
-instance t1 TON
-=== refused
-network-plain-st is defined and never read
 
 #### wire-never-defined — a named wire is defined
 === text
@@ -368,19 +336,6 @@ y := w1;
 === refused
 network-plain-st directly before the statement that reads it
 
-#### call-reads-a-wire-its-reader-defines — a box read once reads only wires defined before it
-=== text
-%LANGUAGE LD
-%NETWORK
-%WIRES w1, w2
-t1(IN := w1, PT := T#1S, Q => w2);
-y := (w1 := a OR b) AND w2;
-z := w1;
-=== scope
-instance t1 TON
-=== refused
-network-plain-st is read before it is defined
-
 #### enabled-value-inside-a-box — only an enabled comparison is read by its value inside a box
 === text
 %LANGUAGE FBD
@@ -469,3 +424,67 @@ pou foo
 name foo_EN
 === refused
 network-plain-st reads as an enabled box
+
+#### branch-pin-named — a branch takes its feed as FEED, then its branches positional
+=== text
+%LANGUAGE LD
+%NETWORK
+x := BRANCH(FEED := a, b, IN := c);
+=== refused
+network-plain-st then its branches, positional
+
+#### branch-standing-alone — a branch is a value in a tree
+=== text
+%LANGUAGE LD
+%NETWORK
+BRANCH(FEED := a, b, c);
+=== refused
+network-plain-st is a value in a tree
+
+#### branch-without-branches — a branch holds a branch
+=== text
+%LANGUAGE LD
+%NETWORK
+x := BRANCH(FEED := a);
+=== refused
+network-plain-st holds no branch
+
+#### edge-over-a-wire — an edge is on a contact or a box
+=== text
+%LANGUAGE LD
+%NETWORK
+%WIRES w1
+w1 := AND(a, b);
+x := R_EDGE(w1);
+y := w1;
+=== refused
+network-plain-st an edge is on a contact or on a box read where it stands
+
+#### edge-with-two-values — an edge takes one value
+=== text
+%LANGUAGE LD
+%NETWORK
+x := F_EDGE(a, b);
+=== refused
+network-plain-st takes one value, positional
+
+#### element-name-in-reach — the text's own function names name nothing in reach
+=== text
+%LANGUAGE LD
+%NETWORK
+x := R_EDGE(a);
+=== scope
+pou R_EDGE
+=== refused
+network-plain-st declared in reach
+
+#### eno-box-named-in-reach — X_ENO names nothing declared in reach
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := foo_ENO(b);
+=== scope
+pou foo
+name foo_ENO
+=== refused
+network-plain-st reads as a box showing ENO

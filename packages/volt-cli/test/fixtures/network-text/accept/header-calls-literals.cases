@@ -110,6 +110,8 @@ NETWORK
   (:= output (TON@t2 IN=_ PT=e1 name:Q))
 
 #### unnamed-instance — `??? : TYPE(…)`, the vendor's unnamed instance
+=== scope
+fb Axis
 === text
 %LANGUAGE FBD
 NETWORK
@@ -171,12 +173,12 @@ instance t2 TON
 %LANGUAGE FBD
 NETWORK
   q := t1 : TON(NOT IN := v, PT := T#1S).Q;
-  r := t2 : TON(IN := NOT v, PT := T#1S).Q;
+  p := t2 : TON(IN := NOT v, PT := T#1S).Q;
 END_NETWORK
 === model
 NETWORK
   (:= q (TON@t1 !IN=v PT=T#1S name:Q))
-  (:= r (TON@t2 IN=not:v PT=T#1S name:Q))
+  (:= p (TON@t2 IN=not:v PT=T#1S name:Q))
 
 #### negated-contact — `NOT x` is the negated contact, a flag
 === text
@@ -218,7 +220,7 @@ NETWORK
 NETWORK
   sName := 'Recipes';
   n := -1;
-  r := -1.5;
+  re := -1.5;
   t := T#1S;
   w := 16#FF;
 END_NETWORK
@@ -226,7 +228,7 @@ END_NETWORK
 NETWORK
   (:= sName 'Recipes')
   (:= n -1)
-  (:= r -1.5)
+  (:= re -1.5)
   (:= t T#1S)
   (:= w 16#FF)
 

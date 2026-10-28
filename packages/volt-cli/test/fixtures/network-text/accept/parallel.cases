@@ -52,21 +52,21 @@ NETWORK
 === text
 %LANGUAGE LD
 NETWORK
-  x := (s AND sync) BRANCH (a, b);
+  x := (go AND sync) BRANCH (a, b);
 END_NETWORK
 === model
 NETWORK
-  (:= x (par seq (AND s sync) a b))
+  (:= x (par seq (AND go sync) a b))
 
-#### branch-negated-feed — `NOT s BRANCH (a, b)` negates the feed
+#### branch-negated-feed — `NOT go BRANCH (a, b)` negates the feed
 === text
 %LANGUAGE LD
 NETWORK
-  x := NOT s BRANCH (a, b);
+  x := NOT go BRANCH (a, b);
 END_NETWORK
 === model
 NETWORK
-  (:= x (par seq not:s a b))
+  (:= x (par seq not:go a b))
 
 #### branch-as-en-source — EN's source is a slot: a parallel there takes no brackets
 === text
@@ -130,13 +130,13 @@ END_NETWORK
 === text
 %LANGUAGE LD
 NETWORK
-  x := s BRANCH (a, , b);
-  y := s BRANCH (a, );
+  x := go BRANCH (a, , b);
+  y := go BRANCH (a, );
 END_NETWORK
 === model
 NETWORK
-  (:= x (par seq s a _ b))
-  (:= y (par seq s a _))
+  (:= x (par seq go a _ b))
+  (:= y (par seq go a _))
 
 #### eno-feeds-a-branch — a box read through ENO as a parallel's feed is bracketed (10)
 === text

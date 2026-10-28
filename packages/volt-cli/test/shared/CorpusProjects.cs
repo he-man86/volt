@@ -48,7 +48,7 @@ public static class CorpusProjects
 public sealed class CorpusProject
 {
     readonly Dictionary<string, string> _files = new(StringComparer.OrdinalIgnoreCase);
-    readonly Dictionary<string, string> _libraryPous = new(StringComparer.OrdinalIgnoreCase);
+    readonly Dictionary<string, List<string>> _libraryPous = new(StringComparer.OrdinalIgnoreCase);
     readonly Dictionary<string, string?> _declarations = new(StringComparer.OrdinalIgnoreCase);
     List<string>? _globals;
 
@@ -59,7 +59,11 @@ public sealed class CorpusProject
             var stem = Path.GetFileNameWithoutExtension(f);
             if (CorpusProjects.InLibrary(f))
             {
-                if (CorpusProjects.KindOf(f) is ItemKind.Kinds.Pou && !_libraryPous.ContainsKey(stem)) _libraryPous[stem] = f;
+                if (CorpusProjects.KindOf(f) is ItemKind.Kinds.Pou)
+                {
+                    if (!_libraryPous.TryGetValue(stem, out var same)) _libraryPous[stem] = same = new List<string>();
+                    same.Add(f);
+                }
                 continue;
             }
             if (CorpusProjects.KindOf(f) is ItemKind.Kinds.Pou or ItemKind.Kinds.Interface or ItemKind.Kinds.Gvl or ItemKind.Kinds.Dut)
@@ -73,11 +77,13 @@ public sealed class CorpusProject
     /// without the libraries' functions (2R.4b derives them live).</summary>
     public Callee? LibraryBlock(string name)
     {
-        if (!_libraryPous.TryGetValue(name, out var f)) return null;
-        var source = File.ReadAllText(f).Replace("\r\n", "\n");
-        var header = source.TrimStart().Split('\n')[0];
-        if (!header.StartsWith("FUNCTION_BLOCK", StringComparison.OrdinalIgnoreCase)) return null;
-        return new Callee(Callee.FunctionBlockCallType, StDeclaration.InputNames(source), StDeclaration.OutputNames(source));
+        if (!_libraryPous.TryGetValue(name, out var files)) return null;
+        // As the driver's answer (LibraryFunctions.Of): a FUNCTION of that name in any library wins over a block of it —
+        // bakon-nano holds Standard's DELETE function beside CAA File's DELETE block.
+        var sources = files.Select(f => File.ReadAllText(f).Replace("\r\n", "\n")).ToList();
+        if (sources.Any(s => StDeclaration.IsFunction(s))) return null;
+        var source = sources.FirstOrDefault(s => StDeclaration.IsFunctionBlock(s));
+        return source is null ? null : new Callee(Callee.FunctionBlockCallType, StDeclaration.InputNames(source), StDeclaration.OutputNames(source));
     }
 
     /// <summary>Every file of the project directory <paramref name="root"/>.</summary>
