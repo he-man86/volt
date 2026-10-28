@@ -31,13 +31,16 @@ public sealed partial class BeckhoffDriver
         var declaration = _om.ReadDeclaration(Com(item));
         var (body, unsupported, stated) = ReadBody(item, declaration);
 
+        // The saved file is read ONCE for the item: its properties and, for an interface, its accessors' stored text. Before
+        // the members: a member's exclusion is read against its POU's (C39 — every member of an excluded POU reads inherited).
+        var facts = _om.SavedFacts(Com(item), () => $"'{Name(item)}'");
+        var ownerExcluded = facts.Build.Exclusion == TcExclusion.Own;
+
         var members = new List<Member>();
         var ownerIsInterface = KindCode(item) == ItemKind.PlcItf;
         foreach (var site in Volt.Engine.Ide.MemberSites.Of(this, item))
-            members.Add(ReadMember(site, ownerIsInterface, declaration));
+            members.Add(ReadMember(site, ownerIsInterface, declaration, ownerExcluded));
 
-        // The saved file is read ONCE for the item: its properties and, for an interface, its accessors' stored text.
-        var facts = _om.SavedFacts(Com(item), () => $"'{Name(item)}'");
         if (ownerIsInterface) RequireMeasuredAccessorDeclarations(() => Name(item), facts, members);
 
         // Every text verbatim, trailing newlines included (openspec bridge-one-to-one §1.1, trailing-newline-cache).
@@ -115,12 +118,8 @@ public sealed partial class BeckhoffDriver
             throw new BridgeException(BridgeErrorCodes.Unsupported,
                 $"{What()}: its .plcproj entry holds <{entry}> — a build property TwinCAT has no measured member for in " +
                 "Volt's text, so the object is not pulled.");
-        // An item under an excluded folder is named by the walk and never read (WalkInner): one read here is a folder
-        // exclusion the walk did not see.
-        if (facts.Build.Exclusion == TcExclusion.Inherited)
-            throw new BridgeException(BridgeErrorCodes.Unreadable,
-                $"{What()}: TwinCAT reads it as excluded by a folder above it, and the walk found no excluded folder there " +
-                "(DIALECT C39), so it is not pulled.");
+        // An item under an excluded folder is named by the walk and never read (WalkInner); one TwinCAT reads as excluded
+        // from above (`readonly`) was refused by the read itself (TcObjectModel.ExclusionOf, C39).
         return Spelled(facts.Build);
     }
 
@@ -133,10 +132,11 @@ public sealed partial class BeckhoffDriver
         CompilerDefines = build.CompilerDefines,
     };
 
-    /// <summary>A member's own build properties (C39, C40). An exclusion that reads as inherited is its POU's, whose own
-    /// line says so; TwinCAT shows no member flag of its own under an excluded POU. The others are always its own.</summary>
-    private ObjectProperties MemberProperties(ItemRef member, string name) =>
-        Spelled(_om.Build(Com(member), () => $"'{name}'"));
+    /// <summary>A member's own build properties (C39, C40). Inside an excluded POU (<paramref name="ownerExcluded"/>) its
+    /// exclusion reads inherited — the POU's, whose own line says so; read anywhere else, it is refused by name. TwinCAT
+    /// shows no member flag of its own under an excluded POU. The others are always its own.</summary>
+    private ObjectProperties MemberProperties(ItemRef member, string name, bool ownerExcluded) =>
+        Spelled(_om.Build(Com(member), () => $"'{name}'", ownerExcluded));
 
     /// <summary>Write each pushed build property that differs from the live one (C39, C40) — the item's and every pushed
     /// member's — AFTER the text, so nothing a text write rewrites can undo it. An item being included goes first and one
@@ -145,7 +145,7 @@ public sealed partial class BeckhoffDriver
     private void WriteBuildProperties(ItemRef item, ItemContent content)
     {
         string Item() => $"'{Name(item)}'";
-        var live = _om.Build(Com(item), Item);
+        var live = _om.Build(Com(item), Item, ownerExcluded: false);
         var held = live.Exclusion == TcExclusion.Own;
         var pushed = content.Properties.ExcludeFromBuild;
         if (held && !pushed) _om.WriteExclusion(Com(item), false, Item);
@@ -159,7 +159,8 @@ public sealed partial class BeckhoffDriver
             {
                 if (!sites.TryGetValue(m.Name, out var member)) continue;   // the member write refused it by name
                 string What() => $"'{Name(item)}': its {m.Kind.Replace('_', ' ')} '{m.Name}'";
-                var memberLive = _om.Build(Com(member), What);
+                // Excluded while its members are read only when it was and stays so (included first, excluded last).
+                var memberLive = _om.Build(Com(member), What, ownerExcluded: held && pushed);
                 if (memberLive.Exclusion == TcExclusion.Own != m.Properties.ExcludeFromBuild)
                     _om.WriteExclusion(Com(member), m.Properties.ExcludeFromBuild, What);
                 WriteOwn(Com(member), memberLive, m.Properties, What);
@@ -607,7 +608,8 @@ public sealed partial class BeckhoffDriver
     // ── members ───────────────────────────────────────────────────────────────────────────────────
 
 
-    internal Member ReadMember(Volt.Engine.Ide.MemberSites.Site site, bool ownerIsInterface, string? ownerDeclaration)
+    internal Member ReadMember(Volt.Engine.Ide.MemberSites.Site site, bool ownerIsInterface, string? ownerDeclaration,
+                               bool ownerExcluded)
     {
         // The member's kind is decided by its code AND its owner — the one map CODESYS asks too (ItemKind.MemberKind,
         // openspec bridge-refusal-review D20); a code with no kind is refused by name (push-without-header-check 5.Q.7).
@@ -642,7 +644,7 @@ public sealed partial class BeckhoffDriver
         var (body, unsupported, stated) = ReadBody(site.Ref, scope);
         // A member's saved facts live in its owner's file, which the owner's read refuses on (ReadProperties); its
         // exclusion is its own live property (C39).
-        return new Member(kind, site.Name, declaration, body, MemberProperties(site.Ref, site.Name), site.Folder, getter, setter,
+        return new Member(kind, site.Name, declaration, body, MemberProperties(site.Ref, site.Name, ownerExcluded), site.Folder, getter, setter,
                           Unsupported: unsupported, Stated: stated);
     }
 

@@ -23,7 +23,7 @@ public class TcMemberKindTests
         var site = new MemberSites.Site(null, TcRefs.Ref(node), "Mystery", 9999);
 
         var ex = Assert.Throws<BridgeException>(() =>
-            driver.ReadMember(site, ownerIsInterface: false, "FUNCTION_BLOCK K"));
+            driver.ReadMember(site, ownerIsInterface: false, "FUNCTION_BLOCK K", ownerExcluded: false));
 
         Assert.Equal(BridgeErrorCodes.Unsupported, ex.ErrorCode);
         // The phrase is the shared rule's (ItemKind.MemberKind), pinned exactly: one map, one message on both vendors.
@@ -45,7 +45,7 @@ public class TcMemberKindTests
         var driver = TcUntouchablePouTests.BoundDriver();
         var site = new MemberSites.Site(null, TcRefs.Ref(node), "Run", code);
 
-        var member = driver.ReadMember(site, ownerIsInterface, "FUNCTION_BLOCK K");
+        var member = driver.ReadMember(site, ownerIsInterface, "FUNCTION_BLOCK K", ownerExcluded: false);
 
         Assert.Equal(expected, member.Kind);
     }

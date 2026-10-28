@@ -193,18 +193,11 @@ public sealed partial class BeckhoffDriver
                     catch (Exception ex) when (!IsRpcFault(ex))
                     {
                         // Its kind is KNOWN (a folder): the folder it sits in was walked whole. Whether it is built was not
-                        // read, so its own subtree is unwalked — nothing under it is read as deleted.
+                        // read — the property is missing, unparseable, or `readonly` with no excluded folder above it (C39:
+                        // that is measured only under an excluded folder, which the walk does not ask) — so its own subtree
+                        // is unwalked: nothing under it is read as deleted, or as built.
                         VoltLog.Warn($"walk: the Exclude property of folder '{name}' at folder='{folderPath}' is unreadable (named unreadable): {ex.Message}");
                         unreadable.Add(new UnreadableObject(name, folderPath, ex.Message, ItemKind.Kinds.Folder, Code: BridgeErrorCodes.Unreadable));
-                        unwalked.Add(nested);
-                        continue;
-                    }
-                    if (exclusion == TcExclusion.Inherited)
-                    {
-                        var why = $"'{name}': TwinCAT reads it as excluded by a folder above it, and the walk found no " +
-                                  "excluded folder there (DIALECT C39), so what it holds is not read.";
-                        VoltLog.Warn($"walk: {why}");
-                        unreadable.Add(new UnreadableObject(name, folderPath, why, ItemKind.Kinds.Folder, Code: BridgeErrorCodes.Unreadable));
                         unwalked.Add(nested);
                         continue;
                     }

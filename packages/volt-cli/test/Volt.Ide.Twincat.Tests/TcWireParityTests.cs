@@ -108,7 +108,7 @@ public class TcWireParityTests
         var driver = TcUntouchablePouTests.BoundDriver();
         var site = new MemberSites.Site(null, TcRefs.Ref(property), "Speed", ItemKind.PlcItfProp);
 
-        var member = driver.ReadMember(site, ownerIsInterface: true, WireParityCases.InterfaceDeclaration);
+        var member = driver.ReadMember(site, ownerIsInterface: true, WireParityCases.InterfaceDeclaration, ownerExcluded: false);
 
         Assert.Equal(WireParityCases.InterfaceWithGetter,
             StWriter.Write(new ItemContent(ItemKind.Kinds.Interface, WireParityCases.InterfaceDeclaration, null,

@@ -92,7 +92,7 @@ public class TcUnansweredValueTests
         var xml = "<TreeItem><VSProperties>" + TcExclusionTests.Property("False") +
                   TcExclusionTests.Own("External", "False") + TcExclusionTests.Own("LinkAlways", "False") +
                   "<VSProperty category=\"Advanced\"><Name>CompilerDefines</Name></VSProperty></VSProperties></TreeItem>";
-        var ex = Assert.Throws<BridgeException>(() => new TcObjectModel().Build(new Answers { Xml = xml }, () => "'FB_X'"));
+        var ex = Assert.Throws<BridgeException>(() => new TcObjectModel().Build(new Answers { Xml = xml }, () => "'FB_X'", ownerExcluded: false));
         Assert.Contains("'FB_X'", ex.Message);
         Assert.Contains("CompilerDefines", ex.Message);
         Assert.Contains("no Value", ex.Message);

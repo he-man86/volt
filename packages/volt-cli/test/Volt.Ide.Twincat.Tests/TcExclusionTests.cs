@@ -28,6 +28,8 @@ public class TcExclusionTests
     {
         null => "",
         "Inherited" => "<VSProperty category=\"Advanced\" readonly=\"true\"><Name>Exclude</Name><Value>True</Value></VSProperty>",
+        // Never measured (C39): a read-only False — a test's what-if.
+        "ReadOnlyFalse" => "<VSProperty category=\"Advanced\" readonly=\"true\"><Name>Exclude</Name><Value>False</Value></VSProperty>",
         _ => $"<VSProperty category=\"Advanced\"><Name>Exclude</Name><Value>{exclude}</Value></VSProperty>",
     };
 
@@ -54,8 +56,8 @@ public class TcExclusionTests
         public string External = "False", LinkAlways = "False", CompilerDefines = "";
         /// <summary>A POU's <c>AdditionalAllocation</c>; null where the node publishes none (every non-POU).</summary>
         public string? AdditionalAllocation;
-        /// <summary>The property TcXaeShell marks <c>readonly</c> — never measured on these (C40); a test's what-if.</summary>
-        public string? ReadOnly;
+        /// <summary>The properties TcXaeShell marks <c>readonly</c> — never measured on these (C40); a test's what-if.</summary>
+        public string[] ReadOnly = Array.Empty<string>();
         /// <summary>The property the node does not publish — never measured (C40); a test's what-if.</summary>
         public string? Omitted;
         /// <summary>A <c>ConsumeXml</c> the IDE accepts and does not apply.</summary>
@@ -68,7 +70,7 @@ public class TcExclusionTests
 
         private string Prop(string name, string value) =>
             name == Omitted ? ""
-            : name == ReadOnly ? Own(name, value).Replace("category=\"Advanced\"", "category=\"Advanced\" readonly=\"true\"")
+            : ReadOnly.Contains(name) ? Own(name, value).Replace("category=\"Advanced\"", "category=\"Advanced\" readonly=\"true\"")
             : Own(name, value);
 
         public void Consume(string xml)
@@ -265,6 +267,61 @@ public class TcExclusionTests
         var excluded = Read(saved, new Pou(saved.File, "True", new Member("Run", ItemKind.PlcMethod, "METHOD Run : BOOL", "Inherited")));
         Assert.True(excluded.Properties.ExcludeFromBuild);
         Assert.Equal(ObjectProperties.None, Assert.Single(excluded.Members).Properties);
+    }
+
+    // ── a read-only Exclude: exactly the measured meaning (C39) ──────────────────────────────────────────────────────
+
+    /// <summary>C39 measured a <c>readonly</c> <c>True</c> only on what an excluded folder or POU holds. A member reading it
+    /// inside a POU that is NOT excluded is the unmeasured state (openspec <c>twincat-readonly-build-properties</c>): read as
+    /// inherited, a member the engineer excluded pulled as a built one. Refused by name.</summary>
+    [Fact]
+    public void A_member_reading_a_read_only_exclusion_inside_a_POU_that_is_not_excluded_is_refused_by_name()
+    {
+        using var saved = new Saved(SubType);
+        var ex = Assert.Throws<BridgeException>(() => Read(saved, new Pou(saved.File, "False",
+            new Member("Run", ItemKind.PlcMethod, "METHOD Run : BOOL", "Inherited"))));
+        Assert.Contains("'Run'", ex.Message);
+        Assert.Contains("read-only", ex.Message);
+        Assert.Contains("C39", ex.Message);
+    }
+
+    /// <summary>…and the other way: C39 measured EVERY member of an excluded POU reading <c>True</c> <c>readonly</c>, its
+    /// own flag included. One reading a writable flag there is not what was measured — refused, not read as its own.</summary>
+    [Fact]
+    public void A_member_reading_a_writable_exclusion_inside_an_excluded_POU_is_refused_by_name()
+    {
+        using var saved = new Saved(SubType);
+        var ex = Assert.Throws<BridgeException>(() => Read(saved, new Pou(saved.File, "True",
+            new Member("Run", ItemKind.PlcMethod, "METHOD Run : BOOL", "True"))));
+        Assert.Contains("'Run'", ex.Message);
+        Assert.Contains("C39", ex.Message);
+    }
+
+    /// <summary>A <c>readonly</c> <c>False</c> was never measured anywhere — refused by name, never read as built.</summary>
+    [Fact]
+    public void A_read_only_Exclude_False_is_refused_by_name()
+    {
+        using var saved = new Saved(SubType);
+        var ex = Assert.Throws<BridgeException>(() => Read(saved, new Pou(saved.File, "ReadOnlyFalse")));
+        Assert.Contains("'FB_X'", ex.Message);
+        Assert.Contains("read-only", ex.Message);
+    }
+
+    /// <summary>A top-level folder reading a <c>readonly</c> <c>True</c> has no excluded folder above it the walk saw: named
+    /// unreadable, and nothing under it is read (as deleted or as built).</summary>
+    [Fact]
+    public void A_folder_reading_a_read_only_exclusion_with_no_excluded_folder_above_is_named_and_hides_nothing()
+    {
+        var (driver, _, _, _) = Project(x => new Node(x, "Untitled2 Project", ItemKind.PlcFolder, false,
+            new Folder(x, "Sim", "Inherited", new Node(x, "SimType", ItemKind.PlcDutStruct))));
+
+        var walk = driver.WalkItems();
+
+        var node = Assert.Single(walk.UnreadableObjects);
+        Assert.Equal(("Sim", ItemKind.Kinds.Folder), (node.Name, node.Kind));
+        Assert.Contains("C39", node.Reason);
+        Assert.Contains(App + "/Sim", walk.UnwalkedFolders);
+        Assert.DoesNotContain(walk.Items, i => i.Name == "SimType");
     }
 
     // ── the push ─────────────────────────────────────────────────────────────────────────────────────────────────────

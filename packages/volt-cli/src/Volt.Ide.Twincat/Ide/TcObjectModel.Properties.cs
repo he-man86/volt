@@ -18,8 +18,9 @@ internal sealed record TcSavedFacts(string File, string? SpecialFunc, IReadOnlyL
                                     TcBuild Build);
 
 /// <summary>Whether the IDE builds a tree node, as its LIVE <c>Exclude</c> property answers (DIALECT C39): <c>False</c>
-/// is <see cref="Built"/>; <c>True</c> is the node's <see cref="Own"/> flag, or <see cref="Inherited"/> when the IDE marks
-/// the property <c>readonly</c> — the node sits under an excluded folder (or, for a member, in an excluded POU).</summary>
+/// is <see cref="Built"/>; <c>True</c> is the node's <see cref="Own"/> flag, or <see cref="Inherited"/> — <c>True</c> marked
+/// <c>readonly</c>, read only where C39 measured it: on a member of an excluded POU (the walk reads nothing under an
+/// excluded folder). Any other <c>readonly</c> <c>Exclude</c> is refused by name (<c>TcObjectModel.ExclusionOf</c>).</summary>
 internal enum TcExclusion { Built, Own, Inherited }
 
 /// <summary>A PLC item's or member's build properties, as its LIVE <c>Advanced</c> VSProperties answer them (DIALECT C39,
@@ -33,28 +34,42 @@ internal sealed partial class TcObjectModel
     internal const string LinkAlwaysProperty = "LinkAlways", ExternalProperty = "External",
                           CompilerDefinesProperty = "CompilerDefines", AdditionalAllocationProperty = "AdditionalAllocation";
 
+    /// <summary>Every build property C40 measured as the object's own value, never <c>readonly</c>.</summary>
+    private static readonly string[] OwnBuildProperties =
+        { LinkAlwaysProperty, ExternalProperty, CompilerDefinesProperty, AdditionalAllocationProperty };
+
     /// <summary>The node's live build properties (C39, C40), from its <c>ProduceXml</c>, which TwinCAT answers from memory,
     /// saved or not — every TwinCAT tree item does (T2: the offline doubles answer it too, so no branch is theirs).</summary>
     /// <param name="what">The node, as a refusal names it — formatted only when one is thrown.</param>
-    public TcBuild Build(object node, Func<string> what)
+    /// <param name="ownerExcluded">The node is a member of a POU whose own <c>Exclude</c> is set — the one place Volt reads
+    /// a <c>readonly</c> exclusion as inherited (C39). False for an item: the walk reads nothing under an excluded folder.</param>
+    public TcBuild Build(object node, Func<string> what, bool ownerExcluded)
     {
         var xml = ((dynamic)node).ProduceXml(false) as string;
         if (string.IsNullOrEmpty(xml))
             throw new BridgeException(BridgeErrorCodes.Unreadable,
                 $"{what()}: TwinCAT answers no item XML for it — Volt reads its build properties there, so it is not " +
                 "pulled rather than pulled without them.");
-        return BuildOf(XDocument.Parse(xml!).Root, what);
+        return BuildOf(XDocument.Parse(xml!).Root, what, ownerExcluded);
     }
 
     /// <summary>The build properties of a node's item XML. Every PLC item and member publishes <c>LinkAlways</c>,
     /// <c>External</c> and <c>CompilerDefines</c> as its own value — never <c>readonly</c>, under an excluded folder or POU
-    /// too (C40); one missing or <c>readonly</c>, or a flag other than <c>True</c>/<c>False</c>, is refused by name, never
-    /// read as unset. A POU's <c>AdditionalAllocation</c> has no line (C40): a value other than <c>0</c> refuses the object
-    /// by name.</summary>
-    private static TcBuild BuildOf(XElement? item, Func<string> what)
+    /// too (C40) — and a POU its <c>AdditionalAllocation</c> the same way. Any of them <c>readonly</c> refuses the object,
+    /// naming EVERY read-only one (a field report could not tell whether one or all were); one missing, or a flag other
+    /// than <c>True</c>/<c>False</c>, is refused by name, never read as unset. <c>AdditionalAllocation</c> has no line (C40):
+    /// a value other than <c>0</c> refuses the object by name.</summary>
+    private static TcBuild BuildOf(XElement? item, Func<string> what, bool ownerExcluded)
     {
-        var exclusion = ExclusionOf(item, what);
-        if ((string?)VsProperty(item, AdditionalAllocationProperty)?.Element("Value") is { } bytes && bytes != "0")
+        var readOnly = OwnBuildProperties.Where(n => VsProperty(item, n)?.Attribute("readonly") is not null).ToList();
+        if (readOnly.Count > 0)
+            throw new BridgeException(BridgeErrorCodes.Unreadable,
+                $"{what()}: TwinCAT marks read-only its {string.Join(", ", readOnly)} —" +
+                " Volt has measured every build property only as the object's own value (DIALECT C40), so it " +
+                "is not pulled.");
+        var exclusion = ExclusionOf(item, what, ownerExcluded);
+        if (VsProperty(item, AdditionalAllocationProperty) is not null
+            && Own(item, AdditionalAllocationProperty, what) is var bytes && bytes != "0")
             throw new BridgeException(BridgeErrorCodes.Unsupported,
                 $"{what()}: its AdditionalAllocation is '{bytes}' — a build property Volt's text has no line for (DIALECT " +
                 "C40), so the object is not pulled rather than pulled without it. Set it to 0 in the IDE, or edit the " +
@@ -67,17 +82,14 @@ internal sealed partial class TcObjectModel
     private static XElement? VsProperty(XElement? item, string name) =>
         item?.Element("VSProperties")?.Elements("VSProperty").FirstOrDefault(p => (string?)p.Element("Name") == name);
 
-    /// <summary>The value of the node's own, writable build property <paramref name="name"/> (C40).</summary>
+    /// <summary>The value of the node's own, writable build property <paramref name="name"/> (C40) — a read-only one never
+    /// reaches here: <see cref="BuildOf"/> refused it first.</summary>
     private static string Own(XElement? item, string name, Func<string> what)
     {
         var property = VsProperty(item, name)
             ?? throw new BridgeException(BridgeErrorCodes.Unreadable,
                 $"{what()}: TwinCAT publishes no {name} property for it — Volt reads that build property there (DIALECT " +
                 "C40), so it is not pulled rather than pulled without it.");
-        if ((string?)property.Attribute("readonly") == "true")
-            throw new BridgeException(BridgeErrorCodes.Unreadable,
-                $"{what()}: TwinCAT marks its {name} property read-only — Volt has measured it only as the object's own " +
-                "value (DIALECT C40), so it is not pulled.");
         // `<Value />` when empty (C40); no `<Value>` at all is unmeasured — refused, never read as the empty value.
         return (string?)property.Element("Value")
             ?? throw new BridgeException(BridgeErrorCodes.Unreadable,
@@ -107,8 +119,9 @@ internal sealed partial class TcObjectModel
             throw new BridgeException(BridgeErrorCodes.Unsupported,
                 $"{what()}: TwinCAT took {name}='{value}' and reads '{now}' back — the write did not land (DIALECT C40).");
     }
-    /// <summary>The node's live exclusion (DIALECT C39): its <c>ProduceXml</c>'s <c>Exclude</c> VSProperty, which TwinCAT
-    /// answers from memory, saved or not, and which holds an exclusion inherited from a folder.</summary>
+    /// <summary>The live exclusion (DIALECT C39) of a node no excluded POU holds — a folder the walk reached, an item, a
+    /// member being written: its <c>ProduceXml</c>'s <c>Exclude</c> VSProperty, which TwinCAT answers from memory, saved or
+    /// not. Never <see cref="TcExclusion.Inherited"/>: a <c>readonly</c> one is refused by name (<see cref="ExclusionOf"/>).</summary>
     /// <param name="what">The node, as a refusal names it — formatted only when one is thrown.</param>
     public TcExclusion Exclusion(object node, Func<string> what)
     {
@@ -117,12 +130,18 @@ internal sealed partial class TcObjectModel
             throw new BridgeException(BridgeErrorCodes.Unreadable,
                 $"{what()}: TwinCAT answers no item XML for it — Volt reads its Exclude property there, so it is not " +
                 "pulled rather than pulled as a built one.");
-        return ExclusionOf(XDocument.Parse(xml!).Root, what);
+        return ExclusionOf(XDocument.Parse(xml!).Root, what, ownerExcluded: false);
     }
 
-    /// <summary>The <c>Exclude</c> VSProperty of a node's item XML. Every PLC item, member and folder publishes it (C39);
-    /// one that does not, or a value other than <c>True</c>/<c>False</c>, is refused by name — never read as built.</summary>
-    private static TcExclusion ExclusionOf(XElement? item, Func<string> what)
+    /// <summary>The <c>Exclude</c> VSProperty of a node's item XML — EXACTLY THE MEASURED MEANINGS (C39). Every PLC item,
+    /// member and folder publishes it; one that does not, or a value other than <c>True</c>/<c>False</c>, is refused by
+    /// name — never read as built. Not <c>readonly</c>: the node's own flag. <c>readonly</c> <c>True</c>: inherited — C39
+    /// measured it only on what an excluded folder or POU holds, so it reads <see cref="TcExclusion.Inherited"/> only on a
+    /// member whose POU is excluded (<paramref name="ownerExcluded"/>), where EVERY member reads it, its own flag included.
+    /// Anything else is refused by name: a <c>readonly</c> one where nothing above was read as excluded (TwinCAT publishing
+    /// an object's OWN exclusion read-only would otherwise pull an excluded object as inherited, i.e. as built — openspec
+    /// <c>twincat-readonly-build-properties</c>), a writable one inside an excluded POU, a <c>readonly</c> <c>False</c>.</summary>
+    private static TcExclusion ExclusionOf(XElement? item, Func<string> what, bool ownerExcluded)
     {
         var property = item?.Element("VSProperties")?.Elements("VSProperty")
                            .FirstOrDefault(p => (string?)p.Element("Name") == "Exclude")
@@ -130,11 +149,22 @@ internal sealed partial class TcObjectModel
                 $"{what()}: TwinCAT publishes no Exclude property for it — Volt reads whether the IDE builds it there " +
                 "(DIALECT C39), so it is not pulled rather than pulled as a built one.");
         var value = (string?)property.Element("Value");
-        if (value == "False") return TcExclusion.Built;
-        if (value != "True")
+        if (value is not ("True" or "False"))
             throw new BridgeException(BridgeErrorCodes.Unreadable,
                 $"{what()}: its Exclude property reads '{value}' — neither True nor False (DIALECT C39), so it is not pulled.");
-        return (string?)property.Attribute("readonly") == "true" ? TcExclusion.Inherited : TcExclusion.Own;
+        var readOnly = property.Attribute("readonly") is not null;
+        var read = readOnly ? value + " read-only" : value;
+        if (ownerExcluded)
+            return readOnly && value == "True" ? TcExclusion.Inherited
+                : throw new BridgeException(BridgeErrorCodes.Unreadable,
+                    $"{what()}: it sits in an excluded POU and TwinCAT reads its Exclude as {read} — Volt has measured every " +
+                    "member of an excluded POU reading True read-only (DIALECT C39), so it is not pulled.");
+        if (readOnly)
+            throw new BridgeException(BridgeErrorCodes.Unreadable,
+                $"{what()}: TwinCAT reads its Exclude as {read}, and nothing above it that Volt read is excluded — Volt has " +
+                "measured a read-only Exclude only on what an excluded folder or POU holds (DIALECT C39), so whether the " +
+                "IDE builds it cannot be read; it is not pulled.");
+        return value == "True" ? TcExclusion.Own : TcExclusion.Built;
     }
 
     /// <summary>Set the node's own <c>Exclude</c> flag through <c>ConsumeXml</c> of that one property (C39), and READ IT
@@ -173,7 +203,7 @@ internal sealed partial class TcObjectModel
                 "(its special function, its object properties, its build entry), so it is not pulled rather than pulled " +
                 "as an object with none.");
         // The live build properties, from the same XML: the exclusion (own, or inherited from a folder, C39) and the rest (C40).
-        var build = BuildOf(item, what);
+        var build = BuildOf(item, what, ownerExcluded: false);
         if (!File.Exists(path))
             throw new BridgeException(BridgeErrorCodes.Unreadable,
                 $"{what()}: its saved file '{path}' is not on disk — save the project in the IDE (File > Save All) and pull " +

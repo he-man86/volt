@@ -135,9 +135,40 @@ public class TcBuildPropertiesTests
     {
         using var saved = new Saved(SubType);
         var pou = new Pou(saved.File, "False");
-        pou.Live.ReadOnly = "LinkAlways";
+        pou.Live.ReadOnly = new[] { "LinkAlways" };
         var ex = Assert.Throws<BridgeException>(() => Read(saved, pou));
         Assert.Contains("LinkAlways", ex.Message);
+        Assert.Contains("read-only", ex.Message);
+    }
+
+    /// <summary>The field finding (PLC Assist, 2026-10-27): every item refused on <c>CompilerDefines</c>, and the message
+    /// could not say whether <c>LinkAlways</c> and <c>External</c> were read-only too — the read stopped at the first. The
+    /// refusal names every read-only build property the item publishes.</summary>
+    [Fact]
+    public void The_read_only_refusal_names_every_read_only_build_property()
+    {
+        using var saved = new Saved(SubType);
+        var pou = new Pou(saved.File, "False");
+        pou.Live.ReadOnly = new[] { "External", "LinkAlways", "CompilerDefines" };
+        var ex = Assert.Throws<BridgeException>(() => Read(saved, pou));
+        Assert.Contains("'FB_X'", ex.Message);
+        Assert.Contains("External", ex.Message);
+        Assert.Contains("LinkAlways", ex.Message);
+        Assert.Contains("CompilerDefines", ex.Message);
+        Assert.DoesNotContain("AdditionalAllocation", ex.Message);
+    }
+
+    /// <summary>A POU's <c>AdditionalAllocation</c> is read like the others (C40): a read-only one is unmeasured and refused
+    /// by name — it was read as the object's own value, and its <c>0</c> pulled.</summary>
+    [Fact]
+    public void A_read_only_AdditionalAllocation_is_refused_by_name()
+    {
+        using var saved = new Saved(SubType);
+        var pou = new Pou(saved.File, "False");
+        pou.Live.ReadOnly = new[] { "AdditionalAllocation" };
+        var ex = Assert.Throws<BridgeException>(() => Read(saved, pou));
+        Assert.Contains("'FB_X'", ex.Message);
+        Assert.Contains("AdditionalAllocation", ex.Message);
         Assert.Contains("read-only", ex.Message);
     }
 

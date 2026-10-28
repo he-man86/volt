@@ -138,7 +138,7 @@ public class TcSilentFallbackTests
     public void A_node_that_answers_no_automation_XML_is_not_read_as_a_plain_built_object()
     {
         var model = new TcObjectModel();
-        Assert.ThrowsAny<Exception>(() => model.Build(new object(), () => "'X'"));
+        Assert.ThrowsAny<Exception>(() => model.Build(new object(), () => "'X'", ownerExcluded: false));
         Assert.ThrowsAny<Exception>(() => model.Exclusion(new object(), () => "'X'"));
         Assert.ThrowsAny<Exception>(() => model.SavedFacts(new object(), () => "'X'"));
     }
