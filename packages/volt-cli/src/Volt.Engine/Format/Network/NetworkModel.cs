@@ -470,17 +470,21 @@ public enum CallKind { Operator, Function, FunctionBlock }
 /// </summary>
 public static class CallKinds
 {
-    /// <param name="callType">The enum MEMBER name, or null when the box carries none.</param>
+    /// <param name="callType">The enum MEMBER name the box stores — every box on both vendors stores one, and each reader
+    /// refuses a box without it by name; an empty one reaching here is refused too, never read as <c>None</c>.</param>
     /// <param name="hasInstance">Whether the box names a function-block instance.</param>
-    public static CallKind FromVendor(string? callType, bool hasInstance)
+    public static CallKind FromVendor(string callType, bool hasInstance)
     {
+        if (string.IsNullOrEmpty(callType))
+            throw new UnsupportedException(
+                "a box states no CallType member name, which every box on both vendors stores. Refusing rather than " +
+                "reading the call kind from a value the IDE did not state.");
         if (string.Equals(callType, nameof(CallKind.FunctionBlock), System.StringComparison.OrdinalIgnoreCase))
             return CallKind.FunctionBlock;
 
-        // An operator names itself — And, Or, Move. `None` is the vendor saying it resolved no operator, and
-        // an absent member is a box the IDE has not resolved at all; both fall through to the instance.
-        if (!string.IsNullOrEmpty(callType) &&
-            !string.Equals(callType, "None", System.StringComparison.OrdinalIgnoreCase))
+        // An operator names itself — And, Or, Move. `None` is the vendor saying it resolved no operator; it falls
+        // through to the instance.
+        if (!string.Equals(callType, "None", System.StringComparison.OrdinalIgnoreCase))
             return CallKind.Operator;
 
         return hasInstance ? CallKind.FunctionBlock : CallKind.Function;
