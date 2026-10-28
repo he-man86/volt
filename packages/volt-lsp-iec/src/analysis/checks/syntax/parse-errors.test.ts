@@ -140,6 +140,28 @@ test("a variable named s, S or r is refused at its declaration as CODESYS refuse
   expect(declarationCascade("cc_reserved_name_s_string")[0]).toBe("Unexpected token 's' found")
 })
 
+// openspec lsp-field-false-positives 5 (along the way): a POU whose lines end in a lone CR is the POU the push sends with
+// LF (`StReader.LfLines`) — its `%LANGUAGE` line is a line, and a long Cyrillic header comment hides nothing it should not.
+test("a POU whose lines end in a lone CR reads as the same POU with LF (repro 5's line-ending candidate)", () => {
+  const lines = [
+    "FUNCTION_BLOCK FB_Привод",
+    "(* Функциональный блок управления приводом.",
+    "   1) Инициализация: проверка 2 датчиков",
+    "   2) Работа: скорость 0..100 % // не код",
+    "*)",
+    "VAR",
+    "\tnStep : INT; // шаг",
+    "END_VAR",
+    "%LANGUAGE ST",
+    "nStep := 2; // шаг 2",
+    "nStep := 3;",
+    "END_FUNCTION_BLOCK",
+  ]
+  const all = (src: string) => diagnose(src).map((d) => `${d.span.startLine}: ${d.code}: ${d.message}`)
+  expect(all(lines.join("\r"))).toEqual(all(lines.join("\n")))
+  expect(all(lines.join("\r"))).toEqual([])
+})
+
 // openspec lsp-field-false-positives 4: PLC Assist saw "an IMPLEMENTATION line inside a body" on reads whose line stood
 // right after END_VAR. The line is `%LANGUAGE <LANG>` now (language-line); repro 4 re-run in today's format — the line
 // right after the last END_VAR of every body kind, several VAR sections before it — is clean through the whole pipeline.
