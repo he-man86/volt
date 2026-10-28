@@ -53,9 +53,18 @@ export function sourceObjectOf(uri: string): SourceObject | undefined {
  */
 export function objectNameOf(uri: string): string | undefined {
   if (sourceObjectOf(uri) === undefined) return undefined
-  const path = pathOf(uri)
-  const base = path.slice(Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\")) + 1)
+  const base = baseNameOf(uri)
   return base.slice(0, base.lastIndexOf("."))
+}
+
+/**
+ * A document's file name — the last segment of its PATH (`pathOf`, decoded), extension kept: `FB_主控制.pou` for
+ * `file:///c%3A/w/FB_%E4%B8%BB%E6%8E%A7%E5%88%B6.pou` as for `C:\w\FB_主控制.pou`. The one place a name is read from a
+ * document's name: the object's (`objectNameOf`) and a GVL's (`gvlName`).
+ */
+export function baseNameOf(uri: string): string {
+  const path = pathOf(uri)
+  return path.slice(Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\")) + 1)
 }
 
 /**
@@ -63,9 +72,13 @@ export function objectNameOf(uri: string): string | undefined {
  * selector is language-only, so an SCM diff's HEAD side arrives as `git:/…/DUT_A.dut?{"path":…,"ref":"HEAD"}`,
  * whose query ends inside encoded JSON. A scheme is two or more characters, so a drive letter (`C:\w\X.pou`) and a
  * bare path stay the path they are.
+ *
+ * A URI's path is DECODED: a client percent-encodes every character past ASCII, so the object the IDE calls `FB_主控制`
+ * arrives as `FB_%E4%B8%BB%E6%8E%A7%E5%88%B6.pou`. A path that is no valid encoding is no URI a client sends, and
+ * `decodeURIComponent` refuses it (URIError) rather than a name being read out of it.
  */
 function pathOf(uri: string): string {
-  return /^[a-z][a-z0-9+.-]+:/i.test(uri) ? new URL(uri).pathname : uri
+  return /^[a-z][a-z0-9+.-]+:/i.test(uri) ? decodeURIComponent(new URL(uri).pathname) : uri
 }
 
 /** The objects whose text the push writes as sent — read only by the IDE, and here as the IDE reads them. */
