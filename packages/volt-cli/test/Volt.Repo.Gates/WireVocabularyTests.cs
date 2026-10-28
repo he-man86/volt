@@ -121,7 +121,9 @@ public class WireVocabularyTests
             ("Volt.Ide.Codesys/Ide/CodesysNetworkWriter.cs", 8),   // wire-final-shape 3c: coded at the throw; +1 network-text-st 3.1: a coil flag on a pin, refused before the rebuild
             ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Reflection.cs", 1),   // wire-final-shape 3c: coded at the throw
             ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Tree.cs", 1),   // wire-final-shape 3c: coded at the throw
-            ("Volt.Ide.Twincat/Ide/TcArchive.cs", 2),   // wire-final-shape 3c: coded at the throw
+            ("Volt.Ide.Twincat/Ide/TcArchive.cs", 8),   // wire-final-shape 3c: coded at the throw; +6 the strict scalar reads: a member TwinCAT writes on every object absent, null, or not its type (zero-fallback)
+            ("Volt.Ide.Twincat/Ide/TcNetworkReader.cs", 5),   // zero-fallback: a contact holding Flags, an empty BoxType, an Execute box with no TextLines, a box with no CallType value, an Instance naming ""
+            ("Volt.Engine/Format/Network/NetworkModel.cs", 1),   // zero-fallback: CallKinds.FromVendor handed no member name
             ("Volt.Ide.Twincat/Ide/TcArchiveBuilder.cs", 4),   // wire-final-shape 3c: coded at the throw
             ("Volt.Ide.Twincat/Ide/TcArchiveWriter.cs", 6),   // wire-final-shape 3c: coded at the throw; +2 rule 6 on the parse side, a blank line and stray text (3c review 3)
             ("Volt.Ide.Twincat/Ide/TcNetworkWriter.cs", 3),   // wire-final-shape 3c: coded at the throw
@@ -169,6 +171,7 @@ public class WireVocabularyTests
             ("Volt.Engine/Sync/PushConflicts.cs", 2),
             ("Volt.Engine/Sync/PushService.cs", 3),   // -1 ReadLive routes on MemberWithoutDeclarationException, not on the code (3c review 2); -1 ApplyToUnopened: an op of another kind no longer reaches it (resolved by path, unreadable-name-carries-kind 1.7)
             ("Volt.Ide.Codesys/Ide/CodesysNetworkReader.cs", 1),   // an archived SymbolComment that is not text (ld-fbd-coverage gate 1b-3)
+            ("Volt.Ide.Codesys/Ide/NwlInterop.cs", 1),   // zero-fallback: a member the NWL model states on every object answered null (Unstated: RequireText, RequireBool, the reader's flag sets, BoxType, CallType)
             ("Volt.Ide.Twincat/Ide/TcDeviceDescriptor.cs", 1),   // a device whose ProduceXml does not parse (volt-cli-rework 2.2, review B6)
             ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 1),   // -1 the member declaration (MemberSites, volt-cli-rework step 6); an item read as excluded from above is refused by the read itself (TcObjectModel.ExclusionOf); +1 an interface accessor the saved file does not hold (gate review of step 3, 5)
             ("Volt.Ide.Twincat/Ide/TcObjectModel.Properties.cs", 18),   // +1 a saved POU with no SpecialFunc (zero-fallback); +1 a saved <Property> with no Name (zero-fallback); +2 a read-only Exclude: one outside an excluded POU, a writable one inside it (C39, twincat-readonly-build-properties); +2 a build property with no Value, an interface accessor saved with no Declaration (zero-fallback); +3 the live Exclude property: no item XML, none published, neither True nor False (C39); +4 the live LinkAlways / External / CompilerDefines: no item XML, none published, read-only, neither True nor False (C40); +4 no item XML, no FullPath, a saved file / .plcproj not on disk (gate review of step 3, 6)

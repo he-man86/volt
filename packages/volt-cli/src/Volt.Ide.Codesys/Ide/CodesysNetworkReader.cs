@@ -215,20 +215,15 @@ namespace Volt.Ide.Codesys
         private static Flags ItemFlags(object n, string type) => type switch
         {
             "BoxTreeBox" or "BoxTreeAssign" or "BoxTreeTerminator" =>
-                ReadFlags(NwlInterop.Get(n, "Flags") ?? throw Unstated(n, "Flags", "a flag set")),
+                ReadFlags(NwlInterop.Get(n, "Flags") ?? throw NwlInterop.Unstated(n, "Flags", "a flag set")),
             "BoxTreeDemux" or "BoxTreeParallel" when NwlInterop.Get(n, "Flags") is { } f => ReadFlags(f),
             _ => Flags.None,   // a contact (N4), an unfed wire/Parallel getter, or an item refused below by name
         };
 
-        private static Volt.Engine.BridgeException Unstated(object o, string member, string what) =>
-            new(Volt.Contracts.BridgeErrorCodes.Unreadable,
-                $"CODESYS: '{NwlInterop.TypeName(o)}' answered '{member}' with no {what}, where the NWL model states one on " +
-                "every object of its kind. Refusing rather than reading a value the IDE did not state.");
-
         /// <summary>A box's TYPE — the callee's name, REQUIRED and non-empty: every recorded box names one (1300 of 1300).
         /// Null or <c>""</c> was read as a call to <c>""</c>.</summary>
         private static string BoxType(object box) =>
-            NwlInterop.RequireText(box, "BoxType") is { Length: > 0 } t ? t : throw Unstated(box, "BoxType", "type name");
+            NwlInterop.RequireText(box, "BoxType") is { Length: > 0 } t ? t : throw NwlInterop.Unstated(box, "BoxType", "type name");
 
         /// <summary>A box's pin names — the <c>Names</c> array of its <c>InputParams</c>/<c>OutputParams</c>, REQUIRED. The
         /// names decide whether slot 0 is the enable (and the ENO), so a list the box does not answer is refused by name
@@ -378,7 +373,7 @@ namespace Volt.Ide.Codesys
             return new Box(
                 type,
                 instance,
-                ReadCallKind(NwlInterop.Get(n, "CallType") ?? throw Unstated(n, "CallType", "call type"), instance),
+                ReadCallKind(NwlInterop.Get(n, "CallType") ?? throw NwlInterop.Unstated(n, "CallType", "call type"), instance),
                 inputs,
                 ReadBoxOutputs(n, type, outputNames, hasEno),
                 // From INPUT SLOT 0 (above), never from `En` and never from `EnEno`. `EnEno` is a CAPABILITY
@@ -472,7 +467,7 @@ namespace Volt.Ide.Codesys
                 CleanOperandField(StoredSymbolComment(o)),
                 NwlInterop.RequireBool(o, "IsInstance"),
                 NwlInterop.RequireBool(o, "IsLValue"),
-                ReadFlags(NwlInterop.Get(o, "Flags") ?? throw Unstated(o, "Flags", "a flag set")));
+                ReadFlags(NwlInterop.Get(o, "Flags") ?? throw NwlInterop.Unstated(o, "Flags", "a flag set")));
 
         /// <summary>The comment the operand's archive stores: a string, or null. Any other answer is refused BY NAME
         /// (gate 1b-3): read as "no comment" it would let <c>NetworkText.RefuseSymbolCommentLoss</c> pass a rebuild that

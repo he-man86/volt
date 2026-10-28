@@ -258,20 +258,8 @@ internal static class TcArchive
         return v.Length == 0 ? null : v;
     }
 
-    public static bool Bool(XElement? owner, string name) =>
-        string.Equals(Raw(owner, name), "true", StringComparison.OrdinalIgnoreCase);
-
-    /// <summary>An integer scalar. The archive suffixes 64-bit values with <c>L</c>.</summary>
-    public static int Int(XElement? owner, string name)
-    {
-        var v = Raw(owner, name);
-        if (string.IsNullOrEmpty(v)) return 0;
-        v = v!.TrimEnd('L', 'l');
-        return int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out var i) ? i : 0;
-    }
-
-    /// <summary>The flag bits of a <c>Flags</c> member — the nested object's own numeric <c>Flags</c> value.</summary>
-    public static int FlagBits(XElement? owner) => Int(Obj(owner, "Flags"), "Flags");
+    // There is no lenient Bool / Int / FlagBits: each answered an absent member as false / 0, a value the IDE did not
+    // state (zero-fallback review 2026-10-28). The strict reads below are the only ones.
 
     // ── strict scalars (zero-fallback) ────────────────────────────────────────────────────────────
     //

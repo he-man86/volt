@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
+using Volt.Engine;
 using Volt.Engine.Format.Network;
 // `Parallel` is also System.Threading.Tasks.Parallel; this file means the LD branch.
 using Parallel = Volt.Engine.Format.Network.Parallel;
@@ -237,7 +238,7 @@ internal static class TcNetworkReader
                 return TcArchive.RequireFlagBits(e, what);
             case "BoxTreeOperand":
                 if (TcArchive.Obj(e, "Flags") is not null)
-                    throw new Volt.Engine.UnsupportedException(
+                    throw new UnsupportedException(
                         $"TwinCAT: {what} holds a 'Flags' member, which TwinCAT writes on none (DIALECT N4: a contact's " +
                         "modifiers ride its operand). Refusing rather than reading past a modifier this reader has no place for.");
                 return 0;
@@ -255,7 +256,7 @@ internal static class TcNetworkReader
     /// Absent or <c>""</c>, the box is a call to nothing, refused by name rather than read as a call to <c>""</c>.</summary>
     internal static string BoxType(XElement box) =>
         TcArchive.RequireText(box, "BoxType", "a box") is { Length: > 0 } t ? t
-            : throw new Volt.Engine.UnsupportedException(
+            : throw new UnsupportedException(
                 "TwinCAT: a box holds an empty 'BoxType', where TwinCAT names the callee on every box. Refusing rather than " +
                 "reading a call to nothing.");
 
@@ -409,7 +410,7 @@ internal static class TcNetworkReader
         // read the box's code as "" — an Execute box's ST erased, the pull reporting clean. Each line's `Text` is required
         // too: an empty line is the `""` TwinCAT writes for one (the trailing line of every drawn box).
         if (!doc.Elements("a").Any(a => (string?)a.Attribute("n") == "TextLines"))
-            throw new Volt.Engine.UnsupportedException(
+            throw new UnsupportedException(
                 "TwinCAT: an Execute box's TextDocument has no 'TextLines' array, which every drawn Execute box holds. " +
                 "Refusing rather than reading the box's code as empty.");
         return string.Join("\n", TcArchive.Items(doc, "TextLines")
@@ -598,7 +599,7 @@ internal static class TcNetworkReader
     private static CallKind CallKindOf(XElement e) =>
         CallKinds.FromVendor(
             TcArchive.RequireRaw(e, "CallType", $"the '{BoxType(e)}' box")
-            ?? throw new Volt.Engine.UnsupportedException(
+            ?? throw new UnsupportedException(
                 $"TwinCAT: the '{BoxType(e)}' box holds no value in 'CallType', where TwinCAT writes the member of every box " +
                 "(207 of 207). Refusing rather than reading the call kind from a value the IDE did not state."),
             InstanceOf(e) != null);
@@ -621,7 +622,7 @@ internal static class TcNetworkReader
         // `""` is neither, and no archive holds one: refused, not read as no instance.
         if (TcArchive.RequireRaw(inst, "Operand", "a box's Instance") is null) return null;
         if (TcArchive.RequireText(inst, "Operand", "a box's Instance").Length == 0)
-            throw new Volt.Engine.UnsupportedException(
+            throw new UnsupportedException(
                 $"TwinCAT: the '{BoxType(e)}' box's Instance names \"\", where TwinCAT writes the explicit null for no instance " +
                 "and the instance's name otherwise.");
         return ReadOperand(inst);

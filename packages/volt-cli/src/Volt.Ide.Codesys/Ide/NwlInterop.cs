@@ -232,7 +232,9 @@ namespace Volt.Ide.Codesys
                 "different shape. Refusing rather than reading a partial body — a body that comes back " +
                 "half-read is indistinguishable from one the engineer emptied.");
 
-        private static BridgeException Unstated(object o, string member, string what) =>
+        /// <summary>The model answered a member it states on every object of the kind with nothing (null, or not of the
+        /// member's type) — the IDE stating no value, refused by name rather than read as a default.</summary>
+        internal static BridgeException Unstated(object o, string member, string what) =>
             new BridgeException(BridgeErrorCodes.Unreadable,
                 $"CODESYS: '{o.GetType().Name}' answered '{member}' with no {what}, where the NWL model states one on every " +
                 "object of its kind. Refusing rather than reading a value the IDE did not state.");
