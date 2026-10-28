@@ -228,3 +228,18 @@ ok := EXECUTE(EN := go)
     count := count + 1;
 END_EXECUTE;
 ```
+
+### Revised: the code is a string input (owner, 2026-10-28: "just have the code as a string in the input")
+
+Overrides the `EXECUTE(…) … END_EXECUTE` block above: no keyword pair. The Execute box is a plain call,
+`EXECUTE(EN := go, CODE := '<ST>')`, its ENO the return when it chains on. The string holds the box's ST with real line
+breaks (readable); a quote is `$'`, a `$` is `$$`. Measure in 2.6 whether CODESYS takes a line break inside a string
+literal; if not, the raw line break is Volt's one deviation from an IEC literal. The LSP parses the string's content as
+ST; the exec twin writes `IF en THEN <ST> END_IF`.
+
+```
+EXECUTE(EN := go, CODE := 'IF start THEN
+    count := count + 1;
+END_IF');
+ok := EXECUTE(EN := go, CODE := 'count := count + 1;');
+```
