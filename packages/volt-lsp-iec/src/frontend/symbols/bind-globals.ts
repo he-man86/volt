@@ -3,6 +3,7 @@
  * unit's scope is filled from. Split from `binder.ts` (openspec lsp-same-standard design.md §2.2).
  */
 import {
+  baseNameOf,
   type GlobalVarList,
   hasFrontendAttribute,
   type VarDecl,
@@ -70,11 +71,12 @@ export function ingestDevices(project: Scope, devices: readonly DeviceInstance[]
   }
 }
 
-/** A GVL's name — ST has none in the source, so it is the file's: the URI's basename minus its extension (split on
- *  `/` AND `\`, Windows). Undefined for an empty URI (a test's). The document outline names a GVL by it too. */
+/** A GVL's name — ST has none in the source, so it is the file's: the document's file name (`baseNameOf` — decoded, never
+ *  the URI's percent-encoding) minus its extension. Undefined for an empty URI (a test's). The document outline names a
+ *  GVL by it too. */
 export function gvlName(uri: string): string | undefined {
   if (uri.length === 0) return undefined
-  const last = uri.split(/[\\/]/).pop() ?? ""
+  const last = baseNameOf(uri)
   if (last.length === 0) return undefined
   const dot = last.lastIndexOf(".")
   const name = dot > 0 ? last.slice(0, dot) : last
