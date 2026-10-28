@@ -273,6 +273,69 @@ internal static class TcArchive
     /// <summary>The flag bits of a <c>Flags</c> member — the nested object's own numeric <c>Flags</c> value.</summary>
     public static int FlagBits(XElement? owner) => Int(Obj(owner, "Flags"), "Flags");
 
+    // ── strict scalars (zero-fallback) ────────────────────────────────────────────────────────────
+    //
+    // `Str`, `Bool`, `Int` and `FlagBits` answer an ABSENT member as null / false / 0 — the same answer as a member the
+    // IDE wrote holding nothing, `""`, false or 0. Where the vendor writes the member on every object of a class (the
+    // censuses below each caller), its absence is an archive shape no TwinCAT was measured to write, so these refuse it by
+    // name instead (owner 2026-10-23: a default the IDE did not state is a defect).
+
+    /// <summary>The member's raw <c>&lt;v&gt;</c> text; null where the IDE wrote the explicit null <c>&lt;n n="name" /&gt;</c>.
+    /// An absent member is refused by name.</summary>
+    public static string? RequireRaw(XElement owner, string name, string what)
+    {
+        foreach (var m in owner.Elements())
+            if ((string?)m.Attribute("n") == name)
+                return m.Name.LocalName switch
+                {
+                    "v" => m.Value,
+                    "n" => null,
+                    _ => throw new UnsupportedException(
+                        $"TwinCAT: {what} holds '{name}' as an <{m.Name.LocalName}>, where the archive writes a scalar. " +
+                        "Refusing rather than reading it as absent."),
+                };
+        throw new UnsupportedException(
+            $"TwinCAT: {what} has no '{name}' member in the archive, which TwinCAT writes on every one. Refusing rather " +
+            "than reading the gap as a value the IDE did not state.");
+    }
+
+    /// <summary>A string member the IDE writes as a quoted string — unquoted, <c>""</c> kept as <c>""</c> (never folded into
+    /// null as <see cref="Str"/> folds it). The explicit null and an absent member are both refused by name.</summary>
+    public static string RequireText(XElement owner, string name, string what)
+    {
+        var v = RequireRaw(owner, name, what)
+                ?? throw new UnsupportedException(
+                    $"TwinCAT: {what} holds no value in '{name}' (an explicit null), where TwinCAT writes a string. " +
+                    "Refusing rather than reading it as an empty one.");
+        if (v.Length < 2 || v[0] != '"' || v[v.Length - 1] != '"')
+            throw new UnsupportedException($"TwinCAT: {what}'s '{name}' is '{v}', not the quoted string TwinCAT writes.");
+        return v.Substring(1, v.Length - 2);
+    }
+
+    /// <summary>A boolean member: <c>true</c> or <c>false</c> exactly as TwinCAT writes it; anything else, or nothing, refused.</summary>
+    public static bool RequireBool(XElement owner, string name, string what) =>
+        RequireRaw(owner, name, what) switch
+        {
+            "true" => true,
+            "false" => false,
+            var v => throw new UnsupportedException(
+                $"TwinCAT: {what}'s '{name}' is '{v ?? "(null)"}', where TwinCAT writes true or false."),
+        };
+
+    /// <summary>An integer member (<c>0</c>, <c>15L</c>); a null, absent or unparsable one is refused, never read as 0.</summary>
+    public static int RequireInt(XElement owner, string name, string what)
+    {
+        var v = RequireRaw(owner, name, what);
+        var digits = v?.TrimEnd('L');
+        return int.TryParse(digits, NumberStyles.Integer, CultureInfo.InvariantCulture, out var i) ? i
+            : throw new UnsupportedException($"TwinCAT: {what}'s '{name}' is '{v ?? "(null)"}', where TwinCAT writes an integer.");
+    }
+
+    /// <summary>The flag bits of an object that HOLDS a <c>Flags</c> member — a box, an assignment, a terminator, an operand
+    /// (every one in every archive, census below <see cref="TcNetworkReader"/>). Its absence is refused, never read as none.</summary>
+    public static int RequireFlagBits(XElement owner, string what) =>
+        RequireInt(RequireObj(owner, "Flags", what), "Flags", what + "'s Flags");
+
     /// <summary>The flag bits of <paramref name="flags"/> — the ONE flag→bit encoding, for the in-place writer and the
     /// builder alike. Coil storage is encoded per TARGET (<c>Flags.VendorCoilBits()</c>), so a RESET reaching this is a
     /// modifier the model should never have produced: Volt's own invariant.</summary>

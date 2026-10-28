@@ -75,20 +75,26 @@ internal static class TcNetworkReader
             Trees = TcArchive.RequireList(net, "NetworkItems", $"network {order}").Select(n => ReadNode(n, consumed: false)).ToList(),
         };
 
-    private static Network Header(XElement net, int order) =>
-        new(order,
-            NetworkText.Stored(TcArchive.Str(net, "Title")),
-            Trimmed(TcArchive.Str(net, "Label")),
-            Comment(TcArchive.Str(net, "Comment")),
-            TcArchive.Bool(net, "OutCommented"),
+    /// <summary>The header as the network stores it — each member REQUIRED, as TwinCAT writes all four on every network
+    /// (201 of 201: <c>""</c> where there is none, which reads as none).</summary>
+    private static Network Header(XElement net, int order)
+    {
+        var what = $"network {order}";
+        return new(order,
+            NetworkText.Stored(TcArchive.RequireText(net, "Title", what)),
+            Trimmed(TcArchive.RequireText(net, "Label", what)),
+            Comment(TcArchive.RequireText(net, "Comment", what)),
+            TcArchive.RequireBool(net, "OutCommented", what),
             Array.Empty<Node>());
+    }
 
     /// <param name="consumed">Whether an item above this one reads its output — true for everything below the top
     /// level. A consumed box records the output slot its consumer is connected to (<see cref="ConnectedSlot"/>).</param>
     private static Node ReadNode(XElement e, bool consumed)
     {
-        var flags = ReadFlags(TcArchive.FlagBits(e));
-        switch (TcArchive.TypeOf(e))
+        var type = TcArchive.TypeOf(e);
+        var flags = ReadFlags(ItemFlagBits(e, type));
+        switch (type)
         {
             // A `BoxTreeOperand` has NO Flags member (DIALECT N4): an operand's modifiers - negation, SET/RESET,
             // rising/falling - live on the `Operand` it holds. Taking `flags` from the ITEM therefore always
@@ -96,8 +102,8 @@ internal static class TcNetworkReader
             // leaf because ITS item carries them; this is the same fact reached through the other spelling.
             case "BoxTreeOperand":
             {
-                var operand = ReadOperand(TcArchive.Obj(e, "Operand"));
-                var leafFlags = operand.Flags ?? flags;
+                var operand = ReadOperand(TcArchive.RequireObj(e, "Operand", "a contact (BoxTreeOperand)"));
+                var leafFlags = operand.Flags!;   // ReadOperand reads every operand's own Flags
                 if (TcUnmeasured.NegatedEdge(leafFlags)) throw TcUnmeasured.EdgeOrderOnPull($"the operand '{operand.Text}'");
                 return new Leaf(operand, leafFlags);
             }
@@ -136,10 +142,10 @@ internal static class TcNetworkReader
             {
                 // The edge order is unmeasured on TwinCAT on a box as on an operand (N17 measured both on CODESYS).
                 if (TcUnmeasured.NegatedEdge(flags))
-                    throw TcUnmeasured.EdgeOrderOnPull($"the '{TcArchive.Str(e, "BoxType")}' box");
+                    throw TcUnmeasured.EdgeOrderOnPull($"the '{BoxType(e)}' box");
                 var connected = consumed ? ConnectedSlot(e) : null;
                 return new Box(
-                    TcArchive.Str(e, "BoxType") ?? "",
+                    BoxType(e),
                     InstanceOf(e),
                     CallKindOf(e),
                     ReadInputs(e),
@@ -177,7 +183,7 @@ internal static class TcNetworkReader
                 // Trees, Input, Mode and Id); one found anyway is refused by name, the rule CODESYS's reader shares.
                 UnheldFlags.RefuseOnNode(BeckhoffDriver.Row.Display, "a wire", flags);
                 return new Demux(
-                    TcArchive.Int(e, "VarId"),
+                    TcArchive.RequireInt(e, "VarId", "a wire (BoxTreeDemux)"),
                     TcArchive.Obj(e, "Input") is { } di ? ReadNode(di, consumed: true) : null);
 
             case "BoxTreeParallel":
@@ -217,14 +223,50 @@ internal static class TcNetworkReader
         }
     }
 
+    /// <summary>THE FLAG BITS OF AN ITEM, by its class. A box, an assignment and a terminator hold a <c>Flags</c> member on
+    /// every one TwinCAT wrote (207, 165 and 5 of them), so its absence is refused by name, never read as no flag. A contact
+    /// (<c>BoxTreeOperand</c>, DIALECT N4), a wire (<c>BoxTreeDemux</c>) and a Parallel (N20) hold none.</summary>
+    private static int ItemFlagBits(XElement e, string? type)
+    {
+        var what = $"a {type ?? "graphical item"}";
+        switch (type)
+        {
+            case "BoxTreeBox":
+            case "BoxTreeAssign":
+            case "BoxTreeTerminator":
+                return TcArchive.RequireFlagBits(e, what);
+            case "BoxTreeOperand":
+                if (TcArchive.Obj(e, "Flags") is not null)
+                    throw new Volt.Engine.UnsupportedException(
+                        $"TwinCAT: {what} holds a 'Flags' member, which TwinCAT writes on none (DIALECT N4: a contact's " +
+                        "modifiers ride its operand). Refusing rather than reading past a modifier this reader has no place for.");
+                return 0;
+            // A wire and a Parallel hold none either (N20); one found is read, so the shared refusal names it
+            // (UnheldFlags.RefuseOnNode, the rule CODESYS's reader shares).
+            case "BoxTreeDemux":
+            case "BoxTreeParallel":
+                return TcArchive.Obj(e, "Flags") is null ? 0 : TcArchive.RequireFlagBits(e, what);
+            default:
+                return 0;   // an item with no network-text form: refused by name in ReadNode
+        }
+    }
+
+    /// <summary>A box's TYPE — the callee's name, REQUIRED and non-empty: TwinCAT writes one on every box (207 of 207).
+    /// Absent or <c>""</c>, the box is a call to nothing, refused by name rather than read as a call to <c>""</c>.</summary>
+    internal static string BoxType(XElement box) =>
+        TcArchive.RequireText(box, "BoxType", "a box") is { Length: > 0 } t ? t
+            : throw new Volt.Engine.UnsupportedException(
+                "TwinCAT: a box holds an empty 'BoxType', where TwinCAT names the callee on every box. Refusing rather than " +
+                "reading a call to nothing.");
+
     /// <summary>Whether the box SHOWS its ENO: the archive's <c>ENO</c> flag, never the output's name (<c>Box.ShowsEno</c>,
     /// network-text-st 1c) — the rule CODESYS's reader shares.</summary>
     internal static bool HasEno(XElement box) =>
-        Box.ShowsEno(Shown(box, "ENO"), Names(box, "OutputParam"), BeckhoffDriver.Row.Display, TcArchive.Str(box, "BoxType") ?? "");
+        Box.ShowsEno(Shown(box, "ENO"), Names(box, "OutputParam"), BeckhoffDriver.Row.Display, BoxType(box));
 
     /// <summary>Whether the box SHOWS its enable: the archive's <c>EN</c> flag, never slot 0's name (<c>Box.ShowsEnable</c>).</summary>
     private static bool HasEnable(XElement box) =>
-        Box.ShowsEnable(Shown(box, "EN"), Names(box, "InputParam"), BeckhoffDriver.Row.Display, TcArchive.Str(box, "BoxType") ?? "");
+        Box.ShowsEnable(Shown(box, "EN"), Names(box, "InputParam"), BeckhoffDriver.Row.Display, BoxType(box));
 
     /// <summary>The "EN/ENO is shown" flag as the archive stores it: a scalar <c>true</c>/<c>false</c>, or <c>&lt;n n="EN" /&gt;</c>
     /// (unset, null). Any other scalar is no measured spelling and is refused by name.</summary>
@@ -237,7 +279,7 @@ internal static class TcNetworkReader
             "true" => true,
             "false" => false,
             _ => throw new Volt.Engine.Format.Body.UnrepresentableBodyException(Box.ShownWithoutSlotMarker,
-                $"TwinCAT: the '{TcArchive.Str(box, "BoxType")}' box stores '{v}' as its {member} flag, a spelling no archive was " +
+                $"TwinCAT: the '{BoxType(box)}' box stores '{v}' as its {member} flag, a spelling no archive was " +
                 "measured to hold."),
         };
     }
@@ -250,7 +292,7 @@ internal static class TcNetworkReader
     private static IReadOnlyList<string> Names(XElement box, string param) =>
         TcArchive.Obj(box, param) is { } p && p.Elements("l2").Any(l => (string?)l.Attribute("n") == "Names")
             ? TcArchive.Strings(p, "Names")
-            : throw BoxRefusals.MissingList(BeckhoffDriver.Row.Display, TcArchive.Str(box, "BoxType") ?? "", param + "/Names");
+            : throw BoxRefusals.MissingList(BeckhoffDriver.Row.Display, BoxType(box), param + "/Names");
 
     /// <summary>A box's INPUT SLOTS — with their holes, REQUIRED, and refused where one is a hole. The slots are
     /// index-aligned with <c>InputParam/Names</c>, and <c>TcArchive.List</c> drops a <c>&lt;n /&gt;</c>: a null slot
@@ -259,7 +301,7 @@ internal static class TcNetworkReader
     /// An unwired pin is an empty operand here (<see cref="IsUnwiredPin"/>); a null slot is no measured shape.</summary>
     private static IReadOnlyList<XElement> InputSlots(XElement box)
     {
-        var type = TcArchive.Str(box, "BoxType") ?? "";
+        var type = BoxType(box);
         if (!box.Elements("l2").Any(l => (string?)l.Attribute("n") == "InputItems"))
             throw BoxRefusals.MissingList(BeckhoffDriver.Row.Display, type, "InputItems");
         var slots = TcArchive.Slots(box, "InputItems");
@@ -301,7 +343,7 @@ internal static class TcNetworkReader
         // as `MainOutputIndex` None; one model, one answer.
         // S1 (ld-fbd-coverage 2.3): one that stores an output (the editor's `Names = ['']`, drawn here as on CODESYS) is
         // connected by it, slot 0 — Box.BitOperatorSlot, the one rule both readers and the text share.
-        if (NetworkText.IsBitOperator(TcArchive.Str(box, "BoxType") ?? "")) return Names(box, "OutputParam").Count > 0 ? 0 : null;
+        if (NetworkText.IsBitOperator(BoxType(box))) return Names(box, "OutputParam").Count > 0 ? 0 : null;
         if (HasEno(box)) return 0;
         var holder = TcArchive.Obj(box, "OutputItems");
         if (holder is null) return null;
@@ -309,7 +351,7 @@ internal static class TcNetworkReader
         // A box TwinCAT's PLCopen IMPORT built declares one output (`OutputParam/Names = [Out1]`) and stores no slot
         // null: the importer hangs an EMPTY operand there, or none (`importer-max.TcPOU`, real XAE output). Either way
         // one declared output is one slot a consumer can read.
-        if (slots.Count <= 1 && slots.All(s => s is not null && string.IsNullOrEmpty(TcArchive.Str(s, "Operand")))
+        if (slots.Count <= 1 && slots.All(s => s is not null && TcArchive.RequireText(s, "Operand", "an output slot").Length == 0)
             && Names(box, "OutputParam").Count == 1)
             return 0;
         // A box that stores no output at all — no name, no slot: a function box a push built, its names the text's (none:
@@ -354,17 +396,24 @@ internal static class TcNetworkReader
 
     internal static string? ReadStCode(XElement e)
     {
-        if (!TcArchive.Bool(e, "ProvidesSTSnippet")) return null;
+        if (!TcArchive.RequireBool(e, "ProvidesSTSnippet", $"the '{BoxType(e)}' box")) return null;
 
         var doc = TcArchive.Obj(TcArchive.Obj(TcArchive.Obj(e, "STSnippet"), "STSnippet"), "TextDocument");
-        var lines = TcArchive.Items(doc, "TextLines");
         if (doc == null)
             throw new Volt.Engine.Format.Body.UnrepresentableBodyException(BoxRefusals.UnreadableExecuteMarker,
                 "TwinCAT: this network contains an Execute box whose STSnippet/TextDocument this reader could " +
                 "not walk. Volt will not materialize the box without the code it runs — the body would look " +
                 "complete and would not be. Edit this POU in the IDE.");
 
-        return string.Join("\n", lines.Select(l => Unquote(TcArchive.Str(l, "Text") ?? "")));
+        // The line ARRAY is required (every drawn Execute box holds one): `Items` answers a missing one with no lines, which
+        // read the box's code as "" — an Execute box's ST erased, the pull reporting clean. Each line's `Text` is required
+        // too: an empty line is the `""` TwinCAT writes for one (the trailing line of every drawn box).
+        if (!doc.Elements("a").Any(a => (string?)a.Attribute("n") == "TextLines"))
+            throw new Volt.Engine.UnsupportedException(
+                "TwinCAT: an Execute box's TextDocument has no 'TextLines' array, which every drawn Execute box holds. " +
+                "Refusing rather than reading the box's code as empty.");
+        return string.Join("\n", TcArchive.Items(doc, "TextLines")
+            .Select(l => Unquote(TcArchive.RequireText(l, "Text", "an Execute box's ST line"))));
     }
 
     /// <summary>A `TextLine`'s stored text, without the double quotes the archive wraps every line in.</summary>
@@ -418,10 +467,10 @@ internal static class TcNetworkReader
         // shape this reader has never seen, not a box whose pins carry nothing.
         var pinFlags = e.Elements().FirstOrDefault(x => (string?)x.Attribute("n") == "InputFlags");
         if (pinFlags is null)
-            throw BoxRefusals.NoPinFlags(BeckhoffDriver.Row.Display, TcArchive.Str(e, "BoxType") ?? "");
+            throw BoxRefusals.NoPinFlags(BeckhoffDriver.Row.Display, BoxType(e));
         if (pinFlags.Name.LocalName != "n")
             throw new Volt.Engine.Format.Body.UnrepresentableBodyException(BoxRefusals.PinFlagMarker,
-                $"TwinCAT: the '{TcArchive.Str(e, "BoxType")}' box carries a populated InputFlags — a modifier on a PIN, " +
+                $"TwinCAT: the '{BoxType(e)}' box carries a populated InputFlags — a modifier on a PIN, " +
                 "which network text has no spelling for (only on what feeds it). Volt refuses to materialize the body " +
                 "rather than pull the input without it.");
 
@@ -441,7 +490,7 @@ internal static class TcNetworkReader
     /// An empty operand carrying a flag is not that shape and reads as the operand it is.</summary>
     internal static bool IsUnwiredPin(XElement item) =>
         TcArchive.TypeOf(item) == "BoxTreeOperand" && TcArchive.Obj(item, "Operand") is { } op
-        && string.IsNullOrEmpty(TcArchive.Str(op, "Operand")) && TcArchive.FlagBits(op) == 0;
+        && TcArchive.RequireText(op, "Operand", "a box input pin").Length == 0 && TcArchive.RequireFlagBits(op, "a box input pin") == 0;
 
     /// <summary>An item's outputs. The archive nests them one level deeper than the live model does — an
     /// <c>OutputItems</c> object of type <c>OutputItemList</c>, itself holding an <c>OutputItems</c> list.</summary>
@@ -467,7 +516,7 @@ internal static class TcNetworkReader
         // only wired pin outright. The CODESYS twin reads raw for the same reason.
         // And REQUIRED, holder and list, as `Outputs` requires them: `Slots` answers a missing list with an empty
         // one, which would read a box whose outputs this reader cannot find as a box with none — every `=> v` dropped.
-        var type = TcArchive.Str(e, "BoxType") ?? "";
+        var type = BoxType(e);
         var holder = TcArchive.Obj(e, "OutputItems");
         if (holder is null || !holder.Elements("l2").Any(l => (string?)l.Attribute("n") == "OutputItems"))
             throw BoxRefusals.MissingList(BeckhoffDriver.Row.Display, type, "OutputItems");
@@ -498,25 +547,35 @@ internal static class TcNetworkReader
             TcArchive.RequireList(TcArchive.RequireObj(e, "OutputItems", "the assignment"), "OutputItems", "the assignment's outputs"),
             (op, x) =>
             {
-                var bits = TcArchive.FlagBits(x);
+                var bits = TcArchive.RequireFlagBits(x, "an assignment target");
                 var coil = Flags.CoilFromVendor((bits & TcArchive.FlagNegation) != 0, (bits & TcArchive.FlagSet) != 0);
                 return op with
                 {
-                    Flags = (op.Flags ?? Flags.None) with { Negated = coil.Negated, Set = coil.Set, Reset = coil.Reset },
+                    Flags = op.Flags! with { Negated = coil.Negated, Set = coil.Set, Reset = coil.Reset },
                 };
             }).ToList();
 
-    private static Operand ReadOperand(XElement? o)
+    /// <summary>An <c>Operand</c> object, every member REQUIRED as TwinCAT writes it on every operand (940 of 940). The text
+    /// is a quoted string — <c>""</c> on an unwired pin or an unused output slot, never the explicit null, which only an
+    /// Instance holds for "no instance" (<see cref="InstanceOf"/> asks that first). <c>Type</c> and <c>SymbolComment</c> are
+    /// the IDE's metadata: null where it holds <c>""</c> or the explicit null (the model's "none"), but never absent.</summary>
+    private static Operand ReadOperand(XElement o)
     {
-        if (o == null) return new Operand("");
+        const string what = "an operand";
         return new Operand(
-            TcArchive.Str(o, "Operand") ?? "",
-            TcArchive.Str(o, "Type"),
-            TcArchive.Str(o, "SymbolComment"),
-            TcArchive.Bool(o, "IsInstance"),
-            TcArchive.Bool(o, "LValue"),
-            ReadFlags(TcArchive.FlagBits(o)));
+            TcArchive.RequireText(o, "Operand", what),
+            Metadata(o, "Type"),
+            Metadata(o, "SymbolComment"),
+            TcArchive.RequireBool(o, "IsInstance", what),
+            TcArchive.RequireBool(o, "LValue", what),
+            ReadFlags(TcArchive.RequireFlagBits(o, what)));
     }
+
+    /// <summary>An operand's metadata string — the explicit null and <c>""</c> both the model's "none" (Type holds both:
+    /// 13 and 950 in the archives), absence refused.</summary>
+    private static string? Metadata(XElement o, string name) =>
+        TcArchive.RequireRaw(o, name, "an operand") is null ? null
+            : TcArchive.RequireText(o, name, "an operand") is { Length: > 0 } t ? t : null;
 
     /// <summary>The vendor bit-field. The archive stores a NUMBER where the live model exposes named booleans,
     /// so the bit values are decoded here — from <c>IFlags</c>'s own member order, not from a guess.</summary>
@@ -537,7 +596,12 @@ internal static class TcNetworkReader
     /// for it with <c>Obj</c> found nothing and read every AND box as a function call. An instance means a
     /// function-block call; neither means a stateless function.</summary>
     private static CallKind CallKindOf(XElement e) =>
-        CallKinds.FromVendor(TcArchive.Str(e, "CallType"), InstanceOf(e) != null);
+        CallKinds.FromVendor(
+            TcArchive.RequireRaw(e, "CallType", $"the '{BoxType(e)}' box")
+            ?? throw new Volt.Engine.UnsupportedException(
+                $"TwinCAT: the '{BoxType(e)}' box holds no value in 'CallType', where TwinCAT writes the member of every box " +
+                "(207 of 207). Refusing rather than reading the call kind from a value the IDE did not state."),
+            InstanceOf(e) != null);
 
     /// <summary>A box's FB instance, or null when it has none.
     ///
@@ -553,6 +617,13 @@ internal static class TcNetworkReader
     {
         var inst = TcArchive.Obj(e, "Instance");
         if (inst == null) return null;
-        return TcArchive.Str(inst, "Operand") == null ? null : ReadOperand(inst);
+        // "No instance" is the explicit null (174 of 174 unnamed instances); a named one a quoted name. An Instance holding
+        // `""` is neither, and no archive holds one: refused, not read as no instance.
+        if (TcArchive.RequireRaw(inst, "Operand", "a box's Instance") is null) return null;
+        if (TcArchive.RequireText(inst, "Operand", "a box's Instance").Length == 0)
+            throw new Volt.Engine.UnsupportedException(
+                $"TwinCAT: the '{BoxType(e)}' box's Instance names \"\", where TwinCAT writes the explicit null for no instance " +
+                "and the instance's name otherwise.");
+        return ReadOperand(inst);
     }
 }

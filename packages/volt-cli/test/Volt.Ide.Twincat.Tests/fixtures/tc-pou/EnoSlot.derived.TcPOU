@@ -128,7 +128,7 @@ END_VAR
                           <v>BOOL</v>
                         </l2>
                       </o>
-                      
+                      <v n="CallType" t="Operator">FunctionBlock</v>
                       <v n="EN">false</v>
                       <v n="ENO">false</v>
                       <n n="STSnippet" />

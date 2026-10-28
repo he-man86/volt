@@ -27,8 +27,6 @@ public sealed class TcArchiveIdentityTests(Xunit.Abstractions.ITestOutputHelper 
         ["attempt1-unloadable.xml"] = "hand-built 2026-10-16, attempt 1 (a cet on a mixed list); compact one-line members",
         ["attempt2-loads.xml"] = "hand-built 2026-10-16, attempt 2; compact one-line members",
         ["MultiOutput.derived.TcPOU"] = "hand-derived fixture; a second output pin pasted at the wrong indentation",
-        ["EnoSlot.derived.TcPOU"] = "hand-derived fixture; the CallType member deleted, leaving a blank line in the box",
-        ["FbCall.derived.TcPOU"] = "hand-derived fixture; the CallType member deleted, leaving a blank line in the box",
         ["VOLT_FBD_G.TcPOU"] = "written by an earlier Volt archive builder (DIALECT N4); compact one-line members",
         // Volt's text edit, stored verbatim: DropImporterBoxOutputs removed an element and left its line and the cet.
         ["VipWire2.ide-written.xml"] = "a Volt create (import + DropImporterBoxOutputs), saved by the IDE verbatim",

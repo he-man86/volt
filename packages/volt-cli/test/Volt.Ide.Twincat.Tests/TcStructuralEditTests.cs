@@ -189,7 +189,12 @@ public class TcStructuralEditTests
         var nwl = XDocument.Parse(Fixtures.Pou("importer-max.TcPOU"), LoadOptions.PreserveWhitespace).Descendants("NWL").Single();
         var box = nwl.Descendants("o").First(o => o.Elements("v").Any(v => (string?)v.Attribute("n") == "BoxType"));
         var list = box.Elements("o").First(o => (string?)o.Attribute("n") == "OutputItems").Elements("l2").Single();
-        list.Add(new XElement("o", new XElement("v", new XAttribute("n", "Operand"), "\"\""), new XElement("v", new XAttribute("n", "Id"), "99L")));
+        // The empty operand as the importer writes one, member for member (Vn_abs.nwl.xml's output operand, its text "").
+        static XElement V(string n, string v) => new("v", new XAttribute("n", n), v);
+        list.Add(new XElement("o", V("Operand", "\"\""), V("Type", "\"\""), V("Comment", "\"\""), V("SymbolComment", "\"\""),
+            V("Address", "\"\""),
+            new XElement("o", new XAttribute("n", "Flags"), new XAttribute("t", "Flags"), V("Flags", "0"), V("Fixed", "true"), V("Extensible", "false")),
+            V("LValue", "false"), V("Boolean", "false"), V("IsInstance", "false"), V("Id", "99L")));
 
         var read = TcNetworkReader.Read(nwl.DescendantsAndSelf("o").First(o => (string?)o.Attribute("t") == "NWLImplementationObject"), BodyLanguage.Fbd);
 
