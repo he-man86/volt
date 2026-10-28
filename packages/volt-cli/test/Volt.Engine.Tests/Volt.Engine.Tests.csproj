@@ -17,7 +17,6 @@
   <ItemGroup>
     <!-- The one shared in-memory IDE fake, compiled into each test assembly (see test/shared/FakeIde.cs). -->
     <Compile Include="..\shared\FakeIde.cs" Link="FakeIde.cs" />
-    <Compile Include="..\shared\ReadOnlyNetworkPush.cs" Link="ReadOnlyNetworkPush.cs" />
     <!-- The network text v2 model oracle, shared with the TwinCAT suite (its archives take the same check). -->
     <Compile Include="..\shared\NetworkModelOracle.cs" Link="NetworkModelOracle.cs" />
     <Compile Include="..\shared\NetworkTextFacts.cs" Link="NetworkTextFacts.cs" />

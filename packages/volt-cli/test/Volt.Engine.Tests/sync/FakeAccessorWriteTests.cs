@@ -77,16 +77,16 @@ public class FakeAccessorWriteTests
 
     /// <summary>A graphical GET is held as its MODEL, like a METHOD's body: it reads back in the canonical layout, and
     /// through <see cref="FakeIde.RematerializeAs"/> when the IDE holds other tokens.</summary>
-    [Fact(Skip = ReadOnlyNetworkPush.Skip)]
+    [Fact]
     public void A_graphical_accessor_is_held_as_the_IDE_holds_it()
     {
         var ide = new FakeIde { RematerializeAs = held => held + "\n(* vendor *)" };
 
-        var created = Create(ide, "FB_P.pou", Fb("%LANGUAGE FBD\nNETWORK\n  out  :=   a;\nEND_NETWORK"));
+        var created = Create(ide, "FB_P.pou", Fb("%LANGUAGE FBD\n%NETWORK\nout  :=   a;"));
         Assert.True(created.Landed(), Why(created));
 
         var fetched = Fetch(ide, "FB_P.pou");
-        Assert.Contains("NETWORK\n  out := a;\nEND_NETWORK\n(* vendor *)\nEND_GET", fetched);
+        Assert.Contains("%NETWORK\nout := a;\n(* vendor *)\nEND_GET", fetched);
         Assert.DoesNotContain("out  :=   a;", fetched);
     }
 

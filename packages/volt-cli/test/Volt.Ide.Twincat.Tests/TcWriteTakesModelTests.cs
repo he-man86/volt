@@ -1,3 +1,4 @@
+using Volt.Tests.Shared;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -29,7 +30,7 @@ public class TcWriteTakesModelTests
         var scope = NetworkScope.FromDeclarations("PROGRAM VltProbe_Max\nVAR\n  n : INT;\n  m : INT;\n  t1 : TON;\nEND_VAR",
                                                   _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem,
                                                   BeckhoffDriver.RefusedPouName, Volt.Tests.Shared.Scopes.NoLibrary);
-        var model = NetworkText.Validate(
+        var model = V2NetworkText.Validate(
             NetworkTextWriter.Write(TcNetworkReader.Read(TcArchive.Root(xml)!, BodyLanguage.Ld), scope), scope);
 
         const string decl = "PROGRAM VltProbe_Max\nVAR\nEND_VAR";

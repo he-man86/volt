@@ -299,7 +299,7 @@ public class ShownPerNetworkTests
             Assert.Contains("UNSUPPORTED", e.Message);
             Assert.NotNull(Loss(new[] { live }, new[] { live with { Trees = Array.Empty<Node>(), Unsupported = null } }));
             // The line pushed back as the pull showed it, under an edited title.
-            var line = live with { Trees = Array.Empty<Node>(), Unsupported = live.Unsupported ?? "a flag on a box input pin",
+            var line = live with { Trees = Array.Empty<Node>(), Unsupported = live.Unsupported ?? "a coil flag on a pin",
                                    UnsupportedHash = NetworkTextWriter.Hash(live) };
             Assert.Null(Loss(new[] { live }, new[] { line with { Title = "edited" } }));
         }
@@ -339,7 +339,7 @@ public class ShownPerNetworkTests
         var nested = Set(Call("f", new[] { new Input("IN1", L("a"), SetBit) }, connected: 0, eno: false), T("out"));
         var at0 = new Network(0, null, null, null, false, new Node[] { nested });
         Assert.Equal(NetworkPairing.Render(at0, BodyLanguage.Fbd, Scope), NetworkPairing.Render(at0 with { Order = 7 }, BodyLanguage.Fbd, Scope));
-        Assert.Contains($"UNSUPPORTED \"a flag on a box input pin\" #{NetworkTextWriter.Hash(at0)};", NetworkPairing.Render(at0, BodyLanguage.Fbd, Scope));
+        Assert.Contains($"%UNSUPPORTED \"a coil flag on a pin\" #{NetworkTextWriter.Hash(at0)}", NetworkPairing.Render(at0, BodyLanguage.Fbd, Scope));
     }
 
     static UnrepresentableBodyException Refused(Func<string> write) => Assert.Throws<NetworkUnrepresentableException>(write);

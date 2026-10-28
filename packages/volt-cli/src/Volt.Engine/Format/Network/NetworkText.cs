@@ -166,9 +166,9 @@ public static class NetworkText
     /// <c>%LANGUAGE</c> line is materialized for them instead of a network-text body.)</summary>
     public static bool IsEditable(string? language) => Languages.IsNetwork(language);
 
-    /// <summary>The push path's gate: validate a network-text body against the declarations it can see and
-    /// return its model, or throw <see cref="NetworkTextException"/> carrying the FIRST finding — its
-    /// <c>NETWORK_*</c> code and line. The language is the body's own marker: a view change is the drivers' to write,
+    /// <summary>The push path's gate: read a plain-ST network body against the declarations it can see
+    /// (<see cref="StNetworkGate"/>) and return its model, or throw <see cref="NetworkTextException"/> carrying the FIRST
+    /// finding — its <c>NETWORK_*</c> code and line. The language is the body's own marker: a view change is the drivers' to write,
     /// against the IDE's view, where they know it (openspec bridge-refusal-review 2.22, 2.31).</summary>
     public static NetworkBody Validate(string body, NetworkScope scope)
     {
@@ -184,7 +184,7 @@ public static class NetworkText
                 "never writes it. Pull the item to get that line; its declaration stays editable.");
         }
 
-        var result = NetworkTextGate.Validate(body, scope);
+        var result = StNetworkGate.Validate(body, scope);
         if (result.Ok) return result.Body!;
         var first = result.Diagnostics[0];
         var more = result.Diagnostics.Count > 1 ? $" (and {result.Diagnostics.Count - 1} more finding(s))" : "";

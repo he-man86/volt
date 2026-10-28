@@ -56,44 +56,4 @@ public static class NetworkTextGate
             }, null);
         }
     }
-
-    /// <summary>
-    /// Whether two graphical bodies are one text but for LAYOUT: the same marker and the same tokens — whitespace
-    /// significant only inside delimited text (a backticked operand, a TITLE, a comment line) and an EXECUTE body. A push in
-    /// another layout is adopted as that layout when the IDE gives it back canonically.
-    ///
-    /// <para><b>Without a scope, on purpose.</b> It answers the CLI after a push — is the IDE's text of a body a re-layout of
-    /// the pushed one, or another program? — and the CLI has no declarations to read against. Tokens need none.</para>
-    /// </summary>
-    public static bool SameTokens(string a, string b)
-    {
-        if (a is null) throw new ArgumentNullException(nameof(a));
-        if (b is null) throw new ArgumentNullException(nameof(b));
-        var x = LayoutFree(a);
-        var y = LayoutFree(b);
-        // A text that does not lex has no tokens to compare past its error, which swallows what follows it.
-        if (x is null || y is null || x.Count != y.Count) return false;
-        for (var i = 0; i < x.Count; i++)
-            if (x[i] != y[i]) return false;
-        return true;
-    }
-
-    /// <summary>The text's tokens as the gate compares them, or null where it does not lex.</summary>
-    private static List<(TokKind, string)>? LayoutFree(string text)
-    {
-        var start = 0;
-        while (start < text.Length && char.IsWhiteSpace(text[start])) start++;
-        var eol = text.IndexOf('\n', start);
-        if (eol < 0) eol = text.Length;
-        var first = text.Substring(start, eol - start).TrimEnd('\r');
-        var keys = new List<(TokKind, string)> { (TokKind.Marker, St.PropertyLines.LanguageOf(first) ?? first) };
-
-        var walk = new NetworkLexer.Walk(new NetworkLexer(text, eol));
-        for (var t = walk.Next(); t.Kind != TokKind.Eof; t = walk.Next())
-        {
-            if (t.Kind == TokKind.Error) return null;
-            keys.Add(t.Key);
-        }
-        return keys;
-    }
 }

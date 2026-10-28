@@ -68,11 +68,11 @@ public class GlobalsByWireKindTests
 
     /// <summary>Through the push itself: the declarations a body's scope is built from (the pre-flight, openspec
     /// <c>bridge-refusal-review</c> D8) carry the wire kind of each pushed item.</summary>
-    [Fact(Skip = ReadOnlyNetworkPush.Skip)]
+    [Fact]
     public void A_body_in_a_push_sees_each_pushed_gvl_as_a_global_list()
     {
         var ide = new FakeIde(FakeIde.Item.TextualPou("Caller", "FUNCTION_BLOCK Caller\nVAR\n\tn : INT;\nEND_VAR",
-            "%LANGUAGE FBD\nNETWORK\n  n := 1;\nEND_NETWORK"));
+            "%LANGUAGE FBD\n%NETWORK\nn := 1;"));
         var refs = RefsService.Handle(ide);
         var resp = BoundWrite.Push(ide, new PushRequest
         {
@@ -82,7 +82,7 @@ public class GlobalsByWireKindTests
                 new SetItemOp
                 {
                     Name = "Caller.pou", IfVersion = refs.Items["Caller.pou"],
-                    SourceText = "FUNCTION_BLOCK Caller\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE FBD\nNETWORK\n  n := 2;\nEND_NETWORK\nEND_FUNCTION_BLOCK\n",
+                    SourceText = "FUNCTION_BLOCK Caller\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE FBD\n%NETWORK\nn := 2;\nEND_FUNCTION_BLOCK\n",
                 },
                 new SetItemOp { Name = "Variable_Configuration.gvl", SourceText = VarConfig + "\n" },
                 new SetItemOp { Name = "Line.gvl", SourceText = Broken + "\n" },

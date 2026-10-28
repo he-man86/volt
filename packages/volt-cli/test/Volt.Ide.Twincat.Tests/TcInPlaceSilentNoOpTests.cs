@@ -45,15 +45,15 @@ public class TcInPlaceSilentNoOpTests
     private static string TextOf(NetworkBody b) => TcText.Write(b);
 
     /// <summary>A multi-output assign turned into an explicit wire is another model — a Demux and two assigns where the
-    /// archive holds one assign with two outputs — and v2 spells the two differently. Folding the wire back into the
+    /// archive holds one assign with two outputs — and the text spells the two differently. Folding the wire back into the
     /// archive's one assign made the shapes agree, found no value change, and returned null: the Demux never reached
     /// the IDE.</summary>
     [Fact]
     public void A_multi_output_assign_rewritten_as_a_wire_is_not_swallowed()
     {
         var (before, model) = Edited("MultiOutput.derived.TcPOU", BodyLanguage.Ld,
-            "  xoutput := xoutput2 := xtest OR xtest2;",
-            "  split1 := xtest OR xtest2;\n  xoutput := split1;\n  xoutput2 := split1;");
+            "%NETWORK\nxoutput := xoutput2 := xtest OR xtest2;",
+            "%NETWORK\n%WIRES w1\nw1 := xtest OR xtest2;\nxoutput := w1;\nxoutput2 := w1;");
 
         Assert.Throws<UnsupportedException>(() => TcText.Apply(before, model));
     }
@@ -62,8 +62,8 @@ public class TcInPlaceSilentNoOpTests
     /// ENO — a connection and an ENO fact the text carries (task 3.10). The in-place write compared neither, so it wrote
     /// nothing.</summary>
     [Theory]
-    [InlineData("execute-box.TcPOU", BodyLanguage.Fbd, "output := t1 : TON(IN := TRUE, PT := T#5s).Q;", "output := t1 : TON(IN := TRUE, PT := T#5s);")]
-    [InlineData("ladder-demux.TcPOU", BodyLanguage.Ld, "output := t1 : TON(IN := in1, PT := e1).Q;", "output := t1 : TON(IN := in1, PT := e1);")]
+    [InlineData("execute-box.TcPOU", BodyLanguage.Fbd, "t1(IN := TRUE, PT := T#5s, Q => w1);", "t1_ENO(IN := TRUE, PT := T#5s, ENO => w1);")]
+    [InlineData("ladder-demux.TcPOU", BodyLanguage.Ld, "t1(IN := in1, PT := e1, Q => w1);", "t1_ENO(IN := in1, PT := e1, ENO => w1);")]
     public void A_consumer_moved_to_the_ENO_output_is_not_swallowed(string fixture, BodyLanguage language, string from, string to)
     {
         var (before, model) = Edited(fixture, language, from, to);

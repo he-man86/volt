@@ -120,8 +120,10 @@ function checkLines(n: PlainStNetwork, body: BodySpan, out: DiagnosticItem[]): v
     const u = n.lines.find((l) => l.key === "UNSUPPORTED")!
     const words = u.args.map((t) => t.text).join("")
     if (!/^".+"#[0-9a-f]{8}$/i.test(words)) emit(out, u.span, CODE, "the line is %UNSUPPORTED \"<shape>\" #<8 hex digits>")
-    const after = body.tokens.find((t) => t.span.start > u.span.end && t.span.start < n.span.end && t.kind !== "whitespace" && t.kind !== "eof")
-    if (after !== undefined) emit(out, after.span, CODE, "a network shown %UNSUPPORTED holds nothing else")
+    // its label, the jump target it stays, may stand under the line (`l:`); nothing else
+    const after = body.tokens.filter((t) => t.span.start > u.span.end && t.span.start < n.span.end && t.kind !== "whitespace" && t.kind !== "eof")
+    const label = after.length === 2 && after[0]!.kind === "identifier" && after[1]!.text === ":"
+    if (after.length > 0 && !label) emit(out, after[0]!.span, CODE, "a network shown %UNSUPPORTED holds nothing else but its label")
   }
 }
 

@@ -29,12 +29,12 @@ namespace Volt.Engine.Tests;
 public class AccessorPreflightTests
 {
     /// <summary>Canonical FBD — what a pull produces, and what the gate accepts unchanged.</summary>
-    private const string Canonical = "%LANGUAGE FBD\nNETWORK\n  out := a;\nEND_NETWORK";
+    private const string Canonical = "%LANGUAGE FBD\n%NETWORK\nout := a;";
 
     /// <summary>A network the reader refuses: a statement without its <c>;</c> (NETWORK_PARSE). This probe was a body in
     /// a non-canonical spelling, refused NETWORK_NOT_CANONICAL; canonical form is no refusal any more (openspec
     /// <c>bridge-refusal-review</c> 2.12), so the pre-flight's reach into accessors is proved with a body it refuses.</summary>
-    private const string NonCanonical = "%LANGUAGE FBD\nNETWORK\n  out := a\nEND_NETWORK";
+    private const string NonCanonical = "%LANGUAGE FBD\n%NETWORK\nout := a";
 
     private static string Fb(string name, string accessorBody) =>
         $"FUNCTION_BLOCK {name}\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR\n%LANGUAGE ST\nEND_FUNCTION_BLOCK\n\n" +
@@ -74,7 +74,7 @@ public class AccessorPreflightTests
 
     /// <summary>The complement — the same push with a CANONICAL accessor body lands. Without this the test
     /// above would pass on a pre-flight that refused every property.</summary>
-    [Fact(Skip = ReadOnlyNetworkPush.Skip)]
+    [Fact]
     public void A_canonical_GET_body_still_pushes()
     {
         var ide = new FakeIde();

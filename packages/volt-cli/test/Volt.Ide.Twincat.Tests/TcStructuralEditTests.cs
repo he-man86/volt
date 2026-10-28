@@ -1,3 +1,4 @@
+using Volt.Tests.Shared;
 using System;
 using System.Linq;
 using System.Xml.Linq;
@@ -33,8 +34,7 @@ public class TcStructuralEditTests
             .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting);
 
     private static NetworkBody Pushed(params string[] statements) =>
-        NetworkText.Validate("%LANGUAGE LD\nNETWORK\n" +
-                             string.Concat(statements.Select(s => "  " + s + "\n")) + "END_NETWORK\n", Scope);
+        NetworkText.Validate("%LANGUAGE LD\n%NETWORK\n" + string.Concat(statements.Select(s => s + "\n")), Scope);
 
     private static XElement NeverImported(Network n, NetworkScope scope) =>
         throw new Xunit.Sdk.XunitException($"the importer was reached for network {n.Order + 1}");
@@ -47,13 +47,13 @@ public class TcStructuralEditTests
     {
         var written = TcNetworkWriter.Apply(Ladder(), pushed, Scope, TcArchiveBuilder.NetworkGraph);
         Assert.NotNull(written);
-        return NetworkTextWriter.Write(TcNetworkReader.Read(TcArchive.Root(written)!, BodyLanguage.Ld), Scope);
+        return StNetworkWriter.Write(TcNetworkReader.Read(TcArchive.Root(written)!, BodyLanguage.Ld), Scope);
     }
 
     [Fact]
     public void A_Parallel_in_a_structurally_changed_network_is_refused_by_the_builder()
     {
-        var ex = RefusedByTheBuilder(Pushed("xoutput := BRANCH (xtest, xtest2);"));
+        var ex = RefusedByTheBuilder(Pushed("xoutput := BRANCH(xtest, xtest2);"));
 
         Assert.Equal(ConflictCodes.NetworkUnsupported, ex.Code);
         Assert.Contains("parallel branch", ex.Message);
@@ -63,12 +63,12 @@ public class TcStructuralEditTests
     /// importer and was reshaped by v2, N22; a box's result pin, which the importer lowered to a separate assignment, C20)
     /// are built natively and pull back as pushed.</summary>
     [Theory]
-    [InlineData("split1 := TRUE;", "xoutput := split1;", "xoutput2 := split1;")]
-    [InlineData("MOVE xtest => n;")]
+    [InlineData("%WIRES w1", "w1 := TRUE;", "xoutput := w1;", "xoutput2 := w1;")]
+    [InlineData("MOVE(xtest, OUT => n);")]
     public void A_shape_the_import_refused_is_rebuilt_natively(params string[] statements)
     {
         var pushed = Pushed(statements);
-        Assert.Equal(NetworkTextWriter.Write(pushed, Scope), RebuiltAndPulled(pushed));
+        Assert.Equal(StNetworkWriter.Write(pushed, Scope), RebuiltAndPulled(pushed));
     }
 
     /// <summary>A CREATE builds the same way, and the push's pre-flight (<c>BeckhoffDriver.ValidateSource</c>, creates
@@ -76,7 +76,7 @@ public class TcStructuralEditTests
     [Fact]
     public void A_create_holding_a_Parallel_is_refused_by_the_builder()
     {
-        var ex = Assert.Throws<NetworkTextException>(() => TcArchiveBuilder.Body(Pushed("xoutput := BRANCH (xtest, xtest2);"), Scope));
+        var ex = Assert.Throws<NetworkTextException>(() => TcArchiveBuilder.Body(Pushed("xoutput := BRANCH(xtest, xtest2);"), Scope));
 
         Assert.Equal(ConflictCodes.NetworkUnsupported, ex.Code);
         Assert.Contains("parallel branch", ex.Message);
@@ -160,7 +160,7 @@ public class TcStructuralEditTests
         var max = Assert.IsType<Box>(Assert.IsType<Assign>(body.Networks.Single().Trees.Single()).Value);
 
         Assert.Equal(0, max.ConnectedSlot);
-        Assert.Contains("  n := MAX(", TcText.Write(body));
+        Assert.Contains("\nn := MAX(", TcText.Write(body));
     }
 
     /// <summary>…and a box that stores no output at all — the stamp writes a function box's names as the text's (none:
@@ -206,7 +206,7 @@ public class TcStructuralEditTests
             .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting);
         var scope = NetworkScope.FromDeclarations("PROGRAM VltProbe_Max\nVAR\n  a : INT;\n  b : INT;\n  n : INT;\nEND_VAR",
                                                   _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName, Volt.Tests.Shared.Scopes.NoLibrary);
-        var pushed = NetworkText.Validate("%LANGUAGE FBD\nNETWORK\n  n := MAX(a, b);\nEND_NETWORK\n", scope);
+        var pushed = NetworkText.Validate("%LANGUAGE FBD\n%NETWORK\nn := MAX(a, b);\n", scope);
 
         var ex = Assert.Throws<UnsupportedException>(() => TcNetworkWriter.Apply(xml, pushed, scope));
         Assert.Contains("'In1'", ex.Message);
@@ -222,12 +222,12 @@ public class TcStructuralEditTests
     {
         var scope = NetworkScope.FromDeclarations("PROGRAM VltProbe_Max\nVAR\n  a : INT;\n  b : INT;\n  n : INT;\nEND_VAR",
                                                   _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName, Volt.Tests.Shared.Scopes.NoLibrary);
-        var pushed = NetworkText.Validate("%LANGUAGE FBD\nNETWORK\n  n := MAX(a, b);\nEND_NETWORK\n", scope);
+        var pushed = NetworkText.Validate("%LANGUAGE FBD\n%NETWORK\nn := MAX(a, b);\n", scope);
 
         var built = TcArchiveBuilder.Body(pushed, scope);
 
         Assert.DoesNotContain("<v>Out1</v>", built);
-        Assert.Contains("  n := MAX(a, b);\n", NetworkTextWriter.Write(TcNetworkReader.Read(TcArchive.Root(built)!, BodyLanguage.Fbd), scope));
+        Assert.Contains("\nn := MAX(a, b);\n", StNetworkWriter.Write(TcNetworkReader.Read(TcArchive.Root(built)!, BodyLanguage.Fbd), scope));
     }
 
     /// <summary>…EVEN WHERE THE TEXT CANNOT TELL ONE BOX FROM ANOTHER (gate 2R.3, found live on the calls program): the
@@ -241,12 +241,12 @@ public class TcStructuralEditTests
         Assert.Contains("<v>Out1</v>", imported);
         var scope = NetworkScope.FromDeclarations("PROGRAM VltProbe_Max\nVAR\n  n : INT;\n  m : INT;\n  t1 : TON;\nEND_VAR",
                                                   _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName, Volt.Tests.Shared.Scopes.NoLibrary);
-        var text = NetworkTextWriter.Write(TcNetworkReader.Read(TcArchive.Root(imported)!, BodyLanguage.Ld), scope);
+        var text = StNetworkWriter.Write(TcNetworkReader.Read(TcArchive.Root(imported)!, BodyLanguage.Ld), scope);
 
         var built = TcArchiveBuilder.Body(NetworkText.Validate(text, scope), scope);
 
         Assert.DoesNotContain("<v>Out1</v>", built);
-        Assert.Equal(text, NetworkTextWriter.Write(TcNetworkReader.Read(TcArchive.Root(built)!, BodyLanguage.Ld), scope));
+        Assert.Equal(text, StNetworkWriter.Write(TcNetworkReader.Read(TcArchive.Root(built)!, BodyLanguage.Ld), scope));
     }
 
     /// <summary>AN UNWIRED PIN THE IMPORT BUILT READS AS THE EMPTY SLOT IT IS. <c>importer-unwired.TcPOU</c> is real XAE
@@ -262,11 +262,12 @@ public class TcStructuralEditTests
                                                   _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName, Volt.Tests.Shared.Scopes.NoLibrary);
 
         var pulled = TcNetworkReader.Read(TcArchive.Root(xml)!, BodyLanguage.Ld);
-        var text = NetworkTextWriter.Write(pulled, scope);
+        var text = StNetworkWriter.WritePulled(pulled, scope);
 
-        Assert.Contains("  n := MUL m MUL 6;\n", text);
+        // An unwired pin is the rail, TRUE (a stored member, design.md 1.4).
+        Assert.Contains("\nn := MUL(TRUE, m, 6);\n", text);
         // The import's output list is a stored member the text derives (B7): not written, kept by an unchanged push.
-        Assert.Contains("  t1 : TON(IN := , PT := );\n", text);
+        Assert.Contains("\nt1(IN := TRUE, PT := TRUE);\n", text);
         Assert.Null(TcNetworkWriter.Apply(xml, NetworkText.Validate(text, scope), scope));
     }
 
@@ -291,8 +292,10 @@ public class TcStructuralEditTests
         var box = pulled.Networks.SelectMany(n => n.Trees).OfType<Box>().Single(b => b.Type == "TON");
         Assert.IsType<Terminator>(box.Enable);
 
-        var text = NetworkTextWriter.Write(pulled, scope);
-        Assert.Contains("  t1 : TON(PT := ) EN;\n", text);
+        // An enabled box with no ENO at the root has no plain-ST spelling yet (design.md "3.0", open for the owner): shown
+        // as its UNSUPPORTED line, and pushed back unchanged it is kept.
+        var text = StNetworkWriter.WritePulled(pulled, scope);
+        Assert.Contains("%UNSUPPORTED \"an enabled box without ENO\"", text);
         Assert.Null(TcNetworkWriter.Apply(xml, NetworkText.Validate(text, scope), scope));
     }
 
@@ -305,8 +308,7 @@ public class TcStructuralEditTests
     [Fact]
     public void A_wire_read_inside_its_consumers_is_one_rung_and_reaches_the_importer()
     {
-        var pushed = Pushed("split1 := xtest AND xtest2;", "xoutput := split1 OR c;",
-                            "xoutput2 := split1 AND c;");
+        var pushed = Pushed("%WIRES w1", "w1 := xtest AND xtest2;", "xoutput := w1 OR c;", "xoutput2 := w1 AND c;");
 
         var reached = Assert.Throws<Xunit.Sdk.XunitException>(() => TcNetworkWriter.Apply(Ladder(), pushed, Scope, NeverImported));
         Assert.Contains("importer was reached", reached.Message);
@@ -318,7 +320,7 @@ public class TcStructuralEditTests
     public void Two_rungs_sharing_no_wire_are_rebuilt_as_one_network()
     {
         var pushed = Pushed("xoutput := xtest AND xtest2;", "xoutput2 := xtest OR c;");
-        Assert.Equal(NetworkTextWriter.Write(pushed, Scope), RebuiltAndPulled(pushed));
+        Assert.Equal(StNetworkWriter.Write(pushed, Scope), RebuiltAndPulled(pushed));
     }
 
     // -- the push half of "EN is a pin, ENO is spelled" -------------------------------------------------------------
@@ -355,7 +357,7 @@ public class TcStructuralEditTests
     public void A_consumer_without_ENO_on_a_box_the_import_gives_an_ENO_main_output_is_refused_naming_it()
     {
         var ex = Assert.ThrowsAny<NotSupportedException>(() =>
-            TcNetworkWriter.Apply(Ladder(), Pushed("xoutput := MOVE xtest;"), Scope, ImportedAs("MOVE", "ENO", "")));
+            TcNetworkWriter.Apply(Ladder(), Pushed("xoutput := MOVE(xtest);"), Scope, ImportedAs("MOVE", "ENO", "")));
 
         Assert.Contains("'MOVE'", ex.Message);
         Assert.Contains("as a value", ex.Message);
@@ -366,7 +368,7 @@ public class TcStructuralEditTests
     public void ENO_on_a_box_the_import_gives_no_ENO_output_is_refused_naming_it()
     {
         var ex = Assert.ThrowsAny<NotSupportedException>(() =>
-            TcNetworkWriter.Apply(Ladder(), Pushed("xoutput := xtest AND xtest2 => xstore ENO EN c;"), Scope, ImportedAs("AND")));
+            TcNetworkWriter.Apply(Ladder(), Pushed("xoutput := AND_EN(EN := c, xtest, xtest2, OUT => xstore);"), Scope, ImportedAs("AND")));
 
         Assert.Contains("'AND'", ex.Message);
         Assert.Contains("through ENO", ex.Message);
@@ -410,22 +412,12 @@ public class TcStructuralEditTests
         Assert.Contains("the 'OR' box", ex.Message);
     }
 
-    /// <summary>…and a push that spells one on a box is refused naming the box.</summary>
-    [Fact]
-    public void A_negation_with_an_edge_on_a_box_is_refused_on_push()
-    {
-        var ex = Assert.Throws<UnsupportedException>(() =>
-            TcNetworkWriter.Apply(Ladder(), Pushed("xoutput := R_EDGE NOT (xtest OR xtest2);"), Scope, NeverImported));
-        Assert.Contains("a negation with an edge", ex.Message);
-        Assert.Contains("the 'OR' box", ex.Message);
-    }
-
     /// <summary>…and a push that spells one is refused by the same name before anything is written.</summary>
     [Fact]
     public void A_negation_with_an_edge_is_refused_on_push()
     {
         var ex = Assert.Throws<UnsupportedException>(() =>
-            TcNetworkWriter.Apply(Ladder(), Pushed("xoutput := R_EDGE NOT xtest OR xtest2;"), Scope, NeverImported));
+            TcNetworkWriter.Apply(Ladder(), Pushed("xoutput := R_EDGE(NOT xtest) OR xtest2;"), Scope, NeverImported));
         Assert.Contains("a negation with an edge", ex.Message);
         Assert.Contains("xtest", ex.Message);
     }

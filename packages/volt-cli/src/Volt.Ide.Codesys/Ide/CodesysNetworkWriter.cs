@@ -111,6 +111,14 @@ namespace Volt.Ide.Codesys
         private static void RefuseUnbuildable(Network model)
         {
             NetworkPairing.RefuseUnpairedUnsupported(CodesysDriver.Row.Display, model);
+            // A pin carries a negation or an edge; a coil's bits on one are no shape any IDE was measured to store.
+            foreach (var box in model.Trees.SelectMany(Walk).OfType<Box>())
+                foreach (var (flags, name) in box.Inputs.Select((p, i) => (p.Flags, p.Formal ?? $"input {i}"))
+                             .Prepend((box.EnableFlags, Box.EnablePin)))
+                    if (flags.Set || flags.Reset || flags.Jump || flags.Return)
+                        throw new BridgeException(BridgeErrorCodes.Unsupported,
+                            $"CODESYS: network {model.Order + 1}: the '{box.Type}' box carries a coil flag on its pin {name}, " +
+                            "which no measured box holds. Refusing rather than write it; the network is untouched.");
             foreach (var (box, output) in NetworkPairing.NamedMainOutputs(model))
                 throw new BridgeException(BridgeErrorCodes.Unsupported,
                     $"CODESYS: network {model.Order + 1} changed, and its '{box.Type}' box is read through its output " +
@@ -119,6 +127,8 @@ namespace Volt.Ide.Codesys
                     "and Volt does not guess it. Refusing to rebuild this network; a network whose text is unchanged is kept " +
                     "as the IDE holds it. The IDE can edit this network.");
         }
+
+        private static IEnumerable<Node> Walk(Node n) => new[] { n }.Concat(n.Children().SelectMany(Walk));
 
         /// <summary>Set the aspect's view to the pushed language, when it differs — in the spelling the vendor's own
         /// member holds (<c>"Ld"</c>, measured on a real ladder project, and <c>"Fbd"</c>). A body in a view Volt does
@@ -205,8 +215,14 @@ namespace Volt.Ide.Codesys
         /// and an FB instance through the declarations, so both sides must be written with the same ones.</para></summary>
         private static bool TreesUnchanged(Network live, Network model, BodyLanguage language, NetworkScope scope)
         {
-            return NetworkPairing.Render(live with { Title = model.Title, Label = model.Label, Comment = model.Comment, Disabled = model.Disabled }, language, scope)
-                == NetworkPairing.RenderPushed(model, language, scope);
+            // A pushed model the text cannot spell answers "changed", as TwinCAT's does: the build is where its refusal
+            // surfaces, with its own message.
+            try
+            {
+                return NetworkPairing.Render(live with { Title = model.Title, Label = model.Label, Comment = model.Comment, Disabled = model.Disabled }, language, scope)
+                    == NetworkPairing.RenderPushed(model, language, scope);
+            }
+            catch (Volt.Engine.Format.Body.UnrepresentableBodyException) { return false; }
         }
 
         /// <summary>The stored values of the rebuild-loss candidates (<see cref="RebuildLoss"/>) every item of

@@ -167,13 +167,13 @@ public class PouMergeWriteTests
     /// by content reads as "made graphical on purpose" — and the splice refused the very LD body it was creating:
     /// *has a FBD body in the IDE but the push carries LD*. Volt refusing a Volt decision, one line after making
     /// it, and it failed every LD create on that vendor.</para></summary>
-    [Fact(Skip = ReadOnlyNetworkPush.Skip)]
+    [Fact]
     public void A_create_establishes_the_body_language_over_the_seed_CreateChild_laid_down()
     {
         var ide = new FakeIde();
-        PushOp(ide, new SetItemOp { Name = "VG_New.pou", SourceText = "PROGRAM VG_New\nVAR\n  c : BOOL;\n  y : BOOL;\nEND_VAR\n%LANGUAGE LD\nNETWORK\n  y := c;\nEND_NETWORK\n\nEND_PROGRAM\n" });
+        PushOp(ide, new SetItemOp { Name = "VG_New.pou", SourceText = "PROGRAM VG_New\nVAR\n  c : BOOL;\n  y : BOOL;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\ny := c;\n\nEND_PROGRAM\n" });
 
-        Assert.Contains("%LANGUAGE LD\nNETWORK", FakeIde.AllText(ide.WrittenContent["VG_New"]));
+        Assert.Contains("%LANGUAGE LD\n%NETWORK", FakeIde.AllText(ide.WrittenContent["VG_New"]));
     }
 
     /// <summary>A MOVE is one <c>Move</c> — the item is never read, deleted or rebuilt, so there is no window in

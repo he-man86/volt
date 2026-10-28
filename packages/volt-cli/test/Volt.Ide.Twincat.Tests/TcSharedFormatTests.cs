@@ -1,4 +1,5 @@
 ﻿using Volt.Engine.Item;
+using Volt.Tests.Shared;
 using System;
 using System.IO;
 using Volt.Engine.Format.Network;
@@ -99,7 +100,7 @@ public class TcSharedFormatTests
         Assert.Contains("NETWORK LABEL: testLabe2\nEND_NETWORK", body);
 
         // Throws NetworkTextException naming the canonical form if it would not round-trip.
-        var model = NetworkText.Validate(body,
+        var model = V2NetworkText.Validate(body,
             NetworkScope.FromDeclarations(pou.Declaration, _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName, Volt.Tests.Shared.Scopes.NoLibrary));
 
         Assert.Equal(2, model.Networks.Count);

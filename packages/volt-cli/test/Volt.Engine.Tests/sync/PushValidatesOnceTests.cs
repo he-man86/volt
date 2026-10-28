@@ -23,8 +23,8 @@ namespace Volt.Engine.Tests;
 public class PushValidatesOnceTests
 {
     private const string Decl = "FUNCTION_BLOCK FB_N\nVAR\n\ta : BOOL;\n\tq : BOOL;\nEND_VAR";
-    private const string Fbd = "%LANGUAGE FBD\nNETWORK\n  q := a;\nEND_NETWORK";
-    private const string FbdEdited = "%LANGUAGE FBD\nNETWORK\n  q := NOT a;\nEND_NETWORK";
+    private const string Fbd = "%LANGUAGE FBD\n%NETWORK\nq := a;";
+    private const string FbdEdited = "%LANGUAGE FBD\n%NETWORK\nq := NOT a;";
 
     private static string Source(string body, string method = "") =>
         Decl + "\n" + body + "\n\nEND_FUNCTION_BLOCK\n" + method;
@@ -38,7 +38,7 @@ public class PushValidatesOnceTests
     private static string Reasons(PushResponse r) =>
         r.Conflicts is null ? "(none)" : string.Join(" | ", r.Conflicts.Select(c => c.Reason));
 
-    [Fact(Skip = ReadOnlyNetworkPush.Skip)]
+    [Fact]
     public void A_create_validates_each_network_body_once()
     {
         var ide = new FakeIde();
@@ -50,7 +50,7 @@ public class PushValidatesOnceTests
         Assert.Equal(2, ide.WrittenBodies["FB_N"].Count);
     }
 
-    [Fact(Skip = ReadOnlyNetworkPush.Skip)]
+    [Fact]
     public void An_update_validates_its_body_once()
     {
         var ide = new FakeIde(FakeIde.Item.TextualPou("FB_N", Decl, Fbd));
@@ -63,7 +63,7 @@ public class PushValidatesOnceTests
 
     /// <summary>A move+edit writes twice (before the move, and again after it, because a move can replace the item) —
     /// from the ONE reading the pre-flight made.</summary>
-    [Fact(Skip = ReadOnlyNetworkPush.Skip)]
+    [Fact]
     public void A_move_and_edit_validates_its_body_once_and_writes_it_twice()
     {
         var ide = new FakeIde(FakeIde.Item.TextualPou("FB_N", Decl, Fbd, folder: "From"));

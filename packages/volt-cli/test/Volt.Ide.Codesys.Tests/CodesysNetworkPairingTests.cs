@@ -45,9 +45,9 @@ public class CodesysNetworkPairingTests
         return a;
     }
 
-    /// <summary>The <c>UNSUPPORTED "…" #hash;</c> line a pulled text shows (its hash is the network's).</summary>
+    /// <summary>The <c>%UNSUPPORTED "…" #hash</c> line a pulled text shows (its hash is the network's).</summary>
     static string LineOf(string text) =>
-        System.Text.RegularExpressions.Regex.Match(text, "  UNSUPPORTED \"[^\"]*\" #[0-9a-f]{8};").Value;
+        System.Text.RegularExpressions.Regex.Match(text, "%UNSUPPORTED \"[^\"]*\" #[0-9a-f]{8}").Value;
 
     /// <summary>A rung whose AND box carries a SET bit on an input pin, which the text has no spelling for (a coil bit
     /// on a pin — a negated pin is S6's spelling since ld-fbd-coverage 2.3, an edge on one 2R.5's).</summary>
@@ -84,16 +84,14 @@ public class CodesysNetworkPairingTests
         var shown = CodesysNetworkReader.ReadShown(impl, BodyLanguage.Fbd);
         var scope = new NetworkScope(new[] { "a", "b", "c", "d", "e", "src", "out", "y", "o1", "o2", "o3", "o4", "o5" },
             Array.Empty<string>(), new Dictionary<string, string> { ["fbCap"] = "L_FirstFASTErrCapture" });
-        var text = edit(NetworkTextWriter.WritePulled(shown, scope));
-        var read = NetworkTextReader.Read(text, scope);
-        Assert.True(read.Ok, string.Join("\n", read.Diagnostics.Select(d => d.Message)) + "\n\n" + text);
-        return (read.Body!, scope);
+        var text = edit(StNetworkWriter.WritePulled(shown, scope));
+        return (StNetworkReader.Read(text, scope), scope);
     }
 
     static void Write(Nwl.NWLImplementationObject impl, (NetworkBody Body, NetworkScope Scope) pushed) =>
         CodesysNetworkWriter.Write(new Holder(impl), pushed.Body, pushed.Scope);
 
-    static string Net(string line) => "NETWORK\n  " + line + "\nEND_NETWORK\n";
+    static string Net(string line) => "%NETWORK\n" + line + "\n";
 
     /// <summary>The design's case: insert a network before #2, remove #3, edit #4 — #1 and #2 keep their vendor objects,
     /// untouched; the inserted one is a new object; one live network is rebuilt and one removed.</summary>
@@ -113,7 +111,7 @@ public class CodesysNetworkPairingTests
         Assert.Empty(nets[1].Calls);
         Assert.DoesNotContain(impl.NetworkList[1], nets);
         Assert.Equal(new[] { "RemoveNetwork(3)", "InsertNetwork(1)" }, impl.Calls);
-        var after = NetworkTextWriter.WritePulled(CodesysNetworkReader.ReadShown(impl, BodyLanguage.Fbd), NetworkScope.Empty);
+        var after = StNetworkWriter.WritePulled(CodesysNetworkReader.ReadShown(impl, BodyLanguage.Fbd), NetworkScope.Empty);
         Assert.Equal("%LANGUAGE FBD\n" + Net("o1 := a;") + Net("o5 := e;") + Net("o2 := b;") + Net("o4 := e;"), after);
     }
 
@@ -126,7 +124,7 @@ public class CodesysNetworkPairingTests
         var pushed = Pushed(impl, t =>
         {
             // The call's whole output list is its pragma (ld-fbd-coverage 2.3), the connection its `.name`.
-            Assert.Contains("out := fbCap : L_FirstFASTErrCapture(xEnable := src).xErrorActive;", t);
+            Assert.Contains("fbCap(xEnable := src, xErrorActive => w1);\nout := w1;", t);
             return t.Replace("%LANGUAGE FBD\n", "%LANGUAGE FBD\n" + Net("o5 := e;"));
         });
         Write(impl, pushed);
@@ -162,7 +160,7 @@ public class CodesysNetworkPairingTests
         var (impl, nets) = Live(PinFlagRung(), Rung("o1", "a"));
         var shown = Pushed(impl, t =>
         {
-            Assert.Matches("NETWORK\n  UNSUPPORTED \"a flag on a box input pin\" #[0-9a-f]{8};\nEND_NETWORK\n", t);
+            Assert.Matches("%NETWORK\n%UNSUPPORTED \"a coil flag on a pin\" #[0-9a-f]{8}\n", t);
             return t.Replace("o1 := a;", "o1 := b;");
         });
         Write(impl, shown);
@@ -170,12 +168,12 @@ public class CodesysNetworkPairingTests
         Assert.Empty(nets[0].Calls);
         Assert.Contains("RemoveNetworkItem", nets[1].Calls);
 
-        Write(impl, Pushed(impl, t => t.Replace("NETWORK\n  UNSUPPORTED", "NETWORK TITLE: \"kept\"\n  UNSUPPORTED")));
+        Write(impl, Pushed(impl, t => t.Replace("%NETWORK\n%UNSUPPORTED", "%NETWORK \"kept\"\n%UNSUPPORTED")));
         Assert.Equal("kept", nets[0].Title);
         Assert.Empty(nets[0].Calls);
 
-        Write(impl, Pushed(impl, t => t.Substring(0, t.IndexOf("NETWORK", StringComparison.Ordinal)) +
-                                      t.Substring(t.IndexOf("END_NETWORK\n", StringComparison.Ordinal) + "END_NETWORK\n".Length)));
+        Write(impl, Pushed(impl, t => t.Substring(0, t.IndexOf("%NETWORK", StringComparison.Ordinal)) +
+                                      t.Substring(t.IndexOf("%NETWORK", t.IndexOf("%NETWORK", StringComparison.Ordinal) + 1, StringComparison.Ordinal))));
         Assert.Single(impl.NetworkList);
         Assert.Same(nets[1], impl.NetworkList[0]);
     }
@@ -210,8 +208,8 @@ public class CodesysNetworkPairingTests
     public void An_UNSUPPORTED_line_replaced_under_its_header_is_refused(string replacement)
     {
         var (impl, nets) = Live(PinFlagRung(), Rung("o1", "a"));
-        var pushed = Pushed(impl, t => t.Replace("NETWORK\n" + LineOf(t) + "\n",
-                                                 "NETWORK TITLE: \"kept\"\n" + (replacement.Length > 0 ? "  " + replacement + "\n" : "")));
+        var pushed = Pushed(impl, t => t.Replace("%NETWORK\n" + LineOf(t) + "\n",
+                                                 "%NETWORK \"kept\"\n" + (replacement.Length > 0 ? replacement + "\n" : "")));
         var ex = Assert.Throws<NetworkTextException>(() => Write(impl, pushed));
         Assert.Equal(ConflictCodes.NetworkUnsupported, ex.Code);
         Assert.Contains("network 1", ex.Message);
@@ -227,7 +225,7 @@ public class CodesysNetworkPairingTests
         var (impl, nets) = Live(PinFlagRung(), PinFlagRung());
         var pushed = Pushed(impl, t =>
         {
-            var block = Net(LineOf(t).TrimStart());
+            var block = Net(LineOf(t));
             Assert.Equal("%LANGUAGE FBD\n" + block + block, t);
             return "%LANGUAGE FBD\n" + block;
         });
@@ -245,8 +243,8 @@ public class CodesysNetworkPairingTests
     {
         var (impl, nets) = Live(PinFlagRung(), Rung("o1", "a"));
         var pushed = Pushed(impl, t => edited is not null
-            ? t.Replace("a flag on a box input pin", edited)
-            : t + Net(LineOf(t).TrimStart()));
+            ? t.Replace("a coil flag on a pin", edited)
+            : t + Net(LineOf(t)));
 
         var ex = Assert.Throws<NetworkTextException>(() => Write(impl, pushed));
         Assert.Equal(ConflictCodes.NetworkUnsupported, ex.Code);

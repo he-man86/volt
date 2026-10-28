@@ -1,3 +1,4 @@
+using Volt.Tests.Shared;
 using System;
 using System.Linq;
 using Volt.Engine.Format.Network;
@@ -543,7 +544,7 @@ public class CodesysCoilFlagTests
     {
         const string declaration = "PROGRAM P\nVAR\n  x : BOOL;\n  c : BOOL;\n  a : INT;\n  b : INT;\n  n : INT;\n  lamp : BOOL;\n  sv : INT;\nEND_VAR";
         var scope = NetworkScope.FromDeclarations(declaration, _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, CodesysDriver.RefusedPouName, Volt.Tests.Shared.Scopes.NoLibrary);
-        return (NetworkText.Validate("%LANGUAGE FBD\nNETWORK\n  " + statement + "\nEND_NETWORK\n", scope).Networks[0], scope);
+        return (V2NetworkText.Validate("%LANGUAGE FBD\nNETWORK\n  " + statement + "\nEND_NETWORK\n", scope).Networks[0], scope);
     }
 
     /// <summary>THE PUSH HALF OF "EN IS A PIN, ENO IS SPELLED" (task 4.1; spec "ENO is the main output", "a box that has
@@ -680,9 +681,9 @@ public class CodesysCoilFlagTests
         // A coil bit on a pin has no spelling: refused by name, the live network untouched.
         var set = Model(Flags.None with { Set = true });
         var live = Different();
-        var ex = Assert.Throws<NetworkUnrepresentableException>(() =>
+        var ex = Assert.Throws<Volt.Engine.BridgeException>(() =>
             CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, set, BodyLanguage.Fbd, ScopeOf(set, BodyLanguage.Fbd)));
-        Assert.Equal("a flag on a box input pin", ex.Reason);
+        Assert.Contains("a coil flag on its pin", ex.Message);
         Assert.Equal(1, live.NetworkItemCount);
     }
 

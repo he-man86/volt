@@ -82,6 +82,13 @@ test("a disabled network is not compiled: no finding inside it, and its label is
   expect(diagnose(src).map((d) => d.message)).toEqual(["No such label 'L9' within the scope of the JMP statement"])
 })
 
+test("an UNSUPPORTED network keeps its label under its line: still the jump target, and nothing else stands there", () => {
+  const ok = ld("\ta : BOOL;", "%NETWORK\n%UNSUPPORTED \"an edge contact\" #0011aabb\nl9:\n%NETWORK\nIF a THEN JMP l9; END_IF;\n")
+  expect([...diagnose(ok), ...vgDiags(ok)].map((d) => d.message)).toEqual([])
+  const more = ld("\ta, x : BOOL;", "%NETWORK\n%UNSUPPORTED \"an edge contact\" #0011aabb\nl9:\nx := a;\n")
+  expect(vgDiags(more).map((d) => d.message)).toContain("a network shown %UNSUPPORTED holds nothing else but its label")
+})
+
 test("an Execute box's EN is code: a name it reads resolves, the ST under it is the box's own", () => {
   const src = ld("\ta : BOOL;\n\tn : INT;", "%NETWORK\n%EXECUTE(EN := nowhere)\nn := n + 1;\n%END_EXECUTE\n")
   expect(diagnose(src).map((d) => d.message)).toEqual(["Identifier 'nowhere' not defined"])

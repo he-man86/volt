@@ -557,7 +557,7 @@ public class TcRoundTripTests
     }
 
     /// <summary>A VARIABLE STORED ON THE ENO SLOT OF AN FB WITHOUT EN IS THE FB'S OWN `ENO` PIN, never dropped: an ENO output
-    /// with no EN is an FB's declared output (v2.1, X9), so the pull spells it as a pin, `` `ENO` => v ``, and the unchanged
+    /// with no EN is an FB's declared output (v2.1, X9), so the pull spells it as a pin, <c>ENO =&gt; v</c>, and the unchanged
     /// text pushes back as no change at all. The fixture is <c>EnoSlot.derived.TcPOU</c> (a TON with an ENO output and no
     /// EN) with its null echo replaced by a copy of the wired pin's operand.</summary>
     [Fact]
@@ -567,7 +567,7 @@ public class TcRoundTripTests
         var pulled = TcNetworkReader.Read(Impl(before), BodyLanguage.Fbd);
         var text = TcText.Write(pulled);
 
-        Assert.Contains("`ENO` => enoFlag", text);
+        Assert.Contains("ENO => enoFlag", text);
         Assert.Null(TcText.Apply(before, TcText.Validate(text, TcText.ScopeOf(pulled))));
     }
 
@@ -593,9 +593,11 @@ public class TcRoundTripTests
         var before = EnoWired(withEn: true);
         var pulled = TcNetworkReader.Read(Impl(before), BodyLanguage.Fbd);
         var text = TcText.Write(pulled);
-        Assert.Contains(") ENO => enoFlag EN go;", text);
+        Assert.Contains("ENO => enoFlag", text);
+        var dropped = text.Replace(", ENO => enoFlag", "").Replace("ENO => enoFlag, ", "");
+        Assert.NotEqual(text, dropped);
 
-        var without = TcText.Validate(text.Replace(") ENO => enoFlag EN go;", ") ENO EN go;"), TcText.ScopeOf(pulled));
+        var without = TcText.Validate(dropped, TcText.ScopeOf(pulled));
 
         var ex = Assert.ThrowsAny<System.Exception>(() => TcText.Apply(before, without));
         Assert.Contains("output pin 'ENO'", ex.Message);

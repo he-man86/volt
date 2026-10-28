@@ -21,8 +21,8 @@ namespace Volt.Engine.Format.Network;
 /// call, standing where it is read. <c>BRANCH</c>, <c>BRANCH_SHORTCIRCUIT</c>, <c>R_EDGE</c> and <c>F_EDGE</c> are the
 /// text's own elements (<see cref="StNetworkWriter.ElementHeads"/>).</para>
 ///
-/// <para><b>Read-only phase.</b> No push reads this text yet (<see cref="NetworkBodyReader"/> refuses an LD/FBD body by
-/// name until section 3); it is the round-trip oracle's reader, and section 3's.</para>
+/// <para>The push reads every LD/FBD body through it (<see cref="StNetworkGate"/>, <see cref="NetworkBodyReader"/>), as
+/// the round-trip oracle does.</para>
 /// </summary>
 public static class StNetworkReader
 {
@@ -205,7 +205,7 @@ public static class StNetworkReader
                     throw Error(i, $"'{_lines[i]}': the line is {StNetworkWriter.UnsupportedLine} \"<shape>\" #<8 hex digits>");
                 unsupported = u.Substring(1, q - 1);
                 hash = tail.Substring(2);
-                if (++i < _lines.Count) throw Error(i, $"'{_lines[i]}' after the {StNetworkWriter.UnsupportedLine} line: that network holds nothing else");
+                i++;
             }
 
             // The code, an Execute block standing in it as `@EXEC<k>[(args)];` on the block's first line.
@@ -241,8 +241,8 @@ public static class StNetworkReader
             Func<int, int> bodyLine = k => _firstLine + lineOf[Math.Min(k, lineOf.Count - 1)];
             var parser = new Parser(src, Lex(src, bodyLine), w => _wires.Contains(w), _firstLine, bodyLine) { Network = true };
             var (label, stmts) = parser.Statements();
-            if (unsupported is not null && (label is not null || stmts.Count > 0))
-                throw Error(0, "a network shown UNSUPPORTED holds code");
+            if (unsupported is not null && stmts.Count > 0)
+                throw Error(0, $"a network shown {StNetworkWriter.UnsupportedLine} holds nothing else but its label");
             var trees = new Builder(this, stmts, _firstLine).Build();
             return new Network(_order, title, label, comment.Count == 0 ? null : string.Join("\r\n", comment), disabled,
                 trees, unsupported, hash);

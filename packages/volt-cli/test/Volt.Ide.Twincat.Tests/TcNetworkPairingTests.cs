@@ -51,15 +51,17 @@ public class TcNetworkPairingTests
     {
         var shown = Shown(body);
         var scope = ScopeOf(shown);
-        var text = edit(NetworkTextWriter.WritePulled(shown, scope));
-        var read = NetworkTextReader.Read(text, scope);
-        Assert.True(read.Ok, string.Join("\n", read.Diagnostics.Select(d => d.Message)) + "\n\n" + text);
-        return (read.Body!, scope);
+        var text = edit(StNetworkWriter.WritePulled(shown, scope));
+        return (StNetworkReader.Read(text, scope), scope);
     }
 
     private static string FirstNetworkText(string body) =>
-        NetworkTextWriter.WritePulled(Shown(body), ScopeOf(Shown(body))).Split(new[] { "END_NETWORK\n" }, StringSplitOptions.None)[0]
-            .Substring("%LANGUAGE FBD\n".Length) + "END_NETWORK\n";
+        NetworksOf(StNetworkWriter.WritePulled(Shown(body), ScopeOf(Shown(body))))[0];
+
+    /// <summary>A plain-ST body's networks, each from its <c>%NETWORK</c> line, the language line dropped.</summary>
+    private static List<string> NetworksOf(string text) =>
+        System.Text.RegularExpressions.Regex.Split(text.Substring("%LANGUAGE FBD\n".Length), "(?m)^(?=%NETWORK)")
+            .Where(n => n.Length > 0).ToList();
 
     private static Func<Network, NetworkScope, XElement> Never => (n, _) => throw new Xunit.Sdk.XunitException($"the import was reached for network {n.Order + 1}");
 
@@ -100,8 +102,8 @@ public class TcNetworkPairingTests
         var before = NetworkXml(body);
         var pushed = Pushed(body, t =>
         {
-            Assert.Matches("UNSUPPORTED \"a flag on a box input pin\" #[0-9a-f]{8};", t);
-            return t.Replace("NETWORK DISABLED", "NETWORK DISABLED TITLE: \"edited\"");
+            Assert.Matches("%UNSUPPORTED \"a flag on a box input pin\" #[0-9a-f]{8}\n", t);
+            return t.Replace("%NETWORK\n%DISABLED", "%NETWORK \"edited\"\n%DISABLED");
         });
 
         var written = TcNetworkWriter.Apply(body, pushed.Body, pushed.Scope, Never);
@@ -136,11 +138,11 @@ public class TcNetworkPairingTests
         var body = VendorBody(pinFlagOnFirst: true);
         var pushed = Pushed(body, t =>
         {
-            var line = System.Text.RegularExpressions.Regex.Match(t, "  UNSUPPORTED \"a flag on a box input pin\" #[0-9a-f]{8};\n").Value;
+            var line = System.Text.RegularExpressions.Regex.Match(t, "%UNSUPPORTED \"a flag on a box input pin\" #[0-9a-f]{8}\n").Value;
             Assert.NotEqual("", line);
             if (edit == "emptied") return t.Replace(line, "");
-            var parts = t.Substring("%LANGUAGE FBD\n".Length).Split(new[] { "END_NETWORK\n" }, StringSplitOptions.RemoveEmptyEntries);
-            return "%LANGUAGE FBD\n" + parts[1] + "END_NETWORK\n" + parts[0] + "END_NETWORK\n";
+            var parts = NetworksOf(t);
+            return "%LANGUAGE FBD\n" + parts[1] + parts[0];
         });
 
         var ex = Assert.Throws<NetworkTextException>(() => TcNetworkWriter.Apply(body, pushed.Body, pushed.Scope, Never));

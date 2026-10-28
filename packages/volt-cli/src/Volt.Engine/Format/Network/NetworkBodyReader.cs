@@ -1,5 +1,4 @@
 using System;
-using Volt.Contracts;
 using Volt.Engine.Format.St;
 using Volt.Engine.Ide;
 using Volt.Engine.Seam;
@@ -30,21 +29,11 @@ public sealed class NetworkBodyReader : IBodyReader
         _scopeFor = scopeFor ?? throw new ArgumentNullException(nameof(scopeFor));
     }
 
-    /// <summary>READ-ONLY (openspec <c>network-text-st</c> 2.1): a pull shows an LD/FBD body as plain-ST network text
-    /// (<see cref="StNetworkWriter"/>), and no push reads it back until section 3 puts the plain-ST reader here. Every LD/FBD
-    /// body a push carries — the pre-flight, a create, a driver's own write — comes through this reader, so this is the one
-    /// refusal: by name, before anything is read or written. With network text off in this process the refusal is the
-    /// switch's (<see cref="NetworkText.Validate"/>), unchanged.</summary>
+    /// <summary>The body read as plain-ST network text (openspec <c>network-text-st</c> 3.1) against the scope the host writes
+    /// it in — the one gate every LD/FBD body a push carries passes (the pre-flight, a create, a driver's own write).</summary>
     public object Read(string code, BodyContext context)
     {
-        var body = PropertyLines.JoinBody(PropertyLines.LanguageLine(_language), code);
-        if (!NetworkTextSwitch.Enabled) NetworkText.Validate(body, NetworkScope.Empty);
-        throw new BridgeException(BridgeErrorCodes.Unsupported,
-            $"a body is stated '{PropertyLines.LanguageLine(_language)}', and {ReadOnlyReason}, so it cannot be pushed: a pull " +
-            "shows it as plain-ST network text and nothing in the IDE is written from it. Push the item with its body as " +
-            $"'{PropertyLines.UnsupportedLine(_language)}' to keep the IDE's {_language} and write the declaration beside it.");
+        var scope = _scopeFor(context.Declaration, context.Pushed);
+        return new NetworkRead(NetworkText.Validate(PropertyLines.JoinBody(PropertyLines.LanguageLine(_language), code), scope), scope);
     }
-
-    /// <summary>Why an LD/FBD body is not pushed in this build — the read-only phase of plain-ST network text.</summary>
-    public const string ReadOnlyReason = "LD/FBD push comes back with the plain-ST reader";
 }

@@ -21,7 +21,6 @@
   <ItemGroup>
     <!-- The one shared in-memory IDE fake, compiled into each test assembly (see test/shared/FakeIde.cs). -->
     <Compile Include="..\shared\FakeIde.cs" Link="FakeIde.cs" />
-    <Compile Include="..\shared\ReadOnlyNetworkPush.cs" Link="ReadOnlyNetworkPush.cs" />
     <!-- The third test vendor (volt-cli-rework step 4): new contract only, driven through the old engine by a test-only adapter. -->
     <Compile Include="..\shared\Fakeco.cs" Link="Fakeco.cs" />
     <!-- The red-first mark (openspec bridge-one-to-one 2): GitEnvironmentTests is red until environment-dependency-audit 2.1. -->

@@ -82,16 +82,16 @@ public class TcDemuxTests
         Assert.Equal(0, and.ConnectedSlot);
     }
 
-    /// <summary>...and it renders as the format's own spelling for a fan-out: the split named by its VarId, no
+    /// <summary>...and it renders as the format's own spelling for a fan-out: a wire on its network's <c>%WIRES</c> line, no
     /// declaration and no type (B6), defined by an assignment and referenced by name.</summary>
     [Fact]
     public void It_materializes_as_a_named_wire_and_its_uses()
     {
         var text = TcText.Write(Read());
 
-        Assert.Contains("  split1 := b;\n", text);
-        Assert.Contains("out2 := split1;", text);      // one consumer
-        Assert.Contains("a OR split1", text);          // ...and the other, inside the OR box
+        Assert.Contains("%WIRES w2\nw2 := b;\n", text);
+        Assert.Contains("out2 := w2;", text);          // one consumer
+        Assert.Contains("OR(a, w2)", text);            // ...and the other, inside the OR box
     }
 
     /// <summary>A NO-OP PUSH MUST NOT REWRITE IT — the rule every other fixture is held to, now over a node type
@@ -156,7 +156,7 @@ public class TcDemuxTests
         var text = TcText.Write(Read(root));
 
         // B6: no type is written, whatever the feeder stores.
-        Assert.Contains("  split1 := ", text);
+        Assert.Matches(@"(?m)^w\d+ := AND\(", text);
         Assert.DoesNotContain("WORD", text);
     }
 
@@ -186,7 +186,7 @@ public class TcDemuxTests
 
         Assert.Null(TcText.Apply(archive, TcText.Validate(text, TcText.ScopeOf(pulled))));
 
-        var edited = text.Replace("out2 := split1;", "out := split1;");
+        var edited = System.Text.RegularExpressions.Regex.Replace(text, @"out2 := (w\d+);", "out := $1;");
         Assert.NotEqual(text, edited);
         var written = TcText.Apply(archive, TcText.Validate(edited, TcText.ScopeOf(pulled)));
         Assert.NotNull(written);
@@ -213,7 +213,7 @@ public class TcDemuxTests
         var text = TcText.Write(pulled);
         Assert.DoesNotContain("'   '", text);
 
-        var edited = text.Replace("out2 := split1;", "out := split1;");
+        var edited = System.Text.RegularExpressions.Regex.Replace(text, @"out2 := (w\d+);", "out := $1;");
         Assert.NotEqual(text, edited);
         var written = TcText.Apply(archive, TcText.Validate(edited, TcText.ScopeOf(pulled)));
         Assert.NotNull(written);

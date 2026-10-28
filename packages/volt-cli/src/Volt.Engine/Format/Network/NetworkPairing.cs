@@ -120,7 +120,7 @@ public static class NetworkPairing
     {
         // A pushed model the writer cannot spell came from no text; it pairs with nothing, and its write refuses it by name.
         try { return new NetworkKey(RenderPushed(n, language, scope), RenderPushed(Headless(n), language, scope)); }
-        catch (NetworkUnrepresentableException) { return new NetworkKey(null, null); }
+        catch (StNetworkUnspellableException) { return new NetworkKey(null, null); }
     }
 
     /// <summary>The shape a LIVE network is shown as on pull (<c>UNSUPPORTED "&lt;shape&gt;"</c>), or null when the text
@@ -129,7 +129,7 @@ public static class NetworkPairing
     {
         if (live.Unsupported is { } read) return read;
         try { RenderPushed(live, language, scope); return null; }
-        catch (NetworkUnrepresentableException e) { return e.Reason; }
+        catch (StNetworkUnspellableException e) { return e.Reason; }
     }
 
     /// <summary>
@@ -190,17 +190,17 @@ public static class NetworkPairing
 
     /// <summary>A network's text as a pull shows it, without its position: what <see cref="Plan(IReadOnlyList{Network}, IReadOnlyList{Network}, BodyLanguage, NetworkScope)"/>
     /// pairs a LIVE network by. One the text cannot spell renders as its <c>UNSUPPORTED</c> line
-    /// (<see cref="NetworkTextWriter.WritePulled"/>), so it pairs with that line pushed back unchanged and with nothing
+    /// (<see cref="StNetworkWriter.WritePulled"/>), so it pairs with that line pushed back unchanged and with nothing
     /// else. Throws what the pull would: a network whose header the text cannot carry hides the whole body on pull, so no
     /// pushed text can be its pair.</summary>
     public static string Render(Network network, BodyLanguage language, NetworkScope scope) =>
-        NetworkTextWriter.WritePulled(new NetworkBody(language, new[] { network with { Order = 0 } }), scope);
+        StNetworkWriter.WritePulled(new NetworkBody(language, new[] { network with { Order = 0 } }), scope);
 
-    /// <summary>A PUSHED network's text, without its position — STRICT (<see cref="NetworkTextWriter.Write"/>): the model
+    /// <summary>A PUSHED network's text, without its position — STRICT (<see cref="StNetworkWriter.Write"/>): the model
     /// came from the engineer's text through the push gate, so the writer spells every fact of it, and one it would not
     /// is refused by name rather than rendered as an UNSUPPORTED line it never was (and then built without the fact).</summary>
     public static string RenderPushed(Network network, BodyLanguage language, NetworkScope scope) =>
-        NetworkTextWriter.Write(new NetworkBody(language, new[] { network with { Order = 0 } }), scope);
+        StNetworkWriter.Write(new NetworkBody(language, new[] { network with { Order = 0 } }), scope);
 
     /// <summary>
     /// THE REFUSAL OF A PUSHED <c>UNSUPPORTED</c> LINE THAT PAIRS WITH NO LIVE NETWORK — the one rule both drivers apply

@@ -34,6 +34,9 @@ public class LanguageLinePushTests
     private const string Decl = "FUNCTION_BLOCK FB_Motor\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR";
     private const string Network = "NETWORK\n  out := a;\nEND_NETWORK";
 
+    /// <summary>One network in plain-ST network text (openspec network-text-st): what an LD/FBD body states.</summary>
+    private const string PlainNetwork = "%NETWORK\nout := a;";
+
     /// <summary>The motor with one method, <c>DoReset</c>, whose implementation is <paramref name="methodImpl"/> —
     /// its boundary line and body, exactly as they stand in the file.</summary>
     private static string Motor(string methodImpl) =>
@@ -92,35 +95,14 @@ public class LanguageLinePushTests
         Assert.DoesNotContain("%LANGUAGE", FakeIde.AllText(written));
     }
 
-    /// <summary>THE READ-ONLY PHASE (openspec <c>network-text-st</c> 2.1): a pull shows an LD/FBD body as plain-ST network
-    /// text, and a push of one — in plain ST or in any other spelling — is refused by name, naming the line it stated and
-    /// the line that keeps the IDE's body, before anything is written.</summary>
     [Theory]
-    [InlineData("LD", "%NETWORK\nout := a;")]
-    [InlineData("FBD", "%NETWORK\nout := a;")]
-    [InlineData("LD", Network)]
-    public void An_LD_or_FBD_body_is_refused_by_name_in_the_read_only_phase(string language, string code)
-    {
-        var ide = new FakeIde();
-
-        var resp = Create(ide, Motor($"%LANGUAGE {language}\n{code}"));
-
-        Assert.False(resp.Landed());
-        Assert.Contains(NetworkBodyReader.ReadOnlyReason, Why(resp));
-        Assert.Contains($"'%LANGUAGE {language}'", Why(resp));
-        Assert.Contains($"'%LANGUAGE {language} UNSUPPORTED'", Why(resp));
-        Assert.Empty(ide.CreatedItems);
-        Assert.Empty(ide.WrittenContent);
-    }
-
-    [Theory(Skip = ReadOnlyNetworkPush.Skip)]
     [InlineData("LD")]
     [InlineData("FBD")]
     public void A_body_stated_LD_or_FBD_is_read_as_network_text(string language)
     {
         var ide = new FakeIde();
 
-        var resp = Create(ide, Motor($"%LANGUAGE {language}\n{Network}"));
+        var resp = Create(ide, Motor($"%LANGUAGE {language}\n{PlainNetwork}"));
 
         Assert.True(resp.Landed(), "push refused: " + Why(resp));
         Assert.Contains("FB_Motor", ide.CreatedItems);
@@ -132,10 +114,9 @@ public class LanguageLinePushTests
         Assert.Equal("out := a;", written.Body);
         var body = written.Members.Single(m => m.Name == "DoReset").Body ?? "";
         Assert.Equal(language, NetworkText.LanguageOf(body));
-        var read = NetworkTextReader.Read(body, NetworkScope.Empty);
-        Assert.True(read.Ok, string.Join("\n", read.Diagnostics.Select(d => d.Code + " " + d.Message)));
-        Assert.Equal(language == "LD" ? BodyLanguage.Ld : BodyLanguage.Fbd, read.Body!.Language);
-        Assert.Single(read.Body.Networks);
+        var read = StNetworkReader.Read(body, NetworkScope.Empty);
+        Assert.Equal(language == "LD" ? BodyLanguage.Ld : BodyLanguage.Fbd, read.Language);
+        Assert.Single(read.Networks);
         Assert.Contains("out := a;", body);
     }
 
@@ -175,7 +156,7 @@ public class LanguageLinePushTests
         Assert.Equal(Network, ide.WrittenContent["FB_Motor"].Members.Single(m => m.Name == "DoReset").Body);
     }
 
-    [Theory(Skip = ReadOnlyNetworkPush.Skip)]
+    [Theory]
     [InlineData("LD")]
     [InlineData("FBD")]
     public void ST_under_a_graphical_language_is_refused_by_the_network_reader(string language)
@@ -217,7 +198,7 @@ public class LanguageLinePushTests
         Assert.Equal(Network, ide.WrittenContent["FB_Motor"].Members.Single(m => m.Name == "Running").Getter!.Code);
     }
 
-    [Theory(Skip = ReadOnlyNetworkPush.Skip)]
+    [Theory]
     [InlineData("LD", "Running := out;")]           // ST stated LD
     public void A_getter_that_contradicts_its_language_is_refused_by_the_network_reader(string language, string code)
     {

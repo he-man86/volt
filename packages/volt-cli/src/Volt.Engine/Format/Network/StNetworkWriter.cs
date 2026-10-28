@@ -311,7 +311,19 @@ public static class StNetworkWriter
             if (_net.Unsupported is { } shape)
             {
                 Comment(sb);
-                sb.Append(UnsupportedLine).Append(" \"").Append(shape).Append("\" #").Append(_net.UnsupportedHash).Append('\n');
+                // A network a VENDOR reader refused carries no hash yet: it is the network's own (its shape), as a writer
+                // refusal's is its trees'.
+                var hash = _net.UnsupportedHash ?? NetworkTextWriter.Hash(_net);
+                if (!NetworkSpelling.UnsupportedShape.IsMatch(shape))
+                    throw HeaderUnspellable("an unsupported network whose shape is no phrase", $"network {_net.Order + 1} is UNSUPPORTED for '{shape}'.");
+                sb.Append(UnsupportedLine).Append(" \"").Append(shape).Append("\" #").Append(hash).Append('\n');
+                // Its label is still the jump target it is: the label line stands under the UNSUPPORTED line.
+                if (_net.Label is { } unsupportedLabel)
+                {
+                    if (!NetworkSpelling.Identifier.IsMatch(unsupportedLabel))
+                        throw HeaderUnspellable("a label that is not an identifier", $"the label '{unsupportedLabel}'.");
+                    sb.Append(unsupportedLabel).Append(":\n");
+                }
                 return sb.ToString();
             }
             if (_net.Label is { } label && !NetworkSpelling.Identifier.IsMatch(label))

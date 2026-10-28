@@ -21,33 +21,30 @@ public class PushedTextTests
 
     /// <summary>A graphical body laid out otherwise is the same item; a changed token is not.</summary>
     [Theory]
-    [InlineData("  out := a AND\n    b;", true)]
-    [InlineData("  out := a OR b;", false)]
+    [InlineData("out := a AND\n    b;", true)]
+    [InlineData("out := a OR b;", false)]
     // Another SPELLING of the same program is written since 2.12 and comes back canonical: the same item, not "another
-    // program" (1+2d review — the CLI told the user the IDE held another program than the text pushed). A box word's case
-    // is the box type's, so `a and b` is another box type.
-    [InlineData("  out := `a` AND b;", true)]
-    [InlineData("  out := a and b;", false)]
-    public void A_graphical_body_is_compared_by_its_tokens(string statement, bool same)
+    // program" (1+2d review — the CLI told the user the IDE held another program than the text pushed). A box called in
+    // the case it was typed is a box of that type, so `and(a, b)` is another element than the contacts.
+    [InlineData("out := (a AND b);", true)]
+    [InlineData("out := and(a, b);", false)]
+    public void A_graphical_body_is_compared_as_one_model(string statement, bool same)
     {
         static string Prg(string s) =>
-            "PROGRAM P\nVAR\n  a, b, out : BOOL;\nEND_VAR\n%LANGUAGE FBD\nNETWORK\n" + s + "\nEND_NETWORK\nEND_PROGRAM\n";
-        Assert.Equal(same, PushedText.SameExceptLayout("P.pou", Prg("  out := a AND b;"), Prg(statement)));
+            "PROGRAM P\nVAR\n  a, b, out : BOOL;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\n" + s + "\nEND_PROGRAM\n";
+        Assert.Equal(same, PushedText.SameExceptLayout("P.pou", Prg("out := a AND b;"), Prg(statement)));
     }
 
     /// <summary>A variable of an elementary type is no FB instance to the CLI either (review of
     /// <c>bridge-refusal-review</c> 4a): the comparison's scope takes the words BOTH vendors refuse as a POU name
-    /// (<c>BothVendorsRefusedNames</c>). Read with no refused name at all, a BOOL named <c>R_EDGE</c> was an "instance"
-    /// that took the edge construct, neither text read, and two spellings of one program were called different.</summary>
+    /// (<c>BothVendorsRefusedNames</c>), so a BOOL named <c>R_EDGE</c> is an operand like any other.</summary>
     [Theory]
-    [InlineData("  out := R_EDGE a AND b;", "  out := R_EDGE `a` AND b;", true)]
-    [InlineData("  out := a AND b;", "  out := `a` AND b;", true)]
-    [InlineData("  out := R_EDGE a AND b;", "  out := R_EDGE a OR b;", false)]
+    [InlineData("out := R_EDGE AND b;", "out := R_EDGE AND\n    b;", true)]
+    [InlineData("out := R_EDGE AND b;", "out := R_EDGE OR b;", false)]
     public void An_elementary_typed_variable_named_like_a_construct_is_no_instance(string x, string y, bool same)
     {
         static string Prg(string s) =>
-            "PROGRAM P\nVAR\n  R_EDGE : BOOL;\n  a, b, out : BOOL;\nEND_VAR\n%LANGUAGE FBD\nNETWORK\n" + s +
-            "\nEND_NETWORK\nEND_PROGRAM\n";
+            "PROGRAM P\nVAR\n  R_EDGE : BOOL;\n  a, b, out : BOOL;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\n" + s + "\nEND_PROGRAM\n";
         Assert.Equal(same, PushedText.SameExceptLayout("P.pou", Prg(x), Prg(y)));
     }
 
@@ -102,17 +99,17 @@ public class PushedTextTests
     /// IDE change nobody made). A held pin with another VALUE, or a pin the text named held under another NAME, is
     /// another program.</summary>
     [Theory]
-    [InlineData("r := F(n);", "r := F(a := n);", true)]
-    [InlineData("r := F(n, m);", "r := F(a := n, b := m);", true)]
-    [InlineData("r := F(n, b := m);", "r := F(a := n, b := m);", true)]
-    [InlineData("r := F(n);", "r := F(a := m);", false)]
-    [InlineData("r := F(a := n);", "r := F(b := n);", false)]
-    [InlineData("r := F(n, b := m);", "r := F(a := n, c := m);", false)]
-    [InlineData("r := F(n);", "r := G(a := n);", false)]
+    [InlineData("x := F(n);", "x := F(a := n);", true)]
+    [InlineData("x := F(n, m);", "x := F(a := n, b := m);", true)]
+    [InlineData("x := F(n, b := m);", "x := F(a := n, b := m);", true)]
+    [InlineData("x := F(n);", "x := F(a := m);", false)]
+    [InlineData("x := F(a := n);", "x := F(b := n);", false)]
+    [InlineData("x := F(n, b := m);", "x := F(a := n, c := m);", false)]
+    [InlineData("x := F(n);", "x := G(a := n);", false)]
     public void A_positional_function_call_held_with_its_derived_names_is_the_same_item(string pushed, string held, bool same)
     {
         static string Prg(string s) =>
-            "PROGRAM P\nVAR\n  n, m, r : INT;\nEND_VAR\n%LANGUAGE FBD\nNETWORK\n  " + s + "\nEND_NETWORK\nEND_PROGRAM\n";
+            "PROGRAM P\nVAR\n  n, m, x : INT;\nEND_VAR\n%LANGUAGE FBD\n%NETWORK\n" + s + "\nEND_PROGRAM\n";
         Assert.Equal(same, PushedText.SameExceptLayout("P.pou", Prg(pushed), Prg(held)));
     }
 }

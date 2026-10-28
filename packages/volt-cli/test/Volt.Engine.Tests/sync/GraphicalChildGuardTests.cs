@@ -158,7 +158,7 @@ public class GraphicalChildGuardTests
     /// stores an archive over an ST body as ST text that does not compile — no in-place route there). The message said "graphical
     /// bodies are authored in the IDE, not created by push", which is false: a push CREATES graphical bodies. It names
     /// the route that exists — delete and push again — and the two languages.</summary>
-    [Fact(Skip = ReadOnlyNetworkPush.Skip)]
+    [Fact]
     public void Network_text_over_a_textual_child_is_refused_naming_the_route_that_exists()
     {
         var ide = IdeWithChild("M", childLang: null);
@@ -174,7 +174,7 @@ public class GraphicalChildGuardTests
                     Name = Name,
                     IfVersion = refs.Items[Name],
                     SourceText = $"{PouDecl}\n%LANGUAGE ST\nEND_FUNCTION_BLOCK\n\nMETHOD M : INT\nVAR\n\ta : BOOL;\n\tq : BOOL;\nEND_VAR\n" +
-                                 "%LANGUAGE FBD\nNETWORK\n  q := a;\nEND_NETWORK\nEND_METHOD\n",
+                                 "%LANGUAGE FBD\n%NETWORK\nq := a;\nEND_METHOD\n",
                 },
             },
         });

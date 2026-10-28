@@ -1396,7 +1396,7 @@ public sealed class FakeIde : VendorDriverBase, IVendorDriver, IIecTree
         // The MODEL the pre-flight validated, never the text read again (D8) — a network body with none is Volt's bug,
         // and the lookup refuses it naming the site, as both drivers' writes do.
         if (Volt.Engine.Ide.PushedNetworkBody.At(bodies, site, body) is not { } graph) return body;
-        var held = Volt.Engine.Format.Network.NetworkTextWriter.Write(graph.Model, graph.Scope).TrimEnd('\n');
+        var held = Volt.Engine.Format.Network.StNetworkWriter.WritePulled(graph.Model, graph.Scope).TrimEnd('\n');
         return RematerializeAs is null ? held : RematerializeAs(held);
     }
 

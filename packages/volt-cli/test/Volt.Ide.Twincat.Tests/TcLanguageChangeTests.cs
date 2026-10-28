@@ -48,13 +48,13 @@ public class TcLanguageChangeTests
         Assert.Equal(0, pou.ImplementationWrites);
     }
 
-    [Fact(Skip = ReadOnlyNetworkPush.Skip)]
+    [Fact]
     public void A_graphical_body_written_over_ST_is_refused_by_the_write_itself()
     {
         const string decl = "FUNCTION_BLOCK FB_S\nVAR\n\ta, q : BOOL;\nEND_VAR";
         var pou = new TcHiddenBodyWriteTests.Node("FB_S", ItemKind.PlcPou, decl, "q := a;");
         var driver = TcUntouchablePouTests.BoundDriver();
-        var content = new ItemContent(ItemKind.Kinds.Pou, decl, "%LANGUAGE LD\nNETWORK\n  q := a;\nEND_NETWORK",
+        var content = new ItemContent(ItemKind.Kinds.Pou, decl, "%LANGUAGE LD\n%NETWORK\nq := a;",
                                       new List<Member>(), ObjectProperties.None, Stated: StatedLanguage.Shown("LD"));
         // The bodies as the push pre-flight hands them over (D8): read once, by the language's reader the host declares.
         var shown = Volt.Engine.Format.St.FamilyContent.ToContent(content).Body!;

@@ -90,7 +90,6 @@ public class WireVocabularyTests
             ("Volt.Engine/Ide/ExcludedFolder.cs", 2),   // wire-final-shape §4: an unreadable entry's code — an excluded folder, and each item under it
             ("Volt.Ide.Codesys/Driver/CodesysDriver.Tree.cs", 3),   // wire-final-shape §4: an unreadable entry's code — a container holding what no text spells, the library manager's unspelled content  // abstract-member-parity: the NONE/ABSTRACT refusals as named builders (NONE off a member site, NONE without ABSTRACT, ABSTRACT dropped over NONE, statements under ABSTRACT) + a body over NONE at an item site, over a slotless concrete member, and a comment over NONE
             ("Volt.Engine/Format/Network/NetworkText.cs", 1),
-            ("Volt.Engine/Format/Network/NetworkBodyReader.cs", 1),   // network-text-st 2.1: an LD/FBD body pushed in the read-only phase, refused by name until 3.1
             ("Volt.Engine/Format/St/FamilyContent.cs", 1),   // volt-cli-rework step 5: a %-key the IEC layout's object record has no field for
             ("Volt.Engine/Format/St/IecFormat.cs", 4),   // moved from Materializer (volt-cli-rework step 5): what a pull must not write
             ("Volt.Engine/Format/St/PropertyLines.Language.cs", 3),   // a vendor language the line cannot state (no word, ST); an ST body holding a %LANGUAGE line
@@ -118,7 +117,7 @@ public class WireVocabularyTests
             ("Volt.Ide.Twincat/Ide/TcTaskSchedule.cs", 8),   // +1 a TaskDef member none of the 13 measured (gate review of step 3, 6)
             ("Volt.Engine/UnsupportedException.cs", 1),   // wire-final-shape 3c: the code the type states, for the catches that route on a vendor "cannot"
             ("Volt.Ide.Codesys/Driver/CodesysDriver.cs", 1),   // wire-final-shape 3c: coded at the throw
-            ("Volt.Ide.Codesys/Ide/CodesysNetworkWriter.cs", 7),   // wire-final-shape 3c: coded at the throw
+            ("Volt.Ide.Codesys/Ide/CodesysNetworkWriter.cs", 8),   // wire-final-shape 3c: coded at the throw; +1 network-text-st 3.1: a coil flag on a pin, refused before the rebuild
             ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Reflection.cs", 1),   // wire-final-shape 3c: coded at the throw
             ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Tree.cs", 1),   // wire-final-shape 3c: coded at the throw
             ("Volt.Ide.Twincat/Ide/TcArchive.cs", 2),   // wire-final-shape 3c: coded at the throw
@@ -208,6 +207,7 @@ public class WireVocabularyTests
         // ── the graphical body format ──────────────────────────────────────────────────────────────────────────
         new("network text that does not parse", "fix the text at the line", "NETWORK_PARSE", At(
             ("Volt.Engine/Format/Network/NetworkLexer.cs", 8),   // 2R.6b: a bad escape in a comment, title or backtick, and text after EXECUTE on its line
+            ("Volt.Engine/Format/Network/StNetworkGate.cs", 1),   // network-text-st 3.1: the plain-ST reader refuses the text, by name, with its line
             ("Volt.Engine/Format/Network/NetworkText.cs", 1),
             ("Volt.Engine/Format/Network/NetworkTextReader.cs", 26))),   // 2R.6b (v2-spec): the old spellings that fail as no parse, each naming the new one; -1 the v1 detector (volt-cli-rework 3.1)
         new("a NETWORK block with no END_NETWORK", "close the block", "NETWORK_NOT_CLOSED", At(
@@ -220,6 +220,7 @@ public class WireVocabularyTests
         new("an operator outside the FBD/LD table", "use an operator of the table", "NETWORK_UNKNOWN_OPERATOR", At(
             ("Volt.Engine/Format/Network/NetworkTextReader.cs", 1))),
         new("a body shape network text has no spelling for", "draw it in the IDE", "NETWORK_UNSUPPORTED", At(
+            ("Volt.Engine/Format/Network/StNetworkGate.cs", 1),   // network-text-st 3.1: a pushed model the plain-ST writer cannot spell
             ("Volt.Engine/Format/Network/NetworkText.cs", 1),
             ("Volt.Engine/Format/Network/NetworkValidator.cs", 1),   // 2R.6b: the shape refusals (X3–X17, the MEASURE shapes), checked once over the model
             ("Volt.Engine/Format/Network/NetworkTextWriter.cs", 1),   // 2R.6b: the validator's refusals (X3–X17, the MEASURE shapes) raised as one exception, by the code each names

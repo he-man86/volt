@@ -427,21 +427,20 @@ public class PushServiceTests
     }
 
     /// <summary>The pre-flight reads a graphical body against the scope the DRIVER builds from the project (task 3.9,
-    /// <c>NetworkScopeFor</c>). B6, P1: a split's name IS its VarId and the pattern is reserved, so a split
-    /// <c>split7</c> in a POU of a project whose GVL declares <c>SPLIT7</c> is the split (the global is <c>`SPLIT7`</c>)
-    /// and the body is written, as it is without the global — both IDEs build the shape clean
-    /// (<c>rcc_network_wire_named_like_variable</c>). It was refused by name until the 2R.3 review.</summary>
-    [Theory(Skip = ReadOnlyNetworkPush.Skip)]
+    /// <c>NetworkScopeFor</c>): a wire is a name on its network's <c>%WIRES</c> line that nothing in reach declares
+    /// (openspec network-text-st 1.4), so a wire <c>w1</c> in a POU of a project whose GVL declares <c>W1</c> is refused by
+    /// name, and the same body without the global is written.</summary>
+    [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public void A_split_named_like_a_projects_global_is_written(bool withGlobal)
+    public void A_wire_named_like_a_projects_global_is_refused_by_name(bool withGlobal)
     {
         var items = new System.Collections.Generic.List<FakeIde.Item>
         {
             new("PLC_PRG", ItemKind.PlcPou, "", true, "PROGRAM PLC_PRG\nVAR\n  out : BOOL;\nEND_VAR",
-                "%LANGUAGE LD\nNETWORK\n  out := TRUE;\nEND_NETWORK", "LD", null),
+                "%LANGUAGE LD\n%NETWORK\nout := TRUE;", "LD", null),
         };
-        if (withGlobal) items.Add(FakeIde.Item.TextualPou("GVL_Main", "VAR_GLOBAL\n  SPLIT7 : BOOL;\nEND_VAR", ""));
+        if (withGlobal) items.Add(FakeIde.Item.TextualPou("GVL_Main", "VAR_GLOBAL\n  W1 : BOOL;\nEND_VAR", ""));
         var ide = new FakeIde(items.ToArray());
         var (v, pv) = Ver(ide, "PLC_PRG.pou");
 
@@ -450,10 +449,17 @@ public class PushServiceTests
             Name = "PLC_PRG.pou",
             IfVersion = v,
             SourceText = "PROGRAM PLC_PRG\nVAR\n  out : BOOL;\nEND_VAR\n%LANGUAGE LD\n" +
-                         "NETWORK\n  split7 := TRUE;\n  out := split7;\nEND_NETWORK\n\nEND_PROGRAM\n",
+                         "%NETWORK\n%WIRES w1\nw1 := TRUE;\nout := w1;\n\nEND_PROGRAM\n",
         });
 
-        Assert.True(resp.Landed(), string.Join(" | ", (resp.Conflicts ?? new()).Select(c => c.Code + ": " + c.Reason)));
+        if (!withGlobal)
+        {
+            Assert.True(resp.Landed(), string.Join(" | ", (resp.Conflicts ?? new()).Select(c => c.Code + ": " + c.Reason)));
+            return;
+        }
+        var conflict = Assert.Single(resp.Conflicts!);
+        Assert.Equal(Volt.Contracts.ConflictCodes.NetworkParse, conflict.Code);
+        Assert.Contains("declared in reach", conflict.Reason);
     }
 
     /// <summary>A move+edit whose CONTENT is refused must leave the item where it was — the refusal has to be

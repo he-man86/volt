@@ -154,22 +154,8 @@ public class NoBodySlotTests
     [InlineData("\nMETHOD ABSTRACT Take : INT\nEND_METHOD", "\nMETHOD ABSTRACT Take : INT\n%LANGUAGE ST\nEND_METHOD", "'Take'")]
     [InlineData("\nMETHOD ABSTRACT Take : INT\nEND_METHOD", "\nMETHOD ABSTRACT Take : INT\n%LANGUAGE ST\n// later\nEND_METHOD", "'Take'")]
     [InlineData("GET\nVAR\nEND_VAR\nEND_GET", "GET\nVAR\nEND_VAR\n%LANGUAGE ST\nEND_GET", "'Busy' GET")]
-    public void A_stated_language_over_a_live_member_with_no_slot_is_refused(string from, string to, string named)
-    {
-        var ide = Ide();
-
-        var reason = Refused(Push(ide, Edit(Pulled(ide), from, to)));
-
-        Assert.Contains(named, reason);
-        Assert.Contains("no body slot", reason);
-        AssertNothingMutated(ide);
-    }
-
-    /// <summary>The LD row of the theory above, apart: an LD body's push is refused by name in the read-only phase before
-    /// the slot rule is reached (network-text-st 2.1); 3.1 returns it to the theory.</summary>
-    [Theory(Skip = ReadOnlyNetworkPush.Skip)]
     [InlineData("GET\nVAR\nEND_VAR\nEND_GET", "GET\nVAR\nEND_VAR\n%LANGUAGE LD\nEND_GET", "'Busy' GET")]
-    public void A_stated_graphical_language_over_a_live_member_with_no_slot_is_refused(string from, string to, string named)
+    public void A_stated_language_over_a_live_member_with_no_slot_is_refused(string from, string to, string named)
     {
         var ide = Ide();
 

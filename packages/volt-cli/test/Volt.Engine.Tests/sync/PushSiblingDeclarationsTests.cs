@@ -31,7 +31,7 @@ public class PushSiblingDeclarationsTests
 
     private static FakeIde TwoItems() => new(
         new FakeIde.Item("Mach1_AuxData", ItemKind.PlcGvl, "", true, "VAR_GLOBAL\nEND_VAR", null, null, null),
-        new FakeIde.Item("Caller", ItemKind.PlcPou, "", true, FbDecl, "%LANGUAGE FBD\nNETWORK\n  n := 1;\nEND_NETWORK", null, null));
+        new FakeIde.Item("Caller", ItemKind.PlcPou, "", true, FbDecl, "%LANGUAGE FBD\n%NETWORK\nn := 1;", null, null));
 
     private static PushResponse PushBoth(FakeIde ide)
     {
@@ -46,7 +46,7 @@ public class PushSiblingDeclarationsTests
                 new SetItemOp
                 {
                     Name = "Caller.pou", IfVersion = refs.Items["Caller.pou"],
-                    SourceText = FbDecl + "\n%LANGUAGE FBD\nNETWORK\n  n := 2;\nEND_NETWORK\n\nEND_FUNCTION_BLOCK\n",
+                    SourceText = FbDecl + "\n%LANGUAGE FBD\n%NETWORK\nn := 2;\n\nEND_FUNCTION_BLOCK\n",
                 },
                 new SetItemOp
                 {
@@ -57,7 +57,7 @@ public class PushSiblingDeclarationsTests
         });
     }
 
-    [Fact(Skip = ReadOnlyNetworkPush.Skip)]
+    [Fact]
     public void A_body_sees_a_sibling_whose_own_op_has_not_run_yet()
     {
         var ide = TwoItems();
@@ -72,7 +72,7 @@ public class PushSiblingDeclarationsTests
 
     /// <summary>Keyed BARE, because that is the key the resolver walks with — the IDE's own lookup key. The wire
     /// carries FULL names (`Mach1_AuxData.gvl`), and indexing under one would make every lookup miss.</summary>
-    [Fact(Skip = ReadOnlyNetworkPush.Skip)]
+    [Fact]
     public void The_index_is_keyed_by_bare_name()
     {
         var ide = TwoItems();
@@ -84,7 +84,7 @@ public class PushSiblingDeclarationsTests
 
     /// <summary>The item's OWN declaration is in there too. It costs nothing and it is what makes the index a
     /// straight answer to "what does this project say?" rather than a special case with a hole in it.</summary>
-    [Fact(Skip = ReadOnlyNetworkPush.Skip)]
+    [Fact]
     public void An_item_is_in_the_index_alongside_its_siblings()
     {
         var ide = TwoItems();

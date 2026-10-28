@@ -339,7 +339,7 @@ internal static class TcNetworkWriter
                                          BodyLanguage.Fbd, scope)
                    == NetworkPairing.RenderPushed(model, BodyLanguage.Fbd, scope);
         }
-        catch (NetworkUnrepresentableException) { return false; }
+        catch (Volt.Engine.Format.Body.UnrepresentableBodyException) { return false; }
     }
 
     /// <summary>Set the archive's view slot to the pushed language, when it differs; true when it was written. The slot
@@ -800,6 +800,12 @@ internal static class TcNetworkWriter
         // B7: a box read from text states no member. Written in place, the archive's own (the box the IDE drew) are kept,
         // as an unchanged network keeps every one; a box the push BUILDS takes the derivation from the builder.
         if (!NetworkMembers.Stated(b)) return false;
+        // A box read from plain-ST text states only the ELEMENT it is (a contact stores no output name, a drawn AND/OR box
+        // one, openspec network-text-st 2.1) and no types: where the IDE's box is that element already, its own names and
+        // types are kept, as the IDE drew them (a function result pin '   ', a WORD type).
+        if (b.OutputTypes is null && b.Members?[NetworkMembers.OutputNames] is { } element &&
+            param.Elements("l2").Any(l => (string?)l.Attribute("n") == "Names" && l.Elements("v").Any()) == (element.AsTexts.Count > 0))
+            return false;
         var site = new BoxSite(consumed);
         return SetStrings(param, "Names", NetworkMembers.Effective(b, site, NetworkMembers.OutputNames).AsTexts)
              | SetStrings(param, "Types", NetworkMembers.Effective(b, site, NetworkMembers.OutputTypes).AsTexts);

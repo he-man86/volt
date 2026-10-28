@@ -30,8 +30,7 @@ public static class PushedText
 
     /// <summary>Whether <paramref name="held"/> — the IDE's text of <paramref name="wireName"/> after a push — is
     /// <paramref name="pushed"/> but for layout: the same declarations, folders and ST bodies byte for byte, and every
-    /// graphical body the same tokens (<see cref="NetworkTextGate.SameTokens"/>) — the one place the format lets layout
-    /// vary. A TASK is a descriptor, not ST, and is compared by its own format.
+    /// graphical body one model (<see cref="SameBody"/>) — the one place the format lets layout vary. A TASK is a descriptor, not ST, and is compared by its own format.
     ///
     /// <para>Read by the WIRE KIND (<see cref="ItemKind.KindForWireName"/>), as the ST reader's contract asks: the
     /// extension is the kind, and the text's header is never read for it.</para></summary>
@@ -62,31 +61,20 @@ public static class PushedText
             && x.Getter?.Declaration == y.Getter?.Declaration && x.Setter?.Declaration == y.Setter?.Declaration;
     }
 
-    /// <summary>One body against the other: byte-equal, the same tokens (<see cref="NetworkTextGate.SameTokens"/>), or
-    /// — since another SPELLING of a graphical body is written and comes back canonical (openspec
-    /// <c>bridge-refusal-review</c> 2.12) — the same canonical text, a positional FUNCTION pin counted as the name the
-    /// push derived for it and the IDE holds (<see cref="NetworkDerivation.NamedAs"/>). The canonical form is read against the body's own
-    /// declarations only (<paramref name="declaration"/>): the CLI has no project to resolve against, and both texts are
-    /// read in that one scope, so equal canonical renderings are one model. A text that does not read in it is not
-    /// claimed to be the same. For the same reason the CLI asks no item's kind (it holds no project). It links no driver,
-    /// so the names no POU can have are the words BOTH vendors refuse (<see cref="BothVendorsRefusedNames"/>) — with
-    /// none, a BOOL named <c>R_EDGE</c> reads as an edge instance and neither text reads (<c>bridge-refusal-review</c> 4a).</summary>
+    /// <summary>One body against the other: byte-equal, or — since another SPELLING or LAYOUT of a graphical body is written
+    /// and comes back canonical (openspec <c>bridge-refusal-review</c> 2.12) — one model: the same canonical plain-ST text, a
+    /// positional FUNCTION pin counted as the name the push derived for it and the IDE holds (<see cref="StNetworkGate.SameBody"/>).
+    /// The canonical form is read against the body's own declarations only (<paramref name="declaration"/>): the CLI has no
+    /// project to resolve against, and both texts are read in that one scope, so equal canonical renderings are one model.
+    /// For the same reason the CLI asks no item's kind (it holds no project). It links no driver, so the names no POU can
+    /// have are the words BOTH vendors refuse (<see cref="BothVendorsRefusedNames"/>).</summary>
     private static bool SameBody(string? x, string? y, string? declaration)
     {
         if (x == y) return true;
         if (x is null || y is null || !NetworkText.Is(x) || !NetworkText.Is(y)) return false;
-        if (NetworkTextGate.SameTokens(x, y)) return true;
         var scope = NetworkScope.FromDeclarations(declaration, _ => null, () => System.Array.Empty<string>(),
                                                   kindOf: _ => null, isRefusedPouName: BothVendorsRefusedNames.Contains,
                                                   libraryFunction: _ => null);
-        var cx = NetworkTextGate.Validate(x, scope);
-        var cy = NetworkTextGate.Validate(y, scope);
-        if (cx.Canonical is not { } canonicalX || cy.Canonical is not { } canonicalY) return false;
-        if (canonicalX == canonicalY) return true;
-        // The push names a FUNCTION box's positional pins from the callee's declaration (NetworkDerivation), and the IDE
-        // holds them named: `f(n)` comes back `f(a := n)`. This scope has no callee to derive from, so the names are read
-        // back off the held box — the same type at the same place, every pin named — and the pushed text is that body.
-        var named = NetworkDerivation.NamedAs(cx.Body!, cy.Body!);
-        return !ReferenceEquals(named, cx.Body) && NetworkTextWriter.Write(named, scope) == canonicalY;
+        return StNetworkGate.SameBody(x, y, scope);
     }
 }
