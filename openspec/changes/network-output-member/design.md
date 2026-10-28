@@ -114,3 +114,43 @@ and `X_ENONLY` shapes only. ENO without EN (today's `X_ENO`, `function-eno-witho
 open is the function moved pin above (2.5).
 
 Migration: the writer respells the case set from the model; LSP conformance fixtures respelled and re-recorded (2.5).
+
+## 2a Build (writer, reader, LSP, twin, doc)
+
+**Target.** The text layer only. The model already holds every fact the rule spells (`Box.Enable`, `HasEnoOutput`,
+`ConnectedSlot`, `MainOutputName`, `Instance`), so `NetworkModel`, the vendor readers/writers and `NetworkDerivation` stay;
+`StNetworkWriter`/`StNetworkReader`, the LSP's network check + box typing, the twin and the doc change.
+
+**Choice: one call form, decided by the callee's declaration in the scope, the as-written reading the same code path.**
+- Writer: `Suffix()`, `Suffixed()`, `EnabledNameInReach` and the FB statement form go. A box writes `Type(` (an FB:
+  `FB := inst` first) `EN := e` when `Enable` is set, pins, outputs `)`, then `.ENO` when `HasEnoOutput`, else `.NAME` when
+  consumed and the declaration (`scope.Callee` / `BlockOutputs`) states more than one data output (`MainOutputName`, or
+  `OUT` for slot 0 of a function). Callee unstated: `.NAME` written whenever `MainOutputName` is set — the as-written form.
+  A wire defined by an FB output is `w := TON(FB := t1, …).Q;` like any Demux; the "read once = the call statement" rule goes.
+- Reader: the parser gains one postfix, `ACall.Member` (`.` is already a lexer symbol), and the statement form
+  "call closed by `.ENO`"; any other member on a statement is refused. `BoxOf` decides from `scope.Callee(type)`: `EN :=`
+  first = `Enable` unless the callee declares an `EN` input; `.ENO` = `HasEnoOutput` (consumed: `ConnectedSlot` 0) unless it
+  declares `ENO`; `.NAME` = `MainOutputName` (FB) / the slot (function `OUT`, a `VAR_OUTPUT`). Callee unstated: `EN` an
+  input pin, `.X` `MainOutputName` — writer and reader agree, so `SameBody` compares as written for free.
+- Push refusal of an unstated callee: beside the existing `NamedMainOutputs` refusal in the three vendor writers, one
+  shared predicate `NetworkPairing.UnstatedCallees(network, scope)` (callee unstated AND the box has an `EN`/`ENO` pin,
+  a `MainOutputName`, or is a consumed FB) — the message 1.2 names. Not in the reader: the reader then needs a "push
+  scope" mode flag, and `SameBody` would need the other mode.
+- The 1.2 refusals (member on one output, naming no output, other than `.ENO` with ENO/at a root, `VAR_OUTPUT OUT`,
+  function `.NAME` on a `VAR_OUTPUT`) are reader errors with the line, in one `MemberOf(call, callee, consumed)`.
+- LSP: the parser already reads `f(…).X` (postfix member) and `f(…).ENO;` (`expr_stmt`). `names.ts` drops the three
+  suffix names; `network-call.ts` types a box call as its callee's own signature (FB type + `FB :=` the instance, `EN`
+  an optional BOOL input where undeclared) and `.X` as the declared output's type (`.ENO` BOOL, `.OUT` the value);
+  `_plain-st.ts` accepts `expr_stmt` only as a top-level call closed by `.ENO` and carries the same refusals, same wording.
+- Twin: `TON(FB := t1, …).X` → `t1(…);` before the item, `t1.X` in it; `EN :=`/`.ENO` → today's `X_EN`/`X_ENONLY`/`X_ENO`
+  translations keyed on the flags instead of the suffix; root `f(…).ENO;` → `f(…);` under the enable translation.
+- Doc: the suffix table becomes one sentence + the 1.2 example block; FB rows follow; stale anchors fixed (2.4 list).
+
+Rejected: keep the suffixes and add only `.X` (two ways to say EN/ENO); a model field "unresolved" set by the reader
+(a model fact that is no IDE fact); refusing an unstated callee in the reader (a mode flag, two readings of one text).
+
+Migration (no compat, no users): the case files' `=== model` blocks are the truth; their `=== text` is respelled by the
+new writer from the model (one-shot scratch run, deleted), diffs reviewed; only `fb-call-read-through-declared-eno`'s
+model changes (flags false, read by name `ENO`, its scope declaring `Dryer`'s outputs). LSP conformance fixtures and
+`st-spellings-run.test.ts` respelled by hand, re-recorded in one batch per vendor (2.3/2.5). Corpus count of boxes a
+push meets with an unstated callee: from the round-trip oracle in 2.1.
