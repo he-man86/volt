@@ -166,6 +166,11 @@
       `#subset`); the roundtrip.test.ts comment says the current spelling.
 - [ ] 2.5 Live e2e on CODESYS and TwinCAT; the graphical conformance fixtures re-recorded.
 
+- [ ] 2.6 The Execute box as `EXECUTE(…) … END_EXECUTE` (design.md, last section): writer, reader, LSP, exec twin, doc;
+      `%EXECUTE` / `%END_EXECUTE` deleted. Count first: an Execute box without EN, and one whose ENO chains on.
+- [ ] 2.7 An FB box is a call on its instance (design.md "FB boxes"); the code on this branch still writes
+      `TYPE(FB := inst, …)`.
+
 ## 3. Close
 
 - [ ] 3.1 Cold full suites, the small release matrix (latest CODESYS + TwinCAT), archive.

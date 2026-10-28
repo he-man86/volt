@@ -213,3 +213,18 @@ y  := t1(EN := c, IN := a, PT := T#1S).Q;                     // moved pin: Q ch
 
 `x := t1.Q;` on its own line is a different stored element (a read of the instance's variable), written only where the
 IDE stores that.
+
+## The Execute box is a call: `EXECUTE(…) … END_EXECUTE` (owner, 2026-10-28: "we need a execute(en) function that has the ST inside")
+
+Replaces `%EXECUTE` / `%END_EXECUTE`. The Execute box is a box like every other: a call, `EN :=` when the box shows EN,
+its ENO the return value when ENO chains on; its ST stands between the call and `END_EXECUTE;` and is free ST (the LSP's
+own statement parser). The exec twin writes it as `IF en THEN … END_IF`.
+
+```
+EXECUTE(EN := go)
+    IF start THEN count := count + 1; END_IF
+END_EXECUTE;
+ok := EXECUTE(EN := go)
+    count := count + 1;
+END_EXECUTE;
+```
