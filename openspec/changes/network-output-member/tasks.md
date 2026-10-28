@@ -170,6 +170,8 @@
       `%EXECUTE` / `%END_EXECUTE` deleted. Count first: an Execute box without EN, and one whose ENO chains on.
 - [ ] 2.7 An FB box is a call on its instance (design.md "FB boxes"); the code on this branch still writes
       `TYPE(FB := inst, …)`.
+- [ ] 2.8 Wires as `VAR_TEMP w1 : ANY; END_VAR` at the network start (design.md "Wires"): writer, reader, LSP, exec
+      twin, doc; `%WIRES` deleted.
 
 ## 3. Close
 
