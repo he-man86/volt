@@ -1,10 +1,10 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.WebSockets;
 using System.Text.Json;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using Volt.Contracts;
 using Volt.Relay;
@@ -27,7 +27,15 @@ public sealed class FakeRelay
     // What the bridge's next receive yields. A thunk, not a string, so the queue can also carry a close with its
     // status and a connection that dies without one: the three things a real socket's receive can produce. It is handed
     // the receive's arrival callback, so an entry can report bytes that arrived before the message died (§4).
-    private readonly BlockingCollection<Func<Action<int>, RelayReceived>> _toBridge = new();
+    // A CHANNEL, read asynchronously: a waiting receive holds no thread, as a real ClientWebSocket's does not. A blocking
+    // queue taken inside Task.Run held one pool thread per live connection for its whole life; on a 2-core runner two such
+    // connections (this test's and a parallel class's) filled the pool's minimum, and the tunnel's own pool work — the
+    // heartbeat among it — waited for the pool's starvation injection (HeartbeatCadenceTests.Pings_keep_their_cadence…).
+    private readonly Channel<Func<Action<int>, RelayReceived>> _toBridge = Channel.CreateUnbounded<Func<Action<int>, RelayReceived>>();
+    private void Enqueue(Func<Action<int>, RelayReceived> next)
+    {
+        if (!_toBridge.Writer.TryWrite(next)) throw new InvalidOperationException("the fake relay's queue is closed");
+    }
     private readonly TaskCompletionSource<bool> _connected = new();
 
     /// <summary>Set to refuse the next connect — for the reconnect tests.</summary>
@@ -135,11 +143,11 @@ public sealed class FakeRelay
     }
 
     /// <summary>One BINARY message to the bridge: a chunk of a request (relay-chunked-results §3).</summary>
-    public void SendBinary(byte[] message) => _toBridge.Add(_ => RelayReceived.Binary(message));
+    public void SendBinary(byte[] message) => Enqueue(_ => RelayReceived.Binary(message));
 
     /// <summary>A binary message over the bridge's limit as the real adapter hands it up: only its first bytes kept,
     /// and the length it had on the wire (relay-chunked-results; the adapter never buffers past the limit).</summary>
-    public void SendOversizedBinary(byte[] prefix, long length) => _toBridge.Add(_ => RelayReceived.Binary(prefix, length));
+    public void SendOversizedBinary(byte[] prefix, long length) => Enqueue(_ => RelayReceived.Binary(prefix, length));
 
     /// <summary>A request frame as a relay writes it (the shape <see cref="SendRequest"/> sends whole).</summary>
     public static string RequestFrame(string id, string op, object? body = null) =>
@@ -205,22 +213,22 @@ public sealed class FakeRelay
 
     public IRelaySocket NewSocket() => new Socket(this);
 
-    public void Send(string frame) => _toBridge.Add(_ => RelayReceived.Frame(frame));
+    public void Send(string frame) => Enqueue(_ => RelayReceived.Frame(frame));
 
     /// <summary>Close the tunnel from the relay's side with a status and reason, as a relay's close handshake
     /// does. The next receive sees it: on this connection, or on the next one if none is reading.</summary>
     public void Close(int status, string description) =>
-        _toBridge.Add(_ => RelayReceived.Closed(status, description));
+        Enqueue(_ => RelayReceived.Closed(status, description));
 
     /// <summary>The connection dies with no close handshake (1006: a relay restart, a dropped flow). A real
     /// ClientWebSocket reports that by THROWING from receive, not with a close frame, so this does too.</summary>
     public void DieWithoutClose() =>
-        _toBridge.Add(_ => throw new WebSocketException(WebSocketError.ConnectionClosedPrematurely));
+        Enqueue(_ => throw new WebSocketException(WebSocketError.ConnectionClosedPrematurely));
 
     /// <summary>A message starts — <paramref name="arrivedBytes"/> of it come over the wire — and the connection dies
     /// before its end, with no close: a downstream cut partway through a frame (relay-chunked-results §4).</summary>
     public void DieMidMessage(int arrivedBytes) =>
-        _toBridge.Add(arrived =>
+        Enqueue(arrived =>
         {
             arrived(arrivedBytes);
             throw new WebSocketException(WebSocketError.ConnectionClosedPrematurely);
@@ -315,28 +323,24 @@ public sealed class FakeRelay
             return Task.CompletedTask;
         }
 
-        public Task<RelayReceived> ReceiveAsync(Action<int> arrived, CancellationToken cancellation)
+        public async Task<RelayReceived> ReceiveAsync(Action<int> arrived, CancellationToken cancellation)
         {
-            return Task.Run(() =>
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellation, _aborted.Token);
+            Func<Action<int>, RelayReceived> next;
+            try
             {
-                using var linked = CancellationTokenSource.CreateLinkedTokenSource(
-                    cancellation, _aborted.Token);
-                Func<Action<int>, RelayReceived> next;
-                try
-                {
-                    next = _relay._toBridge.Take(linked.Token);
-                }
-                catch (OperationCanceledException) when (!cancellation.IsCancellationRequested)
-                {
-                    // Aborted (the watchdog, or DropSocket): a real socket throws from a receive it can no
-                    // longer complete. It does not hand back a close, because nobody sent one.
-                    throw new WebSocketException(WebSocketError.ConnectionClosedPrematurely);
-                }
-                var received = next(arrived);
-                // A whole message arrives in one read here: its bytes are reported as the real adapter's reads report them.
-                if (received.Close == null) arrived(checked((int)received.Length));
-                return received;
-            });
+                next = await _relay._toBridge.Reader.ReadAsync(linked.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (!cancellation.IsCancellationRequested)
+            {
+                // Aborted (the watchdog, or DropSocket): a real socket throws from a receive it can no
+                // longer complete. It does not hand back a close, because nobody sent one.
+                throw new WebSocketException(WebSocketError.ConnectionClosedPrematurely);
+            }
+            var received = next(arrived);
+            // A whole message arrives in one read here: its bytes are reported as the real adapter's reads report them.
+            if (received.Close == null) arrived(checked((int)received.Length));
+            return received;
         }
 
         public Task CloseOutputAsync(int status, string reason, CancellationToken cancellation)
