@@ -215,4 +215,7 @@
 // refused by name (`pointer-value`, `adr-offset`, `pointer-type`). No fixture moved. Until 4b two of them also carried
 // `pointer-order` — a knock-on of their own refused store, "before any address was stored" though one was; a use after
 // a refused store now repeats that store's code, and an integer stored as a pointer is `pointer-value`.
-export const NOT_LOWERED_CEILING = 394
+// 394 -> 407, FOR MEASUREMENT (lsp-field-false-positives 8, class 2, 2026-10-29; no fixture moved): the lone-CR and CRLF twins
+// of the quick-fix pairs lowering already refuses (`qf_c0117_change`, `qf_c0118_before`, the `qf_c0139_*` BEFOREs —
+// `quick-fixes/line-end-twins.ts`), each refused for its pair's reason; a twin asks the LSP's reading of the raw text.
+export const NOT_LOWERED_CEILING = 407

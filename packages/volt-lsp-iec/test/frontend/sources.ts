@@ -18,6 +18,7 @@ import { readSourceText } from "../../src/workspace/workspace-refs.js"
 import { walkSources } from "../corpus/support/project.js"
 import { ALL_TESTS } from "../conformance/fixtures/index.js"
 import { plcPrgSource } from "../conformance/support/plc-prg.js"
+import { conformanceUri } from "../conformance/support/fixture-uri.js"
 import type { LanguageTest } from "../conformance/types.js"
 
 export const PACKAGE = join(import.meta.dir, "..", "..")
@@ -135,8 +136,8 @@ export function fixtureExtension(kind: LanguageTest["kind"]): string {
         : kind
 }
 
-export const fixtureUri = (t: LanguageTest): string => `file:///conformance/${t.pouName}.${fixtureExtension(t.kind)}`
-export const plcUri = (t: LanguageTest): string => `file:///conformance/${t.name}/PLC_PRG.pou`
+export const fixtureUri = (t: LanguageTest): string => conformanceUri(`${t.pouName}.${fixtureExtension(t.kind)}`)
+export const plcUri = (t: LanguageTest): string => conformanceUri(t.name, "PLC_PRG.pou")
 
 /** CODESYS's `record:exec` refusals ("does not compile: a | b"), by fixture. */
 function execRefusals(): ReadonlyMap<string, RecordedBuild> {

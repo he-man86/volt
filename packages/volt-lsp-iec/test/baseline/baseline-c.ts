@@ -6,7 +6,6 @@
  */
 import type { CeilingException } from "./baseline-shared.js"
 import { ENUM_VALUE_WORDS, enumValueSlug } from "../conformance/fixtures/grammar/lexer.js"
-import { CODESYS_ONLY_TYPE_WORDS } from "../../src/frontend/syntax/index.js"
 
 /**
  * lsp-quick-fixes 1.1 (2026-10-12): the quick-fix BEFOREs (`fixtures/quick-fixes/`) are new ground — each exists to report
@@ -279,27 +278,8 @@ const REFUSED_ENUM_VALUE_RECOVERY: readonly CeilingException[] = ENUM_VALUE_WORD
   },
 )
 
-/**
- * …and the same fixtures UNRECORDED on TwinCAT: every XAE on the machine was another run's or the engineer's while this
- * change recorded (2026-10-28), so TwinCAT has not answered them; the LSP refuses each word on TwinCAT as on CODESYS but
- * the five 64-bit date type names, which are names on TwinCAT (`CODESYS_ONLY_TYPE_WORDS`).
- */
-const ENUM_VALUE_TWINCAT_UNRECORDED: readonly CeilingException[] = ENUM_VALUE_WORDS.filter(
-  (w) => !["GET", "SET", "OVERRIDE"].includes(w) && !CODESYS_ONLY_TYPE_WORDS.has(w),
-).flatMap((w) =>
-  [`lex_enum_value_${enumValueSlug(w)}`, `lex_implicit_enum_value_${enumValueSlug(w)}`].map((fixture) => ({
-    baseline: "parse-census",
-    measure: "findings",
-    by: 1,
-    fixture,
-    task: "lsp-field-false-positives: record the lex_*enum_value_* fixtures on TwinCAT (`VOLT_VENDOR=twincat RECORD_ONLY=…`)",
-    why: "a refused word as an enum value, which TwinCAT has not been asked",
-  })),
-)
-
 export const CEILING_EXCEPTIONS_C: readonly CeilingException[] = [
   ...REFUSED_ENUM_VALUE_RECOVERY,
-  ...ENUM_VALUE_TWINCAT_UNRECORDED,
   // a LIBRARY function's box read through its namespace with ENO on TwinCAT: "Program name, function or function block
   // instance expected instead of 'Standard.LEN'" + "Identifier 'Standard' not defined" — CODESYS's namespace on TwinCAT
   {

@@ -47,7 +47,10 @@
  */
 import type { Vendor } from "../../../src/analysis/index.js"
 
+/** …each with its lone-CR and CRLF twins (`fixtures/quick-fixes/line-end-twins.ts`), which answer as the pair does. */
+const withTwins = (names: readonly string[]): string[] => names.flatMap((n) => [n, `${n}_cr`, `${n}_crlf`])
+
 export const QUICK_FIX_BEFORE_CASCADES: Record<Vendor, readonly string[]> = {
-  codesys: ["qf_c0046_before_declare_argument", "qf_c0046_before_declare_condition", "qf_c0077_before", "qf_c0533_before", "qf_access_before", "qf_c0228_bound_subrange", "qf_c0228_bound_inline_subrange"],
-  twincat: ["qf_c0046_before_declare_argument", "qf_c0046_before_declare_condition", "qf_c0077_before", "qf_border_before", "qf_access_before", "qf_c0228_bound_subrange", "qf_c0228_bound_inline_subrange"],
+  codesys: withTwins(["qf_c0046_before_declare_argument", "qf_c0046_before_declare_condition", "qf_c0077_before", "qf_c0533_before", "qf_access_before", "qf_c0228_bound_subrange", "qf_c0228_bound_inline_subrange"]),
+  twincat: withTwins(["qf_c0046_before_declare_argument", "qf_c0046_before_declare_condition", "qf_c0077_before", "qf_border_before", "qf_access_before", "qf_c0228_bound_subrange", "qf_c0228_bound_inline_subrange"]),
 }
