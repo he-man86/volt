@@ -17,7 +17,7 @@
  * '()'", an error, beside the no-op warning (`stmt_bare_function_name`, both vendors 2026-10-02) — but not inside
  * that FUNCTION, where the name is its return variable (`stmt_function_own_name_bare`). Only the statement is measured.
  */
-import { isStBody, KEYWORDS, bodyStatements, unitBodies, walkStatements, walkExpr } from "../../../frontend/syntax/index.js"
+import { isStBody, KEYWORDS, lineBreakOf, bodyStatements, unitBodies, walkStatements, walkExpr } from "../../../frontend/syntax/index.js"
 import { bodies, bodyConditionWorld, lookup, visibleNames, type Scope } from "../../../frontend/symbols/index.js"
 import { inferExprType, resolveMemberChain } from "../../../frontend/types/index.js"
 import type { Expr, Function, Statement } from "../../../frontend/syntax/index.js"
@@ -134,15 +134,10 @@ function withLineEnd(source: string, start: number, end: number): string {
   const tail = source.slice(end)
   const upTo = tail.search(/\S/)
   const gap = upTo < 0 ? tail : tail.slice(0, upTo)
-  const br = /\r?\n/.exec(gap)
+  // any line end — a lone CR ends the line as the lexer reads it, so the quote carries it as the line's break
+  const br = /\r\n|\r|\n/.exec(gap)
   return source.slice(start, end) + (br?.[0] ?? "")
 }
-
-/**
- * The line break the vendor ends a quote of a statement WITHOUT its `;` with — the `;` it supplied and the FILE's own
- * break (`ExprStatement.unterminated`: "The code 'b;\r\n' has no effect", `expr_power_right_assoc`, both vendors).
- */
-const lineBreakOf = (source: string): string => (source.includes("\r\n") ? "\r\n" : "\n")
 
 const KEYWORD_NAMES: ReadonlySet<string> = new Set(KEYWORDS)
 

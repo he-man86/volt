@@ -5,6 +5,7 @@
  */
 import type { Position, Range } from "vscode-languageserver-protocol"
 import {
+  endsLineAt,
   isTrivia,
   walkAllExprs,
   type Expr,
@@ -21,13 +22,14 @@ export function rangeFromSpan(span: Span): Range {
   }
 }
 
-/** LSP position → byte offset in `src`, or -1 if out of range. */
+/** LSP position → byte offset in `src`, or -1 if out of range. Lines end where the client ends them and the lexer does
+ *  (`endsLineAt`: LF, CRLF, a lone CR). */
 export function offsetFromPosition(src: string, pos: Position): number {
   let line = 0
   let col = 0
   for (let i = 0; i < src.length; i++) {
     if (line === pos.line && col === pos.character) return i
-    if (src[i] === "\n") {
+    if (endsLineAt(src, i)) {
       line += 1
       col = 0
     } else {
@@ -37,17 +39,20 @@ export function offsetFromPosition(src: string, pos: Position): number {
   return line === pos.line && col === pos.character ? src.length : -1
 }
 
-/** LSP position → offset in `src`, clamped as LSP says: a character past its line's end is the line's end, a line past
- *  the last is the end of the text. For a RANGE's ends, where a client may name the whole document. */
+/** LSP position → offset in `src`, clamped as LSP says: a character past its line's end is the line's end — before
+ *  its line break, a CRLF's CR included — a line past the last is the end of the text. For a RANGE's ends, where a
+ *  client may name the whole document. */
 export function clampedOffset(src: string, pos: Position): number {
   let lineStart = 0
   for (let line = 0; line < pos.line; line++) {
-    const nl = src.indexOf("\n", lineStart)
-    if (nl < 0) return src.length
-    lineStart = nl + 1
+    let i = lineStart
+    while (i < src.length && !endsLineAt(src, i)) i++
+    if (i >= src.length) return src.length
+    lineStart = i + 1
   }
-  const nl = src.indexOf("\n", lineStart)
-  const lineEnd = nl < 0 ? src.length : nl
+  let lineEnd = lineStart
+  while (lineEnd < src.length && !endsLineAt(src, lineEnd)) lineEnd++
+  if (lineEnd > lineStart && src[lineEnd] === "\n" && src[lineEnd - 1] === "\r") lineEnd--
   return Math.min(lineStart + pos.character, lineEnd)
 }
 

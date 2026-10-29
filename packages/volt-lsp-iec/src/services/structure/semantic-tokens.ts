@@ -12,6 +12,7 @@ import {
   isPlainStNetworkBody,
   languageLineWords,
   plainStText,
+  splitLines,
   type Token,
   type TokenKind,
   type TopLevel,
@@ -70,10 +71,12 @@ function tokenRecords(doc: Document, project: Scope): TokenRecord[] {
     // which this server does not ask (a block comment was coloured on its first line alone).
     let start = tok.span.start
     let char = tok.span.startCol
-    for (const [i, part] of doc.source.slice(tok.span.start, tok.span.end).split("\n").entries()) {
-      const length = part.endsWith("\r") ? part.length - 1 : part.length
-      if (length > 0) out.push({ line: tok.span.startLine - 1 + i, char, length, typeIdx: TYPE_INDEX.get(type)!, start })
-      start += part.length + 1
+    // its lines as the lexer counts them — a lone CR ends one (`splitLines`), and no line end is coloured
+    const text = doc.source.slice(tok.span.start, tok.span.end)
+    for (const [i, part] of splitLines(text).entries()) {
+      if (part.length > 0) out.push({ line: tok.span.startLine - 1 + i, char, length: part.length, typeIdx: TYPE_INDEX.get(type)!, start })
+      start += part.length
+      start += text.startsWith("\r\n", start - tok.span.start) ? 2 : 1
       char = 0
     }
   }

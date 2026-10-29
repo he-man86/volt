@@ -71,6 +71,11 @@ test("a disabled warning from the project turns its check off", () => {
   expect(projectDiagnosticsFrom(body)).toEqual({ "inout-own-access": "off" })
 })
 
+// openspec lsp-field-false-positives 8 (class 2): the file's lines end where the lexer's do — a lone CR too
+test("a project-settings file with lone-CR line ends reads each line", () => {
+  expect(projectDiagnosticsFrom("Replace constants:     on\rDisabled warnings:     C0371\rMax compiler warnings: 100")).toEqual({ "inout-own-access": "off" })
+})
+
 test("warnings-as-errors raise severity", () => {
   expect(projectDiagnosticsFrom("Warnings as errors:    C0118, C0139")).toEqual({
     "jump-label-unreferenced": "error",

@@ -23,6 +23,26 @@ test("server: formatting responds without error", async () => {
   client.dispose()
 })
 
+// openspec lsp-field-false-positives 8 (class 2): the whole-document edit ends past the document's LAST line, counted as
+// the client counts them — a lone CR ends one, so an end counted by LF alone stopped short and left the rest behind
+test("server: whole-document formatting covers every line of a lone-CR document", async () => {
+  const client = connectToServer("codesys")
+  try {
+    await client.sendRequest(InitializeRequest.type, { processId: null, rootUri: null, capabilities: {} })
+    const text = "PROGRAM P\rVAR\r  i : INT;\rEND_VAR\r%LANGUAGE ST\ri:=1;\rEND_PROGRAM\r"
+    await client.sendNotification(DidOpenTextDocumentNotification.type, {
+      textDocument: { uri: "file:///P.pou", languageId: "iecst", version: 1, text },
+    })
+    const edits = (await client.sendRequest(DocumentFormattingRequest.type, {
+      textDocument: { uri: "file:///P.pou" },
+      options: { tabSize: 4, insertSpaces: false },
+    })) as { range: { end: { line: number } } }[]
+    expect(edits.map((e) => e.range.end.line)).toEqual([text.split("\r").length])
+  } finally {
+    client.dispose()
+  }
+})
+
 describe("on-type formatting (lsp-same-standard finding R2)", () => {
   /**
    * ON-TYPE FORMATTING INDENTS THE NEW LINE, AND DOES NOTHING ELSE (lsp-same-standard 3.1, finding R2).

@@ -15,12 +15,12 @@
  *      suppresses, trading a rare missed error for guaranteed no false positive).
  * CASE `ELSE` is intentionally excluded — an empty CASE `ELSE` is a parse error in CODESYS, not this diagnostic.
  */
-import { walkStatements } from "../../../frontend/syntax/index.js"
+import { lineBreakOf, lineStartOf, walkStatements } from "../../../frontend/syntax/index.js"
 import { bodies } from "../../../frontend/symbols/index.js"
 import type { Span, Statement } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { emit, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
-import { findWord, fixOf, insertText, lineBreakOf } from "../../shared/fixes.js"
+import { findWord, fixOf, insertText } from "../../shared/fixes.js"
 
 const HAS_COMMENT = /\/\/|\(\*|\/\*/
 
@@ -75,10 +75,10 @@ export function checkEmptyBlock(ctx: CheckContext, out: DiagnosticItem[]): void 
  * what the block says when it means to do nothing (`preferred`).
  */
 function emptyStatementFix(source: string, header: number): Fix {
-  const rest = /^[ \t]*(\r?\n)/.exec(source.slice(header))
+  // the header ends its line when only blanks and a line end follow it — any line end (`lineStartOf`'s, a lone CR too)
+  const rest = /^[ \t]*(\r\n|\r|\n)/.exec(source.slice(header))
   if (rest === null) return fixOf("Insert the empty statement ';'", [insertText(source, header, " ;")], true)
-  const lineStart = source.lastIndexOf("\n", header - 1) + 1
-  const indent = /^[ \t]*/.exec(source.slice(lineStart))![0]
+  const indent = /^[ \t]*/.exec(source.slice(lineStartOf(source, header)))![0]
   return fixOf("Insert the empty statement ';'", [insertText(source, header + rest[0].length, `${indent}\t;${lineBreakOf(source)}`)], true)
 }
 

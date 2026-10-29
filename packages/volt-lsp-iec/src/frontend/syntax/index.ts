@@ -5,7 +5,7 @@
  */
 
 // source positions, identifiers
-export { spanContains, zeroSpan, type Span } from "./span.js"
+export { endsLineAt, lineBreakOf, lineColAt, lineStartOf, spanContains, splitLines, zeroSpan, type Span } from "./span.js"
 export { isSelfRef, sameName, selfRefKind } from "./identifier.js"
 
 // the vocabulary and the lexer

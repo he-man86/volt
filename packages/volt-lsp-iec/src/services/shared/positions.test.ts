@@ -76,3 +76,16 @@ test("clampedOffset clamps a range end as LSP says: past a line's end to its end
   expect(clampedOffset(SRC, { line: 9, character: 0 })).toBe(SRC.length)
   expect(clampedOffset(SRC, { line: 1, character: 1 })).toBe(5) // inside: as offsetFromPosition
 })
+
+// openspec lsp-field-false-positives 8 (class 2): an LSP client ends a line at LF, CRLF and a lone CR, as the lexer does —
+// a lone CR counted as a column put every position after it on the wrong line, and a range end clamped past a CRLF
+// line's end landed between its CR and its LF
+test("positions count a lone CR and a CRLF as one line end each, as the client and the lexer do", () => {
+  const src = "abc\rdef\r\nghi" // a0 b1 c2 \r3 d4 e5 f6 \r7 \n8 g9 h10 i11
+  expect(offsetFromPosition(src, { line: 1, character: 0 })).toBe(4)
+  expect(offsetFromPosition(src, { line: 2, character: 1 })).toBe(10)
+  for (const t of lex(src, "codesys")) expect(offsetFromPosition(src, rangeFromSpan(t.span).start)).toBe(t.span.start)
+  expect(clampedOffset(src, { line: 0, character: 99 })).toBe(3)
+  expect(clampedOffset(src, { line: 1, character: 99 })).toBe(7) // before the CRLF, never between its CR and LF
+  expect(clampedOffset(src, { line: 2, character: 2 })).toBe(11)
+})

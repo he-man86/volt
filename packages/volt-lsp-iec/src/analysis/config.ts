@@ -7,6 +7,7 @@
  *     severity. So a project can match its CODESYS configuration byte for byte.
  *   - Plus one non-CODESYS switch: `diagnoseDeadCode`.
  */
+import { splitLines } from "../frontend/syntax/index.js"
 
 export type Vendor = "codesys" | "twincat"
 
@@ -128,7 +129,7 @@ export function projectDiagnosticsFrom(body: string): Partial<Record<Configurabl
     ["disabled warnings", "off"],
     ["warnings as errors", "error"],
   ] as const) {
-    const line = body.split(/\r?\n/).find((l) => l.toLowerCase().startsWith(`${label}:`))
+    const line = splitLines(body).find((l) => l.toLowerCase().startsWith(`${label}:`))
     if (line === undefined) continue
     for (const raw of line.slice(line.indexOf(":") + 1).split(",")) {
       const code = configurableCodeFor(raw)
