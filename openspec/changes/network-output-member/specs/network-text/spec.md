@@ -32,8 +32,8 @@ call with `.NAME`, the output its consumer reads. A declared `EN` or `ENO` is an
 ### Requirement: Any other member is refused by name
 
 A push SHALL refuse by name `.X` on a box with one data output, `.X` naming no data output, `.X` other than `.ENO` on a
-box showing ENO or at a root, `.OUT` or `OUT =>` on a function declaring a `VAR_OUTPUT` named `OUT`, and, until a build
-route is measured, `.NAME` on a function naming a `VAR_OUTPUT`.
+box showing ENO or at a root, `.OUT` or `OUT =>` on a function declaring a `VAR_OUTPUT` named `OUT`, and `.NAME` on a
+function naming a `VAR_OUTPUT` (no build route for it is measured).
 
 #### Scenario: a member with no alternative is refused
 - **WHEN** a pushed text writes `.Q` on an FB that declares one output, or `.OUT` on a function without `VAR_OUTPUT`s

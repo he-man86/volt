@@ -287,3 +287,9 @@
 ## 3. Close
 
 - [ ] 3.1 Cold full suites, the small release matrix (latest CODESYS + TwinCAT), archive.
+      2026-10-29: cold LSP full suite (`VOLT_RUSTC_CACHE=0 VOLT_REQUIRE_FULL=1`) 10306 pass / 0 fail; spec delta checked
+      against the build (the `.NAME`-on-a-VAR_OUTPUT refusal worded as built), `openspec validate` valid. BLOCKED: the small
+      matrix (`release:matrix --only codesys-3.5.22.40-64,twincat-32`) refuses to start beside another run's IDEs
+      (CODESYS pid 34440 and XAE 23992 + worker 4892 of the worktree `agent-ac1125d49fda0c8d6`, change
+      lsp-field-false-positives), still running after 50 min; Volt never closes an IDE it did not start. Not archived:
+      run the matrix once they are closed, then archive.
