@@ -11,18 +11,21 @@ import { addressShape } from "../literal/address.js"
 import { joinSpans } from "../span.js"
 import type { Cursor } from "./cursor.js"
 import { parseInitializer } from "./initializer.js"
-import { readDeclaredName, readQualifiedName, identFromToken, readNameList } from "./names.js"
+import { readDeclaredName, readQualifiedName, identFromToken, readNameList, type DeclaredPaths } from "./names.js"
 import { parseTypeExpression } from "./type-expr.js"
 
 /**
  * WHERE A DECLARATION STANDS — what its list ends at (the recovery anchors), and the two lists whose declarations differ:
  * a VAR_GLOBAL list (`global`: a missing `;` there is a vendor fact, `endAfterType`) and a VAR_ACCESS list (`access`: an
- * access path between the name and the type).
+ * access path between the name and the type), a VAR_CONFIG list (`config`: each name an instance path), and which lists
+ * take a PATH as a declared name (`paths`, `names.ts` `readDeclaredName`).
  */
 export interface DeclList {
   ends: readonly Keyword[]
   global: boolean
   access: boolean
+  config: boolean
+  paths: DeclaredPaths
 }
 
 /**
@@ -83,7 +86,13 @@ function refuseAtOperand(c: Cursor, tokens: readonly Token[]): boolean {
 function refuseNameAfterName(c: Cursor): boolean {
   const next = c.peek()
   const semicolon = next.kind === "punct" && next.text === ";"
-  if (next.kind !== "identifier" && !semicolon) return false
+  // …and a `.` where the list takes no path (a POU's section, a STRUCT: `a.b : INT;`, `dp_fb_var_*`, `dp_struct_*`), an
+  // address where a path ended in a keyword part (`PLC_PRG.inst. AT %IX7.0`, `dp_config_dangling_dot`) — CODESYS
+  // 2026-10-29, each the one message and the declaration gone
+  // …and a `[` where the list reads no index on a name (`ax[1] : INT;` in a TwinCAT global list, `dp_gvl_index_only`;
+  // a POU's section, `dp_fb_var_index_only`)
+  const dot = next.kind === "punct" && (next.text === "." || next.text === "[")
+  if (next.kind !== "identifier" && next.kind !== "address_lit" && !semicolon && !dot) return false
   c.pushError(`',, AT or :' expected instead of '${next.text}'`, next.span)
   if (semicolon) c.consume()
   return true
@@ -112,13 +121,16 @@ export function parseVarDecl(c: Cursor, list: DeclList): VarDecl | DeclFailure |
     return "bad-name"
   }
   const names: Identifier[] = [
-    readDeclaredName(c, firstName),
+    readDeclaredName(c, firstName, list.paths),
     ...readNameList(c, () => {
       const more = c.expectName()
-      return more === undefined ? undefined : readDeclaredName(c, more)
+      return more === undefined ? undefined : readDeclaredName(c, more, list.paths)
     }),
   ]
   if (refuseNameAfterName(c)) return undefined
+  // A CONFIGURATION list's name is an instance path: a bare name is "'x' is not a valid instance path", the declaration
+  // otherwise read on (`dp_config_bare_name`, `dp_config_second_name`, CODESYS 2026-10-29)
+  if (list.config) for (const n of names) if (!n.text.includes(".")) c.pushError(`'${n.text}' is not a valid instance path`, n.span)
 
   // `AT <address>` before the colon (`digIn AT %I*`, `a, b AT %MW40 : INT;`, a STRUCT field `a AT %MW50 : INT;`).
   let at: VarDecl["at"]

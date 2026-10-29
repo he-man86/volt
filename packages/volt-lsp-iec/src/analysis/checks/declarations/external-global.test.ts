@@ -19,6 +19,22 @@ const run = (prg: string, gvl?: string) => {
 }
 const codes = (prg: string, gvl?: string) => run(prg, gvl).map((d) => d.code)
 
+// openspec lsp-field-false-positives 8 (class 4), CODESYS 2026-10-29: a VAR_EXTERNAL may name an instance PATH — no
+// global's name, so no C0237 (`dp_var_external_dotted`) — read as the member access it spells: a member the type does
+// not have is "'nope' is no component of 'FB_T'", at the member (`dp_var_external_dotted_unknown`)
+test("a VAR_EXTERNAL instance path is no dangling global; its unknown member is no component", () => {
+  const fbT = "FUNCTION_BLOCK FB_T\nVAR\n\ty : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n"
+  const all = (decl: string) => {
+    const user = `FUNCTION_BLOCK F\nVAR_EXTERNAL\n\t${decl} : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n`
+    const prg = "PROGRAM PLC_PRG\nVAR\n\tinst : FB_T;\nEND_VAR\nEND_PROGRAM\n"
+    const docs = [["F.pou", user], ["PLC_PRG.pou", prg], ["FB_T.pou", fbT]].map(([uri, source]) => ({ uri: uri!, source: source!, parseResult: parseSource(source!, { networkText: true }, "codesys") }))
+    const project = build.buildSymbolTable(docs, [], "codesys")
+    return computeDiagnostics({ ...docs[0]!, project, config: resolveConfig({ vendor: "codesys" }) }).map((d) => [d.code, d.message, user.slice(d.span.start, d.span.end)])
+  }
+  expect(all("PLC_PRG.inst.y")).toEqual([])
+  expect(all("PLC_PRG.inst.nope")).toEqual([["unknown-member", "'nope' is no component of 'FB_T'", "nope"]])
+})
+
 test("C0237 — VAR_EXTERNAL with no matching global", () => {
   const ds = run("PROGRAM PLC_PRG\nVAR_EXTERNAL\n g_i : INT;\nEND_VAR\nEND_PROGRAM")
   expect(ds.map((d) => d.code)).toEqual(["external-no-global"])

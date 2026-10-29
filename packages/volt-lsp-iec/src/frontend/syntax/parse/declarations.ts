@@ -19,18 +19,25 @@
 import { type VarDecl, type VarSection, type VarSectionKind } from "../ast/nodes/index.js"
 import { Cursor } from "./cursor.js"
 import { VAR_SECTION_KEYWORDS } from "../lex/word-sets.js"
+import type { Dialect } from "../lex/vocabulary.js"
 import { joinSpans } from "../span.js"
 import { reportBrokenDeclaration, vendorTokenText } from "./errors.js"
 import { parseVarDecl, type DeclList } from "./var-decl.js"
 
-const VAR_LIST = (sectionKind: VarSectionKind): DeclList => ({
+const VAR_LIST = (sectionKind: VarSectionKind, fileScope: boolean, dialect: Dialect): DeclList => ({
   ends: ["END_VAR"],
   global: sectionKind === "VAR_GLOBAL",
   access: sectionKind === "VAR_ACCESS",
+  // a configuration LIST (a file-scope `VAR_CONFIG`): one in a POU or a STRUCT is refused as misplaced, its names not asked
+  config: fileScope && sectionKind === "VAR_CONFIG",
+  // a global list's and a VAR_EXTERNAL's path is CODESYS's alone: TwinCAT refuses its `.` (`dp_gvl_dotted`,
+  // `dp_var_external_dotted`, both vendors 2026-10-29); a configuration list takes one on both
+  paths:
+    sectionKind === "VAR_CONFIG" ? "words" : (sectionKind === "VAR_GLOBAL" || sectionKind === "VAR_EXTERNAL") && dialect === "codesys" ? "identifiers" : "none",
 })
 
 /** A STRUCT's or UNION's field list. */
-export const FIELD_LIST: DeclList = { ends: ["END_STRUCT", "END_UNION"], global: false, access: false }
+export const FIELD_LIST: DeclList = { ends: ["END_STRUCT", "END_UNION"], global: false, access: false, config: false, paths: "none" }
 
 /**
  * A VAR section left without its END_VAR: "'END_VAR' expected instead of ''" — the vendor reads the section on to the
@@ -64,7 +71,7 @@ export function atVarSection(c: Cursor): boolean {
  * Parse a single VAR section starting at one of the section keywords. A VAR_GENERIC section is CONSTANT or nothing:
  * "Only CONSTANT generics are supported in VAR_GENERIC declaration" (`decl_var_generic_no_constant`, CODESYS 2026-10-01).
  */
-export function parseVarSection(c: Cursor): VarSection | undefined {
+export function parseVarSection(c: Cursor, fileScope = false): VarSection | undefined {
   const header = c.eatAnyKeyword(...VAR_SECTION_KEYWORDS)
   if (header === undefined) return undefined
 
@@ -88,7 +95,7 @@ export function parseVarSection(c: Cursor): VarSection | undefined {
   if (sectionKind === "VAR_GENERIC" && section.constant !== true)
     c.pushError("Only CONSTANT generics are supported in VAR_GENERIC declaration", header.span)
 
-  const list = VAR_LIST(sectionKind)
+  const list = VAR_LIST(sectionKind, fileScope, c.dialect)
   // Decls until END_VAR.
   while (!c.atEof()) {
     if (c.eatPunct(";") !== undefined) continue // stray/empty declaration — CODESYS accepts `x : T;;`
@@ -194,7 +201,7 @@ export function collectVarSections(c: Cursor): VarSection[] {
 export function collectListSections(c: Cursor): VarSection[] {
   const sections: VarSection[] = []
   while (atVarSection(c)) {
-    const s = parseVarSection(c)
+    const s = parseVarSection(c, true)
     if (s !== undefined) sections.push(s)
     else break
   }

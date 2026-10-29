@@ -12,18 +12,26 @@
  * (frontend-conformance 3.1.3), so `unresolved-identifier` reports each use; a separate walk here reported them twice
  * once it did (the `analysis/lost-declaration` module, deleted).
  */
-import { walkAllExprs, type Identifier } from "../../../frontend/syntax/index.js"
+import { lex, parseExprFromTokens, walkAllExprs, type Dialect, type Expr, type Identifier } from "../../../frontend/syntax/index.js"
 import { bodies, externalGlobal, forEachDecl, type Scope } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import { replaceText } from "../../shared/fixes.js"
 import { changeToFixes } from "../../shared/near-miss.js"
-import { nameResolves } from "../../shared/resolution.js"
+import { nameResolves, unresolvedMembers } from "../../shared/resolution.js"
 
 export function checkExternalGlobal(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { section, decl, scope } of forEachDecl(ctx.parseResult, ctx.project)) {
     if (section.sectionKind !== "VAR_EXTERNAL") continue
     for (const name of decl.names) {
+      // an instance PATH (`PLC_PRG.inst.y`) is no global's name: CODESYS builds it with no "No global definition"
+      // (`dp_var_external_dotted`, 2026-10-29) — and reads it as the member access it spells, "'nope' is no component of
+      // 'FB'" for a member the type does not have (`dp_var_external_dotted_unknown`)
+      if (name.text.includes(".")) {
+        for (const ref of unresolvedMembers([pathExpr(ctx.source, name, ctx.parseResult.dialect)].filter((e) => e !== undefined), ctx.project, ctx.project))
+          emit(out, ref.span, "unknown-member", ctx.messages.notAMember(ref.member, ref.typeName))
+        continue
+      }
       if (externalGlobal(ctx.project, name.text) !== undefined) continue
       emit(
         out,
@@ -63,6 +71,14 @@ function usesOf(ctx: CheckContext, external: Identifier, unitScope: Scope): { st
 }
 
 /** Is `scope` `outer` or nested in it? */
+/** A declared PATH (`PLC_PRG.inst.y`) as the member access it spells, at the name's own place in the document: the text
+ *  before it blanked (line ends kept), so every span is the document's. */
+function pathExpr(source: string, name: Identifier, dialect: Dialect): Expr | undefined {
+  const before = source.slice(0, name.span.start).replace(/[^\r\n]/g, " ")
+  const tokens = lex(before + name.text, dialect).filter((t) => t.kind !== "whitespace" && t.kind !== "eof")
+  return parseExprFromTokens(tokens)
+}
+
 function within(scope: Scope, outer: Scope): boolean {
   for (let s: Scope | undefined = scope; s !== undefined; s = s.parent) if (s === outer) return true
   return false
