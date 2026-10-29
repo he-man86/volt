@@ -6,6 +6,7 @@
 import type { CallArg, Expr, Identifier, Subrange, TypeExpr } from "../ast/nodes/index.js"
 import type { Token } from "../lex/tokens.js"
 import { SUBRANGE_BASE_TYPES } from "../lex/prefixes.js"
+import { SOFT_NAME_KEYWORDS } from "../lex/word-sets.js"
 import { joinSpans, type Span } from "../span.js"
 import type { Cursor } from "./cursor.js"
 import { OPERATOR_WORDS } from "./enum-values.js"
@@ -16,7 +17,11 @@ import { collectParenInner, topLevelDotDot } from "./scan.js"
 
 /** NamedType — identifier with optional qualifiers + optional subrange. */
 export function parseNamedType(c: Cursor): TypeExpr | undefined {
-  const idTok = c.eatIdent()
+  // a soft-name keyword names a type as it names any object: an FB, an interface or a DUT called `Get` is one
+  // (`wp_fb_name_get`, `wp_interface_name_get`, `wp_dut_name_get`, CODESYS 2026-10-29) — the six modifiers are no type
+  // name (`lex_soft_keyword_as_type_*`)
+  const peeked = c.peek()
+  const idTok = peeked.kind === "keyword" && SOFT_NAME_KEYWORDS.has(peeked.keyword ?? "") ? c.consume() : c.eatIdent()
   if (idTok === undefined) {
     const next = c.peek()
     c.pushError(typeExpected(next), next.span)

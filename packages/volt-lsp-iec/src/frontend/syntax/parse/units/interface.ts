@@ -37,7 +37,7 @@ interface InterfaceBody {
 export function parseInterface(c: Cursor): Interface | undefined {
   const start = c.expectKeyword("INTERFACE")
   if (start === undefined) return undefined
-  const nameTok = c.expectIdent()
+  const nameTok = c.expectHeaderName()
   if (nameTok === undefined) return undefined
   const name = identFromToken(nameTok)
 

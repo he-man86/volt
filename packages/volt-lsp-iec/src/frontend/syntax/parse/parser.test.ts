@@ -366,7 +366,21 @@ test("a keyword where a type belongs is \"Type definition expected\", echoed as 
   expect(messages(inVar("inst : final;"))[0]).toBe("Type definition expected instead of 'final'")
 })
 
-// ─── `__VECTOR` by dialect (task 2.1.4, L11) ───────────────────────────────────────────────────────────────────────
+// openspec lsp-field-false-positives 8 (class 3), CODESYS 2026-10-29 (`names/word-positions.ts`): a soft-name keyword
+// names every object and member the IDE creates, is a type name where one is named, and a label; a refused word (an IL
+// operator, a type name) is no named argument — refused on the word as a modifier is (`statements.test.ts`).
+test("GET, SET and OVERRIDE name every unit and a type (wp_*_name_get)", () => {
+  for (const w of ["Get", "SET", "override"]) {
+    expect(messages(`FUNCTION ${w} : INT\nVAR_INPUT\n\tv : INT;\nEND_VAR\n%LANGUAGE ST\n;\nEND_FUNCTION\n`)).toEqual([])
+    expect(messages(`PROGRAM ${w}\n%LANGUAGE ST\n;\nEND_PROGRAM\n`)).toEqual([])
+    expect(messages(`INTERFACE ${w}\nMETHOD Run : INT\nEND_METHOD\nEND_INTERFACE\n`)).toEqual([])
+    expect(messages(`TYPE ${w} :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE\n`)).toEqual([])
+    expect(messages(`FUNCTION_BLOCK F\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK\n\nACTION ${w}\n%LANGUAGE ST\n;\nEND_ACTION\n`)).toEqual([])
+    expect(messages(inVar(`inst : ${w};`))).toEqual([])
+  }
+})
+
+// ─── `__VECTOR` by dialect (task 2.1.4, L11)───────────────────────────────────────────────────────────────────────
 
 const VECTOR_FB = "FUNCTION_BLOCK FB\nVAR\n\tv : __VECTOR[4] OF REAL;\n\tn : INT;\nEND_VAR\nn := 1;\nEND_FUNCTION_BLOCK\n"
 

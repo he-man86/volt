@@ -23,6 +23,25 @@ const refusedAssignment = (name: string): string[] => [
   "Unexpected token '1' found",
 ]
 
+// openspec lsp-field-false-positives 8 (class 3), CODESYS 2026-10-29 (`names/word-positions.ts`): GET is a label; a
+// modifier or LIMIT written as a label is refused on the word, its `:` and the next statement's start paired; a refused
+// word (an IL operator, a type name) as a named argument is refused as a modifier there is.
+test("GET is a label; ABSTRACT or LIMIT as a label is refused on the word (wp_label_*)", () => {
+  expect(errors("Get:\nk := 1;")).toEqual([])
+  for (const w of ["ABSTRACT", "Public", "LIMIT"])
+    expect(errors(`${w}:\nk := 1;`)).toEqual([`Unexpected token '${w}' found`, "';' expected instead of ':'", "Unexpected token ':' found", "';' expected instead of 'k'"])
+})
+
+test("a refused word as a named argument is refused on the word, as a modifier is (wp_named_argument_*)", () => {
+  for (const w of ["LD", "INT", "ABSTRACT"])
+    expect(errors(`t(${w} := TRUE);`).sort()).toEqual([
+      `';' expected instead of '${w}'`, `Expression expected instead of '${w}'`, `Unexpected token '${w}' found`,
+      "';' expected instead of ':='", "Unexpected token ':=' found", "';' expected instead of 'TRUE'", "Unexpected token 'TRUE' found",
+      "';' expected instead of ')'", "Unexpected token ')' found",
+    ].sort())
+  expect(errors("t(Get := TRUE);")).toEqual([])
+})
+
 test("a reserved word assigned to at statement start is refused on the word, then a pair per token to the `;` (lex_limit_as_variable, L14)", () => {
   for (const w of ["limit", "min", "sel", "mux", "max"]) expect(errors(`${w} := 1;\nn := 2;`)).toEqual(refusedAssignment(w))
 })

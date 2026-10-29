@@ -16,7 +16,7 @@ import { collectVarSections } from "../declarations.js"
 export function parseProgram(c: Cursor): Program | undefined {
   const start = c.expectKeyword("PROGRAM")
   if (start === undefined) return undefined
-  const nameTok = c.expectIdent()
+  const nameTok = c.expectHeaderName()
   if (nameTok === undefined) return undefined
   const name = identFromToken(nameTok)
 
