@@ -1163,7 +1163,7 @@ public class CodesysNetworkReaderTests
     /// <summary>AN EMPTY EXECUTE BOX IS STILL AN EXECUTE BOX — <c>StCode</c> is <c>""</c>, never null.
     ///
     /// <para>`ReadStCode` trailed with <c>is { Length: &gt; 0 } t ? t : null</c>, so a box whose ST the engineer
-    /// had blanked came back with a NULL <c>StCode</c> and the writer skipped its <c>EXECUTE … END_EXECUTE</c>
+    /// had blanked came back with a NULL <c>StCode</c> and the writer skipped its Execute
     /// arm entirely, rendering the box as <c>EXECUTE();</c> — a call to a function that does not exist. That is
     /// the same bad shape this file's main comment describes, reached by a second route.</para>
     ///
@@ -1181,7 +1181,7 @@ public class CodesysNetworkReaderTests
 
         var read = Assert.IsType<Box>(body.Networks.Single().Trees.Single());
         Assert.Equal("", read.StCode);
-        Assert.Contains("%END_EXECUTE", StNetworkWriter.Write(body, NetworkScope.Empty));
+        Assert.Contains("CODE := '')", StNetworkWriter.Write(body, NetworkScope.Empty));
     }
 
     /// <summary>The complement, so the rule above cannot decay into "always empty": a snippet WITH text still

@@ -173,7 +173,7 @@ export const RULES_I: readonly Rule[] = [
       },
       {
         file: "src/frontend/syntax/network/plain-st.test.ts",
-        title: "networks and their % lines: the title, %DISABLED, %WIRES, an Execute box from its line to %END_EXECUTE",
+        title: "networks and their % lines: the title, %DISABLED, %WIRES, an Execute box from EXECUTE to its ), its ST the string's content",
       },
     ],
     design: "rcc_st_body_network, rcc_implementation_variable",

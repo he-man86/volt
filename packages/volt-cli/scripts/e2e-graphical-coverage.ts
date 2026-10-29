@@ -62,7 +62,7 @@ const CONSTRUCTS: { name: string; where: string; match: RegExp; archive?: RegExp
 	{ name: "EN and ENO (X_EN)", where: "#en-eno", match: /\w_EN\(EN\s*:=/ },
 	{ name: "ENO without EN (X_ENO)", where: "#en-eno", match: /\w_ENO\(/ },
 	{ name: "EN without ENO (X_ENONLY)", where: "#en-eno", match: /\w_ENONLY\(EN\s*:=/ },
-	{ name: "Execute box", where: "#execute", match: /%EXECUTE\b/, archive: /<v n="ProvidesSTSnippet">true<|n="STSnippet"[^\/]*>\s*<o/ },
+	{ name: "Execute box", where: "#execute", match: /\bEXECUTE\(/, archive: /<v n="ProvidesSTSnippet">true<|n="STSnippet"[^\/]*>\s*<o/ },
 	{ name: "negated contact (NOT a)", where: "#elements", match: /:=\s*NOT\s|\bAND\s+NOT\b|\bOR\s+NOT\b/ },
 	{ name: "rising edge (R_EDGE)", where: "#elements", match: /\bR_EDGE\(/ },
 	{ name: "falling edge (F_EDGE)", where: "#elements", match: /\bF_EDGE\(/ },

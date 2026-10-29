@@ -38,18 +38,19 @@ test("a body is network text only under %LANGUAGE LD or FBD", () => {
 
 test("the % lines of a network are its keywords; a title is a string", () => {
 	const lines = rule("meta.line.network-text")
-	const text = '%NETWORK "Start $"it$""\n%DISABLED\n%WIRES w1, w2\n%EXECUTE(EN := go)\n%END_EXECUTE\n%UNSUPPORTED "a shape" #0011aabb\n'
-	expect(matches(lines, text, 1)).toEqual(["%NETWORK", "%DISABLED", "%WIRES", "%EXECUTE", "%END_EXECUTE", "%UNSUPPORTED"])
+	const text = '%NETWORK "Start $"it$""\n%DISABLED\n%WIRES w1, w2\n%UNSUPPORTED "a shape" #0011aabb\n'
+	expect(matches(lines, text, 1)).toEqual(["%NETWORK", "%DISABLED", "%WIRES", "%UNSUPPORTED"])
 	// …only first on its line, and only its own keys: a % in a comment or a name is none.
 	expect(matches(lines, "x := a; // %NETWORK\n%NETWORKS\n")).toEqual([])
 })
 
 test("a box's head is coloured where its call opens; the same word as a contact or a name is not", () => {
 	const words = rule("keyword.operator.word.network-text")
-	expect(matches(words, "x := ADD(a, b); y := BRANCH_SHORTCIRCUIT(FEED := c, a, b); z := R_EDGE(c); q := a AND b;")).toEqual([
+	expect(matches(words, "x := ADD(a, b); y := BRANCH_SHORTCIRCUIT(FEED := c, a, b); z := R_EDGE(c); q := a AND b; EXECUTE(CODE := 'n := 1;');")).toEqual([
 		"ADD",
 		"BRANCH_SHORTCIRCUIT",
 		"R_EDGE",
+		"EXECUTE",
 	])
 	expect(matches(words, "s.ADD(a); xADD(a);")).toEqual([])
 })

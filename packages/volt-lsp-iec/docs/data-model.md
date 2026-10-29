@@ -476,8 +476,10 @@ interface ConversionEntry extends ReferenceEntry { sourceType: string; destType:
 ## network text (FBD/LD as text)
 
 A body stated `%LANGUAGE LD|FBD` is ST with `%` lines (`packages/volt-cli/docs/network-text.html`). The ST parser reads
-it: `src/frontend/syntax/network/plain-st.ts` makes each `%` line trivia (a `%EXECUTE(EN := c)` line the call it states)
-and reads the networks off them; every operand, call and statement is an ST node, so the one type engine, resolution,
+it: `src/frontend/syntax/network/plain-st.ts` makes each `%` line trivia and reads the networks off them, and reads the
+Execute box `EXECUTE(EN := c, CODE := '<ST>')` as the call `EXECUTE(EN := c)`, its ST — the one string that spans lines
+(`network/execute-code.ts`: the lexer ends every string at its line, and a network body's `CODE :=` string of an open
+`EXECUTE(` call is rejoined there, bound by the body) — decoded, lexed and placed after its statement, each token where it stands in the string; every operand, call and statement is an ST node, so the one type engine, resolution,
 navigation, hover and rename run unchanged.
 
 ```ts
@@ -488,9 +490,10 @@ interface PlainStNetwork {
   disabled: boolean                         // %DISABLED
   wires: readonly PlainStWire[]             // %WIRES w1, w2 — declared in the body's scope (symbols/network-scope.ts)
   unsupported: boolean                      // %UNSUPPORTED "<shape>" #<hash>
-  executes: readonly { span: Span; header: Span }[] // %EXECUTE … %END_EXECUTE
+  executes: readonly PlainStExecute[]       // EXECUTE(…, CODE := '<ST>'): its call, its ST's span, the ST decoded
 }
 interface PlainStLine { key: string; span: Span; args: readonly Token[] }
+interface PlainStExecute { call: Span; code: Span; st: string | undefined }
 
 // The bridge gate's codes (the cases both sides read from packages/volt-cli/test/fixtures/network-text-st). The LSP's
 // network check reports network-plain-st for what a network may not hold, and network-unnamed-target for `??? := v`.

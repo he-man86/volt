@@ -244,6 +244,45 @@ END_IF');
 ok := EXECUTE(EN := go, CODE := 'count := count + 1;');
 ```
 
+**As built (2.6, 2026-10-29).** Counted on the corpus text the vendor readers write (`test-corpus`, the pulls of the five
+CODESYS corpora and twincat-project14; the same 11 + 1 boxes tasks.md 1.1 counted on the models): Execute boxes 12 (CODESYS
+11: bakon-nano 2, lenze-mid 9; TwinCAT 1), **without EN 0**, **whose ENO chains on 0** — every one stands at a root showing EN
+(`EN := TRUE` 8, a wire or a contact chain 4). The case set holds the other shapes: without EN 3 (`execute-top-level`,
+`-verbatim`, `-empty`), read through its ENO 5 (`execute-read-through-eno`, `-in-a-chain`,
+`-as-operand` ×2, `-through-a-wire`). So the read-once rule of the `%EXECUTE` form (a box read once through `ENO => w`,
+standing directly before its reader) had 0 corpus uses; it goes with the form, and an Execute box nests where it is read
+like every box (`x := EXECUTE(…) AND d;`), a wire over it is `w1 := EXECUTE(…);`.
+- *The one string that spans lines is the one right after `CODE :=`*, a `'…'` string, in a network body: the bridge's
+  `StNetworkReader.Lex` (which reads one body); in the LSP the file lexer ends every string at its line, as in every ST
+  body, and `network/execute-code.ts` rejoins the `CODE :=` string of an open `EXECUTE(` call from the body's own tokens,
+  bound by the body — one not closed is "an unclosed string" at the body's end on both sides (2.6 review: a lexer-level
+  rule changed plain ST POUs, and an unclosed CODE string ran on into the units after it). A string spanning lines anywhere else, and a `CODE :=` string of
+  another call, is refused by name ("a string across a line: only the Execute box's CODE spans lines"). The reader's line
+  loops (the network split, the `%WIRES` prepass, the `%`/`//` line checks) skip the lines inside it.
+- *The code's escapes are `$'` and `$$` only* (`NetworkSpelling.EscapeCode`/`UnescapeCode`; the LSP's `codeTokens`); any
+  other `$` is refused by name, not read as IEC's `$N`, so the code has one spelling. A CR LF in the stored ST is written as
+  the line break (the file's layout, as the old form wrote it); a lone CR is refused.
+- *Its one output is its ENO, by type*: no member closes its call (`.ENO` on it refused by name). `EN :=` first where it
+  shows EN, then `CODE :=` last, nothing else — refused by name otherwise.
+- *`EXECUTE` is the text's own word*, under the one rule of the text's own words (`BRANCH`, `R_EDGE`, …): ANYTHING declared
+  in reach under that name — a POU, an instance, a variable — is refused by name on both sides (`InReach`, the LSP's
+  `lookup`), and a box of type `EXECUTE` that is no Execute box has no spelling (writer). A variable cannot be called, so
+  the rule refuses more than an ambiguity needs; it is kept because it is the one rule every word of the text follows
+  (2.6 review: narrowing it for `EXECUTE` alone would make the words two rules). Counted (2.6 review): LD/FBD bodies with an
+  `Execute` in reach 0 (the corpus oracle meets no unspellable Execute box); elsewhere, project POUs declaring an `Execute`
+  variable 15 and a `METHOD Execute` 24, none an LD/FBD body's scope, the methods called through their instance
+  (`x.Execute(…)`). Pinned by the refuse case `execute-beside-a-variable-named-execute`.
+- *The LSP reads the code as ST where it stands*: `plain-st.ts` makes `CODE := '…'` trivia, decodes and lexes the string's
+  content and places those tokens after the Execute box's statement (its `;`), each span mapped through the escapes to its
+  place in the string — so every ST check and the type engine read the box's ST as before, at its true position.
+- *The exec twin* writes a root box `IF en THEN <ST> END_IF;` (unchanged) and a box read where it stands
+  `eno := en; IF eno THEN <ST> END_IF;` before the tree, `eno` in it (its ENO is its EN).
+- *Not measured (blocker)*: whether CODESYS takes a raw line break inside a string literal. The question is one
+  `record:language` fixture (`s := 'a` LF `b';` in an FB body); `ide.ps1 up -Instance network-output-member` refuses while
+  a CODESYS it did not start runs (pid 35692, SP21 Patch 4, hand-started 2026-10-28 15:36). The spelling does not depend on
+  the answer (the CODE string is Volt's text, never compiled as ST); the answer decides only whether it is an IEC literal
+  or Volt's one deviation from one.
+
 ## Wires: `VAR_TEMP w1 : ANY; END_VAR` at the network start (owner, 2026-10-28: "what about var section with ANY type … it should be VAR_TEMP actually")
 
 Replaces `%WIRES w1, w2`. A network's wires are declared at its start in a `VAR_TEMP … END_VAR` block, each `: ANY`: the

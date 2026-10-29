@@ -237,9 +237,32 @@ public class StNetworkTextTests
             "%LANGUAGE LD\n%NETWORK\nout2 := (out := a) AND b;\n");
 
     [Fact]
-    public void An_Execute_box_is_its_ST_between_percent_lines() =>
-        RoundTrips(Ld1(Exec("o := o + i;", en: L("en"))),
-            "%LANGUAGE LD\n%NETWORK\n%EXECUTE(EN := en)\no := o + i;\n%END_EXECUTE\n");
+    public void An_Execute_box_is_a_call_its_ST_the_string_CODE_with_its_line_breaks_as_they_stand() =>
+        RoundTrips(Ld1(Exec("IF go THEN\r\n\to := o + 'i$';\r\nEND_IF", en: L("en"))),
+            "%LANGUAGE LD\n%NETWORK\nEXECUTE(EN := en, CODE := 'IF go THEN\n\to := o + $'i$$$';\nEND_IF');\n");
+
+    [Fact]
+    public void An_Execute_box_read_twice_defines_a_wire_like_any_box() =>
+        RoundTrips(Ld1(new Demux(1, Exec("k := 1;", en: L("go"), connected: 0)), Set(new Demux(1, null), T("x")),
+                Set(new Demux(1, null), T("y"))),
+            "%LANGUAGE LD\n%NETWORK\n%WIRES w1\nw1 := EXECUTE(EN := go, CODE := 'k := 1;');\nx := w1;\ny := w1;\n");
+
+    /// <summary>The Execute box's spellings the writer refuses (2.6 review), each by its reason: EXECUTE declared in reach
+    /// (anything of that name, a variable too: the text's own word), a lone CR in its ST, a consumer reading it by another
+    /// output than its ENO, a modifier on it, and a box of type EXECUTE that is no Execute box.</summary>
+    [Fact]
+    public void An_Execute_box_the_text_cannot_spell_is_refused_by_its_reason()
+    {
+        void Refused(NetworkBody body, string reason, params string[] names) =>
+            Assert.Equal(reason, Assert.Throws<StNetworkUnspellableException>(() => StNetworkWriter.Write(body, Scope(body, names))).Reason);
+        Refused(Ld1(Exec("k := 1;", en: L("go"))), "an element whose function name is declared in reach", "Execute");
+        Refused(Ld1(Exec("k := 1;\rn := 2;", en: L("go"))), "an Execute box's ST holding a lone carriage return");
+        Refused(Ld1(Set(Op("AND", Exec("k := 1;", en: L("go"), connected: 0) with { HasEnoOutput = false }, L("a")), T("x"))),
+            "a consumed box with no named connection");
+        Refused(Ld1(Set(Op("AND", Exec("k := 1;", en: L("go"), connected: 0) with { Flags = Neg }, L("a")), T("x"))),
+            "a modifier on an Execute box output");
+        Refused(Fbd1(Set(Call("Execute", new[] { In(L("b"), "IN") }, connected: 0), T("x"))), "a box named like an element of the text");
+    }
 
     /// <summary>A pull shows a network the text cannot spell as its <c>%UNSUPPORTED</c> line, its header kept; the other
     /// networks are text.</summary>

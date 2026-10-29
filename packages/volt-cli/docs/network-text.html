@@ -35,7 +35,6 @@ lamp := MOVE(EN := w1, 100, OUT => speed).ENO;</pre>
   <tr><td class="name"><code>%WIRES w1, w2</code></td><td>the network's wires</td></tr>
   <tr><td class="name"><code>// text</code></td><td>the network's comment</td></tr>
   <tr><td class="name"><code>l:</code></td><td>the network's label, its first code line</td></tr>
-  <tr><td class="name"><code>%EXECUTE</code> … <code>%END_EXECUTE</code></td><td>an Execute box (<a href="#execute">below</a>)</td></tr>
   <tr><td class="name"><code>%UNSUPPORTED "shape" #hash</code></td><td>a network the text cannot spell (<a href="#unsupported">below</a>)</td></tr>
 </table>
 <p>A network's lines stand in this order, before its code.</p>
@@ -58,6 +57,7 @@ lamp := MOVE(EN := w1, 100, OUT => speed).ENO;</pre>
   <tr><td class="name">return</td><td><code>RETURN;</code> <code>RETURN(a);</code></td></tr>
   <tr><td class="name">mid-rung coil</td><td><code>y := (x := a) AND b;</code></td></tr>
   <tr><td class="name">unnamed instance</td><td><code>TON(FB := ???, IN := a);</code></td></tr>
+  <tr><td class="name">Execute box</td><td><code>EXECUTE(EN := go, CODE := 'n := n + 1;');</code> (<a href="#execute">below</a>)</td></tr>
 </table>
 
 <h2 id="outputs">EN, ENO and outputs</h2>
@@ -80,15 +80,14 @@ MOVE(EN := c, 7, ENO => lamp, OUT => x).ENO;</pre>
 w1 := a AND b;
 x := w1;
 y := w1 AND c;</pre>
-<p>A value read twice is a wire, defined once (<code>w1 := …</code>, or an Execute box's <code>ENO =&gt; w1</code>). A box read once stands where it is read.</p>
+<p>A value read twice is a wire, defined once (<code>w1 := …</code>). A box read once stands where it is read.</p>
 
 <h2 id="execute">Execute box</h2>
-<pre>%NETWORK
-%EXECUTE(EN := go)
-IF start THEN
+<p>Its ST is the string <code>CODE</code>, line breaks as they stand, <code>'</code> written <code>$'</code> and <code>$</code> written <code>$$</code>. Its one output is its ENO.</p>
+<pre>EXECUTE(EN := go, CODE := 'IF start THEN
     count := count + 1;
-END_IF
-%END_EXECUTE</pre>
+END_IF');
+ok := EXECUTE(EN := go, CODE := 'msg := $'done$';');</pre>
 
 <h2 id="subset">What a network holds</h2>
 <p>Assignments, calls (a box at a root closed by <code>.ENO</code> or by nothing), jumps and returns. Any other ST stands only in an Execute box.</p>

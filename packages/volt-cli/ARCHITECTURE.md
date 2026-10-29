@@ -273,7 +273,7 @@ applications, and throwing breaks `refs`.
   body as ST.
   Detection is the driver's: it states each body's language as a vendor FACT (`Item/StatedLanguage`, openspec
   `bridge-refusal-review` D6), and `BodyFormatGuard` judges a push by that fact, never by decoding the incoming text.
-- **Execute boxes round-trip as network text `%EXECUTE … %END_EXECUTE`** holding their ST verbatim (`Format/Network/StNetworkReader`) — never a bare call that drops the ST.
+- **Execute boxes round-trip as network text `EXECUTE(EN := e, CODE := '<ST>')`** holding their ST verbatim in the string (`Format/Network/StNetworkReader`) — never a bare call that drops the ST.
 - **Container managers are folders, never items** (`Item/ItemKind.IsContainerManager`) — no
   `<Manager>.<kind>` stub of their own.
 - **Property accessor shape round-trips byte-identically** — GET-only / SET-only / GET+SET preserved on both

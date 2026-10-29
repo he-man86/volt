@@ -830,7 +830,7 @@ const NWL_EDITOR_MEMBERS = [
 ]
 /** An Execute box (CallType None; the snippet's per-line ids). */
 const NWL_R_EXEC = nwlProgram("VltF_RX", ["a : BOOL", "k : INT"], "LD", [
-  { lines: ["%EXECUTE(EN := a)", "k := k + 1;", "k := k * 2;", "%END_EXECUTE"] },
+  { lines: ["EXECUTE(EN := a, CODE := 'k := k + 1;", "k := k * 2;');"] },
 ])
 /** A RETURN and a JMP built by the push (the assign item's own Jump/Return bit). */
 const NWL_R_FLOW = nwlProgram("VltF_RJ", ["a : BOOL", "b : BOOL", "o1 : BOOL"], "LD", [

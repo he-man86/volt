@@ -33,16 +33,14 @@ w4 := w3 AND Trayfiller_Data.commInterface.HoldFeedFwd;
 MOVE(EN := (Mach1_AuxData.ADS_StopOnZeroPulse := w4 AND (LST_InputsOutputs.I133_1_PROX_zero_position_transport_ADS OR Mach1_AuxData.ADS_StopOnZeroPulse)), 750, OUT => Droger_Data.Cor_numerator).ENO;
 MOVE(EN := F_TRIG(FB := Mach1_AuxData.Edge.Osr_SetCounter, CLK := w4 AND Trayfiller_Data.commInterface.Permission), 5, OUT => Mach1_AuxData.CounterHighSpeedATF_ADS).ENO;
 MUL(EN := NE(EN := w3 AND Trayfiller_Data.commInterface.Permission, Mach1_AuxData.CounterHighSpeedATF_ADS, 0), Mach1_Data.AUTOSPEED, 13, OUT => Droger_Data.Cor_numerator).ENO;
-%EXECUTE(EN := w2)
-cor_NumDI:=Droger_Data.Cor_numerator;
+EXECUTE(EN := w2, CODE := 'cor_NumDI:=Droger_Data.Cor_numerator;
 cor_DenumDI:=Droger_Data.Cor_denumerator;
 //cor_NumDI:=1;
 //cor_DenumDI:=1;
 HMI_Var.Mach1.ActualSpeedDryer:=(Mach_ActSpeed_Rpm01*cor_numDI)/cor_denumdi;
 Mach1_Data.Drives.FeedForwardADS.Control.AutoSpeed:=REAL_TO_INT(0.9*dint_to_real(HMI_Var.Mach1.ActualSpeedDryer)*6/10);
 
-
-%END_EXECUTE
+');
 %NETWORK "NETWORK 2: Deviation calculation of sync point, transport system trayfiller"
 %WIRES w5
 // Principle: It's better to accelerate the drive then to decelerate, because otherwise cigars could be missed. 

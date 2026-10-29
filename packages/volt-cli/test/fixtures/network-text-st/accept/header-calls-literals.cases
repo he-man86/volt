@@ -263,14 +263,14 @@ NETWORK
 === model
 NETWORK unsupported:"an operand named like an ST keyword" hash:b2b1dedd
 
-#### reserved-pin-and-head-backticked
+#### reserved-pin-names — a pin named like an element of the text is a plain name
 === text
 %LANGUAGE LD
 %NETWORK
-Execute(branch := b, en => x);
+Run(branch := b, en => x);
 === model
 NETWORK
-  (Execute branch=b =>en:x)
+  (Run branch=b =>en:x)
 
 #### header-disabled-title
 === text

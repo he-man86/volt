@@ -11,9 +11,9 @@
  *   `R_TRIG(FB := r1, CLK := a)`              an FB box with one output: that output's type (`r1.Q`);
  *   `<box>.ENO`                               the shown ENO, a BOOL;
  *   `<box>.OUT`, `<box>.Q`                    a function's value, a VAR_OUTPUT's or an FB output's type (`t1.Q`);
- *   `EXECUTE(EN := e)`                        the Execute box: its ENO, a BOOL;
+ *   `EXECUTE(EN := e, CODE := '<ST>')`        the Execute box: its ENO, a BOOL (its `CODE` pin is no code, `plain-st.ts`);
  *   `JMP(label, value)`, `RETURN(value)`      the jump and the return in a tree: the value they hand on;
- *   a wire                                    its definition's: the expression assigned to it, or the Execute box's ENO.
+ *   a wire                                    its definition's: the expression assigned to it.
  *
  * Only inside a network body (`Scope.network`): in ST, `GT(i, 3)` is the vendor's syntax error, and stays one.
  */
@@ -97,9 +97,8 @@ export function wireType(sym: Symbol, project: Scope): Type {
   if (def === undefined || def.kind === "none" || typing.has(sym)) return UNKNOWN
   typing.add(sym)
   try {
-    if (def.kind === "value") return inferExprType(def.expr, sym.owner, project)
-    // an output bound to the wire: the Execute box's ENO, a BOOL (a box's output reaches no wire, `_plain-st-wires.ts`)
-    return def.param.toUpperCase() === "ENO" ? elementaryRef("BOOL") : UNKNOWN
+    // an output bound to the wire has no type: a box's output reaches no wire (`_plain-st-wires.ts` refuses it)
+    return def.kind === "value" ? inferExprType(def.expr, sym.owner, project) : UNKNOWN
   } finally {
     typing.delete(sym)
   }

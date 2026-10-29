@@ -32,8 +32,12 @@ internal static class NetworkModelScopes
             {
                 case Leaf l: Words(l.Operand.Text); break;
                 case Box b:
-                    Words(b.Type);
-                    pous.Add(b.Type);   // a function or FB type is a POU in scope
+                    // a function or FB type is a POU in scope; the Execute box's type is the text's own word, no POU
+                    if (b.StCode is null)
+                    {
+                        Words(b.Type);
+                        pous.Add(b.Type);
+                    }
                     if (b.Instance is { } i) Words(i.Text);
                     foreach (var o in b.Outputs) Words(o.Value.Text);
                     Walk(b.Enable);
@@ -58,7 +62,7 @@ internal static class NetworkModelScopes
             switch (n)
             {
                 case Box b:
-                    pous.Add(b.Type);
+                    if (b.StCode is null) pous.Add(b.Type);   // the Execute box's type is no POU
                     Walk(b.Enable);
                     foreach (var p in b.Inputs) Walk(p.Value);
                     break;

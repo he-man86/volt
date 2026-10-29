@@ -304,39 +304,111 @@ x := a;
 === refused
 network-plain-st a network title is one
 
-#### execute-unclosed — an Execute box closes with %END_EXECUTE
+#### execute-without-code — the Execute box takes EN := where it shows EN, then CODE := '<ST>', and nothing else
 === text
 %LANGUAGE LD
 %NETWORK
-%EXECUTE(EN := a)
-x := 1;
+EXECUTE(EN := a);
 === refused
-network-plain-st %EXECUTE with no %END_EXECUTE
+network-plain-st the Execute box takes EN := first where it shows EN, then CODE := '<ST>'
 
-#### execute-wire-read-before-its-box — an Execute box read once stands before the statement that reads it
+#### execute-declared-in-reach — EXECUTE is the text's Execute box: a POU of that name in reach would give it two meanings
+=== scope
+pou EXECUTE
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
-y := w1;
-%EXECUTE(EN := a, ENO => w1)
-k := 1;
-%END_EXECUTE
+EXECUTE(EN := a, CODE := 'k := 1;');
 === refused
-network-plain-st is read before it is defined
+network-plain-st which the text reads as its Execute box
 
-#### execute-wire-not-directly-before-its-read — nothing stands between an Execute box read once and the statement that reads it
+#### execute-code-escape — the code spells a ' as $' and a $ as $$, and everything else as it stands
+=== text
+%LANGUAGE LD
+%NETWORK
+EXECUTE(CODE := 's := $Nb;');
+=== refused
+network-plain-st the escape '$N' in the Execute box's CODE
+
+#### string-across-a-line — only the Execute box's CODE spans lines
+=== text
+%LANGUAGE LD
+%NETWORK
+x := MOVE('a
+b');
+=== refused
+network-plain-st a string across a line
+
+#### execute-beside-a-variable-named-execute — EXECUTE is the text's own word: anything declared in reach under it is refused, a variable too
+=== scope
+name Execute
+=== text
+%LANGUAGE LD
+%NETWORK
+EXECUTE(EN := a, CODE := 'k := 1;');
+=== refused
+network-plain-st which the text reads as its Execute box
+
+#### execute-code-unclosed — the Execute box's CODE not closed runs to the body's end and is refused there
+=== text
+%LANGUAGE LD
+%NETWORK
+EXECUTE(EN := a, CODE := 'k := 1;
+x := a;
+=== refused
+network-plain-st an unclosed string
+
+#### execute-code-not-last — CODE := '<ST>' is the Execute box's last pin
+=== text
+%LANGUAGE LD
+%NETWORK
+EXECUTE(CODE := 'k := 1;', EN := a);
+=== refused
+network-plain-st the Execute box takes EN := first where it shows EN, then CODE := '<ST>'
+
+#### execute-eno-pin — the Execute box's ENO is its one output, read where it stands: no ENO => v pin
+=== text
+%LANGUAGE LD
+%NETWORK
+EXECUTE(EN := a, CODE := 'k := 1;', ENO => v);
+=== refused
+network-plain-st the Execute box takes EN := first where it shows EN, then CODE := '<ST>'
+
+#### execute-code-wstring — the Execute box's CODE is a '…' string, never a "…" one
+=== text
+%LANGUAGE LD
+%NETWORK
+EXECUTE(EN := a, CODE := "k := 1;");
+=== refused
+network-plain-st the Execute box takes EN := first where it shows EN, then CODE := '<ST>'
+
+#### execute-code-wstring-across-a-line — a "…" string spans no line, after CODE := either
+=== text
+%LANGUAGE LD
+%NETWORK
+EXECUTE(EN := a, CODE := "k := 1;
+n := 2;");
+=== refused
+network-plain-st a string across a line
+
+#### code-string-of-another-call — a CODE pin of a call other than the Execute box is an ordinary pin: its string spans no line
+=== scope
+pou f
+=== text
+%LANGUAGE LD
+%NETWORK
+x := f(CODE := 'a
+b');
+=== refused
+network-plain-st a string across a line
+
+#### a-box-named-execute — a call headed Execute is the Execute box, in any case: a box of that type has no other spelling
 === text
 %LANGUAGE FBD
 %NETWORK
-%WIRES w1
-%EXECUTE(EN := c, ENO => w1)
-k := 1;
-%END_EXECUTE
-k := MOVE(5);
-y := w1;
+x := Execute(IN := b);
 === refused
-network-plain-st directly before the statement that reads it
+network-plain-st the Execute box takes EN := first where it shows EN, then CODE := '<ST>'
 
 #### fb-type-without-instance — an FB box names its instance first: FB := t1, FB := ??? for none
 === scope
@@ -347,20 +419,6 @@ fb Axis
 Axis(xEnable := go);
 === refused
 network-plain-st names no instance
-
-#### wire-defined-by-an-execute-box-read-once — one model, one text: an Execute box read once through a wire defines the next wire itself
-=== text
-%LANGUAGE FBD
-%NETWORK
-%WIRES w1, w2
-%EXECUTE(EN := a, ENO => w1)
-k := 1;
-%END_EXECUTE
-w2 := w1;
-x := w2;
-y := w2;
-=== refused
-network-plain-st defines the wire itself
 
 #### enabled-value-as-a-jump-condition — an enabled box other than a comparison is read by its value only as a coil's value
 === text
@@ -634,15 +692,13 @@ x := MUL(g(EN := c, a).OUT, 2);
 === refused
 network-plain-st comparison operators only
 
-#### execute-closed-by-a-member — an Execute box is no call: its ENO reaches a wire through ENO =>
+#### execute-closed-by-a-member — the Execute box has one output, its ENO: no member closes its call
 === text
 %LANGUAGE LD
 %NETWORK
-%EXECUTE(EN := a).ENO
-k := 1;
-%END_EXECUTE
+x := EXECUTE(EN := a, CODE := 'k := 1;').ENO;
 === refused
-network-plain-st a member after an Execute box
+network-plain-st its one output is its ENO
 
 #### program-several-outputs-no-member — a consumed program box with several outputs names the one its consumer reads
 === scope

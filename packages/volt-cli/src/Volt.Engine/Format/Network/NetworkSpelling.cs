@@ -78,7 +78,7 @@ internal static class NetworkSpelling
 
     /// <summary>THE PINS THE CALLEE OF <paramref name="b"/> DECLARES (openspec network-output-member): an operator's own, an
     /// FB's its block type's, any other call's its callee's (<see cref="NetworkScope.Signature"/>) — or null where no
-    /// declaration in reach states them, and for the Execute box, which is no call.</summary>
+    /// declaration in reach states them, and for the Execute box, whose pins are the text's own (<c>EN</c>, <c>CODE</c>).</summary>
     public static CalleeSignature? SignatureOf(Box b, NetworkScope scope) =>
         b.StCode is not null ? null : SignatureOf(b.Type, b.Instance is not null, scope);
 
@@ -166,6 +166,48 @@ internal static class NetworkSpelling
                 return null;
             }
             sb.Append(v);
+            i++;
+        }
+        return sb.ToString();
+    }
+
+    // ── the Execute box's ST: a string with its line breaks as they stand ──────────────────────────────────────────────
+
+    /// <summary>The Execute box's ST as its <c>CODE := '…'</c> string (openspec network-output-member 2.6): a <c>'</c> is
+    /// <c>$'</c>, a <c>$</c> is <c>$$</c>, and everything else — a line break, a tab — stands as it is, so the code reads as
+    /// the engineer wrote it.</summary>
+    public static string EscapeCode(string st)
+    {
+        var sb = new StringBuilder(st.Length);
+        foreach (var c in st)
+        {
+            if (c == '$') sb.Append("$$");
+            else if (c == '\'') sb.Append("$'");
+            else sb.Append(c);
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>The inverse of <see cref="EscapeCode"/>: <c>$'</c> and <c>$$</c>, the only escapes of the code. Null and
+    /// <paramref name="error"/> for any other <c>$</c>: one spelling per code, so a <c>$N</c> is refused, not read as a line
+    /// break the text writes as it stands.</summary>
+    public static string? UnescapeCode(string text, out string? error)
+    {
+        error = null;
+        var sb = new StringBuilder(text.Length);
+        for (var i = 0; i < text.Length; i++)
+        {
+            var c = text[i];
+            if (c != '$') { sb.Append(c); continue; }
+            var e = i + 1 < text.Length ? text[i + 1] : '\0';
+            if (e != '$' && e != '\'')
+            {
+                error = e == '\0'
+                    ? "a `$` at the end of the Execute box's CODE: a `$` is written `$$`"
+                    : $"the escape '${e}' in the Execute box's CODE: its code spells a ' as $' and a $ as $$, and everything else as it stands";
+                return null;
+            }
+            sb.Append(e);
             i++;
         }
         return sb.ToString();

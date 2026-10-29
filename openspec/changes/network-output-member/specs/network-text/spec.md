@@ -2,7 +2,8 @@
 
 ### Requirement: A box is a call; `.ENO` and `.NAME` state its handed-on output
 
-Network text SHALL spell every box but Execute as one call of its toolbox name (an FB: its type, first pin `FB :=`).
+Network text SHALL spell every box as one call of its toolbox name (an FB: its type, first pin `FB :=`; the Execute box:
+`EXECUTE`, its ST the string pin `CODE`).
 Where the callee declares no `EN`, `EN :=` SHALL mean EN shown; where it declares no `ENO`, a box showing ENO SHALL
 close its call with `.ENO`, also at a root. A consumed box without ENO and with several data outputs SHALL close its
 call with `.NAME`, the output its consumer reads. A declared `EN` or `ENO` is an ordinary pin.
@@ -15,9 +16,11 @@ call with `.NAME`, the output its consumer reads. A declared `EN` or `ENO` is an
 - **WHEN** a MOVE box shows EN and ENO and stands at a root
 - **THEN** it reads `MOVE(EN := c, 1, OUT => y).ENO;`, and the same box without ENO reads `MOVE(EN := c, 1, OUT => y);`
 
-#### Scenario: Execute keeps its form
-- **WHEN** an Execute box is pulled
-- **THEN** it reads `%EXECUTE(EN := c, ENO => w)` … `%END_EXECUTE`, no call
+#### Scenario: Execute is a call, its ST a string
+- **WHEN** an Execute box showing EN, its ST two lines, is pulled
+- **THEN** it reads `EXECUTE(EN := c, CODE := 'IF a THEN` / `n := n + 1; END_IF');`, its line break as it stands, a `'` in
+  its ST written `$'` and a `$` written `$$`; read by a consumer, `ok := EXECUTE(EN := c, CODE := '…');` (its one output,
+  its ENO), and no member closes its call
 
 ### Requirement: Any other member is refused by name
 

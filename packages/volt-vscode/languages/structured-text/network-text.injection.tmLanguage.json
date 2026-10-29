@@ -19,9 +19,9 @@
       "end": "(?i)^(?=\\s*END_(?:FUNCTION_BLOCK|PROGRAM|FUNCTION|METHOD|ACTION|GET|SET)\\b)",
       "patterns": [
         {
-          "comment": "A % line of a network: %NETWORK \"title\", %DISABLED, %WIRES w1, w2, %EXECUTE(…), %END_EXECUTE, %UNSUPPORTED \"shape\" #hash — a % first on its line, the key touching it.",
+          "comment": "A % line of a network: %NETWORK \"title\", %DISABLED, %WIRES w1, w2, %UNSUPPORTED \"shape\" #hash — a % first on its line, the key touching it.",
           "name": "meta.line.network-text",
-          "match": "(?i)^(%(?:NETWORK|DISABLED|WIRES|EXECUTE|END_EXECUTE|UNSUPPORTED))\\b(.*)$",
+          "match": "(?i)^(%(?:NETWORK|DISABLED|WIRES|UNSUPPORTED))\\b(.*)$",
           "captures": {
             "1": {
               "name": "keyword.control.network-text"
@@ -44,8 +44,8 @@
           }
         },
         {
-          "comment": "A box is a call: an operator box, MOVE, a parallel and an edge are the text's own heads, coloured where a call opens.",
-          "match": "(?i)(?<![\\w.])(ADD|SUB|MUL|DIV|MOD|GT|GE|EQ|NE|LE|LT|AND|OR|XOR|NOT|MOVE|BRANCH|BRANCH_SHORTCIRCUIT|R_EDGE|F_EDGE)(?=\\s*\\()",
+          "comment": "A box is a call: an operator box, MOVE, a parallel, an edge and the Execute box are the text's own heads, coloured where a call opens.",
+          "match": "(?i)(?<![\\w.])(ADD|SUB|MUL|DIV|MOD|GT|GE|EQ|NE|LE|LT|AND|OR|XOR|NOT|MOVE|BRANCH|BRANCH_SHORTCIRCUIT|R_EDGE|F_EDGE|EXECUTE)(?=\\s*\\()",
           "name": "keyword.operator.word.network-text"
         },
         {

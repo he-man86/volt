@@ -36,11 +36,9 @@ MOVE(EN := w4 AND NOT Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Le
 MOVE(EN := MOVE(EN := w4 AND NOT Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Right_OK AND Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Left_OK, 100.0, OUT => DB_Kantcorrectie.CopiedValueReal).ENO, -1, OUT => tCorrectionScale).ENO;
 MOVE(EN := MOVE(EN := w4 AND (NOT Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Left_OK AND NOT Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Right_OK OR NOT HMI_Var.Test_Prod OR Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper), 0.0, OUT => DB_Kantcorrectie.CopiedValueReal).ENO, 1, OUT => tCorrectionScale).ENO;
 %NETWORK "DONE Network 5: Write side-correction values to the servo drive"
-%EXECUTE(EN := TRUE)
-tReal:=DB_Kantcorrectie.CopiedValueReal*DINT_TO_REAL(tCorrectionScale);
+EXECUTE(EN := TRUE, CODE := 'tReal:=DB_Kantcorrectie.CopiedValueReal*DINT_TO_REAL(tCorrectionScale);
 Mach1_Data.Drives.SideCorrection.CAM.Y_Scale_Recipe:=REAL_TO_INT(tReal/(-1000));
-
-%END_EXECUTE
+');
 %NETWORK "DONE Network 6 : Manual adjustment of the sidecorrection"
 %WIRES w5
 w5 := True;

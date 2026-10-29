@@ -15,10 +15,8 @@ VAR
 END_VAR
 %LANGUAGE LD
 %NETWORK
-%EXECUTE(EN := TRUE)
-iCount:=icount+1;
-
-%END_EXECUTE
+EXECUTE(EN := TRUE, CODE := 'iCount:=icount+1;
+');
 %NETWORK
 output := TON(FB := t1, IN := in1, PT := e1).Q;
 %NETWORK

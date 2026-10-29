@@ -22,7 +22,8 @@
  *   `T(FB := ???, pins…)`                         the vendor's unnamed instance: the call of its type, which the build
  *                                                refuses as it refuses the box;
  *   `g(pins…).OUT`                               a function's value: the call;
- *   `%EXECUTE(EN := e, ENO => w)` … `%END_EXECUTE` `IF e THEN <its ST> END_IF; w := e;`;
+ *   `EXECUTE(EN := e, CODE := '<ST>')`           `IF e THEN <its ST> END_IF;`, the string decoded; read where it stands,
+ *                                                its ENO, which is its EN: `eno := e;` before it, `eno` in the tree;
  *   `BRANCH(FEED := f, b1, b2)`                  `(f AND (b1 OR b2))`: every branch runs;
  *   `BRANCH_SHORTCIRCUIT(FEED := f, b1, b2)`     a branch holding a box runs, with the calls it reads, unless the feed
  *                                                and a box-free branch are both TRUE (1.4): `IF NOT (f AND free) THEN …`;
@@ -62,7 +63,7 @@ export interface BodyTwin {
 /** The twin of one plain-ST network body, read in `scope` (its network scope, `symbols` `bodies`). */
 export function twinOf(body: BodySpan, statements: readonly Statement[], scope: Scope, project: Scope, source: string, k: number): BodyTwin {
   const skip = plainStText(body).networks.flatMap((n) => n.executes)
-  const code = statements.filter((s) => skip.find((x) => s.span.start > x.header.end && s.span.start < x.span.end) === undefined)
+  const code = statements.filter((s) => skip.find((x) => s.span.start >= x.code.start && s.span.start < x.code.end) === undefined)
   const t = new Twinner(body, scope, project, source, `vtw${k}_`, guardedCalls(body, code, valueReads(body, code)))
   const lines: string[] = []
   for (const s of code) {
@@ -190,17 +191,25 @@ class Twinner extends BoxTwinner {
     return [...pre.splice(0), this.callText(box.st, box.pins, pre) + ";"]
   }
 
+  /** The Execute box at a root: its ST under its EN. */
   private execute(call: CallExpr, pre: string[]): string[] {
-    const box = plainStText(this.body).networks.flatMap((n) => n.executes).find((x) => x.header.start <= call.span.start && call.span.start <= x.header.end)
-    if (box === undefined) throw new TwinRefusal("an EXECUTE call that is no Execute box")
-    const lines = this.source.slice(box.header.end, box.span.end).split("\n").slice(1)
-    const st = lines.slice(0, lines.length - 1).join("\n")
+    const { cond, st } = this.executeBox(call, pre)
+    return [...pre.splice(0), `IF ${cond} THEN\n${st}\nEND_IF;`]
+  }
+
+  /** The Execute box read where it stands: its ST under its EN, before the tree; its ENO, which is its EN, in it. */
+  private executeRead(call: CallExpr, pre: string[]): string {
+    const { cond, st } = this.executeBox(call, pre)
+    const eno = this.temp()
+    pre.push(`${eno} := ${cond};`, `IF ${eno} THEN\n${st}\nEND_IF;`)
+    return eno
+  }
+
+  private executeBox(call: CallExpr, pre: string[]): { cond: string; st: string } {
+    const box = plainStText(this.body).networks.flatMap((n) => n.executes).find((x) => x.call.start === call.span.start)
+    if (box?.st === undefined) throw new TwinRefusal("an EXECUTE call that is no Execute box")
     const en = call.args.find((a) => a.param?.name.toUpperCase() === "EN")
-    const eno = call.args.find((a) => a.output && a.param?.name.toUpperCase() === "ENO")
-    const cond = en === undefined ? "TRUE" : this.expr(en.value!, pre)
-    const out = [...pre.splice(0), `IF ${cond} THEN\n${st}\nEND_IF;`]
-    if (eno !== undefined) out.push(`${this.expr(eno.value!, pre)} := ${cond};`)
-    return out
+    return { cond: en === undefined ? "TRUE" : this.expr(en.value!, pre), st: box.st }
   }
 
   /** `BRANCH(FEED := f, b1, b2)` (every branch runs) and `BRANCH_SHORTCIRCUIT(…)`: a branch holding a box runs unless the
@@ -267,6 +276,7 @@ class Twinner extends BoxTwinner {
         if ((upper === "BRANCH" || upper === "BRANCH_SHORTCIRCUIT") && lookup(this.scope, head!) === undefined) return this.branch(e, pre)
         if ((upper === "R_EDGE" || upper === "F_EDGE") && lookup(this.scope, head!) === undefined) return this.edge(e, pre)
         if (upper === "JMP" || upper === "RETURN") return this.control(e, upper, pre)
+        if (upper === "EXECUTE") return this.executeRead(e, pre)
         const box = this.box(e)
         if (box !== undefined) return this.boxRead(box, undefined, pre)
         return this.callText(e, e.args, pre)

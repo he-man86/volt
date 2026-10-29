@@ -417,7 +417,7 @@ namespace Volt.Ide.Codesys
         /// that object for an <c>Implementation</c> member it does not have — measured on a live SP21 box, an
         /// <c>STImplementationObject</c> carries <c>TextDocument</c>, <c>LineNumberMapper</c>,
         /// <c>OwnerObject</c> and <c>GenericObjectService</c>, and nothing called <c>Implementation</c>. So the
-        /// lookup answered "", <c>StCode</c> came back null, and the writer's <c>EXECUTE … END_EXECUTE</c> path
+        /// lookup answered "", <c>StCode</c> came back null, and the writer's Execute box path
         /// never ran for any box.</para>
         ///
         /// <para>What that cost: the engineer's raw ST inside an FBD network was DROPPED. The box materialized
@@ -429,7 +429,7 @@ namespace Volt.Ide.Codesys
         /// <c>is { Length: &gt; 0 } t ? t : null</c>, so a box whose ST the engineer had blanked read back as
         /// <c>StCode == null</c> and rendered as <c>EXECUTE();</c> — the very shape described above, reached by
         /// a different route. TwinCAT answers <c>""</c> for that state (its reader joins the archive's
-        /// TextLines) and emits <c>EXECUTE … END_EXECUTE</c>, so the two vendors disagreed byte-for-byte on the
+        /// TextLines) and emits the Execute box, so the two vendors disagreed byte-for-byte on the
         /// same POU, and pushing the pulled `EXECUTE();` back rebuilt the box without its snippet at all.</para>
         ///
         /// <para>Empty and UNREADABLE are now separate answers rather than one: a box that provides a snippet

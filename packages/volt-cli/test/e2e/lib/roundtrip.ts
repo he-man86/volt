@@ -91,7 +91,7 @@ export function bodyOf(src: string): string {
 const NETWORK_KEYWORDS = new Set([
 	"NETWORK", "DISABLED", "WIRES", "UNSUPPORTED", "NOT", "AND", "OR", "XOR", "ADD", "SUB", "MUL", "DIV", "MOD",
 	"GT", "GE", "EQ", "NE", "LE", "LT", "MOVE", "EN", "ENO", "OUT", "FEED", "BRANCH", "BRANCH_SHORTCIRCUIT", "JMP",
-	"RETURN", "IF", "THEN", "END_IF", "EXECUTE", "END_EXECUTE", "R_EDGE", "F_EDGE", "TRUE", "FALSE",
+	"RETURN", "IF", "THEN", "END_IF", "EXECUTE", "CODE", "R_EDGE", "F_EDGE", "TRUE", "FALSE",
 ])
 
 /**

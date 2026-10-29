@@ -36,16 +36,10 @@ VAR
 END_VAR
 %LANGUAGE FBD
 %NETWORK
-%EXECUTE
-k := ${k};
-i := i + 1;
-%END_EXECUTE
+EXECUTE(CODE := 'k := ${k};
+i := i + 1;');
 %NETWORK
-%WIRES w1
-%EXECUTE(EN := go, ENO => w1)
-j := j + 1;
-%END_EXECUTE
-done := w1;
+done := EXECUTE(EN := go, CODE := 'j := j + 1;');
 
 END_PROGRAM
 `

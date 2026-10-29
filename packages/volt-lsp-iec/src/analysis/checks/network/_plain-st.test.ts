@@ -109,9 +109,18 @@ test("an UNSUPPORTED network keeps its label under its line: still the jump targ
   expect(networkDiags(more).map((d) => d.message)).toContain("a network shown %UNSUPPORTED holds nothing else but its label")
 })
 
-test("an Execute box's EN is code: a name it reads resolves, the ST under it is the box's own", () => {
-  const src = ld("\ta : BOOL;\n\tn : INT;", "%NETWORK\n%EXECUTE(EN := nowhere)\nn := n + 1;\n%END_EXECUTE\n")
-  expect(diagnose(src).map((d) => d.message)).toEqual(["Identifier 'nowhere' not defined"])
+test("an Execute box's EN is code, and its ST is ST where it stands in its CODE string: each name it reads resolves", () => {
+  const src = ld("\ta : BOOL;\n\tn : INT;", "%NETWORK\nok := EXECUTE(EN := nowhere, CODE := 'n := n + 1;\n  IF a THEN m := $'x$'; END_IF') AND a;\n")
+  const found = diagnose(src).map((d) => `${d.message} at '${src.slice(d.span.start, d.span.end)}' ${d.span.startLine}:${d.span.startCol}`)
+  const line = src.split("\n").findIndex((l) => l.startsWith("  IF a")) + 1
+  expect(found).toEqual([
+    "Identifier 'ok' not defined at 'ok' " + (line - 1) + ":0",
+    "Identifier 'nowhere' not defined at 'nowhere' " + (line - 1) + ":20",
+    "Identifier 'm' not defined at 'm' " + line + ":12",
+    "'ok' is no valid assignment target at 'ok' " + (line - 1) + ":0",
+    "'m' is no valid assignment target at 'm' " + line + ":12",
+  ])
+  expect(networkDiags(src).filter((d) => d.code === "network-plain-st")).toEqual([])
 })
 
 test("GT(a, b) stays the vendor's syntax error in ST: only a network spells a box as a call", () => {
@@ -167,4 +176,15 @@ test("a coil nobody named, ??? := v, is the build's own error in each vendor's w
   expect(diagnose(src)).toEqual([])
   expect(networkDiags(src).map((d) => d.message)).toEqual(["The assignment target is not specified.", "The assignment target is not specified."])
   expect(networkDiags(src, "twincat").map((d) => d.message)).toEqual(["Assignment target not specified", "Assignment target not specified"])
+})
+
+test("an Execute box's CODE string not closed yet runs to its body's end, no further: the units after it keep their findings", () => {
+  const unit = (code: string) =>
+    `FUNCTION_BLOCK FB1\nVAR\n\tgo : BOOL;\n\tn : INT;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\nEXECUTE(EN := go, CODE := '${code}\n` +
+    `END_FUNCTION_BLOCK\nMETHOD M\n%LANGUAGE ST\nn := 'x';\nnowhere := 1;\nEND_METHOD\n`
+  const method = (src: string) => diagnose(src).filter((d) => d.span.startLine >= 10).map((d) => `${d.message}@${d.span.startLine}`)
+  const closed = method(unit("n := 1;');"))
+  expect(closed).toEqual(["Cannot convert type 'STRING(INT#1)' to type 'INT'@12", "Identifier 'nowhere' not defined@13", "'nowhere' is no valid assignment target@13"])
+  expect(method(unit("n := 1;"))).toEqual(closed)
+  expect(networkDiags(unit("n := 1;")).map((d) => d.message)).toContain("an unclosed string")
 })

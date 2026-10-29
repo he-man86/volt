@@ -168,6 +168,55 @@
 
 - [ ] 2.6 The Execute box as `EXECUTE(EN := …, CODE := '<ST>')` (design.md, last section): writer, reader, LSP, exec twin, doc;
       `%EXECUTE` / `%END_EXECUTE` deleted. Count first: an Execute box without EN, and one whose ENO chains on.
+      Built 2026-10-29 (design.md "As built (2.6)"), the live measurement open. Counts: 12 Execute boxes (CODESYS 11,
+      TwinCAT 1), without EN 0, ENO chaining on 0 (all roots showing EN); case set: without EN 3, read through ENO 5.
+      `StNetworkWriter`/`StNetworkReader` (`ExecuteCall`/`ExecuteBox`, `NetworkSpelling.EscapeCode`/`UnescapeCode`, the
+      string-aware line loops, the read-once Execute wire machinery deleted); the LSP lexer's CODE string, `plain-st.ts`
+      (the code's tokens after its statement), the network check (`checkExecute`, `checkStrings`, the Execute wire rules
+      deleted), the twin (`executeRead`); doc `#execute`; the corpora's 12 boxes respelled (`VOLT_WRITE_CORPUS_TEXT=1`).
+      Cases: accept `execute-through-a-wire`, `execute-lines-are-its-code`; refuse `execute-without-code`,
+      `-code-escape`, `-declared-in-reach`, `string-across-a-line`, `execute-closed-by-a-member` respelled; deleted with
+      the rule they pinned (the read-once Execute wire, no longer in the grammar): `execute-unclosed`,
+      `execute-wire-read-before-its-box`, `execute-wire-not-directly-before-its-read`,
+      `wire-defined-by-an-execute-box-read-once`; `reserved-pin-and-head-backticked` → `reserved-pin-names` (`Execute` is now
+      the text's own head). BLOCKER: whether CODESYS takes a raw line break in a string literal is unmeasured —
+      `ide.ps1 up -Instance network-output-member` refuses beside the hand-started CODESYS pid 35692.
+      Review of 2.6 (2026-10-29), five findings:
+      (1)+(2) FIXED, one fix: the LSP's file lexer again ends EVERY string at its line (`lex/strings.ts` back to the last
+      commit — a plain ST POU's `CODE := 'abc` no longer swallows the lines below it); the Execute box's CODE string is
+      rejoined in `network/execute-code.ts` (split out of `plain-st.ts`, which `check-size` put over its limits), in a
+      network body only, where `CODE :=` opens the pin of an open `EXECUTE(` call, from the body's own tokens — so one not
+      closed runs to the BODY's end and no further, "an unclosed string" in the bridge's words, and the units after it
+      keep their findings. The network check walks the rejoined tokens (`PlainStText.tokens`). Tests (red first):
+      `lexer.test.ts` "every string ends at its line…", `_plain-st.test.ts` "an Execute box's CODE string not closed
+      yet…"; refuse case `execute-code-unclosed`. The bridge's lexer spans lines only for a `'…'` CODE string (a `"…"`
+      one spanned there and not in the LSP).
+      (3) design narrowed to what is built: `EXECUTE` follows the one rule of the text's own words (`BRANCH`, `R_EDGE`):
+      anything in reach under it is refused, a variable too — narrowing it for EXECUTE alone would make two rules. Niche
+      either way: LD/FBD bodies with an `Execute` in reach 0 (the corpus oracle meets no unspellable Execute box). Pinned
+      by the refuse case `execute-beside-a-variable-named-execute`.
+      (4) FIXED, coverage: refuse cases `execute-code-unclosed`, `-code-not-last`, `-eno-pin`, `-code-wstring`,
+      `-code-wstring-across-a-line`, `code-string-of-another-call`, `a-box-named-execute` (the refusal
+      `reserved-pin-and-head-backticked` used to accept), `execute-beside-a-variable-named-execute`; writer test
+      `An_Execute_box_the_text_cannot_spell_is_refused_by_its_reason` (EXECUTE in reach, a lone CR, consumed not by
+      its ENO, a modifier, a box of type Execute that is no Execute box). Not added: `$` at the end of the code — only an
+      unclosed string can end in one, and that is refused as unclosed first.
+      (5) FOR THE OWNER (grammar special cases, per CLAUDE.local.md listed here, not documented as exceptions): the CODE
+      string is the one string that spans lines (whether CODESYS takes a raw line break in a literal is still
+      unmeasured, blocker above), and it has its own escape set — only `$'` and `$$`; IEC's `$N`/`$L`/`$R`/`$T`/`$hh` are
+      refused there (`execute-code-escape`), while `%NETWORK` titles and `//` lines read IEC escapes
+      (`NetworkSpelling.Unescape`). One network text, two escape rules: an IEC-correct `'a$Nb'` typed into CODE is
+      refused. Options: IEC escapes in CODE too (a line break could then be `$N` and the string an IEC literal), or
+      no escapes anywhere but `$'`/`$$`.
+      Gate (2026-10-29): NOT green, nothing committed. Typecheck, lint, `bun run check` green; fixture map current
+      (`rate:fixtures`, no change); C# Engine 2489 (+1 skip) / Cli 378 / Codesys 538 / Twincat 785 / Connector 156 /
+      Contracts 56 / Repo.Gates 276, 0 fail; volt-cli `test/unit` 235, volt-vscode 34, 0 fail; LSP full suite
+      (`VOLT_REQUIRE_FULL=1`) 10301 pass / 36 skip / 431 todo / **4 fail** — the same four `corpus-twins.test.ts` "the IDE
+      builds the twins…" (awa-palletizer, bakon-nano, lenze-mid, pro2193) as gate 2a: the recorded
+      `network-twins.codesys.json` are of the old twins. BLOCKER (unchanged): re-recording needs a live CODESYS and
+      `ide.ps1 up -Instance network-output-member` refuses while the hand-started CODESYS pid 35692
+      (`CodesysTestProject.3.5.21.60.project*`, unsaved) still runs; Volt never closes an IDE it did not start. The
+      working tree keeps the 2.6 build and these fixes uncommitted (not reset: it is the only copy of the work).
 - [ ] 2.7 An FB box is a call on its instance (design.md "FB boxes"); the code on this branch still writes
       `TYPE(FB := inst, …)`.
 - [ ] 2.8 Wires as `VAR_TEMP w1 : ANY; END_VAR` at the network start (design.md "Wires"): writer, reader, LSP, exec

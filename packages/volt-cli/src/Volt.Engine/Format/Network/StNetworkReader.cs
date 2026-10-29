@@ -19,9 +19,9 @@ namespace Volt.Engine.Format.Network;
 /// reads, required where the callee declares more than one data output and refused where it declares one
 /// (<see cref="NetworkSpelling.SignatureOf(string, bool, NetworkScope)"/>). A statement is an assignment, a call, a call
 /// closed by <c>.ENO</c>, a jump or a return, a label. A name on a network's <c>%WIRES</c> line is a wire: a Demux over its
-/// definition, read by its name any number of times — except a wire an Execute box defines through its ENO and that is read
-/// once, which is that box, standing where it is read. <c>BRANCH</c>, <c>BRANCH_SHORTCIRCUIT</c>, <c>R_EDGE</c> and
-/// <c>F_EDGE</c> are the text's own elements (<see cref="StNetworkWriter.ElementHeads"/>).</para>
+/// definition, read by its name any number of times. <c>BRANCH</c>, <c>BRANCH_SHORTCIRCUIT</c>, <c>R_EDGE</c> and
+/// <c>F_EDGE</c> are the text's own elements (<see cref="StNetworkWriter.ElementHeads"/>), and <c>EXECUTE(EN := e, CODE :=
+/// '&lt;ST&gt;')</c> the Execute box, its ST the one string that spans lines.</para>
 ///
 /// <para>The push reads every LD/FBD body through it (<see cref="StNetworkGate"/>, <see cref="NetworkBodyReader"/>), as
 /// the round-trip oracle does.</para>
@@ -39,21 +39,21 @@ public static class StNetworkReader
         var nets = new List<Network>();
         var bodyWires = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var allWires = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        char? open = null;
         foreach (var l in lines)
-            if (l.StartsWith(StNetworkWriter.WiresLine + " ", StringComparison.Ordinal))
+        {
+            if (open is null && l.StartsWith(StNetworkWriter.WiresLine + " ", StringComparison.Ordinal))
                 foreach (var w in l.Substring(StNetworkWriter.WiresLine.Length + 1).Split(',')) allWires.Add(w.Trim());
+            open = OpenQuoteAfter(l, open);
+        }
         var i = 1;
         while (i < lines.Count)
         {
             if (!IsNetworkLine(lines[i]))
                 throw new StNetworkReadException(i + 1, $"'{lines[i]}' where a {StNetworkWriter.NetworkLine} line stands");
-            var start = i++;
-            while (i < lines.Count && !IsNetworkLine(lines[i]))
-            {
-                if (lines[i].StartsWith(StNetworkWriter.ExecuteLine, StringComparison.Ordinal))
-                    while (++i < lines.Count && !lines[i].StartsWith(StNetworkWriter.EndExecuteLine, StringComparison.Ordinal)) { }
-                i++;
-            }
+            var start = i;
+            open = OpenQuoteAfter(lines[i++], null);
+            while (i < lines.Count && (open is not null || !IsNetworkLine(lines[i]))) open = OpenQuoteAfter(lines[i++], open);
             nets.Add(new NetworkReader(lines.GetRange(start, Math.Min(i, lines.Count) - start), start + 1, nets.Count, scope, bodyWires, allWires).Read());
         }
         return new NetworkBody(lang, nets);
@@ -61,6 +61,25 @@ public static class StNetworkReader
 
     private static bool IsNetworkLine(string line) =>
         line == StNetworkWriter.NetworkLine || line.StartsWith(StNetworkWriter.NetworkLine + " ", StringComparison.Ordinal);
+
+    /// <summary>The quote of the string still open at the end of <paramref name="line"/>, which starts inside the string
+    /// <paramref name="open"/> opened (null: outside one). The Execute box's CODE is the one string that spans lines, and a
+    /// line inside it is its ST, no line of the text.</summary>
+    private static char? OpenQuoteAfter(string line, char? open)
+    {
+        for (var k = 0; k < line.Length; k++)
+        {
+            var c = line[k];
+            if (open is { } q)
+            {
+                if (c == '$') k++;
+                else if (c == q) open = null;
+            }
+            else if (c == '\'' || c == '"') open = c;
+            else if (c == '/' && k + 1 < line.Length && line[k + 1] == '/') break;
+        }
+        return open;
+    }
 
     // ── spelling predicates the writer shares ────────────────────────────────────────────────────────────────────
 
@@ -141,7 +160,6 @@ public static class StNetworkReader
         private readonly HashSet<string> _wires = new(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<string> _bodyWires;
         private readonly HashSet<string> _allWires;
-        private readonly List<string> _snippets = new();
 
         /// <param name="bodyWires">The wires the body's earlier networks name: a wire is one network's (design.md 1.4).</param>
         /// <param name="allWires">Every wire the body's networks name: one of another network is read nowhere here.</param>
@@ -210,31 +228,23 @@ public static class StNetworkReader
                 i++;
             }
 
-            // The code, an Execute block standing in it as `@EXEC<k>[(args)];` on the block's first line.
+            // The code: a line inside the Execute box's CODE string is its ST, no line of the text.
             var code = new StringBuilder();
             var lineOf = new List<int>();   // code line → index into _lines
+            char? open = null;
             for (; i < _lines.Count; i++)
             {
                 var line = _lines[i];
-                if (line.StartsWith(StNetworkWriter.ExecuteLine, StringComparison.Ordinal))
+                if (open is null)
                 {
-                    var args = line.Substring(StNetworkWriter.ExecuteLine.Length);
-                    var st = new List<string>();
-                    var at = i;
-                    while (++i < _lines.Count && !_lines[i].StartsWith(StNetworkWriter.EndExecuteLine, StringComparison.Ordinal)) st.Add(_lines[i]);
-                    if (i >= _lines.Count) throw Error(at, $"{StNetworkWriter.ExecuteLine} with no {StNetworkWriter.EndExecuteLine}");
-                    if (_lines[i] != StNetworkWriter.EndExecuteLine) throw Error(i, $"'{_lines[i]}': {StNetworkWriter.EndExecuteLine} stands alone on its line");
-                    code.Append("@EXEC").Append(_snippets.Count.ToString(CultureInfo.InvariantCulture)).Append(args).Append(";\n");
-                    lineOf.Add(at);
-                    _snippets.Add(string.Join("\n", st));
-                    continue;
+                    if (line.StartsWith("%", StringComparison.Ordinal))
+                        throw Error(i, KnownLine(line)
+                            ? $"the line '{line}' among the code: a network's % lines stand before it, in the order %DISABLED, %WIRES"
+                            : $"'{line}': a network holds no such line");
+                    if (line.TrimStart().StartsWith("//", StringComparison.Ordinal))
+                        throw Error(i, "a comment after the code starts: a network's comment is its // lines before the code");
                 }
-                if (line.StartsWith("%", StringComparison.Ordinal))
-                    throw Error(i, KnownLine(line)
-                        ? $"the line '{line}' among the code: a network's % lines stand before it, in the order %DISABLED, %WIRES"
-                        : $"'{line}': a network holds no such line");
-                if (line.TrimStart().StartsWith("//", StringComparison.Ordinal))
-                    throw Error(i, "a comment after the code starts: a network's comment is its // lines before the code");
+                open = OpenQuoteAfter(line, open);
                 code.Append(line).Append('\n');
                 lineOf.Add(i);
             }
@@ -260,7 +270,6 @@ public static class StNetworkReader
 
         /// <summary>A name another network of the body names a wire: never this network's operand or target.</summary>
         public bool IsForeignWire(string name) => !_wires.Contains(name) && _allWires.Contains(name);
-        public string Snippet(int k) => _snippets[k];
     }
 
     private static int? WireId(string wire) =>
@@ -319,11 +328,11 @@ public static class StNetworkReader
             if (c == '/' && i + 1 < s.Length && s[i + 1] == '/')
                 throw new StNetworkReadException(Line(i), "a // comment after the code starts: a network's comment is its // lines before the code");
             if (c == '{') throw new StNetworkReadException(Line(i), "a pragma {…} in a network: a network holds none");
-            if (char.IsLetter(c) || c == '_' || c == '@')
+            if (char.IsLetter(c) || c == '_')
             {
                 i++;
                 while (i < s.Length && (char.IsLetterOrDigit(s[i]) || s[i] == '_')) i++;
-                if (c != '@' && i < s.Length && s[i] == '#')
+                if (i < s.Length && s[i] == '#')
                 {
                     i++;
                     while (i < s.Length && (char.IsLetterOrDigit(s[i]) || "_.:+-".IndexOf(s[i]) >= 0)) i++;
@@ -368,11 +377,14 @@ public static class StNetworkReader
             }
             if (c == '\'' || c == '"')
             {
+                // The Execute box's ST, `CODE := '…'`, is the one string that spans lines: its code as it stands.
+                var code = c == '\'' && toks.Count >= 2 && toks[toks.Count - 1] is { Kind: Tk.Sym, Text: ":=" } &&
+                           toks[toks.Count - 2] is { Kind: Tk.Ident } pin && string.Equals(pin.Text, StNetworkWriter.CodePin, StringComparison.OrdinalIgnoreCase);
                 i++;
                 while (i < s.Length && s[i] != c)
                 {
                     if (s[i] == '$' && i + 1 < s.Length) i++;
-                    if (s[i] == '\n') throw new StNetworkReadException(Line(i), "a string across a line");
+                    if (s[i] == '\n' && !code) throw new StNetworkReadException(Line(i), "a string across a line: only the Execute box's CODE spans lines");
                     i++;
                 }
                 if (i >= s.Length) throw new StNetworkReadException(Line(start), "an unclosed string");
@@ -697,7 +709,6 @@ public static class StNetworkReader
             var call = Args(head, line);
             if (Is(".") && Peek(1) is { Kind: Tk.Ident } m && !IsKeyword(m.Text))
             {
-                if (head.StartsWith("@", StringComparison.Ordinal)) throw Error("a member after an Execute box: it is no call");
                 call.Member = m.Text;
                 _i += 2;
             }
@@ -707,7 +718,6 @@ public static class StNetworkReader
         private ACall Args(string head, int line)
         {
             var call = new ACall { Head = head, Line = line };
-            if (head.StartsWith("@", StringComparison.Ordinal) && !Is("(")) return call;
             Expect("(");
             if (Is(")")) { _i++; return call; }
             while (true)
@@ -748,7 +758,6 @@ public static class StNetworkReader
             var first = _t[at];
             if (first.Kind == Tk.Literal) return new Span(first.Text, at + 1, false);
             if (first.Kind != Tk.Ident || IsKeyword(first.Text)) return null;
-            if (first.Text.StartsWith("@", StringComparison.Ordinal)) return new Span(first.Text, at + 1, isCall: true);
             if (first.Text == "???")
                 return new Span(first.Text, at + 1, at + 1 < _t.Count && _t[at + 1].Text == "(" && allowCall);
             var k = at + 1;
@@ -788,15 +797,7 @@ public static class StNetworkReader
         private readonly NetworkReader _net;
         private readonly List<AStmt> _stmts;
         private readonly int _firstLine;
-        private readonly Dictionary<string, int> _reads = new(StringComparer.OrdinalIgnoreCase);
-        private readonly Dictionary<string, ACall> _pending = new(StringComparer.OrdinalIgnoreCase);
-        private readonly Dictionary<string, int> _pendingAt = new(StringComparer.OrdinalIgnoreCase);
-        private readonly HashSet<string> _spliced = new(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<string> _defined = new(StringComparer.OrdinalIgnoreCase);
-        private readonly Dictionary<string, int> _definedAt = new(StringComparer.OrdinalIgnoreCase);
-
-        /// <summary>The index of the statement whose text is being read: an item, or a call statement spliced into it.</summary>
-        private int _at;
 
         public Builder(NetworkReader net, List<AStmt> stmts, int firstLine)
         {
@@ -819,84 +820,15 @@ public static class StNetworkReader
 
         public List<Node> Build()
         {
-            foreach (var s in _stmts) Count(s);
-            var items = new List<Node>();
-            var pendingWire = new Dictionary<AStmt, string>();
-            for (var k = 0; k < _stmts.Count; k++)
-                if (_stmts[k] is SCall c && WireOut(c.Call) is { } w && Reads(w.Target!) == 1)
-                {
-                    _pending[w.Target!] = c.Call;
-                    _pendingAt[w.Target!] = k;
-                    pendingWire[_stmts[k]] = w.Target!;
-                }
-            // An Execute box read once is the box itself, STANDING WHERE IT IS READ: the run of such boxes right before an
-            // item is that item's, each read by it or by a box of the run read by it. The model runs a box where it is read,
-            // so a box the text runs elsewhere (after its reader, or past another statement) would run in another order
-            // than the text spells.
-            var run = new List<AStmt>();
-            for (var k = 0; k < _stmts.Count; k++)
-            {
-                var s = _stmts[k];
-                if (pendingWire.ContainsKey(s))
-                {
-                    run.Add(s);
-                    continue;
-                }
-                _at = k;
-                items.Add(Item(s));
-                foreach (var p in run)
-                    if (!_spliced.Contains(pendingWire[p]))
-                        throw Error(p.Line, $"the call {((SCall)p).Call.Head} defines the wire {pendingWire[p]}, read once, and does not stand directly before the statement that reads it: a box read once stands where it is read");
-                run.Clear();
-            }
-            foreach (var p in _pending.Keys)
-                if (!_spliced.Contains(p)) throw Error(_firstLine, $"the wire {p} is defined and never read after its definition");
+            var items = _stmts.Select(Item).ToList();
             foreach (var w in _net.Wires)
-            {
-                if (!_defined.Contains(w) && !_pending.ContainsKey(w)) throw Error(_firstLine, $"the wire {w} is named and never defined");
-            }
+                if (!_defined.Contains(w)) throw Error(_firstLine, $"the wire {w} is named and never defined");
             return NumberDemuxIds(items);
-        }
-
-        private int Reads(string wire) => _reads.TryGetValue(wire, out var n) ? n : 0;
-
-        private void Count(AStmt s)
-        {
-            switch (s)
-            {
-                case SAssign a: Count(a.Assign); break;
-                case SCall c: Count(c.Call); break;
-                case SControl k: Count(k.Condition); break;
-            }
-        }
-
-        private void Count(AExpr? e)
-        {
-            switch (e)
-            {
-                case AWire w: _reads[w.Name] = Reads(w.Name) + 1; break;
-                case ANot n: Count(n.Inner); break;
-                case ABin b: foreach (var o in b.Operands) Count(o); break;
-                case AAssign a: Count(a.Value); break;
-                case ACall c: foreach (var x in c.Args) Count(x.Value); break;
-                case AJump j: Count(j.Value); break;
-            }
-        }
-
-        /// <summary>The output of an Execute box that defines a wire (its <c>ENO =&gt; w</c>), or null: a call's output to a wire
-        /// is refused where the call is read (<see cref="CallBox"/>), a wire being defined by <c>w := &lt;box&gt;</c>.</summary>
-        private AArg? WireOut(ACall c)
-        {
-            if (!IsExecute(c)) return null;
-            var outs = c.Args.Where(a => a.Out && _net.IsWire(a.Target!)).ToList();
-            if (outs.Count > 1) throw Error(c.Line, $"the call {c.Head} defines {outs.Count} wires: a box defines one");
-            return outs.FirstOrDefault();
         }
 
         private int VarId(string wire, int line)
         {
             if (!_defined.Add(wire)) throw Error(line, $"the wire {wire} is defined twice");
-            _definedAt[wire] = _at;
             return WireId(wire) ?? throw Error(line, $"the wire '{wire}' is not w<n>");
         }
 
@@ -909,10 +841,6 @@ public static class StNetworkReader
                 case SAssign a when IsWireDefinition(a.Assign):
                 {
                     var name = a.Assign.Targets[0].Text;
-                    // `w2 := w1;` over a box read once through w1 is the box defining w2: the call names w2 itself, so one
-                    // model has one text.
-                    if (a.Assign.Value is AWire { } via && _pending.TryGetValue(via.Name, out var box))
-                        throw Error(s.Line, $"the wire {name} is defined by the box {box.Head}, read once through the wire {via.Name}: the box defines the wire itself ({WireOut(box)!.Formal} => {name})");
                     // An enabled box other than a comparison is a wire's whole value only where every read of the wire is a
                     // coil's value.
                     if (a.Assign.Value is ACall valueCall && EnOnlyByValue(valueCall) is not null) _enabledValue[name] = valueCall.Head;
@@ -922,12 +850,7 @@ public static class StNetworkReader
                 case SEmpty: return new Leaf(new Operand(""), Flags.None);
                 case SCall c when ElementHead(c.Call.Head, c.Line) is not null:
                     throw Error(s.Line, $"the call {c.Call.Head} stands alone: a branch or an edge is a value in a tree");
-                case SCall c:
-                {
-                    var wireOut = WireOut(c.Call);
-                    var box = CallBox(c.Call, consumed: wireOut is not null);
-                    return wireOut is null ? box : new Demux(VarId(wireOut.Target!, s.Line), box);
-                }
+                case SCall c: return CallBox(c.Call, consumed: false);
                 default: throw Error(s.Line, "an unknown statement");
             }
         }
@@ -959,20 +882,10 @@ public static class StNetworkReader
             switch (e)
             {
                 case AOperand o:
+                    if (o.Text.IndexOf('\n') >= 0) throw Error(o.Line, "a string across a line: only the Execute box's CODE spans lines");
                     if (_net.IsForeignWire(o.Text)) throw Error(o.Line, $"the wire {o.Text} is read outside its network: a wire is its network's");
                     return new Leaf(new Operand(o.Text), Flags.None);
                 case AWire w:
-                    if (_pending.TryGetValue(w.Name, out var call))
-                    {
-                        var at = _pendingAt[w.Name];
-                        if (at > _at) throw Error(w.Line, $"the wire {w.Name} is read before it is defined");
-                        _spliced.Add(w.Name);
-                        var reader = _at;
-                        _at = at;
-                        var box = CallBox(call, consumed: true);
-                        _at = reader;
-                        return box;
-                    }
                     // A Demux read by its name: after its definition, or before it (the value the wire held, the previous
                     // scan's), once or more.
                     if (!assignValue && _enabledValue.TryGetValue(w.Name, out var enabledHead)) throw EnabledValueNotACoil(w.Line, enabledHead);
@@ -991,8 +904,6 @@ public static class StNetworkReader
                 case AAssign a: return Assign(a);
                 case AJump j: return ControlNode(j.Label, Expr(j.Value));
                 case ACall c:
-                    if (WireOut(c) is { } wo)
-                        throw Error(c.Line, $"the call {c.Head} is read by its return and defines the wire {wo.Target}: a box read where it stands has no wire");
                     if (ElementHead(c.Head, c.Line) is { } element) return Element(c, element);
                     if (!assignValue && EnOnlyByValue(c) is not null) throw EnabledValueNotACoil(c.Line, c.Head);
                     return CallBox(c, consumed: true);
@@ -1064,7 +975,7 @@ public static class StNetworkReader
 
         private static bool Is(string? a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
 
-        private static bool IsExecute(ACall c) => c.Head.StartsWith("@EXEC", StringComparison.Ordinal);
+        private static bool IsExecute(ACall c) => Is(c.Head, StNetworkWriter.ExecuteHead);
 
         private static bool IsInstancePin(AArg? a) => a is { Out: false } && Is(a.Formal, StNetworkWriter.InstancePin);
 
@@ -1192,37 +1103,28 @@ public static class StNetworkReader
             return block ? (false, null, member) : (false, slot, null);
         }
 
-        /// <summary>The Execute box: <c>%EXECUTE(EN := c, ENO =&gt; w)</c>, its ENO by type, read through it where consumed.</summary>
+        /// <summary>THE EXECUTE BOX (openspec network-output-member 2.6): <c>EXECUTE(EN := e, CODE := '&lt;ST&gt;')</c> — EN where
+        /// it shows EN, then its ST, nothing else; its one output its ENO (by type), read through it where consumed, so no
+        /// member closes the call.</summary>
         private Box ExecuteBox(ACall c, bool consumed)
         {
-            var stCode = _net.Snippet(int.Parse(c.Head.Substring(5), CultureInfo.InvariantCulture));
-            var enabled = c.Args.Count > 0 && !c.Args[0].Out && Is(c.Args[0].Formal, Box.EnablePin);
+            if (_net.InReach(c.Head))
+                throw Error(c.Line, $"the call {c.Head} names something declared in reach, which the text reads as its Execute box");
+            if (c.Member is { } member)
+                throw Error(c.Line, $"the Execute box is closed by .{member}: its one output is its ENO, read where the box stands");
+            var at = 0;
             Node? enable = null;
-            var inputs = new List<Input>();
-            var outs = new List<Output>();
-            for (var k = 0; k < c.Args.Count; k++)
+            if (c.Args.Count > 0 && c.Args[0] is { Out: false } en && Is(en.Formal, Box.EnablePin))
             {
-                var a = c.Args[k];
-                if (a.Out)
-                {
-                    if (_net.IsWire(a.Target!))
-                    {
-                        if (!Is(a.Formal, Box.EnoPin))
-                            throw Error(c.Line, $"the Execute box defines the wire {a.Target} through '{a.Formal}': an Execute box is read through its ENO");
-                        continue;
-                    }
-                    outs.Add(new Output(a.Formal, new Operand(a.Target!, IsLValue: true)));
-                    continue;
-                }
-                if (k == 0 && enabled)
-                {
-                    enable = Expr(a.Value!);
-                    continue;
-                }
-                inputs.Add(new Input(a.Formal, Expr(a.Value!), Flags.None));
+                enable = Expr(en.Value!);
+                at = 1;
             }
-            return new Box(NetworkSpelling.ExecuteType, null, NetworkSpelling.KindOf(NetworkSpelling.ExecuteType, false), inputs, outs,
-                enable, stCode, Flags.None, ConnectedSlot: consumed ? 0 : null, HasEnoOutput: true);
+            if (c.Args.Count != at + 1 || c.Args[at] is not { Out: false, Value: AOperand { Text: var literal } } code ||
+                !Is(code.Formal, StNetworkWriter.CodePin) || literal.Length < 2 || literal[0] != '\'' || literal[literal.Length - 1] != '\'')
+                throw Error(c.Line, $"the Execute box takes {Box.EnablePin} := first where it shows EN, then {StNetworkWriter.CodePin} := '<ST>', and nothing else");
+            var st = NetworkSpelling.UnescapeCode(literal.Substring(1, literal.Length - 2), out var error) ?? throw Error(c.Line, error!);
+            return new Box(NetworkSpelling.ExecuteType, null, NetworkSpelling.KindOf(NetworkSpelling.ExecuteType, false), Array.Empty<Input>(),
+                Array.Empty<Output>(), enable, st, Flags.None, ConnectedSlot: consumed ? 0 : null, HasEnoOutput: true);
         }
     }
 

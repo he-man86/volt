@@ -249,15 +249,13 @@ END_VAR
 
 %LANGUAGE FBD
 %NETWORK
-%EXECUTE(EN := bRun)
-IF bStart THEN
+EXECUTE(EN := bRun, CODE := 'IF bStart THEN
 	target := 40 + 2;
-END_IF
-%END_EXECUTE
+END_IF');
 
 END_FUNCTION_BLOCK
 `, `${doc}#execute`,
-    "The `%END_EXECUTE` line ends the box, so the ST's own `END_IF` cannot. The LSP reads what is between the lines as the ST it is."),
+    "The box's ST is its CODE string, its line breaks as they stand, so the ST's own `END_IF` is code in it. The LSP reads the string's content as the ST it is."),
   // ─── control flow (§6) ─────────────────────────────────────────────────────
   ng("ng_label_jmp_resolved", "FB_NG_jump", "a label that DOES resolve, and the jump that reaches it",
     `FUNCTION_BLOCK FB_NG_jump

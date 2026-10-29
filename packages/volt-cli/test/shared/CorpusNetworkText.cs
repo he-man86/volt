@@ -22,7 +22,7 @@ public static class CorpusNetworkText
     private static readonly Regex LanguageLine = new(@"^%LANGUAGE (LD|FBD)\s*$", RegexOptions.CultureInvariant);
 
     /// <summary>The body's lines run to the first line that closes or opens an element (<c>END_…</c>, <c>METHOD</c>,
-    /// <c>ACTION</c>, <c>PROPERTY</c>), outside an Execute box's ST.</summary>
+    /// <c>ACTION</c>, <c>PROPERTY</c>), outside an Execute box's CODE string.</summary>
     private static readonly Regex ElementLine = new(@"^(END_[A-Z_]+|METHOD|ACTION|PROPERTY)\b", RegexOptions.CultureInvariant);
 
     /// <summary><paramref name="file"/>'s text with the LD/FBD body of <paramref name="member"/> (null: the POU's own) put as
@@ -42,14 +42,13 @@ public static class CorpusNetworkText
         var start = lines.FindIndex(from, l => LanguageLine.IsMatch(l));
         if (start < 0) throw new InvalidDataException($"{file}: no LD/FBD body for '{member ?? "(the POU)"}'");
         var end = start + 1;
-        var inExecute = false;
+        char? open = null;
         for (; end < lines.Count; end++)
         {
             var l = lines[end];
-            var t = l.Trim();
-            if (inExecute) { if (t.StartsWith("%END_EXECUTE", StringComparison.Ordinal) || t.StartsWith("END_EXECUTE", StringComparison.Ordinal)) inExecute = false; continue; }
-            if (t.StartsWith("%EXECUTE", StringComparison.Ordinal) || Regex.IsMatch(t, @"(^|[=( ])EXECUTE$", RegexOptions.CultureInvariant)) { inExecute = true; continue; }
-            if (ElementLine.IsMatch(l)) break;
+            var inString = open is not null;
+            open = OpenQuoteAfter(l, open);
+            if (!inString && ElementLine.IsMatch(l)) break;
         }
         // the blank lines before the element's own line stay where they are
         var last = end;
@@ -58,6 +57,24 @@ public static class CorpusNetworkText
         lines.InsertRange(start, pulled.Replace("\r\n", "\n").Split('\n'));
         var joined = string.Join("\n", lines);
         return crlf ? joined.Replace("\n", "\r\n") : joined;
+    }
+
+    /// <summary>The quote of the string open at the end of <paramref name="line"/>, which starts inside <paramref name="open"/>'s:
+    /// a line of an Execute box's <c>CODE := '…'</c> is its ST, never the element's end.</summary>
+    private static char? OpenQuoteAfter(string line, char? open)
+    {
+        for (var k = 0; k < line.Length; k++)
+        {
+            var c = line[k];
+            if (open is { } q)
+            {
+                if (c == '$') k++;
+                else if (c == q) open = null;
+            }
+            else if (c == '\'' || c == '"') open = c;
+            else if (c == '/' && k + 1 < line.Length && line[k + 1] == '/') break;
+        }
+        return open;
     }
 
     /// <summary>Write <paramref name="spliced"/> into <paramref name="file"/> (writing), or say where it differs (checking).</summary>

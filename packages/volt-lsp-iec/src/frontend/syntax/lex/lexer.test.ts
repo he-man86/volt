@@ -249,3 +249,9 @@ test("a name CODESYS refuses is no single identifier", () => {
   expect(words("a\u00a0b")).not.toEqual([["identifier", "a\u00a0b"]])
   expect(words("a\u200bb")).not.toEqual([["identifier", "a\u200bb"]])
 })
+
+test("every string ends at its line: a string after CODE := in an ST body is no Execute box's code (network-output-member 2.6 review)", () => {
+  const src = "PROGRAM P\nVAR s : STRING; x : INT; END_VAR\ns := CONCAT(CODE := 'abc\nx := 1;\ns := 'q';\nEND_PROGRAM\n"
+  const strings = code(src).filter((t) => t.kind === "string_lit").map((t) => t.text)
+  expect(strings).toEqual(["'abc", "'q'"])
+})
