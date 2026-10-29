@@ -1842,7 +1842,7 @@ export const ROWS: Row[] = [
           "VltF_Seed_BE",
           "LD",
           "\tgo : BOOL;\n\tdone : BOOL;\n\tb : VltF_Seed_B;",
-          "done := VltF_Seed_B(FB := b, EN := go).ENO;",
+          "done := b(EN := go).ENO;",
         ),
       },
       { tag: "built", op: "build" },

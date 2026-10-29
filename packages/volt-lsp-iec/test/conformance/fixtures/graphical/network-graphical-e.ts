@@ -43,7 +43,7 @@ export const NETWORK_GRAPHICAL_TESTS_E: readonly LanguageTest[] = [
   ng("ng_r5_negated_en", "FB_NG_r5_neg_en", "2R.5 #16: a negated EN pin — `MOVE(EN := NOT c, 5, OUT => i).ENO`",
     r5Fb("FB_NG_r5_neg_en", "FBD", ["MOVE(EN := NOT c, 5, OUT => i).ENO;"]), r5Doc),
   ng("ng_r5_array_instance", "FB_NG_r5_array_fb", "2R.5 #17: a call head is any variable reference — an element of an array of FBs",
-    r5Fb("FB_NG_r5_array_fb", "FBD", ["CTU(FB := fbs[1], CU := c, PV := 10, CV => w);"], "\tfbs : ARRAY [1..2] OF CTU;\n\tw : WORD;\n"), r5Doc),
+    r5Fb("FB_NG_r5_array_fb", "FBD", ["fbs[1](CU := c, PV := 10, CV => w);"], "\tfbs : ARRAY [1..2] OF CTU;\n\tw : WORD;\n"), r5Doc),
   ng("ng_r5_split_before_definition", "FB_NG_r5_split_before", "2R.5 #19: a wire referenced above its definition — the stored order, read the previous scan",
     r5Fb("FB_NG_r5_split_before", "LD", ["%WIRES w1\nx := w1;\nw1 := a AND b;\ny := w1 AND c;"]), r5Doc),
   ng("ng_r5_split_nested", "FB_NG_r5_split_nested", "2R.5 #20: a wire defined below the top level, as a nested assignment",

@@ -15,7 +15,7 @@ namespace Volt.Engine.Tests.Format.Network;
 /// </summary>
 public class OutputMemberTests
 {
-    const string Text = "%LANGUAGE FBD\n%NETWORK\nok := WSM(FB := w1, EN := TRUE, xOn := a).ENO;\n";
+    const string Text = "%LANGUAGE FBD\n%NETWORK\nok := w1(EN := TRUE, xOn := a).ENO;\n";
 
     static NetworkScope Scope(IReadOnlyDictionary<string, CalleeSignature>? signatures = null) =>
         new(new[] { "ok", "a", "q", "v" }, Array.Empty<string>(), new Dictionary<string, string> { ["w1"] = "WSM" }, signatures: signatures);
@@ -55,7 +55,7 @@ public class OutputMemberTests
         var thin = NetworkScope.FromDeclarations("PROGRAM P\nVAR\n\tok : BOOL;\n\ta : BOOL;\n\tw1 : WSM;\nEND_VAR", _ => null,
             () => Array.Empty<string>(), kindOf: _ => null, isRefusedPouName: _ => false, libraryFunction: _ => null);
         Assert.Null(thin.Signature("WSM"));
-        Assert.True(StNetworkGate.SameBody(Text, Text.Replace("FB := w1, EN", "FB := w1,  EN"), thin));
+        Assert.True(StNetworkGate.SameBody(Text, Text.Replace("w1(EN", "w1( EN"), thin));
     }
 
     /// <summary>A function read through a VAR_OUTPUT is spelled (<c>.Q</c>), and the push refuses it by name until its
@@ -109,8 +109,8 @@ public class OutputMemberTests
     /// <summary>The writer refuses a model its text would read back as another box (review 2a, finding 7): with the callee
     /// unstated, a first pin named EN reads back as the shown EN, and a read through an output named ENO as the shown ENO.</summary>
     [Theory]
-    [InlineData("ok := WSM(FB := w1, EN := TRUE, xOn := a).xBusy;")]
-    [InlineData("ok := WSM(FB := w1, xOn := a).ENO;")]
+    [InlineData("ok := w1(EN := TRUE, xOn := a).xBusy;")]
+    [InlineData("ok := w1(xOn := a).ENO;")]
     public void An_unstated_callee_s_own_EN_pin_or_ENO_output_is_unspellable(string line)
     {
         var stated = Scope(new Dictionary<string, CalleeSignature> { ["WSM"] = new(CalleeShape.Block, new[] { "EN", "xOn" }, new[] { "ENO", "xBusy" }) });

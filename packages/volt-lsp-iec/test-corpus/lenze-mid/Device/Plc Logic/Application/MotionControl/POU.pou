@@ -5,14 +5,14 @@ END_VAR
 
 %LANGUAGE FBD
 %NETWORK
-L_TS2P_FlexCamState(FB := L_TS2P_FlexCamState_0);
+L_TS2P_FlexCamState_0();
 %NETWORK
-L_MC1P_AxisBasicControlV2(FB := ???);
+L_MC1P_AxisBasicControlV2();
 %NETWORK
-L_TT1P_BasicMotionBase(FB := ???);
+L_TT1P_BasicMotionBase();
 %NETWORK
-L_TT1P_FlexCamBase(FB := ???);
+L_TT1P_FlexCamBase();
 %NETWORK
-L_TT1P_FlexCamState(FB := ???);
+L_TT1P_FlexCamState();
 
 END_PROGRAM

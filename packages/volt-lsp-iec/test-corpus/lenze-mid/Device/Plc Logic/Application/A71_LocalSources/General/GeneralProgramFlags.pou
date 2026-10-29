@@ -37,24 +37,24 @@ MOVE(EN := AlwaysOn, 0, OUT => dummyWord).ENO;
 %NETWORK
 %WIRES w1
 w1 := TRUE;
-FF50ms := TON(FB := tmr_FF50ms, IN := w1 AND NOT tmr_FF50ms_not.Q, PT := T#100MS).Q;
-LST_General.Imp100ms := TON(FB := tmr_FF50ms_not, IN := w1 AND FF50ms, PT := T#100MS).Q;
+FF50ms := tmr_FF50ms(IN := w1 AND NOT tmr_FF50ms_not.Q, PT := T#100MS).Q;
+LST_General.Imp100ms := tmr_FF50ms_not(IN := w1 AND FF50ms, PT := T#100MS).Q;
 %NETWORK
 %WIRES w2
 w2 := TRUE;
-FF100ms := TON(FB := tmr_FF100ms, IN := w2 AND NOT tmr_FF100ms_not.Q, PT := T#500MS).Q;
-LST_General.Imp200ms := TON(FB := tmr_FF100ms_not, IN := w2 AND FF100ms, PT := T#500MS).Q;
+FF100ms := tmr_FF100ms(IN := w2 AND NOT tmr_FF100ms_not.Q, PT := T#500MS).Q;
+LST_General.Imp200ms := tmr_FF100ms_not(IN := w2 AND FF100ms, PT := T#500MS).Q;
 %NETWORK
 %WIRES w3
 w3 := TRUE;
-FF500ms := TON(FB := tmr_FF500ms, IN := w3 AND NOT tmr_FF500ms_not.Q, PT := T#500MS).Q;
-LST_General.Imp1s := TON(FB := tmr_FF500ms_not, IN := w3 AND FF500ms, PT := T#500MS).Q;
+FF500ms := tmr_FF500ms(IN := w3 AND NOT tmr_FF500ms_not.Q, PT := T#500MS).Q;
+LST_General.Imp1s := tmr_FF500ms_not(IN := w3 AND FF500ms, PT := T#500MS).Q;
 %NETWORK
 %WIRES w4
 w4 := TRUE;
-FF1s := TON(FB := tmr_FF1s, IN := w4 AND NOT tmr_FF1s_not.Q, PT := T#1S).Q;
-TON(FB := tmr_FF1s_not, IN := w4 AND FF1s, PT := T#1S);
+FF1s := tmr_FF1s(IN := w4 AND NOT tmr_FF1s_not.Q, PT := T#1S).Q;
+tmr_FF1s_not(IN := w4 AND FF1s, PT := T#1S);
 %NETWORK
-LST_General.StartUpDelayPLC := TON(FB := PLC_StartUp_Delay, IN := AlwaysOn, PT := T#60S).Q;
+LST_General.StartUpDelayPLC := PLC_StartUp_Delay(IN := AlwaysOn, PT := T#60S).Q;
 
 END_PROGRAM

@@ -1,4 +1,4 @@
 %LANGUAGE FBD
 %NETWORK
-TON(FB := t1, IN := a, PT := pt);
+t1(IN := a, PT := pt);
 out := t1.Q;

@@ -85,7 +85,7 @@ internal static class NetworkSpelling
     /// <summary>Whether a box type is an IEC operator the compiler provides — the keyword boxes, MOVE and NOT, and every
     /// other one (LIMIT, SEL, the shifts, the conversions, …, <see cref="NetworkMembers.IsOperatorType"/>): a name no
     /// declaration makes, whose pins are the operator's (as the LSP reads every builtin, <c>network-box.ts</c>).</summary>
-    public static bool IsIecOperator(string type) => IsOperatorBox(type) || NetworkMembers.IsOperatorType(type);
+    private static bool IsIecOperator(string type) => IsOperatorBox(type) || NetworkMembers.IsOperatorType(type);
 
     /// <summary>The pins a box of <paramref name="type"/> declares, an FB's (<paramref name="block"/>) or a call's.</summary>
     public static CalleeSignature? SignatureOf(string type, bool block, NetworkScope scope)

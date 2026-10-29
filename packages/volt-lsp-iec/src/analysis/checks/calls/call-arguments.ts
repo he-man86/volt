@@ -45,7 +45,7 @@ export function checkCallArguments(ctx: CheckContext, out: DiagnosticItem[]): vo
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
     walkAllExprs(statements, (x) => {
       if (x.kind !== "call") return
-      // a network box: the call its callee takes, its `FB :=` and shown EN left out (`types` `infer/network-box.ts`)
+      // a network box: the call its callee takes (an FB's its instance's), its shown EN left out (`types` `infer/network-box.ts`)
       const e = networkBox(x, scope, ctx.project)?.st ?? x
       const callee = resolveCallee(e, scope, ctx.project)
       if (callee === undefined) return // unresolved callee → skip (zero-FP)

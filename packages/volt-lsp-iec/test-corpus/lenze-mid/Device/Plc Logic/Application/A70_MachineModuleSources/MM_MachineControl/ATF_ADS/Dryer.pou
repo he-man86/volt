@@ -51,11 +51,11 @@ END_VAR
 EXECUTE(EN := TRUE, CODE := 'tEmptyingCycleInterval:=(60*1000)/TO_DINT(iSpeedForEmptying);
 ');
 %NETWORK "DONE Network 2: Feed forward dryer"
-oFeedForward := RS(FB := stAuxFeedForward, SET := iStartFeedForward OR TON(FB := TMR_IntervalTimerEmptying, IN := (tConditionHeaterTimeOut := NOT(R_TRIG(FB := stReFeedForward, CLK := stAuxFeedForward.Q1))), PT := DINT_TO_TIME(tEmptyingCycleInterval)).Q AND iMachineStarted AND NOT stFaultDryerOpened.Q1 AND Mach1.GenFlags.DelayAfterSTO AND NOT iGenFlags.DriveIsRunning AND iPermissionDownstream, RESET1 := R_TRIG(FB := stReStopFeedForward, CLK := iStopFeedForward));
+oFeedForward := stAuxFeedForward(SET := iStartFeedForward OR TMR_IntervalTimerEmptying(IN := (tConditionHeaterTimeOut := NOT(stReFeedForward(CLK := stAuxFeedForward.Q1))), PT := DINT_TO_TIME(tEmptyingCycleInterval)).Q AND iMachineStarted AND NOT stFaultDryerOpened.Q1 AND Mach1.GenFlags.DelayAfterSTO AND NOT iGenFlags.DriveIsRunning AND iPermissionDownstream, RESET1 := stReStopFeedForward(CLK := iStopFeedForward));
 %NETWORK "DONE Network 3: Enable heaters"
 %WIRES w1, w2
 w1 := TRUE;
-TON(FB := TMR_HeaterTimeOut, IN := w1 AND NOT LST_InputsOutputs.I133_1_PROX_zero_position_transport_ADS, PT := T#7S);
+TMR_HeaterTimeOut(IN := w1 AND NOT LST_InputsOutputs.I133_1_PROX_zero_position_transport_ADS, PT := T#7S);
 w2 := w1 AND iGenFlags.EnableAuxDrive AND iPermissionDownstream AND NOT TMR_HeaterTimeOut.Q AND iSwitchDryer;
 oEnableHeaters := w2;
 tEnableHeaters := w2;
@@ -93,7 +93,7 @@ EXECUTE(EN := w7 AND NOT iPowerOrAnalog, CODE := 'oPowerHeater3:=INT_TO_WORD(stA
 ');
 MOVE(EN := w7 AND iPowerOrAnalog, INT_TO_WORD(stActPowerHeater3), OUT => oPowerHeater3).ENO;
 %NETWORK "DONE Network 37: Fault: dryer opened"
-oFaultDryerOpened := SR(FB := stFaultDryerOpened, SET1 := TON(FB := TMR_DryerOpened, IN := iMachineStarted AND iSwitchDryer AND NOT iDryerClosed AND NOT stFaultDryerOpened.Q1, PT := T#5S).Q, RESET := iGenFlags.StartFlag);
+oFaultDryerOpened := stFaultDryerOpened(SET1 := TMR_DryerOpened(IN := iMachineStarted AND iSwitchDryer AND NOT iDryerClosed AND NOT stFaultDryerOpened.Q1, PT := T#5S).Q, RESET := iGenFlags.StartFlag);
 %NETWORK
 ENO := TRUE;
 

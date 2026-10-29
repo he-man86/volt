@@ -92,7 +92,7 @@ fb TON IN PT => Q ET
 === text
 %LANGUAGE LD
 %NETWORK
-output := TON(FB := t2, IN := TRUE, PT := e1).Q;
+output := t2(IN := TRUE, PT := e1).Q;
 === model
 NETWORK
   (:= output (TON@t2 IN=TRUE PT=e1 name:Q))
@@ -103,7 +103,7 @@ fb Axis
 === text
 %LANGUAGE FBD
 %NETWORK
-Axis(FB := ???, xEnable := go);
+Axis(xEnable := go);
 === model
 NETWORK
   (Axis@??? xEnable=go)
@@ -114,7 +114,7 @@ fb TON
 === text
 %LANGUAGE FBD
 %NETWORK
-TON(FB := ???, IN := go);
+TON(IN := go);
 === model
 NETWORK
   (TON@??? IN=go)
@@ -125,7 +125,7 @@ instance fbs[] CTU
 === text
 %LANGUAGE LD
 %NETWORK
-CTU(FB := fbs[1], CU := go, PV := 10, CV => n);
+fbs[1](CU := go, PV := 10, CV => n);
 === model
 NETWORK
   (CTU@`fbs[1]` CU=go PV=10 =>CV:n)
@@ -158,8 +158,8 @@ fb TON IN PT => Q ET
 === text
 %LANGUAGE FBD
 %NETWORK
-q := TON(FB := t1, IN := NOT v, PT := T#1S).Q;
-p := TON(FB := t2, IN := NOT v, PT := T#1S).Q;
+q := t1(IN := NOT v, PT := T#1S).Q;
+p := t2(IN := NOT v, PT := T#1S).Q;
 === model
 NETWORK
   (:= q (TON@t1 IN=not:v PT=T#1S name:Q))
@@ -237,7 +237,7 @@ fb TON IN PT => Q ET
 === text
 %LANGUAGE LD
 %NETWORK
-q := TON(FB := ton1, IN := TRUE).Q;
+q := ton1(IN := TRUE).Q;
 === model
 NETWORK
   (:= q (TON@ton1 IN=TRUE name:Q))

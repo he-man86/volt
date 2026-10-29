@@ -272,7 +272,7 @@ public class TcStructuralEditTests
         // An unwired pin is the rail, TRUE (a stored member, design.md 1.4).
         Assert.Contains("\nn := MUL(TRUE, m, 6);\n", text);
         // The import's output list is a stored member the text derives (B7): not written, kept by an unchanged push.
-        Assert.Contains("\nTON(FB := t1, IN := TRUE, PT := TRUE);\n", text);
+        Assert.Contains("\nt1(IN := TRUE, PT := TRUE);\n", text);
         Assert.Null(TcNetworkWriter.Apply(xml, NetworkText.Validate(text, scope), scope));
     }
 
@@ -300,7 +300,7 @@ public class TcStructuralEditTests
         // An enabled box with no ENO at the root is its call with `EN :=` and no member (network-output-member), its unwired
         // enable the rail, TRUE; pushed back unchanged it is kept.
         var text = StNetworkWriter.WritePulled(pulled, scope);
-        Assert.Contains("\nTON(FB := t1, EN := TRUE, PT := TRUE);\n", text);
+        Assert.Contains("\nt1(EN := TRUE, PT := TRUE);\n", text);
         Assert.Null(TcNetworkWriter.Apply(xml, NetworkText.Validate(text, scope), scope));
     }
 

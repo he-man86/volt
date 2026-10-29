@@ -219,8 +219,29 @@
       working tree keeps the 2.6 build and these fixes uncommitted (not reset: it is the only copy of the work).
       Built 2026-10-29 (451c689db0); C# suites green, LSP 10301 pass with only the 4 corpus-twins recordings red (live
       re-record blocked by a hand-opened CODESYS; 2.3 re-records them).
-- [ ] 2.7 An FB box is a call on its instance (design.md "FB boxes"); the code on this branch still writes
+- [x] 2.7 An FB box is a call on its instance (design.md "FB boxes"); the code on this branch still writes
       `TYPE(FB := inst, …)`.
+      Done 2026-10-29 (design.md "As built (2.7)"): `StNetworkReader.Callee` / the LSP's `network-box.ts` `instanceOf`
+      read a call head that is an FB instance in reach as the FB box of its declared type, an FB type as the box with no
+      instance (`???`); the writer heads an FB box with its instance where a declaration holds it, else with its type
+      (refused by name where no declaration states the type as a block). `FB :=` gone from writer, reader, LSP (box check,
+      network scope, `???` lexing, the unresolved-name skip), twin comments, doc, case set, corpora (`VOLT_WRITE_CORPUS_TEXT=1`),
+      the TwinCAT import texts, conformance fixture sources (recordings unchanged: of the IDE's model). Test first: writer
+      test `An_FB_box_with_no_declared_instance_is_the_call_of_its_type`, the case set respelled red before the code.
+      Deleted refuse cases (the rule they pinned is gone with `FB :=`): `instance-called` (an instance called is now THE
+      spelling), `fb-type-without-instance` (now the `???` spelling, accept `unnamed-instance`), `array-element-called`
+      (accept `array-element-instance`), `instance-not-a-variable`, `instance-of-another-type` (no text can state it; the
+      writer's refusal stays, `Two_namespaces_are_two_types`), `instance-pin-on-an-operator`, `instance-pin-on-a-function`,
+      `instance-pin-not-an-instance`; the LSP test "FB := stands only on an FB box" replaced by "an FB box is the call of
+      its instance…". `NetworkSpelling.IsIecOperator` private (its one outside caller was the `FB :=` refusal).
+      TALLY SHIFT (owner): CODESYS oracle identical 316 / stored 72 → 301 / 87 (unsupported 0, gaps 0): 24 lenze-mid boxes
+      whose stored type is spelled otherwise than the instance's declaration read back as declared (`an FB type spelled as
+      its declaration`), the ledger's `BoxTreeBox.BoxType — changed` (24) a known loss again — the design's consequence, no
+      spelling for it without a second FB form. TwinCAT 143 / 8 unchanged.
+      Gate: typecheck, lint, `bun run check` green; C# Engine 2482 (+1 skip) / Cli 378 / Codesys 538 / Twincat 785 /
+      Connector 156 / Contracts 56 / Repo.Gates 276, 0 fail; volt-cli `test/unit` 235, volt-vscode 34; LSP full suite
+      (`VOLT_REQUIRE_FULL=1`) 10293 pass / 36 skip / 431 todo / 4 fail — only the 4 known `corpus-twins.test.ts` live
+      recordings (awa-palletizer, bakon-nano, lenze-mid, pro2193), which need the live re-record (2.3).
 - [ ] 2.8 Wires as `VAR_TEMP w1 : ANY; END_VAR` at the network start (design.md "Wires"): writer, reader, LSP, exec
       twin, doc; `%WIRES` deleted.
 - [ ] 2a Gate of 2.1/2.2/2.4 (2026-10-28): NOT green, nothing committed. Typecheck, lint, `bun run check` green; C#

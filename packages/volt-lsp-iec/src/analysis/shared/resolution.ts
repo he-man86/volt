@@ -16,7 +16,7 @@
  */
 import { compilerTypeText, walkExpr, type CallExpr, type Expr, type Identifier, type MemberExpr, type Span, type TypeExpr } from "../../frontend/syntax/index.js"
 import { gvlBlockOf, hasUnresolvedBase, isLibrarySymbol, lookupLocal, lookupMember, resolveGvlMember, rootOf, type Scope, type Symbol } from "../../frontend/symbols/index.js"
-import { ANY_FAMILIES, boxMember, builtinName, GENERIC_PARAMETER_TYPES, inferExprType, isDialectType, isSfcStepBase, networkBox, resolveBareName, sfcStepTypeScope } from "../../frontend/types/index.js"
+import { ANY_FAMILIES, boxMember, builtinName, GENERIC_PARAMETER_TYPES, inferExprType, isDialectType, isSfcStepBase, resolveBareName, sfcStepTypeScope } from "../../frontend/types/index.js"
 
 
 interface BareRef {
@@ -30,7 +30,7 @@ interface BareRef {
  * resolve against a callee/type, not the local scope. Mirrors `ast-walk`'s traversal minus those — and minus a STEP of an SFC
  * chart read with a member (`S_Boot.x`), which no declaration names (`types/infer/sfc-step`).
  */
-function collectBareRefs(root: Expr, emit: (ref: BareRef) => void, isStep: (access: MemberExpr) => boolean, isBoxType: (call: CallExpr) => boolean = () => false): void {
+function collectBareRefs(root: Expr, emit: (ref: BareRef) => void, isStep: (access: MemberExpr) => boolean): void {
   const collect = (e: Expr): void => {
     switch (e.kind) {
       case "ident_expr":
@@ -43,7 +43,7 @@ function collectBareRefs(root: Expr, emit: (ref: BareRef) => void, isStep: (acce
         collect(e.base) // skip e.member (a member name, not a bare ref)
         return
       case "call":
-        if (!isBoxType(e)) collect(e.callee)
+        collect(e.callee)
         for (const a of e.args) if (a.value !== undefined && !isJumpLabel(e, a.value)) collect(a.value) // skip a.param
         return
       case "index":
@@ -91,8 +91,6 @@ export function unresolvedInExprs(exprs: Iterable<Expr>, scope: Scope): BareRef[
   const out: BareRef[] = []
   const project = rootOf(scope)
   const isStep = (access: MemberExpr): boolean => isSfcStepBase(access, scope, project)
-  // a network FB box's head is its TYPE, which its instance's declaration resolves (`types` `infer/network-box.ts`)
-  const isBoxType = (call: CallExpr): boolean => networkBox(call, scope, project)?.instance !== undefined
   for (const e of exprs) {
     collectBareRefs(
       e,
@@ -100,7 +98,6 @@ export function unresolvedInExprs(exprs: Iterable<Expr>, scope: Scope): BareRef[
         if (!nameResolves(ref.name, scope)) out.push(ref)
       },
       isStep,
-      isBoxType,
     )
   }
   return out

@@ -75,21 +75,21 @@ END_VAR
 
 %LANGUAGE LD
 %NETWORK "NETWORK 2: Startup delay after emergency stop"
-GenFlags.DelayAfterEmergStop := TON(FB := OnDelayAfterEmergencyStop, IN := NOT iFirstCycle AND iEmergencyUnitOK, PT := iPreDelayAfterEmergStop).Q;
+GenFlags.DelayAfterEmergStop := OnDelayAfterEmergencyStop(IN := NOT iFirstCycle AND iEmergencyUnitOK, PT := iPreDelayAfterEmergStop).Q;
 %NETWORK "NETWORK 3: Startup delay after STO has been enabled"
-GenFlags.DelayAfterSTO := TON(FB := OnDelayAfterSTOEnabled, IN := GenFlags.DelayAfterEmergStop AND iSTO_Enabled, PT := iPreDelayAfterSTOEnabled).Q;
+GenFlags.DelayAfterSTO := OnDelayAfterSTOEnabled(IN := GenFlags.DelayAfterEmergStop AND iSTO_Enabled, PT := iPreDelayAfterSTOEnabled).Q;
 %NETWORK "NETWORK 4: Stop delay auxiliary drives"
 %WIRES w1
 w1 := GenFlags.EnableAuxDrive AND NOT GenFlags.StartFlag AND DnStartDelayAuxDrives AND NOT GenFlags.DriveIsRunning AND NOT GenFlags.Rotflag;
-DnStopDelayAuxDrives := TON(FB := OnDelayStopAuxDrives, IN := w1, PT := iPreStopDelayAuxDrives).Q;
+DnStopDelayAuxDrives := OnDelayStopAuxDrives(IN := w1, PT := iPreStopDelayAuxDrives).Q;
 DnStopDelayAuxDrives := BRANCH_SHORTCIRCUIT(FEED := w1, EQ(EN := TRUE, iPreStopDelayAuxDrives, T#0MS), DnStopDelayAuxDrives);
 %NETWORK "NETWORK 5: Manual stop auxiliary drives"
-DnManualStopAuxDrives := TON(FB := OnDelayManStopAuxDrives, IN := GenFlags.EnableAuxDrive AND (NOT iStop1 OR NOT iStop2 OR NOT iStop3), PT := T#2S).Q;
+DnManualStopAuxDrives := OnDelayManStopAuxDrives(IN := GenFlags.EnableAuxDrive AND (NOT iStop1 OR NOT iStop2 OR NOT iStop3), PT := T#2S).Q;
 %NETWORK "NETWORK 6: Startup delay auxiliary drives"
 %WIRES w2, w3
 w2 := True;
 w3 := w2 AND GenFlags.EnableAuxDrive AND NOT GenFlags.AuxDrivesStarted;
-DnStartDelayAuxDrives := TON(FB := OnDelayStartAuxDrives, IN := w3, PT := iPreStartDelayAuxDrives).Q;
+DnStartDelayAuxDrives := OnDelayStartAuxDrives(IN := w3, PT := iPreStartDelayAuxDrives).Q;
 DnStartDelayAuxDrives := BRANCH_SHORTCIRCUIT(FEED := w3, EQ(EN := TRUE, iPreStartDelayAuxDrives, T#0MS), DnStartDelayAuxDrives);
 GenFlags.AuxDrivesStarted R= w2;
 %NETWORK "NETWORK 7: Enable markers"
@@ -102,10 +102,10 @@ GenFlags.EnableAuxDrive := w4 AND (GenFlags.StartFlag OR GenFlags.RunAuto AND Ge
 %NETWORK "NETWORK 8: Pneumatic markers"
 %WIRES w6, w7
 w6 := iEmergencyUnitOK;
-GenFlags.EnablePneumEStop := TOF(FB := OffDelayPneumEStop, IN := w6, PT := T#1S).Q;
+GenFlags.EnablePneumEStop := OffDelayPneumEStop(IN := w6, PT := T#1S).Q;
 w7 := w6 AND (iSTO_Enabled OR NOT iAirPressureDoorsSeparate);
-GenFlags.EnablePneumSafetyGuard := TOF(FB := OffDelayPneumSafetyGuard, IN := w7, PT := T#1S).Q;
-GenFlags.EnablePneumPressurised := TOF(FB := OffDelayPneumPressurised, IN := w7 AND iAirPressureOK, PT := T#1S).Q;
+GenFlags.EnablePneumSafetyGuard := OffDelayPneumSafetyGuard(IN := w7, PT := T#1S).Q;
+GenFlags.EnablePneumPressurised := OffDelayPneumPressurised(IN := w7 AND iAirPressureOK, PT := T#1S).Q;
 %NETWORK "NETWORK 9: Active control panel"
 %WIRES w8, w9, w10, w11
 w8 := True;
@@ -120,11 +120,11 @@ GenFlags.ControlAuto := w11 AND NOT iAutoManual3;
 %NETWORK "NETWORK 10: Control manual"
 GenFlags.RunMan := GenFlags.EnableControl AND (GenFlags.ControlService AND iButtonService OR GenFlags.ControlMan1 AND iStart1 OR GenFlags.ControlMan2 AND iStart2 OR GenFlags.ControlMan3 AND iStart3) AND iStop1 AND iStop2 AND iStop3;
 %NETWORK "NETWORK 11: Control automatic"
-GenFlags.RunAuto := SR(FB := RunAuto, SET1 := GenFlags.EnableControl AND GenFlags.ControlAuto AND (iStart1 OR iStart2 OR iStart3) AND iStop1 AND iStop2 AND iStop3, RESET := GenFlags.RunAuto AND (NOT GenFlags.EnableControl OR NOT GenFlags.ControlAuto OR NOT iStop1 OR NOT iStop2 OR NOT iStop3 OR NOT GenFlags.DriveIsRunning AND (GenFlags.MinorAlarm OR GenFlags.MajorAlarm)));
+GenFlags.RunAuto := RunAuto(SET1 := GenFlags.EnableControl AND GenFlags.ControlAuto AND (iStart1 OR iStart2 OR iStart3) AND iStop1 AND iStop2 AND iStop3, RESET := GenFlags.RunAuto AND (NOT GenFlags.EnableControl OR NOT GenFlags.ControlAuto OR NOT iStop1 OR NOT iStop2 OR NOT iStop3 OR NOT GenFlags.DriveIsRunning AND (GenFlags.MinorAlarm OR GenFlags.MajorAlarm)));
 %NETWORK "DONE NETWORK 12: Start pulse"
-GenFlags.StartFlag := R_TRIG(FB := OneShotStart1, CLK := GenFlags.ControlService AND iButtonService OR GenFlags.ControlMan1 AND iStart1 OR GenFlags.ControlMan2 AND iStart2 OR GenFlags.ControlMan3 AND iStart3 OR GenFlags.ControlAuto AND (iStart1 OR iStart2 OR iStart3) OR OneShotStart2.Q) AND iStop1 AND iStop2 AND iStop3 OR R_TRIG(FB := OneShotStart2, CLK := GenFlags.RunMan OR GenFlags.RunAuto);
+GenFlags.StartFlag := OneShotStart1(CLK := GenFlags.ControlService AND iButtonService OR GenFlags.ControlMan1 AND iStart1 OR GenFlags.ControlMan2 AND iStart2 OR GenFlags.ControlMan3 AND iStart3 OR GenFlags.ControlAuto AND (iStart1 OR iStart2 OR iStart3) OR OneShotStart2.Q) AND iStop1 AND iStop2 AND iStop3 OR OneShotStart2(CLK := GenFlags.RunMan OR GenFlags.RunAuto);
 %NETWORK "DONE NETWORK 13: Reset pulse"
-GenFlags.ResetFlag := R_TRIG(FB := OneShotReset1, CLK := GenFlags.ControlService AND (iServiceButtonHasResetFunction AND iButtonService OR iReset1 OR iReset2 OR iReset3) OR (GenFlags.ControlMan1 OR GenFlags.ControlMan2 OR GenFlags.ControlMan3 OR GenFlags.ControlAuto) AND (iReset1 OR iReset2 OR iReset3)) AND iStop1 AND iStop2 AND iStop3 OR NOT iStartResetSeparate AND GenFlags.StartFlag;
+GenFlags.ResetFlag := OneShotReset1(CLK := GenFlags.ControlService AND (iServiceButtonHasResetFunction AND iButtonService OR iReset1 OR iReset2 OR iReset3) OR (GenFlags.ControlMan1 OR GenFlags.ControlMan2 OR GenFlags.ControlMan3 OR GenFlags.ControlAuto) AND (iReset1 OR iReset2 OR iReset3)) AND iStop1 AND iStop2 AND iStop3 OR NOT iStartResetSeparate AND GenFlags.StartFlag;
 %NETWORK "DONE NETWORK 14: Stop flag"
 GenFlags.StopFlag := NOT iStop1 OR NOT iStop2 OR NOT iStop3 OR GenFlags.StopFlag AND NOT GenFlags.StartFlag;
 %NETWORK "DONE NETWORK 15: Reset safety unit"

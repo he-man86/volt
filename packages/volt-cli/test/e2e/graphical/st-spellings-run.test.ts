@@ -8,9 +8,9 @@
  *                               the IF that runs it, an enabled comparison FALSE when disabled, an FB not called;
  *   `f(…).ENO`                  a box with ENO and no EN: called on every scan, its ENO TRUE (at the root too:
  *                               the call statement);
- *   `T(FB := t1, …).CV`         an FB read through its moved pin: called before the item, read by that output;
+ *   `c2(…).CV`                  an FB read through its moved pin: called before the item, read by that output;
  *   an FB in an enabled box's pin  called before the item on every scan, whatever the enabled box's EN;
- *   `T(FB := t1, EN := c, …)`   what an enabled FB's pins evaluate (an edge) runs under its EN — the edge is on `d`,
+ *   `c4(EN := c, …)`            what an enabled FB's pins evaluate (an edge) runs under its EN — the edge is on `d`,
  *                               which rises outside the EN window (n = 8) and holds into it (n = 12): an edge run every
  *                               scan and one run only under the EN differ there, so `e_y12` tells the two orders apart;
  *   `JMP(l, v)`, `RETURN(v)`    the jump and the return on a value; a coil and a jump on one value written as one item per
@@ -52,17 +52,17 @@ MOVE(EN := d, j, OUT => y2);
 %NETWORK
 x1 := a AND GT(EN := c, i, 3);
 %NETWORK
-x3 := CTU(FB := c1, EN := c, CU := a, PV := 5).Q;
+x3 := c1(EN := c, CU := a, PV := 5).Q;
 %NETWORK
 x5 := ${FN}(IN := i, OUT => y9).ENO;
 %NETWORK
 ${FN}(IN := j, OUT => y8).ENO;
 %NETWORK
-y10 := CTU(FB := c2, CU := a, PV := 5).CV;
+y10 := c2(CU := a, PV := 5).CV;
 %NETWORK
-MOVE(EN := c, CTU(FB := c3, CU := b, PV := 3).CV, OUT => y11).ENO;
+MOVE(EN := c, c3(CU := b, PV := 3).CV, OUT => y11).ENO;
 %NETWORK
-CTU(FB := c4, EN := c, CU := R_EDGE(d), PV := 5, CV => y12).ENO;
+c4(EN := c, CU := R_EDGE(d), PV := 5, CV => y12).ENO;
 %NETWORK
 lamp := b AND d;
 JMP(skip1, b AND d);

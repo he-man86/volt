@@ -124,7 +124,7 @@ public class CodesysNetworkPairingTests
         var pushed = Pushed(impl, t =>
         {
             // The call's connection is the member closing it, `.name` (network-output-member).
-            Assert.Contains("(FB := fbCap, xEnable := src).xErrorActive;", t);
+            Assert.Contains("fbCap(xEnable := src).xErrorActive;", t);
             return t.Replace("%LANGUAGE FBD\n", "%LANGUAGE FBD\n" + Net("o5 := e;"));
         });
         Write(impl, pushed);

@@ -18,16 +18,16 @@ function shapeFb(name: string, lang: "FBD" | "LD", statements: string, header = 
 
 export const NETWORK_GRAPHICAL_TESTS_B: readonly LanguageTest[] = [
   ng("ng_s2_nested_assign", "FB_NG_s2", "S2: an assignment below the top level — a coil feeding a box input, its own pair",
-    shapeFb("FB_NG_s2", "LD", "TON(FB := t1, IN := (out := go), PT := pt);")),
+    shapeFb("FB_NG_s2", "LD", "t1(IN := (out := go), PT := pt);")),
   ng("ng_s3a_leaf_wire", "FB_NG_s3a", "S3a: a wire fed by a leaf, typed by its feeder",
     shapeFb("FB_NG_s3a", "LD", "%WIRES w1\nw1 := a;\nout := w1 AND b;\nout2 := w1;")),
   ng("ng_s3b_rail_wire", "FB_NG_s3b", "S3b: in LD a wire fed by the left rail, `TRUE`",
     shapeFb("FB_NG_s3b", "LD", "%WIRES w1\nw1 := TRUE;\nout := w1 AND a;\nout2 := w1;")),
-  ng("ng_s5_super_call", "FB_NG_s5", "S5: a call of the base FB through `SUPER^` — `FB_NG_s5_base(FB := SUPER^, x := go)`",
+  ng("ng_s5_super_call", "FB_NG_s5", "S5: a call of the base FB through `SUPER^` — `SUPER^(x := go)`",
     `FUNCTION_BLOCK FB_NG_s5_base\nVAR_INPUT\n\tx : BOOL;\nEND_VAR\n\nEND_FUNCTION_BLOCK\n\n` +
-      shapeFb("FB_NG_s5", "FBD", "FB_NG_s5_base(FB := SUPER^, x := go);", "FUNCTION_BLOCK FB_NG_s5 EXTENDS FB_NG_s5_base")),
+      shapeFb("FB_NG_s5", "FBD", "SUPER^(x := go);", "FUNCTION_BLOCK FB_NG_s5 EXTENDS FB_NG_s5_base")),
   ng("ng_s6_negated_pin", "FB_NG_s6", "S6: a negated input pin — an operator's and a call's",
-    shapeFb("FB_NG_s6", "FBD", "out := AND(a, NOT b);\n%NETWORK\nTON(FB := t1, IN := NOT go, PT := pt);")),
+    shapeFb("FB_NG_s6", "FBD", "out := AND(a, NOT b);\n%NETWORK\nt1(IN := NOT go, PT := pt);")),
   // Gate 2-3 review: beyond the one happy path per shape — what the compiler says where a statement disagrees with a
   // declaration, and the coil kinds S2 nests.
   ng("ng_s3a_leaf_split_into_int", "FB_NG_s3a_into_int",
@@ -35,7 +35,7 @@ export const NETWORK_GRAPHICAL_TESTS_B: readonly LanguageTest[] = [
     intFb("FB_NG_s3a_into_int", "LD", "%WIRES w1\nw1 := a;\ni := w1;")),
   ng("ng_s2_nested_set_reset", "FB_NG_s2_set",
     "S2: a set and a reset coil, and two chained targets, below the top level",
-    shapeFb("FB_NG_s2_set", "LD", "TON(FB := t1, IN := (out S= go), PT := pt);\n%NETWORK\nTON(FB := t1, IN := (out R= out2 := a), PT := pt);")),
+    shapeFb("FB_NG_s2_set", "LD", "t1(IN := (out S= go), PT := pt);\n%NETWORK\nt1(IN := (out R= out2 := a), PT := pt);")),
   {
     ...ng("ng_s6_negated_int_pin", "FB_NG_s6_int",
       "S6: a negated input pin of another type than BOOL — an INT pin of an ADD",

@@ -214,6 +214,25 @@ y  := t1(EN := c, IN := a, PT := T#1S).Q;                     // moved pin: Q ch
 `x := t1.Q;` on its own line is a different stored element (a read of the instance's variable), written only where the
 IDE stores that.
 
+**As built (2.7, 2026-10-29).** A call head that is an FB instance in reach (`NetworkScope.InstanceType`: a name, a path, an
+element of an array of FBs, `SUPER^`) is the FB box of the instance's declared type; a head that is an FB type in reach is the
+box with no instance (`???`); any other head is the box of that type (`StNetworkReader.Callee`, the LSP's
+`network-box.ts` `instanceOf`). `FB :=` is no word of the text any more: `FB` is an ordinary pin name. The writer heads a box
+with its instance where a declaration in reach holds it, else with its FB type, refusing by name an FB type no declaration
+states as a block (`an FB box with no instance whose type is no FB type in reach`).
+- *Measured, a tally shift the design brings, not a defect to fix here:* the CODESYS round-trip oracle goes from identical
+  316 / stored 72 back to **301 / 87** (unsupported 0, gaps 0): the 24 lenze-mid boxes whose stored type is spelled otherwise
+  than their instance's declaration (`R_TRIG` declared `R_trig`, `TON` declared `Standard.TON`) read back as the declaration
+  spells it — one type (`StDeclaration.SameType`), a stored member (`an FB type spelled as its declaration`), and the
+  completeness ledger's `BoxTreeBox.BoxType — changed` (24) is a known loss again, as in network-text-st 3.2. The text has
+  no place for the stored spelling without a second FB spelling (an exception the grammar should not have). TwinCAT
+  archives unchanged (143 / 8). An instance no declaration in reach holds is written as the call of its type (a stored
+  member, network-text-st 3.0's rule, `an FB instance no declaration holds as the unnamed instance`): 0 in the corpora.
+- Refusals that pinned the `FB :=` pin go with it: `FB :=` on an operator, a function or a program; an instance pin that is
+  no variable or names a non-FB variable; an FB box of another type than its instance's (no text can state it now — the
+  writer still refuses such a model by name); an instance called; an FB type called without `FB := ???` (now the `???`
+  spelling).
+
 ## The Execute box is a call: `EXECUTE(…) … END_EXECUTE` (owner, 2026-10-28: "we need a execute(en) function that has the ST inside")
 
 Replaces `%EXECUTE` / `%END_EXECUTE`. The Execute box is a box like every other: a call, `EN :=` when the box shows EN,

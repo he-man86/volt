@@ -115,7 +115,7 @@ x := a;
 === refused
 network-plain-st a pragma {
 
-#### en-not-first — EN := stands first in a call (after FB :=): it is the box's shown EN
+#### en-not-first — EN := stands first in a call: it is the box's shown EN
 === text
 %LANGUAGE LD
 %NETWORK
@@ -140,7 +140,7 @@ fb TON IN PT => Q ET
 === text
 %LANGUAGE LD
 %NETWORK
-TON(FB := t1, IN := a, PT := T#1S).Q;
+t1(IN := a, PT := T#1S).Q;
 === refused
 network-plain-st a box at a root hands nothing on
 
@@ -410,16 +410,6 @@ x := Execute(IN := b);
 === refused
 network-plain-st the Execute box takes EN := first where it shows EN, then CODE := '<ST>'
 
-#### fb-type-without-instance — an FB box names its instance first: FB := t1, FB := ??? for none
-=== scope
-fb Axis
-=== text
-%LANGUAGE FBD
-%NETWORK
-Axis(xEnable := go);
-=== refused
-network-plain-st names no instance
-
 #### enabled-value-as-a-jump-condition — an enabled box other than a comparison is read by its value only as a coil's value
 === text
 %LANGUAGE LD
@@ -440,16 +430,6 @@ z := w2;
 v := w2;
 === refused
 network-plain-st comparison operators only
-
-#### instance-called — an FB box is the call of its type, its instance its first pin
-=== scope
-instance t1 TON
-=== text
-%LANGUAGE FBD
-%NETWORK
-t1(IN := a, PT := T#1S);
-=== refused
-network-plain-st names an FB instance
 
 #### branch-pin-named — a branch takes its feed as FEED, then its branches positional
 === text
@@ -511,7 +491,7 @@ fb R_TRIG CLK => Q
 === text
 %LANGUAGE FBD
 %NETWORK
-x := R_TRIG(FB := r1, CLK := a).Q;
+x := r1(CLK := a).Q;
 === refused
 network-plain-st a box with one output names none
 
@@ -559,7 +539,7 @@ fb TON IN PT => Q ET
 === text
 %LANGUAGE FBD
 %NETWORK
-x := TON(FB := t1, IN := a, PT := T#1S).Done;
+x := t1(IN := a, PT := T#1S).Done;
 === refused
 network-plain-st names no output of TON
 
@@ -570,7 +550,7 @@ fb TON IN PT => Q ET
 === text
 %LANGUAGE FBD
 %NETWORK
-x := TON(FB := t1, IN := a, PT := T#1S);
+x := t1(IN := a, PT := T#1S);
 === refused
 network-plain-st names no output: TON has 2
 
@@ -593,26 +573,6 @@ function g IN => OUT
 x := g(IN := a);
 === refused
 network-plain-st declares VAR_OUTPUT OUT
-
-#### instance-not-a-variable — FB := takes the instance: a variable, or ???
-=== scope
-fb TON IN PT => Q ET
-=== text
-%LANGUAGE FBD
-%NETWORK
-x := TON(FB := a AND b, IN := c, PT := T#1S).Q;
-=== refused
-network-plain-st takes its instance as FB :=
-
-#### array-element-called — an element of an array of FBs is an instance: its box is the call of its type
-=== scope
-instance fbs[] CTU
-=== text
-%LANGUAGE LD
-%NETWORK
-fbs[1](CU := go, PV := 10);
-=== refused
-network-plain-st names an FB instance
 
 #### operator-member-on-one-output — an IEC operator box (LIMIT) has one output: its call names none
 === text
@@ -637,50 +597,6 @@ network-plain-st EN := stands first
 MOVE(EN := c, EN := d, a, OUT => x);
 === refused
 network-plain-st holds EN := twice
-
-#### instance-of-another-type — an FB box is the call of its instance's declared type
-=== scope
-instance c1 CTU
-fb CTU CU PV => Q CV
-fb TON IN PT => Q ET
-=== text
-%LANGUAGE FBD
-%NETWORK
-x := TON(FB := c1, IN := a, PT := T#1S).Q;
-=== refused
-network-plain-st names the instance c1, declared CTU
-
-#### instance-pin-on-an-operator — FB := names an FB box's instance: an operator box has none
-=== scope
-name x
-=== text
-%LANGUAGE FBD
-%NETWORK
-ADD(FB := x, a, b, OUT => y);
-=== refused
-network-plain-st FB := on a call of ADD, which is no function block
-
-#### instance-pin-on-a-function — FB := names an FB box's instance: a function box has none
-=== scope
-name x
-function g IN => Q
-=== text
-%LANGUAGE FBD
-%NETWORK
-g(FB := x, a);
-=== refused
-network-plain-st FB := on a call of g, which is no function block
-
-#### instance-pin-not-an-instance — FB := names a variable that is no FB instance
-=== scope
-name x
-fb TON IN PT => Q ET
-=== text
-%LANGUAGE FBD
-%NETWORK
-TON(FB := x, IN := a, PT := T#1S);
-=== refused
-network-plain-st x is no FB instance
 
 #### en-value-through-a-member — an enabled function box read by its value or a VAR_OUTPUT inside a box: only .ENO hands on
 === scope

@@ -87,10 +87,10 @@ EXECUTE(EN := TRUE, CODE := 'IF g_HMI_MachCommand.CMD.bNewRecipe THEN
 	g_HMI_RCP_Parameters_Visu.bMirrorDiagonals := FALSE;
 END_IF');
 %NETWORK
-L_RecipeManager_Rcp(FB := L_RecipeManager1, xEnable := TRUE, sDatabaseName := 'Recipes', sSelectedRecipeName := sSelectedRecipeName, xRecipe_Load := g_HMI_MachCommand.CMD.bLoadRecipe, xRecipe_New := g_HMI_MachCommand.CMD.bNewRecipe, xRecipe_Edit := g_HMI_MachCommand.CMD.bEditRecipe, xRecipe_Save := g_HMI_MachCommand.CMD.bSaveRecipe, xRecipe_Copy := g_HMI_MachCommand.CMD.bCopyRecipe, xRecipe_Delete := g_HMI_MachCommand.CMD.bDeleteRecipe, xRecipe_Update := g_HMI_MachCommand.CMD.bUpdateRecipe, scRecipeVisu := g_HMI_RCP_Parameters_Visu, scRecipePLC := g_HMI_RCP_Parameters, sRecipeNames => sRecipeNames, dwReturnValue => dwReturnValue);
+L_RecipeManager1(xEnable := TRUE, sDatabaseName := 'Recipes', sSelectedRecipeName := sSelectedRecipeName, xRecipe_Load := g_HMI_MachCommand.CMD.bLoadRecipe, xRecipe_New := g_HMI_MachCommand.CMD.bNewRecipe, xRecipe_Edit := g_HMI_MachCommand.CMD.bEditRecipe, xRecipe_Save := g_HMI_MachCommand.CMD.bSaveRecipe, xRecipe_Copy := g_HMI_MachCommand.CMD.bCopyRecipe, xRecipe_Delete := g_HMI_MachCommand.CMD.bDeleteRecipe, xRecipe_Update := g_HMI_MachCommand.CMD.bUpdateRecipe, scRecipeVisu := g_HMI_RCP_Parameters_Visu, scRecipePLC := g_HMI_RCP_Parameters, sRecipeNames => sRecipeNames, dwReturnValue => dwReturnValue);
 %NETWORK
 // Generate machinepar name based on system time.
-rtclk.GetDateAndTime(FB := GetDateAndTime, xExecute := g_HMI_MachCommand.CMD.bSaveMachPar, dtDateAndTime => dtDateAndTIme);
+GetDateAndTime(xExecute := g_HMI_MachCommand.CMD.bSaveMachPar, dtDateAndTime => dtDateAndTIme);
 %NETWORK
 sDateAndTIme := TO_STRING(dtDateAndTIme);
 %NETWORK
@@ -107,6 +107,6 @@ EXECUTE(EN := TRUE, CODE := 'IF g_HMI_MachCommand.CMD.bSaveMachPar AND GetDateAn
 END_IF');
 %NETWORK
 %NETWORK
-L_RecipeManager(FB := L_MachParManager1, xEnable := TRUE, sDatabaseName := 'MachPar', sRecipeName := sMachParName, xRecipe_Delete := g_HMI_MachCommand.CMD.bDeleteMachPar, xRecipe_Load := g_HMI_MachCommand.CMD.bLoadMachPar, xRecipe_Save := bSaveParAs, xRecipe_SaveAs := bSavePars, sActiveRecipe := sActiveMachPar, sRecipeNames => sMachParNames, dwReturnValue => dwMachParReturnValue);
+L_MachParManager1(xEnable := TRUE, sDatabaseName := 'MachPar', sRecipeName := sMachParName, xRecipe_Delete := g_HMI_MachCommand.CMD.bDeleteMachPar, xRecipe_Load := g_HMI_MachCommand.CMD.bLoadMachPar, xRecipe_Save := bSaveParAs, xRecipe_SaveAs := bSavePars, sActiveRecipe := sActiveMachPar, sRecipeNames => sMachParNames, dwReturnValue => dwMachParReturnValue);
 
 END_PROGRAM

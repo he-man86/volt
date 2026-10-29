@@ -78,7 +78,7 @@ const ld = (decls: string, body: string) =>
 test("a plain-ST network body is ST: its boxes and wires resolve and type, a wrong type is the ST error", () => {
   const src = ld(
     "\ta, b, c, x, y, lamp, hot : BOOL;\n\ti, n : INT;\n\tt1 : FB_T;",
-    "%NETWORK\n%WIRES w1\nw1 := a AND NOT b;\nx := w1;\ny := w1 OR c;\nlamp := FB_T(FB := t1, IN := w1);\n" +
+    "%NETWORK\n%WIRES w1\nw1 := a AND NOT b;\nx := w1;\ny := w1 OR c;\nlamp := t1(IN := w1);\n" +
       "hot := GT(i, 3);\nn := ADD(i, 1, 2);\nx := MOVE(EN := GT(EN := a, i, n), 1, OUT => n).ENO;\n",
   )
   expect([...diagnose(src), ...networkDiags(src)].map((d) => d.message)).toEqual([])
@@ -128,8 +128,8 @@ test("GT(a, b) stays the vendor's syntax error in ST: only a network spells a bo
   expect(diagnose(st).some((d) => d.message === "Expression expected instead of 'GT'")).toBe(true)
 })
 
-test("an FB box with no instance, FB := ???, is the build's errors over the marker ???", () => {
-  const src = ld("\ta : BOOL;", "%NETWORK\nFB_T(FB := ???, IN := a);\n")
+test("an FB box with no instance, the call of its type, is the build's errors over the marker ??? at its head", () => {
+  const src = ld("\ta : BOOL;", "%NETWORK\nFB_T(IN := a);\n")
   expect(diagnose(src)).toEqual([])
   expect(networkDiags(src).map((d) => d.message)).toEqual([
     "Expression expected instead of '?'",

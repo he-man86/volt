@@ -13,8 +13,9 @@ namespace Volt.Engine.Format.Network;
 /// formal and positional pins, the infix operators by ST precedence, <c>NOT</c>, <c>JMP(l, c)</c> /
 /// <c>RETURN</c>, a leading label, and the <c>%</c> lines. Anything else is refused by name, with its line.
 ///
-/// <para>The call is the box (openspec network-output-member): <c>FB := inst</c> as its first pin makes it an FB box of the
-/// type its head names; <c>EN :=</c> first (after <c>FB :=</c>) is the shown EN and <c>.ENO</c> closing the call the shown
+/// <para>The call is the box (openspec network-output-member): a call of an FB instance in reach is an FB box of the
+/// instance's declared type, a call of an FB type the box with no instance (<c>???</c>); <c>EN :=</c> first is the shown EN
+/// and <c>.ENO</c> closing the call the shown
 /// ENO, where the callee declares no <c>EN</c>/<c>ENO</c> of its own; any other <c>.NAME</c> names the output a consumer
 /// reads, required where the callee declares more than one data output and refused where it declares one
 /// (<see cref="NetworkSpelling.SignatureOf(string, bool, NetworkScope)"/>). A statement is an assignment, a call, a call
@@ -964,7 +965,7 @@ public static class StNetworkReader
         /// else null.</summary>
         private string? EnOnlyByValue(ACall c)
         {
-            if (IsExecute(c) || IsInstancePin(c.Args.FirstOrDefault())) return null;
+            if (IsExecute(c) || Callee(c).Instance is not null) return null;
             if (c.Args.FirstOrDefault() is not { Out: false } first || !Is(first.Formal, Box.EnablePin)) return null;
             var signature = NetworkSpelling.SignatureOf(c.Head, block: false, _net.Scope);
             if (NetworkSpelling.Comparisons.Contains(c.Head) || signature is { DeclaresEn: true }) return null;
@@ -977,37 +978,24 @@ public static class StNetworkReader
 
         private static bool IsExecute(ACall c) => Is(c.Head, StNetworkWriter.ExecuteHead);
 
-        private static bool IsInstancePin(AArg? a) => a is { Out: false } && Is(a.Formal, StNetworkWriter.InstancePin);
+        /// <summary>WHAT A CALL HEAD NAMES (design "FB boxes: the instance is the call head"): an FB instance in reach, the
+        /// box of its declared type; an FB TYPE in reach, the vendor's unnamed-instance box (<c>???</c>); anything else the
+        /// box of that type.</summary>
+        private (string Type, Operand? Instance) Callee(ACall c)
+        {
+            if (_net.InstanceType(c.Head) is { } declared) return (declared, new Operand(c.Head, IsInstance: true));
+            if (_net.IsBlockType(c.Head)) return (c.Head, new Operand(Box.UnnamedInstance, IsInstance: true));
+            return (c.Head, null);
+        }
 
-        /// <summary>THE BOX A CALL IS (openspec network-output-member): <c>FB := inst</c> first an FB box of the head's type;
-        /// <c>EN :=</c> first after it the shown EN and <c>.ENO</c> the shown ENO, where the callee declares no EN / ENO of its
-        /// own; <c>.NAME</c> the output a consumer reads (<see cref="Member"/>).</summary>
+        /// <summary>THE BOX A CALL IS (openspec network-output-member): a call of an FB instance an FB box of its declared type,
+        /// a call of an FB type the box with no instance; <c>EN :=</c> first the shown EN and <c>.ENO</c> the shown ENO, where
+        /// the callee declares no EN / ENO of its own; <c>.NAME</c> the output a consumer reads (<see cref="Member"/>).</summary>
         private Box CallBox(ACall c, bool consumed)
         {
             if (IsExecute(c)) return ExecuteBox(c, consumed);
-            var type = c.Head;
-            Operand? instance = null;
+            var (type, instance) = Callee(c);
             var at = 0;
-            if (IsInstancePin(c.Args.FirstOrDefault()))
-            {
-                instance = new Operand(InstanceText(c), IsInstance: true);
-                at = 1;
-                // FB := names an FB box's instance: the call of an operator, a function or a program has none.
-                var stated = _net.Scope.Signature(type);
-                if (stated is { Shape: not CalleeShape.Block } || stated is null && NetworkSpelling.IsIecOperator(type))
-                    throw Error(c.Line, $"{StNetworkWriter.InstancePin} := on a call of {type}, which is no function block: {StNetworkWriter.InstancePin} := names an FB box's instance");
-                if (_net.InstanceType(instance.Text) is { } declared)
-                {
-                    if (!St.StDeclaration.SameType(declared, type))
-                        throw Error(c.Line, $"the FB box {type} names the instance {instance.Text}, declared {declared}: an FB box is the call of its instance's type");
-                }
-                else if (NetworkSpelling.Identifier.IsMatch(instance.Text) && _net.Scope.Contains(instance.Text) && !_net.Scope.IsCallable(instance.Text))
-                    throw Error(c.Line, $"the FB box {type} names {instance.Text} as its instance: {instance.Text} is no FB instance");
-            }
-            else if (_net.InstanceType(type) is not null)
-                throw Error(c.Line, $"the call {type} names an FB instance: an FB box is the call of its type, its instance its first pin ({StNetworkWriter.InstancePin} := {type})");
-            else if (_net.IsBlockType(type))
-                throw Error(c.Line, $"the FB box {type} names no instance: its first pin is {StNetworkWriter.InstancePin} := <instance>, {StNetworkWriter.InstancePin} := {Box.UnnamedInstance} for none");
             var signature = NetworkSpelling.SignatureOf(type, instance is not null, _net.Scope);
             if (signature is { DeclaresOut: true })
                 throw Error(c.Line, $"{type} declares VAR_OUTPUT OUT, which also names its value: the text cannot tell the two apart");
@@ -1035,10 +1023,8 @@ public static class StNetworkReader
                 }
                 if (signature is not null && !declaresEn && Is(a.Formal, Box.EnablePin))
                     throw Error(c.Line, enable is null
-                        ? $"EN := stands first in the call {c.Head}{(instance is null ? "" : $", after {StNetworkWriter.InstancePin} :=")}: it is the box's shown EN"
+                        ? $"EN := stands first in the call {c.Head}: it is the box's shown EN"
                         : $"the call {c.Head} holds EN := twice");
-                if (Is(a.Formal, StNetworkWriter.InstancePin) && instance is null && k == 0)
-                    throw Error(c.Line, $"the call {c.Head} names its instance first: {StNetworkWriter.InstancePin} := <instance>");
                 inputs.Add(new Input(a.Formal, Expr(a.Value!), Flags.None));
             }
 
@@ -1058,13 +1044,6 @@ public static class StNetworkReader
                 ConnectedSlot: connected, HasEnoOutput: hasEno, MainOutputName: byName,
                 Members: enable is not null || instance is not null || outs.Count > 0 ? null : StNetworkWriter.ElementMembers(type, contact: false));
         }
-
-        /// <summary>The instance an FB box's first pin names: an operand (a name, a path, an element of an array of FBs,
-        /// <c>SUPER^</c>) or the vendor's unnamed <c>???</c>.</summary>
-        private string InstanceText(ACall c) =>
-            c.Args[0].Value is AOperand { Text: var text } && (text == Box.UnnamedInstance || !IsLiteral(text))
-                ? text
-                : throw Error(c.Line, $"the FB box {c.Head} takes its instance as {StNetworkWriter.InstancePin} := <instance>: a variable, or {Box.UnnamedInstance}");
 
         /// <summary>
         /// WHAT CLOSES THE CALL: <c>.ENO</c> the shown ENO (read through it where consumed); <c>.NAME</c> the data output a

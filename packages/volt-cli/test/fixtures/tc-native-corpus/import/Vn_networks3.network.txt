@@ -4,4 +4,4 @@ out1 := a;
 %NETWORK
 out2 := AND(b, c);
 %NETWORK
-TON(FB := t1, IN := out2, PT := pt);
+t1(IN := out2, PT := pt);

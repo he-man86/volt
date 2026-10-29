@@ -13,13 +13,13 @@
  *                                                (1.3), any other an assignment's whole value, held when disabled (1.4):
  *                                                `IF e THEN y := X(pins…); END_IF`; at the root as with ENO;
  *   `X(pins…).ENO`                               the call, on every scan; its ENO TRUE;
- *   `T(FB := t1, IN := a).Q`                     `t1(IN := a);` before the item, `t1.Q` in it — the FB runs before the tree
+ *   `t1(IN := a).Q`                              `t1(IN := a);` before the item, `t1.Q` in it — the FB runs before the tree
  *                                                that reads it, on every scan though an enabled box reads it; with
  *                                                `EN := e` under `IF e THEN … END_IF`, what its pins evaluate with it; read
  *                                                by nothing named, its one output (`t1.Q`); `.ENO` its ENO, as above —
  *                                                the order network-text-st's FB statement and `t1_EN` call had, which
  *                                                network-output-member 2.3 runs against CODESYS;
- *   `T(FB := ???, pins…)`                         the vendor's unnamed instance: the call of its type, which the build
+ *   `T(pins…)`, T an FB type                     the vendor's unnamed instance: the call of its type, which the build
  *                                                refuses as it refuses the box;
  *   `g(pins…).OUT`                               a function's value: the call;
  *   `EXECUTE(EN := e, CODE := '<ST>')`           `IF e THEN <its ST> END_IF;`, the string decoded; read where it stands,

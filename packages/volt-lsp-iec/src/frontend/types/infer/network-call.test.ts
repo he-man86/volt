@@ -44,12 +44,12 @@ test("an operator box is the type its operands have under the operator: a compar
 
 test("a box closed by .ENO is its ENO, a BOOL; with EN and no ENO its value; an FB by the output it names", () => {
   expect(probes("LD", "%NETWORK\np1 := MOVE(EN := a, i, OUT => n).ENO;\np2 := GT(EN := a, i, j, OUT => p3).ENO;\nq1 := ADD(EN := a, i, j);\n" +
-    "p4 := FB_T(FB := t1, IN := a).Q;\nd1 := FB_T(FB := t1, IN := a).ET;\n")).toEqual({ p1: "BOOL", p2: "BOOL", q1: "INT", p4: "BOOL", d1: "TIME" })
+    "p4 := t1(IN := a).Q;\nd1 := t1(IN := a).ET;\n")).toEqual({ p1: "BOOL", p2: "BOOL", q1: "INT", p4: "BOOL", d1: "TIME" })
 })
 
 test("a wire is of its definition's type: an expression's, an FB output's, an enabled box's value, an ENO", () => {
   const code =
-    "%NETWORK\n%WIRES w1, w2, w3, w4, w5\nw1 := ADD(i, j);\nq1 := w1;\nq2 := w1;\nw2 := FB_T(FB := t1, IN := a).Q;\np1 := w2;\nw3 := FB_T(FB := t1, IN := a).ET;\nd1 := w3;\n" +
+    "%NETWORK\n%WIRES w1, w2, w3, w4, w5\nw1 := ADD(i, j);\nq1 := w1;\nq2 := w1;\nw2 := t1(IN := a).Q;\np1 := w2;\nw3 := t1(IN := a).ET;\nd1 := w3;\n" +
     "w4 := MOVE(EN := b, i);\nn := w4;\nw5 := MOVE(EN := b, i, OUT => n).ENO;\np1 := w5;\n"
   const parseResult = parseSource(`${FB}PROGRAM P\nVAR\n\ta, b, p1 : BOOL;\n\ti, j, n, q1, q2 : INT;\n\tt1 : FB_T;\n\td1 : TIME;\nEND_VAR\n%LANGUAGE LD\n${code}END_PROGRAM\n`, { networkText: true }, "codesys")
   const project = build.buildSymbolTable([{ uri: "P.pou", parseResult, source: "" }], [], "codesys")

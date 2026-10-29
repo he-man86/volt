@@ -18,13 +18,13 @@ END_VAR
 EXECUTE(EN := TRUE, CODE := 'iCount:=icount+1;
 ');
 %NETWORK
-output := TON(FB := t1, IN := in1, PT := e1).Q;
+output := t1(IN := in1, PT := e1).Q;
 %NETWORK
 %WIRES w1
 w1 := b;
 out1 := AND(OR(a, w1), c);
 out2 := w1;
 %NETWORK
-output := TON(FB := t2, IN := TRUE, PT := e1).Q;
+output := t2(IN := TRUE, PT := e1).Q;
 
 END_PROGRAM

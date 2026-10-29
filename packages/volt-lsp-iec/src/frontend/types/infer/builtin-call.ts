@@ -137,7 +137,7 @@ export function callReturnType(call: CallExpr, scope: Scope, project: Scope): Ty
   return stCallReturnType(call, scope, project)
 }
 
-/** The value an ST call hands back — a network box's own call too, its `FB :=` and shown EN left out (`network-call.ts`). */
+/** The value an ST call hands back — a network box's own call too, its shown EN left out (`network-call.ts`). */
 export function stCallReturnType(call: CallExpr, scope: Scope, project: Scope): Type {
   // A project function/method wins (user code can shadow a built-in name).
   const sym = resolveMemberChain(call.callee, scope, project)

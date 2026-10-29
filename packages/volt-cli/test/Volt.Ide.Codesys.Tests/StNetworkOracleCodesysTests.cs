@@ -47,7 +47,7 @@ public class StNetworkOracleCodesysTests
         }
         var report = StNetworkOracle.Report("CODESYS corpora", results);
         StNetworkOracle.Save("codesys", report, results);
-        StNetworkOracle.AssertTally(results, report, identical: 316, stored: 72, new Dictionary<string, int>(StringComparer.Ordinal));
+        StNetworkOracle.AssertTally(results, report, identical: 301, stored: 87, new Dictionary<string, int>(StringComparer.Ordinal));
     }
 
     /// <summary>THE CALLEES A PUSH MEETS OUT OF REACH (openspec network-output-member 1.2 "A callee no declaration in reach

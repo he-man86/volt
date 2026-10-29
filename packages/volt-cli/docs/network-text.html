@@ -47,16 +47,16 @@ lamp := MOVE(EN := w1, 100, OUT => speed).ENO;</pre>
   <tr><td class="name">operator box</td><td><code>x := AND(a, b);</code> <code>i := ADD(j, k, 1);</code> <code>x := NOT(a);</code></td></tr>
   <tr><td class="name">MOVE</td><td><code>x := MOVE(a);</code> <code>MOVE(a, OUT => x, OUT => y);</code></td></tr>
   <tr><td class="name">function</td><td><code>y := LIMIT(MN := 0, IN := v, MX := 100);</code> <code>y := f(a, b);</code></td></tr>
-  <tr><td class="name">FB</td><td><code>TON(FB := t1, IN := a, PT := T#1S, Q => x);</code></td></tr>
+  <tr><td class="name">FB</td><td><code>t1(IN := a, PT := T#1S, Q => x);</code></td></tr>
   <tr><td class="name">output pin</td><td><code>y := f(IN := a, err => e).OUT;</code></td></tr>
   <tr><td class="name">edge</td><td><code>x := R_EDGE(a);</code> <code>x := F_EDGE(a);</code></td></tr>
-  <tr><td class="name">negated pin</td><td><code>TON(FB := t1, IN := NOT a, PT := T#1S);</code></td></tr>
+  <tr><td class="name">negated pin</td><td><code>t1(IN := NOT a, PT := T#1S);</code></td></tr>
   <tr><td class="name">rail</td><td><code>x := TRUE;</code></td></tr>
   <tr><td class="name">parallel</td><td><code>x := BRANCH(FEED := start, a, b);</code> <code>x := BRANCH_SHORTCIRCUIT(FEED := start, a, b);</code></td></tr>
   <tr><td class="name">jump</td><td><code>JMP l;</code> <code>JMP(l, a);</code> <code>x := JMP(l, a);</code></td></tr>
   <tr><td class="name">return</td><td><code>RETURN;</code> <code>RETURN(a);</code></td></tr>
   <tr><td class="name">mid-rung coil</td><td><code>y := (x := a) AND b;</code></td></tr>
-  <tr><td class="name">unnamed instance</td><td><code>TON(FB := ???, IN := a);</code></td></tr>
+  <tr><td class="name">unnamed instance</td><td><code>TON(IN := a);</code></td></tr>
   <tr><td class="name">Execute box</td><td><code>EXECUTE(EN := go, CODE := 'n := n + 1;');</code> (<a href="#execute">below</a>)</td></tr>
 </table>
 
@@ -69,8 +69,8 @@ lamp := MOVE(EN := w1, 100, OUT => speed).ENO;</pre>
 <pre>x    := GT(EN := c, a, b);
 done := MOVE(EN := MOVE(EN := c, 1, OUT => x).ENO, 2, OUT => y).ENO;
 y    := f(IN := a).ENO;
-x    := AND(R_TRIG(FB := r1, CLK := a), b);
-t    := TON(FB := t1, IN := a, PT := T#1S).ET;
+x    := AND(r1(CLK := a), b);
+t    := t1(IN := a, PT := T#1S).ET;
 q    := g(a, Q => v).OUT;
 MOVE(EN := c, 7, ENO => lamp, OUT => x).ENO;</pre>
 
@@ -104,7 +104,7 @@ ok := EXECUTE(EN := go, CODE := 'msg := $'done$';');</pre>
 <table>
   <tr><th>code</th><th>raised for</th><th>example</th></tr>
   <tr><td class="name">NETWORK_PARSE</td><td>text a network may not hold, with its line</td><td><code>x := a XOR b;</code> — every box is a call</td></tr>
-  <tr><td class="name">NETWORK_UNSUPPORTED</td><td>a model the writer has no spelling for, an edited <code>%UNSUPPORTED</code> line, and a box whose callee no declaration in reach states</td><td><code>x := Fx(FB := f1, IN := a).Q;</code> with <code>Fx</code> declared nowhere</td></tr>
+  <tr><td class="name">NETWORK_UNSUPPORTED</td><td>a model the writer has no spelling for, an edited <code>%UNSUPPORTED</code> line, and a box whose callee no declaration in reach states</td><td><code>x := f1(IN := a).Q;</code> with <code>f1 : Fx;</code> and <code>Fx</code> declared nowhere</td></tr>
 </table>
 <p>The language server gives the same refusals while typing.</p>
 

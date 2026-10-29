@@ -70,7 +70,7 @@ ACTION call_FirstErrorCapture_FB
 %NETWORK
 // // Example of Create an Trigger; if new good product is created then reset the stored First Error Capture
 // //
-CTU(FB := ctuGoodPartTriggerCount, CU := R_TRIG(FB := trig_NewGoodProductDetected, CLK := EQ(GVL_OEE_Var.scMachineData.scPartData.lrCountOK[1], lrLastGoodPartCounter)));
+ctuGoodPartTriggerCount(CU := trig_NewGoodProductDetected(CLK := EQ(GVL_OEE_Var.scMachineData.scPartData.lrCountOK[1], lrLastGoodPartCounter)));
 %NETWORK
 lrLastGoodPartCounter := MOVE(GVL_OEE_Var.scMachineData.scPartData.lrCountOK[1]);
 %NETWORK
@@ -80,16 +80,16 @@ lrLastGoodPartCounter := MOVE(GVL_OEE_Var.scMachineData.scPartData.lrCountOK[1])
 // // Logic for xResetFirstErrCapture has to be programmed/adapt, ussaly this BIT is True when the machine is back 
 // // in automatic and execution and good parts has be produced
 // //******************************************************************************************************************
-GVL_FirstErrCapture.xFirstErrorBit := L_FECA.L_FirstFASTErrCapture(FB := fbFirstErrCapture, xEnable := TON(FB := fbTonEnableDelay, IN := TRUE).Q, ascErrorInfo := GVL_FirstErrCapture.ascErrorInfo, ascAddErrorInfo := GVL_FirstErrCapture.ascAddErrorInfo, scFastErrorInfo := GVL_FirstErrCapture.scFastErrorInfo, scFastAddErrorInfo := GVL_FirstErrCapture.scFastAddErrorInfo, xActivateFastErrorInput := xActivateFastErrorInput, xCaptureAllReason := xCaptureAllReason, xCaptureOnlyFastError := xCaptureOnlyFastError, xCaptureStoreWarning_lock := xCaptureStoreWarning_lock, xPrioFromError := xPrioFromError, xResetFirstErrCapture := AND(OR(GVL_FirstErrCapture.xResetFirstError, AND(trig_NewGoodProductDetected.Q, fbFirstErrCapture.xErrorActive, NOT fbFirstErrCapture.xIsWarningInfo)), EQ(GVL_OEE_Var.eStatus_States, eStates.Execute), EQ(GVL_OEE_Var.eStatus_Modes, eModes.Production)), uiMaxError := uiMaxError, iProductionMode := GVL_OEE_Var.iProductionMode).xErrorActive;
+GVL_FirstErrCapture.xFirstErrorBit := fbFirstErrCapture(xEnable := fbTonEnableDelay(IN := TRUE).Q, ascErrorInfo := GVL_FirstErrCapture.ascErrorInfo, ascAddErrorInfo := GVL_FirstErrCapture.ascAddErrorInfo, scFastErrorInfo := GVL_FirstErrCapture.scFastErrorInfo, scFastAddErrorInfo := GVL_FirstErrCapture.scFastAddErrorInfo, xActivateFastErrorInput := xActivateFastErrorInput, xCaptureAllReason := xCaptureAllReason, xCaptureOnlyFastError := xCaptureOnlyFastError, xCaptureStoreWarning_lock := xCaptureStoreWarning_lock, xPrioFromError := xPrioFromError, xResetFirstErrCapture := AND(OR(GVL_FirstErrCapture.xResetFirstError, AND(trig_NewGoodProductDetected.Q, fbFirstErrCapture.xErrorActive, NOT fbFirstErrCapture.xIsWarningInfo)), EQ(GVL_OEE_Var.eStatus_States, eStates.Execute), EQ(GVL_OEE_Var.eStatus_Modes, eModes.Production)), uiMaxError := uiMaxError, iProductionMode := GVL_OEE_Var.iProductionMode).xErrorActive;
 %NETWORK
-L_FECA.L_OverwriteFirstErrCapture(FB := fbOverwriteFirstErrCapture, xEnable := AND(xEnabledOverwrite, fbTonEnableDelay.Q), scFirstErrorData := fbFirstErrCapture.scFirstErrorData, scErrorInfo := GVL_FirstErrCapture.scOverwriteErrorInfo, scAddErrorInfo := GVL_FirstErrCapture.scOverwriteAddErrorInfo, iProductionMode := GVL_OEE_Var.iProductionMode, scOutFirstErrorData => GVL_FirstErrCapture.scFirstErrorData);
+fbOverwriteFirstErrCapture(xEnable := AND(xEnabledOverwrite, fbTonEnableDelay.Q), scFirstErrorData := fbFirstErrCapture.scFirstErrorData, scErrorInfo := GVL_FirstErrCapture.scOverwriteErrorInfo, scAddErrorInfo := GVL_FirstErrCapture.scOverwriteAddErrorInfo, iProductionMode := GVL_OEE_Var.iProductionMode, scOutFirstErrorData => GVL_FirstErrCapture.scFirstErrorData);
 %NETWORK
 // //****************************************************************************************************************************************************
 // // Mainly used if Lenze FAST Error management (LEM)
 // // Call up L_GetErrorTextFromFileArray for getting the Error/Reasoncode Text of the active error/reason message
 // // Before using this FB the FB L_ReadErrorFromFile must be used to read the error/reson code text from the error text file into the assigned array
 // //*****************************************************************************************************************************************************
-L_FECA.L_GetErrorTextFromFileReadArray(FB := fbGetErrorTextFromFileArray, xEnabled := AND(xEnabledGetErrorTextfromFileArray, fbTonEnableDelay.Q), xErrorActive := fbFirstErrCapture.xErrorActive, xUpdateError := OR(fbFirstErrCapture.xUpdateError, fbOverwriteFirstErrCapture.xUpdateError), xOnlyUserAppErrorFromFile := TRUE, scFirstErrorData := fbOverwriteFirstErrCapture.scOutFirstErrorData, asErrorText := GVL_ReadErrorFromFile.asErrorText, adwErrorID := GVL_ReadErrorFromFile.adwErrorID, scFirstErrorDataOut => GVL_FirstErrCapture.scFirstErrorData);
+fbGetErrorTextFromFileArray(xEnabled := AND(xEnabledGetErrorTextfromFileArray, fbTonEnableDelay.Q), xErrorActive := fbFirstErrCapture.xErrorActive, xUpdateError := OR(fbFirstErrCapture.xUpdateError, fbOverwriteFirstErrCapture.xUpdateError), xOnlyUserAppErrorFromFile := TRUE, scFirstErrorData := fbOverwriteFirstErrCapture.scOutFirstErrorData, asErrorText := GVL_ReadErrorFromFile.asErrorText, adwErrorID := GVL_ReadErrorFromFile.adwErrorID, scFirstErrorDataOut => GVL_FirstErrCapture.scFirstErrorData);
 %NETWORK
 %NETWORK
 %DISABLED
@@ -98,7 +98,7 @@ L_FECA.L_GetErrorTextFromFileReadArray(FB := fbGetErrorTextFromFileArray, xEnabl
 // // Call up L_GetErrorTextFromFunction for getting the Error/Reasoncode Text of the active error/reason message
 // // This FB Receive the error text back from PLC function GetApplicationtErrorString and internal Libr. function GetFastErrorString
 // //*****************************************************************************************************************************************************
-GVL_FirstErrCapture.scFirstErrorData := L_GetErrorTextFromFunction(FB := fbGetErrorTextFromFun, xEnabled := xEnabledGetErrorTextfromFun, xErrorActive := fbFirstErrCapture.xErrorActive, xUpdateError := fbFirstErrCapture.xUpdateError, scFirstErrorData := fbFirstErrCapture.scFirstErrorData).scFirstErrorDataOut;
+GVL_FirstErrCapture.scFirstErrorData := fbGetErrorTextFromFun(xEnabled := xEnabledGetErrorTextfromFun, xErrorActive := fbFirstErrCapture.xErrorActive, xUpdateError := fbFirstErrCapture.xUpdateError, scFirstErrorData := fbFirstErrCapture.scFirstErrorData).scFirstErrorDataOut;
 %NETWORK
 %NETWORK
 %DISABLED
@@ -108,5 +108,5 @@ GVL_FirstErrCapture.scFirstErrorData := L_GetErrorTextFromFunction(FB := fbGetEr
 // // Logic for xResetFirstErrCapture has to be programmed/adapt, ussaly this BIT is True when the machine is back 
 // // in automatic and execution and good parts has be produced
 // //************************************************************************************************************************************
-GVL_FirstErrCapture.xFirstErrorBit := L_FECA.L_FirstErrCaptureErrorAccess(FB := fbFirstErrCaptureErrorAccess, xEnable := NOT xStructError, xPrioFromError := xPrioFromError, xResetFirstErrCapture := AND(OR(GVL_FirstErrCapture.xResetFirstError, AND(trig_NewGoodProductDetected.Q, fbFirstErrCaptureErrorAccess.xErrorActive, NOT fbFirstErrCaptureErrorAccess.xIsWarningInfo)), EQ(GVL_OEE_Var.eStatus_States, eStates.Execute), EQ(GVL_OEE_Var.eStatus_Modes, eModes.Production)), scErrorAccess := GVL_FirstErrCapture.scErrorAccess, iProductionMode := GVL_OEE_Var.iProductionMode, aCategoryString := asErrorCategoryLib, scFirstErrorData => GVL_FirstErrCapture.scFirstErrorData).xErrorActive;
+GVL_FirstErrCapture.xFirstErrorBit := fbFirstErrCaptureErrorAccess(xEnable := NOT xStructError, xPrioFromError := xPrioFromError, xResetFirstErrCapture := AND(OR(GVL_FirstErrCapture.xResetFirstError, AND(trig_NewGoodProductDetected.Q, fbFirstErrCaptureErrorAccess.xErrorActive, NOT fbFirstErrCaptureErrorAccess.xIsWarningInfo)), EQ(GVL_OEE_Var.eStatus_States, eStates.Execute), EQ(GVL_OEE_Var.eStatus_Modes, eModes.Production)), scErrorAccess := GVL_FirstErrCapture.scErrorAccess, iProductionMode := GVL_OEE_Var.iProductionMode, aCategoryString := asErrorCategoryLib, scFirstErrorData => GVL_FirstErrCapture.scFirstErrorData).xErrorActive;
 END_ACTION

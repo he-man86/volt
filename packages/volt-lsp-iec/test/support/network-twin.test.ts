@@ -58,7 +58,7 @@ test("a BRANCH runs every branch: the feed AND the OR of its branches", () => {
 
 test("a BRANCH_SHORTCIRCUIT runs a branch holding a box unless the feed and a box-free branch are both TRUE (1.4), its FB with it", () => {
   const fb = "FUNCTION_BLOCK FB_T\nVAR_INPUT\n\tIN : BOOL;\nEND_VAR\nVAR_OUTPUT\n\tQ : BOOL;\nEND_VAR\n%LANGUAGE ST\nQ := IN;\nEND_FUNCTION_BLOCK\n"
-  const t = twin("\tx, f, a, b : BOOL;\n\tt1 : FB_T;", "%NETWORK\nx := BRANCH_SHORTCIRCUIT(FEED := f, a, FB_T(FB := t1, IN := b));\n", fb)
+  const t = twin("\tx, f, a, b : BOOL;\n\tt1 : FB_T;", "%NETWORK\nx := BRANCH_SHORTCIRCUIT(FEED := f, a, t1(IN := b));\n", fb)
   expect(t.refused).toEqual([])
   expect(code(t.source)).toBe(
     "vtw1_eno1 := f;\nvtw1_eno2 := a;\nIF NOT (vtw1_eno1 AND vtw1_eno2) THEN\n\tt1(IN := b);\n\tvtw1_eno3 := t1.Q;\nEND_IF;\nx := (vtw1_eno1 AND (vtw1_eno2 OR vtw1_eno3));",
@@ -68,13 +68,13 @@ test("a BRANCH_SHORTCIRCUIT runs a branch holding a box unless the feed and a bo
 const timer = "FUNCTION_BLOCK FB_T2\nVAR_INPUT\n\tIN : BOOL;\nEND_VAR\nVAR_OUTPUT\n\tQ : BOOL;\n\tET : INT;\nEND_VAR\n%LANGUAGE ST\nQ := IN;\nEND_FUNCTION_BLOCK\n"
 
 test("an FB box is its instance called before the item that reads it, read by the output its call names (network-output-member)", () => {
-  const t = twin("\tx, a, b : BOOL;\n\tn : INT;\n\tt1 : FB_T2;", "%NETWORK\nx := AND(FB_T2(FB := t1, IN := a).Q, b);\nn := FB_T2(FB := t1, IN := a).ET;\n", timer)
+  const t = twin("\tx, a, b : BOOL;\n\tn : INT;\n\tt1 : FB_T2;", "%NETWORK\nx := AND(t1(IN := a).Q, b);\nn := t1(IN := a).ET;\n", timer)
   expect(t.refused).toEqual([])
   expect(code(t.source)).toBe("t1(IN := a);\nx := (t1.Q AND b);\nt1(IN := a);\nn := t1.ET;")
 })
 
 test("an FB box with EN runs under it, and its call closed by .ENO hands on its ENO, the EN (1.3)", () => {
-  const t = twin("\tx, a, c : BOOL;\n\tt1 : FB_T2;", "%NETWORK\nx := FB_T2(FB := t1, EN := c, IN := a).ENO;\n", timer)
+  const t = twin("\tx, a, c : BOOL;\n\tt1 : FB_T2;", "%NETWORK\nx := t1(EN := c, IN := a).ENO;\n", timer)
   expect(t.refused).toEqual([])
   expect(code(t.source)).toBe("IF c THEN\n\tt1(IN := a);\n\tvtw1_eno1 := TRUE;\nELSE\n\tvtw1_eno1 := FALSE;\nEND_IF;\nx := vtw1_eno1;")
 })
@@ -90,13 +90,13 @@ test("a box showing ENO and no EN runs on every scan, its ENO TRUE; at the root 
 // measures what CODESYS runs: an FB box is called before the item that reads it, whatever enabled box reads it, and what
 // an enabled box's pins evaluate runs under its EN.
 test("an FB box in a pin of an enabled function box is called before the item, on every scan (as its statement was)", () => {
-  const t = twin("\tc, a : BOOL;\n\tn : INT;\n\tt1 : FB_T2;", "%NETWORK\nMOVE(EN := c, FB_T2(FB := t1, IN := a).ET, OUT => n).ENO;\n", timer)
+  const t = twin("\tc, a : BOOL;\n\tn : INT;\n\tt1 : FB_T2;", "%NETWORK\nMOVE(EN := c, t1(IN := a).ET, OUT => n).ENO;\n", timer)
   expect(t.refused).toEqual([])
   expect(code(t.source)).toBe("t1(IN := a);\nIF c THEN\n\tn := t1.ET;\nEND_IF;")
 })
 
 test("what an enabled FB box's pins evaluate runs under its EN (as its _EN call did)", () => {
-  const t = twin("\tc, a : BOOL;\n\tt1 : FB_T2;", "%NETWORK\nFB_T2(FB := t1, EN := c, IN := R_EDGE(a)).ENO;\n", timer)
+  const t = twin("\tc, a : BOOL;\n\tt1 : FB_T2;", "%NETWORK\nt1(EN := c, IN := R_EDGE(a)).ENO;\n", timer)
   expect(t.refused).toEqual([])
   expect(code(t.source)).toBe("IF c THEN\n\tvtw1_trig1(CLK := a);\n\tt1(IN := vtw1_trig1.Q);\nEND_IF;")
 })

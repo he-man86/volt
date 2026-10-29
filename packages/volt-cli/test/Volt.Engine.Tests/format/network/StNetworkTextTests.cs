@@ -123,18 +123,18 @@ public class StNetworkTextTests
         var wsm = Call("WSM", new[] { In(L("run"), "EN"), In(L("a"), "IN") }, connected: 0, instance: new Operand("ws", IsInstance: true),
             kind: CallKind.FunctionBlock, name: "ENO");
         RoundTrips(Ld1(Set(Op("AND", wsm, L("b")), T("out"))),
-            "%LANGUAGE LD\n%NETWORK\nout := WSM(FB := ws, EN := run, IN := a).ENO AND b;\n",
+            "%LANGUAGE LD\n%NETWORK\nout := ws(EN := run, IN := a).ENO AND b;\n",
             new NetworkScope(Array.Empty<string>(), Array.Empty<string>(), new System.Collections.Generic.Dictionary<string, string> { ["ws"] = "WSM" },
                 signatures: new System.Collections.Generic.Dictionary<string, CalleeSignature>
                     { ["WSM"] = new(CalleeShape.Block, new[] { "EN", "IN" }, new[] { "ENO", "Busy" }) }));
     }
 
-    /// <summary>An FB box is the call of its type, its instance the first pin <c>FB :=</c>, then <c>EN :=</c>.</summary>
+    /// <summary>An FB box is the call of its instance, <c>EN :=</c> its first pin.</summary>
     [Fact]
-    public void An_enabled_FB_is_the_call_of_its_type_with_FB_and_EN() =>
+    public void An_enabled_FB_is_the_call_of_its_instance_with_EN() =>
         RoundTrips(Ld1(Set(Call("TON", new[] { In(L("a"), "IN") }, en: L("c"), connected: 0, eno: true,
                 instance: new Operand("t1", IsInstance: true), kind: CallKind.FunctionBlock), T("lamp"))),
-            "%LANGUAGE LD\n%NETWORK\nlamp := TON(FB := t1, EN := c, IN := a).ENO;\n", TonScope);
+            "%LANGUAGE LD\n%NETWORK\nlamp := t1(EN := c, IN := a).ENO;\n", TonScope);
 
     /// <summary>TON as its declaration states it: inputs IN, PT; outputs Q, ET.</summary>
     static NetworkScope TonScope { get; } = new(new[] { "a", "b", "c", "x", "y", "z", "lamp" }, Array.Empty<string>(),
@@ -162,7 +162,7 @@ public class StNetworkTextTests
     public void An_unconnected_FB_input_is_the_pin_left_out()
     {
         var body = Fbd1(Fb("cnt", new[] { In(L("a"), "CU"), In(L(""), "RESET"), In(L("3"), "PV") }, type: "CTU"));
-        Assert.Equal("%LANGUAGE FBD\n%NETWORK\nCTU(FB := cnt, CU := a, PV := 3);\n", StNetworkWriter.Write(body, Scope(body)));
+        Assert.Equal("%LANGUAGE FBD\n%NETWORK\ncnt(CU := a, PV := 3);\n", StNetworkWriter.Write(body, Scope(body)));
     }
 
     /// <summary>A consumed FB box is a call in its tree, closed by the output its consumer reads where its type declares
@@ -171,11 +171,11 @@ public class StNetworkTextTests
     public void An_FB_box_read_by_its_output_is_its_call_closed_by_the_output()
     {
         RoundTrips(Fbd1(Set(Fb("t1", new[] { In(L("a"), "IN") }, type: "TON") with { MainOutputName = "Q" }, T("x"))),
-            "%LANGUAGE FBD\n%NETWORK\nx := TON(FB := t1, IN := a).Q;\n", TonScope);
+            "%LANGUAGE FBD\n%NETWORK\nx := t1(IN := a).Q;\n", TonScope);
         var one = new NetworkScope(new[] { "a", "x" }, Array.Empty<string>(), new System.Collections.Generic.Dictionary<string, string> { ["r1"] = "R_TRIG" },
             signatures: new System.Collections.Generic.Dictionary<string, CalleeSignature> { ["R_TRIG"] = new(CalleeShape.Block, new[] { "CLK" }, new[] { "Q" }) });
         RoundTrips(Fbd1(Set(Fb("r1", new[] { In(L("a"), "CLK") }, type: "R_TRIG") with { MainOutputName = "Q" }, T("x"))),
-            "%LANGUAGE FBD\n%NETWORK\nx := R_TRIG(FB := r1, CLK := a);\n", one);
+            "%LANGUAGE FBD\n%NETWORK\nx := r1(CLK := a);\n", one);
     }
 
     /// <summary>A wire is read by its name, before its definition too (openspec network-text-st 3.0): an FB box in a tree
@@ -185,9 +185,9 @@ public class StNetworkTextTests
     {
         var t1 = Fb("t1", new[] { In(Ref(1), "IN"), In(L("T#1S"), "PT") }, type: "TON") with { MainOutputName = "Q" };
         RoundTrips(Ld1(Set(Op("AND", Def(1, Op("OR", L("a"), L("b"))), t1), T("y")), Set(Ref(1), T("z"))),
-            "%LANGUAGE LD\n%NETWORK\n%WIRES w1\ny := (w1 := a OR b) AND TON(FB := t1, IN := w1, PT := T#1S).Q;\nz := w1;\n", TonScope);
+            "%LANGUAGE LD\n%NETWORK\n%WIRES w1\ny := (w1 := a OR b) AND t1(IN := w1, PT := T#1S).Q;\nz := w1;\n", TonScope);
         RoundTrips(Ld1(Def(1, Op("OR", L("a"), L("b"))), Set(Op("AND", Ref(1), t1), T("y")), Set(Ref(1), T("z"))),
-            "%LANGUAGE LD\n%NETWORK\n%WIRES w1\nw1 := a OR b;\ny := w1 AND TON(FB := t1, IN := w1, PT := T#1S).Q;\nz := w1;\n", TonScope);
+            "%LANGUAGE LD\n%NETWORK\n%WIRES w1\nw1 := a OR b;\ny := w1 AND t1(IN := w1, PT := T#1S).Q;\nz := w1;\n", TonScope);
         // a Demux read before the item that defines it (TwinCAT stores one): the previous scan's value
         RoundTrips(Ld1(Set(Ref(1), T("x")), Def(1, Op("AND", L("a"), L("b"))), Set(Ref(1), T("y"))),
             "%LANGUAGE LD\n%NETWORK\n%WIRES w1\nx := w1;\nw1 := a AND b;\ny := w1;\n");
@@ -298,7 +298,25 @@ public class StNetworkTextTests
                        Set(Op("AND", L("x"), L("y")) with { Flags = Rise }, T("c"))),
             "%LANGUAGE LD\n%NETWORK\na := R_EDGE(clk);\nb := F_EDGE(NOT clk);\nc := R_EDGE(x AND y);\n");
 
-    /// <summary>3.0: the vendor's unnamed instance (<c>???</c>) is <c>FB := ???</c>; a box showing ENO and no EN is its call
+    /// <summary>An FB box is the call of its instance (design "FB boxes: the instance is the call head"); one with no usable
+    /// instance — the vendor's <c>???</c>, or one no declaration in reach holds (network-text-st 3.0: the build refuses both)
+    /// — is the call of its TYPE, which names no instance; a type no declaration in reach states as an FB's has no such call.</summary>
+    [Fact]
+    public void An_FB_box_with_no_declared_instance_is_the_call_of_its_type()
+    {
+        var none = new System.Collections.Generic.Dictionary<string, string>();
+        var scope = new NetworkScope(new[] { "go" }, Array.Empty<string>(), none, new[] { "Axis" });
+        var undeclared = Fbd1(Fb("ax9", new[] { In(L("go"), "xEnable") }, type: "Axis"));
+        Assert.Equal("%LANGUAGE FBD\n%NETWORK\nAxis(xEnable := go);\n", StNetworkWriter.Write(undeclared, scope));
+        var back = Assert.IsType<Box>(StNetworkReader.Read(StNetworkWriter.Write(undeclared, scope), scope).Networks[0].Trees[0]);
+        Assert.Equal((Box.UnnamedInstance, "Axis"), (back.Instance!.Text, back.Type));
+
+        var unstated = Fbd1(Fb("???", new[] { In(L("go"), "xEnable") }, type: "Axis"));
+        var e = Assert.Throws<StNetworkUnspellableException>(() => StNetworkWriter.Write(unstated, new NetworkScope(new[] { "go" }, Array.Empty<string>(), none)));
+        Assert.Equal("an FB box with no instance whose type is no FB type in reach", e.Reason);
+    }
+
+    /// <summary>3.0: the vendor's unnamed instance (<c>???</c>) is the call of its type; a box showing ENO and no EN is its call
     /// closed by <c>.ENO</c>; the empty item is <c>;</c>.</summary>
     [Fact]
     public void The_unnamed_instance_the_ENO_only_box_and_the_empty_item_are_spelled()
@@ -308,7 +326,7 @@ public class StNetworkTextTests
         RoundTrips(Fbd1(Fb("???", new[] { In(L("go"), "xEnable") }, type: "Axis"),
                         Set(Call("f", new[] { In(L("a"), "IN") }, connected: 0, eno: true), T("x")),
                         new Leaf(new Operand(""), Flags.None)),
-            "%LANGUAGE FBD\n%NETWORK\nAxis(FB := ???, xEnable := go);\nx := f(IN := a).ENO;\n;\n", scope);
+            "%LANGUAGE FBD\n%NETWORK\nAxis(xEnable := go);\nx := f(IN := a).ENO;\n;\n", scope);
     }
 
     /// <summary>3.0: each <c>OUT =&gt;</c> is the next unnamed output slot; <c>ENO =&gt;</c> a variable is the ENO pin wired;

@@ -132,10 +132,10 @@ export abstract class BoxTwinner {
   protected fb(box: NetworkBox, eno: boolean, read: string | undefined, gatedPre: string[]): string {
     const pre = this.gates.get(gatedPre) ?? gatedPre
     const inst = box.instance!
-    // the vendor's unnamed instance (`FB := ???`): the call of its TYPE, which names no instance — the build's own errors
+    // the vendor's unnamed instance (`???`): the call of its TYPE, which names no instance — the build's own errors
     // over the marker (`Program name, function or function block instance expected`), a box nothing reads
     if (inst.kind === "ident_expr" && inst.name === UNNAMED) {
-      if (read !== undefined || eno || box.enable !== undefined) throw new TwinRefusal(`the ${this.name(box)} box with no instance (FB := ???) is read or enabled`)
+      if (read !== undefined || eno || box.enable !== undefined) throw new TwinRefusal(`the ${this.name(box)} box with no instance (???) is read or enabled`)
       pre.push(this.callText(box.call, box.pins, pre) + ";")
       return ""
     }

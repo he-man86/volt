@@ -21,7 +21,7 @@ namespace Volt.Engine.Format.Network;
 /// // runs while auto is on
 /// l1:
 /// w3 := start AND NOT stop;
-/// lamp := TON(FB := t1, IN := w3, PT := T#1S).Q;
+/// lamp := t1(IN := w3, PT := T#1S).Q;
 /// done := MOVE(EN := MOVE(EN := w3, 1, OUT => x).ENO, 2, OUT => y).ENO;
 /// hot := GT(temp, 80);
 /// JMP(l1, a);
@@ -32,8 +32,9 @@ namespace Volt.Engine.Format.Network;
 /// boxes in FBD, whose toolbox has no contacts. An unbracketed chain of one contact operator is one box
 /// (<c>a AND b AND c</c>); brackets nest (<c>(a AND b) AND c</c>).</para>
 ///
-/// <para><b>The call is the box</b> (openspec network-output-member): one call of its toolbox name, an FB's its TYPE with
-/// the instance its first pin <c>FB := t1</c> (<c>FB := ???</c> unbuilt); <c>EN := e</c> written is EN shown. Two members close
+/// <para><b>The call is the box</b> (openspec network-output-member): one call of its toolbox name, an FB's the call ON ITS
+/// INSTANCE <c>t1(…)</c>, its type the instance's declaration — only an FB box with no usable instance (<c>???</c>) is the
+/// call of its TYPE; <c>EN := e</c> written is EN shown. Two members close
 /// a call: <c>.ENO</c> every box that shows ENO (the output it hands on, N16), and <c>.NAME</c> a consumed box without ENO
 /// whose callee declares more than one data output (a function's value <c>OUT</c>, then its <c>VAR_OUTPUT</c>s; an FB's
 /// outputs), naming the one its consumer reads. A callee that DECLARES <c>EN</c> or <c>ENO</c> has them as ordinary pins. A
@@ -96,9 +97,6 @@ public static class StNetworkWriter
     }
 
     // ── the vocabulary the reader shares ─────────────────────────────────────────────────────────────────────────
-
-    /// <summary>An FB box's first pin, its instance: <c>TON(FB := t1, …)</c>, <c>FB := ???</c> for the vendor's unnamed one.</summary>
-    public const string InstancePin = "FB";
 
     /// <summary>The name of a function's value as an output: <c>.OUT</c>, and <c>OUT =&gt; v</c> for each unnamed output slot
     /// it is wired to.</summary>
@@ -634,7 +632,7 @@ public static class StNetworkWriter
             b.Inputs.Select((p, i) => NetworkSpelling.IsDefaultFormal(b.Type, i, p.Formal)).All(x => x) &&
             (b.Members?[NetworkMembers.OutputNames] is { } names ? names.AsTexts.Count == 0 : _language == BodyLanguage.Ld);
 
-        /// <summary>THE CALL THAT IS THE BOX (openspec network-output-member): <c>T(FB := inst, EN := e, pins…, outputs…)</c>,
+        /// <summary>THE CALL THAT IS THE BOX (openspec network-output-member): <c>inst(EN := e, pins…, outputs…)</c> (an FB) or <c>T(…)</c>,
         /// closed by <c>.ENO</c> where the box shows ENO, else by <c>.NAME</c> where it is consumed and its callee declares more
         /// than one data output (<see cref="DataMember"/>).</summary>
         private string Call(Box b, bool consumed)
@@ -669,11 +667,7 @@ public static class StNetworkWriter
             if (string.Equals(b.Type, NetworkSpelling.NotBox, StringComparison.OrdinalIgnoreCase) && b.Enable is null &&
                 (b.Inputs.Count != 1 || b.Outputs.Count > 0 || !NetworkSpelling.IsDefaultFormal(b.Type, 0, b.Inputs[0].Formal)))
                 throw Unspellable("a NOT box with pins", "a NOT box with outputs, a named pin or several inputs.");
-            if (b.Instance is { Flags: { IsNone: false } f } flagged)
-                throw Unspellable("a flag on an FB instance", $"'{flagged.Text}' carries {Describe(f)}.");
-            if (b.Instance is { } inst && _scope.InstanceType(inst.Text) is { } declared && !St.StDeclaration.SameType(declared, b.Type))
-                throw Unspellable("an FB instance declared with another type", $"'{inst.Text}' is a '{b.Type}' box, declared '{declared}'.");
-            return CallHead(b) + "(" + string.Join(", ", Args(b, signature)) + ")" + member;
+            return Head(b) + "(" + string.Join(", ", Args(b, signature)) + ")" + member;
         }
 
         private static string Slot(int? slot) => slot?.ToString(CultureInfo.InvariantCulture) ?? "(none)";
@@ -712,12 +706,6 @@ public static class StNetworkWriter
         private List<string> Args(Box b, CalleeSignature? signature = null)
         {
             var args = new List<string>();
-            if (b.Instance is { } instance)
-            {
-                if (instance.Text != Box.UnnamedInstance && (!StNetworkReader.IsOperand(instance.Text) || StNetworkReader.IsLiteral(instance.Text)))
-                    throw Unspellable("an FB instance that is no operand", $"the '{b.Type}' box's instance '{instance.Text}'.");
-                args.Add(InstancePin + " := " + instance.Text);
-            }
             if (b.Enable is { } en)
             {
                 // A negation or an edge on the EN pin is a stored member: spelled on the value feeding it.
@@ -748,8 +736,6 @@ public static class StNetworkWriter
                     if (signature is { DeclaresEn: false })
                         throw Unspellable("a pin named EN its callee does not declare", $"the '{b.Type}' box has an input named EN, and '{b.Type}' declares none.");
                 }
-                if (!positional && b.Instance is null && args.Count == 0 && string.Equals(p.Formal, InstancePin, StringComparison.OrdinalIgnoreCase))
-                    throw Unspellable("a box whose first pin is named FB", $"the '{b.Type}' box's first pin is named FB, which the text reads as an FB's instance.");
                 args.Add(positional ? value : Name(p.Formal!) + " := " + value);
             }
             var eno = b.HasEnoOutput ? 0 : (int?)null;
@@ -799,11 +785,37 @@ public static class StNetworkWriter
             return ExecuteHead + "(" + string.Join(", ", args) + ")";
         }
 
-        /// <summary>A box's call head: its type (an FB's its FB type), refused where the text would read another box — a
-        /// keyword, an FB instance in reach, an element of the text.</summary>
-        private string CallHead(Box b)
+        /// <summary>THE HEAD OF A BOX'S CALL (owner, 2026-10-28, design "FB boxes: the instance is the call head"): an FB box's
+        /// declared instance (<c>t1(…)</c>, its type the declaration's); an FB box with no usable instance — the vendor's
+        /// <c>???</c>, or one no declaration in reach holds — its FB type, which then names no instance (the build refuses
+        /// both); any other box its type.</summary>
+        private string Head(Box b)
         {
-            var type = b.Type;
+            if (b.Instance is not { } inst) return CallHead(b.Type);
+            if (inst.Flags is { IsNone: false } f) throw Unspellable("a flag on an FB instance", $"'{inst.Text}' carries {Describe(f)}.");
+            if (inst.Text != Box.UnnamedInstance && _scope.InstanceType(inst.Text) is { } declared)
+            {
+                if (!St.StDeclaration.SameType(declared, b.Type))
+                    throw Unspellable("an FB instance declared with another type", $"'{inst.Text}' is a '{b.Type}' box, declared '{declared}'.");
+                if (!StNetworkReader.IsCallHead(inst.Text) || StNetworkReader.IsKeyword(inst.Text))
+                    throw Unspellable("an FB instance that is no call head", $"the '{b.Type}' box's instance '{inst.Text}'.");
+                if (ElementHeads.Concat(new[] { ExecuteHead }).Any(e => string.Equals(e, inst.Text, StringComparison.OrdinalIgnoreCase)))
+                    throw Unspellable("a box named like an element of the text", $"the instance '{inst.Text}' reads as an element of the text.");
+                return inst.Text;
+            }
+            // THE UNNAMED INSTANCE, and one no declaration holds (a stored member, network-text-st 3.0): the call of the FB TYPE,
+            // which names no instance — what the IDE draws, and the build's error ("Program name, function or function block
+            // instance expected").
+            if (!_scope.IsBlockType(b.Type))
+                throw Unspellable("an FB box with no instance whose type is no FB type in reach",
+                    $"the '{b.Type}' box's instance is {inst.Text}, which no declaration holds, and '{b.Type}' names no function block type in reach.");
+            return CallHead(b.Type);
+        }
+
+        /// <summary>A call head that is a box type, refused where the text would read another box — a keyword, an FB instance
+        /// in reach, an element of the text.</summary>
+        private string CallHead(string type)
+        {
             if ((!StNetworkReader.IsCallHead(type) || StNetworkReader.IsKeyword(type)) && !IsKeywordOperator(type))
                 throw Unspellable("a box type that is no call head", $"the box type '{type}'.");
             if (_scope.InstanceType(type) is not null) throw Unspellable("a function named like an FB instance", type);

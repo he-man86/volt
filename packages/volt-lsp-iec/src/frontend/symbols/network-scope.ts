@@ -86,10 +86,6 @@ function wireDefinitions(statements: StatementList): Map<string, WireDefinition>
     walkExpr(e, (x) => {
       if (x.kind === "assign_expr") define(x.target, { kind: "value", expr: x.value })
       if (x.kind === "call") outputs(x)
-      // an FB box the IDE holds with no instance, `TON(FB := ???, …)`: the IDE's, not a name the body declares
-      const first = x.kind === "call" ? x.args[0] : undefined
-      if (first !== undefined && !first.output && first.param?.name.toUpperCase() === "FB" && first.value?.kind === "ident_expr" && first.value.name === UNNAMED)
-        define(first.value, { kind: "none" })
     })
   const outputs = (call: CallExpr) => {
     for (const a of call.args)

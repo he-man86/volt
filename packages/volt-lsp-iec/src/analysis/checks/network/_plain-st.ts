@@ -15,8 +15,8 @@
  *                   output reaches no wire; an enabled box other than a comparison is read by its
  *                   value only as a coil's value, however often its wire is read (CODESYS: "A box with EN can be used for
  *                   comparison operators only.");
- *   boxes           the call is the box (`types` `infer/network-box.ts`): an FB's the call of its type, its instance the
- *                   first pin `FB := t1`; `EN :=` first (after `FB :=`) the shown EN; `.ENO` closes the call of a box
+ *   boxes           the call is the box (`types` `infer/network-box.ts`): an FB's the call of its instance, or of its
+ *                   type where it has none (`???`); `EN :=` first the shown EN; `.ENO` closes the call of a box
  *                   showing ENO, `.NAME` a consumed box whose callee declares several outputs, naming the one read — no
  *                   other member, none on a box with one output, none but `.ENO` at a root; `ENO => v` with `.ENO`;
  *   elements        `BRANCH(FEED := f, b1, b2)` / `BRANCH_SHORTCIRCUIT(…)` take the feed first, if fed, then the
@@ -49,7 +49,7 @@ import {
   walkStatements,
 } from "../../../frontend/syntax/index.js"
 import { lookup, networkScope, scopeForUnit, type Scope } from "../../../frontend/symbols/index.js"
-import { boxMember, isInstancePin, NETWORK_ELEMENTS, networkBox, resolveCallee } from "../../../frontend/types/index.js"
+import { boxMember, NETWORK_ELEMENTS, networkBox, resolveCallee } from "../../../frontend/types/index.js"
 import { messagesFor, type Messages } from "../../messages/index.js"
 import { emit, SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import { calleeText, checkBox } from "./_plain-st-box.js"
@@ -77,7 +77,7 @@ export function networkDiagnostics(parseResult: ParseResult, project: Scope): Di
       const scope = scopeForUnit(project, unit)
       const bodyScope = scope?.children.find((c) => c.span === body.span) ?? scope
       checkBody(body, bodyScope, project, out)
-      checkUnnamed(body, bodyScope, parseResult.dialect, out)
+      checkUnnamed(body, bodyScope === undefined ? undefined : networkScope(bodyScope, body), project, parseResult.dialect, out)
       if (bodyScope !== undefined) checkBoxes(body, networkScope(bodyScope, body), project, parseResult.dialect === "twincat", messagesFor(parseResult.dialect), out)
     }
   return out
@@ -87,12 +87,12 @@ export function networkDiagnostics(parseResult: ParseResult, project: Scope): Di
  * What the IDE stores as `???` and the build answers in its own words, each vendor's (`network_unnamed_*`, both vendors):
  *  - a coil nobody named, `??? := a;`: "The assignment target is not specified." Behind an enable CODESYS adds two errors
  *    about an implicit variable it names itself, which no text holds; this one stands for them;
- *  - an FB box with no instance (`TON(FB := ???, IN := a);`): the build reads the instance `???` as text — the two errors
- *    of the marker, the instance error over the marker, the marker's first again;
+ *  - an FB box with no instance (`TON(IN := a);`, the call of its type): the build reads the instance `???` as text — the
+ *    two errors of the marker, the instance error over the marker, the marker's first again — at the call's head;
  *  - `???` as an operand: the build reads it as text, "Expression expected instead of '?'" (the ST parser's, here too)
  *    and "Unexpected token '?' found".
  */
-function checkUnnamed(body: BodySpan, scope: Scope | undefined, dialect: ParseResult["dialect"], out: DiagnosticItem[]): void {
+function checkUnnamed(body: BodySpan, scope: Scope | undefined, project: Scope, dialect: ParseResult["dialect"], out: DiagnosticItem[]): void {
   const tc = dialect === "twincat"
   const error = (span: Span, message: string) => out.push({ severity: "error", span, source: SOURCE, code: UNNAMED_CODE, message })
   const target = (t: Expr) => {
@@ -104,10 +104,10 @@ function checkUnnamed(body: BodySpan, scope: Scope | undefined, dialect: ParseRe
     for (const e of stmtExprs(stmt))
       walkExpr(e, (x) => {
         if (x.kind === "assign_expr") target(x.target)
-        const instance = x.kind === "call" && isInstancePin(x.args[0]) ? x.args[0]!.value : undefined
-        if (instance?.kind === "ident_expr" && instance.name === UNNAMED)
+        const instance = x.kind === "call" && scope !== undefined ? networkBox(x, scope, project)?.instance : undefined
+        if (x.kind === "call" && instance?.kind === "ident_expr" && instance.name === UNNAMED)
           for (const m of [marker, tc ? "Unexpected Token '?' found" : "Unexpected token '?' found",
-            "Program name, function or function block instance expected instead of '!!!'ERROR'!!!'", marker]) error(instance.span, m)
+            "Program name, function or function block instance expected instead of '!!!'ERROR'!!!'", marker]) error(x.callee.span, m)
       })
   })
   const tokens = plainStText(body).sourceTokens

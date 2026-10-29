@@ -8,7 +8,7 @@
  *                                             `EN :=` first the same, EN left out;
  *   `NOT(a)`                                  the NOT box: `NOT a`'s;
  *   `f(…)`, `f(EN := e, …)`                   a function box: the value `f(…)` has, EN left out;
- *   `R_TRIG(FB := r1, CLK := a)`              an FB box with one output: that output's type (`r1.Q`);
+ *   `r1(CLK := a)`              an FB box with one output: that output's type (`r1.Q`);
  *   `<box>.ENO`                               the shown ENO, a BOOL;
  *   `<box>.OUT`, `<box>.Q`                    a function's value, a VAR_OUTPUT's or an FB output's type (`t1.Q`);
  *   `EXECUTE(EN := e, CODE := '<ST>')`        the Execute box: its ENO, a BOOL (its `CODE` pin is no code, `plain-st.ts`);

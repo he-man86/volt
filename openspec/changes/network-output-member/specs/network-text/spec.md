@@ -2,7 +2,7 @@
 
 ### Requirement: A box is a call; `.ENO` and `.NAME` state its handed-on output
 
-Network text SHALL spell every box as one call of its toolbox name (an FB: its type, first pin `FB :=`; the Execute box:
+Network text SHALL spell every box as one call of its toolbox name (an FB: its instance, `t1(…)`, or its type where it has none; the Execute box:
 `EXECUTE`, its ST the string pin `CODE`).
 Where the callee declares no `EN`, `EN :=` SHALL mean EN shown; where it declares no `ENO`, a box showing ENO SHALL
 close its call with `.ENO`, also at a root. A consumed box without ENO and with several data outputs SHALL close its
@@ -10,7 +10,7 @@ call with `.NAME`, the output its consumer reads. A declared `EN` or `ENO` is an
 
 #### Scenario: an FB chains a named output
 - **WHEN** a TON box whose consumer reads `Q` is pulled
-- **THEN** it reads `x := AND(TON(FB := t1, IN := a, PT := T#1S).Q, b);`
+- **THEN** it reads `x := AND(t1(IN := a, PT := T#1S).Q, b);`
 
 #### Scenario: EN and ENO stated independently
 - **WHEN** a MOVE box shows EN and ENO and stands at a root
@@ -39,7 +39,7 @@ or refused, a consumed FB's one output) when no declaration in reach states it. 
 no project, SHALL compare both texts read as written and refuse nothing for an unresolved callee.
 
 #### Scenario: an unresolved callee after a landed push
-- **WHEN** the CLI compares a pushed body holding `WSM(FB := w1, EN := TRUE, …).ENO` with the IDE's text of it, with
+- **WHEN** the CLI compares a pushed body holding `w1(EN := TRUE, …).ENO` (`w1 : WSM;`) with the IDE's text of it, with
   no declaration of `WSM` in reach
 - **THEN** both texts are read as written and the push is not reported as diverging
 

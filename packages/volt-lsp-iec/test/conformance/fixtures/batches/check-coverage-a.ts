@@ -165,6 +165,6 @@ export const CHECK_COVERAGE_TESTS_A: readonly LanguageTest[] = [
     fromDoc: "check-coverage",
     plcPrgVar: "inst_vgp : FB_LANG_cc_vg_pin;",
     plcPrgBody: "inst_vgp();",
-    source: `FUNCTION_BLOCK FB_LANG_cc_vgpin_callee\nVAR_INPUT\n\tgoodPin : BOOL;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nFUNCTION_BLOCK FB_LANG_cc_vg_pin\nVAR\n\tcallee : FB_LANG_cc_vgpin_callee;\nEND_VAR\n%LANGUAGE FBD\n%NETWORK\nFB_LANG_cc_vgpin_callee(FB := callee, badPin := TRUE);\n\nEND_FUNCTION_BLOCK\n`,
+    source: `FUNCTION_BLOCK FB_LANG_cc_vgpin_callee\nVAR_INPUT\n\tgoodPin : BOOL;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nFUNCTION_BLOCK FB_LANG_cc_vg_pin\nVAR\n\tcallee : FB_LANG_cc_vgpin_callee;\nEND_VAR\n%LANGUAGE FBD\n%NETWORK\ncallee(badPin := TRUE);\n\nEND_FUNCTION_BLOCK\n`,
   },
 ]

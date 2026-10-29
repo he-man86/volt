@@ -173,7 +173,7 @@ END_VAR
 
 %LANGUAGE FBD
 %NETWORK
-TON(FB := t1, IN := go, PT := pt);
+t1(IN := go, PT := pt);
 done := t1.Q;
 
 END_FUNCTION_BLOCK

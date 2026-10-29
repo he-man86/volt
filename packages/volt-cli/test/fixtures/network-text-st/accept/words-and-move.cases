@@ -129,7 +129,7 @@ fb TON IN PT => Q ET
 === text
 %LANGUAGE LD
 %NETWORK
-q := TON(FB := t1, IN := a AND b, PT := T#1S).Q;
+q := t1(IN := a AND b, PT := T#1S).Q;
 === model
 NETWORK
   (:= q (TON@t1 IN=(AND a b) PT=T#1S name:Q))
@@ -230,7 +230,7 @@ instance t1 TON
 === text
 %LANGUAGE LD
 %NETWORK
-TON(FB := t1, IN := R_EDGE(NOT v), PT := T#1S);
+t1(IN := R_EDGE(NOT v), PT := T#1S);
 === model
 NETWORK
   (TON@t1 IN=rise:not:v PT=T#1S)

@@ -26,12 +26,12 @@ MOVE(EN := w1, 0, OUT => TempI).ENO;
 MUL(EN := w1, Mach1_Data.AUTOSPEED, 10, OUT => MainDrive_AutoSpeed01rpm).ENO;
 MOVE(EN := w1, MainDrive_AutoSpeed01rpm, OUT => Droger_Data.Cor_denumerator).ENO;
 w2 := w1 AND True;
-MOVE(EN := MOVE(EN := TON(FB := Mach1_AuxData.IEC_TIMERS.TON_DelayIdling, IN := w2 AND NOT Mach1.GenFlags.DriveIsRunning, PT := T#500MS).Q AND NOT Mach1_Alarms.Alm049, MainDrive_AutoSpeed01rpm, OUT => Mach_ActSpeed_Rpm01).ENO, MainDrive_AutoSpeed01rpm, OUT => Droger_Data.Cor_numerator).ENO;
+MOVE(EN := MOVE(EN := Mach1_AuxData.IEC_TIMERS.TON_DelayIdling(IN := w2 AND NOT Mach1.GenFlags.DriveIsRunning, PT := T#500MS).Q AND NOT Mach1_Alarms.Alm049, MainDrive_AutoSpeed01rpm, OUT => Mach_ActSpeed_Rpm01).ENO, MainDrive_AutoSpeed01rpm, OUT => Droger_Data.Cor_numerator).ENO;
 MOVE(EN := w2 AND (Mach1.GenFlags.DriveIsRunning OR NOT Mach1_AuxData.IEC_TIMERS.TON_DelayIdling.Q), MUL(HMI_Var.Mach1.ActualSpeed, 10), OUT => Mach_ActSpeed_Rpm01).ENO;
 w3 := w2 AND True;
 w4 := w3 AND Trayfiller_Data.commInterface.HoldFeedFwd;
 MOVE(EN := (Mach1_AuxData.ADS_StopOnZeroPulse := w4 AND (LST_InputsOutputs.I133_1_PROX_zero_position_transport_ADS OR Mach1_AuxData.ADS_StopOnZeroPulse)), 750, OUT => Droger_Data.Cor_numerator).ENO;
-MOVE(EN := F_TRIG(FB := Mach1_AuxData.Edge.Osr_SetCounter, CLK := w4 AND Trayfiller_Data.commInterface.Permission), 5, OUT => Mach1_AuxData.CounterHighSpeedATF_ADS).ENO;
+MOVE(EN := Mach1_AuxData.Edge.Osr_SetCounter(CLK := w4 AND Trayfiller_Data.commInterface.Permission), 5, OUT => Mach1_AuxData.CounterHighSpeedATF_ADS).ENO;
 MUL(EN := NE(EN := w3 AND Trayfiller_Data.commInterface.Permission, Mach1_AuxData.CounterHighSpeedATF_ADS, 0), Mach1_Data.AUTOSPEED, 13, OUT => Droger_Data.Cor_numerator).ENO;
 EXECUTE(EN := w2, CODE := 'cor_NumDI:=Droger_Data.Cor_numerator;
 cor_DenumDI:=Droger_Data.Cor_denumerator;
@@ -68,7 +68,7 @@ ADD(EN := LT(EN := w5, devAngle, -60), Droger_Data.Cor_numerator, 360, OUT => Dr
 SUB(EN := GT(EN := w5, devAngle, 300), Droger_Data.Cor_numerator, 360, OUT => Droger_Data.Cor_numerator).ENO;
 %NETWORK
 %WIRES w6
-w6 := R_TRIG(FB := R_TRIG_0, CLK := LST_InputsOutputs.I133_1_PROX_zero_position_transport_ADS);
+w6 := R_TRIG_0(CLK := LST_InputsOutputs.I133_1_PROX_zero_position_transport_ADS);
 MOVE(EN := w6, HMI_Var.Mach1.Position, OUT => Droger_Data.Act_sync_pos).ENO;
 MOVE(EN := w6, Mach1_Data.CamControls.FeedforwardDryer_CP.Start, OUT => Droger_Data.set_sync_pos).ENO;
 SUB(EN := GT(EN := w6, Mach1_AuxData.CounterHighSpeedATF_ADS, 0), Mach1_AuxData.CounterHighSpeedATF_ADS, 1, OUT => Mach1_AuxData.CounterHighSpeedATF_ADS).ENO;

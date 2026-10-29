@@ -63,8 +63,8 @@ public class TcInPlaceSilentNoOpTests
     /// ENO — a connection and an ENO fact the text carries (task 3.10). The in-place write compared neither, so it wrote
     /// nothing.</summary>
     [Theory]
-    [InlineData("execute-box.TcPOU", BodyLanguage.Fbd, "TON(FB := t1, IN := TRUE, PT := T#5s).Q;", "TON(FB := t1, IN := TRUE, PT := T#5s).ENO;")]
-    [InlineData("ladder-demux.TcPOU", BodyLanguage.Ld, "TON(FB := t1, IN := in1, PT := e1).Q;", "TON(FB := t1, IN := in1, PT := e1).ENO;")]
+    [InlineData("execute-box.TcPOU", BodyLanguage.Fbd, "t1(IN := TRUE, PT := T#5s).Q;", "t1(IN := TRUE, PT := T#5s).ENO;")]
+    [InlineData("ladder-demux.TcPOU", BodyLanguage.Ld, "t1(IN := in1, PT := e1).Q;", "t1(IN := in1, PT := e1).ENO;")]
     public void A_consumer_moved_to_the_ENO_output_is_not_swallowed(string fixture, BodyLanguage language, string from, string to)
     {
         // TON as its library signature states it: a push reads its callee's declaration (network-output-member).

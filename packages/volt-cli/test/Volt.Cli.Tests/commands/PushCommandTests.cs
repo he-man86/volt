@@ -95,7 +95,7 @@ public class PushCommandTests
     [Fact]
     public void A_hand_wrapped_graphical_call_is_adopted_in_the_IDEs_layout_after_the_push()
     {
-        const string canonical = "%LANGUAGE LD\n%NETWORK\nTON(FB := t1, IN := a, PT := pt);";
+        const string canonical = "%LANGUAGE LD\n%NETWORK\nt1(IN := a, PT := pt);";
         var ide = ConnectedIde(new FakeIde.Item("PLC_PRG", Volt.Engine.Item.ItemKind.PlcPou, "", true,
             "PROGRAM PLC_PRG\nVAR\n  t1 : TON;\n  a : BOOL;\n  pt : TIME;\nEND_VAR", canonical, "LD", null));
         var (root, host, client) = Bound(ide);
@@ -107,7 +107,7 @@ public class PushCommandTests
             Assert.Contains(canonical, pulled);
 
             // The same call, one pin per line: token-identical, so the gate accepts it.
-            File.WriteAllText(path, pulled.Replace("TON(FB := t1, IN := a, PT := pt);", "TON(\n    FB := t1,\n    IN := a,\n    PT := pt);"));
+            File.WriteAllText(path, pulled.Replace("t1(IN := a, PT := pt);", "t1(\n    IN := a,\n    PT := pt);"));
             var r = Commands.Push(root, client);
             Assert.True(r.Kind == "ok", $"push rejected: {r.Reason}");
 
@@ -131,7 +131,7 @@ public class PushCommandTests
     [Fact]
     public void A_pushed_body_the_IDE_holds_as_other_tokens_is_not_adopted_as_a_layout()
     {
-        const string canonical = "%LANGUAGE LD\n%NETWORK\nTON(FB := t1, IN := a, PT := pt);";
+        const string canonical = "%LANGUAGE LD\n%NETWORK\nt1(IN := a, PT := pt);";
         var ide = new FakeIde(new FakeIde.Item("PLC_PRG", Volt.Engine.Item.ItemKind.PlcPou, "", true,
             "PROGRAM PLC_PRG\nVAR\n  t1 : TON;\n  a : BOOL;\n  pt : TIME;\n  b : BOOL;\nEND_VAR", canonical, "LD", null))
         {
@@ -144,7 +144,7 @@ public class PushCommandTests
             Commands.Pull(root, client);
             var path = Path.Combine(root, "src", "PLC_PRG.pou");
             var pulled = File.ReadAllText(path).Replace("\r\n", "\n");
-            var edited = pulled.Replace("TON(FB := t1, IN := a, PT := pt);", "TON(FB := t1, IN := b, PT := pt);");
+            var edited = pulled.Replace("t1(IN := a, PT := pt);", "t1(IN := b, PT := pt);");
             File.WriteAllText(path, edited);
 
             var r = Commands.Push(root, client);
@@ -155,7 +155,7 @@ public class PushCommandTests
             var again = Commands.Pull(root, client);
             Assert.Equal("ok", again.Kind);
             Assert.Contains("PLC_PRG.pou", again.Synced!);
-            Assert.Contains("TON(FB := t1, IN := b);", File.ReadAllText(path).Replace("\r\n", "\n"));
+            Assert.Contains("t1(IN := b);", File.ReadAllText(path).Replace("\r\n", "\n"));
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
@@ -167,7 +167,7 @@ public class PushCommandTests
     [Fact]
     public void A_pushed_item_whose_text_the_IDE_does_not_give_back_is_not_claimed_as_another_program()
     {
-        const string canonical = "%LANGUAGE LD\n%NETWORK\nTON(FB := t1, IN := a, PT := pt);";
+        const string canonical = "%LANGUAGE LD\n%NETWORK\nt1(IN := a, PT := pt);";
         var ide = new FakeIde(new FakeIde.Item("PLC_PRG", Volt.Engine.Item.ItemKind.PlcPou, "", true,
             "PROGRAM PLC_PRG\nVAR\n  t1 : TON;\n  a : BOOL;\n  pt : TIME;\n  b : BOOL;\nEND_VAR", canonical, "LD", null))
         {
@@ -179,7 +179,7 @@ public class PushCommandTests
         {
             Commands.Pull(root, client);
             var path = Path.Combine(root, "src", "PLC_PRG.pou");
-            var edited = File.ReadAllText(path).Replace("\r\n", "\n").Replace("TON(FB := t1, IN := a, PT := pt);", "TON(FB := t1, IN := b, PT := pt);");
+            var edited = File.ReadAllText(path).Replace("\r\n", "\n").Replace("t1(IN := a, PT := pt);", "t1(IN := b, PT := pt);");
             File.WriteAllText(path, edited);
             // The receipt's walk reads the item once after the write and hashes what the IDE holds; the directed
             // fetch that follows cannot read it back.

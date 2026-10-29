@@ -66,7 +66,7 @@ export const NETWORK_UNRESOLVED_TESTS: readonly LanguageTest[] = [
     kind: "function_block",
     feature: "`???` in a call box's INSTANCE position",
     fromDoc: "network-text.html#elements",
-    note: "The shape Lenze_MID-S100's `MotionControl/POU` holds four of. Network text spells the box as the call of its type, its instance `FB := ???`.",
+    note: "The shape Lenze_MID-S100's `MotionControl/POU` holds four of. Network text spells the box as the call of its type, which names no instance.",
     plcPrgVar: "fb_nui : FB_LANG_network_unnamed_instance;",
     plcPrgBody: "fb_nui();",
     source: `FUNCTION_BLOCK FB_LANG_network_unnamed_instance
@@ -77,7 +77,7 @@ END_VAR
 
 %LANGUAGE FBD
 %NETWORK
-TON(FB := ???, IN := a, PT := t);
+TON(IN := a, PT := t);
 
 END_FUNCTION_BLOCK
 `,
@@ -146,7 +146,7 @@ END_VAR
 
 %LANGUAGE FBD
 %NETWORK
-TON(FB := t1, IN := ???, PT := pt);
+t1(IN := ???, PT := pt);
 
 END_FUNCTION_BLOCK
 `,
@@ -275,7 +275,7 @@ END_VAR
 
 %LANGUAGE FBD
 %NETWORK
-FB_LANG_NoSuchType(FB := t1, IN := a);
+t1(IN := a);
 
 END_FUNCTION_BLOCK
 `,

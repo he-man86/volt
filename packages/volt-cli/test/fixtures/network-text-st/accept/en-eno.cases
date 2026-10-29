@@ -219,7 +219,7 @@ fb TON IN PT => Q ET
 === text
 %LANGUAGE LD
 %NETWORK
-x := TON(FB := t1, IN := a, PT := T#1S).Q;
+x := t1(IN := a, PT := T#1S).Q;
 === model
 NETWORK
   (:= x (TON@t1 IN=a PT=T#1S name:Q))
@@ -231,7 +231,7 @@ fb Dryer iOn => ENO xReady
 === text
 %LANGUAGE LD
 %NETWORK
-ready := Dryer(FB := d1, iOn := on).ENO;
+ready := d1(iOn := on).ENO;
 === model
 NETWORK
   (:= ready (Dryer@d1 iOn=on name:ENO))
@@ -243,8 +243,8 @@ instance c2 CTU
 === text
 %LANGUAGE LD
 %NETWORK
-CTU(FB := c1, EN := go, CU := a, PV := 10, CV => n).ENO;
-lamp := CTU(FB := c2, EN := c, CU := a, PV := 10, CV => n).ENO AND d;
+c1(EN := go, CU := a, PV := 10, CV => n).ENO;
+lamp := c2(EN := c, CU := a, PV := 10, CV => n).ENO AND d;
 === model
 NETWORK
   (CTU@c1 CU=a PV=10 =>CV:n en:go eno:1)
@@ -257,7 +257,7 @@ fb TON IN PT => Q ET
 === text
 %LANGUAGE LD
 %NETWORK
-x := TON(FB := t1, EN := c, IN := a, PT := T#1S).Q;
+x := t1(EN := c, IN := a, PT := T#1S).Q;
 === model
 NETWORK
   (:= x (TON@t1 IN=a PT=T#1S en:c name:Q))

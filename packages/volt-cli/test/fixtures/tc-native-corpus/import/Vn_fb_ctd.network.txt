@@ -1,3 +1,3 @@
 %LANGUAGE FBD
 %NETWORK
-CTD(FB := ctd1, CD := a, LOAD := b, PV := i1);
+ctd1(CD := a, LOAD := b, PV := i1);

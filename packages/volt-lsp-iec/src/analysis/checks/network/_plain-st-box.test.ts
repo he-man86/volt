@@ -20,12 +20,13 @@ test("a program box is read by its VAR_OUTPUTs as a function by its outputs: .NA
   ])
 })
 
-test("FB := stands only on an FB box: not on an operator's call, nor naming a variable that is no FB instance", () => {
-  expect(findings("", "\tx : BOOL;\n\ta, b, y : INT;", "ADD(FB := x, a, b, OUT => y);\n")).toContain(
-    "FB := on a call of ADD, which is no function block: FB := names an FB box's instance",
-  )
-  expect(findings(TIMER, "\tx, a : BOOL;", "FB_T(FB := x, IN := a);\n")).toEqual(["the FB box FB_T names x as its instance: x is no FB instance"])
-  expect(findings(TIMER, "\tt1 : FB_T;\n\ta, q : BOOL;", "q := FB_T(FB := t1, IN := a).Q;\n")).toEqual([])
+test("an FB box is the call of its instance, and an FB type called is the box with no instance: both read as the FB", () => {
+  const decls = "\tt1 : FB_T;\n\ta, q : BOOL;"
+  expect(findings(TIMER, decls, "q := t1(IN := a).Q;\n")).toEqual([])
+  expect(findings(TIMER, decls, "q := t1(IN := a);\n")).toEqual([
+    "the box t1 is read and names no output: FB_T has 2 (Q, ET), so its call is closed by the one its consumer reads, .Q",
+  ])
+  expect(findings(TIMER, "\ta : BOOL;", "FB_T(IN := a);\n")).toEqual([])
 })
 
 test("an IEC operator other than the keywords (LIMIT) has one output and no EN of its own: EN := stands first", () => {
