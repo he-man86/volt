@@ -15,4 +15,10 @@ test("an instance-path STRING holds Device.Application and the instance's path; 
   const runner = run(pou!)
   expect([runner.get("direct.sPath"), runner.get("outer.inner.sPath")]).toEqual(["Device.Application.PLC_PRG.direct", "Device.Application.PLC_PRG.outer.inner"])
   expect(lowerSource(source, "PLC_PRG").diagnostics.map((d) => d.code)).toEqual(["attr-instance-path"])
+  // openspec lsp-field-false-positives 8 (class 1): a client's uri percent-encodes the tree — `Plc%20Logic` is the node
+  // `Plc Logic`, a device and an application past ASCII are their own names
+  const uri = "file:///c%3A/work/Line1/Ger%C3%A4t/Plc%20Logic/Anwendung_%C3%9C/PLC_PRG.pou"
+  const fromUri = lowerSource(source, "PLC_PRG", [], uri)
+  expect(fromUri.diagnostics).toEqual([])
+  expect(run(fromUri.pou!).get("direct.sPath")).toBe("Gerät.Anwendung_Ü.PLC_PRG.direct")
 })

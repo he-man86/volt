@@ -40,7 +40,7 @@ const BY_EXTENSION: Readonly<Record<string, SourceObject>> = {
  * `volt push` refuses, not the `E_Mode.dut` the IDE publishes.
  */
 export function sourceObjectOf(uri: string): SourceObject | undefined {
-  const path = pathOf(uri)
+  const path = documentPath(uri)
   const dot = path.lastIndexOf(".")
   if (dot < 0 || /[\\/]/.test(path.slice(dot))) return undefined
   return BY_EXTENSION[path.slice(dot)]
@@ -58,12 +58,12 @@ export function objectNameOf(uri: string): string | undefined {
 }
 
 /**
- * A document's file name — the last segment of its PATH (`pathOf`, decoded), extension kept: `FB_主控制.pou` for
+ * A document's file name — the last segment of its PATH (`documentPath`, decoded), extension kept: `FB_主控制.pou` for
  * `file:///c%3A/w/FB_%E4%B8%BB%E6%8E%A7%E5%88%B6.pou` as for `C:\w\FB_主控制.pou`. The one place a name is read from a
  * document's name: the object's (`objectNameOf`) and a GVL's (`gvlName`).
  */
 export function baseNameOf(uri: string): string {
-  const path = pathOf(uri)
+  const path = documentPath(uri)
   return path.slice(Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\")) + 1)
 }
 
@@ -77,7 +77,7 @@ export function baseNameOf(uri: string): string {
  * arrives as `FB_%E4%B8%BB%E6%8E%A7%E5%88%B6.pou`. A path that is no valid encoding is no URI a client sends, and
  * `decodeURIComponent` refuses it (URIError) rather than a name being read out of it.
  */
-function pathOf(uri: string): string {
+export function documentPath(uri: string): string {
   return /^[a-z][a-z0-9+.-]+:/i.test(uri) ? decodeURIComponent(new URL(uri).pathname) : uri
 }
 
