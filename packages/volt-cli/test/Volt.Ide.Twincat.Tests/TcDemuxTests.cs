@@ -82,16 +82,16 @@ public class TcDemuxTests
         Assert.Equal(0, and.ConnectedSlot);
     }
 
-    /// <summary>...and it renders as the format's own spelling for a fan-out: a wire on its network's <c>%WIRES</c> line, no
+    /// <summary>...and it renders as the format's own spelling for a fan-out: a wire its network declares <c>VAR_TEMP … : ANY</c>, no
     /// declaration and no type (B6), defined by an assignment and referenced by name.</summary>
     [Fact]
     public void It_materializes_as_a_named_wire_and_its_uses()
     {
         var text = TcText.Write(Read());
 
-        Assert.Contains("%WIRES w2\nw2 := b;\n", text);
-        Assert.Contains("out2 := w2;", text);          // one consumer
-        Assert.Contains("OR(a, w2)", text);            // ...and the other, inside the OR box
+        Assert.Contains("VAR_TEMP w1 : ANY; END_VAR\nw1 := b;\n", text);
+        Assert.Contains("out2 := w1;", text);          // one consumer
+        Assert.Contains("OR(a, w1)", text);            // ...and the other, inside the OR box
     }
 
     /// <summary>A NO-OP PUSH MUST NOT REWRITE IT — the rule every other fixture is held to, now over a node type

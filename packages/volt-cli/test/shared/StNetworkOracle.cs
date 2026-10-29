@@ -219,6 +219,9 @@ public static class StNetworkOracle
                 var outputs = b.Outputs.ToList();
                 if (outputs.RemoveAll(o => o.Formal is null && o.Value.Text == Box.UnnamedInstance) > 0)
                     fired.Add("extra output slot (???)");
+                // An FB box is the call of its instance (design "FB boxes: the instance is the call head"): an instance no
+                // declaration holds is the call of its type, as the unnamed instance is; a declared one carries its
+                // declaration's spelling of the type.
                 var type = b.Type;
                 var instance = b.Instance;
                 if (b.Instance is { } undeclared && undeclared.Text != Box.UnnamedInstance && scope.InstanceType(undeclared.Text) is null

@@ -42,14 +42,15 @@ test("an operator box is the type its operands have under the operator: a compar
   })
 })
 
-test("an enabled box and the Execute box return their ENO, a BOOL", () => {
-  expect(probes("LD", "%NETWORK\np1 := MOVE_EN(EN := a, i, OUT => n);\np2 := GT_EN(EN := a, i, j, OUT => p3);\n")).toEqual({ p1: "BOOL", p2: "BOOL" })
+test("a box closed by .ENO is its ENO, a BOOL; with EN and no ENO its value; an FB by the output it names", () => {
+  expect(probes("LD", "%NETWORK\np1 := MOVE(EN := a, i, OUT => n).ENO;\np2 := GT(EN := a, i, j, OUT => p3).ENO;\nq1 := ADD(EN := a, i, j);\n" +
+    "p4 := t1(IN := a).Q;\nd1 := t1(IN := a).ET;\n")).toEqual({ p1: "BOOL", p2: "BOOL", q1: "INT", p4: "BOOL", d1: "TIME" })
 })
 
 test("a wire is of its definition's type: an expression's, an FB output's, an enabled box's value, an ENO", () => {
   const code =
-    "%NETWORK\n%WIRES w1, w2, w3, w4\nw1 := ADD(i, j);\nq1 := w1;\nq2 := w1;\nt1(IN := a, Q => w2, ET => w3);\np1 := w2;\nd1 := w3;\n" +
-    "MOVE_EN(EN := b, i, OUT => w4);\nn := w4;\n"
+    "%NETWORK\nVAR_TEMP w1 : ANY; w2 : ANY; w3 : ANY; w4 : ANY; w5 : ANY; END_VAR\nw1 := ADD(i, j);\nq1 := w1;\nq2 := w1;\nw2 := t1(IN := a).Q;\np1 := w2;\nw3 := t1(IN := a).ET;\nd1 := w3;\n" +
+    "w4 := MOVE(EN := b, i);\nn := w4;\nw5 := MOVE(EN := b, i, OUT => n).ENO;\np1 := w5;\n"
   const parseResult = parseSource(`${FB}PROGRAM P\nVAR\n\ta, b, p1 : BOOL;\n\ti, j, n, q1, q2 : INT;\n\tt1 : FB_T;\n\td1 : TIME;\nEND_VAR\n%LANGUAGE LD\n${code}END_PROGRAM\n`, { networkText: true }, "codesys")
   const project = build.buildSymbolTable([{ uri: "P.pou", parseResult, source: "" }], [], "codesys")
   const types: Record<string, string> = {}
@@ -57,9 +58,9 @@ test("a wire is of its definition's type: an expression's, an FB output's, an en
     walkAllExprs(statements, (e) => {
       if (e.kind === "ident_expr" && /^w\d$/.test(e.name)) types[e.name] = renderType(inferExprType(e, scope, project))
     })
-  expect(types).toEqual({ w1: "INT", w2: "BOOL", w3: "TIME", w4: "INT" })
+  expect(types).toEqual({ w1: "INT", w2: "BOOL", w3: "TIME", w4: "INT", w5: "BOOL" })
 })
 
-test("outside a network body an enabled box is no call: MOVE_EN(…) in ST has no type", () => {
-  expect(probes("ST", "p1 := MOVE_EN(EN := a, i, OUT => n);\n")).toEqual({ p1: renderType(UNKNOWN) })
+test("outside a network body an enabled box is no call: MOVE(…).ENO in ST has no type", () => {
+  expect(probes("ST", "p1 := MOVE(EN := a, i, OUT => n).ENO;\n")).toEqual({ p1: renderType(UNKNOWN) })
 })

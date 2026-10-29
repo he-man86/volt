@@ -53,7 +53,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const src =
 			`PROGRAM ${name}\nVAR\n\tgo : BOOL;\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n%LANGUAGE FBD\n` +
 			// The enable is the box's own EN pin, and its value goes to its output pin — this test is about the EN pin.
-			`%NETWORK\nAND_EN(EN := go, a, b, OUT => out);\n\n` +
+			`%NETWORK\nAND(EN := go, a, b, OUT => out).ENO;\n\n` +
 			`END_PROGRAM\n`
 
 		// VENDOR-BLIND ON PURPOSE, because this is the one capability that genuinely differs and the difference
@@ -240,13 +240,13 @@ END_VAR
 			// Two fan-outs, in two networks, so the test sees both the edited one and its untouched neighbour.
 			`%LANGUAGE FBD
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 w1 := AND(a, b);
 p := w1;
 q := w1;
 ` +
 			`%NETWORK
-%WIRES w2
+VAR_TEMP w2 : ANY; END_VAR
 w2 := OR(a, b);
 x := w2;
 y := w2;

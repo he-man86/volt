@@ -38,16 +38,16 @@ const or = (lang: string, x: string, y: string) => (lang === "LD" ? `${x} OR ${y
 
 /** The shapes: name → the body under `%LANGUAGE <LANG>`. */
 const SHAPES: Record<string, (lang: string) => string> = {
-	single_consumer_branch: (l) => `%NETWORK\n%WIRES w1\nw1 := ${and(l, "a", "b")};\nout := w1;\n`,
-	fanout_two_coils: (l) => `%NETWORK\n%WIRES w1\nw1 := ${and(l, "a", "b")};\nout1 := w1;\nout2 := w1;\n`,
-	leaf_fed_split: () => "%NETWORK\n%WIRES w1\nw1 := a;\nout1 := w1;\nout2 := w1;\n",
+	single_consumer_branch: (l) => `%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := ${and(l, "a", "b")};\nout := w1;\n`,
+	fanout_two_coils: (l) => `%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := ${and(l, "a", "b")};\nout1 := w1;\nout2 := w1;\n`,
+	leaf_fed_split: () => "%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := a;\nout1 := w1;\nout2 := w1;\n",
 	rail_pin: () => "%NETWORK\nt1(IN := TRUE, PT := pt);\n",
 	pin_to_variable: () => "%NETWORK\nt1(IN := a, PT := pt, ET => el);\n",
 	negated_input: (l) => `%NETWORK\nout := ${and(l, "NOT a", "b")};\n`,
 	set_coil: () => "%NETWORK\nout S= a;\n",
 	reset_coil: (l) => `%NETWORK\nout R= ${and(l, "a", "b")};\n`,
 	rising_edge: (l) => `%NETWORK\nout := ${and(l, "R_EDGE(a)", "b")};\n`,
-	execute: () => "%NETWORK\n%EXECUTE(EN := go)\nn := n + 1;\n%END_EXECUTE\n",
+	execute: () => "%NETWORK\nEXECUTE(EN := go, CODE := 'n := n + 1;');\n",
 	multi_rung: (l) => `%NETWORK\nout1 := ${and(l, "a", "b")};\nout2 := ${or(l, "c", "d")};\nt1(IN := e, PT := pt);\n`,
 	assign_below_top: () => "%NETWORK\nt1(IN := (out := go), PT := pt);\n",
 	jump_and_label: (l) => `%NETWORK\nJMP(L1, a);\n%NETWORK\nL1:\nout := ${or(l, "a", "b")};\n`,
@@ -55,9 +55,9 @@ const SHAPES: Record<string, (lang: string) => string> = {
 	rail_coil: () => "%NETWORK\nout := TRUE;\n",
 	empty_network: (l) => `%NETWORK\nout := ${and(l, "a", "b")};\n%NETWORK\n`,
 	header: (l) => `%NETWORK "a rung"\n%DISABLED\n// a comment\nHere:\nout := ${and(l, "a", "b")};\n`,
-	enable_move: () => "%NETWORK\nout := MOVE_EN(EN := go, b, OUT => out1);\n",
+	enable_move: () => "%NETWORK\nout := MOVE(EN := go, b, OUT => out1).ENO;\n",
 	function_named: () => `%NETWORK\nn := ${FN}(A := i1, B := i2);\n`,
-	named_eno: () => "%NETWORK\nMOVE_EN(EN := go, 7, ENO => out, OUT => n);\n",
+	named_eno: () => "%NETWORK\nMOVE(EN := go, 7, ENO => out, OUT => n).ENO;\n",
 }
 
 const LANGS = ["LD", "FBD"] as const
@@ -172,7 +172,7 @@ describe(`graphical / native writer (${BASE})`, () => {
 		if (!twincat) return // CODESYS builds both from its live object model
 		const refused: Record<string, string> = {
 			parallel: "%NETWORK\nout := BRANCH(FEED := go, a, b);\n",
-			enable_and: "%NETWORK\nout := AND_EN(EN := go, a, b);\n",
+			enable_and: "%NETWORK\nout := AND(EN := go, a, b).ENO;\n",
 		}
 		for (const [shape, body] of Object.entries(refused)) {
 			const bare = id(`nw_r_${shape}`)

@@ -187,7 +187,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1, w2
+VAR_TEMP w1 : ANY; w2 : ANY; END_VAR
 w1 := TRUE;
 w2 := w1 AND RunAuto;
 a := w2;
@@ -203,7 +203,7 @@ NETWORK
 === text
 %LANGUAGE FBD
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 w1 := ADD(a, b);
 x := w1;
 === model
@@ -215,9 +215,9 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 w1 := TRUE;
-MOVE_EN(EN := w1, 0, OUT => t);
+MOVE(EN := w1, 0, OUT => t).ENO;
 === model
 NETWORK
   (split 1 TRUE)
@@ -229,7 +229,7 @@ name split1
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 w1 := a;
 x := w1;
 split1 := w1;
@@ -243,7 +243,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 x := w1;
 w1 := a AND b;
 y := w1 AND c;
@@ -257,7 +257,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 x := (w1 := a AND b);
 y := w1 AND c;
 === model

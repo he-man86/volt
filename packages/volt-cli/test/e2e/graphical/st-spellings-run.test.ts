@@ -1,14 +1,23 @@
 /**
- * THE 3.0 SPELLINGS RUN AS THEIR NETWORKS (openspec network-text-st 3.0, owner 2026-10-28): each spelling pushed as a
- * network, built by the IDE, run in the simulation beside the ST twin the LSP writes for it (`volt-lsp-iec`
+ * THE SPELLINGS RUN AS THEIR NETWORKS (openspec network-text-st 3.0, network-output-member 2.3): each spelling pushed as
+ * a network, built by the IDE, run in the simulation beside the ST twin the LSP writes for it (`volt-lsp-iec`
  * `test/support/network-twin.ts`), on one stimulus that changes every scan; a driver PROGRAM counts the scans on which an
  * output of the network differs from the twin's. The measurement each spelling rests on:
  *
- *   `X_ENONLY(EN := e, …)`      a box with EN and no ENO, returning its value: held under a coil when disabled, at the root
+ *   `X(EN := e, …)`             a box with EN and no ENO, read by its value: held under a coil when disabled, at the root
  *                               the IF that runs it, an enabled comparison FALSE when disabled, an FB not called;
+ *   `f(…).ENO`                  a box with ENO and no EN, read by its ENO: called on every scan, its ENO FALSE (at a
+ *                               root CODESYS does not compile it — recorded, `rcc_network_eno_function_without_en_root`);
+ *   `c2(…).CV`                  an FB read through its moved pin: called before the item, read by that output;
+ *   an FB in an enabled box's pin  called before the item on every scan, whatever the enabled box's EN;
+ *   `c4(EN := c, …)`            what an enabled FB's pins evaluate (an edge) runs on every scan, only the FB under its
+ *                               EN — the edge is on `d`,
+ *                               which rises outside the EN window (n = 8) and holds into it (n = 12): an edge run every
+ *                               scan and one run only under the EN differ there, so `e_y12` tells the two orders apart;
  *   `JMP(l, v)`, `RETURN(v)`    the jump and the return on a value; a coil and a jump on one value written as one item per
  *                               target (the coil first);
- *   `y := JMP(l, c) AND d`      a jump inside a tree.
+ *   `y := JMP(l, c) AND d`      a jump inside a tree;
+ *   a wire read before its definition  the value its definition held on the previous scan (network-output-member 2.3).
  *
  * CODESYS only (no TwinCAT runtime licence on the dev machine).
  */
@@ -27,23 +36,38 @@ const TWIN1 = id("sttwin1")
 const NET2 = id("stnet2")
 const TWIN2 = id("sttwin2")
 const DRV = id("stdrv")
+const FN = id("stfn")
 
 const inputs = "VAR_INPUT\n\ta, b, c, d : BOOL;\n\ti, j : INT;\nEND_VAR\n"
-const outputs1 = "VAR_OUTPUT\n\ty1, y2, y4, y6 : INT;\n\tx1, x3, lamp : BOOL;\nEND_VAR\nVAR\n\tc1 : CTU;\nEND_VAR\n"
+const outputs1 = "VAR_OUTPUT\n\ty1, y2, y4, y6, y9, y10, y11, y12 : INT;\n\tx1, x3, x5, x6, x7, lamp : BOOL;\nEND_VAR\nVAR\n\tc1, c2, c3, c4 : CTU;\nEND_VAR\n"
+
+/** A function the networks call showing ENO and no EN. */
+const fn = `FUNCTION ${FN} : INT\nVAR_INPUT\n\tIN : INT;\nEND_VAR\n%LANGUAGE ST\n${FN} := IN + 1;\n\nEND_FUNCTION\n`
 const outputs2 = "VAR_OUTPUT\n\tx2 : BOOL;\n\ty5, y7 : INT;\nEND_VAR\n"
 
 const net1 = `PROGRAM ${NET1}
 ${inputs}${outputs1}%LANGUAGE LD
 %NETWORK
-y1 := MOVE_ENONLY(EN := c, i);
+VAR_TEMP w1 : ANY; END_VAR
+x6 := a AND w1;
+w1 := b OR c;
+x7 := w1;
 %NETWORK
-MOVE_ENONLY(EN := d, j, OUT => y2);
+y1 := MOVE(EN := c, i);
 %NETWORK
-x1 := a AND GT_ENONLY(EN := c, i, 3);
+MOVE(EN := d, j, OUT => y2);
 %NETWORK
-%WIRES w2
-c1_ENONLY(EN := c, CU := a, PV := 5, Q => w2);
-x3 := w2;
+x1 := a AND GT(EN := c, i, 3);
+%NETWORK
+x3 := c1(EN := c, CU := a, PV := 5).Q;
+%NETWORK
+x5 := ${FN}(IN := i, OUT => y9).ENO;
+%NETWORK
+y10 := c2(CU := a, PV := 5).CV;
+%NETWORK
+MOVE(EN := c, c3(CU := b, PV := 3).CV, OUT => y11).ENO;
+%NETWORK
+c4(EN := c, CU := R_EDGE(d), PV := 5, CV => y12).ENO;
 %NETWORK
 lamp := b AND d;
 JMP(skip1, b AND d);
@@ -61,14 +85,27 @@ END_PROGRAM
 const twin1 = `PROGRAM ${TWIN1}
 ${inputs}${outputs1}VAR
 \tt1 : BOOL;
+\ttr : R_TRIG;
+\tw1 : BOOL;
 END_VAR
 %LANGUAGE ST
+x6 := a AND w1;
+w1 := b OR c;
+x7 := w1;
 IF c THEN y1 := i; END_IF;
 IF d THEN y2 := j; END_IF;
 IF c THEN t1 := i > 3; ELSE t1 := FALSE; END_IF;
 x1 := a AND t1;
 IF c THEN c1(CU := a, PV := 5); END_IF;
 x3 := c1.Q;
+y9 := ${FN}(IN := i);
+x5 := FALSE;
+c2(CU := a, PV := 5);
+y10 := c2.CV;
+c3(CU := b, PV := 3);
+IF c THEN y11 := c3.CV; END_IF;
+tr(CLK := d);
+IF c THEN c4(CU := tr.Q, PV := 5, CV => y12); END_IF;
 lamp := b AND d;
 IF b AND d THEN JMP skip1; END_IF;
 y4 := y4 + 1;
@@ -108,7 +145,7 @@ y7 := y7 + 1;
 END_PROGRAM
 `
 
-const OUT1 = ["y1", "y2", "y4", "y6", "x1", "x3", "lamp"]
+const OUT1 = ["y1", "y2", "y4", "y6", "y9", "y10", "y11", "y12", "x1", "x3", "x5", "x6", "x7", "lamp"]
 const OUT2 = ["x2", "y5", "y7"]
 
 const drv = `PROGRAM ${DRV}
@@ -136,17 +173,17 @@ ${OUT2.map((o) => `IF ${NET2}.${o} <> ${TWIN2}.${o} THEN e_${o} := e_${o} + 1; E
 END_PROGRAM
 `
 
-const ITEMS = [fid("stnet1"), fid("sttwin1"), fid("stnet2"), fid("sttwin2"), fid("stdrv")]
+const ITEMS = [fid("stnet1"), fid("sttwin1"), fid("stnet2"), fid("sttwin2"), fid("stdrv"), fid("stfn")]
 
-describe.skipIf(VENDOR !== "codesys")(`graphical / the 3.0 spellings run as their twins, network-text-st 3.0 (${BASE})`, () => {
+describe.skipIf(VENDOR !== "codesys")(`graphical / the spellings run as their twins, network-text-st 3.0, network-output-member (${BASE})`, () => {
 	beforeAll(async () => {
 		await requireHealthy()
 	})
 
-	it("X_ENONLY, JMP(label, value), RETURN(value), a coil and a jump on one value and a jump in a tree", async () => {
+	it("EN without ENO, ENO without EN, an FB's moved pin, the FB evaluation order, JMP(label, value), RETURN(value), a coil and a jump on one value and a jump in a tree", async () => {
 		try {
 			for (const item of ITEMS) await removeItem(item)
-			for (const [item, src] of [[fid("stnet1"), net1], [fid("sttwin1"), twin1], [fid("stnet2"), net2], [fid("sttwin2"), twin2], [fid("stdrv"), drv]] as const) {
+			for (const [item, src] of [[fid("stfn"), fn], [fid("stnet1"), net1], [fid("sttwin1"), twin1], [fid("stnet2"), net2], [fid("sttwin2"), twin2], [fid("stdrv"), drv]] as const) {
 				const r = await createItem(item, src)
 				expect(r.conflicts ?? [], `${item} was created`).toEqual([])
 			}

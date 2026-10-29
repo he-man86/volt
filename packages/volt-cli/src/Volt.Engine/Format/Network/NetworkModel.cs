@@ -163,8 +163,9 @@ public sealed record Box(
     /// <c>BoxType='L_MC1P_AxisBasicControlV2'</c> / <c>'L_TT1P_BasicMotionBase'</c> / … with
     /// <c>Instance='???'</c>. The format names an FB call ONCE — the instance — and the push recovers the type
     /// from the declaration that instance is declared in. <c>???</c> is declared nowhere, so the type was lost
-    /// on pull and the push was refused: the POU could be pulled and never pushed back. The type is therefore
-    /// written inline for exactly this instance (<c>??? : TYPE(PIN := …)</c>, docs/network-text.html#unnamed-instance).</para></summary>
+    /// on pull and the push was refused: the POU could be pulled and never pushed back. Network text therefore writes
+    /// a box with no instance as the call of its TYPE (<c>TYPE(PIN := …)</c>, docs/network-text.html#elements), and every
+    /// other FB box as the call of its instance.</para></summary>
     public const string UnnamedInstance = "???";
 
     /// <summary>Whether the box's input slot 0 is the ENABLE WIRE rather than a data pin.

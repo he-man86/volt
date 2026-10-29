@@ -16,19 +16,19 @@ END_VAR
 
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 w1 := TRUE;
 ioVirtualMasterCom.Control.Enable := w1 AND ioVirtualMaster.Control.SetDriveEnable;
 ioVirtualMasterCom.Control.ResetError := w1 AND ioVirtualMaster.Control.ResetError;
 %NETWORK
-%WIRES w2
+VAR_TEMP w2 : ANY; END_VAR
 w2 := ioVirtualMaster.Control.StartMovement;
 ioVirtualMasterCom.Control.StartMovement := w2;
-MOVE_EN(EN := w2, Mach1_Data.Drives.MainDrive_VM.Control.DriveMasterSpeed, OUT => ioVirtualMasterCom.Control.VelUnit);
-MOVE_EN(EN := w2, iDec, OUT => ioVirtualMasterCom.Control.DecUnit);
-MOVE_EN(EN := w2, iAcc, OUT => ioVirtualMasterCom.Control.AccUnit);
+MOVE(EN := w2, Mach1_Data.Drives.MainDrive_VM.Control.DriveMasterSpeed, OUT => ioVirtualMasterCom.Control.VelUnit).ENO;
+MOVE(EN := w2, iDec, OUT => ioVirtualMasterCom.Control.DecUnit).ENO;
+MOVE(EN := w2, iAcc, OUT => ioVirtualMasterCom.Control.AccUnit).ENO;
 %NETWORK
-DIV_EN(EN := DIV_EN(EN := TRUE, LREAL_TO_INT(ioVirtualMasterCom.Status.ActSpeed), 6, OUT => ioVirtualMaster.Status.ActSpeed), LREAL_TO_INT(ioVirtualMasterCom.Status.ActPos), 1, OUT => ioVirtualMaster.Status.ActXPos);
+DIV(EN := DIV(EN := TRUE, LREAL_TO_INT(ioVirtualMasterCom.Status.ActSpeed), 6, OUT => ioVirtualMaster.Status.ActSpeed).ENO, LREAL_TO_INT(ioVirtualMasterCom.Status.ActPos), 1, OUT => ioVirtualMaster.Status.ActXPos).ENO;
 %NETWORK
 ioVirtualMaster.Status.DriveIsReady := ioVirtualMasterCom.Status.ReadyForMotion;
 %NETWORK

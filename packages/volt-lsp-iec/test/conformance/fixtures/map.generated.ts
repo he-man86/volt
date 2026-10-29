@@ -19,7 +19,7 @@
  *     not-lowered    388
  *     lsp-gap         90
  *     diverges         5
- *     unaskable      145
+ *     unaskable      146
  *
  *   tier                     lowered    clean
  *     decl                    851      851
@@ -4381,6 +4381,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   rcc_member_backtick_name: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.1, shape: "7f327e5fec" },
   rcc_member_name_not_identifier: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.1, shape: "7f327e5fec" },
   rcc_network_eno_function_without_en: { evidence: "unaskable" },
+  rcc_network_eno_function_without_en_root: { evidence: "unaskable" },
   rcc_network_eno_without_en: { evidence: "unaskable" },
   rcc_network_located_wire_shape: { evidence: "unaskable" },
   rcc_network_second_var_temp: { evidence: "unaskable" },

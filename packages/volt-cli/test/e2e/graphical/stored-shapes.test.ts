@@ -55,7 +55,7 @@ describe(`graphical / stored shapes, ld-fbd-coverage 2R.5 (${BASE})`, () => {
 	})
 
 	it("#1: one box consuming two ENOs", async () => {
-		await shape("r5eno2", (n) => fb(n, "LD", ["x := MOVE_EN(EN := c, 1, OUT => i) AND MOVE_EN(EN := d, 2, OUT => j);"]), TC.twoEno)
+		await shape("r5eno2", (n) => fb(n, "LD", ["x := MOVE(EN := c, 1, OUT => i).ENO AND MOVE(EN := d, 2, OUT => j).ENO;"]), TC.twoEno)
 	})
 
 	// #9–#14 (a jump or a return among coils, with S=, nested; a coil's negation and edge) have no plain-ST spelling to
@@ -64,7 +64,7 @@ describe(`graphical / stored shapes, ld-fbd-coverage 2R.5 (${BASE})`, () => {
 
 	it("#15, #16, #6a: an edge on a contact in a box, a negated EN contact, a negated rail", async () => {
 		await shape("r5ep", (n) => fb(n, "FBD", ["x := AND(R_EDGE(c), one);"]), TC.edgePin)
-		await shape("r5ne", (n) => fb(n, "FBD", ["MOVE_EN(EN := NOT c, 5, OUT => i);"]), TC.negatedEn)
+		await shape("r5ne", (n) => fb(n, "FBD", ["MOVE(EN := NOT c, 5, OUT => i).ENO;"]), TC.negatedEn)
 		await shape("r5nt", (n) => fb(n, "LD", ["x := NOT TRUE;"]), TC.negatedEmpty)
 	})
 
@@ -73,8 +73,8 @@ describe(`graphical / stored shapes, ld-fbd-coverage 2R.5 (${BASE})`, () => {
 	})
 
 	it("#19, #20: a wire read above its definition, and one defined below the top level", async () => {
-		await shape("r5sb", (n) => fb(n, "LD", ["%WIRES w1\nx := w1;\nw1 := a AND b;\ny := w1 AND c;"]), TC.splitBefore)
-		await shape("r5sn", (n) => fb(n, "LD", ["%WIRES w1\nx := (w1 := a AND b);\ny := w1 AND c;"]), TC.splitNested)
+		await shape("r5sb", (n) => fb(n, "LD", ["VAR_TEMP w1 : ANY; END_VAR\nx := w1;\nw1 := a AND b;\ny := w1 AND c;"]), TC.splitBefore)
+		await shape("r5sn", (n) => fb(n, "LD", ["VAR_TEMP w1 : ANY; END_VAR\nx := (w1 := a AND b);\ny := w1 AND c;"]), TC.splitNested)
 	})
 
 	it("Open c: a shorted branch of a parallel is the rail, TRUE", async () => {
@@ -82,9 +82,9 @@ describe(`graphical / stored shapes, ld-fbd-coverage 2R.5 (${BASE})`, () => {
 	})
 
 	it("#22, #23, #26: a comparison's ENO, the named ENO pin, an enabled comparison as a value", async () => {
-		await shape("r5ce", (n) => fb(n, "LD", ["lamp := GT_EN(EN := c, v, 5, OUT => x);"]), TC.comparisonEno)
-		await shape("r5ne2", (n) => fb(n, "FBD", ["MOVE_EN(EN := c, 7, ENO => lamp, OUT => i);"]), TC.namedEno)
-		await shape("r5cv", (n) => fb(n, "FBD", ["x := AND(a, GT_ENONLY(EN := c, v, 40));"]), TC.comparisonValue)
+		await shape("r5ce", (n) => fb(n, "LD", ["lamp := GT(EN := c, v, 5, OUT => x).ENO;"]), TC.comparisonEno)
+		await shape("r5ne2", (n) => fb(n, "FBD", ["MOVE(EN := c, 7, ENO => lamp, OUT => i).ENO;"]), TC.namedEno)
+		await shape("r5cv", (n) => fb(n, "FBD", ["x := AND(a, GT(EN := c, v, 40));"]), TC.comparisonValue)
 	})
 })
 

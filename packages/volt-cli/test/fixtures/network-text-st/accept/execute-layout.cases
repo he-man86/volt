@@ -2,9 +2,7 @@
 === text
 %LANGUAGE LD
 %NETWORK
-%EXECUTE
-x := 1;
-%END_EXECUTE
+EXECUTE(CODE := 'x := 1;');
 === model
 NETWORK
   (EXECUTE "x := 1;")
@@ -13,10 +11,8 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-%EXECUTE(EN := TRUE)
-iCount:=icount+1;
-
-%END_EXECUTE
+EXECUTE(EN := TRUE, CODE := 'iCount:=icount+1;
+');
 === model
 NETWORK
   (EXECUTE "iCount:=icount+1;\n" en:TRUE)
@@ -25,11 +21,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
-%EXECUTE(EN := go, ENO => w1)
-i := i + 1;
-%END_EXECUTE
-done := w1;
+done := EXECUTE(EN := go, CODE := 'i := i + 1;');
 === model
 NETWORK
   (:= done (EXECUTE "i := i + 1;" en:go conn:0))
@@ -38,11 +30,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
-%EXECUTE(EN := go, ENO => w1)
-i := i + 1;
-%END_EXECUTE
-lamp := MOVE_EN(EN := w1, 1, OUT => t);
+lamp := MOVE(EN := EXECUTE(EN := go, CODE := 'i := i + 1;'), 1, OUT => t).ENO;
 === model
 NETWORK
   (:= lamp (MOVE 1 =>1:t en:(EXECUTE "i := i + 1;" en:go conn:0) conn:0 eno:1))
@@ -51,58 +39,61 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1, w2
-%EXECUTE(EN := go, ENO => w1)
-i := 1;
-%END_EXECUTE
-x := w1 AND d;
-%EXECUTE(EN := go, ENO => w2)
-j := 1;
-%END_EXECUTE
-y := BRANCH(FEED := w2, d, e);
+x := EXECUTE(EN := go, CODE := 'i := 1;') AND d;
+y := BRANCH(FEED := EXECUTE(EN := go, CODE := 'j := 1;'), d, e);
 === model
 NETWORK
   (:= x (AND (EXECUTE "i := 1;" en:go conn:0) d))
   (:= y (par seq (EXECUTE "j := 1;" en:go conn:0) d e))
 
-#### execute-verbatim
+#### execute-through-a-wire — an Execute box read twice defines a wire, like any box
 === text
 %LANGUAGE LD
 %NETWORK
-%EXECUTE
-s := 'a$Nb'; // `x`
-%END_EXECUTE
+VAR_TEMP w1 : ANY; END_VAR
+w1 := EXECUTE(EN := go, CODE := 'i := 1;');
+x := w1;
+y := w1 AND d;
+=== model
+NETWORK
+  (split 1 (EXECUTE "i := 1;" en:go conn:0))
+  (:= x #1)
+  (:= y (AND #1 d))
+
+#### execute-verbatim — a ' in the code is $', a $ is $$, everything else as it stands
+=== text
+%LANGUAGE LD
+%NETWORK
+EXECUTE(CODE := 's := $'a$$Nb$'; // `x`');
 === model
 NETWORK
   (EXECUTE "s := 'a$Nb'; // `x`")
 
-#### execute-empty — an Execute box with no ST is one empty line
+#### execute-lines-are-its-code — a line of the code that opens with % or // is the box's ST, no line of the text
 === text
 %LANGUAGE LD
 %NETWORK
-%EXECUTE
+EXECUTE(EN := go, CODE := '// count
+%QX0.1 := TRUE;
+	n := n + 1;');
+=== model
+NETWORK
+  (EXECUTE "// count\n%QX0.1 := TRUE;\n\tn := n + 1;" en:go)
 
-%END_EXECUTE
+#### execute-empty — an Execute box with no ST is the empty string
+=== text
+%LANGUAGE LD
+%NETWORK
+EXECUTE(CODE := '');
 === model
 NETWORK
   (EXECUTE "")
-
-#### execute-end-indent
-=== text
-%LANGUAGE LD
-%NETWORK
-%EXECUTE
-x := 1;
-%END_EXECUTE
-=== model
-NETWORK
-  (EXECUTE "x := 1;")
 
 #### layout-free
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1, w2
+VAR_TEMP w1 : ANY; w2 : ANY; END_VAR
 w1 := TRUE;
 w2 := w1 AND enable AND ready AND NOT stop;
 x := f(IN1 := a, IN2 := b);

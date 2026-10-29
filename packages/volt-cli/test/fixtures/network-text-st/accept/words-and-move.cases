@@ -125,12 +125,11 @@ NETWORK
 #### word-in-pin
 === scope
 instance t1 TON
+fb TON IN PT => Q ET
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
-t1(IN := a AND b, PT := T#1S, Q => w1);
-q := w1;
+q := t1(IN := a AND b, PT := T#1S).Q;
 === model
 NETWORK
   (:= q (TON@t1 IN=(AND a b) PT=T#1S name:Q))

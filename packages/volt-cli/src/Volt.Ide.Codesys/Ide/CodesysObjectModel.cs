@@ -177,7 +177,7 @@ namespace Volt.Ide.Codesys
         /// <para>Both answers are correct for a declaration or a POU body, which is why the caller above folds
         /// them together. They are NOT the same for an Execute box's ST snippet: a box that provides a snippet
         /// has one, so "no TextDocument" there is an object-model mismatch to fail on, while an empty snippet
-        /// is an ordinary empty box that must still render as <c>EXECUTE … END_EXECUTE</c>. Folding them cost
+        /// is an ordinary empty box that must still render as its <c>EXECUTE(CODE := '')</c>. Folding them cost
         /// exactly that — see <c>CodesysNetworkReader.ReadStCode</c>.</para></summary>
         public static string? TryReadAspectText(object? iobject, string aspectName)
         {

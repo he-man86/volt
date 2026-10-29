@@ -1,25 +1,31 @@
 /**
- * THE TYPES OF A PLAIN-ST NETWORK BODY'S OWN CALLS AND WIRES (openspec network-text-st 2.3): every box is a call, and the
- * LSP knows each one as it knows LIMIT — what it hands back, from what it is given.
+ * THE TYPES OF A PLAIN-ST NETWORK BODY'S OWN CALLS, MEMBERS AND WIRES (openspec network-text-st 2.3, network-output-member):
+ * every box is a call (`network-box.ts`), and the LSP knows each one as it knows LIMIT — what it hands back, from what it is
+ * given.
  *
  *   `GT(i, 3)`, `ADD(i, j, k)`, `AND(a, b)`   the operator box: the type the same operands have in ST with the operator
- *                                             between them (`i + j + k`), so the arithmetic rules are the ST ones;
+ *                                             between them (`i + j + k`), so the arithmetic rules are the ST ones; with
+ *                                             `EN :=` first the same, EN left out;
  *   `NOT(a)`                                  the NOT box: `NOT a`'s;
- *   `X_EN(EN := e, …)`, `EXECUTE(EN := e)`    an enabled box and the Execute box: their ENO, a BOOL (`names.ts`
- *                                             `isNetworkBox`);
- *   `X_ENONLY(EN := e, …)`                    the box with EN and no ENO: the value `X(…)` has, EN and outputs left out;
+ *   `f(…)`, `f(EN := e, …)`                   a function box: the value `f(…)` has, EN left out;
+ *   `r1(CLK := a)`              an FB box with one output: that output's type (`r1.Q`);
+ *   `<box>.ENO`                               the shown ENO, a BOOL;
+ *   `<box>.OUT`, `<box>.Q`                    a function's value, a VAR_OUTPUT's or an FB output's type (`t1.Q`);
+ *   `EXECUTE(EN := e, CODE := '<ST>')`        the Execute box: its ENO, a BOOL (its `CODE` pin is no code, `plain-st.ts`);
  *   `JMP(label, value)`, `RETURN(value)`      the jump and the return in a tree: the value they hand on;
- *   a wire                                    its definition's: the expression assigned to it, or the output a call
- *                                             binds to it — an ENO a BOOL, an enabled box's `OUT` its box's value, an FB's
- *                                             output the FB's (`Symbol.wire`).
+ *   a wire                                    its definition's: the expression assigned to it.
  *
  * Only inside a network body (`Scope.network`): in ST, `GT(i, 3)` is the vendor's syntax error, and stays one.
  */
 import type { Scope, Symbol } from "../../symbols/index.js"
-import type { CallArg, CallExpr, Expr } from "../../syntax/index.js"
-import { EN_ONLY_SUFFIX, isNetworkBox, NETWORK_CONTROLS, NETWORK_ELEMENTS, networkSuffix } from "../names.js"
+import type { CallArg, CallExpr, Expr, MemberExpr, VarSection } from "../../syntax/index.js"
+import { resolveTypeExpr } from "../resolve.js"
+import { resolveCallee } from "./callee.js"
+import { isNetworkBox, NETWORK_CONTROLS } from "../names.js"
 import { elementaryRef, UNKNOWN, type Type } from "../type.js"
+import { stCallReturnType } from "./builtin-call.js"
 import { inferExprType } from "./expr.js"
+import { boxMember, dataOutputs, networkBox, VALUE, type NetworkBox } from "./network-box.js"
 
 /** The ST operator each operator box is, by its box type. */
 const OPERATOR_OF: Readonly<Record<string, string>> = {
@@ -27,35 +33,49 @@ const OPERATOR_OF: Readonly<Record<string, string>> = {
   GT: ">", GE: ">=", LT: "<", LE: "<=", EQ: "=", NE: "<>",
 }
 
-function inNetwork(scope: Scope): boolean {
-  for (let s: Scope | undefined = scope; s !== undefined; s = s.parent) if (s.network === true) return true
-  return false
-}
-
 /** A network box call's result type, or undefined where the call is no network box (or not in a network body). */
 export function networkCallType(call: CallExpr, scope: Scope, project: Scope): Type | undefined {
-  if (call.callee.kind !== "ident_expr" || !inNetwork(scope)) return undefined
-  const name = call.callee.name
-  if (NETWORK_CONTROLS.has(name.toUpperCase())) {
+  const name = call.callee.kind === "ident_expr" ? call.callee.name : undefined
+  if (name !== undefined && NETWORK_CONTROLS.has(name.toUpperCase()) && isNetworkBox(scope, name)) {
     const value = call.args.at(-1)?.value
     return value === undefined ? UNKNOWN : inferExprType(value, scope, project)
   }
-  if (isNetworkBox(scope, name)) return networkSuffix(name) === EN_ONLY_SUFFIX ? baseValue(call, name, scope, project) : elementaryRef("BOOL")
-  const values = positional(call.args)
-  if (values === undefined) return undefined
-  const upper = name.toUpperCase()
-  if (upper === "NOT" && values.length === 1) return inferExprType({ kind: "unary", op: "NOT", operand: values[0]!, span: call.span }, scope, project)
-  const op = OPERATOR_OF[upper]
-  if (op === undefined || values.length < 2) return undefined
-  return inferExprType(chain(op, values, call), scope, project)
+  if (name !== undefined && isNetworkBox(scope, name)) return elementaryRef("BOOL")
+  const box = networkBox(call, scope, project)
+  return box === undefined ? undefined : boxValue(box, scope, project)
 }
 
-/** The value `X_ENONLY(EN := e, pins…)` hands back: `X(pins…)`'s, EN and the outputs left out — an operator box's as
- *  `networkCallType` types it. */
-function baseValue(call: CallExpr, name: string, scope: Scope, project: Scope): Type {
-  const callee: Expr = { kind: "ident_expr", name: name.slice(0, -EN_ONLY_SUFFIX.length), span: call.callee.span }
-  const args = call.args.filter((a) => !a.output && a.param?.name.toUpperCase() !== "EN")
-  return inferExprType({ kind: "call", callee, args, span: call.span }, scope, project)
+/** What a box hands on read by its value: an FB's one output, an operator's or a function's value. */
+function boxValue(box: NetworkBox, scope: Scope, project: Scope): Type {
+  if (box.instance !== undefined) {
+    const outputs = box.signature?.outputs
+    return outputs?.length === 1 ? memberOf(box.instance, outputs[0]!, box.call, scope, project) : UNKNOWN
+  }
+  const upper = box.call.callee.kind === "ident_expr" ? box.call.callee.name.toUpperCase() : undefined
+  const values = upper !== undefined && (upper === "NOT" || OPERATOR_OF[upper] !== undefined) ? positional(box.pins) : undefined
+  if (values !== undefined && upper === "NOT" && values.length === 1)
+    return inferExprType({ kind: "unary", op: "NOT", operand: values[0]!, span: box.call.span }, scope, project)
+  if (values !== undefined && upper !== "NOT" && values.length >= 2) return inferExprType(chain(OPERATOR_OF[upper!]!, values, box.call), scope, project)
+  if (values !== undefined) return UNKNOWN
+  return stCallReturnType({ ...box.st, args: box.pins.filter((a) => !a.output) }, scope, project)
+}
+
+/** The type of `<box>.NAME`: the shown ENO a BOOL, a function's value `OUT` its value, any other output its declared type;
+ *  undefined where `e` closes no box's call. */
+export function networkMemberType(e: MemberExpr, scope: Scope, project: Scope): Type | undefined {
+  const m = boxMember(e, scope, project)
+  if (m === undefined) return undefined
+  if (m.eno) return elementaryRef("BOOL")
+  const { box, name } = m
+  if (box.instance !== undefined) return memberOf(box.instance, name, box.call, scope, project)
+  if (name.toUpperCase() === VALUE && (box.signature === undefined || dataOutputs(box.signature).length > 0)) return boxValue(box, scope, project)
+  // a function's VAR_OUTPUT: its declared type
+  const callee = resolveCallee(box.st, scope, project)
+  const decl = ((callee?.sym.ast as { varSections?: readonly VarSection[] } | undefined)?.varSections ?? [])
+    .filter((s) => s.sectionKind === "VAR_OUTPUT")
+    .flatMap((s) => s.decls)
+    .find((d) => d.names.some((n) => n.text.toLowerCase() === name.toLowerCase()))
+  return decl === undefined || callee === undefined ? UNKNOWN : resolveTypeExpr(decl.type, project, 0, project, callee.sym.uri)
 }
 
 /** A call's arguments when every one is positional (the operator boxes' form), else undefined. */
@@ -77,30 +97,11 @@ export function wireType(sym: Symbol, project: Scope): Type {
   if (def === undefined || def.kind === "none" || typing.has(sym)) return UNKNOWN
   typing.add(sym)
   try {
-    if (def.kind === "value") return inferExprType(def.expr, sym.owner, project)
-    return outputType(def.call, def.param, sym.owner, project)
+    // an output bound to the wire has no type: a box's output reaches no wire (`_plain-st-wires.ts` refuses it)
+    return def.kind === "value" ? inferExprType(def.expr, sym.owner, project) : UNKNOWN
   } finally {
     typing.delete(sym)
   }
-}
-
-/** The type of the output `param` of `call`: an ENO a BOOL; an enabled box's `OUT` the value its box computes; any other
- *  output the callee's own (an FB instance's `t1.Q`). */
-function outputType(call: CallExpr, param: string, scope: Scope, project: Scope): Type {
-  const upper = param.toUpperCase()
-  if (upper === "ENO") return elementaryRef("BOOL")
-  const callee = call.callee.kind === "ident_expr" ? call.callee.name.toUpperCase() : ""
-  if (call.callee.kind === "ident_expr" && isNetworkBox(scope, call.callee.name) && callee !== "EXECUTE" && !NETWORK_ELEMENTS.has(callee)) {
-    const suffix = networkSuffix(callee)!
-    const base: Expr = { kind: "ident_expr", name: call.callee.name.slice(0, -suffix.length), span: call.callee.span }
-    const baseType = inferExprType(base, scope, project)
-    // an enabled FB's output by name is the FB's own, `OUT` included where the FB declares one
-    if (baseType.kind === "function_block") return memberOf(base, param, call, scope, project)
-    if (upper !== "OUT") return UNKNOWN
-    const args = call.args.filter((a) => !a.output && a.param?.name.toUpperCase() !== "EN")
-    return inferExprType({ kind: "call", callee: base, args, span: call.span }, scope, project)
-  }
-  return memberOf(call.callee, param, call, scope, project)
 }
 
 function memberOf(base: Expr, param: string, call: CallExpr, scope: Scope, project: Scope): Type {

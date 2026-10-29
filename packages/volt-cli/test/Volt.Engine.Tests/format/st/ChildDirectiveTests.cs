@@ -33,7 +33,7 @@ public class ChildDirectiveTests
             Body: "",
             Members: new List<Member>
             {
-                Child("action", "BF01", "ACTION BF01", "%LANGUAGE FBD\n%NETWORK\n%WIRES w1\nw1 := a;\nout := w1;", "MFB01_Basic Functions"),
+                Child("action", "BF01", "ACTION BF01", "%LANGUAGE FBD\n%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := a;\nout := w1;", "MFB01_Basic Functions"),
                 Child("action", "TA01", "ACTION TA01", "x := 1;", "Sub/Deep"),
             }, ObjectProperties.None);
 
@@ -52,7 +52,7 @@ public class ChildDirectiveTests
             "%LANGUAGE FBD",   // the graphical body's own marker, in the bare one's place
             "%FOLDER MFB01_Basic Functions",
             "%NETWORK",
-            "%WIRES w1",
+            "VAR_TEMP w1 : ANY; END_VAR",
             "w1 := a;",
             "out := w1;",
             "END_ACTION",
@@ -74,7 +74,7 @@ public class ChildDirectiveTests
 
         var bf = split.Members.First(ch => ch.Name == "BF01");
         Assert.Equal("MFB01_Basic Functions", bf.Folder);
-        Assert.Equal("%LANGUAGE FBD\n%NETWORK\n%WIRES w1\nw1 := a;\nout := w1;", bf.Body);   // %FOLDER peeled off, the marker back in front
+        Assert.Equal("%LANGUAGE FBD\n%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := a;\nout := w1;", bf.Body);   // %FOLDER peeled off, the marker back in front
         Assert.True(NetworkText.Is(bf.Body));
 
         var ta = split.Members.First(ch => ch.Name == "TA01");
@@ -89,14 +89,14 @@ public class ChildDirectiveTests
         // A graphical body's lines are the body's: the decl/impl split is the language line, so nothing of the
         // network text reaches the POU declaration.
         var st = "PROGRAM POU\nVAR\n  out1 : BOOL;\n  R_TRIG_0 : R_TRIG;\nEND_VAR\n\n" +
-                 "%LANGUAGE FBD\n%NETWORK\n%WIRES w1\n" +
+                 "%LANGUAGE FBD\n%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\n" +
                  "w1 := AND(a, a);\nout1 := w1;\n\nEND_PROGRAM\n";
         var s = StReader.Read(st, ItemKind.Kinds.Pou);
         Assert.Contains("PROGRAM POU", s.Declaration);
         Assert.Contains("out1 : BOOL;", s.Declaration);
         Assert.DoesNotContain("NETWORK", s.Declaration);
         Assert.DoesNotContain("WIRES", s.Declaration);
-        Assert.StartsWith("%LANGUAGE FBD\n%NETWORK\n%WIRES w1", s.Body);
+        Assert.StartsWith("%LANGUAGE FBD\n%NETWORK\nVAR_TEMP w1 : ANY; END_VAR", s.Body);
         Assert.Contains("w1 := AND(a, a);", s.Body);
     }
 

@@ -1,7 +1,7 @@
 /**
  * THE SCOPE OF A PLAIN-ST NETWORK BODY (openspec network-text-st 2.3; `syntax/network/plain-st.ts`): the unit's scope,
- * with the body's WIRES declared over it — each name on a `%WIRES` line, declared by nobody else, its definition recorded
- * for the type engine (`Symbol.wire`) — and marked as a network's (`Scope.network`), where the network's own box names
+ * with the body's WIRES declared over it — each name its network's `VAR_TEMP … : ANY` line declares, declared by nobody
+ * else, its definition recorded for the type engine (`Symbol.wire`) — and marked as a network's (`Scope.network`), where the network's own box names
  * mean something (`types/names.ts`).
  *
  * The writer names wires across the body (`w1`, `w2`, … one name one wire, design.md 1.4), so the body has one scope;

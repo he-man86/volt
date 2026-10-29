@@ -41,7 +41,7 @@ export const SEMANTIC_TOKEN_TYPES = [
   "comment",
   "macro",
   "namespace",
-  // A network-text wire — a name on a `%WIRES` line. Its own class so an editor can tell it from a variable the POU
+  // A network-text wire — a name a network's `VAR_TEMP` line declares. Its own class so an editor can tell it from a variable the POU
   // declares; volt-vscode declares it with `variable` as its super type, so a theme that knows nothing of it still
   // paints it as a variable. LAST, so every other type keeps its index.
   "wire",
@@ -142,7 +142,7 @@ function classify(tok: Token, doc: Document, project: Scope): TokenType | undefi
 
 /**
  * Where the words of every body's `%LANGUAGE <LANG>` line start — `%`, `LANGUAGE`, the language, `UNSUPPORTED` — and
- * the `%` and key of each `%` line of a network body (`%NETWORK`, `%WIRES`, …). They are syntax of a Volt file, not ST:
+ * the `%` and key of each `%` line of a network body (`%NETWORK`, `%DISABLED`, …). They are syntax of a Volt file, not ST:
  * the lexer hands them back as identifiers, and a lookup would paint them as variables. Read off the parse, so only a
  * line the reader took is coloured — never a look-alike in a comment, or a variable someone named `ST`.
  */

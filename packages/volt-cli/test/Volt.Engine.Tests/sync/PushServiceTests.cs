@@ -427,7 +427,7 @@ public class PushServiceTests
     }
 
     /// <summary>The pre-flight reads a graphical body against the scope the DRIVER builds from the project (task 3.9,
-    /// <c>NetworkScopeFor</c>): a wire is a name on its network's <c>%WIRES</c> line that nothing in reach declares
+    /// <c>NetworkScopeFor</c>): a wire is a name its network declares <c>VAR_TEMP … : ANY</c> that nothing in reach declares
     /// (openspec network-text-st 1.4), so a wire <c>w1</c> in a POU of a project whose GVL declares <c>W1</c> is refused by
     /// name, and the same body without the global is written.</summary>
     [Theory]
@@ -449,7 +449,7 @@ public class PushServiceTests
             Name = "PLC_PRG.pou",
             IfVersion = v,
             SourceText = "PROGRAM PLC_PRG\nVAR\n  out : BOOL;\nEND_VAR\n%LANGUAGE LD\n" +
-                         "%NETWORK\n%WIRES w1\nw1 := TRUE;\nout := w1;\n\nEND_PROGRAM\n",
+                         "%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := TRUE;\nout := w1;\n\nEND_PROGRAM\n",
         });
 
         if (!withGlobal)

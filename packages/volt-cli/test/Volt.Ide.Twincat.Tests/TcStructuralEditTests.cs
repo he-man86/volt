@@ -63,7 +63,7 @@ public class TcStructuralEditTests
     /// importer and was reshaped by v2, N22; a box's result pin, which the importer lowered to a separate assignment, C20)
     /// are built natively and pull back as pushed.</summary>
     [Theory]
-    [InlineData("%WIRES w1", "w1 := TRUE;", "xoutput := w1;", "xoutput2 := w1;")]
+    [InlineData("VAR_TEMP w1 : ANY; END_VAR", "w1 := TRUE;", "xoutput := w1;", "xoutput2 := w1;")]
     [InlineData("MOVE(xtest, OUT => n);")]
     public void A_shape_the_import_refused_is_rebuilt_natively(params string[] statements)
     {
@@ -297,10 +297,10 @@ public class TcStructuralEditTests
         var box = pulled.Networks.SelectMany(n => n.Trees).OfType<Box>().Single(b => b.Type == "TON");
         Assert.IsType<Terminator>(box.Enable);
 
-        // An enabled box with no ENO at the root is `X_ENONLY` (design.md "3.0", owner 2026-10-28), its unwired enable the
-        // rail, TRUE; pushed back unchanged it is kept.
+        // An enabled box with no ENO at the root is its call with `EN :=` and no member (network-output-member), its unwired
+        // enable the rail, TRUE; pushed back unchanged it is kept.
         var text = StNetworkWriter.WritePulled(pulled, scope);
-        Assert.Contains("\nt1_ENONLY(EN := TRUE, PT := TRUE);\n", text);
+        Assert.Contains("\nt1(EN := TRUE, PT := TRUE);\n", text);
         Assert.Null(TcNetworkWriter.Apply(xml, NetworkText.Validate(text, scope), scope));
     }
 
@@ -313,7 +313,7 @@ public class TcStructuralEditTests
     [Fact]
     public void A_wire_read_inside_its_consumers_is_one_rung_and_reaches_the_importer()
     {
-        var pushed = Pushed("%WIRES w1", "w1 := xtest AND xtest2;", "xoutput := w1 OR c;", "xoutput2 := w1 AND c;");
+        var pushed = Pushed("VAR_TEMP w1 : ANY; END_VAR", "w1 := xtest AND xtest2;", "xoutput := w1 OR c;", "xoutput2 := w1 AND c;");
 
         var reached = Assert.Throws<Xunit.Sdk.XunitException>(() => TcNetworkWriter.Apply(Ladder(), pushed, Scope, NeverImported));
         Assert.Contains("importer was reached", reached.Message);
@@ -373,7 +373,7 @@ public class TcStructuralEditTests
     public void ENO_on_a_box_the_import_gives_no_ENO_output_is_refused_naming_it()
     {
         var ex = Assert.ThrowsAny<NotSupportedException>(() =>
-            TcNetworkWriter.Apply(Ladder(), Pushed("xoutput := AND_EN(EN := c, xtest, xtest2, OUT => xstore);"), Scope, ImportedAs("AND")));
+            TcNetworkWriter.Apply(Ladder(), Pushed("xoutput := AND(EN := c, xtest, xtest2, OUT => xstore).ENO;"), Scope, ImportedAs("AND")));
 
         Assert.Contains("'AND'", ex.Message);
         Assert.Contains("through ENO", ex.Message);

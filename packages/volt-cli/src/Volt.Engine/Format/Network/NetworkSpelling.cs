@@ -72,6 +72,31 @@ internal static class NetworkSpelling
     /// <c>.name</c>): none on a bit operator (census 1.6; a stored one is lost on rebuild, B7), slot 0 on every other.</summary>
     public static int? MainSlotOfCall(string type) => BitOperators.Contains(type) ? null : 0;
 
+    /// <summary>The pins an IEC operator box has (<see cref="IsIecOperator"/>): one value, no input or output of its own named
+    /// EN or ENO.</summary>
+    private static readonly CalleeSignature OperatorSignature = new(CalleeShape.Function, Array.Empty<string>(), Array.Empty<string>());
+
+    /// <summary>THE PINS THE CALLEE OF <paramref name="b"/> DECLARES (openspec network-output-member): an operator's own, an
+    /// FB's its block type's, any other call's its callee's (<see cref="NetworkScope.Signature"/>) — or null where no
+    /// declaration in reach states them, and for the Execute box, whose pins are the text's own (<c>EN</c>, <c>CODE</c>).</summary>
+    public static CalleeSignature? SignatureOf(Box b, NetworkScope scope) =>
+        b.StCode is not null ? null : SignatureOf(b.Type, b.Instance is not null, scope);
+
+    /// <summary>Whether a box type is an IEC operator the compiler provides — the keyword boxes, MOVE and NOT, and every
+    /// other one (LIMIT, SEL, the shifts, the conversions, …, <see cref="NetworkMembers.IsOperatorType"/>): a name no
+    /// declaration makes, whose pins are the operator's (as the LSP reads every builtin, <c>network-box.ts</c>).</summary>
+    private static bool IsIecOperator(string type) => IsOperatorBox(type) || NetworkMembers.IsOperatorType(type);
+
+    /// <summary>The pins a box of <paramref name="type"/> declares, an FB's (<paramref name="block"/>) or a call's.</summary>
+    public static CalleeSignature? SignatureOf(string type, bool block, NetworkScope scope)
+    {
+        if (!block && IsOperatorBox(type)) return OperatorSignature;
+        var signature = scope.Signature(type);
+        // Any other IEC operator: where no declaration in reach names it (a POU named as a conversion is its own).
+        if (signature is null) return !block && IsIecOperator(type) ? OperatorSignature : null;
+        return block == (signature.Shape == CalleeShape.Block) ? signature : null;
+    }
+
     /// <summary>Whether a consumer of <paramref name="b"/> is connected to its ENO.</summary>
     public static bool ConnectedByEno(Box b) => b.HasEnoOutput && b.ConnectedSlot == 0;
 
@@ -141,6 +166,48 @@ internal static class NetworkSpelling
                 return null;
             }
             sb.Append(v);
+            i++;
+        }
+        return sb.ToString();
+    }
+
+    // ── the Execute box's ST: a string with its line breaks as they stand ──────────────────────────────────────────────
+
+    /// <summary>The Execute box's ST as its <c>CODE := '…'</c> string (openspec network-output-member 2.6): a <c>'</c> is
+    /// <c>$'</c>, a <c>$</c> is <c>$$</c>, and everything else — a line break, a tab — stands as it is, so the code reads as
+    /// the engineer wrote it.</summary>
+    public static string EscapeCode(string st)
+    {
+        var sb = new StringBuilder(st.Length);
+        foreach (var c in st)
+        {
+            if (c == '$') sb.Append("$$");
+            else if (c == '\'') sb.Append("$'");
+            else sb.Append(c);
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>The inverse of <see cref="EscapeCode"/>: <c>$'</c> and <c>$$</c>, the only escapes of the code. Null and
+    /// <paramref name="error"/> for any other <c>$</c>: one spelling per code, so a <c>$N</c> is refused, not read as a line
+    /// break the text writes as it stands.</summary>
+    public static string? UnescapeCode(string text, out string? error)
+    {
+        error = null;
+        var sb = new StringBuilder(text.Length);
+        for (var i = 0; i < text.Length; i++)
+        {
+            var c = text[i];
+            if (c != '$') { sb.Append(c); continue; }
+            var e = i + 1 < text.Length ? text[i + 1] : '\0';
+            if (e != '$' && e != '\'')
+            {
+                error = e == '\0'
+                    ? "a `$` at the end of the Execute box's CODE: a `$` is written `$$`"
+                    : $"the escape '${e}' in the Execute box's CODE: its code spells a ' as $' and a $ as $$, and everything else as it stands";
+                return null;
+            }
+            sb.Append(e);
             i++;
         }
         return sb.ToString();

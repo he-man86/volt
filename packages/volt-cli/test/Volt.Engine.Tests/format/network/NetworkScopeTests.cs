@@ -77,8 +77,9 @@ public class NetworkScopeTests
         var text = StNetworkWriter.Write(Body(Net(Def(4, Op("AND", L("TRUE"), L("a"))), Set(Ref(4), T("out")), Set(Ref(4), T("x")))), scope);
         var r = Gate(text, scope);
         Assert.True(r.Ok, string.Join("\n", r.Diagnostics.Select(d => d.Code + " " + d.Message)));
-        foreach (var w in text.Split('\n').Single(l => l.StartsWith("%WIRES ", StringComparison.Ordinal)).Substring(7).Split(','))
-            Assert.False(scope.Contains(w.Trim()), $"the wire {w} is a name in scope");
+        var declared = text.Split('\n').Single(l => l.StartsWith("VAR_TEMP ", StringComparison.Ordinal));
+        foreach (var w in declared.Substring(9, declared.Length - 9 - " END_VAR".Length).Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
+            Assert.False(scope.Contains(w.Replace(": ANY", "").Trim()), $"the wire {w} is a name in scope");
     }
 
     /// <summary>A <c>g&lt;n&gt;</c> or <c>split&lt;n&gt;</c> name is no word of the text: a global of that name is the
@@ -94,13 +95,14 @@ public class NetworkScopeTests
 
     // ── FB instances, from the declarations ─────────────────────────────────────────────────────
 
-    /// <summary>The call head's FB type comes from the declaration that makes the instance: the owner's member in a
-    /// method, a GVL's bare global, and a qualified path through a GVL and a struct.</summary>
+    /// <summary>An FB box is the call of its type, its instance the first pin (network-output-member): the instance the
+    /// declaration makes — the owner's member in a method, a GVL's bare global, a qualified path through a GVL and a struct —
+    /// of the type the declaration gives it.</summary>
     [Theory]
     [InlineData("t1(IN := a);", "t1", "TON")]
     [InlineData("fbGlobal(IN := a);", "fbGlobal", "TOF")]
     [InlineData("Machine.timers.offDelay(IN := a);", "Machine.timers.offDelay", "TOF")]
-    public void An_FB_instance_takes_its_type_from_its_declaration(string statement, string instance, string type)
+    public void An_FB_box_is_the_call_of_its_declared_instances_type(string statement, string instance, string type)
     {
         var r = Gate(Src(statement), InMethod);
 
@@ -182,9 +184,9 @@ public class NetworkScopeTests
         Assert.Equal(("t2", "Standard.TON"), (box.Instance!.Text, box.Type));
     }
 
-    /// <summary>…and a pulled box of that instance is written with the type the vendor stores, bare (<c>TON</c>) or as
-    /// declared: a declaration naming a type through its namespace names the type the box calls, so the two are one type
-    /// and no refusal (<c>StDeclaration.SameType</c>).</summary>
+    /// <summary>…and a pulled box of that instance, its type stored bare (<c>TON</c>) or as declared, is the call of its
+    /// instance: a declaration naming a type through its namespace names the type the box calls, so the two are one type
+    /// and no refusal (<c>StDeclaration.SameType</c>); the type reads back as declared (a stored member).</summary>
     [Theory]
     [InlineData("TON", Derived)]
     [InlineData("Standard.TON", Derived)]
@@ -250,7 +252,7 @@ public class NetworkScopeTests
         Assert.Equal(("tBase", "TON", CallKind.FunctionBlock), (box.Instance!.Text, box.Type, box.Kind));
     }
 
-    /// <summary>…and the pull writes it as a call of the instance, not of its type (the unnamed instance's spelling).</summary>
+    /// <summary>…and the pull writes it as the call of its type with that instance.</summary>
     [Theory]
     [MemberData(nameof(InheritingBodies))]
     public void A_pulled_call_of_an_inherited_instance_is_written(string where) =>

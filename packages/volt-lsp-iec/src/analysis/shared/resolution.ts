@@ -16,7 +16,7 @@
  */
 import { compilerTypeText, walkExpr, type CallExpr, type Expr, type Identifier, type MemberExpr, type Span, type TypeExpr } from "../../frontend/syntax/index.js"
 import { gvlBlockOf, hasUnresolvedBase, isLibrarySymbol, lookupLocal, lookupMember, resolveGvlMember, rootOf, type Scope, type Symbol } from "../../frontend/symbols/index.js"
-import { ANY_FAMILIES, builtinName, GENERIC_PARAMETER_TYPES, inferExprType, isDialectType, isSfcStepBase, resolveBareName, sfcStepTypeScope } from "../../frontend/types/index.js"
+import { ANY_FAMILIES, boxMember, builtinName, GENERIC_PARAMETER_TYPES, inferExprType, isDialectType, isSfcStepBase, resolveBareName, sfcStepTypeScope } from "../../frontend/types/index.js"
 
 
 interface BareRef {
@@ -152,6 +152,8 @@ export function unresolvedMembers(exprs: Iterable<Expr>, scope: Scope, project: 
   for (const e of exprs) {
     walkExpr(e, (x) => {
       if (x.kind !== "member" || steps.has(x)) return
+      // the member closing a network box's call (`<box>.ENO`, `<box>.Q`): the network check's to judge (`types` `infer/network-box.ts`)
+      if (boxMember(x, scope, project) !== undefined) return
       if (isSfcStepBase(x, scope, project)) {
         steps.add(x.base)
         if (lookupMember(sfcStepTypeScope(), x.member.name) === undefined) out.push({ member: x.member.name, typeName: "SFCStepType", span: x.member.span })

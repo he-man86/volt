@@ -215,7 +215,7 @@ public class WireVocabularyTests
         new("a body shape network text has no spelling for", "draw it in the IDE", "NETWORK_UNSUPPORTED", At(
             ("Volt.Engine/Format/Network/StNetworkGate.cs", 1),   // network-text-st 3.1: a pushed model the plain-ST writer cannot spell
             ("Volt.Engine/Format/Network/NetworkText.cs", 1),
-            ("Volt.Engine/Format/Network/NetworkPairing.cs", 3),   // a pushed UNSUPPORTED line no live network pairs with (1b.4); +2 a removal that would erase what the text does not show — beside an insertion, or beside a network showing the same text (gate 1b-4)
+            ("Volt.Engine/Format/Network/NetworkPairing.cs", 5),   // a pushed UNSUPPORTED line no live network pairs with (1b.4); +2 a removal that would erase what the text does not show — beside an insertion, or beside a network showing the same text (gate 1b-4); +2 a box the push cannot build: its callee no declaration in reach states, a function read through a VAR_OUTPUT (network-output-member)
             // A shape the native builder has no TwinCAT form for (PARALLEL, a pin flag, an enabled bit operator,
             // a consumed call with no slot for its consumer) — it replaced the PLCopen import's refusals (twincat-inproc-host).
             ("Volt.Ide.Twincat/Ide/TcArchiveBuilder.cs", 1),

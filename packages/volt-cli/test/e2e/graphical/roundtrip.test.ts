@@ -48,12 +48,7 @@ END_PROGRAM
 
 // LD featureset variations (mirror the C# LadderRoundTripTests at the live-bridge layer): a normally-closed
 // (negated) contact, a longer series, multiple coils in one network, and a SET coil.
-// A negated contact sits INLINE. This used to read `LET i1 := NOT a; out := (i1 AND b);`, which the writer
-// hoisted because it tested the RENDERED text ("NOT a" has a space) instead of the operand's own text. Per
-// network-text.html#opaque, an `i*` name is minted for an OPAQUE LEAF - "arbitrary inlined ST text" - and `a` is a
-// plain identifier carrying a modifier, so no name was ever due. The spec also says a single-use LET is a
-// textual convenience substituted back on read, so both spellings always meant the same tree; only one of them
-// is what the writer emits, and now it is the one the spec describes.
+// A negated contact sits inline, `NOT a`, an operand carrying its modifier (network-text.html#elements).
 function ldNegated(name: string) {
 	return `PROGRAM ${name}
 VAR
@@ -113,9 +108,8 @@ END_PROGRAM
 `
 }
 
-// An FBD program with a CODESYS Execute box — the standard "ST inside FBD/LD" element. EN-guarded (`%EXECUTE(EN := bRun)`),
-// holding real multi-statement, commented ST, carried verbatim between `%EXECUTE` and `%END_EXECUTE`: a re-push is
-// byte-identical.
+// An FBD program with a CODESYS Execute box — the standard "ST inside FBD/LD" element. EN-guarded (`EXECUTE(EN := bRun, …)`),
+// holding real multi-statement, commented ST, carried verbatim in its `CODE := '…'` string: a re-push is byte-identical.
 function executeProgram(name: string) {
 	return `PROGRAM ${name}
 VAR
@@ -124,18 +118,15 @@ VAR
 END_VAR
 %LANGUAGE FBD
 %NETWORK
-%EXECUTE(EN := bRun)
-  IF bRun THEN
+EXECUTE(EN := bRun, CODE := '  IF bRun THEN
 \tiResult := 40 + 2;   (* the answer *)
-  END_IF
-%END_EXECUTE
+  END_IF');
 
 END_PROGRAM
 `
 }
 
-// (The blank line between %EXECUTE and %END_EXECUTE is the canonical form for an empty box: the writer emits one line for
-// the empty ST.)
+// (`CODE := ''` is the empty box: the empty string.)
 // The same box with NO ST in it — an Execute box the engineer blanked, which is a shape a real project holds
 // and Volt's own reader used to lose. `ReadStCode` trailed with `is { Length: > 0 } ? t : null`, so an empty
 // snippet read back as StCode == null, the writer skipped its EXECUTE arm, and the box came back as
@@ -148,9 +139,7 @@ VAR
 END_VAR
 %LANGUAGE FBD
 %NETWORK
-%EXECUTE(EN := bRun)
-
-%END_EXECUTE
+EXECUTE(EN := bRun, CODE := '');
 
 END_PROGRAM
 `
@@ -239,8 +228,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		expect(after).toBeDefined()
 		expect(after.sourceText).toContain("%LANGUAGE FBD")   // stayed FBD, not flattened to ST
 		// The Execute box materialized as a real CODESYS Execute box and read back with its inline ST intact.
-		expect(after.sourceText).toContain("EXECUTE")
-		expect(after.sourceText).toContain("END_EXECUTE")
+		expect(after.sourceText).toContain("EXECUTE(EN := bRun, CODE := '")
 		expect(after.sourceText).toContain("iResult := 40 + 2")               // the box's ST survived verbatim…
 		expect(after.sourceText).toContain("the answer")                      // …comments and all
 		expectNoOperandsLost(executeProgram(name), after.sourceText)
@@ -269,7 +257,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 
 		const after = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name === fullName)
 		expect(after).toBeDefined()
-		expect(after.sourceText).toContain("END_EXECUTE")          // …and NOT the `EXECUTE();` call form
+		expect(after.sourceText).toContain("CODE := '')")          // …and NOT the `EXECUTE();` call form
 		expect(after.sourceText).not.toContain("EXECUTE()")
 
 		// A fixed point, which is the half the bug actually broke: the pulled text pushes back unchanged.

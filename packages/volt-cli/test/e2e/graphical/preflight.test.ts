@@ -48,11 +48,11 @@ describe(`graphical / the push pre-flight (${BASE})`, () => {
 
 	/**
 	 * …and one the push's reader refuses from the text alone, on both vendors: an enabled box whose call does not take its
-	 * `EN :=` first (`x := MOVE_EN(1);`) — refused by name, `NETWORK_PARSE`.
+	 * `EN :=` first (`x := MOVE(1, EN := a);`) — refused by name, `NETWORK_PARSE`.
 	 */
 	const broken = (name: string) =>
 		["PROGRAM " + name, "VAR", "\ta : BOOL;", "\tx : BOOL;", "END_VAR",
-		 "%LANGUAGE FBD", "%NETWORK", "x := MOVE_EN(1);", "", "END_PROGRAM", ""].join(NL)
+		 "%LANGUAGE FBD", "%NETWORK", "x := MOVE(1, EN := a);", "", "END_PROGRAM", ""].join(NL)
 
 	it("a create refused from its text leaves the item before it unwritten", async () => {
 		const firstName = id("pf_ok")
@@ -69,7 +69,7 @@ describe(`graphical / the push pre-flight (${BASE})`, () => {
 		])
 
 		expect(landed(r), "the refused text was ACCEPTED — update this test").toBe(false)
-		expect(JSON.stringify(r.conflicts ?? []), "the refusal does not name the rule").toMatch(/takes EN := as its first argument/)
+		expect(JSON.stringify(r.conflicts ?? []), "the refusal does not name the rule").toMatch(/EN := stands first in the call/)
 
 		// THE ASSERTION. Not "the push failed" — that was already true while half of it landed.
 		const after = (await bridge.refs()).items ?? {}

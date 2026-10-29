@@ -1,6 +1,7 @@
 /**
  * Plain-ST network text's front-end (`plain-st.ts`): which body is in the form, its networks and `%` lines, and the token
- * stream the ST statement parser reads — a `%` line trivia, an Execute box the call `EXECUTE(…)`, an operator box word
+ * stream the ST statement parser reads — a `%` line trivia, an Execute box the call `EXECUTE(EN := …)` with its ST's
+ * statements after its statement, an operator box word
  * heading a call where an operand starts, and a `%DISABLED` network's code out of the compiled stream.
  */
 import { expect, test } from "bun:test"
@@ -15,18 +16,28 @@ const body = (text: string): BodySpan => {
 }
 const code = (tokens: readonly Token[]) => tokens.filter((t) => !isTrivia(t.kind)).map((t) => (t.kind === "keyword" ? t.text.toUpperCase() + "!" : t.text)).join(" ")
 
-test("networks and their % lines: the title, %DISABLED, %WIRES, an Execute box from its line to %END_EXECUTE", () => {
-  const t = plainStText(body("%NETWORK \"one\"\n%DISABLED\n%WIRES w1, w2\nx := a;\n%NETWORK\n%EXECUTE(EN := c)\nn := 1;\n%END_EXECUTE\n"))
+test("networks and their % lines: the title, %DISABLED, the wires, an Execute box from EXECUTE to its ), its ST the string's content", () => {
+  const src = "%NETWORK \"one\"\n%DISABLED\nVAR_TEMP w1 : ANY; w2 : ANY; END_VAR\nx := a;\n%NETWORK\nEXECUTE(EN := c, CODE := 'n := 1;\n%QX0.1 := $'a$$$';');\n"
+  const t = plainStText(body(src))
   expect(t.networks.map((n) => [n.header.args.map((a) => a.text).join(""), n.disabled, n.wires.map((w) => w.name), n.executes.length])).toEqual([
     ['"one"', true, ["w1", "w2"], 0],
     ["", false, [], 1],
   ])
+  const x = t.networks[1]!.executes[0]!
+  expect([src.slice(x.call.start, x.call.end).startsWith("EXECUTE(") && src.slice(x.call.start, x.call.end).endsWith("')"), src.slice(x.code.start, x.code.end), x.st])
+    .toEqual([true, "n := 1;\n%QX0.1 := $'a$$$';", "n := 1;\n%QX0.1 := 'a$';"])
   expect(t.stray).toEqual([])
 })
 
-test("the statement tokens: % lines are trivia, an Execute box is the call EXECUTE(…) with a `;` of no width", () => {
-  const t = plainStText(body("%NETWORK\n%WIRES w1\n%EXECUTE(EN := c)\nn := 1;\n%END_EXECUTE\n"))
-  expect(code(t.sourceTokens)).toBe("EXECUTE ( EN := c ) ; n := 1 ;")
+test("the statement tokens: % lines are trivia, an Execute box is the call EXECUTE(EN := …), its ST after its statement", () => {
+  const src = "%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nx := EXECUTE(EN := c, CODE := 'n := $'a$';\n  m := 2;') AND d;\ny := b;\n"
+  const t = plainStText(body(src))
+  expect(code(t.sourceTokens)).toBe("x := EXECUTE ( EN := c ) AND! d ; n := 'a' ; m := 2 ; y := b ;")
+  // each token of the ST where it stands in the string, through the escapes
+  const m = t.sourceTokens.find((k) => k.text === "m")!
+  expect([src.slice(m.span.start, m.span.end), m.span.startLine, m.span.startCol]).toEqual(["m", 4, 2])
+  const lit = t.sourceTokens.find((k) => k.text === "'a'")!
+  expect(src.slice(lit.span.start, lit.span.end)).toBe("$'a$'")
 })
 
 test("an operator box word heading a call where an operand starts is the box; after an operand it is the contact", () => {
@@ -40,8 +51,9 @@ test("a disabled network's code is out of the compiled tokens, and in the tokens
   expect(code(t.sourceTokens)).toBe("l9 : x := a ; y := b ;")
 })
 
-test("what the form cannot hold is named: code before the first network, an unknown % line, an Execute box left open", () => {
+test("what the form cannot hold is named: code before the first network, an unknown % line, an escape the code does not have", () => {
   expect(plainStText(body("x := a;\n%NETWORK\n")).stray.map((s) => s.message)).toEqual(["'x' before the first %NETWORK line: a network body opens with %NETWORK"])
   expect(plainStText(body("%NETWORK\n%COLOR red\n")).stray.map((s) => s.message)).toEqual(["'%COLOR': a network holds no such line"])
-  expect(plainStText(body("%NETWORK\n%EXECUTE(EN := a)\nx := 1;\n")).stray.map((s) => s.message)).toEqual(["%EXECUTE with no %END_EXECUTE"])
+  expect(plainStText(body("%NETWORK\nEXECUTE(CODE := 'x := $N;');\n")).stray.map((s) => s.message))
+    .toEqual(["the escape '$N' in the Execute box's CODE: its code spells a ' as $' and a $ as $$, and everything else as it stands"])
 })

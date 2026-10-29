@@ -4,21 +4,21 @@ END_VAR
 
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 w1 := TRUE;
-MOVE_EN(EN := w1, %IB26, OUT => LST_InputsOutputs.Serv_IB100);
-MOVE_EN(EN := w1, %IB27, OUT => LST_InputsOutputs.Serv_IB101);
+MOVE(EN := w1, %IB26, OUT => LST_InputsOutputs.Serv_IB100).ENO;
+MOVE(EN := w1, %IB27, OUT => LST_InputsOutputs.Serv_IB101).ENO;
 %NETWORK
-%WIRES w2
+VAR_TEMP w2 : ANY; END_VAR
 w2 := TRUE;
-MOVE_EN(EN := w2, %IB370, OUT => LST_InputsOutputs.Serv_IB132);
-MOVE_EN(EN := w2, %IB371, OUT => LST_InputsOutputs.Serv_IB133);
-MOVE_EN(EN := w2, %IB372, OUT => LST_InputsOutputs.Serv_IB136);
-MOVE_EN(EN := w2, %IB373, OUT => LST_InputsOutputs.Serv_IB137);
+MOVE(EN := w2, %IB370, OUT => LST_InputsOutputs.Serv_IB132).ENO;
+MOVE(EN := w2, %IB371, OUT => LST_InputsOutputs.Serv_IB133).ENO;
+MOVE(EN := w2, %IB372, OUT => LST_InputsOutputs.Serv_IB136).ENO;
+MOVE(EN := w2, %IB373, OUT => LST_InputsOutputs.Serv_IB137).ENO;
 %NETWORK
-ForceOutput_EN(EN := HMI_Var.ForceOutputs);
+ForceOutput(EN := HMI_Var.ForceOutputs).ENO;
 %NETWORK
-ForceOutput_1_EN(EN := NOT HMI_Var.ForceOutputs);
+ForceOutput_1(EN := NOT HMI_Var.ForceOutputs).ENO;
 %NETWORK
 
 END_PROGRAM

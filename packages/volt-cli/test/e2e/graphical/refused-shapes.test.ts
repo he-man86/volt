@@ -131,11 +131,9 @@ VAR
 END_VAR
 %LANGUAGE FBD
 %NETWORK
-%EXECUTE(EN := bRun)
-IF bStart THEN
+EXECUTE(EN := bRun, CODE := 'IF bStart THEN
 \ttarget := 40 + 2;
-END_IF
-%END_EXECUTE
+END_IF');
 
 END_FUNCTION_BLOCK
 `,
@@ -175,7 +173,7 @@ VAR
 END_VAR
 %LANGUAGE FBD
 %NETWORK
-next := VltRefSplit(src, doubled => twice);
+next := VltRefSplit(src, doubled => twice).OUT;
 
 END_FUNCTION_BLOCK
 `,
@@ -188,7 +186,7 @@ VAR
 END_VAR
 %LANGUAGE FBD
 %NETWORK
-next := VltRefSplit(source := src, doubled => twice);
+next := VltRefSplit(source := src, doubled => twice).OUT;
 
 END_FUNCTION_BLOCK
 `,
@@ -312,7 +310,7 @@ describe(`graphical / editing a body INTO a refused shape (${BASE})`, () => {
 			vars: BOOLS,
 			nets: ["%NETWORK", "out := a;"],
 			from: "out := a;",
-			to: ["%EXECUTE", "out := a;", "%END_EXECUTE"].join(NL),
+			to: "EXECUTE(CODE := 'out := a;');",
 		},
 	]
 
@@ -385,9 +383,7 @@ END_FUNCTION_BLOCK
 METHOD Step : BOOL
 %LANGUAGE FBD
 %NETWORK
-%EXECUTE(EN := bRun)
-target := 40 + 2;
-%END_EXECUTE
+EXECUTE(EN := bRun, CODE := 'target := 40 + 2;');
 
 
 END_METHOD
@@ -409,7 +405,7 @@ END_METHOD
 			}
 			// Accepted on both vendors (TwinCAT refused it while its PLCopen import was the create door): the member
 			// is written with its box and its ST.
-			expect((await fetchItem(owner)).sourceText, "the new member was accepted but its Execute box is not there").toContain("END_EXECUTE")
+			expect((await fetchItem(owner)).sourceText, "the new member was accepted but its Execute box is not there").toContain("CODE := 'target := 40 + 2;'")
 		} finally {
 			await removeItem(first).catch(() => {})
 			await removeItem(owner).catch(() => {})

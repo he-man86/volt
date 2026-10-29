@@ -73,7 +73,7 @@ export interface Symbol {
    */
   qualifiedOnly?: boolean
   /**
-   * A WIRE of a plain-ST network body (openspec network-text-st; `network-scope.ts`): a name on its network's `%WIRES`
+   * A WIRE of a plain-ST network body (openspec network-text-st; `network-scope.ts`): a name its network declares on its `VAR_TEMP … : ANY`
    * line, declared by nobody, its type its definition's — `w := <expr>`, or an output a call binds it to (`Q => w`,
    * `ENO => w`, `OUT => w`). The type engine types it from here (`types/infer/network-call.ts`).
    */
@@ -168,7 +168,8 @@ export interface Scope {
   libraryUri?: string
   /**
    * A PLAIN-ST NETWORK BODY's scope (`network-scope.ts`): its wires over the unit's scope, and where the network's own
-   * box names mean something — an enabled box `X_EN`, the Execute box `EXECUTE` (`types/names.ts`).
+   * own functions mean something — the Execute box `EXECUTE`, its branches, edges and jumps (`types/names.ts`), and every
+   * box is a call (`types/infer/network-box.ts`).
    */
   network?: true
   /** For a TOP-LEVEL project child only: the URI of the file that contributed it. Set by `bindFile`, read

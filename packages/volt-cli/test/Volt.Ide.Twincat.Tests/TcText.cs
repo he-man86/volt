@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Volt.Engine.Format.Network;
 using Volt.Tests.Shared;
 
@@ -14,6 +15,15 @@ internal static class TcText
 {
     public static NetworkScope ScopeOf(NetworkBody pulled) => NetworkModelScopes.ScopeOf(pulled);
 
+    /// <summary>The scope with the callees a test states (<see cref="NetworkModelScopes.ScopeOf"/>'s signatures): what a push
+    /// reads from the project and the libraries, which a fixture archive does not carry.</summary>
+    public static NetworkScope ScopeOf(NetworkBody pulled, IReadOnlyDictionary<string, CalleeSignature> signatures) =>
+        NetworkModelScopes.ScopeOf(pulled, signatures: signatures);
+
+    /// <summary>The IEC timer TON as the Standard library's signature states it.</summary>
+    public static IReadOnlyDictionary<string, CalleeSignature> Ton { get; } =
+        new Dictionary<string, CalleeSignature> { ["TON"] = new(CalleeShape.Block, new[] { "IN", "PT" }, new[] { "Q", "ET" }) };
+
     /// <summary>The pull: a vendor-read model as the text an engineer sees in git.</summary>
     public static string Write(NetworkBody pulled) => StNetworkWriter.WritePulled(pulled, ScopeOf(pulled));
 
@@ -24,4 +34,8 @@ internal static class TcText
     /// <summary>The in-place writer, its change gate rendering against the pushed model's scope.</summary>
     public static string? Apply(string? bodyXml, NetworkBody model) =>
         TcNetworkWriter.Apply(bodyXml, model, ScopeOf(model));
+
+    /// <summary>The in-place writer with the callees a test states.</summary>
+    public static string? Apply(string? bodyXml, NetworkBody model, IReadOnlyDictionary<string, CalleeSignature> signatures) =>
+        TcNetworkWriter.Apply(bodyXml, model, ScopeOf(model, signatures));
 }

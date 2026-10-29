@@ -1054,8 +1054,8 @@ public class CodesysNetworkReaderTests
     [InlineData("MAX", false, new[] { "" }, 0, "n := MAX(a, b);")]
     [InlineData("ADD", false, new[] { "" }, 0, "n := ADD(a, b);")]
     // Read through its ENO: the call returning ENO (whether the IDE builds it is the build's to say: X3, 3c).
-    [InlineData("AND", true, new[] { "ENO" }, 0, "n := AND_EN(EN := c, a, b);")]
-    [InlineData("MOVE", true, new[] { "ENO", "" }, 0, "n := MOVE_EN(EN := c, a, b);")]
+    [InlineData("AND", true, new[] { "ENO" }, 0, "n := AND(EN := c, a, b).ENO;")]
+    [InlineData("MOVE", true, new[] { "ENO", "" }, 0, "n := MOVE(EN := c, a, b).ENO;")]
     // An enabled box with no ENO in its list is read by a slot the text cannot state: refused by name.
     [InlineData("MOVE", true, new string[0], null, null)]
     public void A_consumed_box_Volt_built_is_connected_as_the_compiler_reads_it(
@@ -1163,7 +1163,7 @@ public class CodesysNetworkReaderTests
     /// <summary>AN EMPTY EXECUTE BOX IS STILL AN EXECUTE BOX — <c>StCode</c> is <c>""</c>, never null.
     ///
     /// <para>`ReadStCode` trailed with <c>is { Length: &gt; 0 } t ? t : null</c>, so a box whose ST the engineer
-    /// had blanked came back with a NULL <c>StCode</c> and the writer skipped its <c>EXECUTE … END_EXECUTE</c>
+    /// had blanked came back with a NULL <c>StCode</c> and the writer skipped its Execute
     /// arm entirely, rendering the box as <c>EXECUTE();</c> — a call to a function that does not exist. That is
     /// the same bad shape this file's main comment describes, reached by a second route.</para>
     ///
@@ -1181,7 +1181,7 @@ public class CodesysNetworkReaderTests
 
         var read = Assert.IsType<Box>(body.Networks.Single().Trees.Single());
         Assert.Equal("", read.StCode);
-        Assert.Contains("%END_EXECUTE", StNetworkWriter.Write(body, NetworkScope.Empty));
+        Assert.Contains("CODE := '')", StNetworkWriter.Write(body, NetworkScope.Empty));
     }
 
     /// <summary>The complement, so the rule above cannot decay into "always empty": a snippet WITH text still

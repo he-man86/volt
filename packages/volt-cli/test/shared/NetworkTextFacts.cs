@@ -79,7 +79,7 @@ public static class NetworkTextFacts
         int? connected = !consumed || byName is not null ? null
             : !byEno && NetworkSpelling.MainSlotOfCall(b.Type) is null ? null
             : b.ConnectedSlot;
-        // the suffix carries whether a box shows ENO (`X_EN`, `X_ENO`), an Execute box has its ENO by type
+        // `.ENO` carries whether a box shows ENO, an Execute box has its ENO by type
         var hasEno = isExecute || b.HasEnoOutput;
         return new Box(
             b.Type,

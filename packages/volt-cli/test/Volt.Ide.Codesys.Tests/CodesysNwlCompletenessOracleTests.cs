@@ -674,7 +674,7 @@ public class CodesysNwlCompletenessOracleTests
         // network-text-st 3.2: the rebuild is from plain-ST text, whose stored members (design.md "Stored members, not spelled")
         // come back as their spelling.
         new("BoxTreeAssign.RValue — node class changed", 3, 3, "network-text-st: a coil fed by the bare rail is written TRUE (a stored member; runs the same), rebuilt as the operand TRUE"),
-        new("BoxTreeBox.BoxType — changed", 24, 24, "network-text-st 3.2: plain-ST calls an FB box by its instance, its type the declaration's spelling (R_TRIG declared R_trig, a namespace-qualified type) — a stored member, one type (IEC names are case-insensitive), lost on rebuild"),
+        new("BoxTreeBox.BoxType — changed", 24, 24, "network-output-member 2.7 (as network-text-st 3.2): an FB box is the call of its instance, its type the declaration's spelling (R_TRIG declared R_trig, a namespace-qualified type) — a stored member, one type (IEC names are case-insensitive), lost on rebuild"),
         new("BoxTreeBox.InputItems — list length changed", 7, 7, "network-text-st 3.2: a pin the text leaves out is restored unconnected in its declaration's order, as the editor draws a new box (NetworkDerivation.WithLeftOutPins); a box whose unused pins were removed stores fewer — a stored member, lost on rebuild"),
         new("BoxTreeBox.InputItems — node class changed", 52, 78, "network-text-st: an input on the bare rail is written TRUE (a stored member, design.md; runs the same, 1c), rebuilt as the operand TRUE"),
         new("BoxTreeDemux.Input — node class changed", 4, 4, "network-text-st: a wire fed by the bare rail is written TRUE (a stored member; runs the same), rebuilt as the operand TRUE"),

@@ -18,7 +18,10 @@ internal static class NetworkModelScopes
     /// because these sources (archives, test models, corpus bodies) come without a parsed VAR block — and every
     /// operand of a body the vendor holds IS a name in scope (a variable, a global, a member), which is what the
     /// reader's "a wire-shaped name in no scope" refusal relies on.</summary>
-    public static NetworkScope ScopeOf(NetworkBody body, NetworkScope? declared = null)
+    /// <param name="signatures">The callees whose declaration the test states (what a push's scope reads from the project and
+    /// the libraries): none where null, every callee then unstated (openspec network-output-member).</param>
+    public static NetworkScope ScopeOf(NetworkBody body, NetworkScope? declared = null,
+                                       IReadOnlyDictionary<string, CalleeSignature>? signatures = null)
     {
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var pous = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -29,8 +32,12 @@ internal static class NetworkModelScopes
             {
                 case Leaf l: Words(l.Operand.Text); break;
                 case Box b:
-                    Words(b.Type);
-                    pous.Add(b.Type);   // a function or FB type is a POU in scope
+                    // a function or FB type is a POU in scope; the Execute box's type is the text's own word, no POU
+                    if (b.StCode is null)
+                    {
+                        Words(b.Type);
+                        pous.Add(b.Type);
+                    }
                     if (b.Instance is { } i) Words(i.Text);
                     foreach (var o in b.Outputs) Words(o.Value.Text);
                     Walk(b.Enable);
@@ -42,7 +49,7 @@ internal static class NetworkModelScopes
             }
         }
         foreach (var net in body.Networks) foreach (var t in net.Trees) Walk(t);
-        return new NetworkScope(names, pous, Instances(body, declared));
+        return new NetworkScope(names, pous, Instances(body, declared), signatures: signatures);
     }
 
     /// <summary>What the scope holds of a model when no VARIABLE is declared: its POUs (box types) and its FB
@@ -55,7 +62,7 @@ internal static class NetworkModelScopes
             switch (n)
             {
                 case Box b:
-                    pous.Add(b.Type);
+                    if (b.StCode is null) pous.Add(b.Type);   // the Execute box's type is no POU
                     Walk(b.Enable);
                     foreach (var p in b.Inputs) Walk(p.Value);
                     break;

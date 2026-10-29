@@ -68,10 +68,10 @@ namespace Volt.Ide.Codesys
             // A rebuild whose trees did not change writes only the header (WriteNetwork's change gate), so it builds nothing.
             foreach (var move in plan)
             {
-                if (move.Step == NetworkStep.Insert) RefuseUnbuildable(body.Networks[move.Pushed!.Value]);
+                if (move.Step == NetworkStep.Insert) RefuseUnbuildable(body.Networks[move.Pushed!.Value], scope);
                 else if (move.Step == NetworkStep.Rebuild &&
                          !TreesUnchanged(shown[move.Live!.Value], body.Networks[move.Pushed!.Value], body.Language, scope))
-                    RefuseUnbuildable(body.Networks[move.Pushed.Value]);
+                    RefuseUnbuildable(body.Networks[move.Pushed.Value], scope);
             }
 
             // Removals from the end, so each index is still the live one.
@@ -108,7 +108,7 @@ namespace Volt.Ide.Codesys
         /// <summary>A network the push would BUILD from its text, refused by name where it cannot be built: a pushed
         /// <c>UNSUPPORTED</c> line (nothing to build from, <see cref="NetworkPairing.RefuseUnpairedUnsupported"/>) and an FB
         /// read through a named output whose slot no declaration in reach states (<see cref="NetworkPairing.NamedMainOutputs"/>).</summary>
-        private static void RefuseUnbuildable(Network model)
+        private static void RefuseUnbuildable(Network model, NetworkScope scope)
         {
             NetworkPairing.RefuseUnpairedUnsupported(CodesysDriver.Row.Display, model);
             // A pin carries a negation or an edge; a coil's bits on one are no shape any IDE was measured to store.
@@ -126,6 +126,8 @@ namespace Volt.Ide.Codesys
                     $"'{box.Type}' — the slot the consumer reads is the null at that output's position (v2-measurements #12), " +
                     "and Volt does not guess it. Refusing to rebuild this network; a network whose text is unchanged is kept " +
                     "as the IDE holds it. The IDE can edit this network.");
+            // A box whose callee no declaration in reach states, and a function read through a VAR_OUTPUT (network-output-member).
+            NetworkPairing.RefuseUnbuildableBoxes(CodesysDriver.Row.Display, model, scope);
         }
 
         private static IEnumerable<Node> Walk(Node n) => new[] { n }.Concat(n.Children().SelectMany(Walk));
@@ -175,7 +177,7 @@ namespace Volt.Ide.Codesys
             // later network after an earlier one was already rebuilt. It is here so the refusal is judged on exactly
             // the networks the change gate above lets through (an unchanged pulled network holding the shape is never
             // refused), and so a caller with no transaction — the offline tests — sees the live network untouched.
-            RefuseUnbuildable(model);
+            RefuseUnbuildable(model, scope);
             // What the rebuild below would ERASE without a trace: a symbol comment, which the text does not carry.
             NetworkText.RefuseSymbolCommentLoss(CodesysDriver.Row.Display, live);
             // What it resets without a refusal: the stored values of the members the text does not carry yet that the
@@ -291,7 +293,13 @@ namespace Volt.Ide.Codesys
                 if (NwlInterop.Get(op, "Flags") is { } flags) held.Add(new("Flags.Fixed", "Operand", Bool(NwlInterop.Get(flags, "Fixed"))));
             }
             for (int i = 0; i < NwlInterop.RequireInt(net, "NetworkItemCount"); i++)
-                Item(NwlInterop.TryCall(net, "GetTree", i));
+            {
+                var tree = NwlInterop.TryCall(net, "GetTree", i);
+                // A root box's stored main output other than its first, which no text spells (RebuildLoss.RootMainOutput).
+                if (tree is not null && NwlInterop.TypeName(tree) == "BoxTreeBox" && NwlInterop.Get(tree, "MainOutputIndex") is int main && main != 0)
+                    held.Add(new(RebuildLoss.RootMainOutput, "BoxTreeBox", main.ToString(CultureInfo.InvariantCulture)));
+                Item(tree);
+            }
             return held;
         }
 
@@ -501,6 +509,10 @@ namespace Volt.Ide.Codesys
                             // read through its ENO (N21).
                             NwlInterop.Set(box, "Eno", eno);
                         }
+                        // ENO WITHOUT EN (N16: the two are independent): the flag is the box's fact, not its enable's.
+                        // Set only under an enable, a pushed `f(…).ENO` lost it — the next pull dropped `.ENO`, and a root
+                        // box did not compile (network-output-member 2.3, `st-spellings-run.test.ts`).
+                        else if (eno) NwlInterop.Set(box, "Eno", true);
 
                         foreach (var p in b.Inputs)
                             NwlInterop.Call(box, "AppendInputItem", Node(p.Value));

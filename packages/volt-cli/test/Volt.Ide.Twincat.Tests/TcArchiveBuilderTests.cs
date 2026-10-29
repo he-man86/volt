@@ -140,18 +140,18 @@ public sealed class TcArchiveBuilderTests(Xunit.Abstractions.ITestOutputHelper o
     /// <c>test/e2e/graphical/native-writer.test.ts</c>.</summary>
     public static readonly (string Name, string Body)[] BeyondTheImport =
     {
-        ("single_consumer_branch", "%NETWORK\n%WIRES w1\nw1 := a AND b;\nout := w1;\n"),
-        ("fanout_two_coils", "%NETWORK\n%WIRES w1\nw1 := a AND b;\nout1 := w1;\nout2 := w1;\n"),
-        ("leaf_fed_split", "%NETWORK\n%WIRES w1\nw1 := a;\nout1 := w1;\nout2 := w1;\n"),
+        ("single_consumer_branch", "%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := a AND b;\nout := w1;\n"),
+        ("fanout_two_coils", "%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := a AND b;\nout1 := w1;\nout2 := w1;\n"),
+        ("leaf_fed_split", "%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := a;\nout1 := w1;\nout2 := w1;\n"),
         ("unconnected_pin", "%NETWORK\nt1(PT := pt);\n"),
         ("pin_to_variable", "%NETWORK\nt1(IN := a, PT := pt, ET => el);\n"),
-        ("pin_to_variable_consumed", "%NETWORK\n%WIRES w1\nt1(IN := a, PT := pt, ET => el, Q => w1);\nout := w1;\n"),
+        ("pin_to_variable_consumed", "%NETWORK\nout := t1(IN := a, PT := pt, ET => el).Q;\n"),
         ("negated_input", "%NETWORK\nout := NOT a AND b;\n"),
         ("set_coil", "%NETWORK\nout S= a;\n"),
         ("reset_coil", "%NETWORK\nout R= a AND b;\n"),
         ("rising_edge", "%NETWORK\nout := R_EDGE(a) AND b;\n"),
-        ("execute", "%NETWORK\n%EXECUTE(EN := go)\nn := n + 1;\n%END_EXECUTE\n"),
-        ("execute_consumed", "%NETWORK\n%WIRES w1\n%EXECUTE(EN := go, ENO => w1)\nn := 1;\n%END_EXECUTE\nout := w1;\n"),
+        ("execute", "%NETWORK\nEXECUTE(EN := go, CODE := 'n := n + 1;');\n"),
+        ("execute_consumed", "%NETWORK\nout := EXECUTE(EN := go, CODE := 'n := 1;');\n"),
         ("multi_rung", "%NETWORK\nout1 := a AND b;\nout2 := c OR d;\nt1(IN := e, PT := pt);\n"),
         ("assign_below_top", "%NETWORK\nt1(IN := (out := go), PT := pt);\n"),
         ("jump_and_label", "%NETWORK\nJMP(L1, a);\n%NETWORK\nL1:\nout := a OR b;\n"),
@@ -159,11 +159,11 @@ public sealed class TcArchiveBuilderTests(Xunit.Abstractions.ITestOutputHelper o
         ("unconnected_coil", "%NETWORK\nout := TRUE;\n"),
         ("empty_network", "%NETWORK\nout := a AND b;\n%NETWORK\n"),
         ("header", "%NETWORK \"a rung\"\n%DISABLED\n// two lines\n// of comment\nHere:\nout := a AND b;\n"),
-        ("enable_and", "%NETWORK\nAND_EN(EN := go, a, b, OUT => out);\n"),
-        ("enable_move", "%NETWORK\nout := MOVE_EN(EN := go, b, OUT => n);\n"),
+        ("enable_and", "%NETWORK\nAND(EN := go, a, b, OUT => out).ENO;\n"),
+        ("enable_move", "%NETWORK\nout := MOVE(EN := go, b, OUT => n).ENO;\n"),
         ("function_named", "%NETWORK\nn := F_Custom(A := i1, B := i2);\n"),
         // 2R.5 #23: the named ENO pin — the variable stored on the ENO slot, in place of its null, as CODESYS's writer builds it.
-        ("named_eno", "%NETWORK\nMOVE_EN(EN := go, 7, ENO => out, OUT => n);\n"),
+        ("named_eno", "%NETWORK\nMOVE(EN := go, 7, ENO => out, OUT => n).ENO;\n"),
     };
 
     /// <summary>The shapes the builder refuses, by the phrase of the reason.</summary>
@@ -316,7 +316,7 @@ public sealed class TcArchiveBuilderTests(Xunit.Abstractions.ITestOutputHelper o
     public void An_Execute_box_without_EN_builds_without_EN_and_reads_back_the_same()
     {
         var scope = new NetworkScope(new[] { "out", "a" }, Array.Empty<string>(), new Dictionary<string, string>());
-        const string text = "%LANGUAGE FBD\n%NETWORK\n%EXECUTE\nout := a;\n%END_EXECUTE\n";
+        const string text = "%LANGUAGE FBD\n%NETWORK\nEXECUTE(CODE := 'out := a;');\n";
         var back = ReadBack(TcArchiveBuilder.Body(NetworkText.Validate(text, scope), scope));
         Assert.Equal(text, StNetworkWriter.Write(back, scope));
     }

@@ -779,7 +779,7 @@ const NWL_R_CALLS = nwlProgram(
   "LD",
   [
     "k := VltF_RFn(x := i);",
-    "VltF_RPrg_ENONLY(EN := b);",
+    "VltF_RPrg(EN := b);",
     "t1(IN := a, PT := T#1S);",
     "o1 := a AND b;",
     "j := ADD(i, 1);",
@@ -800,14 +800,14 @@ const NWL_EDITOR = nwlProgram(
   [
     "k := VltF_RFn(x := i);",
     "t1(IN := a, PT := T#1S);",
-    { lines: ["%WIRES w1", "t2(IN := b, PT := T#2S, Q => w1);", "o1 := w1;"] },
+    { lines: ["VAR_TEMP w1 : ANY; END_VAR", "t2(IN := b, PT := T#2S, Q => w1);", "o1 := w1;"] },
     "o2 := a AND b;",
     "j := ADD(i, 1);",
     "o3 := GT(i, j);",
     "o4 := a AND NOT b;",
     "o5 := BRANCH_SHORTCIRCUIT(FEED := a, b, NOT c);",
-    "MOVE_ENONLY(EN := a, 750, OUT => m);",
-    "o6 := VltF_RFn_EN(EN := b, i);",
+    "MOVE(EN := a, 750, OUT => m);",
+    "o6 := VltF_RFn(EN := b, i).ENO;",
   ],
 )
 /** The FBD half of C1: an operator tree, a negated operator PIN (FBD's negation, `InputFlags`), an enabled function
@@ -819,8 +819,8 @@ const NWL_EDITOR_FBD = nwlProgram(
   [
     "o := AND(OR(AND(a, b, c), AND(a, b)), q);",
     "p := AND(NOT a, b);",
-    "ok := VltF_RFn_EN(EN := a, i);",
-    "MOVE_ENONLY(EN := b, 7, OUT => m);",
+    "ok := VltF_RFn(EN := a, i).ENO;",
+    "MOVE(EN := b, 7, OUT => m);",
   ],
 )
 /** The members C1 reads at every point (the input pin flags too: FBD's negation). */
@@ -830,7 +830,7 @@ const NWL_EDITOR_MEMBERS = [
 ]
 /** An Execute box (CallType None; the snippet's per-line ids). */
 const NWL_R_EXEC = nwlProgram("VltF_RX", ["a : BOOL", "k : INT"], "LD", [
-  { lines: ["%EXECUTE(EN := a)", "k := k + 1;", "k := k * 2;", "%END_EXECUTE"] },
+  { lines: ["EXECUTE(EN := a, CODE := 'k := k + 1;", "k := k * 2;');"] },
 ])
 /** A RETURN and a JMP built by the push (the assign item's own Jump/Return bit). */
 const NWL_R_FLOW = nwlProgram("VltF_RJ", ["a : BOOL", "b : BOOL", "o1 : BOOL"], "LD", [
@@ -846,10 +846,10 @@ const NWL_R_PAR = nwlProgram("VltF_RP", ["a : BOOL", "b : BOOL", "c : BOOL", "o1
 /** S3b (`nwl-rail-fed-wire`): a wire fed by the left rail, `w1 := TRUE` — the text a pull writes for a wire the IDE stores
  *  fed by the empty terminator — and, its own subject so a refusal of one leaves the other measured, the same wire again. */
 const NWL_RAIL = nwlProgram("VltF_Rail", ["a : BOOL", "b : BOOL", "o1 : BOOL", "o2 : BOOL"], "LD", [
-  { lines: ["%WIRES w1", "w1 := TRUE;", "o1 := w1 AND a;", "o2 := w1 AND b;"] },
+  { lines: ["VAR_TEMP w1 : ANY; END_VAR", "w1 := TRUE;", "o1 := w1 AND a;", "o2 := w1 AND b;"] },
 ])
 const NWL_RAIL_TRUE = nwlProgram("VltF_RailT", ["a : BOOL", "b : BOOL", "o1 : BOOL", "o2 : BOOL"], "LD", [
-  { lines: ["%WIRES w1", "w1 := TRUE;", "o1 := w1 AND a;", "o2 := w1 AND b;"] },
+  { lines: ["VAR_TEMP w1 : ANY; END_VAR", "w1 := TRUE;", "o1 := w1 AND a;", "o2 := w1 AND b;"] },
 ])
 /** S3a (`nwl-leaf-wire-type`, owner amendment a): a wire fed by a LEAF — an INT leaf into DINT pins, a leaf of an alias
  *  type, and the census's own WSM shape (a BOOL leaf into an FB's BOOL pins, `R_TRIG.CLK` and `TON.IN`). */
@@ -858,9 +858,9 @@ const NWL_LEAF_WIRE = nwlProgram(
   ["a : BOOL", "i : INT", "al : VltF_LwAl", "d : DINT", "e : DINT", "f : DINT", "k : INT", "t1 : TON", "r1 : R_TRIG"],
   "LD",
   [
-    { lines: ["%WIRES w1", "w1 := i;", "d := VltF_LwFn(x := w1);", "e := VltF_LwFn(x := w1);"] },
-    { lines: ["%WIRES w2", "w2 := al;", "f := VltF_LwFn(x := w2);", "k := MOVE(w2);"] },
-    { lines: ["%WIRES w3", "w3 := a;", "t1(IN := w3, PT := T#1S);", "r1(CLK := w3);"] },
+    { lines: ["VAR_TEMP w1 : ANY; END_VAR", "w1 := i;", "d := VltF_LwFn(x := w1);", "e := VltF_LwFn(x := w1);"] },
+    { lines: ["VAR_TEMP w2 : ANY; END_VAR", "w2 := al;", "f := VltF_LwFn(x := w2);", "k := MOVE(w2);"] },
+    { lines: ["VAR_TEMP w3 : ANY; END_VAR", "w3 := a;", "t1(IN := w3, PT := T#1S);", "r1(CLK := w3);"] },
   ],
 )
 /** S1 (`nwl-bitop-stored-slot`): SetAlarm's network 0 in the plain form a push builds today — bit operator boxes
@@ -873,8 +873,8 @@ const NWL_S1_PLAIN = nwlProgram(
 )
 /** S2, S6 and S5 in the spelling design 1.1 gives them — what the push answers before 2.3 spells them. */
 const NWL_S2 = nwlProgram("VltF_S2", ["a : BOOL", "b : BOOL", "o1 : BOOL", "o2 : BOOL", "k : INT"], "LD", [
-  "MOVE_ENONLY(EN := (o1 := a AND b), 750, OUT => k);",
-  "MOVE_ENONLY(EN := (o2 S= a AND b), 7, OUT => k);",
+  "MOVE(EN := (o1 := a AND b), 750, OUT => k);",
+  "MOVE(EN := (o2 S= a AND b), 7, OUT => k);",
 ])
 const NWL_S6 = nwlProgram("VltF_S6", ["a : BOOL", "b : BOOL", "o1 : BOOL", "fb1 : VltF_S6Fb"], "FBD", [
   "fb1(xEnable := NOT a);",
@@ -1801,7 +1801,7 @@ export const ROWS: Row[] = [
           "VltF_Seed_FE",
           "FBD",
           "\tgo : BOOL;\n\tn : INT;\n\tok : BOOL;",
-          "ok := VltF_Seed_F_EN(EN := go, n);",
+          "ok := VltF_Seed_F(EN := go, n).ENO;",
         ),
       },
       {
@@ -1820,7 +1820,7 @@ export const ROWS: Row[] = [
         name: "VltF_Seed_PE",
         parent: "folder",
         via: "push",
-        source: SRC.caller("VltF_Seed_PE", "LD", "\tgo : BOOL;\n\tdone : BOOL;", "done := VltF_Seed_P_EN(EN := go);"),
+        source: SRC.caller("VltF_Seed_PE", "LD", "\tgo : BOOL;\n\tdone : BOOL;", "done := VltF_Seed_P(EN := go).ENO;"),
       },
       {
         op: "create",
@@ -1842,7 +1842,7 @@ export const ROWS: Row[] = [
           "VltF_Seed_BE",
           "LD",
           "\tgo : BOOL;\n\tdone : BOOL;\n\tb : VltF_Seed_B;",
-          "done := b_EN(EN := go);",
+          "done := b(EN := go).ENO;",
         ),
       },
       { tag: "built", op: "build" },

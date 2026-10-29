@@ -6,30 +6,38 @@
  * ```
  * %LANGUAGE LD
  * %NETWORK "Start the motor"
- * %WIRES w1
+ * VAR_TEMP w1 : ANY; END_VAR
  * // runs while auto is on
  * w1 := start AND NOT stop;
  * lamp := w1;
- * done := MOVE_EN(EN := w1, 1, OUT => x);
+ * done := MOVE(EN := w1, 1, OUT => x).ENO;
  * hot := GT(temp, 80);
  * ```
  *
- * THE STATEMENT TOKENS are the body's own tokens, with three readings applied and nothing reordered:
- *  - a `%` line (`%NETWORK`, `%DISABLED`, `%WIRES`, `%UNSUPPORTED`, `%END_EXECUTE`) is trivia: it is no code;
- *  - `%EXECUTE(EN := c)` is the call `EXECUTE(EN := c)` — its `%` trivia, a `;` of no width after its line — so the EN
- *    it is given is code the ST engine resolves; a bare `%EXECUTE` is trivia. The ST between it and `%END_EXECUTE` is the
- *    Execute box's own, read as it stands;
+ * THE STATEMENT TOKENS are the body's own tokens, with three readings applied:
+ *  - a `%` line (`%NETWORK`, `%DISABLED`, `%UNSUPPORTED`) is trivia: it is no code;
+ *  - a network's wires, `VAR_TEMP w1 : ANY; w2 : ANY; END_VAR` on one line after its `%` lines, are trivia: each name a
+ *    wire of the network (`symbols` `network-scope.ts`), its type its definition's;
+ *  - the Execute box `EXECUTE(EN := c, CODE := '<ST>')` is the call `EXECUTE(EN := c)`, its `CODE := '…'` trivia, and its
+ *    ST — the string decoded (`$'` a quote, `$$` a dollar), lexed, each token where it stands in the string — follows the
+ *    statement the box stands in, so the ST engine reads it as the statements it is (the one place tokens stand out of
+ *    source order: after their statement's `;`);
  *  - an operator box word heading a call (`GT(`, `ADD(`, `AND(`, `NOT(`, …: the ST lexer reads each as a keyword) where an operand starts is the call of
  *    that box — every box is a call — and after an operand it is the contact (`a AND b`). The same rule the bridge's
  *    reader keeps (`StNetworkReader`): position, never spacing.
  */
 import type { BodySpan, StatementList } from "../ast/nodes/index.js"
 import { isTrivia, type Token } from "../lex/tokens.js"
-import { joinSpans, pointSpan, type Span } from "../span.js"
+import type { Dialect } from "../lex/vocabulary.js"
+import { joinSpans, type Span } from "../span.js"
 import { isPlainStNetworkBody } from "../format/bodies.js"
+import { codeAt, joinCodeStrings, takeCode } from "./execute-code.js"
+
+export { closedString, EXECUTE } from "./execute-code.js"
 
 /** The `%` lines of the form, by their key. */
-const PLAIN_ST_LINES: ReadonlySet<string> = new Set(["NETWORK", "DISABLED", "WIRES", "EXECUTE", "END_EXECUTE", "UNSUPPORTED"])
+const PLAIN_ST_LINES: ReadonlySet<string> = new Set(["NETWORK", "DISABLED", "UNSUPPORTED"])
+
 
 /** The boxes whose name the ST lexer reads as a keyword (the 14 IL operators, NOT, the built-in functions): heading a
  *  call, in a network, each is its box. */
@@ -64,14 +72,27 @@ export interface PlainStNetwork {
   /** The `%` lines of the network, in order, the `%NETWORK` line first. */
   lines: readonly PlainStLine[]
   disabled: boolean
+  /** The wires its `VAR_TEMP … END_VAR` line declares. */
   wires: readonly PlainStWire[]
+  /** Its `VAR_TEMP … END_VAR` line, where it has one. */
+  declaration?: Span
   unsupported: boolean
-  /** Each Execute box: from its `%EXECUTE` line to its `%END_EXECUTE` line (or the network's end, where none closes it),
-   *  and its `%EXECUTE` line — the box's own call, where the ST under it is the box's. */
-  executes: readonly { span: Span; header: Span }[]
+  /** Each Execute box whose ST stands as its last pin, `CODE := '…'`: its call, from `EXECUTE` to its `)`, and its ST, the
+   *  string's content — where the box's own statements stand. */
+  executes: readonly PlainStExecute[]
+}
+
+export interface PlainStExecute {
+  call: Span
+  code: Span
+  /** The box's ST, the string decoded; undefined where it holds an escape the code does not have (a finding). */
+  st: string | undefined
 }
 
 interface PlainStText {
+  /** The body's tokens as the text reads them: its own, each Execute box's CODE string one token across its lines
+   *  (`joinCodeStrings`). Every check that walks the text's tokens walks these, never the lexer's `body.tokens`. */
+  tokens: readonly Token[]
   networks: readonly PlainStNetwork[]
   /** What the ST statement parser reads AS COMPILED (see the module comment): a `%DISABLED` network's code is trivia,
    *  as the vendor compiles none of it — its label is no jump target ("No such label", design.md 1c). */
@@ -114,7 +135,7 @@ export function statementTokensOf(body: BodySpan, asWritten = false): readonly T
 /** The body read as plain-ST network text — once per body. */
 export function plainStText(body: BodySpan): PlainStText {
   let t = cache.get(body)
-  if (t === undefined) cache.set(body, (t = read(body.tokens)))
+  if (t === undefined) cache.set(body, (t = read(body.tokens, body.dialect)))
   return t
 }
 
@@ -135,58 +156,42 @@ function lineEnd(tokens: readonly Token[], at: number): number {
   return k
 }
 
-function read(tokens: readonly Token[]): PlainStText {
+function read(lexed: readonly Token[], dialect: Dialect): PlainStText {
+  const { tokens, unclosed } = joinCodeStrings(lexed, dialect)
   const out: Token[] = []
   const networks: PlainStNetwork[] = []
-  const stray: { message: string; span: Span }[] = []
+  const stray: { message: string; span: Span }[] = unclosed.map((span) => ({ message: "an unclosed string", span }))
   let before = false
-  let cur: { header: PlainStLine; lines: PlainStLine[]; executes: { span: Span; header: Span }[]; open?: Span; last: Span } | undefined
+  let cur: NetworkState | undefined
+  // the calls open around the cursor, each its head token and, for an Execute box, its ST once read; and the ST of the
+  // Execute boxes of the statement being read, which follows its `;`
+  let calls: { head: Token | undefined; code?: Span; st?: string }[] = []
+  let pending: Token[] = []
+  const flush = () => {
+    out.push(...pending)
+    pending = []
+  }
   const close = () => {
     if (cur === undefined) return
-    if (cur.open !== undefined) {
-      cur.executes.push({ span: joinSpans(cur.open, cur.last), header: cur.open })
-      stray.push({ message: "%EXECUTE with no %END_EXECUTE", span: cur.open })
-    }
-    const wires = cur.lines.filter((l) => l.key === "WIRES").flatMap((l) => l.args.filter((a) => a.kind === "identifier").map((a) => ({ name: a.text, span: a.span })))
-    networks.push({
-      index: networks.length,
-      span: joinSpans(cur.header.span, cur.last),
-      header: cur.header,
-      lines: cur.lines,
-      disabled: cur.lines.some((l) => l.key === "DISABLED"),
-      wires,
-      unsupported: cur.lines.some((l) => l.key === "UNSUPPORTED"),
-      executes: cur.executes,
-    })
+    flush()
+    calls = []
+    networks.push(networkOf(cur, networks.length))
     cur = undefined
   }
   for (let i = 0; i < tokens.length; i++) {
     const t = tokens[i]!
     const key = percentKeyAt(tokens, i)
-    if (key !== undefined && (cur?.open === undefined || key === "END_EXECUTE")) {
-      const end = lineEnd(tokens, i)
-      const words = tokens.slice(i, end).filter((w) => !isTrivia(w.kind) && w.kind !== "eof")
-      const line: PlainStLine = { key, span: joinSpans(words[0]!.span, words[words.length - 1]!.span), args: words.slice(2) }
+    if (key !== undefined) {
+      const { line, end } = percentLine(tokens, i, key, stray)
       if (key === "NETWORK") {
         close()
-        cur = { header: line, lines: [line], executes: [], last: line.span }
+        cur = { header: line, lines: [line], executes: [], last: line.span, wires: [], comment: false, code: false }
       } else if (cur === undefined) stray.push({ message: `'%${key}' before the first %NETWORK line`, span: line.span })
       else {
-        cur.lines.push(line)
-        cur.last = line.span
-        if (key === "EXECUTE") cur.open = line.span
-        if (key === "END_EXECUTE" && cur.open !== undefined) {
-          cur.executes.push({ span: joinSpans(cur.open, line.span), header: cur.open })
-          cur.open = undefined
-        }
+        flush()
+        addLine(cur, line, stray)
       }
-      if (!PLAIN_ST_LINES.has(key)) stray.push({ message: `'%${key}': a network holds no such line`, span: line.span })
-      const callsExecute = key === "EXECUTE" && line.args.length > 0
-      for (let k = i; k < end; k++) {
-        const w = tokens[k]!
-        out.push(callsExecute && k > i ? w : { ...w, kind: "whitespace", keyword: undefined })
-      }
-      if (callsExecute) out.push({ kind: "punct", text: ";", span: pointSpan(words[words.length - 1]!.span.end, words[words.length - 1]!.span.endLine, words[words.length - 1]!.span.endCol) })
+      for (let k = i; k < end; k++) out.push({ ...tokens[k]!, kind: "whitespace", keyword: undefined })
       i = end - 1
       continue
     }
@@ -194,38 +199,166 @@ function read(tokens: readonly Token[]): PlainStText {
       before = true
       stray.push({ message: `'${t.text}' before the first %NETWORK line: a network body opens with %NETWORK`, span: t.span })
     }
+    // THE NETWORK'S WIRES, `VAR_TEMP w1 : ANY; … END_VAR` on one line after its % lines: trivia, each name a wire
+    if (cur !== undefined && calls.length === 0 && isWord(t, "VAR_TEMP")) {
+      i = takeWires(tokens, i, cur, out, stray)
+      continue
+    }
     // a network runs to its last token that is not whitespace — a comment after its code is in it
-    if (cur !== undefined && t.kind !== "whitespace" && t.kind !== "eof") cur.last = t.span
-    if (cur !== undefined && cur.open === undefined && isUnnamedTarget(tokens, i, out)) {
+    if (cur !== undefined && t.kind !== "whitespace" && t.kind !== "eof") reached(cur, t)
+    if (cur !== undefined && isUnnamedTarget(tokens, i, out)) {
       out.push({ kind: "identifier", text: UNNAMED, span: joinSpans(t.span, tokens[i + 2]!.span) })
       cur.last = tokens[i + 2]!.span
       i += 2
       continue
     }
-    out.push(cur?.open === undefined && isKeywordCallHead(tokens, i, out) ? { ...t, kind: "identifier", keyword: undefined } : t)
+    if (cur !== undefined) {
+      // THE EXECUTE BOX'S ST: `CODE := '…'` closing an `EXECUTE(` call is trivia, its ST the statements after its statement
+      const code = codeAt(tokens, i, calls)
+      if (code !== undefined) {
+        takeCode(tokens, i, code.string, dialect, { out, pending, stray, call: calls[calls.length - 1]! })
+        cur.last = tokens[code.string]!.span
+        i = code.string
+        continue
+      }
+      if (t.kind === "punct" && t.text === "(") calls.push({ head: lastWord(out) })
+      if (t.kind === "punct" && t.text === ")") {
+        const call = calls.pop()
+        if (call?.code !== undefined && call.head !== undefined) cur.executes.push({ call: joinSpans(call.head.span, t.span), code: call.code, st: call.st })
+      }
+    }
+    out.push(isKeywordCallHead(tokens, i, out) ? { ...t, kind: "identifier", keyword: undefined } : t)
+    if (t.kind === "punct" && t.text === ";" && calls.length === 0) flush()
   }
   close()
+  return { tokens, networks, statementTokens: compiled(out, networks), sourceTokens: out, stray }
+}
+
+/** The `%` line `tokens[at]` opens, its key `key`, and the index just past it; a key the form does not have is a finding. */
+function percentLine(tokens: readonly Token[], at: number, key: string, stray: { message: string; span: Span }[]): { line: PlainStLine; end: number } {
+  const end = lineEnd(tokens, at)
+  const words = tokens.slice(at, end).filter((w) => !isTrivia(w.kind) && w.kind !== "eof")
+  const line: PlainStLine = { key, span: joinSpans(words[0]!.span, words[words.length - 1]!.span), args: words.slice(2) }
+  if (!PLAIN_ST_LINES.has(key)) stray.push({ message: `'%${key}': a network holds no such line`, span: line.span })
+  return { line, end }
+}
+
+/** A `%` line of the network being read: the `%` lines stand first, before its wires, its comment and its code (an
+ *  UNSUPPORTED line after its comment). */
+function addLine(cur: NetworkState, line: PlainStLine, stray: { message: string; span: Span }[]): void {
+  if (cur.declaration !== undefined || cur.code || (cur.comment && line.key !== "UNSUPPORTED"))
+    stray.push({ message: `the line '%${line.key}' among the code: a network's % lines stand first, %NETWORK then %DISABLED`, span: line.span })
+  cur.lines.push(line)
+  cur.last = line.span
+}
+
+/** A token of the network being read that is no whitespace: its comment, or its code, has started. */
+function reached(cur: NetworkState, t: Token): void {
+  cur.last = t.span
+  if (t.kind === "line_comment") cur.comment = true
+  else cur.code = true
+}
+
+/** A network as it is read: its `%` lines, its wires, its Execute boxes, and whether its comment or code has started. */
+interface NetworkState {
+  header: PlainStLine
+  lines: PlainStLine[]
+  executes: PlainStExecute[]
+  last: Span
+  wires: PlainStWire[]
+  declaration?: Span
+  comment: boolean
+  code: boolean
+}
+
+/** A network read to its end: its `%` lines, its wires, its Execute boxes. */
+function networkOf(cur: NetworkState, index: number): PlainStNetwork {
+  return {
+    index,
+    span: joinSpans(cur.header.span, cur.last),
+    header: cur.header,
+    lines: cur.lines,
+    disabled: cur.lines.some((l) => l.key === "DISABLED"),
+    wires: cur.wires,
+    ...(cur.declaration !== undefined ? { declaration: cur.declaration } : {}),
+    unsupported: cur.lines.some((l) => l.key === "UNSUPPORTED"),
+    executes: cur.executes,
+  }
+}
+
+const WIRES_FORM = "a network's wires are declared on one line, VAR_TEMP w1 : ANY; w2 : ANY; END_VAR"
+
+const isWord = (t: Token | undefined, w: string): boolean => t !== undefined && (t.kind === "keyword" || t.kind === "identifier") && t.text.toUpperCase() === w
+
+/** A network's `VAR_TEMP … END_VAR` at `at`: its wires to `cur`, its tokens trivia in `out`; the index of its last token. */
+function takeWires(tokens: readonly Token[], at: number, cur: NetworkState, out: Token[], stray: { message: string; span: Span }[]): number {
+  const end = wiresEnd(tokens, at)
+  const misplaced = cur.declaration !== undefined || cur.comment || cur.code
+  if (misplaced) stray.push({ message: "VAR_TEMP after the network's comment or code: its wires are declared after its % lines, before its comment", span: tokens[at]!.span })
+  const declared = wiresOf(tokens, at, end)
+  if (declared.error !== undefined) stray.push(declared.error)
+  if (!misplaced) cur.wires.push(...declared.wires)
+  cur.declaration ??= joinSpans(tokens[at]!.span, tokens[end]!.span)
+  for (let k = at; k <= end; k++) out.push({ ...tokens[k]!, kind: "whitespace", keyword: undefined })
+  cur.last = tokens[end]!.span
+  return end
+}
+
+/** The index of the `END_VAR` closing the `VAR_TEMP` at `at`, else of the last token of its line. */
+function wiresEnd(tokens: readonly Token[], at: number): number {
+  for (let k = at + 1; k < tokens.length && tokens[k]!.kind !== "eof"; k++) if (isWord(tokens[k], "END_VAR")) return k
+  return Math.max(at, lineEnd(tokens, at) - 1)
+}
+
+/** The wires `VAR_TEMP … END_VAR` (tokens `at`..`end`) declares, each `w : ANY;` on the one line — as the bridge's reader
+ *  reads them (`StNetworkReader.WireDeclaration`), refused in its words. */
+function wiresOf(tokens: readonly Token[], at: number, end: number): { wires: PlainStWire[]; error?: { message: string; span: Span } } {
+  const all = joinSpans(tokens[at]!.span, tokens[end]!.span)
+  const form = { wires: [], error: { message: WIRES_FORM, span: all } }
+  if (!isWord(tokens[end], "END_VAR") || tokens[end]!.span.startLine !== tokens[at]!.span.startLine) return form
+  const t = tokens.slice(at + 1, end).filter((x) => !isTrivia(x.kind))
+  const wires: PlainStWire[] = []
+  for (let k = 0; k < t.length; k += 4) {
+    const [name, colon, type, semi] = [t[k], t[k + 1], t[k + 2], t[k + 3]]
+    if (name?.kind !== "identifier" || colon?.text !== ":" || type === undefined || (type.kind !== "identifier" && type.kind !== "keyword") || semi?.text !== ";") return form
+    if (type.text.toUpperCase() !== "ANY")
+      return { wires: [], error: { message: `the wire ${name.text} is declared ${type.text}: a wire is declared : ANY, its type its definition's`, span: type.span } }
+    wires.push({ name: name.text, span: name.span })
+  }
+  return wires.length === 0 ? form : { wires }
+}
+
+/** The statement tokens as compiled: a `%DISABLED` network's code trivia. */
+function compiled(out: readonly Token[], networks: readonly PlainStNetwork[]): readonly Token[] {
   const disabled = networks.filter((n) => n.disabled).map((n) => n.span)
-  const compiled = disabled.length === 0 ? out
+  return disabled.length === 0 ? out
     : out.flatMap((t) => (disabled.some((d) => t.span.start >= d.start && t.span.end <= d.end) && !isTrivia(t.kind)
       ? (t.span.start === t.span.end ? [] : [{ ...t, kind: "whitespace" as const, keyword: undefined }])
       : [t]))
-  return { networks, statementTokens: compiled, sourceTokens: out, stray }
 }
 
-/** The name of a coil nobody named, as the IDE stores it: `??? := a;`. */
+/** The last word pushed: a call's head where a `(` follows it. */
+function lastWord(out: readonly Token[]): Token | undefined {
+  let p = out.length - 1
+  while (p >= 0 && isTrivia(out[p]!.kind)) p--
+  const t = out[p]
+  return t !== undefined && (t.kind === "identifier" || t.kind === "keyword") ? t : undefined
+}
+
+/** The name of what the IDE stores unnamed, `???`: a coil (`??? := a;`) and an FB box's instance (`TON(…)`, the call of
+ *  its type: `types` `infer/network-box.ts`). */
 export const UNNAMED = "???"
 
-/** Does `tokens[at]` open `???` as a statement's target — three touching `?`, `:=` next, at the start of a statement? */
+/** Does `tokens[at]` open `???` — three touching `?` — as a statement's target (`:=` next, at the start of a statement)? */
 function isUnnamedTarget(tokens: readonly Token[], at: number, before: readonly Token[]): boolean {
   const q = (k: number) => tokens[k]?.kind === "punct" && tokens[k]!.text === "?"
   if (!q(at) || !q(at + 1) || !q(at + 2)) return false
   if (tokens[at + 1]!.span.start !== tokens[at]!.span.end || tokens[at + 2]!.span.start !== tokens[at + 1]!.span.end) return false
+  let p = before.length - 1
+  while (p >= 0 && isTrivia(before[p]!.kind)) p--
   let n = at + 3
   while (n < tokens.length && isTrivia(tokens[n]!.kind)) n++
   if (tokens[n]?.kind !== "punct" || tokens[n]!.text !== ":=") return false
-  let p = before.length - 1
-  while (p >= 0 && isTrivia(before[p]!.kind)) p--
   return p < 0 || before[p]!.text === ";" || before[p]!.text === ":"
 }
 

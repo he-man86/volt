@@ -33,37 +33,28 @@ AlwaysOn S= NOT AlwaysOn;
 %NETWORK
 FirstCycle R= AlwaysOn AND OSfirstflagcycle;
 %NETWORK
-MOVE_EN(EN := AlwaysOn, 0, OUT => dummyWord);
+MOVE(EN := AlwaysOn, 0, OUT => dummyWord).ENO;
 %NETWORK
-%WIRES w1, w2, w3
+VAR_TEMP w1 : ANY; END_VAR
 w1 := TRUE;
-tmr_FF50ms(IN := w1 AND NOT tmr_FF50ms_not.Q, PT := T#100MS, Q => w2);
-FF50ms := w2;
-tmr_FF50ms_not(IN := w1 AND FF50ms, PT := T#100MS, Q => w3);
-LST_General.Imp100ms := w3;
+FF50ms := tmr_FF50ms(IN := w1 AND NOT tmr_FF50ms_not.Q, PT := T#100MS).Q;
+LST_General.Imp100ms := tmr_FF50ms_not(IN := w1 AND FF50ms, PT := T#100MS).Q;
 %NETWORK
-%WIRES w4, w5, w6
+VAR_TEMP w2 : ANY; END_VAR
+w2 := TRUE;
+FF100ms := tmr_FF100ms(IN := w2 AND NOT tmr_FF100ms_not.Q, PT := T#500MS).Q;
+LST_General.Imp200ms := tmr_FF100ms_not(IN := w2 AND FF100ms, PT := T#500MS).Q;
+%NETWORK
+VAR_TEMP w3 : ANY; END_VAR
+w3 := TRUE;
+FF500ms := tmr_FF500ms(IN := w3 AND NOT tmr_FF500ms_not.Q, PT := T#500MS).Q;
+LST_General.Imp1s := tmr_FF500ms_not(IN := w3 AND FF500ms, PT := T#500MS).Q;
+%NETWORK
+VAR_TEMP w4 : ANY; END_VAR
 w4 := TRUE;
-tmr_FF100ms(IN := w4 AND NOT tmr_FF100ms_not.Q, PT := T#500MS, Q => w5);
-FF100ms := w5;
-tmr_FF100ms_not(IN := w4 AND FF100ms, PT := T#500MS, Q => w6);
-LST_General.Imp200ms := w6;
+FF1s := tmr_FF1s(IN := w4 AND NOT tmr_FF1s_not.Q, PT := T#1S).Q;
+tmr_FF1s_not(IN := w4 AND FF1s, PT := T#1S);
 %NETWORK
-%WIRES w7, w8, w9
-w7 := TRUE;
-tmr_FF500ms(IN := w7 AND NOT tmr_FF500ms_not.Q, PT := T#500MS, Q => w8);
-FF500ms := w8;
-tmr_FF500ms_not(IN := w7 AND FF500ms, PT := T#500MS, Q => w9);
-LST_General.Imp1s := w9;
-%NETWORK
-%WIRES w10, w11
-w10 := TRUE;
-tmr_FF1s(IN := w10 AND NOT tmr_FF1s_not.Q, PT := T#1S, Q => w11);
-FF1s := w11;
-tmr_FF1s_not(IN := w10 AND FF1s, PT := T#1S);
-%NETWORK
-%WIRES w12
-PLC_StartUp_Delay(IN := AlwaysOn, PT := T#60S, Q => w12);
-LST_General.StartUpDelayPLC := w12;
+LST_General.StartUpDelayPLC := PLC_StartUp_Delay(IN := AlwaysOn, PT := T#60S).Q;
 
 END_PROGRAM

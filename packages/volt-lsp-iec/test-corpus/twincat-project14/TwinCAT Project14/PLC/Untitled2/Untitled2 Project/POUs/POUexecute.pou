@@ -15,22 +15,16 @@ VAR
 END_VAR
 %LANGUAGE LD
 %NETWORK
-%EXECUTE(EN := TRUE)
-iCount:=icount+1;
-
-%END_EXECUTE
+EXECUTE(EN := TRUE, CODE := 'iCount:=icount+1;
+');
 %NETWORK
-%WIRES w1
-t1(IN := in1, PT := e1, Q => w1);
-output := w1;
+output := t1(IN := in1, PT := e1).Q;
 %NETWORK
-%WIRES w2
-w2 := b;
-out1 := AND(OR(a, w2), c);
-out2 := w2;
+VAR_TEMP w1 : ANY; END_VAR
+w1 := b;
+out1 := AND(OR(a, w1), c);
+out2 := w1;
 %NETWORK
-%WIRES w3
-t2(IN := TRUE, PT := e1, Q => w3);
-output := w3;
+output := t2(IN := TRUE, PT := e1).Q;
 
 END_PROGRAM

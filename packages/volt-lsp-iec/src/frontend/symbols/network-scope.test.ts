@@ -13,7 +13,7 @@ VAR
 END_VAR
 %LANGUAGE LD
 %NETWORK
-%WIRES w1, w2
+VAR_TEMP w1 : ANY; w2 : ANY; END_VAR
 w1 := a AND b;
 x := w1;
 y := w1;

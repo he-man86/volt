@@ -123,8 +123,8 @@ public class CodesysNetworkPairingTests
         var (impl, nets) = Live(S4Rung(), Rung("o1", "a"));
         var pushed = Pushed(impl, t =>
         {
-            // The call's whole output list is its pragma (ld-fbd-coverage 2.3), the connection its `.name`.
-            Assert.Contains("fbCap(xEnable := src, xErrorActive => w1);\nout := w1;", t);
+            // The call's connection is the member closing it, `.name` (network-output-member).
+            Assert.Contains("fbCap(xEnable := src).xErrorActive;", t);
             return t.Replace("%LANGUAGE FBD\n", "%LANGUAGE FBD\n" + Net("o5 := e;"));
         });
         Write(impl, pushed);

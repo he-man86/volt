@@ -23,7 +23,7 @@ END_VAR
 out := OR(AND(a, b), c);
 
 END_FUNCTION_BLOCK
-`, `${doc}#operator-group--operand-op-operand-op-operand-`),
+`, `${doc}#elements`),
   ng("ng_group_nary", "FB_NG_nary", "one operator repeated in a group — an N-ary box, not a chain of binary ones",
     `FUNCTION_BLOCK FB_NG_nary
 VAR
@@ -38,7 +38,7 @@ END_VAR
 out := AND(a, b, c);
 
 END_FUNCTION_BLOCK
-`, `${doc}#operator-group--operand-op-operand-op-operand-`),
+`, `${doc}#elements`),
   ng("ng_group_arithmetic", "FB_NG_arith", "the arithmetic operator boxes (ADD, MOD), which no graphical fixture had reached",
     `FUNCTION_BLOCK FB_NG_arith
 VAR
@@ -56,7 +56,7 @@ sum := ADD(x, y, z);
 rest := MOD(x, y);
 
 END_FUNCTION_BLOCK
-`, `${doc}#7-operators`),
+`, `${doc}#elements`),
   ng("ng_group_comparison", "FB_NG_compare", "the comparison operator boxes (LT, EQ), whose result is BOOL whatever the operands are",
     `FUNCTION_BLOCK FB_NG_compare
 VAR
@@ -73,9 +73,9 @@ below := LT(x, y);
 same := EQ(x, y);
 
 END_FUNCTION_BLOCK
-`, `${doc}#7-operators`),
+`, `${doc}#elements`),
   // ─── wires and fan-out (§6) ────────────────────────────────────────────────
-  ng("ng_fanout_let", "FB_NG_fanout", "a wire feeding TWO sinks — named on the `%WIRES` line, defined before its uses",
+  ng("ng_fanout_let", "FB_NG_fanout", "a wire feeding TWO sinks — declared on the `VAR_TEMP` line, defined before its uses",
     `FUNCTION_BLOCK FB_NG_fanout
 VAR
 \ta : BOOL;
@@ -86,13 +86,13 @@ END_VAR
 
 %LANGUAGE FBD
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 w1 := OR(a, b);
 out1 := w1;
 out2 := w1;
 
 END_FUNCTION_BLOCK
-`, `${doc}#wire-definition--let-name--producer`),
+`, `${doc}#wires`),
   ng("ng_coil_storage", "FB_NG_coils", "all three coil kinds off ONE wire — plain, SET and RESET",
     `FUNCTION_BLOCK FB_NG_coils
 VAR
@@ -105,14 +105,14 @@ END_VAR
 
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 w1 := a OR b;
 plain := w1;
 latched S= w1;
 cleared R= w1;
 
 END_FUNCTION_BLOCK
-`, `${doc}#coil-storage--the-assignment-operator`,
+`, `${doc}#elements`,
     "The storage kind is a property of the COIL, so a fan-out whose coils disagree needs one operator per target — the shape that could not be spelled before `S=`/`R=`, and the shape in which a RESET coil silently came out as a SET coil. Nothing held the compiler's opinion of it until this fixture."),
   ng("ng_opaque_leaf_negation", "FB_NG_opaque", "`NOT` on a bare leaf INSIDE a box's inputs — `AND(a, NOT b)`",
     `FUNCTION_BLOCK FB_NG_opaque
@@ -127,7 +127,7 @@ END_VAR
 out := AND(a, NOT b);
 
 END_FUNCTION_BLOCK
-`, `${doc}#opaque-leaf--let-i--text`,
+`, `${doc}#elements`,
     "A negated input of a box: the IDE stores it as the pin's negation."),
   // ─── modifiers (§6) ────────────────────────────────────────────────────────
   ng("ng_negation_sink", "FB_NG_negate", "`NOT` riding on a SINK's source — the modifier form, not a statement of its own",
@@ -143,7 +143,7 @@ END_VAR
 out := NOT(AND(a, b));
 
 END_FUNCTION_BLOCK
-`, `${doc}#modifiers--ride-on-the-consumer`),
+`, `${doc}#elements`),
   ng("ng_edge_modifiers", "FB_NG_edges", "the edge boxes `R_EDGE(x)` and `F_EDGE(x)` on an operand",
     `FUNCTION_BLOCK FB_NG_edges
 VAR
@@ -159,7 +159,7 @@ up := R_EDGE(clk);
 down := F_EDGE(clk);
 
 END_FUNCTION_BLOCK
-`, `${doc}#modifiers--ride-on-the-consumer`,
+`, `${doc}#elements`,
     "The LSP reads `R_EDGE(x)` as the edge, not as a call of an undeclared name."),
   // ─── calls and their pins (§6) ─────────────────────────────────────────────
   ng("ng_fb_call_output_read", "FB_NG_fbcall", "an FB instance call and its output read back by name",
@@ -177,7 +177,7 @@ t1(IN := go, PT := pt);
 done := t1.Q;
 
 END_FUNCTION_BLOCK
-`, `${doc}#fb-instance-call--instpin--arg--and-output-read-instpin`),
+`, `${doc}#elements`),
   ng("ng_box_output_arrow", "FB_NG_arrow", "a NAMED output pin bound with `=>`, beside the unnamed result",
     `FUNCTION F_NG_split : INT
 VAR_INPUT
@@ -199,10 +199,10 @@ END_VAR
 
 %LANGUAGE FBD
 %NETWORK
-next := F_NG_split(source := src, doubled => twice);
+next := F_NG_split(source := src, doubled => twice).OUT;
 
 END_FUNCTION_BLOCK
-`, `${doc}#box-output-pins--the-calls-assignment-and-`,
+`, `${doc}#outputs`,
     "208 wired output pins on 171 boxes were DROPPED before this form existed — a pin the engineer wired was simply absent from the file. IEC's own split: a function's result is assigned, its VAR_OUTPUTs use `=>`."),
   // ─── EN/ENO and EXECUTE (§6) ───────────────────────────────────────────────
   ng("ng_en_eno_sink", "FB_NG_en", "an enabled operator box read through its ENO, its value wired nowhere (X3: it stores, and the build refuses it)",
@@ -216,10 +216,10 @@ END_VAR
 
 %LANGUAGE LD
 %NETWORK
-out := AND_EN(EN := go, a, b);
+out := AND(EN := go, a, b).ENO;
 
 END_FUNCTION_BLOCK
-`, `${doc}#eneno`),
+`, `${doc}#outputs`),
   ng("ng_en_eno_named_wire", "FB_NG_enwire", "an enabled operator box whose ENO is a wire, its value wired nowhere (X3: it stores, and the build refuses it)",
     `FUNCTION_BLOCK FB_NG_enwire
 VAR
@@ -232,13 +232,13 @@ END_VAR
 
 %LANGUAGE FBD
 %NETWORK
-%WIRES w1
-w1 := OR_EN(EN := go, b, c);
+VAR_TEMP w1 : ANY; END_VAR
+w1 := OR(EN := go, b, c).ENO;
 out := w1;
 out3 := w1;
 
 END_FUNCTION_BLOCK
-`, `${doc}#eneno`),
+`, `${doc}#outputs`),
   ng("ng_execute_box", "FB_NG_execute", "an EXECUTE box — raw ST inside a graphical body, with its own nested END_IF",
     `FUNCTION_BLOCK FB_NG_execute
 VAR
@@ -249,15 +249,13 @@ END_VAR
 
 %LANGUAGE FBD
 %NETWORK
-%EXECUTE(EN := bRun)
-IF bStart THEN
+EXECUTE(EN := bRun, CODE := 'IF bStart THEN
 	target := 40 + 2;
-END_IF
-%END_EXECUTE
+END_IF');
 
 END_FUNCTION_BLOCK
-`, `${doc}#execute-box--execute--end_execute`,
-    "The `%END_EXECUTE` line ends the box, so the ST's own `END_IF` cannot. The LSP reads what is between the lines as the ST it is."),
+`, `${doc}#execute`,
+    "The box's ST is its CODE string, its line breaks as they stand, so the ST's own `END_IF` is code in it. The LSP reads the string's content as the ST it is."),
   // ─── control flow (§6) ─────────────────────────────────────────────────────
   ng("ng_label_jmp_resolved", "FB_NG_jump", "a label that DOES resolve, and the jump that reaches it",
     `FUNCTION_BLOCK FB_NG_jump
@@ -275,7 +273,7 @@ Onwards:
 after := TRUE;
 
 END_FUNCTION_BLOCK
-`, `${doc}#control-flow`,
+`, `${doc}#elements`,
     "Only the MISSING-label error was covered (`cc_vg_undefined_label`). A jump exists to leave the current network, so the label is the DESTINATION network's first line — resolving per network flagged every real jump."),
   ng("ng_conditional_jump_and_return", "FB_NG_cond", "a conditional JMP and a conditional RETURN, beside an unconditional one",
     `FUNCTION_BLOCK FB_NG_cond
@@ -298,7 +296,7 @@ RETURN;
 later := TRUE;
 
 END_FUNCTION_BLOCK
-`, `${doc}#control-flow`),
+`, `${doc}#elements`),
   // ─── network header fields (§6) ────────────────────────────────────────────
   ng("ng_network_title_and_comment", "FB_NG_header", "a network carrying a title and a leading comment",
     `FUNCTION_BLOCK FB_NG_header
@@ -314,7 +312,7 @@ END_VAR
 out := AND(a, b);
 
 END_FUNCTION_BLOCK
-`, `${doc}#networks-comments-flags`),
+`, `${doc}#lines`),
   ng("ng_network_disabled", "FB_NG_disabled", "a DISABLED network, which the compiler does not generate code for",
     `FUNCTION_BLOCK FB_NG_disabled
 VAR
@@ -331,7 +329,7 @@ out := nothingDeclaredWithThisName;
 live := a;
 
 END_FUNCTION_BLOCK
-`, `${doc}#networks-comments-flags`,
+`, `${doc}#lines`,
     "The disabled network holds a DELIBERATE error, because a valid one would settle nothing: a disabled network is not compiled, so if CODESYS stays silent then anything the LSP says about its contents is a false positive — and if CODESYS reports it anyway, that is worth knowing too. Nothing has ever checked which."),
   // ─── an error path the graphical fixtures did not cover ────────────────────
   ng("ng_sink_type_mismatch", "FB_NG_badsink", "a BOOL box driven into an INT coil — the network type-check against a real build",
@@ -347,6 +345,6 @@ END_VAR
 count := AND(a, b);
 
 END_FUNCTION_BLOCK
-`, `${doc}#8-type-system--inference-the-lsps-job`,
+`, `${doc}#subset`,
     "Every graphical ERROR fixture so far was about a missing NAME or an unnamed slot. None put a TYPE error in a network, so the shared assignment rules the network checks reuse have never been confirmed to say the same thing there as in ST."),
 ]

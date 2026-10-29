@@ -150,7 +150,7 @@ describe(`graphical / the ??? marker (${BASE})`, () => {
 			"LD",
 			// The box shows EN (wired to nothing) and the coil reads it through its ENO. (An operator box read so needs its
 			// value wired, `=> out` — without it the vendor stores and does not build it, X3.)
-			"%NETWORK\n??? := MOVE_EN(EN := ???, a, OUT => out);\n",
+			"%NETWORK\n??? := MOVE(EN := ???, a, OUT => out).ENO;\n",
 			BOOLS,
 		)
 	})

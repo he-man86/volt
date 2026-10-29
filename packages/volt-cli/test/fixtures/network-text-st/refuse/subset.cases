@@ -115,33 +115,34 @@ x := a;
 === refused
 network-plain-st a pragma {
 
-#### enabled-box-without-en — an enabled box takes EN first
+#### en-not-first — EN := stands first in a call: it is the box's shown EN
 === text
 %LANGUAGE LD
 %NETWORK
-MOVE_EN(1, OUT => x);
+MOVE(1, EN := c, OUT => x).ENO;
 === refused
-network-plain-st takes EN := as its first argument
+network-plain-st stands first
 
-#### enabled-value-through-out — X_EN returns its ENO; a box with EN read by its value is X_ENONLY
+#### output-to-a-wire — a wire is defined by `w := <box>`, its box closed by the output it reads
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
-MOVE_EN(EN := c, 1, OUT => w1);
+VAR_TEMP w1 : ANY; END_VAR
+MOVE(EN := c, 1, OUT => w1).ENO;
 y := w1;
 === refused
-network-plain-st returns its ENO, and its value reaches no wire
+network-plain-st a wire is defined by
 
-#### return-and-wire — a box read where it stands has no wire
+#### member-at-a-root — a box at a root hands nothing on: its call is closed by .ENO or by nothing
+=== scope
+instance t1 TON
+fb TON IN PT => Q ET
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
-y := MOVE_EN(EN := c, 1, OUT => w1);
-z := w1;
+t1(IN := a, PT := T#1S).Q;
 === refused
-network-plain-st is read by its return and defines the wire
+network-plain-st a box at a root hands nothing on
 
 #### wire-declared-in-reach — a wire is never a variable
 === scope
@@ -149,7 +150,7 @@ name w1
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 w1 := a AND b;
 x := w1;
 y := w1;
@@ -160,7 +161,7 @@ network-plain-st declared in reach
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1, w1
+VAR_TEMP w1 : ANY; w1 : ANY; END_VAR
 w1 := a AND b;
 x := w1;
 y := w1;
@@ -171,12 +172,12 @@ network-plain-st is named twice
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 w1 := a AND b;
 x := w1;
 y := w1;
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 w1 := c;
 u := w1;
 v := w1;
@@ -187,7 +188,7 @@ network-plain-st named on an earlier network too
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES split1
+VAR_TEMP split1 : ANY; END_VAR
 split1 := a AND b;
 x := split1;
 y := split1;
@@ -198,7 +199,7 @@ network-plain-st a wire is w<n>
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 w1 := a;
 w1 := b;
 x := w1;
@@ -210,7 +211,7 @@ network-plain-st is defined twice
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 x := w1 := a;
 y := w1;
 z := w1;
@@ -221,7 +222,7 @@ network-plain-st a wire is defined alone
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 x := a;
 === refused
 network-plain-st is named and never defined
@@ -230,7 +231,7 @@ network-plain-st is named and never defined
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 w1 := a AND b;
 x := w1;
 y := w1;
@@ -257,17 +258,17 @@ a;
 === refused
 network-plain-st an assignment, a call, a jump or a return
 
-#### disabled-after-wires — the % lines stand in order
+#### disabled-after-wires — the % lines stand first
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 %DISABLED
 w1 := a AND b;
 x := w1;
 y := w1;
 === refused
-network-plain-st in the order %DISABLED, %WIRES
+network-plain-st a network's % lines stand first
 
 #### unknown-line — a network holds no other % line
 === text
@@ -303,69 +304,119 @@ x := a;
 === refused
 network-plain-st a network title is one
 
-#### execute-unclosed — an Execute box closes with %END_EXECUTE
+#### execute-without-code — the Execute box takes EN := where it shows EN, then CODE := '<ST>', and nothing else
 === text
 %LANGUAGE LD
 %NETWORK
-%EXECUTE(EN := a)
-x := 1;
+EXECUTE(EN := a);
 === refused
-network-plain-st %EXECUTE with no %END_EXECUTE
+network-plain-st the Execute box takes EN := first where it shows EN, then CODE := '<ST>'
 
-#### call-wire-read-before-its-call — a box read once stands before the statement that reads it
+#### execute-declared-in-reach — EXECUTE is the text's Execute box: a POU of that name in reach would give it two meanings
+=== scope
+pou EXECUTE
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
-y := w1;
-t1(IN := a, PT := T#1S, Q => w1);
-=== scope
-instance t1 TON
+EXECUTE(EN := a, CODE := 'k := 1;');
 === refused
-network-plain-st is read before it is defined
+network-plain-st which the text reads as its Execute box
 
-#### call-wire-not-directly-before-its-read — nothing stands between a box read once and the statement that reads it
+#### execute-code-escape — the code spells a ' as $' and a $ as $$, and everything else as it stands
+=== text
+%LANGUAGE LD
+%NETWORK
+EXECUTE(CODE := 's := $Nb;');
+=== refused
+network-plain-st the escape '$N' in the Execute box's CODE
+
+#### string-across-a-line — only the Execute box's CODE spans lines
+=== text
+%LANGUAGE LD
+%NETWORK
+x := MOVE('a
+b');
+=== refused
+network-plain-st a string across a line
+
+#### execute-beside-a-variable-named-execute — EXECUTE is the text's own word: anything declared in reach under it is refused, a variable too
+=== scope
+name Execute
+=== text
+%LANGUAGE LD
+%NETWORK
+EXECUTE(EN := a, CODE := 'k := 1;');
+=== refused
+network-plain-st which the text reads as its Execute box
+
+#### execute-code-unclosed — the Execute box's CODE not closed runs to the body's end and is refused there
+=== text
+%LANGUAGE LD
+%NETWORK
+EXECUTE(EN := a, CODE := 'k := 1;
+x := a;
+=== refused
+network-plain-st an unclosed string
+
+#### execute-code-not-last — CODE := '<ST>' is the Execute box's last pin
+=== text
+%LANGUAGE LD
+%NETWORK
+EXECUTE(CODE := 'k := 1;', EN := a);
+=== refused
+network-plain-st the Execute box takes EN := first where it shows EN, then CODE := '<ST>'
+
+#### execute-eno-pin — the Execute box's ENO is its one output, read where it stands: no ENO => v pin
+=== text
+%LANGUAGE LD
+%NETWORK
+EXECUTE(EN := a, CODE := 'k := 1;', ENO => v);
+=== refused
+network-plain-st the Execute box takes EN := first where it shows EN, then CODE := '<ST>'
+
+#### execute-code-wstring — the Execute box's CODE is a '…' string, never a "…" one
+=== text
+%LANGUAGE LD
+%NETWORK
+EXECUTE(EN := a, CODE := "k := 1;");
+=== refused
+network-plain-st the Execute box takes EN := first where it shows EN, then CODE := '<ST>'
+
+#### execute-code-wstring-across-a-line — a "…" string spans no line, after CODE := either
+=== text
+%LANGUAGE LD
+%NETWORK
+EXECUTE(EN := a, CODE := "k := 1;
+n := 2;");
+=== refused
+network-plain-st a string across a line
+
+#### code-string-of-another-call — a CODE pin of a call other than the Execute box is an ordinary pin: its string spans no line
+=== scope
+pou f
+=== text
+%LANGUAGE LD
+%NETWORK
+x := f(CODE := 'a
+b');
+=== refused
+network-plain-st a string across a line
+
+#### a-box-named-execute — a call headed Execute is the Execute box, in any case: a box of that type has no other spelling
 === text
 %LANGUAGE FBD
 %NETWORK
-%WIRES w1
-MOVE_EN(EN := c, k, OUT => w1);
-k := MOVE(5);
-y := w1;
+x := Execute(IN := b);
 === refused
-network-plain-st directly before the statement that reads it
-
-#### function-named-like-an-enabled-box — a POU whose name ends in _EN reads as an enabled box
-=== text
-%LANGUAGE FBD
-%NETWORK
-Foo_EN(EN := a);
-=== scope
-pou Foo_EN
-=== refused
-network-plain-st reads as an enabled box
-
-#### wire-defined-by-a-box-read-once — one model, one text: a box read once through a wire defines the next wire itself
-=== text
-%LANGUAGE FBD
-%NETWORK
-%WIRES w1, w2
-t1(IN := a, PT := T#1S, Q => w1);
-w2 := w1;
-x := w2;
-y := w2;
-=== scope
-instance t1 TON
-=== refused
-network-plain-st defines the wire itself
+network-plain-st the Execute box takes EN := first where it shows EN, then CODE := '<ST>'
 
 #### enabled-value-as-a-jump-condition — an enabled box other than a comparison is read by its value only as a coil's value
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 l:
-JMP(l, AND_ENONLY(EN := c, a, b));
+JMP(l, AND(EN := c, a, b));
 === refused
 network-plain-st comparison operators only
 
@@ -373,23 +424,12 @@ network-plain-st comparison operators only
 === text
 %LANGUAGE FBD
 %NETWORK
-%WIRES w2
-y := MUL((w2 := ADD_ENONLY(EN := c, i, j)), 2);
+VAR_TEMP w2 : ANY; END_VAR
+y := MUL((w2 := ADD(EN := c, i, j)), 2);
 z := w2;
 v := w2;
 === refused
 network-plain-st comparison operators only
-
-#### variable-named-like-an-enabled-box — X_EN names nothing declared in reach
-=== text
-%LANGUAGE FBD
-%NETWORK
-x := foo_EN(EN := a, b);
-=== scope
-pou foo
-name foo_EN
-=== refused
-network-plain-st reads as an enabled box
 
 #### branch-pin-named — a branch takes its feed as FEED, then its branches positional
 === text
@@ -419,7 +459,7 @@ network-plain-st holds no branch
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 w1 := AND(a, b);
 x := R_EDGE(w1);
 y := w1;
@@ -444,40 +484,40 @@ pou R_EDGE
 === refused
 network-plain-st declared in reach
 
-#### eno-box-named-in-reach — X_ENO names nothing declared in reach
-=== text
-%LANGUAGE FBD
-%NETWORK
-x := foo_ENO(b);
+#### member-on-one-output — a box with one output names none: the member has no alternative
 === scope
-pou foo
-name foo_ENO
-=== refused
-network-plain-st reads as a box showing ENO
-
-#### en-only-box-with-eno — X_ENONLY shows no ENO
+instance r1 R_TRIG
+fb R_TRIG CLK => Q
 === text
 %LANGUAGE FBD
 %NETWORK
-ADD_ENONLY(EN := c, i, 1, ENO => lamp, OUT => x);
+x := r1(CLK := a).Q;
 === refused
-network-plain-st shows no ENO
+network-plain-st a box with one output names none
 
-#### en-only-value-through-out — X_ENONLY returns its value, read where it stands
+#### eno-target-without-eno — ENO => v is a target of the shown ENO, which .ENO states
 === text
 %LANGUAGE FBD
 %NETWORK
-%WIRES w1
-GT_ENONLY(EN := c, i, 3, OUT => w1);
+ADD(EN := c, i, 1, ENO => lamp, OUT => x);
+=== refused
+network-plain-st ENO => v is a target of the shown ENO
+
+#### value-to-a-wire — a box's value reaches a wire as the wire's definition, `w := <box>`
+=== text
+%LANGUAGE FBD
+%NETWORK
+VAR_TEMP w1 : ANY; END_VAR
+GT(EN := c, i, 3, OUT => w1);
 x := w1;
 === refused
-network-plain-st returns its value
+network-plain-st a wire is defined by
 
 #### en-only-value-inside-a-box — only a comparison with EN is read by its value inside a box
 === text
 %LANGUAGE FBD
 %NETWORK
-y := MUL(ADD_ENONLY(EN := c, i, j), 2);
+y := MUL(ADD(EN := c, i, j), 2);
 === refused
 network-plain-st comparison operators only
 
@@ -485,28 +525,162 @@ network-plain-st comparison operators only
 === text
 %LANGUAGE FBD
 %NETWORK
-%WIRES w1
-w1 := ADD_ENONLY(EN := c, i, j);
+VAR_TEMP w1 : ANY; END_VAR
+w1 := ADD(EN := c, i, j);
 x := MUL(w1, 2);
 y := w1;
 === refused
 network-plain-st comparison operators only
 
-#### en-only-box-without-en — X_ENONLY takes EN first
-=== text
-%LANGUAGE FBD
-%NETWORK
-x := ADD_ENONLY(i, j);
-=== refused
-network-plain-st takes EN := as its first argument
-
-#### en-only-box-named-in-reach — X_ENONLY names nothing declared in reach
-=== text
-%LANGUAGE FBD
-%NETWORK
-x := foo_ENONLY(EN := a, b);
+#### member-naming-no-output — .NAME names an output its callee declares
 === scope
-pou foo
-name foo_ENONLY
+instance t1 TON
+fb TON IN PT => Q ET
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := t1(IN := a, PT := T#1S).Done;
 === refused
-network-plain-st reads as an enabled box showing no ENO
+network-plain-st names no output of TON
+
+#### several-outputs-no-member — a consumed box whose callee declares several outputs names the one its consumer reads
+=== scope
+instance t1 TON
+fb TON IN PT => Q ET
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := t1(IN := a, PT := T#1S);
+=== refused
+network-plain-st names no output: TON has 2
+
+#### out-on-a-function-without-outputs — .OUT on a function with no VAR_OUTPUT has no alternative
+=== scope
+function f IN =>
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := f(IN := a).OUT;
+=== refused
+network-plain-st a box with one output names none
+
+#### function-declaring-out — a function declaring VAR_OUTPUT OUT: OUT would name its value and that output both
+=== scope
+function g IN => OUT
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := g(IN := a);
+=== refused
+network-plain-st declares VAR_OUTPUT OUT
+
+#### operator-member-on-one-output — an IEC operator box (LIMIT) has one output: its call names none
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := LIMIT(0, v, 100).OUT;
+=== refused
+network-plain-st a box with one output names none
+
+#### operator-en-not-first — EN := on an IEC operator box (LIMIT) stands first: it is the shown EN
+=== text
+%LANGUAGE FBD
+%NETWORK
+LIMIT(MN := 0, EN := c, IN := v, MX := 100, OUT => y);
+=== refused
+network-plain-st EN := stands first
+
+#### en-twice — EN := is written once, first
+=== text
+%LANGUAGE FBD
+%NETWORK
+MOVE(EN := c, EN := d, a, OUT => x);
+=== refused
+network-plain-st holds EN := twice
+
+#### en-value-through-a-member — an enabled function box read by its value or a VAR_OUTPUT inside a box: only .ENO hands on
+=== scope
+function g IN => Q
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := MUL(g(EN := c, a).OUT, 2);
+=== refused
+network-plain-st comparison operators only
+
+#### execute-closed-by-a-member — the Execute box has one output, its ENO: no member closes its call
+=== text
+%LANGUAGE LD
+%NETWORK
+x := EXECUTE(EN := a, CODE := 'k := 1;').ENO;
+=== refused
+network-plain-st its one output is its ENO
+
+#### program-several-outputs-no-member — a consumed program box with several outputs names the one its consumer reads
+=== scope
+program p IN => Q1 Q2
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := p(IN := a);
+=== refused
+network-plain-st names no output: p has 2
+
+#### wires-not-any — a wire is declared : ANY, its type its definition's
+=== text
+%LANGUAGE LD
+%NETWORK
+VAR_TEMP w1 : BOOL; END_VAR
+w1 := a AND b;
+x := w1;
+y := w1;
+=== refused
+network-plain-st a wire is declared : ANY
+
+#### wires-after-the-comment — a network's wires are declared after its % lines, before its comment
+=== text
+%LANGUAGE LD
+%NETWORK
+// start
+VAR_TEMP w1 : ANY; END_VAR
+w1 := a AND b;
+x := w1;
+y := w1;
+=== refused
+network-plain-st its wires are declared after its % lines, before its comment
+
+#### wires-across-lines — a network's wires are declared on one line
+=== text
+%LANGUAGE LD
+%NETWORK
+VAR_TEMP
+w1 : ANY;
+END_VAR
+w1 := a AND b;
+x := w1;
+y := w1;
+=== refused
+network-plain-st a network's wires are declared on one line
+
+#### wires-as-a-list — each wire is declared on its own, w1 : ANY; w2 : ANY;
+=== text
+%LANGUAGE LD
+%NETWORK
+VAR_TEMP w1, w2 : ANY; END_VAR
+w1 := a AND b;
+w2 := a OR b;
+x := w1 AND w2;
+y := w1 OR w2;
+=== refused
+network-plain-st a network's wires are declared on one line
+
+#### percent-wires — a network holds no other % line
+=== text
+%LANGUAGE LD
+%NETWORK
+%WIRES w1
+w1 := a AND b;
+x := w1;
+y := w1;
+=== refused
+network-plain-st a network holds no such line

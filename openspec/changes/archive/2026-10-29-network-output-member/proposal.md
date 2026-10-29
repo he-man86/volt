@@ -20,8 +20,8 @@ one output that can.**
 x    := GT(a, b);                                                    // one output: nothing to name
 x    := GT(EN := c, a, b);                                           // EN shown, no ENO: one output (DIALECT N16)
 done := MOVE(EN := MOVE(EN := c, 1, OUT => x).ENO, 2, OUT => y).ENO; // ENO→EN chain
-x    := AND(TON(FB := t1, IN := a, PT := T#1S).Q, b);                // an FB: Q chains
-t    := TON(FB := t1, IN := a, PT := T#1S).ET;                       // moved pin: ET chains
+x    := AND(t1(IN := a, PT := T#1S).Q, b);                          // an FB: Q chains
+t    := t1(IN := a, PT := T#1S).ET;                                 // moved pin: ET chains
 ```
 
 - One function name per box, as in the toolbox; `EN :=` present = EN shown. The suffixes `_EN`, `_ENO`, `_ENONLY` go.

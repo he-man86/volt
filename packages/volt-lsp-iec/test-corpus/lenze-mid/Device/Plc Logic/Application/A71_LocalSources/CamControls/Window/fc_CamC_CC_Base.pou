@@ -13,6 +13,6 @@ END_VAR
 
 %LANGUAGE LD
 %NETWORK
-o_xCamControl := BRANCH_SHORTCIRCUIT(FEED := i_xEnable, LE_ENONLY(EN := GE_ENONLY(EN := LT_ENONLY(EN := TRUE, i_intStartCam, i_intStopCam), i_lrMachinePosition, i_intStartCam), i_lrMachinePosition, i_intStopCam), BRANCH_SHORTCIRCUIT(FEED := GT_ENONLY(EN := TRUE, i_intStartCam, i_intStopCam), GE_ENONLY(EN := TRUE, i_lrMachinePosition, i_intStartCam), LE_ENONLY(EN := TRUE, i_lrMachinePosition, i_intStopCam)));
+o_xCamControl := BRANCH_SHORTCIRCUIT(FEED := i_xEnable, LE(EN := GE(EN := LT(EN := TRUE, i_intStartCam, i_intStopCam), i_lrMachinePosition, i_intStartCam), i_lrMachinePosition, i_intStopCam), BRANCH_SHORTCIRCUIT(FEED := GT(EN := TRUE, i_intStartCam, i_intStopCam), GE(EN := TRUE, i_lrMachinePosition, i_intStartCam), LE(EN := TRUE, i_lrMachinePosition, i_intStopCam)));
 
 END_FUNCTION

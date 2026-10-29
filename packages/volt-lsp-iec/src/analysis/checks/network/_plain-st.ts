@@ -4,25 +4,26 @@
  * name, as the bridge's reader refuses it (`StNetworkReader`). Nothing else is network-specific: no lexer, no grammar,
  * no keyword list.
  *
- *   the `%` lines   `%NETWORK` opens a network; then `%DISABLED`, then `%WIRES`, then its `//` comment lines, then its
- *                   code (or its one `%UNSUPPORTED` line); `%EXECUTE` … `%END_EXECUTE` stands among the code, full ST
- *                   between them;
+ *   the `%` lines   `%NETWORK` opens a network; then `%DISABLED`, then its wires, then its `//` comment lines, then its
+ *                   code (or its one `%UNSUPPORTED` line);
  *   statements      an assignment (`:=`, `S=`, `R=`, chained), a call, `JMP l;` and `RETURN;` on the rail,
  *                   `JMP(label, value);` and `RETURN(value);` on a value (also in a tree), the empty item `;`, and the
  *                   network's label as its first statement — no `IF`;
  *   expressions     every box a call; infix only the contacts (`a AND b`, `a OR b`, `NOT a` before an operand);
- *   wires           a name on its network's `%WIRES` line: declared in reach by nothing, named by one network, defined
- *                   once and read by its name any number of times, before its definition too; a call read once through
- *                   its wire stands directly before the statement that reads it, only other such calls between, and
- *                   defines no other wire (`w2 := w1;`: the call names w2 itself); an enabled box other than a
- *                   comparison is read by its value only as a coil's value, however often its wire is read (CODESYS: "A
- *                   box with EN can be used for comparison operators only."), and through one `OUT`;
- *   enabled boxes   `X_EN(…)` takes `EN :=` first, and names nothing declared in reach (it is the enabled box of `X`);
- *                   `X_ENO(…)` neither (X showing ENO and no EN); `X_ENONLY(…)` takes `EN :=` first, has no ENO and
- *                   returns its value — no `OUT =>` a wire;
+ *   wires           a name its network declares, `VAR_TEMP w1 : ANY; END_VAR` on one line: declared in reach by nothing, named by one network, defined
+ *                   once (`w := <box>`) and read by its name any number of times, before its definition too; a box's
+ *                   output reaches no wire; an enabled box other than a comparison is read by its
+ *                   value only as a coil's value, however often its wire is read (CODESYS: "A box with EN can be used for
+ *                   comparison operators only.");
+ *   boxes           the call is the box (`types` `infer/network-box.ts`): an FB's the call of its instance, or of its
+ *                   type where it has none (`???`); `EN :=` first the shown EN; `.ENO` closes the call of a box
+ *                   showing ENO, `.NAME` a consumed box whose callee declares several outputs, naming the one read — no
+ *                   other member, none on a box with one output, none but `.ENO` at a root; `ENO => v` with `.ENO`;
  *   elements        `BRANCH(FEED := f, b1, b2)` / `BRANCH_SHORTCIRCUIT(…)` take the feed first, if fed, then the
  *                   branches, positional; `R_EDGE(x)` / `F_EDGE(x)` one value, a contact or a box read where it stands;
- *                   each is a value in a tree, and none names anything declared in reach.
+ *                   each is a value in a tree, and none names anything declared in reach; the Execute box
+ *                   `EXECUTE(EN := e, CODE := '<ST>')` takes EN where it shows EN, then its ST, nothing else, and no member
+ *                   closes its call (its one output is its ENO) — its ST full ST, read by the ST checks as it stands.
  *
  * A `%DISABLED` network is held to the subset too (it is text a push writes), though nothing compiles it.
  */
@@ -32,6 +33,7 @@ import {
   type Expr,
   isPlainStNetworkBody,
   type ParseResult,
+  type PlainStExecute,
   type PlainStNetwork,
   plainStText,
   sourceStatements,
@@ -41,18 +43,21 @@ import {
   unitBodies,
   walkExpr,
   allUnits,
+  closedString,
+  EXECUTE,
   UNNAMED,
   walkStatements,
 } from "../../../frontend/syntax/index.js"
-import { lookup, scopeForUnit, type Scope } from "../../../frontend/symbols/index.js"
-import { NETWORK_ELEMENTS, resolveCallee } from "../../../frontend/types/index.js"
+import { lookup, networkScope, scopeForUnit, type Scope } from "../../../frontend/symbols/index.js"
+import { boxMember, NETWORK_ELEMENTS, networkBox, resolveCallee } from "../../../frontend/types/index.js"
 import { messagesFor, type Messages } from "../../messages/index.js"
 import { emit, SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
-import { checkWires, CODE, isVariable } from "./_plain-st-wires.js"
+import { calleeText, checkBox } from "./_plain-st-box.js"
+import { checkWires, CODE } from "./_plain-st-wires.js"
 
 
 /** The `%` lines that stand before a network's code. */
-const HEADER_LINES: ReadonlySet<string> = new Set(["NETWORK", "DISABLED", "WIRES", "UNSUPPORTED"])
+const HEADER_LINES: ReadonlySet<string> = new Set(["NETWORK", "DISABLED", "UNSUPPORTED"])
 
 /** The statements a network may not hold, by their ST keyword. */
 const NOT_IN_A_NETWORK: Readonly<Record<string, string>> = {
@@ -71,9 +76,9 @@ export function networkDiagnostics(parseResult: ParseResult, project: Scope): Di
       if (!isPlainStNetworkBody(body)) continue
       const scope = scopeForUnit(project, unit)
       const bodyScope = scope?.children.find((c) => c.span === body.span) ?? scope
-      checkBody(body, bodyScope, out)
-      checkUnnamed(body, bodyScope, parseResult.dialect, out)
-      if (bodyScope !== undefined) checkBoxes(body, bodyScope, project, parseResult.dialect === "twincat", messagesFor(parseResult.dialect), out)
+      checkBody(body, bodyScope, project, out)
+      checkUnnamed(body, bodyScope === undefined ? undefined : networkScope(bodyScope, body), project, parseResult.dialect, out)
+      if (bodyScope !== undefined) checkBoxes(body, networkScope(bodyScope, body), project, parseResult.dialect === "twincat", messagesFor(parseResult.dialect), out)
     }
   return out
 }
@@ -82,12 +87,12 @@ export function networkDiagnostics(parseResult: ParseResult, project: Scope): Di
  * What the IDE stores as `???` and the build answers in its own words, each vendor's (`network_unnamed_*`, both vendors):
  *  - a coil nobody named, `??? := a;`: "The assignment target is not specified." Behind an enable CODESYS adds two errors
  *    about an implicit variable it names itself, which no text holds; this one stands for them;
- *  - an FB box with no instance, written as the call of its type (`TON(IN := a);`): the build reads the instance `???`
- *    as text — the two errors of the marker, the instance error over the marker, the marker's first again;
+ *  - an FB box with no instance (`TON(IN := a);`, the call of its type): the build reads the instance `???` as text — the
+ *    two errors of the marker, the instance error over the marker, the marker's first again — at the call's head;
  *  - `???` as an operand: the build reads it as text, "Expression expected instead of '?'" (the ST parser's, here too)
  *    and "Unexpected token '?' found".
  */
-function checkUnnamed(body: BodySpan, scope: Scope | undefined, dialect: ParseResult["dialect"], out: DiagnosticItem[]): void {
+function checkUnnamed(body: BodySpan, scope: Scope | undefined, project: Scope, dialect: ParseResult["dialect"], out: DiagnosticItem[]): void {
   const tc = dialect === "twincat"
   const error = (span: Span, message: string) => out.push({ severity: "error", span, source: SOURCE, code: UNNAMED_CODE, message })
   const target = (t: Expr) => {
@@ -96,13 +101,14 @@ function checkUnnamed(body: BodySpan, scope: Scope | undefined, dialect: ParseRe
   const marker = "Expression expected instead of '?'"
   walkStatements(sourceStatements(body).statements, (stmt) => {
     if (stmt.kind === "assign") target(stmt.target)
-    if (stmt.kind === "call_stmt" && stmt.call.callee.kind === "ident_expr" && scope !== undefined &&
-        lookup(scope, stmt.call.callee.name)?.symbol.kind === "function_block") {
-      const at = stmt.call.callee.span
-      for (const m of [marker, tc ? "Unexpected Token '?' found" : "Unexpected token '?' found",
-        "Program name, function or function block instance expected instead of '!!!'ERROR'!!!'", marker]) error(at, m)
-    }
-    for (const e of stmtExprs(stmt)) walkExpr(e, (x) => { if (x.kind === "assign_expr") target(x.target) })
+    for (const e of stmtExprs(stmt))
+      walkExpr(e, (x) => {
+        if (x.kind === "assign_expr") target(x.target)
+        const instance = x.kind === "call" && scope !== undefined ? networkBox(x, scope, project)?.instance : undefined
+        if (x.kind === "call" && instance?.kind === "ident_expr" && instance.name === UNNAMED)
+          for (const m of [marker, tc ? "Unexpected Token '?' found" : "Unexpected token '?' found",
+            "Program name, function or function block instance expected instead of '!!!'ERROR'!!!'", marker]) error(x.callee.span, m)
+      })
   })
   const tokens = plainStText(body).sourceTokens
   const q = (k: number) => tokens[k]?.kind === "punct" && tokens[k]!.text === "?"
@@ -133,10 +139,19 @@ function checkBoxes(body: BodySpan, scope: Scope, project: Scope, tc: boolean, m
   walkStatements(sourceStatements(body).statements, (stmt) => {
     for (const e of stmtExprs(stmt))
       walkExpr(e, (x) => {
+        if (x.kind === "member" && x.base.kind === "call" && x.member.name.toUpperCase() === "ENO" && x.base.callee.kind === "member") {
+          // a library function named through its namespace, closed by `.ENO`: CODESYS reads ENO as a member of its result
+          const callee = x.base.callee
+          const base = callee.base.kind === "ident_expr" ? lookup(scope, callee.base.name) : undefined
+          if (!tc && callee.base.kind === "ident_expr" && (base === undefined || base.symbol.kind === "namespace"))
+            error(x.member.span, "not-a-member", messages.notAMember("ENO", callee.member.name))
+          return
+        }
         if (x.kind !== "call") return
-        const inputs = x.args.filter((a) => !a.output && a.param?.name.toUpperCase() !== "EN")
+        const box = networkBox(x, scope, project)
+        const inputs = (box?.pins ?? x.args).filter((a) => !a.output)
         if (x.callee.kind === "ident_expr") {
-          const word = x.callee.name.toUpperCase().replace(/_(ENONLY|ENO|EN)$/, "")
+          const word = x.callee.name.toUpperCase()
           const exactly = TWO_EXACTLY[word]
           const atLeast = TWO_AT_LEAST[word]
           if (exactly !== undefined && inputs.length !== 2) error(x.callee.span, "operator-arity", messages.operatorNeedsExactly(exactly, 2))
@@ -149,10 +164,6 @@ function checkBoxes(body: BodySpan, scope: Scope, project: Scope, tc: boolean, m
           return
         }
         if (x.callee.kind !== "member") return
-        const eno = /^(.+)_ENO$/i.exec(x.callee.member.name)
-        const base = x.callee.base.kind === "ident_expr" ? lookup(scope, x.callee.base.name) : undefined
-        if (!tc && eno !== null && x.callee.base.kind === "ident_expr" && (base === undefined || base.symbol.kind === "namespace"))
-          error(x.callee.member.span, "not-a-member", messages.notAMember("ENO", eno[1]!))
         if (!inputs.some((a) => a.param === undefined)) return
         const callee = resolveCallee(x, scope, project)
         if (callee?.sym.kind === "method") error(x.callee.span, "function-argument-count", messages.functionRequiresInputs(callee.sym.name, callee.positionalArity))
@@ -160,8 +171,10 @@ function checkBoxes(body: BodySpan, scope: Scope, project: Scope, tc: boolean, m
   })
 }
 
-function checkBody(body: BodySpan, scope: Scope | undefined, out: DiagnosticItem[]): void {
+function checkBody(body: BodySpan, scope: Scope | undefined, project: Scope, out: DiagnosticItem[]): void {
   const text = plainStText(body)
+  // the scope the body's boxes resolve in: the unit's with the body's wires over it (`symbols` `network-scope.ts`)
+  const boxes = scope === undefined ? undefined : networkScope(scope, body)
   for (const s of text.stray) emit(out, s.span, CODE, s.message)
   const named = new Map<string, number>()
   for (const n of text.networks) {
@@ -178,29 +191,42 @@ function checkBody(body: BodySpan, scope: Scope | undefined, out: DiagnosticItem
   }
   const parsed = sourceStatements(body)
   const of = (span: Span) => text.networks.find((n) => span.start >= n.span.start && span.start < n.span.end)
-  const inExecute = (span: Span) => text.networks.some((n) => n.executes.some((x) => span.start > x.header.end && span.start < x.span.end))
+  const inExecute = (span: Span) => text.networks.some((n) => n.executes.some((x) => span.start >= x.code.start && span.start < x.code.end))
   const first = new Set<PlainStNetwork>()
   const wires = new Set(text.networks.flatMap((n) => n.wires.map((w) => w.name.toLowerCase())))
   for (const stmt of parsed.statements) {
     if (inExecute(stmt.span)) continue
     const network = of(stmt.span)
     if (network === undefined) continue
-    checkStatement(stmt, !first.has(network), scope, wires, out)
+    checkStatement(stmt, !first.has(network), scope, boxes, project, wires, network.executes, out)
     first.add(network)
   }
   checkComments(body, text.networks, out)
-  checkWires(parsed.statements, text.networks, of, inExecute, scope, out)
+  checkWires(parsed.statements, text.networks, of, inExecute, boxes, project, out)
+  checkStrings(body, out)
 }
 
-/** A network's `%` lines: `%NETWORK` first, then `%DISABLED`, then `%WIRES`; `%UNSUPPORTED` alone under them. */
+/** A string spans lines only as the Execute box's ST (`network/execute-code.ts` rejoins only that one): any other one is refused as
+ *  the bridge's reader refuses it. */
+function checkStrings(body: BodySpan, out: DiagnosticItem[]): void {
+  const text = plainStText(body)
+  const code = new Set(text.networks.flatMap((n) => n.executes.map((x) => x.code.start - 1)))
+  const unclosed = new Set(text.stray.map((s) => s.span.start))
+  for (const t of text.tokens)
+    if ((t.kind === "string_lit" || t.kind === "wstring_lit") && (t.span.endLine > t.span.startLine || !closedString(t.text)) &&
+        !code.has(t.span.start) && !unclosed.has(t.span.start))
+      emit(out, t.span, CODE, "a string across a line: only the Execute box's CODE spans lines")
+}
+
+/** A network's `%` lines: `%NETWORK` first, then `%DISABLED`; `%UNSUPPORTED` alone under them. */
 function checkLines(n: PlainStNetwork, body: BodySpan, out: DiagnosticItem[]): void {
-  const order = ["NETWORK", "DISABLED", "WIRES"]
+  const order = ["NETWORK", "DISABLED"]
   let at = 0
   let code = false
   for (const line of n.lines.slice(1)) {
     const k = order.indexOf(line.key)
     if (k >= 0) {
-      if (k <= at || code) emit(out, line.span, CODE, `'%${line.key}' out of place: a network's % lines stand before its code, in the order %DISABLED, %WIRES`)
+      if (k <= at || code) emit(out, line.span, CODE, `'%${line.key}' out of place: a network's % lines stand first, %NETWORK then %DISABLED`)
       at = Math.max(at, k)
     } else code = true
   }
@@ -212,13 +238,13 @@ function checkLines(n: PlainStNetwork, body: BodySpan, out: DiagnosticItem[]): v
     const words = u.args.map((t) => t.text).join("")
     if (!/^".+"#[0-9a-f]{8}$/i.test(words)) emit(out, u.span, CODE, "the line is %UNSUPPORTED \"<shape>\" #<8 hex digits>")
     // its label, the jump target it stays, may stand under the line (`l:`); nothing else
-    const after = body.tokens.filter((t) => t.span.start > u.span.end && t.span.start < n.span.end && t.kind !== "whitespace" && t.kind !== "eof")
+    const after = plainStText(body).tokens.filter((t) => t.span.start > u.span.end && t.span.start < n.span.end && t.kind !== "whitespace" && t.kind !== "eof")
     const label = after.length === 2 && after[0]!.kind === "identifier" && after[1]!.text === ":"
     if (after.length > 0 && !label) emit(out, after[0]!.span, CODE, "a network shown %UNSUPPORTED holds nothing else but its label")
   }
 }
 
-function checkStatement(stmt: Statement, first: boolean, scope: Scope | undefined, wires: ReadonlySet<string>, out: DiagnosticItem[]): void {
+function checkStatement(stmt: Statement, first: boolean, scope: Scope | undefined, boxes: Scope | undefined, project: Scope, wires: ReadonlySet<string>, executes: readonly PlainStExecute[], out: DiagnosticItem[]): void {
   const word = NOT_IN_A_NETWORK[stmt.kind]
   if (word !== undefined) return emit(out, stmt.span, CODE, `an LD/FBD network cannot hold a ${word}`)
   switch (stmt.kind) {
@@ -230,12 +256,24 @@ function checkStatement(stmt: Statement, first: boolean, scope: Scope | undefine
     case "call_stmt":
       if (stmt.call.callee.kind === "ident_expr" && NETWORK_ELEMENTS.has(stmt.call.callee.name.toUpperCase()))
         emit(out, stmt.span, CODE, `the call ${stmt.call.callee.name} stands alone: a branch or an edge is a value in a tree`)
-      checkExprs(stmt, scope, wires, out)
+      checkExprs(stmt, scope, boxes, project, wires, executes, out)
+      return
+    case "expr_stmt":
+      // a box at a root showing ENO, its call closed by `.ENO`: network text's one added statement form
+      if (stmt.expr.kind === "member" && stmt.expr.base.kind === "call") {
+        if (calleeText(stmt.expr.base).toUpperCase() === EXECUTE) return checkExprs(stmt, scope, boxes, project, wires, executes, out)
+        const m = boxes === undefined ? undefined : boxMember(stmt.expr, boxes, project)
+        if (m === undefined || !m.eno)
+          emit(out, stmt.span, CODE, `the call ${calleeText(stmt.expr.base)} stands as a statement closed by .${stmt.expr.member.name}: a box at a root hands nothing on, and its call is closed by .ENO (it shows ENO) or by nothing`)
+        checkExprs(stmt, scope, boxes, project, wires, executes, out)
+        return
+      }
+      emit(out, stmt.span, CODE, "a statement a network cannot hold: an assignment, a call, a jump or a return")
       return
     case "assign":
     case "jmp":
     case "return":
-      checkExprs(stmt, scope, wires, out)
+      checkExprs(stmt, scope, boxes, project, wires, executes, out)
       return
     case "empty":
       return
@@ -244,8 +282,13 @@ function checkStatement(stmt: Statement, first: boolean, scope: Scope | undefine
   }
 }
 
-/** Infix only for the contacts; `NOT` only before an operand; an enabled box `EN :=` first. */
-function checkExprs(stmt: Statement, scope: Scope | undefined, wires: ReadonlySet<string>, out: DiagnosticItem[]): void {
+/** Infix only for the contacts; `NOT` only before an operand; every box as `checkBox` holds it. */
+function checkExprs(stmt: Statement, scope: Scope | undefined, boxes: Scope | undefined, project: Scope, wires: ReadonlySet<string>, executes: readonly PlainStExecute[], out: DiagnosticItem[]): void {
+  // the member closing each call, and the call standing as the statement (a root: it hands nothing on)
+  const closer = new Map<CallExpr, string>()
+  const root = stmt.kind === "call_stmt" ? stmt.call
+    : stmt.kind === "expr_stmt" && stmt.expr.kind === "member" && stmt.expr.base.kind === "call" ? stmt.expr.base : undefined
+  for (const e of stmtExprs(stmt)) walkExpr(e, (x) => { if (x.kind === "member" && x.base.kind === "call") closer.set(x.base, x.member.name) })
   for (const e of stmtExprs(stmt))
     walkExpr(e, (x) => {
       if (x.kind === "binary" && CALL_ONLY.has(x.op.toUpperCase()))
@@ -253,6 +296,8 @@ function checkExprs(stmt: Statement, scope: Scope | undefined, wires: ReadonlySe
       if (x.kind === "unary" && x.op.toUpperCase() === "NOT" && !isOperand(x.operand))
         emit(out, x.span, CODE, "NOT before a call, a bracket or another NOT: NOT before an operand is a negated contact, and the NOT box is NOT(…)")
       if (x.kind === "call") checkCall(x, scope, wires, out)
+      if (x.kind === "call" && calleeText(x).toUpperCase() === EXECUTE) return checkExecute(x, closer.get(x), scope, executes, out)
+      if (x.kind === "call" && boxes !== undefined) checkBox(x, closer.get(x), x !== root, boxes, project, out)
     })
 }
 
@@ -276,37 +321,20 @@ function checkCall(call: CallExpr, scope: Scope | undefined, wires: ReadonlySet<
     if (declared) emit(out, call.callee.span, CODE, `the call ${name} names something declared in reach, which the text reads as its own ${upper}`)
     return upper.startsWith("BRANCH") ? checkBranch(call, name, out) : checkEdge(call, name, wires, out)
   }
-  if (upper.endsWith("_ENONLY") && upper.length > 7) {
-    if (declared)
-      emit(out, call.callee.span, CODE, `the call ${name} names something declared in reach (a POU, an instance or a variable) whose name ends in _ENONLY, which the text reads as an enabled box showing no ENO`)
-    for (const a of call.args) {
-      if (!a.output) continue
-      const pin = a.param?.name.toUpperCase()
-      if (pin === "ENO") emit(out, a.span, CODE, `the box ${name} shows no ENO: _ENONLY is a box with EN and no ENO`)
-      else if (pin === "OUT" && a.value?.kind === "ident_expr" && wires.has(a.value.name.toLowerCase()) && !isVariable(scope, name.slice(0, -7)))
-        emit(out, a.span, CODE, `the box ${name} returns its value, read where it stands, not through OUT => ${a.value.name}`)
-    }
-    const en = call.args[0]
-    if (en === undefined || en.output || en.param?.name.toUpperCase() !== "EN")
-      emit(out, call.callee.span, CODE, `the enabled box ${name} takes EN := as its first argument`)
-    return
-  }
-  if (upper.endsWith("_ENO") && upper.length > 4) {
-    if (declared)
-      emit(out, call.callee.span, CODE, `the call ${name} names something declared in reach (a POU, an instance or a variable) whose name ends in _ENO, which the text reads as a box showing ENO`)
-    return
-  }
-  if (!upper.endsWith("_EN")) return
-  // A box showing ENO returns it, and is read by it (measured, design.md "3.0"): its value reaches no wire.
-  const base = name.slice(0, -3)
-  for (const a of call.args)
-    if (a.output && a.param?.name.toUpperCase() === "OUT" && a.value?.kind === "ident_expr" && wires.has(a.value.name.toLowerCase()) && !isVariable(scope, base))
-      emit(out, a.span, CODE, `the box ${name} returns its ENO, and its value reaches no wire: a box with EN read by its value is ${base}_ENONLY, which returns it`)
-  if (declared)
-    emit(out, call.callee.span, CODE, `the call ${name} names something declared in reach (a POU, an instance or a variable) whose name ends in _EN, which the text reads as an enabled box`)
-  const en = call.args[0]
-  if (en === undefined || en.output || en.param?.name.toUpperCase() !== "EN")
-    emit(out, call.callee.span, CODE, `the enabled box ${name} takes EN := as its first argument`)
+}
+
+/** THE EXECUTE BOX, `EXECUTE(EN := e, CODE := '<ST>')` (its `CODE := '…'` trivia to the ST parser, `plain-st.ts`): EN first
+ *  where it shows EN, then its ST, nothing else; no member closes its call, its one output its ENO; and nothing declared in
+ *  reach is named EXECUTE — the bridge's reader refuses each in the same words (`StNetworkReader.ExecuteBox`). */
+function checkExecute(call: CallExpr, member: string | undefined, scope: Scope | undefined, executes: readonly PlainStExecute[], out: DiagnosticItem[]): void {
+  const name = calleeText(call)
+  if (scope !== undefined && lookup(scope, name) !== undefined)
+    return emit(out, call.callee.span, CODE, `the call ${name} names something declared in reach, which the text reads as its Execute box`)
+  if (member !== undefined) return emit(out, call.span, CODE, `the Execute box is closed by .${member}: its one output is its ENO, read where the box stands`)
+  const en = call.args[0] !== undefined && !call.args[0].output && call.args[0].param?.name.toUpperCase() === "EN"
+  const code = executes.some((x) => x.call.start === call.span.start)
+  if (!code || call.args.length > (en ? 1 : 0))
+    emit(out, call.span, CODE, "the Execute box takes EN := first where it shows EN, then CODE := '<ST>', and nothing else")
 }
 
 /** `BRANCH(FEED := f, b1, b2)`: the feed first if fed, then the branches, positional; at least one branch. */
@@ -331,18 +359,19 @@ function checkEdge(call: CallExpr, name: string, wires: ReadonlySet<string>, out
     emit(out, call.span, CODE, `the edge ${name} over a wire, a branch, a coil, a box written as a statement or another edge: an edge is on a contact or on a box read where it stands`)
 }
 
-/** A `//` comment stands before its network's code; a block comment or a pragma nowhere outside an Execute box. */
+/** A `//` comment stands before its network's code; a block comment or a pragma nowhere (an Execute box's ST is its
+ *  string's content, no token of the network). */
 function checkComments(body: BodySpan, networks: readonly PlainStNetwork[], out: DiagnosticItem[]): void {
   for (const n of networks) {
     let code = false
-    for (const t of body.tokens) {
+    for (const t of plainStText(body).tokens) {
       if (t.span.start < n.span.start || t.span.start >= n.span.end) continue
-      if (n.executes.some((x) => t.span.start > x.header.end && t.span.start < x.span.end)) continue
       if (t.kind === "block_comment" || t.kind === "pragma")
         emit(out, t.span, CODE, t.kind === "pragma" ? "a pragma {…} in a network: a network holds none" : "a (* comment in a network: a network's comment is its // lines before the code")
       else if (t.kind === "line_comment" && code)
         emit(out, t.span, CODE, "a // comment after the code starts: a network's comment is its // lines before the code")
-      else if (t.kind !== "whitespace" && t.kind !== "line_comment" && t.kind !== "eof" && !n.lines.some((l) => HEADER_LINES.has(l.key) && t.span.start >= l.span.start && t.span.start <= l.span.end))
+      else if (t.kind !== "whitespace" && t.kind !== "line_comment" && t.kind !== "eof" && !n.lines.some((l) => HEADER_LINES.has(l.key) && t.span.start >= l.span.start && t.span.start <= l.span.end) &&
+               !(n.declaration !== undefined && t.span.start >= n.declaration.start && t.span.start < n.declaration.end))
         code = true
     }
   }

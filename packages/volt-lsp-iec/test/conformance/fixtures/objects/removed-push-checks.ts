@@ -151,9 +151,9 @@ END_TYPE
   network(
     "rcc_network_eno_without_en",
     "FB_LANG_rcc_nw_eno",
-    "ENO read on an ADD box that has no EN — `ADD_ENO(a, b)`: it stores, and the build refuses it (\"Missing EN pin\", X9)",
+    "ENO read on an ADD box that has no EN — `ADD(a, b).ENO`: it stores, and the build refuses it (\"Missing EN pin\", X9)",
     "\ta : INT;\n\tb : INT;\n\tx : BOOL;",
-    "x := ADD_ENO(a, b);",
+    "x := ADD(a, b).ENO;",
   ),
 
   // …and on a user FUNCTION's box: the push derives a project FUNCTION's CallType and output list from its declaration
@@ -181,11 +181,44 @@ END_VAR
 
 %LANGUAGE FBD
 %NETWORK
-x := FUN_LANG_rcc_twice_ENO(a := a, b := b);
+x := FUN_LANG_rcc_twice(a := a, b := b).ENO;
 
 END_FUNCTION_BLOCK
 `,
     plcPrgVar: "inst : FB_LANG_rcc_nw_eno_fun;",
+    plcPrgBody: "inst();",
+    execSkip: NOT_ST,
+  },
+
+  // …and the same box at a ROOT, showing ENO without EN (network-output-member 2.3): nothing reads the ENO.
+  {
+    name: "rcc_network_eno_function_without_en_root",
+    pouName: "FB_LANG_rcc_nw_eno_root",
+    kind: "function_block",
+    feature: "a user FUNCTION's box at a root showing ENO without EN",
+    fromDoc: doc,
+    source: `FUNCTION FUN_LANG_rcc_thrice : INT
+VAR_INPUT
+	a : INT;
+	b : INT;
+END_VAR
+FUN_LANG_rcc_thrice := a + b + b;
+END_FUNCTION
+
+FUNCTION_BLOCK FB_LANG_rcc_nw_eno_root
+VAR
+	a : INT;
+	b : INT;
+	y : INT;
+END_VAR
+
+%LANGUAGE FBD
+%NETWORK
+FUN_LANG_rcc_thrice(a := a, b := b, OUT => y).ENO;
+
+END_FUNCTION_BLOCK
+`,
+    plcPrgVar: "inst : FB_LANG_rcc_nw_eno_root;",
     plcPrgBody: "inst();",
     execSkip: NOT_ST,
   },
@@ -196,14 +229,14 @@ END_FUNCTION_BLOCK
     "FB_LANG_rcc_nw_late",
     "a wire defined after the network's first statement (2.7)",
     "\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\n\tlamp1 : BOOL;\n\tlamp2 : BOOL;",
-    "%WIRES w1\nout := a;\nw1 := OR(a, b);\nlamp1 := w1;\nlamp2 := w1;",
+    "VAR_TEMP w1 : ANY; END_VAR\nout := a;\nw1 := OR(a, b);\nlamp1 := w1;\nlamp2 := w1;",
   ),
   network(
     "rcc_network_second_var_temp",
     "FB_LANG_rcc_nw_two_blocks",
     "two wires in one network, the second defined after the first's uses (2.7)",
     "\ta : BOOL;\n\tb : BOOL;\n\tc : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;\n\tout3 : BOOL;\n\tout4 : BOOL;",
-    "%WIRES w1, w2\nw1 := AND(a, b);\nout1 := w1;\nout2 := w1;\nw2 := OR(b, c);\nout3 := w2;\nout4 := w2;",
+    "VAR_TEMP w1 : ANY; w2 : ANY; END_VAR\nw1 := AND(a, b);\nout1 := w1;\nout2 := w1;\nw2 := OR(b, c);\nout3 := w2;\nout4 := w2;",
   ),
 
   // ─── 2.1 — a retired `(* @volt-… *)` comment in a current-format POU ───

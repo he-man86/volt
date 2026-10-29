@@ -78,7 +78,7 @@ public class CodesysCalleeDerivationTests
     [Fact]
     public void A_function_call_with_an_output_pin_gets_them_too()
     {
-        var box = Built("twice := F_split(v, doubled => y);");
+        var box = Built("twice := F_split(v, doubled => y).OUT;");
         Assert.Equal(Nwl.Operator.Function, box.CallType);
         Assert.Equal(new[] { "source" }, InputNames(box));
         Assert.Equal(new[] { "   ", "doubled" }, OutputNames(box));
@@ -90,7 +90,7 @@ public class CodesysCalleeDerivationTests
     /// <summary>An unwired VAR_OUTPUT is drawn too: the editor lists every one (RuntimeGuard, 4 of 4).</summary>
     [Fact]
     public void An_unwired_output_is_listed_too() =>
-        Assert.Equal(new[] { "   ", "doubled" }, OutputNames(Built("twice := F_split(v);")));
+        Assert.Equal(new[] { "   ", "doubled" }, OutputNames(Built("twice := F_split(v).OUT;")));
 
     /// <summary>ld-fbd-coverage 2R.4b: a LIBRARY function's box, positional or named, is built as the editor draws it —
     /// CallType Function, its input named, the result pin — from the IDE's library signature. Without it CODESYS answers
@@ -117,7 +117,7 @@ public class CodesysCalleeDerivationTests
     /// <summary>An FB call, a PROGRAM call and a conversion run as drawn with the fresh value (measured): the writer
     /// leaves them to the vendor.</summary>
     [Theory]
-    [InlineData("fbm : FB_M(run := go);")]
+    [InlineData("fbm(run := go);")]
     [InlineData("P_Sub(go := go);")]
     [InlineData("y := TO_INT(v);")]
     public void Every_other_call_keeps_the_fresh_call_type(string statement) =>

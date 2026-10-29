@@ -166,7 +166,7 @@ public static class NetworkMembers
 
     /// <summary>The IEC operators CODESYS resolves to an <c>Operator</c> member of its own, as opposed to a call of a
     /// FUNCTION POU — the two name their result differently (an operator <c>''</c>, a function <c>'   '</c>).</summary>
-    private static bool IsOperatorType(string type) =>
+    internal static bool IsOperatorType(string type) =>
         OperatorTypes.Contains(type) ||
         System.Text.RegularExpressions.Regex.IsMatch(type, @"^[A-Za-z]+_TO_[A-Za-z]+$", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
 

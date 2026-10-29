@@ -597,9 +597,9 @@ public class TcRoundTripTests
         var dropped = text.Replace(", ENO => enoFlag", "").Replace("ENO => enoFlag, ", "");
         Assert.NotEqual(text, dropped);
 
-        var without = TcText.Validate(dropped, TcText.ScopeOf(pulled));
+        var without = TcText.Validate(dropped, TcText.ScopeOf(pulled, EnoSlotFb));
 
-        var ex = Assert.ThrowsAny<System.Exception>(() => TcText.Apply(before, without));
+        var ex = Assert.ThrowsAny<System.Exception>(() => TcText.Apply(before, without, EnoSlotFb));
         Assert.Contains("output pin 'ENO'", ex.Message);
     }
 
@@ -611,12 +611,17 @@ public class TcRoundTripTests
         var pulled = TcNetworkReader.Read(Impl(before), BodyLanguage.Fbd);
         var text = TcText.Write(pulled);
 
-        var written = TcText.Apply(before, TcText.Validate(text.Replace("ENO => enoFlag", "ENO => wiredPin"), TcText.ScopeOf(pulled)));
+        var written = TcText.Apply(before, TcText.Validate(text.Replace("ENO => enoFlag", "ENO => wiredPin"), TcText.ScopeOf(pulled, EnoSlotFb)), EnoSlotFb);
 
         Assert.NotNull(written);
         var slots = Impl(written!).Descendants("l2").First(l => (string?)l.Attribute("n") == "OutputItems").Elements().ToList();
         Assert.Equal("\"wiredPin\"", slots[0].Elements("v").Single(v => (string?)v.Attribute("n") == "Operand").Value);
     }
+
+    /// <summary>The block <c>EnoSlot.derived.TcPOU</c>'s box calls, as its declaration would state it — inputs IN, PT, one
+    /// output oResult (its ENO is the shown one): a push reads its callee's declaration (network-output-member).</summary>
+    private static readonly System.Collections.Generic.Dictionary<string, CalleeSignature> EnoSlotFb =
+        new() { ["TON"] = new(CalleeShape.Block, new[] { "IN", "PT" }, new[] { "oResult" }) };
 
     /// <summary><c>EnoSlot.derived.TcPOU</c>'s NWL body with a variable on the ENO slot (its null echo replaced by a copy of
     /// the wired pin's operand, named <c>enoFlag</c>) and, <paramref name="withEn"/>, the enable a box showing EN/ENO holds:

@@ -51,7 +51,7 @@ const line = (rest: string): RegExp => new RegExp(AT_LINE + rest, 'm')
  * reported apart.
  */
 const CONSTRUCTS: { name: string; where: string; match: RegExp; archive?: RegExp }[] = [
-	{ name: "wire (%WIRES w1)", where: "#wires", match: /%WIRES\s+w\d+/ },
+	{ name: "wire (VAR_TEMP w1 : ANY; END_VAR)", where: "#wires", match: /VAR_TEMP\s+w\d+\s*:\s*ANY;/ },
 	{ name: "coil (lvalue := operand)", where: "#elements", match: line("\\w[\\w.]*\\s*:=\\s*[^;\\s]") },
 	{ name: "chained assign (x := y S= v)", where: "#elements", match: /:=(\s|\\n)+\w[\w.]*\s*(:=|S=|R=)/ },
 	{ name: "contact (a AND b)", where: "#elements", match: /\w\s+(AND|OR)\s+(NOT\s+)?\w/ },
@@ -62,7 +62,7 @@ const CONSTRUCTS: { name: string; where: string; match: RegExp; archive?: RegExp
 	{ name: "EN and ENO (X_EN)", where: "#en-eno", match: /\w_EN\(EN\s*:=/ },
 	{ name: "ENO without EN (X_ENO)", where: "#en-eno", match: /\w_ENO\(/ },
 	{ name: "EN without ENO (X_ENONLY)", where: "#en-eno", match: /\w_ENONLY\(EN\s*:=/ },
-	{ name: "Execute box", where: "#execute", match: /%EXECUTE\b/, archive: /<v n="ProvidesSTSnippet">true<|n="STSnippet"[^\/]*>\s*<o/ },
+	{ name: "Execute box", where: "#execute", match: /\bEXECUTE\(/, archive: /<v n="ProvidesSTSnippet">true<|n="STSnippet"[^\/]*>\s*<o/ },
 	{ name: "negated contact (NOT a)", where: "#elements", match: /:=\s*NOT\s|\bAND\s+NOT\b|\bOR\s+NOT\b/ },
 	{ name: "rising edge (R_EDGE)", where: "#elements", match: /\bR_EDGE\(/ },
 	{ name: "falling edge (F_EDGE)", where: "#elements", match: /\bF_EDGE\(/ },
