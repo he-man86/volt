@@ -24,9 +24,8 @@ import shutil
 _DLL_NAME = "Volt.Ide.Codesys.dll"
 # The bridge is ONE assembly: Volt.* and System.Text.Json (with its net48 dependencies) are merged into it and
 # internalized at build, so CODESYS is asked to resolve nothing of Volt's (openspec codesys-bridge-single-assembly).
-# Staging copies that one file, and the relay sidecars the bridge reads from its own folder (setup.json,
-# volt-relay.json).
-_SIDECAR_EXT = ".json"
+# Staging copies that one file. The relay files (setup.json, volt-relay.json) are NOT staged: the bridge reads and
+# writes them in the folder it was installed in, which PipeHost.Start is handed (see the call at the bottom).
 
 # The per-user install dir's bridge folder under %LOCALAPPDATA% ({app}\codesys, installer/Volt.iss). Lets the
 # visible Documents\Volt copy of this script find the DLL that stays in the (hidden) install dir. It read
@@ -131,31 +130,12 @@ def _unblock(path):
         return False
 
 
-def _staged_files(d):
-    """What staging copies out of `d`: the bridge DLL and the relay sidecars."""
-    return [n for n in os.listdir(d) if n == _DLL_NAME or os.path.splitext(n)[1].lower() == _SIDECAR_EXT]
-
-
-def _unblock_dir(d):
-    """Unblock every file we might load out of `d`. Returns how many streams were removed (0 is the normal case
-    for an install that was not downloaded, and is not an error)."""
-    removed = 0
-    try:
-        for name in _staged_files(d):
-            if _unblock(os.path.join(d, name)):
-                removed += 1
-    except Exception:
-        pass
-    return removed
-
-
 def _stage(src):
-    """Copy the bridge DLL (and the relay sidecars) to a PER-IDE-SESSION temp dir and load from the COPY, so CODESYS
+    """Copy the bridge DLL to a PER-IDE-SESSION temp dir and load from the COPY, so CODESYS
     file-locks the copy — never the install-dir original. That is what lets Volt UPDATE IN PLACE while CODESYS is
     open: loading straight from the install dir was why in-place updates hit 'DeleteFile failed; Access denied' on
     the install dir's *.dll. Best-effort: on ANY failure, load the original instead."""
     try:
-        src_dir = os.path.dirname(src)
         root = _temp_root()
         _prune(root)
         dst_dir = os.path.join(root, str(os.getpid()))  # os.getpid() == THIS CODESYS pid (matches the pipe name)
@@ -164,19 +144,14 @@ def _stage(src):
             return dst  # already staged for this session (script re-run) — don't recopy a DLL we hold open
         if not os.path.isdir(dst_dir):
             os.makedirs(dst_dir)
-        wanted = _staged_files(src_dir)
-        for name in wanted:
-            try:
-                shutil.copy2(os.path.join(src_dir, name), os.path.join(dst_dir, name))
-            except Exception:
-                pass
-        # Every wanted file, not just the DLL: a per-file copy can fail on its own (antivirus holds a freshly
-        # downloaded file open), and a staged bridge without its relay sidecar would start without its tunnel.
-        missing = [n for n in wanted if not os.path.exists(os.path.join(dst_dir, n))]
-        if missing:
-            print("Volt: staging incomplete (%s); loading from %s instead" % (", ".join(missing), src_dir))
-            return src
-        return dst if os.path.exists(dst) else src
+        try:
+            shutil.copy2(src, dst)
+        except Exception:
+            # A half-written copy would be taken for "already staged" by the next run in this session.
+            if os.path.exists(dst):
+                os.remove(dst)
+            raise
+        return dst
     except Exception:
         return src
 
@@ -189,13 +164,16 @@ try:
         for c in _candidates():
             print("   %s  (exists=%s)" % (c, os.path.exists(c) if c else False))
     else:
+        # The folder the bridge was INSTALLED in (or extracted to) - never the staged copy. Its relay pairing lives
+        # here: setup.json is redeemed ONCE into volt-relay.json, and each CODESYS process stages a FRESH copy, so a
+        # pairing written into the copy was gone at the next IDE start while the spent code could not pair again.
+        install_dir = os.path.dirname(dll)
         # BEFORE staging, and on the SOURCE: a copy already drops the stream, but _stage falls back to loading the
         # source itself. Unblocking here covers every path.
-        freed = _unblock_dir(os.path.dirname(dll))
-        if freed:
-            print("Volt: unblocked %d downloaded file(s) in %s" % (freed, os.path.dirname(dll)))
+        if _unblock(dll):
+            print("Volt: unblocked the downloaded %s" % dll)
         staged = _stage(dll)  # load a per-session COPY so the install-dir DLLs stay unlocked (in-place updates)
-        _unblock_dir(os.path.dirname(staged))
+        _unblock(staged)
         print("Volt: loading %s" % staged)
         # Assembly.LoadFrom, then hand the loaded assembly to clr. A second run of this script in the same IDE (from
         # this folder or another) then gets the copy already loaded: LoadFrom returns it for the same identity, where
@@ -206,6 +184,6 @@ try:
         # projects / system / online are injected into every script's globals.
         # NOTE: CODESYS file-locks the loaded copy (in %TEMP%\Volt), NOT the install dir — so Volt can update while
         # the IDE is open. To pick up a REBUILT bridge, restart CODESYS (a new pid → a fresh copy).
-        print(PipeHost.Start(projects, system, online))
+        print(PipeHost.Start(projects, system, online, install_dir))
 except Exception as e:
     print("Volt: start failed: %s" % str(e))

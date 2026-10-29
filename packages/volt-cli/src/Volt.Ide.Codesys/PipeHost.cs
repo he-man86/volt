@@ -8,7 +8,7 @@ using Volt.Engine.Host;
 namespace Volt.Ide.Codesys;
 
 /// <summary>
-/// The entry point the CODESYS script command calls: <c>PipeHost.Start(projects, system, online)</c>. Builds the
+/// The entry point the CODESYS script command calls: <c>PipeHost.Start(projects, system, online, installDir)</c>. Builds the
 /// REAL <see cref="CodesysDriver"/> and serves it over the NAMED PIPE (<see cref="BridgePipeHost"/>). All bridge
 /// logic stays in Core; the IronPython side is only a launcher. (Cannot be unit-tested off a live CODESYS — validated by the black-box net
 /// against a headless IDE.)
@@ -24,13 +24,19 @@ public static class PipeHost
 
     public static bool IsRunning => _host is not null;
 
-    public static string Start(object? projects, object? system, object? online) =>
-        Start(projects, p => new CodesysDriver(p), logDir: null, Volt.Relay.PipeHostTunnel.DirectoryOf(typeof(PipeHost)));
+    /// <param name="installDir">The folder the bridge was INSTALLED in (or a download extracted to) — where its relay
+    /// files live (<c>setup.json</c>, <c>volt-relay.json</c>). Never the folder this assembly was loaded from:
+    /// <c>start_volt_codesys.py</c> loads a per-IDE-session STAGED copy, made fresh by every CODESYS process, so a pairing
+    /// written beside the copy was gone at the next start while its one-time setup code was already spent.</param>
+    public static string Start(object? projects, object? system, object? online, string installDir) =>
+        string.IsNullOrEmpty(installDir)
+            ? throw new ArgumentException("the start script did not name the folder the bridge was installed in", nameof(installDir))
+            : Start(projects, p => new CodesysDriver(p), logDir: null, installDir);
 
     /// <summary>The start over a given driver, log folder and relay folder — the offline tests drive the real start
     /// sequence over a <see cref="CodesysDriver"/> on doubles and read its log (openspec ide-identity-report: the start log
     /// is the field evidence for 3.1/3.2). Production passes the real driver, the durable log folder and the folder the
-    /// bridge was loaded from (where its relay sidecar sits).</summary>
+    /// bridge was installed in (where its relay files sit).</summary>
     internal static string Start(object? projects, Func<object?, CodesysDriver> newDriver, string? logDir, string? relayDir)
     {
         lock (_gate)
@@ -49,7 +55,7 @@ public static class PipeHost
             // what separates one session's start block from another's in a field log. And the file this session loaded
             // the bridge from (the staged copy, or the bundle itself when staging failed): the bridge is ONE assembly
             // with every dependency merged in (openspec codesys-bridge-single-assembly), so that is all of Volt's here.
-            VoltLog.Info($"in-proc bridge starting on pipe {_pipeName} (CODESYS pid {Pid}) from {typeof(PipeHost).Assembly.Location}");
+            VoltLog.Info($"in-proc bridge starting on pipe {_pipeName} (CODESYS pid {Pid}) from {typeof(PipeHost).Assembly.Location}; relay folder {relayDir}");
 
             _driver = newDriver(projects);
             // The identity health reports, as read — so the first OEM log is the evidence (DIALECT V1/V4): the exe's

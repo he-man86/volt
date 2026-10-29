@@ -88,7 +88,7 @@ namespace Volt.Ide.Codesys.Tests
                 var host = (ScriptHost)domain.CreateInstanceFromAndUnwrap(
                     new Uri(typeof(ScriptHost).Assembly.CodeBase).LocalPath, typeof(ScriptHost).FullName!);
                 // CODESYS's order: its ScriptLib (here the standard library the script imports), then the script's folder.
-                var run = host.Run(script, new[] { Path.Combine(Bin, "Lib"), download }, temp, runs, foreignJson, null);
+                var run = host.Run(script, new[] { Path.Combine(Bin, "Lib"), download }, temp, runs, foreignJson, null, false);
                 var said = string.Join("\n", run.Printed);
                 var report = "\nloaded:\n" + string.Join("\n", run.Loaded.Select(c => $"{c.Name} {c.Version} at {c.Location}"))
                              + "\nasked for:\n" + string.Join("\n", run.Asked)
@@ -157,7 +157,7 @@ namespace Volt.Ide.Codesys.Tests
             {
                 var host = (ScriptHost)domain.CreateInstanceFromAndUnwrap(
                     new Uri(typeof(ScriptHost).Assembly.CodeBase).LocalPath, typeof(ScriptHost).FullName!);
-                var run = host.Run(script, new[] { Path.Combine(Bin, "Lib"), documents }, temp, 1, null, localAppData);
+                var run = host.Run(script, new[] { Path.Combine(Bin, "Lib"), documents }, temp, 1, null, localAppData, false);
                 var report = "\nprinted:\n" + string.Join("\n", run.Printed)
                              + "\nloaded:\n" + string.Join("\n", run.Loaded.Select(c => $"{c.Name} at {c.Location}"));
                 var bridge = run.Loaded.SingleOrDefault(c => c.Name == "Volt.Ide.Codesys");
@@ -210,7 +210,7 @@ namespace Volt.Ide.Codesys.Tests
             {
                 var host = (ScriptHost)domain.CreateInstanceFromAndUnwrap(
                     new Uri(typeof(ScriptHost).Assembly.CodeBase).LocalPath, typeof(ScriptHost).FullName!);
-                var run = host.Run(script, new[] { Path.Combine(Bin, "Lib"), download }, temp, 1, null, null);
+                var run = host.Run(script, new[] { Path.Combine(Bin, "Lib"), download }, temp, 1, null, null, false);
                 var report = "\nprinted:\n" + string.Join("\n", run.Printed);
                 Assert.True(File.Exists(Path.Combine(live, "Volt.Ide.Codesys.dll")),
                     $"the prune deleted the staged DLL of running pid {running.Id}" + report);
@@ -220,6 +220,62 @@ namespace Volt.Ide.Codesys.Tests
             {
                 AppDomain.Unload(domain);
                 try { running.Kill(); } catch { /* already gone */ }
+                try { Directory.Delete(root, true); } catch { /* a loaded copy can stay locked until the process exits */ }
+            }
+        }
+
+        /// <summary>THE BRIDGE IS STARTED WITH THE FOLDER IT WAS INSTALLED IN, NEVER ITS STAGED COPY. The relay pairing
+        /// (<c>setup.json</c> redeemed once into <c>volt-relay.json</c>) must live where the user installed or extracted the
+        /// bridge: each CODESYS process stages a FRESH copy into <c>%TEMP%\Volt\codesys-bridge\&lt;pid&gt;</c>, so a sidecar
+        /// written into the copy was gone at the next IDE start — and the setup code, already redeemed, could not pair
+        /// again (PLC Assist, 2026-10-29). The script hands <c>PipeHost.Start</c> the folder it resolved the DLL in, staged
+        /// or not (once, re-run in the same session, staging failing), and stages no relay file — the credential is never
+        /// copied into %TEMP%. <c>PipeHost</c> is replaced by a recorder here (<c>sys.modules</c>): the real one would open
+        /// a pipe.</summary>
+        [Theory]
+        [InlineData(1, false)]
+        [InlineData(2, false)]
+        [InlineData(1, true)]
+        public void The_bridge_is_started_with_its_install_folder_and_no_relay_file_is_staged(int runs, bool stagingFails)
+        {
+            Assert.True(Directory.Exists(Bundle), $"no shipped bundle at {Bundle}: the Volt.Ide.Codesys build did not produce one");
+            var root = Path.Combine(Path.GetTempPath(), "volt-install-folder-" + Guid.NewGuid().ToString("N"));
+            var download = Path.Combine(root, "PLCAssistBridge-CODESYS", "codesys-scriptcommands");
+            var temp = Path.Combine(root, "temp");
+            var hostBase = Path.Combine(root, "host");
+            foreach (var d in new[] { download, temp, hostBase }) Directory.CreateDirectory(d);
+            foreach (var f in Directory.GetFiles(Bundle)) File.Copy(f, Path.Combine(download, Path.GetFileName(f)));
+            File.WriteAllText(Path.Combine(download, "setup.json"), "{\"code\":\"c\",\"app\":\"https://app.test\"}");
+            var script = Path.Combine(download, "start_volt_codesys.py");
+            File.Copy(Path.Combine(Root(), "scripts", "start_volt_codesys.py"), script);
+            var staging = Path.Combine(temp, "Volt", "codesys-bridge");
+            var session = Path.Combine(staging, System.Diagnostics.Process.GetCurrentProcess().Id.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            if (stagingFails)
+            {
+                Directory.CreateDirectory(staging);
+                File.WriteAllText(session, "");
+            }
+
+            var domain = AppDomain.CreateDomain("volt-ide-" + Guid.NewGuid().ToString("N"), null,
+                new AppDomainSetup { ApplicationBase = hostBase });
+            try
+            {
+                var host = (ScriptHost)domain.CreateInstanceFromAndUnwrap(
+                    new Uri(typeof(ScriptHost).Assembly.CodeBase).LocalPath, typeof(ScriptHost).FullName!);
+                var run = host.Run(script, new[] { Path.Combine(Bin, "Lib"), download }, temp, runs, null, null, true);
+                var report = "\nprinted:\n" + string.Join("\n", run.Printed);
+
+                var starts = run.Printed.Where(l => l.StartsWith("START ", StringComparison.Ordinal)).ToList();
+                Assert.True(starts.Count == runs, "PipeHost.Start was not called once per run" + report);
+                foreach (var s in starts)
+                    Assert.True(s == "START 4 " + download, $"PipeHost.Start was not handed the install folder {download}" + report);
+                if (!stagingFails)
+                    Assert.True(Directory.Exists(session) && !Directory.GetFiles(session, "*.json").Any(),
+                        "a relay file was staged into the per-session copy" + report);
+            }
+            finally
+            {
+                AppDomain.Unload(domain);
                 try { Directory.Delete(root, true); } catch { /* a loaded copy can stay locked until the process exits */ }
             }
         }
@@ -253,7 +309,7 @@ namespace Volt.Ide.Codesys.Tests
         {
             private readonly List<string> _asked = new();
 
-            public Result Run(string script, string[] sysPath, string temp, int runs, string? foreignJson, string? localAppData)
+            public Result Run(string script, string[] sysPath, string temp, int runs, string? foreignJson, string? localAppData, bool recordStart)
             {
                 // Registered BEFORE any IronPython engine, so it sees every request first; it answers none.
                 AppDomain.CurrentDomain.AssemblyResolve += (_, e) =>
@@ -276,6 +332,21 @@ namespace Volt.Ide.Codesys.Tests
                     // Staging goes under a temp folder of this test's own, not the machine's %TEMP%\Volt (the script prunes there).
                     engine.Execute("import os\nos.environ['TEMP'] = r'" + temp + "'\nos.environ.pop('VOLT_BRIDGE_DLL', None)\n"
                                    + (localAppData != null ? "os.environ['LOCALAPPDATA'] = r'" + localAppData + "'\n" : ""), scope);
+                    // recordStart: PipeHost is a recorder printing what Start was handed, and the IDE's globals exist.
+                    if (recordStart)
+                        engine.Execute(string.Join("\n",
+                            "import sys, types",
+                            "class _PipeHost(object):",
+                            "    @staticmethod",
+                            "    def Start(*a):",
+                            "        return 'START %d %s' % (len(a), a[3] if len(a) > 3 else '')",
+                            "for _n in ('Volt', 'Volt.Ide', 'Volt.Ide.Codesys'):",
+                            "    sys.modules[_n] = types.ModuleType(_n)",
+                            "sys.modules['Volt'].Ide = sys.modules['Volt.Ide']",
+                            "sys.modules['Volt.Ide'].Codesys = sys.modules['Volt.Ide.Codesys']",
+                            "sys.modules['Volt.Ide.Codesys'].PipeHost = _PipeHost",
+                            "projects = system = online = None",
+                            ""), scope);
                     // The shipped script, verbatim. No `projects` in scope: it stops at PipeHost.Start (see the class comment).
                     engine.CreateScriptSourceFromFile(script).Execute(scope);
                 }

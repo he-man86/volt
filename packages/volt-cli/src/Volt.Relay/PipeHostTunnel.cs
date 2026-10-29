@@ -21,7 +21,8 @@ namespace Volt.Relay
     public static class PipeHostTunnel
     {
         /// <summary>Enrol if needed, then dial.</summary>
-        /// <param name="directory">Where the sidecar lives — beside the bridge assembly.</param>
+        /// <param name="directory">Where the relay files live — the folder the bridge was INSTALLED in: the TwinCAT worker's own
+        /// (<see cref="DirectoryOf"/>), the folder <c>start_volt_codesys.py</c> names for CODESYS (never its per-session staged copy).</param>
         /// <param name="version">The bridge release (<c>BridgePipeHost.Release</c>, the value <c>health.bridgeVersion</c>
         /// carries); null when the bridge cannot read its own file, sent as an empty <c>hello.volt</c>.</param>
         /// <param name="state">The relay's state at start, for a start line: <c>relay dialing &lt;host&gt;</c>,

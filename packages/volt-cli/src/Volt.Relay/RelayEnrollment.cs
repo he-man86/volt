@@ -71,6 +71,18 @@ namespace Volt.Relay
                 return false;
             }
 
+            // The code can be redeemed ONCE, so the folder must take the sidecar BEFORE it is spent: a pairing that
+            // cannot be written is lost for good. The temp file the answer is written through is created now, empty,
+            // and an unwritable folder is refused by name with the code still unspent.
+            var target = Path.Combine(directory, RelaySidecar.FileName);
+            var tmp = target + ".tmp";
+            try { File.WriteAllText(tmp, ""); }
+            catch (Exception ex)
+            {
+                log("relay: cannot write " + directory + ": " + ex.Message + " — the setup code was not redeemed");
+                return false;
+            }
+
             try
             {
                 // `volt=1` asks for a Volt bridge_token rather than the legacy per-user relay token. The
@@ -83,6 +95,7 @@ namespace Volt.Relay
                     var response = client.GetAsync(url).GetAwaiter().GetResult();
                     if (!response.IsSuccessStatusCode)
                     {
+                        TryDelete(tmp);
                         log("relay: setup code rejected (HTTP " + (int)response.StatusCode + ")");
                         return false;
                     }
@@ -94,26 +107,31 @@ namespace Volt.Relay
                         var wss = root.TryGetProperty("url", out var u) ? u.GetString() : null;
                         if (string.IsNullOrEmpty(token) || string.IsNullOrEmpty(wss))
                         {
+                            TryDelete(tmp);
                             log("relay: setup response carried no token/url");
                             return false;
                         }
                         // Written through a temp file and moved into place: a half-written sidecar is
                         // indistinguishable from a corrupt one, and RelaySidecar treats corrupt as FATAL.
-                        var target = Path.Combine(directory, RelaySidecar.FileName);
-                        var tmp = target + ".tmp";
                         File.WriteAllText(tmp, JsonSerializer.Serialize(new { url = wss, token }));
                         if (File.Exists(target)) File.Delete(target);
                         File.Move(tmp, target);
-                        log("relay: enrolled; wrote " + RelaySidecar.FileName);
+                        log("relay: enrolled; wrote " + target);
                         return true;
                     }
                 }
             }
             catch (Exception ex)
             {
+                TryDelete(tmp);
                 log("relay: could not enrol: " + ex.Message);
                 return false;
             }
+        }
+
+        private static void TryDelete(string path)
+        {
+            try { File.Delete(path); } catch { /* the next enrolment overwrites it */ }
         }
     }
 }

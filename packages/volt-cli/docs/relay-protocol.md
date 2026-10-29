@@ -473,7 +473,10 @@ These are not protocol requirements. They are the things that go wrong.
 
 ## Configuration (the bridge side)
 
-`volt-relay.json`, beside the host assembly:
+`volt-relay.json`, in the folder the bridge was installed in (or a download extracted to): the TwinCAT worker's
+own folder, and for CODESYS the folder `start_volt_codesys.py` found the DLL in — never the per-IDE-session copy
+it loads (`%TEMP%\Volt\codesys-bridge\<pid>`), which every CODESYS start makes afresh. The script hands that
+folder to `PipeHost.Start`; no relay file is copied into `%TEMP%`.
 
 ```json
 { "url": "wss://relay.example.com/bridge", "token": "…" }
@@ -489,7 +492,9 @@ readable by every process on the machine.
 - **First run of a downloaded bridge.** A download cannot ship a credential, so it may ship a `setup.json`
   (`{ "code": "…", "app": "https://…" }`) instead. When there is no `volt-relay.json` yet, the bridge exchanges
   the one-time code at `<app>/api/bridge/setup/<code>?volt=1` for `{ "url", "token" }` and writes
-  `volt-relay.json` from the answer. Any failure is logged and leaves a working local bridge.
+  `volt-relay.json` from the answer — once: every later start reads that sidecar. A folder the sidecar cannot be
+  written to is refused in the log, naming it, before the code is spent. Any failure is logged and leaves a working
+  local bridge.
 
 ## Worked example
 
