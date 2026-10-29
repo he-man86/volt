@@ -286,10 +286,16 @@
 
 ## 3. Close
 
-- [ ] 3.1 Cold full suites, the small release matrix (latest CODESYS + TwinCAT), archive.
+- [x] 3.1 Cold full suites, the small release matrix (latest CODESYS + TwinCAT), archive.
       2026-10-29: cold LSP full suite (`VOLT_RUSTC_CACHE=0 VOLT_REQUIRE_FULL=1`) 10306 pass / 0 fail; spec delta checked
       against the build (the `.NAME`-on-a-VAR_OUTPUT refusal worded as built), `openspec validate` valid. BLOCKED: the small
       matrix (`release:matrix --only codesys-3.5.22.40-64,twincat-32`) refuses to start beside another run's IDEs
       (CODESYS pid 34440 and XAE 23992 + worker 4892 of the worktree `agent-ac1125d49fda0c8d6`, change
       lsp-field-false-positives), still running after 50 min; Volt never closes an IDE it did not start. Not archived:
       run the matrix once they are closed, then archive.
+
+3.1 done 2026-10-29: small release matrix at 5ed026b373 — codesys-3.5.22.40-64 GREEN 559 pass / 82 skip, transcript
+identical; twincat-32 GREEN 558 pass / 86 skip after its reference transcript was re-recorded for the new spelling
+(test/transcripts/twincat-32.jsonl). Open finding (to twincat-crash-and-redial-identity 1.2): on the same commit the
+TwinCAT cell went 1 fail (hidden-declaration timed out; the XAE process was gone mid-test), then 64 fail (the
+--record-transcripts run; its log was overwritten, cause not captured), then 0 — XAE instability to soak, not this change.
