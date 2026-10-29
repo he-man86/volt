@@ -520,7 +520,7 @@ namespace Volt.Relay
                     // runs, and a 148 s `refs` retried by its caller held one pool thread per retry. Past the pool's
                     // minimum the pool injects threads slowly, and the heartbeat, the receive loop and every send — all
                     // pool work — waited behind them: measured, one ping in 1.5 s at a 100 ms cadence (openspec
-                    // twincat-large-solution-refs; RelayTunnelTests.Pings_keep_their_cadence…). The pipe server does the
+                    // twincat-large-solution-refs; HeartbeatCadenceTests.Pings_keep_their_cadence…). The pipe server does the
                     // same for the same reason (PipeServer.AcceptLoop).
                     var client = new PipeClient(_pipeName);
                     // FORWARDED with the remote client's own `protocol`: the bridge refuses a client of another protocol
@@ -637,10 +637,25 @@ namespace Volt.Relay
 
         private async Task PingLoopCoreAsync(CancellationToken token)
         {
+            // FIXED-RATE: each ping is due a whole period after the one before was DUE, not after it went out. A loop that
+            // slept a period after each send added every tick's lateness (the timer's resolution, a wait for a pool
+            // thread on a busy machine) to the next period, so the cadence sagged with load: measured at a 100 ms period
+            // on 2 busy cores, ~170 ms a ping. A tick later than a whole period is not made up with a burst; the clock
+            // restarts from now.
+            var clock = Stopwatch.StartNew();
+            var due = _pingEvery;
             while (!token.IsCancellationRequested)
             {
-                try { await Task.Delay(_pingEvery, token).ConfigureAwait(false); }
+                var wait = due - clock.Elapsed;
+                try
+                {
+                    if (wait > TimeSpan.Zero) await Task.Delay(wait, token).ConfigureAwait(false);
+                    else token.ThrowIfCancellationRequested();
+                }
                 catch (OperationCanceledException) { return; }
+                due += _pingEvery;
+                var now = clock.Elapsed;
+                if (due <= now) due = now + _pingEvery;
 
                 // Silence means the flow is dead even though the socket says otherwise. Dropping it here is
                 // what makes the reconnect happen; without this the tunnel sits "connected" forever against a
