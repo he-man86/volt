@@ -107,8 +107,8 @@ namespace Volt.Relay
             value == null ? "(null)" : "'" + value + "'";
     }
 
-    /// <summary>A sidecar that exists and cannot be used. Carries the path, because "which copy did it read" is
-    /// the first question — the CODESYS staging step copies every `.json` beside the script into %TEMP%.
+    /// <summary>A sidecar that exists and cannot be used. Carries the path, because "which file did it read" is
+    /// the first question.
     /// </summary>
     public sealed class RelaySidecarException : Exception
     {
