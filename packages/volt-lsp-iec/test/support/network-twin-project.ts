@@ -49,7 +49,12 @@ export function twinProject(dir: string, vendor: Vendor): ProjectTwins {
     if (t.twinned > 0) files.push({ wire, uri: d.uri, source: t.source })
   }
   files.sort((a, b) => (a.wire < b.wire ? -1 : a.wire > b.wire ? 1 : 0))
-  const hash = createHash("sha256").update(files.map((f) => `${f.wire}\n${f.source}`).join("\u0000")).digest("hex").slice(0, 16)
+  // Line ends normalized: a checkout's line ends are git's (`core.autocrlf` gives CRLF on Windows, LF on CI), not the
+  // twins', so the same twins hash the same on every machine.
+  const hash = createHash("sha256")
+    .update(files.map((f) => `${f.wire}\n${f.source.replace(/\r\n?/g, "\n")}`).join("\u0000"))
+    .digest("hex")
+    .slice(0, 16)
   const twins = new Map(files.map((f) => [f.uri, f.source]))
   const twinStore = store(dir, vendor, sources.map((s) => ({ uri: s.uri, source: twins.get(s.uri) ?? s.source })))
   return { files, bodies, refused, hash, twinStore }
