@@ -26,3 +26,15 @@ test("libraryOf names the referenced library a file comes from — raw path, `fi
   expect(libraryOf({ uri: "file:///c%3A/proj/Application/Library%20Manager/Util/BLINK.pou" })).toBe("Util")
   expect(libraryOf({ uri: "C:/proj/Application/POUs/PLC_PRG.pou" })).toBeUndefined()
 })
+
+// openspec lsp-field-false-positives 8 (class 1): a client percent-encodes every character past ASCII, not only the
+// space. A library folder named `Bibliothek_Ä` (or `运动控制`) is that name — in a workspace symbol's container and in
+// the namespace binding that matches it against its manifest's folder — never `Bibliothek_%C3%84`.
+test("libraryOf and isLibraryUri read the DECODED path — a library folder past ASCII is its own name", () => {
+  expect(libraryOf({ uri: "file:///c%3A/proj/Library%20Manager/Bibliothek_%C3%84/X.pou" })).toBe("Bibliothek_Ä")
+  expect(libraryOf({ uri: "file:///c%3A/proj/Library%20Manager/%E8%BF%90%E5%8A%A8%E6%8E%A7%E5%88%B6/X.pou" })).toBe("运动控制")
+  expect(libraryOf({ uri: "C:\\proj\\Library Manager\\运动控制\\X.pou" })).toBe("运动控制")
+  // a raw path holding a `%` is no URI: it is read as the path it is, never decoded
+  expect(libraryOf({ uri: "C:\\proj\\Library Manager\\A%20B\\X.pou" })).toBe("A%20B")
+  expect(isLibraryUri("file:///c%3A/p/Library%20Manager/%C3%84/X.pou")).toBe(true)
+})

@@ -3,7 +3,7 @@
  */
 
 import { type Lowering, zeroInit } from "../core/lowering.js"
-import type { Span, TopLevel } from "../../../frontend/syntax/index.js"
+import { documentPath, type Span, type TopLevel } from "../../../frontend/syntax/index.js"
 import type { IrSlot, IrStmt } from "../../ir/index.js"
 import { holdsCall, type IrNode, isPlace, someNode } from "../../ir/walk.js"
 import { lookup } from "../../../frontend/symbols/index.js"
@@ -30,7 +30,9 @@ export function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
   // the device folder (before `Plc Logic`), the application folder (after it), then the instance hierarchy from the POU.
   // The simulator's own reads `Device.Sim.Device.Application…`, a segment the tree does not hold.
   const root = lookup(lw.project, lw.shared.root)?.symbol
-  const tree = (root?.uri ?? "").split(/[\\/]/)
+  // the DECODED path (`documentPath`): a client percent-encodes the uri, so `Plc%20Logic` and a device `Ger%C3%A4t` are
+  // the tree's `Plc Logic` and `Gerät`
+  const tree = (root === undefined ? "" : documentPath(root.uri)).split(/[\\/]/)
   const logic = tree.findIndex((segment) => segment.toLowerCase() === "plc logic")
   const application = logic > 0 && logic + 2 < tree.length ? `${tree[logic - 1]}.${tree[logic + 1]}` : undefined
   const st: InitStep = {

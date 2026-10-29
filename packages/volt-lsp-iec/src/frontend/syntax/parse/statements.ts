@@ -22,7 +22,7 @@ import { Cursor } from "./cursor.js"
 import { parseExpression } from "./expression.js"
 import { REFUSED_PLACEHOLDER, type Expr, type ParseError, type Statement, type StatementList } from "../ast/nodes/index.js"
 import { type Dialect } from "../lex/vocabulary.js"
-import { REFUSED_AT_STATEMENT_START } from "../lex/word-sets.js"
+import { REFUSED_AT_STATEMENT_START, SOFT_NAME_KEYWORDS } from "../lex/word-sets.js"
 import { addressShape } from "../literal/address.js"
 import { reportStatementCascade, vendorTokenText } from "./errors.js"
 import { identFromToken } from "./names.js"
@@ -141,7 +141,9 @@ function parseStatement(cur: Cursor): Statement | typeof RESYNCED | undefined {
   // A REFUSED WORD is no label: `dint:` / `st:` is the word refused and the resync — "Unexpected token 'dint' found", the
   // `:` paired, the statement after it read on (`rec_refused_word_body_label_type`, `_il`), in a CASE arm too
   // (`rec_refused_word_case_label`, both vendors 2026-10-02).
-  if (t.kind === "identifier" && !cur.refusedWord(t)) {
+  // A soft-name keyword is a label as it is any name: `Get:` builds, its label "not referenced" (`wp_label_get`, CODESYS
+  // 2026-10-29).
+  if ((t.kind === "identifier" && !cur.refusedWord(t)) || (t.kind === "keyword" && SOFT_NAME_KEYWORDS.has(t.keyword ?? ""))) {
     const after = cur.peek(1)
     if (after.kind === "punct" && after.text === ":") {
       const nameTok = cur.consume()
@@ -197,7 +199,8 @@ function refusedAtStatementStart(cur: Cursor): boolean {
   if (BLOCK_ENDERS.has(t.keyword)) return true
   if (!REFUSED_AT_STATEMENT_START.has(t.keyword)) return false
   const next = cur.peek(1)
-  return assignOpOf(next) !== null || next.kind === "identifier" || (next.kind === "punct" && next.text === "(")
+  // …or a `:` — the word written as a LABEL (`Abstract:`, `LIMIT:` — `wp_label_*`, CODESYS 2026-10-29)
+  return assignOpOf(next) !== null || next.kind === "identifier" || (next.kind === "punct" && (next.text === "(" || next.text === ":"))
 }
 
 /** The literal token kinds — none starts a statement. */

@@ -16,7 +16,7 @@ import { parseOptionalReturnType, readImplements, refuseLateClauses } from "./he
 export function parseFunction(c: Cursor): FunctionAST | undefined {
   const start = c.expectKeyword("FUNCTION")
   if (start === undefined) return undefined
-  const nameTok = c.expectIdent()
+  const nameTok = c.expectHeaderName()
   if (nameTok === undefined) return undefined
   const name = identFromToken(nameTok)
 

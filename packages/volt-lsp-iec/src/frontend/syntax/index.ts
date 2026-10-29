@@ -5,7 +5,7 @@
  */
 
 // source positions, identifiers
-export { spanContains, zeroSpan, type Span } from "./span.js"
+export { endsLineAt, lineBreakOf, lineColAt, lineStartOf, spanContains, splitLines, zeroSpan, type Span } from "./span.js"
 export { isSelfRef, sameName, selfRefKind } from "./identifier.js"
 
 // the vocabulary and the lexer
@@ -98,7 +98,7 @@ export type { CompileEnvironment, ConditionNames, ConditionWorld, DeviceFacts, T
 // the Volt workspace file format
 export { bodyReader, languageLineWords, retiredLine, statedLine } from "./format/language-line.js"
 export { LANGUAGE_KEY, languageLine, retiredLineMessage } from "./format/object-properties.js"
-export { baseNameOf, objectNameOf, sourceObjectOf } from "./format/source-object.js"
+export { baseNameOf, documentPath, objectNameOf, sourceObjectOf } from "./format/source-object.js"
 export { graphicalMarkerLanguage, isPlainStNetworkBody, isStBody, unitBodies } from "./format/bodies.js"
 
 // printing a declared type or an expression

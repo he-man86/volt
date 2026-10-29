@@ -9,12 +9,13 @@
  * (the replay its messages, the census each check's slice) is the caller's — and "what the LSP says about it" is ONE
  * answer, `replayDiagnostics` (analysis-conformance 2.6).
  */
-import { CODESYS_ONLY_KEYWORDS, TWINCAT_LITERAL_PREFIXES, parseDocument, parseSource } from "../../../src/frontend/syntax/index.js"
+import { CODESYS_ONLY_KEYWORDS, CODESYS_ONLY_TYPE_WORDS, TWINCAT_LITERAL_PREFIXES, parseDocument, parseSource } from "../../../src/frontend/syntax/index.js"
 import { build, type Scope } from "../../../src/frontend/symbols/index.js"
 import { computeDiagnostics, networkDiagnostics, resolveConfig, type DiagnosticItem, type Vendor } from "../../../src/analysis/index.js"
 import { ALL_TESTS } from "../fixtures/index.js"
 import { splitLists, withDependencies } from "./fixture-units.js"
 import { plcPrgSource } from "./plc-prg.js"
+import { conformanceUri } from "./fixture-uri.js"
 import { RECORDING_ENVIRONMENT } from "./recording-environment.js"
 import { PROJECT_LIBRARY, PROJECT_MANIFESTS, projectDevices } from "./project-libraries.js"
 
@@ -33,22 +34,25 @@ function extFor(kind: string): string {
 // Each read as the object its file holds (`parseDocument`), as the workspace store reads a workspace file — a DUT's or a
 // GVL's text the way the IDE reads it (`syntax/format/source-object.ts`).
 const PARSED = ALL_TESTS.map((t) => {
-  const uri = `file:///conformance/${t.pouName}.${extFor(t.kind)}`
+  const uri = conformanceUri(`${t.pouName}.${extFor(t.kind)}`)
   return { uri, source: t.source, parseResult: parseDocument(uri, t.source, { networkText: true }, "codesys") }
 })
 // A list a fixture holds beside its POU is an item of its own, under the name the push gives it (`splitLists`): bound
 // once with the declarations, and analysed with its fixture.
 const SPLIT = PARSED.map((p, i) => splitLists(ALL_TESTS[i]!, p))
-const LISTS = SPLIT.flatMap((s) => s.lists)
-const CROSS_DECLS = SPLIT.map(({ item: p }) => ({
+// a fixture that stands ALONE (`LanguageTest.alone`) declares a word every fixture uses: its lists and its units are bound
+// only while it is the fixture asked (`withReplayFixture`)
+const ALONE = ALL_TESTS.map((t) => t.alone !== undefined)
+const LISTS = SPLIT.flatMap((s, i) => (ALONE[i] ? [] : s.lists))
+const CROSS_DECLS = SPLIT.map(({ item: p }, i) => ({
   uri: p.uri,
   source: p.source,
   parseResult: {
-    units: p.parseResult.units.filter((u) => u.kind !== "program"),
+    units: ALONE[i] ? [] : p.parseResult.units.filter((u) => u.kind !== "program"),
     errors: [],
     // The declaration-only copy parses the SAME source, so it fails on the same names; keeping them means a fixture
     // whose declaration cannot parse stays as quiet here as it is anywhere else.
-    failedDeclarations: p.parseResult.failedDeclarations,
+    failedDeclarations: ALONE[i] ? [] : p.parseResult.failedDeclarations,
     tokens: p.parseResult.tokens,
     dialect: p.parseResult.dialect,
   },
@@ -61,7 +65,7 @@ const PLC_PRGS = ALL_TESTS.map((t) => {
   // A DIRECTORY per fixture, so the file's BASE NAME is the object's name — `PLC_PRG.pou`, as a workspace has it.
   // It used to be `<fixture>__plcprg.pou`, which made every synthesized PLC_PRG look like a POU whose signature
   // disagrees with its object name (`signature-name`), and that is a real CODESYS error, not a harness detail.
-  return { uri: `file:///conformance/${t.name}/PLC_PRG.pou`, source, parseResult: parseSource(source, { networkText: true }, "codesys") }
+  return { uri: conformanceUri(t.name, "PLC_PRG.pou"), source, parseResult: parseSource(source, { networkText: true }, "codesys") }
 })
 
 /**
@@ -93,7 +97,10 @@ const standardLibrary = (vendor: Vendor) => PROJECT_LIBRARY.map((l) => ({ ...l, 
  * and would also double the harness's setup for about thirty files.
  */
 // …and a partial access `x.%W0`: one token on CODESYS, `.` `%` `W0` on TwinCAT (`lex/lexer`, `accepts_partial_access`)
-const DIALECT_WORDS = new RegExp(`(?<![A-Za-z0-9_])(${[...CODESYS_ONLY_KEYWORDS].join("|")})|\\$[0-9A-Fa-f]{1,3}(?![0-9A-Fa-f])|\\.%`, "i")
+// …and the 64-bit date type names, which the parse refuses as names on CODESYS alone (`isRefusedWord`;
+// `wp_named_argument_ldate`, TwinCAT 2026-10-29), and VAR_EXTERNAL and VAR_GLOBAL, whose declared PATH is CODESYS's alone
+// (`declarations.ts` `VAR_LIST`, `dp_var_external_dotted`)
+const DIALECT_WORDS = new RegExp(`(?<![A-Za-z0-9_])(${[...CODESYS_ONLY_KEYWORDS, ...CODESYS_ONLY_TYPE_WORDS, "VAR_EXTERNAL", "VAR_GLOBAL"].join("|")})|\\$[0-9A-Fa-f]{1,3}(?![0-9A-Fa-f])|\\.%`, "i")
 const LITERAL_PREFIX = /(?<![A-Za-z0-9_])([A-Za-z_][A-Za-z0-9_]*)#/g
 const DIALECT_SENSITIVE = {
   test: (source: string): boolean =>
@@ -140,12 +147,14 @@ function sharedProject(vendor: Vendor): Scope {
 }
 
 /** The swap left in place by the previous call, undone lazily at the start of the next. */
-let pending: { project: Scope; idx: number; plcUri: string | undefined } | undefined
+let pending: { project: Scope; idx: number; plcUri: string | undefined; listUris: readonly string[] } | undefined
 function restore(): void {
   if (pending === undefined) return
   build.unbindFile(pending.project, PARSED[pending.idx]!.uri)
   if (pending.plcUri !== undefined) build.unbindFile(pending.project, pending.plcUri)
+  for (const uri of pending.listUris) build.unbindFile(pending.project, uri)
   build.bindFile(pending.project, CROSS_DECLS[pending.idx]!)
+  if (!ALONE[pending.idx]) for (const l of SPLIT[pending.idx]!.lists) build.bindFile(pending.project, l)
   pending = undefined
 }
 
@@ -199,10 +208,17 @@ export function withReplayFixture<T>(testIdx: number, vendor: Vendor, ask: (file
   build.unbindFile(project, own.uri)
   build.bindFile(project, { uri: own.uri, parseResult: own.parseResult, source: own.source })
   if (plc) build.bindFile(project, { uri: plc.uri, parseResult: plc.parseResult, source: plc.source })
+  // its lists, as this vendor parses them, for as long as it is asked — a fixture that stands alone has none bound, and a
+  // TwinCAT re-parse (`asVendor`) holds other unit objects than the shared CODESYS copy, which the checks would not find
+  const listUris = lists.map((l) => l.uri)
+  for (const l of lists) {
+    build.unbindFile(project, l.uri)
+    build.bindFile(project, { uri: l.uri, parseResult: l.parseResult, source: l.source })
+  }
   // with the MANIFESTS: re-linking without them cleared the library-visibility table the first build published, so
   // every fixture after the first resolved an ambiguous library name as if no library could see another
   build.relink(project, PROJECT_MANIFESTS)
-  pending = { project, idx: testIdx, plcUri: plc?.uri }
+  pending = { project, idx: testIdx, plcUri: plc?.uri, listUris }
   // each dependency's own files, as bound (its declaration-only copy holds the same units, so its checks resolve as in
   // its own replay)
   const dependencies = dependencyIndices(testIdx).flatMap((j) => {

@@ -279,3 +279,25 @@ END_FUNCTION_BLOCK`
     expect(typesOn(commented, [4])).toEqual({ "4:// %LANGUAGE LD": "comment" })
   })
 })
+
+// openspec lsp-field-false-positives 8 (class 2): the lines of a block comment are the lexer's lines — a lone CR ends one,
+// so the record after it stands on the next line, and no line end is part of a record's length
+test("a block comment over lone-CR and CRLF line ends is one record per line, on the lexer's lines", () => {
+  const src = `PROGRAM P\r(* one\rtwo\r\n three *)\rEND_PROGRAM`
+  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const doc = { uri: "file:///P.pou", source: src, parseResult }
+  const data = semanticTokensData(doc, build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }], [], "codesys"))
+  const comments: number[][] = []
+  let line = 0
+  let char = 0
+  for (let i = 0; i < data.length; i += 5) {
+    line += data[i]!
+    char = data[i] === 0 ? char + data[i + 1]! : data[i + 1]!
+    if (SEMANTIC_TOKEN_TYPES[data[i + 3]!] === "comment") comments.push([line, char, data[i + 2]!])
+  }
+  expect(comments).toEqual([
+    [1, 0, "(* one".length],
+    [2, 0, "two".length],
+    [3, 0, " three *)".length],
+  ])
+})

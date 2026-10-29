@@ -8,6 +8,7 @@
  *
  * The binding of a manifest's namespace over its units is `symbols/library-namespaces.ts`'s.
  */
+import { decodedPath } from "./path.js"
 
 export interface LibraryManifest {
   /** The manifest file itself. It is what the namespace symbol declares, so `isLibrarySymbol` answers TRUE for it:
@@ -34,8 +35,9 @@ export interface LibraryManifest {
   materialization: number
 }
 
-/** A path as the manifest match reads it: forward slashes, decoded spaces, lower case. */
-const normalize = (uri: string): string => uri.replace(/%20/g, " ").replaceAll("\\", "/").toLowerCase()
+/** A path as the manifest match reads it: decoded (`decodedPath` — a folder past ASCII is its name, never its URI's
+ *  percent-encoding), forward slashes, lower case. */
+const normalize = (uri: string): string => decodedPath(uri).replaceAll("\\", "/").toLowerCase()
 
 /**
  * A manifest's RESOLUTION line — `RESOLUTION Standard, 3.5.18.0 (System)` — as the library and the version the project

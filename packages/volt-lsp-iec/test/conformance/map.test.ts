@@ -485,7 +485,10 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // signed integer constant" on both vendors) — niche: accepted loss (0 occurrences in the corpora), its `deferred.lsp`.
   // 89 -> 90, FOR MEASUREMENT (lsp-quick-fixes, gate of step 1, 2026-10-12; no fixture moved): `qf_c0228_bound_inline_
   // subrange`, the same refusal for an INLINE subrange's constant — niche: accepted loss (0 occurrences in the corpora).
-  "lsp-gap": 90,
+  // 90 -> 94, FOR MEASUREMENT (lsp-field-false-positives 8, class 2, 2026-10-29; no fixture moved): the lone-CR and CRLF
+  // twins of `qf_c0228_bound_subrange` and `qf_c0228_bound_inline_subrange` (`quick-fixes/line-end-twins.ts`), which answer
+  // as their pair — the same niche, accepted loss.
+  "lsp-gap": 94,
   // its history, every move named: `support/evidence-ceilings.ts`
   "not-lowered": NOT_LOWERED_CEILING,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it

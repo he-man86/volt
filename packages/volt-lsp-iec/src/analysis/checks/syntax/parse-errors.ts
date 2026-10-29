@@ -16,11 +16,11 @@
  * GRAMMAR GAP to fix, never a shipped false positive — the same gate every semantic check answers to.
  * `test/corpus/corpus.test.ts` is the standing proof: both streams record zero errors on the whole corpus.
  */
-import { exprText, initOperatorText, isStBody, bodyStatements, compilerTypeText, unitBodies, type ParseError, type VarDecl, type VarSectionKind } from "../../../frontend/syntax/index.js"
+import { exprText, lineBreakOf, initOperatorText, isStBody, bodyStatements, compilerTypeText, unitBodies, type ParseError, type VarDecl, type VarSectionKind } from "../../../frontend/syntax/index.js"
 import { bodyConditionWorld } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { emit, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
-import { fixOf, insertText, lineBreakOf, quoteAttributeFix } from "../../shared/fixes.js"
+import { fixOf, insertText, quoteAttributeFix } from "../../shared/fixes.js"
 import type { Vendor } from "../../config.js"
 
 /**

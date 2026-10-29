@@ -103,7 +103,9 @@ import { PROJECT_BASE, PROJECT_LOWERING } from "./support/project-libraries.js"
 // 540 -> 541 (2026-10-12, lsp-quick-fixes 2.1 gate), read: no new class — a chain through a chain temp (the class of
 // `stmt_chain_three_targets`): `qf_c0032_wrap_chain`'s `a := b := TO_INT(c)`. The other new build-clean fixtures (`qf_to_*`)
 // each store `out := TO_X(v)`, which names `out`, or `rec.b := …`, which this test does not read as a target.
-const RENAMED_TARGETS = 541
+// 541 -> 545 (2026-10-29, lsp-field-false-positives 8.2), read: no new class — the lone-CR and CRLF twins of `qf_c0032_ref`
+// and `qf_c0032_wrap_chain` (`quick-fixes/line-end-twins.ts`), each renamed as its pair is.
+const RENAMED_TARGETS = 545
 
 interface Program {
   name: string

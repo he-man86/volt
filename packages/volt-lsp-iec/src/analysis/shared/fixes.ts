@@ -5,24 +5,15 @@
  *
  * Every fix stays in the reporting document (§1's "local edit"), so no edit here names a `uri`.
  */
-import type { Span, VarDecl, VarSection } from "../../frontend/syntax/index.js"
+import { endsLineAt, lineColAt, type Span, type VarDecl, type VarSection } from "../../frontend/syntax/index.js"
 import type { Fix, FixEdit } from "./diagnostic-item.js"
 
-/** The span of `source[start, end)`, its line (1-based) and column (0-based) counted as the lexer counts them. */
+/** The span of `source[start, end)`, its line (1-based) and column (0-based) counted as the lexer counts them
+ *  (`lineColAt`: a lone CR ends a line). */
 export function spanOf(source: string, start: number, end: number): Span {
-  const at = (offset: number): [number, number] => {
-    let line = 1
-    let lineStart = 0
-    for (let i = 0; i < offset; i++)
-      if (source.charCodeAt(i) === 10) {
-        line++
-        lineStart = i + 1
-      }
-    return [line, offset - lineStart]
-  }
-  const [startLine, startCol] = at(start)
-  const [endLine, endCol] = at(end)
-  return { start, end, startLine, startCol, endLine, endCol }
+  const from = lineColAt(source, start)
+  const to = lineColAt(source, end)
+  return { start, end, startLine: from.line, startCol: from.col, endLine: to.line, endCol: to.col }
 }
 
 /** Replace `source[start, end)` by `newText`. */
@@ -45,8 +36,8 @@ export function removeConstruct(source: string, start: number, end: number): Fix
   while (lineStart > 0 && (source[lineStart - 1] === " " || source[lineStart - 1] === "\t")) lineStart--
   let after = end
   while (after < source.length && (source[after] === " " || source[after] === "\t")) after++
-  const aloneBefore = lineStart === 0 || source[lineStart - 1] === "\n"
-  const lineEnd = source.startsWith("\r\n", after) ? after + 2 : source[after] === "\n" ? after + 1 : after === source.length ? after : -1
+  const aloneBefore = lineStart === 0 || endsLineAt(source, lineStart - 1)
+  const lineEnd = source.startsWith("\r\n", after) ? after + 2 : endsLineAt(source, after) ? after + 1 : after === source.length ? after : -1
   if (aloneBefore && lineEnd >= 0) return replaceText(source, lineStart, lineEnd, "")
   return replaceText(source, start, after, "")
 }
@@ -79,12 +70,13 @@ function codeOnly(text: string): string {
       }
       blank(i, j)
     } else if (text.startsWith("//", i)) {
-      j = text.indexOf("\n", i)
-      if (j < 0) j = text.length
+      j = i + 2
+      while (j < text.length && !endsLineAt(text, j)) j++
       blank(i, j)
     } else if (text[i] === "'" || text[i] === '"') {
       const quote = text[i]
-      while (j < text.length && text[j] !== quote) j += text[j] === "$" ? 2 : 1
+      // a string does not span lines: an unclosed one ends at its line's end, as the lexer ends it (`lex/strings.ts`)
+      while (j < text.length && text[j] !== quote && !endsLineAt(text, j)) j += text[j] === "$" && !endsLineAt(text, j + 1) ? 2 : 1
       j = Math.min(j + 1, text.length)
       blank(i, j)
     }
@@ -104,11 +96,6 @@ export function findWord(source: string, from: number, to: number, word: string)
 /** One fix of `edits` titled `title`; `preferred` only where no other edit builds clean with another meaning (§3). */
 export function fixOf(title: string, edits: readonly FixEdit[], preferred = false): Fix {
   return { title, edits, ...(preferred ? { preferred: true as const } : {}) }
-}
-
-/** The line break the document uses (a CRLF document keeps its CRLF in what a fix inserts). */
-export function lineBreakOf(source: string): string {
-  return source.includes("\r\n") ? "\r\n" : "\n"
 }
 
 /** The LAST whole-word, case-insensitive occurrence of `word` in `source[from, to)`, comments and strings aside

@@ -31,7 +31,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { ALL_TESTS } from "../test/conformance/fixtures/index.js"
 import { withDependencies } from "../test/conformance/support/fixture-units.js"
-import { parseSource } from "../src/frontend/syntax/index.js"
+import { lineStartOf, parseSource } from "../src/frontend/syntax/index.js"
 import { plcPrgSource } from "../test/conformance/support/plc-prg.js"
 import { call, landedInFull, requireNetworkText } from "./bridge.js"
 import { deleteOpsFor, heldIn, orphansIn, type Held } from "./held-as.js"
@@ -71,6 +71,10 @@ function splitItems(f: { source: string; pouName: string; gvlNames?: readonly st
   // Each item spans from a top-level unit's start to the NEXT top-level unit's start (or EOF) — a unit's own
   // span.end excludes its END_xxx keyword, and this also folds trailing member units into their POU.
   const tops = parseSource(source, { networkText: NETWORK_TEXT_ENABLED }, "codesys").units.filter((u) => TOP.has(u.kind))
+  // A header the LSP's parser refuses (`FUNCTION GET`, `TYPE ABSTRACT :` — `names/word-positions.ts`) yields no unit to
+  // slice by, and the question is what the VENDOR says of it: the text is the one item the fixture names, as sent
+  // (marked as it states it — such a fixture writes its own `%LANGUAGE` lines). Pushing nothing recorded nothing.
+  if (tops.length === 0) return [{ wire: `${kind === "gvl" ? (gvlNames?.[0] ?? pouName) : pouName}.${extForKind(kind)}`, src: source }]
   const lists = tops.filter((u) => u.kind === "global_var_list")
   // …starting at the PRAGMAS written above it, not at the keyword. A unit's span begins at `FUNCTION_BLOCK`, so
   // slicing from there dropped `{attribute 'pingroup' := …}` on the way to the IDE, and the fixture then recorded
@@ -108,10 +112,12 @@ function splitItems(f: { source: string; pouName: string; gvlNames?: readonly st
  * the branch the build's object could not have).
  */
 function pragmaStart(source: string, unitStart: number): number {
-  let at = source.lastIndexOf("\n", unitStart - 1) + 1
+  // lines as the lexer counts them (`lineStartOf`: a lone CR ends one) — counted by LF alone, a lone-CR fixture's pragma
+  // line was never found and the push dropped its attribute (`qf_abstract_before_cr`, `qf_c0550_before_cr`, 2026-10-29)
+  let at = lineStartOf(source, unitStart)
   if (source.slice(at, unitStart).trim() !== "") return unitStart // the keyword does not open its line
   while (at > 0) {
-    const prevStart = source.lastIndexOf("\n", at - 2) + 1
+    const prevStart = lineStartOf(source, at - 1)
     const line = source.slice(prevStart, at - 1).trim()
     if (!line.startsWith("{") || !line.endsWith("}")) break
     at = prevStart

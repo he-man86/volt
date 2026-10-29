@@ -36,6 +36,7 @@ import { CORPUS_STANDARD_TESTS } from "./semantics/corpus-standard.js"
 import { LIBRARY_BODY_TESTS } from "./libraries/library-bodies.js"
 import { IL_CALC_SHAPE_TESTS, INTERFACE_VAR_TESTS } from "./calls/il-calc-shapes.js"
 import { SIGNATURE_NAME_TESTS } from "./cross-object/signature-name.js"
+import { NAMES_PAST_ASCII_TESTS } from "./cross-object/names-past-ascii.js"
 import { WRITTEN_AS_SENT_TESTS } from "./objects/written-as-sent.js"
 import { HEADER_RULE_TESTS } from "./oop/header-rules.js"
 import { REMOVED_PUSH_CHECK_TESTS } from "./objects/removed-push-checks.js"
@@ -52,6 +53,7 @@ import { CONSTANT_FOLDING_TESTS } from "./declarations/constant-folding.js"
 import { TRY_CATCH_TESTS } from "./semantics/try-catch.js"
 import { INIT_SEQUENCE_TESTS } from "./declarations/init-sequence.js"
 import { REFERENCE_BINDING_TESTS } from "./declarations/reference-binding.js"
+import { DECLARED_PATH_TESTS } from "./declarations/declared-paths.js"
 import { OPERANDS_TESTS } from "./operators/operands.js"
 import { STRING_ORDER_TESTS } from "./strings/ordering.js"
 import { SYSTEM_OPERAND_TESTS } from "./operators/system-operands.js"
@@ -130,6 +132,7 @@ import { DEAD_CODE_TESTS } from "./grammar/dead-code.js"
 import { SCOPE_RULE_TESTS } from "./names/scopes.js"
 import { INHERITANCE_RULE_TESTS } from "./names/inheritance.js"
 import { ENUM_RULE_TESTS } from "./names/enums.js"
+import { WORD_POSITION_TESTS } from "./names/word-positions.js"
 import { LIBRARY_RULE_TESTS } from "./names/libraries.js"
 import { MEMBER_RULE_TESTS } from "./names/members.js"
 import { SFC_STEP_TESTS } from "./names/sfc-steps.js"
@@ -154,6 +157,7 @@ import { QF_OOP_TESTS } from "./quick-fixes/f8-oop.js"
 import { QF_LOCAL_EDIT_TESTS } from "./quick-fixes/f9-local-edits.js"
 import { QF_LOCAL_EDIT_B_TESTS } from "./quick-fixes/f9-local-edits-b.js"
 import { QF_DUPLICATE_TESTS } from "./quick-fixes/f10-duplicates.js"
+import { QF_LINE_END_TWIN_TESTS } from "./quick-fixes/line-end-twins.js"
 
 export interface CategoryGroup {
   name: string
@@ -187,6 +191,7 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "il-calc-shapes", tests: IL_CALC_SHAPE_TESTS },
   { name: "interface-var", tests: INTERFACE_VAR_TESTS },
   { name: "signature-name", tests: SIGNATURE_NAME_TESTS },
+  { name: "names-past-ascii", tests: NAMES_PAST_ASCII_TESTS },
   { name: "written-as-sent", tests: WRITTEN_AS_SENT_TESTS },
   { name: "header-rules", tests: HEADER_RULE_TESTS },
   { name: "removed-push-checks", tests: REMOVED_PUSH_CHECK_TESTS },
@@ -234,6 +239,7 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "try-catch", tests: TRY_CATCH_TESTS },
   { name: "init-sequence", tests: INIT_SEQUENCE_TESTS },
   { name: "reference-binding", tests: REFERENCE_BINDING_TESTS },
+  { name: "declared-paths", tests: DECLARED_PATH_TESTS },
   { name: "operands", tests: OPERANDS_TESTS },
   { name: "string-ordering", tests: STRING_ORDER_TESTS },
   { name: "system-operands", tests: SYSTEM_OPERAND_TESTS },
@@ -295,6 +301,7 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "names-scopes", tests: SCOPE_RULE_TESTS },
   { name: "names-inheritance", tests: INHERITANCE_RULE_TESTS },
   { name: "names-enums", tests: ENUM_RULE_TESTS },
+  { name: "names-word-positions", tests: WORD_POSITION_TESTS },
   { name: "names-libraries", tests: LIBRARY_RULE_TESTS },
   { name: "names-members", tests: MEMBER_RULE_TESTS },
   { name: "names-sfc-steps", tests: SFC_STEP_TESTS },
@@ -319,6 +326,7 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "quick-fixes-oop", tests: QF_OOP_TESTS },
   { name: "quick-fixes-local-edits", tests: [...QF_LOCAL_EDIT_TESTS, ...QF_LOCAL_EDIT_B_TESTS] },
   { name: "quick-fixes-duplicates", tests: QF_DUPLICATE_TESTS },
+  { name: "quick-fixes-line-end-twins", tests: QF_LINE_END_TWIN_TESTS },
 ]
 
 /**

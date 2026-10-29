@@ -93,12 +93,16 @@ const ABSENT = ALL_TESTS.filter((t) => t.fixAbsent !== undefined)
  * A BEFORE the LSP reports the code on for FEWER vendors than its recordings do — so `vendorsOf` drops that vendor from
  * the pair, and the test below names each one with its reason. A pair leaves this list the day the LSP reports it there.
  */
-const VENDOR_GAPS: Readonly<Record<string, { vendor: Vendor; why: string }>> = {
-  qf_c0077_before: {
-    vendor: "twincat",
-    why: "`unknownTypeName` judges a bare type on CODESYS only until TwinCAT's `References/` library rule exists (task 0.1, filed for 2.4)",
-  },
-}
+const VENDOR_GAPS: Readonly<Record<string, { vendor: Vendor; why: string }>> = Object.fromEntries(
+  // each with its lone-CR and CRLF twins (`fixtures/quick-fixes/line-end-twins.ts`), which answer as the pair does
+  ["", "_cr", "_crlf"].map((twin) => [
+    `qf_c0077_before${twin}`,
+    {
+      vendor: "twincat",
+      why: "`unknownTypeName` judges a bare type on CODESYS only until TwinCAT's `References/` library rule exists (task 0.1, filed for 2.4)",
+    },
+  ]),
+)
 
 /** Each BEFORE once, with the code its fix answers: the `fixOf` BEFOREs and the `fixAbsent` fixtures. */
 const BEFORES = new Map<string, string>([...AFTERS.map((a) => [a.fixOf!.before, a.fixOf!.code] as const), ...ABSENT.map((t) => [t.name, t.fixAbsent!.code] as const)])

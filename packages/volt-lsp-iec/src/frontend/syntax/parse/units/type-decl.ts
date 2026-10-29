@@ -50,7 +50,7 @@ import { collectInitTokens, initializerFromTokens, refuseMalformedInit } from ".
 export function parseTypeDecl(c: Cursor): TypeDecl | undefined {
   const start = c.expectKeyword("TYPE")
   if (start === undefined) return undefined
-  const nameTok = c.expectIdent()
+  const nameTok = c.expectHeaderName()
   if (nameTok === undefined) return undefined
   const name = identFromToken(nameTok)
   // Optional `EXTENDS Base` between the name and the `:` (`TYPE S_PENTAGON EXTENDS S_POLYGONLINE : STRUCT ...`).

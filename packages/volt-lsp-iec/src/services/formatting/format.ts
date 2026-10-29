@@ -3,7 +3,7 @@
  * (each unit it touches, reprinted over exactly the text the printer writes), and on-type (the new line's indent).
  */
 import type { Position, Range, TextEdit } from "vscode-languageserver-protocol"
-import { isTrivia, lex, sourceStatements, type Span, type StatementList, stmtChildLists, type TopLevel, unitBodies } from "../../frontend/syntax/index.js"
+import { isTrivia, lex, lineBreakOf, sourceStatements, type Span, type StatementList, stmtChildLists, type TopLevel, unitBodies } from "../../frontend/syntax/index.js"
 import { clampedOffset, offsetFromPosition, rangeFromSpan } from "../shared/index.js"
 import type { Document } from "../shared/index.js"
 import { printUnit, TAB, verbatimText } from "./print.js"
@@ -49,11 +49,13 @@ export function formatRange(doc: Document, range: Range, options?: FormatOptions
   return edits
 }
 
-/** Printed text (`\n`) in the line ending of the file it lands in: a CRLF file stays CRLF — an LF unit inside it left a
+/** Printed text (`\n`) in the line ending of the file it lands in (`lineBreakOf`): a CRLF file stays CRLF, a lone-CR
+ *  file CR — an LF unit inside it left a
  *  file of mixed line endings, whose stray blank lines the push writes into the IDE body (`verbatimText`). The whole
  *  document is rewritten, so `formatDocument` writes `\n` throughout. */
 function inLineEndingOf(source: string, printed: string): string {
-  return source.includes("\r\n") ? printed.replace(/\n/g, "\r\n") : printed
+  const br = lineBreakOf(source)
+  return br === "\n" ? printed : printed.replace(/\n/g, br)
 }
 
 /**

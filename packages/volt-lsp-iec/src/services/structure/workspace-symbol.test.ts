@@ -38,3 +38,12 @@ test("B5: workspace symbols list members under their owner — and no local", ()
   expect(found).toEqual(expect.arrayContaining(["FB_Run/Go", "I_Run/Go", "E_Mode/Run", "E_Mode/Idle"]))
   expect(found.some((s) => s.endsWith("/localVar"))).toBe(false)
 })
+
+// openspec lsp-field-false-positives 8 (class 1): a library's top-level symbol carries its library as the container — the
+// folder's own name, never the percent-encoding a client's uri gives a name past ASCII
+test("a library symbol's container is its library folder's decoded name", () => {
+  const { project } = setupFiles({
+    "file:///c%3A/w/Library%20Manager/Bibliothek_%C3%84/FB_Lib.pou": "FUNCTION_BLOCK FB_Lib\nEND_FUNCTION_BLOCK\n",
+  })
+  expect(workspaceSymbols(project, "FB_Lib").map((s) => s.containerName)).toEqual(["Bibliothek_Ä"])
+})

@@ -223,6 +223,31 @@ test("an instance path in a persistent list may index an array on its way, with 
   ])
 })
 
+// openspec lsp-field-false-positives 8 (class 4), CODESYS 2026-10-29 (`declarations/declared-paths.ts`): a PATH is a
+// declared name in a global list (every VAR_GLOBAL variant) and a configuration list — an element last too — and nowhere
+// else: a POU's section or a STRUCT refuses the `.`. A configuration list's bare name is no instance path.
+test("a declared path: a global and a configuration list take one, a POU section and a STRUCT refuse its `.`", () => {
+  const gvl = (decl: string) => `VAR_GLOBAL PERSISTENT\n\t${decl}\nEND_VAR\n`
+  const config = (decl: string) => `VAR_CONFIG\n\t${decl}\nEND_VAR\n`
+  for (const d of ["PLC_PRG.ax[1] : INT;", "PLC_PRG.aafb[1, 2].y : INT;", "k, PLC_PRG.inst.y : INT;"]) expect(messages(gvl(d))).toEqual([])
+  expect((parse(gvl("PLC_PRG.ax[1] : INT;")).units[0] as GlobalVarList).varSections[0]!.decls[0]!.names[0]!.text).toBe("PLC_PRG.ax[1]")
+  expect(messages(config("PLC_PRG.ax[1] AT %IX7.0 : BOOL;"))).toEqual([])
+  for (const d of ["PLC_PRG.inst.y : INT;", "PLC_PRG.afb[1].y : INT;"]) {
+    expect(messages(inVar(d))).toEqual(["',, AT or :' expected instead of '.'"])
+    expect(messages(struct(`\t${d}`))).toEqual(["',, AT or :' expected instead of '.'"])
+  }
+  expect(messages(config("x AT %IX7.0 : BOOL;"))).toEqual(["'x' is not a valid instance path"])
+  expect(messages(config("k, PLC_PRG.inst.x AT %IX7.0 : BOOL;"))).toEqual(["'k' is not a valid instance path"])
+  // after a `.` any word is the next part — `AT` too — and the address is then where `,`, AT or `:` belonged
+  expect(messages(config("PLC_PRG.inst. AT %IX7.0 : BOOL;"))).toEqual(["',, AT or :' expected instead of '%IX7.0'"])
+  // TwinCAT takes a path in a configuration list only: a global list and a VAR_EXTERNAL refuse the `.` there
+  const tc = (src: string) => parse(src, "twincat").errors.map((e) => e.message)
+  expect(tc(gvl("PLC_PRG.inst.y : INT;"))[0]).toBe("',, AT or :' expected instead of '.'")
+  expect(tc(fb("VAR_EXTERNAL\n\tPLC_PRG.inst.y : INT;\nEND_VAR"))[0]).toBe("',, AT or :' expected instead of '.'")
+  expect(messages(fb("VAR_EXTERNAL\n\tPLC_PRG.inst.y : INT;\nEND_VAR"))).toEqual([])
+  expect(tc(config("PLC_PRG.inst.x AT %IX7.0 : BOOL;"))).toEqual([])
+})
+
 test("an operator's trailing comma in an initializer is refused at the `)`, as in a body; no value is kept", () => {
   // `expr_trailing_comma_operator_call_in_initializer` (both vendors 2026-10-02; the vendors' value
   // `MAX(MAX(SINT#1, 2), !!!'ERROR'!!!)` and its two type messages are a known divergence)

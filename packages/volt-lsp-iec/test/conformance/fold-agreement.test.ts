@@ -197,10 +197,13 @@ const UNTYPED_ROTATE =
   "niche: accepted loss (0 ROL / ROR of an untyped literal in the six corpora) — the AST fold gives an untyped literal under a rotation no width without a typed context (`UNTYPED_OPERAND`)"
 const KNOWN: Readonly<Record<string, string>> = Object.fromEntries([
   ["dt_library_enum_storage_values: SIZEOF(w)", LIBRARY_ENUM_STORAGE],
-  ["qf_c0228_before_subrange: cap + 1", SUBRANGE_BARE_CONSTANT],
-  ["qf_c0228_before_subrange: cap", SUBRANGE_BARE_CONSTANT],
-  ["qf_c0228_before_inline_subrange: cap + 1", SUBRANGE_BARE_CONSTANT],
-  ["qf_c0228_before_inline_subrange: cap", SUBRANGE_BARE_CONSTANT],
+  // …each pair with its lone-CR and CRLF twins (`quick-fixes/line-end-twins.ts`), which fold as the pair does
+  ...["", "_cr", "_crlf"].flatMap((twin) => [
+    [`qf_c0228_before_subrange${twin}: cap + 1`, SUBRANGE_BARE_CONSTANT],
+    [`qf_c0228_before_subrange${twin}: cap`, SUBRANGE_BARE_CONSTANT],
+    [`qf_c0228_before_inline_subrange${twin}: cap + 1`, SUBRANGE_BARE_CONSTANT],
+    [`qf_c0228_before_inline_subrange${twin}: cap`, SUBRANGE_BARE_CONSTANT],
+  ]),
   ...[
     "ca_direct_address_expression: %MW30 + 1",
     "var_input_constant: iLimit",

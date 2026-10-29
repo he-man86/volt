@@ -306,6 +306,11 @@ export class Cursor {
     return this.expectNameOf(UNIT_NAME_KEYWORDS)
   }
 
+  /** A FUNCTION's, PROGRAM's, INTERFACE's, TYPE's, ACTION's name: an identifier or a soft name (`wp_*_name_get`). */
+  expectHeaderName(): Token | undefined {
+    return this.expectNameOf(SOFT_NAME_KEYWORDS)
+  }
+
   private expectNameOf(keywords: ReadonlySet<string>): Token | undefined {
     const t = this.peek()
     if (t.kind === "identifier" || (t.kind === "keyword" && keywords.has(t.keyword ?? ""))) {

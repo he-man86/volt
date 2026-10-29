@@ -8,6 +8,17 @@ test("fixes: spanOf counts lines 1-based and columns 0-based, as the lexer does"
   expect(spanOf("ab\ncd", 3, 5)).toEqual({ start: 3, end: 5, startLine: 2, startCol: 0, endLine: 2, endCol: 2 })
 })
 
+// openspec lsp-field-false-positives 8 (class 2): every raw-text reading counts a lone CR as the line end the lexer reads
+test("fixes: a lone CR ends a line — spanOf's lines, removeConstruct's whole line, a // comment's end", () => {
+  expect(spanOf("ab\rcd", 3, 5)).toEqual({ start: 3, end: 5, startLine: 2, startCol: 0, endLine: 2, endCol: 2 })
+  expect(spanOf("ab\r\ncd", 4, 6)).toEqual({ start: 4, end: 6, startLine: 2, startCol: 0, endLine: 2, endCol: 2 })
+  const cr = "a;\r\tlevel;\rb;\r"
+  expect(apply(cr, removeConstruct(cr, cr.indexOf("level"), cr.indexOf("level") + 6))).toBe("a;\rb;\r")
+  // the word after a `//` comment's lone-CR line end is code, and found
+  const header = "FUNCTION_BLOCK // a note\rABSTRACT FB"
+  expect(apply(header, removeWord(header, 0, header.indexOf("FB", 20), "ABSTRACT")!)).toBe("FUNCTION_BLOCK // a note\rFB")
+})
+
 test("fixes: an edit carries the text it replaces", () => {
   expect(insertText("abc", 1, "X")).toMatchObject({ replaces: "", newText: "X" })
 })

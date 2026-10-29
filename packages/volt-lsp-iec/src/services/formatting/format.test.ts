@@ -349,6 +349,18 @@ test("formatting a CRLF file adds no blank line under the %LANGUAGE line or a me
   }
 })
 
+// openspec lsp-field-false-positives 8 (class 2): a range reprint lands in the document's own line ending, a lone CR's
+// too — and the client's range over a lone-CR document is counted in its lines (`clampedOffset`)
+test("range formatting a lone-CR file writes CR line ends and reaches the unit the range names", () => {
+  const src = "FUNCTION_BLOCK F\rVAR\r\tx:INT;\rEND_VAR\r%LANGUAGE ST\rx:=1;\rEND_FUNCTION_BLOCK\r"
+  const doc: Document = { uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
+  const lines = src.split("\r").length - 1
+  const edited = TextDocument.applyEdits(TextDocument.create("u", "st", 1, src), formatRange(doc, { start: { line: 0, character: 0 }, end: { line: lines, character: 0 } }))
+  expect(edited).not.toBe(src)
+  expect(edited.includes("\n")).toBe(false)
+  expect(edited).toBe(formatDocument(doc).replace(/\n/g, "\r"))
+})
+
 /**
  * WHAT STANDS BETWEEN A DECLARATION AND ITS `%LANGUAGE` LINE SURVIVES FORMATTING. It is declaration text on the
  * push side — a `{warning}` or `{attribute}` pragma means something there — and it is neither code nor the line, so

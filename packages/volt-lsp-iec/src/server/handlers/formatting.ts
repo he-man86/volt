@@ -6,13 +6,15 @@ import {
   DocumentOnTypeFormattingRequest,
   DocumentRangeFormattingRequest,
 } from "vscode-languageserver-protocol/node"
+import { splitLines } from "../../frontend/syntax/index.js"
 import { formatDocument, formatOnType, formatRange } from "../../services/index.js"
 import type { ServerState } from "../state.js"
 
 export function registerFormattingHandlers(s: ServerState): void {
   s.onRequest(DocumentFormattingRequest.type, (p) =>
     s.whole(p.textDocument.uri, (d) => {
-      const lineCount = d.source.split("\n").length
+      // every line end the client counts, a lone CR too — an end short of the last line left its text behind the edit
+      const lineCount = splitLines(d.source).length
       // one whole-document edit spanning [0,0]..[lineCount,0]
       return [
         {

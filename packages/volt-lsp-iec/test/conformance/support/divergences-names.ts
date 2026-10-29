@@ -171,6 +171,18 @@ export const CODESYS_ENUM_DIVERGENCES: readonly string[] = [
 ]
 
 /**
+ *   `wp_named_argument_time`, `wp_named_argument_ltime` (openspec lsp-field-false-positives 8, class 3) — `TIME` and
+ *        `LTIME` as a named argument (`t(TIME := TRUE)`): CODESYS reads the word as the CLOCK OPERATOR it also is and
+ *        wants its `(` — "'(' expected instead of ':='", "',' or ')' expected instead of ';'", "'TIME' needs at least
+ *        '0' operands", "Expression expected instead of ';'" — before the refusal the other type names draw; the LSP
+ *        refuses it as every refused word ("Expression expected instead of 'TIME'"). The call reading of the two clock
+ *        words outside a call is that rule's own question. Niche: accepted loss (0 named arguments spelled by a type
+ *        name in the corpora — none builds). TwinCAT reads them as the clock operator too, in its two lines ("'(' expected
+ *        instead of ':='", "',' or ')' expected instead of ';'"), and nothing after.
+ */
+export const WORD_POSITION_DIVERGENCES: readonly string[] = ["wp_named_argument_time", "wp_named_argument_ltime"]
+
+/**
  *   every `enum_library_*` cell but the project-enum one, the two project-POU ones and the uninstanced one (TwinCAT) — TwinCAT's fixture project
  *        references no Util (and no StringUtils), so each is the library's ABSENCE ("Unknown type: 'GEN_MODE'", "Identifier
  *        'SAWTOOTH_RISE' not defined"); the replay binds the CODESYS fixture project's libraries for both vendors

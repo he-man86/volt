@@ -249,4 +249,12 @@ export interface LanguageTest {
    * reach `ambiguous-global`) names them here.
    */
   gvlNames?: readonly string[]
+  /**
+   * WHY THIS FIXTURE STANDS ALONE: its object, or a global it declares, is named by a word every other fixture uses —
+   * an FB called `INT`, a DUT called `GET`, a global called `R` (`names/word-positions.ts`, openspec
+   * lsp-field-false-positives 8). Bound beside the rest it would declare that word for all of them, so it is never another
+   * fixture's dependency (`withDependencies`) and is absent from the project the others are replayed in (`replay.ts`);
+   * its own recording and replay hold it, as for any fixture.
+   */
+  alone?: string
 }

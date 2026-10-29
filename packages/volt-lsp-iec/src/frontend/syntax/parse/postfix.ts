@@ -189,7 +189,9 @@ function parseCallArg(cur: Cursor, g: ExpressionGrammar): CallArg | undefined {
   // reason they are legal variable names — the Standard `RS` FB declares `SET : BOOL`, so `rs(SET := x)` is
   // how you call it by name. The declaration side already allowed this (`parse/declarations.ts`); the call side did
   // not, which made that input reachable only positionally.
-  if (cur.atNameStart()) {
+  // …but never a REFUSED word (an IL operator or a type name, rule R6): `t(LD := TRUE)` is refused as `t(ABSTRACT := TRUE)`
+  // is, on the word (`wp_named_argument_ld`, `_int`, CODESYS 2026-10-29)
+  if (cur.atNameStart() && !cur.refusedWord(cur.peek())) {
     const next = cur.peek(1)
     if (next.kind === "punct" && (next.text === ":=" || next.text === "=>")) {
       const nameTok = cur.consume()

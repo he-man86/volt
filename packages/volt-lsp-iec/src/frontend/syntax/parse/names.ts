@@ -46,13 +46,25 @@ export function readQualifiedName(c: Cursor, first: Token, dangling: "report" | 
 }
 
 /**
- * A DECLARED name that opens with `first` (already consumed) as ONE identifier node: a dotted name (`consume`), and an
- * INSTANCE PATH's array element on its way — `GVL.fbMain.afbModule[1].stPers`, `…aafbModule[1, 2].stPers`, as a
- * persistent variable list holds them (CODESYS 3.5.21.40 builds them clean, openspec lsp-field-false-positives 3). An
- * index group is read only where a `.` and a part follow its `]`; its indexes are spelled as CODESYS spells the path in
- * its messages (`[1, 2]`). Anything else is left for the declaration to refuse as before.
+ * Which lists take a PATH as a declared name, and what may follow its `.` — measured per list (CODESYS 3.5.21.40,
+ * openspec lsp-field-false-positives 3 and 8, `declarations/declared-paths.ts`):
+ *   `"identifiers"`  on CODESYS, a global list (every `VAR_GLOBAL` variant) and `VAR_EXTERNAL`: a name after each `.`
+ *                    (`PLC_PRG.inst. AT %IX7.1 : INT` builds — the `AT` is the address's, `dp_gvl_dangling_dot_at`);
+ *   `"words"`        a configuration list (`VAR_CONFIG`): any word after a `.`, a keyword too — `PLC_PRG.inst. AT %IX7.0`
+ *                    reads `AT` as the part, and the address is then refused (`dp_config_dangling_dot`);
+ *   `"none"`         every other section, a STRUCT, and on TwinCAT those two too: the `.` is refused (`dp_fb_var_*`, `dp_gvl_*`,
+ *                    `dp_struct_*` — the declaration's `refuseNameAfterName`).
  */
-export function readDeclaredName(c: Cursor, first: Token): Identifier {
+export type DeclaredPaths = "none" | "identifiers" | "words"
+
+/**
+ * A DECLARED name that opens with `first` (already consumed) as ONE identifier node — a PATH where the list takes one
+ * (`DeclaredPaths`): `PLC_PRG.inst.y`, an array element on the way `GVL.fbMain.afbModule[1].stPers`,
+ * `…aafbModule[1, 2].y` (or `[1,2]`), an element last `PLC_PRG.ax[1]`, each built clean. An index group is read where a
+ * `.`, a `:`, a `,` or `AT` follows its `]`; its indexes are spelled as CODESYS spells the path in its messages (`[1, 2]`).
+ */
+export function readDeclaredName(c: Cursor, first: Token, paths: DeclaredPaths): Identifier {
+  if (paths === "none") return identFromToken(first)
   const parts = [first]
   let text = first.text
   for (;;) {
@@ -62,8 +74,9 @@ export function readDeclaredName(c: Cursor, first: Token): Identifier {
       text += `[${indexes.filter((t) => t.text !== "[" && t.text !== "]").map((t) => t.text).join("").split(",").join(", ")}]`
     }
     if (c.eatPunct(".") === undefined) break
-    const part = c.eatIdent()
-    if (part === undefined) break
+    const next = c.peek()
+    if (next.kind !== "identifier" && !(paths === "words" && next.kind === "keyword")) break
+    const part = c.consume()
     parts.push(part)
     text += `.${part.text}`
   }
@@ -71,8 +84,8 @@ export function readDeclaredName(c: Cursor, first: Token): Identifier {
   return { kind: "identifier", text, span: joinSpans(first.span, parts.at(-1)!.span) }
 }
 
-/** The tokens of an index group `[ … ]` at the cursor — `[` to `]`, one level, no `;` or `:` inside — when a `.` follows
- *  it; else undefined. Nothing is consumed. */
+/** The tokens of an index group `[ … ]` at the cursor — `[` to `]`, one level, no `;` or `:` inside — when a `.`, a `:`,
+ *  a `,` or `AT` follows it; else undefined. Nothing is consumed. */
 function indexGroupAhead(c: Cursor): Token[] | undefined {
   if (!(c.peek().kind === "punct" && c.peek().text === "[")) return undefined
   const out: Token[] = [c.peek()]
@@ -81,8 +94,9 @@ function indexGroupAhead(c: Cursor): Token[] | undefined {
     out.push(t)
     if (t.kind === "eof" || (t.kind === "punct" && (t.text === ";" || t.text === ":" || t.text === "["))) return undefined
     if (t.kind === "punct" && t.text === "]") {
-      const dot = c.peek(k + 1)
-      return out.length > 2 && dot.kind === "punct" && dot.text === "." ? out : undefined
+      const after = c.peek(k + 1)
+      const continues = (after.kind === "punct" && [".", ":", ","].includes(after.text)) || (after.kind === "keyword" && after.keyword === "AT")
+      return out.length > 2 && continues ? out : undefined
     }
   }
 }

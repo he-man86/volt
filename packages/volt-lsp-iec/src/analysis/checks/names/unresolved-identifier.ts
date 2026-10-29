@@ -16,13 +16,13 @@
  * A body is the tree its conditional pragmas compile (`bodies()`): a branch not taken is not in it, so a name only
  * that branch uses is never asked (frontend-conformance 2.7.1 — this check used to skip every body holding an `{IF}`).
  */
-import { isSelfRef, stmtExprs, walkExpr, walkStatements, type Expr, type Span, type Statement, type TopLevel, type VarSection } from "../../../frontend/syntax/index.js"
+import { endsLineAt, isSelfRef, lineBreakOf, lineStartOf, stmtExprs, walkExpr, walkStatements, type Expr, type Span, type Statement, type TopLevel, type VarSection } from "../../../frontend/syntax/index.js"
 import { bodies, forEachDecl, lookupLocal, lookupMember, visibleNames, type Scope, type Symbol, type SymbolKind } from "../../../frontend/symbols/index.js"
 import { elementaryRef, inferExprType, resolveBareName, resolveCallee, resolveMemberChain, resolveTypeExpr, untypedNumberValue, type Type } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { emit, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
 import { compilerExprText } from "../../shared/expr-echo.js"
-import { fixOf, insertText, lineBreakOf } from "../../shared/fixes.js"
+import { fixOf, insertText } from "../../shared/fixes.js"
 import { changeToFixes } from "../../shared/near-miss.js"
 import { nameResolves, pointerMemberBases, unresolvedInExprs, unresolvedMembers } from "../../shared/resolution.js"
 
@@ -226,9 +226,9 @@ function declareFix(ctx: CheckContext, stmt: Statement, ref: { name: string; spa
   if (ctx.source.slice(endVar, section.span.end).toUpperCase() !== "END_VAR") return undefined
   let lineStart = endVar
   while (lineStart > 0 && (ctx.source[lineStart - 1] === " " || ctx.source[lineStart - 1] === "\t")) lineStart--
-  if (lineStart > 0 && ctx.source[lineStart - 1] !== "\n") return undefined
+  if (lineStart > 0 && !endsLineAt(ctx.source, lineStart - 1)) return undefined
   const first = section.decls[0]?.names[0]?.span
-  const indent = first === undefined ? "\t" : ctx.source.slice(ctx.source.lastIndexOf("\n", first.start - 1) + 1, first.start)
+  const indent = first === undefined ? "\t" : ctx.source.slice(lineStartOf(ctx.source, first.start), first.start)
   const declaration = `${/^[ \t]*$/.test(indent) ? indent : "\t"}${ref.name} : ${type};${lineBreakOf(ctx.source)}`
   return fixOf(`Declare '${ref.name}' : ${type}`, [insertText(ctx.source, lineStart, declaration)])
 }

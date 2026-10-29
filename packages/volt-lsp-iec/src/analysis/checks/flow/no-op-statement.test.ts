@@ -20,6 +20,17 @@ test("a bare reference statement is warned; a call is not", () => {
   expect(noop(`inst();`)).toEqual([]) // a call has effect
 })
 
+// openspec lsp-field-false-positives 8 (class 2): the quote carries its line's break in the document's own spelling — a
+// lone CR is one, as the lexer reads it (it quoted nothing); the replay compares every line end as LF (`comparable`)
+test("the no-op quote carries a lone-CR or CRLF line end as it carries an LF", () => {
+  const lines = (br: string): string[] =>
+    diagnose(`PROGRAM P${br}VAR i:INT;${br}END_VAR${br}i;${br}i + 1;${br}END_PROGRAM`)
+      .filter((d) => d.code === "no-op-statement" || d.code === "no-valid-statement")
+      .map((d) => d.message)
+  expect(lines("\r")).toEqual(["The code 'i;\r' has no effect. Is this the intent?", "'(i + 1);\r' is no valid statement"])
+  expect(lines("\r\n")).toEqual(["The code 'i;\r\n' has no effect. Is this the intent?", "'(i + 1);\r\n' is no valid statement"])
+})
+
 test("an unresolved bare name is NOT a no-op (gibberish / stripped {IF} branch — the IDE doesn't warn)", () => {
   // Mirrors the conditional-compilation conformance fixtures: code inside a non-taken {IF defined(…)} branch
   // is stripped by the IDE and never compiled, so it must not surface a 'no effect' warning.

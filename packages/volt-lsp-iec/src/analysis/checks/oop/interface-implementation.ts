@@ -23,7 +23,7 @@
  * Only the PRESENCE check is ported; per-signature mismatch is `method-signature`'s.
  */
 import { emit, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
-import { fixOf, insertText, lineBreakOf } from "../../shared/fixes.js"
+import { fixOf, insertText } from "../../shared/fixes.js"
 import {
   ancestry,
   findScopeByName,
@@ -34,7 +34,7 @@ import {
   scopeUri,
   type Scope,
 } from "../../../frontend/symbols/index.js"
-import { renderTypeExpr, type FunctionBlock, type InterfaceMethod, type InterfaceProperty, type TopLevel, type VarSection } from "../../../frontend/syntax/index.js"
+import { lineBreakOf, renderTypeExpr, type FunctionBlock, type InterfaceMethod, type InterfaceProperty, type TopLevel, type VarSection } from "../../../frontend/syntax/index.js"
 import { compiledFbs } from "../../shared/compiled.js"
 import type { CheckContext } from "../../pipeline/context.js"
 

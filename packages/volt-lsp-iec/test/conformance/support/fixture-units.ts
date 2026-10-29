@@ -23,6 +23,7 @@ import { readdirSync } from "node:fs"
 import { join } from "node:path"
 import type { LanguageTest } from "../types.js"
 import { plcPrgSource } from "./plc-prg.js"
+import { conformanceUri } from "./fixture-uri.js"
 import { pragmasBefore, asMember, asUnit } from "./fixture-units-split.js"
 
 export interface LoadAccessor {
@@ -158,7 +159,8 @@ let index: Map<string, LanguageTest> | undefined
 function declarationIndex(all: readonly LanguageTest[]): Map<string, LanguageTest> {
   if (index !== undefined && indexFor === all) return index
   index = new Map()
-  for (const f of all) for (const name of declaredNames(parsed(f))) if (!index.has(name)) index.set(name, f)
+  // a fixture that stands alone (`LanguageTest.alone`) declares a word every fixture uses, and is no one's dependency
+  for (const f of all) if (f.alone === undefined) for (const name of declaredNames(parsed(f))) if (!index.has(name)) index.set(name, f)
   indexFor = all
   return index
 }
@@ -280,7 +282,7 @@ export function splitLists<F extends { uri: string; source: string; parseResult:
     item: { ...file, parseResult: { ...file.parseResult, units: units.filter((u) => u.kind !== "global_var_list") } },
     lists: lists.map((u, i) => ({
       ...file,
-      uri: `file:///conformance/${names[i]}.gvl`,
+      uri: conformanceUri(`${names[i]}.gvl`),
       parseResult: { ...file.parseResult, units: [u], errors: [] },
     })),
   }

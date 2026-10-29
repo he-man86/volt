@@ -7,11 +7,11 @@
  *
  * ponytail: the required-param table is inlined here, its one reader; move it to `reference/` if a second appears.
  */
-import { varInputParams, type Method, type TypeExpr } from "../../../frontend/syntax/index.js"
+import { endsLineAt, lineBreakOf, varInputParams, type Method, type TypeExpr } from "../../../frontend/syntax/index.js"
 import type { LifecycleMethod } from "../../messages/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { emit, type DiagnosticItem, type Fix, type FixEdit } from "../../shared/diagnostic-item.js"
-import { fixOf, insertText, lineBreakOf } from "../../shared/fixes.js"
+import { fixOf, insertText } from "../../shared/fixes.js"
 
 const REQUIRED: Record<LifecycleMethod, readonly string[]> = {
   FB_Init: ["bInitRetains", "bInCopyCode"],
@@ -91,7 +91,7 @@ function addInputsFix(ctx: CheckContext, unit: Method, required: readonly string
   const lineStart = (offset: number): number | undefined => {
     let i = offset
     while (i > 0 && (ctx.source[i - 1] === " " || ctx.source[i - 1] === "\t")) i--
-    return i === 0 || ctx.source[i - 1] === "\n" ? i : undefined
+    return i === 0 || endsLineAt(ctx.source, i - 1) ? i : undefined
   }
   const endVar = section.span.end - "END_VAR".length
   if (ctx.source.slice(endVar, section.span.end).toUpperCase() !== "END_VAR") return undefined

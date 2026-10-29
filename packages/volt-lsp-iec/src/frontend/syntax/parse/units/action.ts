@@ -17,6 +17,7 @@ import { isTrivia } from "../../lex/tokens.js"
 import { collectBodyUntil } from "../body.js"
 import { joinSpans } from "../../span.js"
 import { identFromToken } from "../names.js"
+import { SOFT_NAME_KEYWORDS } from "../../lex/word-sets.js"
 
 const NO_DECLARATION = "an action has no declaration the IDE stores"
 
@@ -26,7 +27,8 @@ export function parseAction(c: Cursor): Action | undefined {
   if (start === undefined) return undefined
   const line = c.consumeRestOfLine()
   const words = line.filter((t) => !isTrivia(t.kind))
-  const nameTok = words.length === 0 ? c.expectIdent() : [...words].reverse().find((t) => t.kind === "identifier")
+  // a header name (`expectHeaderName`): `ACTION Get` is an action called `Get` (`wp_action_name_*`)
+  const nameTok = words.length === 0 ? c.expectHeaderName() : [...words].reverse().find((t) => t.kind === "identifier" || (t.kind === "keyword" && SOFT_NAME_KEYWORDS.has(t.keyword ?? "")))
   if (nameTok === undefined) {
     if (words.length > 0) c.pushError(`Identifier expected instead of '${words[0]!.text}'`, words[0]!.span)
     return undefined
