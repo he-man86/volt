@@ -13,6 +13,7 @@ export { CODESYS_ONLY_KEYWORDS, KEYWORDS, type Dialect } from "./lex/vocabulary.
 export { CODESYS_ONLY_TYPE_WORDS, ELEMENTARY_TYPE_WORDS } from "./lex/word-sets.js"
 export { TWINCAT_LITERAL_PREFIXES } from "./lex/prefixes.js"
 export { isTrivia, type Token, type TokenKind } from "./lex/tokens.js"
+export { isIdentCont, isIdentStart } from "./lex/chars.js"
 export { lex } from "./lex/lexer.js"
 export { isRefusedDeclaredName } from "./lex/word-sets.js"
 

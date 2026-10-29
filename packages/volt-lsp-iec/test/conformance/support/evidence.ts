@@ -84,7 +84,7 @@ export function lspErrors(t: LanguageTest, all: readonly LanguageTest[], vendor:
 const LSP_ERRORS = new WeakMap<LanguageTest, WeakMap<readonly LanguageTest[], Map<Dialect, readonly string[]>>>()
 
 function lspErrorsNow(t: LanguageTest, all: readonly LanguageTest[], vendor: Dialect): string[] {
-  return onFixtureProject(t, all, vendor, RECORDING_ENVIRONMENT, (own, files, project) => diagnosed(own, files, project, vendor))
+  return onFixtureProject(t, all, vendor, RECORDING_ENVIRONMENT, (own, files, project) => diagnosed(t, own, files, project, vendor))
 }
 
 /**
@@ -100,7 +100,7 @@ export function lspMessagesOn(
   diagnostics: AnalysisInitOptions["diagnostics"],
 ): string[] {
   return onFixtureProject(t, all, vendor, environment, (own, files, project) => {
-    const config = resolveConfig({ vendor, diagnostics })
+    const config = resolveConfig({ vendor, diagnostics, unicodeIdentifiers: t.unicodeIdentifiers === "on" })
     const diags = [
       ...files.flatMap((f) => computeDiagnostics({ uri: f.uri, parseResult: f.parseResult, source: f.source, project, config })),
       ...networkDiagnostics(own.parseResult, project),
@@ -156,8 +156,9 @@ const lspBase = new Map<string, Scope>()
 
 type FixtureFile = { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }
 
-function diagnosed(own: { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }, files: readonly { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }[], project: Scope, vendor: Dialect): string[] {
-  const config = resolveConfig({ vendor })
+function diagnosed(t: LanguageTest, own: { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }, files: readonly { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }[], project: Scope, vendor: Dialect): string[] {
+  // the recording project's "Unicode identifiers": off, but in the project the fixture names (`ReplayFiles`)
+  const config = resolveConfig({ vendor, unicodeIdentifiers: t.unicodeIdentifiers === "on" })
   const analysed = files.flatMap((f) => computeDiagnostics({ uri: f.uri, parseResult: f.parseResult, source: f.source, project, config }))
   const network = networkDiagnostics(own.parseResult, project)
   return [...analysed, ...network].filter((d) => d.severity === "error").map((d) => d.message)

@@ -22,6 +22,7 @@ export {
   resolveConfig,
   CONFIGURABLE_CODES,
   projectDiagnosticsFrom,
+  projectUnicodeIdentifiersFrom,
   type AnalysisInitOptions,
   type ConfigurableCode,
   type DiagnosticState,

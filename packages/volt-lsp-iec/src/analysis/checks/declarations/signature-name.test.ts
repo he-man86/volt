@@ -11,10 +11,10 @@ import { build } from "../../../frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig } from "../../index.js"
 import type { Vendor } from "../../config.js"
 
-const at = (uri: string, source: string, vendor: Vendor = "codesys"): string[] => {
+const at = (uri: string, source: string, vendor: Vendor = "codesys", unicodeIdentifiers = false): string[] => {
   const parseResult = parseSource(source, { networkText: true }, vendor)
   const project = build.buildSymbolTable([{ uri, parseResult, source }], [], vendor)
-  return computeDiagnostics({ uri, parseResult, source, project, config: resolveConfig({ vendor }) })
+  return computeDiagnostics({ uri, parseResult, source, project, config: resolveConfig({ vendor, unicodeIdentifiers }) })
     .filter((d) => d.code === "signature-name-mismatch")
     .map((d) => d.message)
 }
@@ -61,11 +61,12 @@ test("an ALIAS, an ENUM and a UNION whose signature names another object", () =>
 // openspec lsp-field-false-positives 1 (PLC Assist's field traffic, 199 findings on items that built clean): the server
 // names a document by its file URI, which percent-encodes every character past ASCII, and the object's name was read
 // from the ENCODED path — `FB_%E4%B8%BB…` never equals the signature's `FB_主控制`. The object is named as the IDE names it.
+// Such objects exist only in a project whose "Unicode identifiers" is on (DIALECT C28b) — the field projects'.
 test("an object with a non-ASCII name agrees with its signature when the server names it by its file URI", () => {
   const uri = (name: string) => pathToFileURL(join(process.cwd(), name)).href
-  expect(at(uri("FB_主控制.pou"), `FUNCTION_BLOCK FB_主控制\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\nx := 1;\nEND_FUNCTION_BLOCK\n`)).toEqual([])
-  expect(at(uri("系统常量.dut"), `TYPE 系统常量 :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE\n`)).toEqual([])
-  expect(at(uri("FB_Привод.pou"), `FUNCTION_BLOCK FB_Привод\nEND_FUNCTION_BLOCK\n`)).toEqual([])
+  expect(at(uri("FB_主控制.pou"), `FUNCTION_BLOCK FB_主控制\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\nx := 1;\nEND_FUNCTION_BLOCK\n`, "codesys", true)).toEqual([])
+  expect(at(uri("系统常量.dut"), `TYPE 系统常量 :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE\n`, "codesys", true)).toEqual([])
+  expect(at(uri("FB_Привод.pou"), `FUNCTION_BLOCK FB_Привод\nEND_FUNCTION_BLOCK\n`, "codesys", true)).toEqual([])
   // …and a real disagreement is still one
-  expect(at(uri("FB_主控制.pou"), `FUNCTION_BLOCK FB_副控制\nEND_FUNCTION_BLOCK\n`)).toEqual(MISMATCH)
+  expect(at(uri("FB_主控制.pou"), `FUNCTION_BLOCK FB_副控制\nEND_FUNCTION_BLOCK\n`, "codesys", true)).toEqual(MISMATCH)
 })

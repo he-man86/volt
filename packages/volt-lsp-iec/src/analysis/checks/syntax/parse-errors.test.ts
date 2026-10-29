@@ -114,7 +114,7 @@ test("a Chinese project's DUT, FB with CJK methods and their caller produce no d
   const parsed = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source, { networkText: true }, "codesys") }))
   const project = build.buildSymbolTable(parsed, [], "codesys")
   const found = parsed.flatMap(({ source, parseResult }) =>
-    computeDiagnostics({ uri: uriFor(parseResult), parseResult, source, project, config: resolveConfig({ vendor: "codesys" }) }).map(
+    computeDiagnostics({ uri: uriFor(parseResult), parseResult, source, project, config: resolveConfig({ vendor: "codesys", unicodeIdentifiers: true }) }).map(
       (d) => `${d.code}: ${d.message}`,
     ),
   )
@@ -157,7 +157,9 @@ test("a POU whose lines end in a lone CR reads as the same POU with LF (repro 5'
     "nStep := 3;",
     "END_FUNCTION_BLOCK",
   ]
-  const all = (src: string) => diagnose(src).map((d) => `${d.span.startLine}: ${d.code}: ${d.message}`)
+  // the field project's "Unicode identifiers" is on, or its FB named in Cyrillic could not exist (DIALECT C28b)
+  const all = (src: string) =>
+    diagnose(src, "codesys", resolveConfig({ vendor: "codesys", unicodeIdentifiers: true })).map((d) => `${d.span.startLine}: ${d.code}: ${d.message}`)
   expect(all(lines.join("\r"))).toEqual(all(lines.join("\n")))
   expect(all(lines.join("\r"))).toEqual([])
 })

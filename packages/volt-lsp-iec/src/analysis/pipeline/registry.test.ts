@@ -103,6 +103,7 @@ describe("the run order", () => {
       "checkAbstractOutputDefault",
       "checkPragmas",
       "checkSignatureName",
+      "checkObjectName",
       "checkParseErrors",
       "checkUnknownSource",
     ])

@@ -172,6 +172,10 @@ export interface ReplayFiles {
    * 3.4), both vendors: 3 fixtures gain the dependency's recorded message, none gains one the build did not record.
    */
   dependencies: readonly ReplayDoc[]
+  /** The recording project's Compile option "Unicode identifiers": off in both vendors' recording projects (CODESYS's
+   *  `.projectsettings` states it; TwinCAT has no other state, DIALECT D39), on in the project a fixture names
+   *  (`LanguageTest.unicodeIdentifiers`). */
+  unicodeIdentifiers: boolean
 }
 
 /** Per fixture index, the indices of the fixtures it depends on (not itself), once. */
@@ -225,7 +229,7 @@ export function withReplayFixture<T>(testIdx: number, vendor: Vendor, ask: (file
     const split = splitLists(ALL_TESTS[j]!, asVendor(PARSED[j] as (typeof PARSED)[number], vendor))
     return [split.item, ...split.lists]
   })
-  return ask({ own, plc, lists, dependencies }, project)
+  return ask({ own, plc, lists, dependencies, unicodeIdentifiers: ALL_TESTS[testIdx]!.unicodeIdentifiers === "on" }, project)
 }
 
 /**
@@ -236,8 +240,8 @@ export function withReplayFixture<T>(testIdx: number, vendor: Vendor, ask: (file
  * gate (`lsp-replay.test.ts` `runLsp`) and the agreement residue (`scripts/agreement-residue.ts`) both ask this; they each
  * composed it themselves, and the residue's own project gave two fixtures a different answer (task 0.4).
  */
-export function replayDiagnostics({ own, plc, lists, dependencies }: ReplayFiles, project: Scope, vendor: Vendor): DiagnosticItem[] {
-  const config = resolveConfig({ vendor })
+export function replayDiagnostics({ own, plc, lists, dependencies, unicodeIdentifiers }: ReplayFiles, project: Scope, vendor: Vendor): DiagnosticItem[] {
+  const config = resolveConfig({ vendor, unicodeIdentifiers })
   const docs = replayDocuments({ own, plc, lists, dependencies })
   return [
     ...docs.flatMap((d) => computeDiagnostics({ uri: d.uri, parseResult: d.parseResult, source: d.source, project, config })),
@@ -246,11 +250,11 @@ export function replayDiagnostics({ own, plc, lists, dependencies }: ReplayFiles
 }
 
 /** The documents the pipeline runs over: the fixture's item, its PLC_PRG, its lists, and its dependencies' files. */
-export function replayDocuments({ own, plc, lists, dependencies }: ReplayFiles): ReplayDoc[] {
+export function replayDocuments({ own, plc, lists, dependencies }: Omit<ReplayFiles, "unicodeIdentifiers">): ReplayDoc[] {
   return [own, ...(plc === undefined ? [] : [plc]), ...lists, ...dependencies]
 }
 
 /** The documents the network-text pass runs over: the fixture's own item and its dependencies' files. */
-export function networkDocuments({ own, dependencies }: ReplayFiles): ReplayDoc[] {
+export function networkDocuments({ own, dependencies }: Omit<ReplayFiles, "unicodeIdentifiers">): ReplayDoc[] {
   return [own, ...dependencies]
 }

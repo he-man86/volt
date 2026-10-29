@@ -85,7 +85,7 @@ test("the workspace scan picks up the project's .projectsettings", () => {
     )
     writeFileSync(join(dir, "Main.pou"), "PROGRAM Main\nVAR\n  n : INT;\nEND_VAR\nn := 1;\nEND_PROGRAM\n")
     const scan = scanWorkspace(dir)
-    expect(scan.projectSettings).toEqual([{ folder: dir, diagnostics: { "inout-own-access": "off" } }])
+    expect(scan.projectSettings).toEqual([{ folder: dir, diagnostics: { "inout-own-access": "off" }, unicodeIdentifiers: undefined }])
     expect(scan.sources.length).toBe(1) // the settings file is NOT a source unit
   } finally {
     rmSync(dir, { recursive: true, force: true })
@@ -199,6 +199,32 @@ test("a workspace with no .projectsettings leaves the editor's settings alone", 
   }
 })
 
+// openspec lsp-field-followups 2: a project's "Unicode identifiers" governs its documents, as its warnings do — a name
+// past ASCII is an object the IDE creates only where the option is on (DIALECT C28b)
+test("each project's \"Unicode identifiers\" governs the documents under its folder", () => {
+  const dir = mkdtempSync(join(tmpdir(), "volt-ps3-"))
+  try {
+    const on = join(dir, "on")
+    const off = join(dir, "off")
+    for (const [p, state] of [[on, "on"], [off, "off"]] as const) {
+      mkdirSync(p, { recursive: true })
+      writeFileSync(join(p, "Project Settings.projectsettings"), `Replace constants:     on\nUnicode identifiers:   ${state}\n`)
+      writeFileSync(join(p, "FB_主控制.pou"), "FUNCTION_BLOCK FB_主控制\nVAR\n  n : INT;\nEND_VAR\n%LANGUAGE ST\nn := 1;\nEND_FUNCTION_BLOCK\n")
+    }
+    const scan = scanWorkspace(dir)
+    expect(scan.projectSettings.map((s) => [s.folder, s.unicodeIdentifiers])).toEqual([[off, false], [on, true]])
+    const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }), { networkText: NETWORK_TEXT_ENABLED }, failLoud)
+    store.configs.configure({ vendor: "codesys" }, scan.projectSettings)
+    store.seedDisk(scan.sources.map((f) => ({ uri: f.path, source: f.source })))
+    const refused = (project: string): string[] =>
+      documentDiagnostics(store, store.workspace().find((d) => d.uri === join(project, "FB_主控制.pou"))!).map((x) => x.message)
+    expect(refused(on)).toEqual([])
+    expect(refused(off)).toEqual(["The name 'FB_主控制' is not valid for this object."])
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 // A TwinCAT solution holds one Project Settings per PLC project, at that project's own node. They were one slot, so
 // the LAST file the walk read decided every project's warnings: A's switched-off C0139 came back in A.
 test("each PLC project's .projectsettings governs its own documents, and none replaces another's", () => {
@@ -213,8 +239,8 @@ test("each PLC project's .projectsettings governs its own documents, and none re
     }
     const scan = scanWorkspace(dir)
     expect(scan.projectSettings).toEqual([
-      { folder: a, diagnostics: { "no-op-statement": "off" } },
-      { folder: b, diagnostics: { "inout-own-access": "off" } },
+      { folder: a, diagnostics: { "no-op-statement": "off" }, unicodeIdentifiers: undefined },
+      { folder: b, diagnostics: { "inout-own-access": "off" }, unicodeIdentifiers: undefined },
     ])
     const store = new WorkspaceStore(resolveConfig({ vendor: "twincat" }), { networkText: NETWORK_TEXT_ENABLED }, failLoud)
     store.configs.configure({ vendor: "twincat" }, scan.projectSettings)

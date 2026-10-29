@@ -1,7 +1,7 @@
 import { test, expect } from "bun:test"
 import { parseSource } from "../frontend/syntax/index.js"
 import { build } from "../frontend/symbols/index.js"
-import { computeDiagnostics, resolveConfig, projectDiagnosticsFrom } from "./index.js"
+import { computeDiagnostics, resolveConfig, projectDiagnosticsFrom, projectUnicodeIdentifiersFrom } from "./index.js"
 import { CONFIGURABLE_CHECKS } from "./config.js"
 import { CODESYS_CODE_MAP } from "./error-code-map.js"
 import { uriFor } from "../../test/support/test-uri.js"
@@ -97,6 +97,18 @@ test("a paired control resolves from EITHER compiler code", () => {
 test("a code Volt does not implement is skipped, not rejected", () => {
   // The file lists the PROJECT's configuration; it may configure warnings this LSP has no check for.
   expect(projectDiagnosticsFrom("Disabled warnings: C0999, C0371")).toEqual({ "inout-own-access": "off" })
+})
+
+// openspec lsp-field-followups 2: the Compile option "Unicode identifiers" — a row CODESYS's descriptor always writes, as
+// `on` or `off` (pro2193's file, as pulled); TwinCAT's has no such row (DIALECT D39) — and what the analysis takes from it
+test("the project's \"Unicode identifiers\" row is read, on or off; no row states nothing; any other value is refused", () => {
+  expect(projectUnicodeIdentifiersFrom("Disabled warnings:     C0371\nReplace constants:     on\nUnicode identifiers:   off\nUTF-8 encoding:        off")).toBe(false)
+  expect(projectUnicodeIdentifiersFrom("Replace constants:     on\r\nUnicode identifiers:   on\r\n")).toBe(true)
+  expect(projectUnicodeIdentifiersFrom("Replace constants:     off\nMax compiler warnings: 100")).toBeUndefined()
+  expect(() => projectUnicodeIdentifiersFrom("Unicode identifiers:   yes")).toThrow("neither 'on' nor 'off'")
+  // unstated, a project has CODESYS's default and TwinCAT's only state: off
+  expect(resolveConfig({ vendor: "codesys" }).unicodeIdentifiers).toBe(false)
+  expect(resolveConfig({ vendor: "codesys", unicodeIdentifiers: true }).unicodeIdentifiers).toBe(true)
 })
 
 test("a settings file with no warning lines configures nothing", () => {

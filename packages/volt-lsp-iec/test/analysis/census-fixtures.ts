@@ -19,6 +19,7 @@ import { comparable } from "../conformance/support/compare-message.js"
 import { TWINCAT_TRIAGE, CODESYS_TRIAGE } from "../conformance/support/divergences-triage.js"
 import { KNOWN_DIVERGENCES } from "../conformance/support/divergences.js"
 import { withReplayFixture, replayDocuments, networkDocuments } from "../conformance/support/replay.js"
+import { nameRefusal } from "../conformance/support/name-refusal.js"
 import { PACKAGE } from "../frontend/sources.js"
 import { recordingMessages, PARSER, INLINE, NETWORK_ROW, registryRows, builderNames, shapeOf } from "./census-owners.js"
 
@@ -108,9 +109,12 @@ export const isReported = (d: { severity: string }): d is { severity: "error" | 
   d.severity === "error" || d.severity === "warning"
 
 /** Every finding the analysis emits for fixture `i`, attributed — the replay's documents, the replay's project. */
-function fixtureFindings(i: number, vendor: Vendor, rec: ReturnType<typeof recordingMessages>): Finding[] {
-  const config = resolveConfig({ vendor })
-  return withReplayFixture(i, vendor, (files, project) => {
+function fixtureFindings(i: number, vendor: Vendor, rec: ReturnType<typeof recordingMessages>, ownTextOnly: boolean): Finding[] {
+  return withReplayFixture(i, vendor, (fixture, project) => {
+    // a fixture whose create the vendor refuses is answered for the text the push sent, its own item and lists: nothing
+    // after the refusal (its PLC_PRG, a build) happened
+    const files = ownTextOnly ? { ...fixture, plc: undefined, dependencies: [] } : fixture
+    const config = resolveConfig({ vendor, unicodeIdentifiers: files.unicodeIdentifiers })
     const out: Finding[] = []
     for (const doc of replayDocuments(files)) {
       const ctx: CheckContext = {
@@ -192,14 +196,17 @@ export function fixtureCensus(vendor: Vendor, gaps: Gaps): VendorCensus {
   for (let i = 0; i < ALL_TESTS.length; i++) {
     const t = ALL_TESTS[i]!
     const recorded = builds.tests[t.name]
+    // a fixture whose create the vendor refuses BY NAME is answered by that refusal alone, the oracle of `object-name`
+    // (`name-refusal.ts`) — recorded or not, a build row it carries predates the refusal
+    const refusal = nameRefusal(t, vendor)
     // a fixture whose code sits only in the synthesized PLC_PRG (`inProgram`) has an empty own source and is measured
     // like any other: the replay compares it, so the census does
-    if (recorded === undefined) continue
-    // the replay skips a fixture whose push this vendor now refuses (`vendorRefuses`): its row predates the refusal
-    if (t.vendorRefuses?.[vendor] !== undefined) continue
+    if (recorded === undefined && refusal === undefined) continue
+    // the replay skips a fixture whose push this vendor refuses for another reason (`vendorRefuses`): its row predates it
+    if (t.vendorRefuses?.[vendor] !== undefined && refusal === undefined) continue
     measured++
-    const lsp = fixtureFindings(i, vendor, rec)
-    const ide = recorded.diagnostics.filter(isReported)
+    const lsp = fixtureFindings(i, vendor, rec, refusal !== undefined)
+    const ide = refusal !== undefined ? [{ severity: "error", message: refusal }] : recorded!.diagnostics.filter(isReported)
     const { tp, sev, fp, gap } = matchMultiset(lsp, ide, comparable)
     const div = diverging.has(t.name)
     const firedRows = new Set<string>()

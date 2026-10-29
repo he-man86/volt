@@ -18,27 +18,6 @@ import { QUICK_FIX_BEFORE_CASCADES } from "./divergences-quick-fixes.js"
 import * as types from "./divergences-types.js"
 import * as units from "./divergences-units.js"
 
-/**
- * A NAME THE IDE REFUSES TO CREATE, AND THE LSP DOES NOT SAY SO — openspec bridge-refusal-review 3.1 / DIALECT C28
- * (review 5+6). The push no longer judges a name (`StReader.IsIdentifier` went); each driver's `RefusedName` answers the
- * vendors' measured create rule: no ASCII identifier is refused by both IDEs for a POU and every member kind, and CODESYS
- * CREATES a backtick-quoted name, which TwinCAT refuses. Such a fixture carries `vendorRefuses`, so it has no build to
- * replay and the agreement gate never sees it; this list is where the LSP's side is written down. The LSP models no
- * create refusal by name — the 1092 measured reserved words neither (`parse/parser.test.ts`, "a unit header takes all
- * nine as its name") — so on `METHOD My-Name` it gives a message with the wrong cause (the stray `-Name : BOOL` stands
- * above the `%LANGUAGE` line: "… stands between the declaration and the %LANGUAGE line, and it is no declaration"), and
- * on TwinCAT it is silent on a backtick name. Niche: accepted loss (0 occurrences in the corpora — no POU or member header in the six names itself
- * outside an ASCII identifier, and none with a backtick). Each entry is the vendor's own sentence the LSP would have to
- * say; `transpile-replay.test.ts` holds each as an expected failure, so the day the LSP says it, the entry must go.
- */
-export const CREATE_REFUSAL_BY_NAME_NOT_MODELLED: Record<Vendor, Readonly<Record<string, string>>> = {
-  codesys: { rcc_member_name_not_identifier: "The name 'My-Name' is not valid for this object." },
-  twincat: {
-    rcc_member_name_not_identifier: "Creating the child named 'My-Name' is not possible on node (Name mismatch)",
-    rcc_member_backtick_name: "Creating the child named '`a b`' is not possible on node (Name mismatch)",
-  },
-}
-
 export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   // `cc_vg_undefined_label` was listed here once, when TwinCAT said nothing about a network-text JMP to a missing label
   // (measured 2026-07-07 on v1 text). Census 1.15 re-measured it on v2 text and TwinCAT DOES report it, with a trailing
