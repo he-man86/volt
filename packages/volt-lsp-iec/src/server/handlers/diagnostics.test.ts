@@ -85,7 +85,7 @@ const RETIRED_MARKER_BODY = `FUNCTION_BLOCK F\nVAR a : BOOL; out : BOOL;\nEND_VA
 /** …and the way a pull writes it: network text under the line that states its language. */
 const NETWORK_BODY = `FUNCTION_BLOCK F\nVAR a : BOOL; out : BOOL;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\nout := a;\n\nEND_FUNCTION_BLOCK`
 
-/** …and one with a finding of its own: a wire used without its `%WIRES` declaration. */
+/** …and one with a finding of its own: a wire used without its `VAR_TEMP` declaration. */
 const FLAWED_NETWORK_BODY = `FUNCTION_BLOCK F\nVAR a : BOOL; out : BOOL;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\nw5 := a;\nout := w5;\n\nEND_FUNCTION_BLOCK`
 
 /** Every diagnostic of a workspace, by file name. */

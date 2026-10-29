@@ -7,7 +7,7 @@
  * managed to stay green over a body it was destroying. So the three loss shapes the audit actually measured
  * are pinned here as cases the oracle MUST refuse, and the rewrites measured against the live IDEs are
  * pinned as cases it must accept. (Plain-ST network text since openspec network-text-st: a network opens with its
- * `%NETWORK` line, a wire is `w<n>` on its `%WIRES` line.)</p>
+ * `%NETWORK` line, a wire is `w<n>`, declared on its `VAR_TEMP` line.)</p>
  */
 import { describe, it, expect } from "bun:test"
 import { expectNoOperandsLost } from "../e2e/harness"
@@ -30,7 +30,7 @@ describe("oracle self-check", () => {
 	})
 	it("tolerates reparenthesisation, a wire the importer folds into one assign, and rung splitting", () => {
 		expectNoOperandsLost(
-			wrap("LD", "%NETWORK\n%WIRES w1\nw1 := NOT a AND b AND c;\nout := w1;\nq := w1;\nq2 := d;"),
+			wrap("LD", "%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := NOT a AND b AND c;\nout := w1;\nq := w1;\nq2 := d;"),
 			wrap("LD", "%NETWORK\nout := q := (NOT a AND b) AND c;\n%NETWORK\nq2 := d;"))
 	})
 })

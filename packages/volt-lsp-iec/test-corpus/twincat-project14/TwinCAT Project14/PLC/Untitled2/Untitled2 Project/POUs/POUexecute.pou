@@ -20,7 +20,7 @@ EXECUTE(EN := TRUE, CODE := 'iCount:=icount+1;
 %NETWORK
 output := t1(IN := in1, PT := e1).Q;
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 w1 := b;
 out1 := AND(OR(a, w1), c);
 out2 := w1;

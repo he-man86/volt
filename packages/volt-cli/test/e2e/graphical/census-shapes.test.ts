@@ -60,11 +60,11 @@ describe(`graphical / census shapes, ld-fbd-coverage 2.3 (${BASE})`, () => {
 	})
 
 	it("S3a: a leaf-fed wire is declared with the leaf's stored type", async () => {
-		await shape("s3a", (n) => fb(n, "LD", "%WIRES w1\nw1 := a;\nout := w1 AND b;\nout2 := w1;"), "fed by the leaf 'a'")
+		await shape("s3a", (n) => fb(n, "LD", "VAR_TEMP w1 : ANY; END_VAR\nw1 := a;\nout := w1 AND b;\nout2 := w1;"), "fed by the leaf 'a'")
 	})
 
 	it("S3b: in LD a wire fed by the rail is TRUE, BOOL", async () => {
-		await shape("s3b", (n) => fb(n, "LD", "%WIRES w1\nw1 := TRUE;\nout := w1 AND a;\nout2 := w1;"))
+		await shape("s3b", (n) => fb(n, "LD", "VAR_TEMP w1 : ANY; END_VAR\nw1 := TRUE;\nout := w1 AND a;\nout2 := w1;"))
 	})
 
 	it("S6: a negated input is the negated contact on its value, on an operator's and on a call's", async () => {

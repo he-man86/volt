@@ -141,7 +141,7 @@ public class StNetworkTextTests
         new System.Collections.Generic.Dictionary<string, string> { ["t1"] = "TON" },
         signatures: new System.Collections.Generic.Dictionary<string, CalleeSignature> { ["TON"] = new(CalleeShape.Block, new[] { "IN", "PT" }, new[] { "Q", "ET" }) });
 
-    /// <summary>A wire read twice or more is a Demux, named on its network's <c>%WIRES</c> line. Wires are numbered across
+    /// <summary>A wire read twice or more is a Demux, declared on its network's <c>VAR_TEMP</c> line. Wires are numbered across
     /// the body in the order they are defined (design.md 1.4), not by the vendor's VarId, which the text does not spell:
     /// a read numbers each network's Demux nodes by where their definitions stand.</summary>
     [Fact]
@@ -151,7 +151,7 @@ public class StNetworkTextTests
         var second = new Volt.Engine.Format.Network.Network(1, null, null, null, false, new Node[] { Def(4, L("d")), Set(Ref(4), T("u")), Set(Ref(4), T("v")) });
         var body = new NetworkBody(BodyLanguage.Ld, new[] { first, second });
         var text = StNetworkWriter.Write(body, Scope(body));
-        Assert.Equal("%LANGUAGE LD\n%NETWORK\n%WIRES w1\nw1 := a AND b;\nx := w1;\ny := w1 OR c;\n%NETWORK\n%WIRES w2\nw2 := d;\nu := w2;\nv := w2;\n", text);
+        Assert.Equal("%LANGUAGE LD\n%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := a AND b;\nx := w1;\ny := w1 OR c;\n%NETWORK\nVAR_TEMP w2 : ANY; END_VAR\nw2 := d;\nu := w2;\nv := w2;\n", text);
         var back = StNetworkReader.Read(text, Scope(body));
         Assert.Equal(new[] { 1, 1 }, back.Networks.Select(n => ((Demux)n.Trees[0]).VarId));
     }
@@ -185,12 +185,12 @@ public class StNetworkTextTests
     {
         var t1 = Fb("t1", new[] { In(Ref(1), "IN"), In(L("T#1S"), "PT") }, type: "TON") with { MainOutputName = "Q" };
         RoundTrips(Ld1(Set(Op("AND", Def(1, Op("OR", L("a"), L("b"))), t1), T("y")), Set(Ref(1), T("z"))),
-            "%LANGUAGE LD\n%NETWORK\n%WIRES w1\ny := (w1 := a OR b) AND t1(IN := w1, PT := T#1S).Q;\nz := w1;\n", TonScope);
+            "%LANGUAGE LD\n%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\ny := (w1 := a OR b) AND t1(IN := w1, PT := T#1S).Q;\nz := w1;\n", TonScope);
         RoundTrips(Ld1(Def(1, Op("OR", L("a"), L("b"))), Set(Op("AND", Ref(1), t1), T("y")), Set(Ref(1), T("z"))),
-            "%LANGUAGE LD\n%NETWORK\n%WIRES w1\nw1 := a OR b;\ny := w1 AND t1(IN := w1, PT := T#1S).Q;\nz := w1;\n", TonScope);
+            "%LANGUAGE LD\n%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := a OR b;\ny := w1 AND t1(IN := w1, PT := T#1S).Q;\nz := w1;\n", TonScope);
         // a Demux read before the item that defines it (TwinCAT stores one): the previous scan's value
         RoundTrips(Ld1(Set(Ref(1), T("x")), Def(1, Op("AND", L("a"), L("b"))), Set(Ref(1), T("y"))),
-            "%LANGUAGE LD\n%NETWORK\n%WIRES w1\nx := w1;\nw1 := a AND b;\ny := w1;\n");
+            "%LANGUAGE LD\n%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nx := w1;\nw1 := a AND b;\ny := w1;\n");
     }
 
     [Fact]
@@ -245,7 +245,7 @@ public class StNetworkTextTests
     public void An_Execute_box_read_twice_defines_a_wire_like_any_box() =>
         RoundTrips(Ld1(new Demux(1, Exec("k := 1;", en: L("go"), connected: 0)), Set(new Demux(1, null), T("x")),
                 Set(new Demux(1, null), T("y"))),
-            "%LANGUAGE LD\n%NETWORK\n%WIRES w1\nw1 := EXECUTE(EN := go, CODE := 'k := 1;');\nx := w1;\ny := w1;\n");
+            "%LANGUAGE LD\n%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := EXECUTE(EN := go, CODE := 'k := 1;');\nx := w1;\ny := w1;\n");
 
     /// <summary>The Execute box's spellings the writer refuses (2.6 review), each by its reason: EXECUTE declared in reach
     /// (anything of that name, a variable too: the text's own word), a lone CR in its ST, a consumer reading it by another
@@ -343,12 +343,12 @@ public class StNetworkTextTests
     public void A_wire_name_skips_the_names_in_reach_and_one_declared_in_reach_is_refused_by_name()
     {
         var body = Ld1(Def(4, L("w1")), Set(Ref(4), T("x")), Set(Ref(4), T("y")));
-        Assert.Equal("%LANGUAGE LD\n%NETWORK\n%WIRES w3\nw3 := w1;\nx := w3;\ny := w3;\n", StNetworkWriter.Write(body, Scope(body, "w2")));
+        Assert.Equal("%LANGUAGE LD\n%NETWORK\nVAR_TEMP w3 : ANY; END_VAR\nw3 := w1;\nx := w3;\ny := w3;\n", StNetworkWriter.Write(body, Scope(body, "w2")));
         var twice = Assert.Throws<StNetworkReadException>(() =>
-            StNetworkReader.Read("%LANGUAGE LD\n%NETWORK\n%WIRES w1\nw1 := a;\nx := w1;\ny := w1;\n%NETWORK\n%WIRES w1\nw1 := b;\nu := w1;\nv := w1;\n", NetworkScope.Empty));
+            StNetworkReader.Read("%LANGUAGE LD\n%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := a;\nx := w1;\ny := w1;\n%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := b;\nu := w1;\nv := w1;\n", NetworkScope.Empty));
         Assert.Contains("an earlier network too", twice.Message);
         var read = Assert.Throws<StNetworkReadException>(() =>
-            StNetworkReader.Read("%LANGUAGE LD\n%NETWORK\n%WIRES w4\nw4 := a;\nx := w4;\ny := w4;\n", Scope(body, "w4")));
+            StNetworkReader.Read("%LANGUAGE LD\n%NETWORK\nVAR_TEMP w4 : ANY; END_VAR\nw4 := a;\nx := w4;\ny := w4;\n", Scope(body, "w4")));
         Assert.Contains("declared in reach", read.Message);
     }
 
@@ -374,7 +374,7 @@ public class StNetworkTextTests
     [Fact]
     public void A_wire_read_once_or_never_is_a_Demux() =>
         RoundTrips(Ld1(Def(1, Op("AND", L("a"), L("b"))), Set(Ref(1), T("x")), Def(2, L("c"))),
-            "%LANGUAGE LD\n%NETWORK\n%WIRES w1, w2\nw1 := a AND b;\nx := w1;\nw2 := c;\n");
+            "%LANGUAGE LD\n%NETWORK\nVAR_TEMP w1 : ANY; w2 : ANY; END_VAR\nw1 := a AND b;\nx := w1;\nw2 := c;\n");
 
     /// <summary>A keyword operator heads a call wherever an operand or a statement starts (<c>AND(</c>, <c>XOR(</c>,
     /// <c>MOD(</c>, <c>NOT(</c>); after an operand it is the contact (<c>a AND b</c>).</summary>
@@ -393,8 +393,8 @@ public class StNetworkTextTests
     /// <summary>A box's output reaches no wire: a wire is defined by <c>w := &lt;box&gt;</c>, its box closed by the output it
     /// reads.</summary>
     [Theory]
-    [InlineData("%WIRES w1\nMOVE(EN := c, 1, OUT => w1).ENO;\ny := w1;", "a wire is defined by")]
-    [InlineData("%WIRES w1\ny := MOVE(EN := c, 1, OUT => w1).ENO;\nz := w1;", "a wire is defined by")]
+    [InlineData("VAR_TEMP w1 : ANY; END_VAR\nMOVE(EN := c, 1, OUT => w1).ENO;\ny := w1;", "a wire is defined by")]
+    [InlineData("VAR_TEMP w1 : ANY; END_VAR\ny := MOVE(EN := c, 1, OUT => w1).ENO;\nz := w1;", "a wire is defined by")]
     public void A_box_output_to_a_wire_is_refused_by_name(string code, string named)
     {
         var ex = Assert.Throws<StNetworkReadException>(() => StNetworkReader.Read("%LANGUAGE LD\n%NETWORK\n" + code + "\n", NetworkScope.Empty));
@@ -421,7 +421,7 @@ public class StNetworkTextTests
         }
         // read by coils only, through a wire read twice, it is spelled
         RoundTrips(Fbd1(Def(1, Add()), Set(Ref(1), T("x")), Set(Ref(1), T("y"))),
-            "%LANGUAGE FBD\n%NETWORK\n%WIRES w1\nw1 := ADD(EN := c, i, 3);\nx := w1;\ny := w1;\n");
+            "%LANGUAGE FBD\n%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := ADD(EN := c, i, 3);\nx := w1;\ny := w1;\n");
     }
 
     /// <summary>A callee that declares EN or ENO has them as its pins (1.2): a box showing the flag over a callee declaring

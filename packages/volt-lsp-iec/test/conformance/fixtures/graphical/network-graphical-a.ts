@@ -75,7 +75,7 @@ same := EQ(x, y);
 END_FUNCTION_BLOCK
 `, `${doc}#elements`),
   // ─── wires and fan-out (§6) ────────────────────────────────────────────────
-  ng("ng_fanout_let", "FB_NG_fanout", "a wire feeding TWO sinks — named on the `%WIRES` line, defined before its uses",
+  ng("ng_fanout_let", "FB_NG_fanout", "a wire feeding TWO sinks — declared on the `VAR_TEMP` line, defined before its uses",
     `FUNCTION_BLOCK FB_NG_fanout
 VAR
 \ta : BOOL;
@@ -86,7 +86,7 @@ END_VAR
 
 %LANGUAGE FBD
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 w1 := OR(a, b);
 out1 := w1;
 out2 := w1;
@@ -105,7 +105,7 @@ END_VAR
 
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 w1 := a OR b;
 plain := w1;
 latched S= w1;
@@ -232,7 +232,7 @@ END_VAR
 
 %LANGUAGE FBD
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 w1 := OR(EN := go, b, c).ENO;
 out := w1;
 out3 := w1;

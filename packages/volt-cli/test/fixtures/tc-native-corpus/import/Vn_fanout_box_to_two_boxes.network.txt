@@ -1,6 +1,6 @@
 %LANGUAGE FBD
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 w1 := MAX(i1, i2);
 n := ADD(w1, 1);
 sv := MUL(w1, 2);

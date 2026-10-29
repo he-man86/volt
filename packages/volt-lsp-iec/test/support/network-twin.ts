@@ -32,7 +32,7 @@
  *                                                pin it stands in;
  *   `JMP(l, v)`, `RETURN(v)`                     `IF v THEN JMP l; END_IF;` / `IF v THEN RETURN; END_IF;`; in a tree its
  *                                                value held in a temp, the jump taken where the tree is evaluated;
- *   a wire                                       a variable of its definition's type (`types` `network-call.ts`),
+ *   a wire                                       a VAR_TEMP of its definition's type (`types` `network-call.ts`),
  *                                                renamed into the twin's own names (`vtw<k>_w1`), as is every ENO;
  *   a `%DISABLED` network                        nothing: CODESYS compiles none of it (1c).
  *
@@ -54,10 +54,12 @@ import { type AssignStatement, guardedCalls, guardedReadBy, valueReads } from ".
 
 export { TwinRefusal } from "./network-twin-boxes.js"
 
-/** One body's twin: its ST statements and the variables they need (`name : TYPE;`). */
+/** One body's twin: its ST statements and the variables they need (`name : TYPE;`) — its wires as the network declares
+ *  them, `VAR_TEMP`, each with its definition's type; its ENO temps and edge detectors in `VAR`. */
 export interface BodyTwin {
   code: string
   declarations: string[]
+  wires: string[]
 }
 
 /** The twin of one plain-ST network body, read in `scope` (its network scope, `symbols` `bodies`). */
@@ -70,7 +72,7 @@ export function twinOf(body: BodySpan, statements: readonly Statement[], scope: 
     if (t.guarded.has(s)) continue // written inside its short-circuit branch's guard
     lines.push(...t.statement(s))
   }
-  return { code: lines.join("\n"), declarations: t.declarations() }
+  return { code: lines.join("\n"), declarations: t.declarations(), wires: t.wireDeclarations() }
 }
 
 class Twinner extends BoxTwinner {
@@ -93,13 +95,19 @@ class Twinner extends BoxTwinner {
     for (const net of plainStText(body).networks) for (const w of net.wires) this.wires.set(w.name.toLowerCase(), prefix + w.name)
   }
 
-  declarations(): string[] {
+  /** The wires, each with its definition's type (`types` `network-call.ts`): the twin's `VAR_TEMP`. */
+  wireDeclarations(): string[] {
     const out: string[] = []
     for (const [lower, renamed] of this.wires) {
       const type = inferExprType({ kind: "ident_expr", name: lower, span: this.body.span }, this.scope, this.project)
       if (type.kind === "unknown") throw new TwinRefusal(`the wire ${lower} has no type the twin can declare`)
       out.push(`${renamed} : ${renderType(type)};`)
     }
+    return out
+  }
+
+  declarations(): string[] {
+    const out: string[] = []
     for (const t of this.temps) out.push(`${t} : BOOL;`)
     out.push(...this.trigs)
     return out

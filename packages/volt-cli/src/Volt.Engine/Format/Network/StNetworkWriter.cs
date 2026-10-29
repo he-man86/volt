@@ -17,7 +17,7 @@ namespace Volt.Engine.Format.Network;
 /// <code>
 /// %LANGUAGE LD
 /// %NETWORK "Start the motor"
-/// %WIRES w3
+/// VAR_TEMP w3 : ANY; END_VAR
 /// // runs while auto is on
 /// l1:
 /// w3 := start AND NOT stop;
@@ -41,8 +41,8 @@ namespace Volt.Engine.Format.Network;
 /// callee no declaration in reach states is written as its model says (<see cref="NetworkScope.Signature"/>).</para>
 ///
 /// <para><b>Wires.</b> A Demux is a wire <c>w&lt;n&gt;</c>, defined once and read by its name any number of times, before its
-/// definition too (the value it held). Every wire is named on its network's <c>%WIRES</c> line, so the text alone says what is a
-/// wire.</para>
+/// definition too (the value it held). Every wire is declared at its network's start, <c>VAR_TEMP w1 : ANY; END_VAR</c> (its
+/// type its definition's), so the text alone says what is a wire.</para>
 ///
 /// <para><b>The other elements</b> (3.0): the parallel branch <c>BRANCH(FEED := f, b1, b2)</c> /
 /// <c>BRANCH_SHORTCIRCUIT(…)</c>; the edge <c>R_EDGE(x)</c> / <c>F_EDGE(x)</c> on a contact or a box; the empty item
@@ -133,7 +133,13 @@ public static class StNetworkWriter
 
     internal const string NetworkLine = "%NETWORK";
     internal const string DisabledLine = "%DISABLED";
-    internal const string WiresLine = "%WIRES";
+    /// <summary>A network's wires, declared on one line at its start (owner, 2026-10-28): <c>VAR_TEMP w1 : ANY; w2 : ANY;
+    /// END_VAR</c>, after its <c>%</c> lines and before its comment — each <c>: ANY</c>, the type its definition's.</summary>
+    internal const string WiresOpen = "VAR_TEMP";
+
+    internal const string WiresClose = "END_VAR";
+
+    internal const string WireType = "ANY";
     /// <summary>The Execute box (openspec network-output-member 2.6): <c>EXECUTE(EN := e, CODE := '&lt;ST&gt;')</c>, a call like
     /// every box, its ST the string input <c>CODE</c>, its one output its ENO (by type).</summary>
     public const string ExecuteHead = NetworkSpelling.ExecuteType;
@@ -346,7 +352,8 @@ public static class StNetworkWriter
                 code.Append(Item(tree)).Append('\n');
             }
 
-            if (_wires.Count > 0) sb.Append(WiresLine).Append(' ').Append(string.Join(", ", _wires)).Append('\n');
+            if (_wires.Count > 0)
+                sb.Append(WiresOpen).Append(' ').Append(string.Join(" ", _wires.Select(w => w + " : " + WireType + ";"))).Append(' ').Append(WiresClose).Append('\n');
             sb.Append(comment);
             sb.Append(code);
             return sb.ToString();

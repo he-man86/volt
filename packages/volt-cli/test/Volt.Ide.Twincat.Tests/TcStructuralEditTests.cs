@@ -63,7 +63,7 @@ public class TcStructuralEditTests
     /// importer and was reshaped by v2, N22; a box's result pin, which the importer lowered to a separate assignment, C20)
     /// are built natively and pull back as pushed.</summary>
     [Theory]
-    [InlineData("%WIRES w1", "w1 := TRUE;", "xoutput := w1;", "xoutput2 := w1;")]
+    [InlineData("VAR_TEMP w1 : ANY; END_VAR", "w1 := TRUE;", "xoutput := w1;", "xoutput2 := w1;")]
     [InlineData("MOVE(xtest, OUT => n);")]
     public void A_shape_the_import_refused_is_rebuilt_natively(params string[] statements)
     {
@@ -313,7 +313,7 @@ public class TcStructuralEditTests
     [Fact]
     public void A_wire_read_inside_its_consumers_is_one_rung_and_reaches_the_importer()
     {
-        var pushed = Pushed("%WIRES w1", "w1 := xtest AND xtest2;", "xoutput := w1 OR c;", "xoutput2 := w1 AND c;");
+        var pushed = Pushed("VAR_TEMP w1 : ANY; END_VAR", "w1 := xtest AND xtest2;", "xoutput := w1 OR c;", "xoutput2 := w1 AND c;");
 
         var reached = Assert.Throws<Xunit.Sdk.XunitException>(() => TcNetworkWriter.Apply(Ladder(), pushed, Scope, NeverImported));
         Assert.Contains("importer was reached", reached.Message);

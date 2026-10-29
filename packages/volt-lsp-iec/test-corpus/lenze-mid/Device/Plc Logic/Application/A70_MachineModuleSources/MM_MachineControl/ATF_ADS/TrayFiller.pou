@@ -92,12 +92,12 @@ END_VAR
 %NETWORK "DONE NETWORK 1: Condition: Reset all"
 stRestposition S= bReturnInfeedConv R= stInpushingRow R= stDecendTray R= stTrayDecended R= stTiltInpusher R= stReturnInpusher R= stLowerInpusher R= stMoveElevatorUp R= stMoveElevatorDown R= stElevatorAtBottom R= stOutfeedTray R= stTrayFedOut R= stElevatorAtTop R= stInfeedTray R= stLightCurtainInterruptedBeforeStart R= stLightCurtainInterruptedDuringInpushing R= stTrayFaultOutfeeding R= bRecoverFromLightCurtainInterrupted R= stSrCigarAtEnd R= LST_General.FirstCycle;
 %NETWORK "DONE NETWORK 2: Condition: Rest position"
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 w1 := TMR_InpusherDown(IN := stLowerInpusher, PT := T#500MS).Q OR stInfeedTray AND iPsInfeedConvAtElev OR stLightCurtainInterruptedBeforeStart AND iLightCurtainInpusher AND iGenFlags.StartFlag;
 stRestposition S= stLowerInpusher R= stInfeedTray R= stLightCurtainInterruptedBeforeStart R= w1;
 Trayfiller_Data.Alarms.AlmTrayInfeeding S= w1 AND NOT iFcGuardTrayOnElev AND iTestProd;
 %NETWORK "TODO NETWORK 3: Condition: Set infeed conveyor at init position"
-%WIRES w2
+VAR_TEMP w2 : ANY; END_VAR
 w2 := True;
 bReturnInfeedConv R= w2 AND bReturnInfeedConv AND iPsInfeedConvAtInit;
 Trayfiller_Data.Alarms.AlmTrayInfeeding R= w2 AND iGenFlags.StartFlag AND (iFcGuardTrayOnElev OR NOT iTestProd);
@@ -112,7 +112,7 @@ stDecendTray S= stInpushingRow R= stLightCurtainInterruptedDuringInpushing R= st
 %NETWORK "TODO NETWORK 8: Condition: Light curtain inpusher interrupted during inpushing"
 stLightCurtainInterruptedDuringInpushing S= stInpushingRow R= bRecoverFromLightCurtainInterrupted R= stInpushingRow AND NOT iLightCurtainInpusher AND NOT iRpsInpusher;
 %NETWORK "TODO NETWORK 9: Condition: Tray decend"
-%WIRES w3, w4, w5
+VAR_TEMP w3 : ANY; w4 : ANY; w5 : ANY; END_VAR
 w3 := True;
 w4 := w3 AND True;
 w5 := w4 AND iPulseCounterElevator;
@@ -145,7 +145,7 @@ stElevatorAtTop S= stMoveElevatorUp R= MOVE(EN := MOVE(EN := stMoveElevatorUp AN
 %NETWORK "TODO NETWORK 21: Condition: Infeed tray"
 stInfeedTray S= stElevatorAtTop R= stElevatorAtTop AND (NOT iFcGuardTrayOnElev OR NOT iTestProd) AND NOT bReturnInfeedConv;
 %NETWORK "TODO NETWORK 22: Condition: Light curtain elevator interrupted "
-%WIRES w6
+VAR_TEMP w6 : ANY; END_VAR
 w6 := True;
 Trayfiller_Data.Alarms.AlmLightCurtainElevator S= w6 AND True AND (oElevatorMotorUp OR oElevatorMotorDown) AND NOT iLightCurtainElevator;
 Trayfiller_Data.Alarms.AlmLightCurtainElevator R= w6 AND iGenFlags.StartFlag AND iLightCurtainElevator;
@@ -170,14 +170,14 @@ oFeedForwardMotor := stAuxFeedForward(SET := iStartFeedForward AND (iCigarAtCros
 %NETWORK "TODO NETWORK 32: TODo test count down"
 ToDo.CounterCigarAtEnd := TOdoTEst(CD := tBool, LOAD := stSrCigarAtEnd, PV := 30).Q;
 %NETWORK "TODO NETWORK 33: Aux marker: Cigar detection register"
-%WIRES w7, w8
+VAR_TEMP w7 : ANY; w8 : ANY; END_VAR
 w7 := tBool;
 w8 := w7 AND stSrCigarAtEndBeforeLast;
 stSrCigarAtEnd S= w8;
 stSrCigarAtEndBeforeLast R= w8 AND LST_General.AlwaysOff;
 stSrCigarAtEndBeforeLast S= w7 AND (iCigarAtInpusher OR NOT iTestProd AND ToDo.CounterCigarAtEnd) AND iRpsInpusher AND NOT stLowerInpusher;
 %NETWORK "TODO NETWORK 34: Ouput: Stop feedforward while inpushing"
-%WIRES w9
+VAR_TEMP w9 : ANY; END_VAR
 w9 := iGenFlags.DelayAfterEmergStop;
 oElevatorMotorUp := w9 AND (stMoveElevatorUp OR NOT stDecendTray AND iButtonTrayUp) AND NOT iPsElevatorUp AND NOT oElevatorMotorDown AND NOT Trayfiller_Data.Alarms.AlmLightCurtainElevator;
 oElevatorMotorDown := w9 AND (stMoveElevatorDown OR stDecendTray OR iButtonTrayDown) AND NOT iPsElevatorDown AND NOT oElevatorMotorUp AND NOT Trayfiller_Data.Alarms.AlmLightCurtainElevator;
@@ -185,7 +185,7 @@ oElevatorMotorBrake := w9 AND (oElevatorMotorUp OR oElevatorMotorDown);
 %NETWORK "TODO NETWORK 35: Ouput: Stop feedforward while inpushing"
 Trayfiller_Data.commInterface.HoldFeedFwd := stInpushingRow AND NOT iEpsInpusher;
 %NETWORK "TODO NETWORK 36: Output: Infeed conveyor"
-%WIRES w10
+VAR_TEMP w10 : ANY; END_VAR
 w10 := iGenFlags.DelayAfterEmergStop AND (Mach1.GenFlags.RunAuto OR Mach1.GenFlags.RunMan);
 oInfeedMotorFwd := w10 AND stInfeedTray AND NOT iPsInfeedConvAtElev AND NOT oInfeedMotorRev;
 oInfeedMotorRev := w10 AND TMR_DelayReturnInfeed.Q AND NOT Trayfiller_Data.Alarms.AlmTrayInfeeding AND NOT iPsInfeedConvAtInit AND NOT oInfeedMotorFwd;

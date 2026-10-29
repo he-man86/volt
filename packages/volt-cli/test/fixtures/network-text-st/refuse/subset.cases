@@ -127,7 +127,7 @@ network-plain-st stands first
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 MOVE(EN := c, 1, OUT => w1).ENO;
 y := w1;
 === refused
@@ -150,7 +150,7 @@ name w1
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 w1 := a AND b;
 x := w1;
 y := w1;
@@ -161,7 +161,7 @@ network-plain-st declared in reach
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1, w1
+VAR_TEMP w1 : ANY; w1 : ANY; END_VAR
 w1 := a AND b;
 x := w1;
 y := w1;
@@ -172,12 +172,12 @@ network-plain-st is named twice
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 w1 := a AND b;
 x := w1;
 y := w1;
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 w1 := c;
 u := w1;
 v := w1;
@@ -188,7 +188,7 @@ network-plain-st named on an earlier network too
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES split1
+VAR_TEMP split1 : ANY; END_VAR
 split1 := a AND b;
 x := split1;
 y := split1;
@@ -199,7 +199,7 @@ network-plain-st a wire is w<n>
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 w1 := a;
 w1 := b;
 x := w1;
@@ -211,7 +211,7 @@ network-plain-st is defined twice
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 x := w1 := a;
 y := w1;
 z := w1;
@@ -222,7 +222,7 @@ network-plain-st a wire is defined alone
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 x := a;
 === refused
 network-plain-st is named and never defined
@@ -231,7 +231,7 @@ network-plain-st is named and never defined
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 w1 := a AND b;
 x := w1;
 y := w1;
@@ -258,17 +258,17 @@ a;
 === refused
 network-plain-st an assignment, a call, a jump or a return
 
-#### disabled-after-wires — the % lines stand in order
+#### disabled-after-wires — the % lines stand first
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 %DISABLED
 w1 := a AND b;
 x := w1;
 y := w1;
 === refused
-network-plain-st in the order %DISABLED, %WIRES
+network-plain-st a network's % lines stand first
 
 #### unknown-line — a network holds no other % line
 === text
@@ -414,7 +414,7 @@ network-plain-st the Execute box takes EN := first where it shows EN, then CODE 
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 l:
 JMP(l, AND(EN := c, a, b));
 === refused
@@ -424,7 +424,7 @@ network-plain-st comparison operators only
 === text
 %LANGUAGE FBD
 %NETWORK
-%WIRES w2
+VAR_TEMP w2 : ANY; END_VAR
 y := MUL((w2 := ADD(EN := c, i, j)), 2);
 z := w2;
 v := w2;
@@ -459,7 +459,7 @@ network-plain-st holds no branch
 === text
 %LANGUAGE LD
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 w1 := AND(a, b);
 x := R_EDGE(w1);
 y := w1;
@@ -507,7 +507,7 @@ network-plain-st ENO => v is a target of the shown ENO
 === text
 %LANGUAGE FBD
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 GT(EN := c, i, 3, OUT => w1);
 x := w1;
 === refused
@@ -525,7 +525,7 @@ network-plain-st comparison operators only
 === text
 %LANGUAGE FBD
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 w1 := ADD(EN := c, i, j);
 x := MUL(w1, 2);
 y := w1;
@@ -625,3 +625,62 @@ program p IN => Q1 Q2
 x := p(IN := a);
 === refused
 network-plain-st names no output: p has 2
+
+#### wires-not-any — a wire is declared : ANY, its type its definition's
+=== text
+%LANGUAGE LD
+%NETWORK
+VAR_TEMP w1 : BOOL; END_VAR
+w1 := a AND b;
+x := w1;
+y := w1;
+=== refused
+network-plain-st a wire is declared : ANY
+
+#### wires-after-the-comment — a network's wires are declared after its % lines, before its comment
+=== text
+%LANGUAGE LD
+%NETWORK
+// start
+VAR_TEMP w1 : ANY; END_VAR
+w1 := a AND b;
+x := w1;
+y := w1;
+=== refused
+network-plain-st its wires are declared after its % lines, before its comment
+
+#### wires-across-lines — a network's wires are declared on one line
+=== text
+%LANGUAGE LD
+%NETWORK
+VAR_TEMP
+w1 : ANY;
+END_VAR
+w1 := a AND b;
+x := w1;
+y := w1;
+=== refused
+network-plain-st a network's wires are declared on one line
+
+#### wires-as-a-list — each wire is declared on its own, w1 : ANY; w2 : ANY;
+=== text
+%LANGUAGE LD
+%NETWORK
+VAR_TEMP w1, w2 : ANY; END_VAR
+w1 := a AND b;
+w2 := a OR b;
+x := w1 AND w2;
+y := w1 OR w2;
+=== refused
+network-plain-st a network's wires are declared on one line
+
+#### percent-wires — a network holds no other % line
+=== text
+%LANGUAGE LD
+%NETWORK
+%WIRES w1
+w1 := a AND b;
+x := w1;
+y := w1;
+=== refused
+network-plain-st a network holds no such line

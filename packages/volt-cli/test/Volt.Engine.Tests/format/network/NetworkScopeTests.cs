@@ -77,8 +77,9 @@ public class NetworkScopeTests
         var text = StNetworkWriter.Write(Body(Net(Def(4, Op("AND", L("TRUE"), L("a"))), Set(Ref(4), T("out")), Set(Ref(4), T("x")))), scope);
         var r = Gate(text, scope);
         Assert.True(r.Ok, string.Join("\n", r.Diagnostics.Select(d => d.Code + " " + d.Message)));
-        foreach (var w in text.Split('\n').Single(l => l.StartsWith("%WIRES ", StringComparison.Ordinal)).Substring(7).Split(','))
-            Assert.False(scope.Contains(w.Trim()), $"the wire {w} is a name in scope");
+        var declared = text.Split('\n').Single(l => l.StartsWith("VAR_TEMP ", StringComparison.Ordinal));
+        foreach (var w in declared.Substring(9, declared.Length - 9 - " END_VAR".Length).Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
+            Assert.False(scope.Contains(w.Replace(": ANY", "").Trim()), $"the wire {w} is a name in scope");
     }
 
     /// <summary>A <c>g&lt;n&gt;</c> or <c>split&lt;n&gt;</c> name is no word of the text: a global of that name is the

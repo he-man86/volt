@@ -4,13 +4,13 @@
  * name, as the bridge's reader refuses it (`StNetworkReader`). Nothing else is network-specific: no lexer, no grammar,
  * no keyword list.
  *
- *   the `%` lines   `%NETWORK` opens a network; then `%DISABLED`, then `%WIRES`, then its `//` comment lines, then its
+ *   the `%` lines   `%NETWORK` opens a network; then `%DISABLED`, then its wires, then its `//` comment lines, then its
  *                   code (or its one `%UNSUPPORTED` line);
  *   statements      an assignment (`:=`, `S=`, `R=`, chained), a call, `JMP l;` and `RETURN;` on the rail,
  *                   `JMP(label, value);` and `RETURN(value);` on a value (also in a tree), the empty item `;`, and the
  *                   network's label as its first statement — no `IF`;
  *   expressions     every box a call; infix only the contacts (`a AND b`, `a OR b`, `NOT a` before an operand);
- *   wires           a name on its network's `%WIRES` line: declared in reach by nothing, named by one network, defined
+ *   wires           a name its network declares, `VAR_TEMP w1 : ANY; END_VAR` on one line: declared in reach by nothing, named by one network, defined
  *                   once (`w := <box>`) and read by its name any number of times, before its definition too; a box's
  *                   output reaches no wire; an enabled box other than a comparison is read by its
  *                   value only as a coil's value, however often its wire is read (CODESYS: "A box with EN can be used for
@@ -57,7 +57,7 @@ import { checkWires, CODE } from "./_plain-st-wires.js"
 
 
 /** The `%` lines that stand before a network's code. */
-const HEADER_LINES: ReadonlySet<string> = new Set(["NETWORK", "DISABLED", "WIRES", "UNSUPPORTED"])
+const HEADER_LINES: ReadonlySet<string> = new Set(["NETWORK", "DISABLED", "UNSUPPORTED"])
 
 /** The statements a network may not hold, by their ST keyword. */
 const NOT_IN_A_NETWORK: Readonly<Record<string, string>> = {
@@ -218,15 +218,15 @@ function checkStrings(body: BodySpan, out: DiagnosticItem[]): void {
       emit(out, t.span, CODE, "a string across a line: only the Execute box's CODE spans lines")
 }
 
-/** A network's `%` lines: `%NETWORK` first, then `%DISABLED`, then `%WIRES`; `%UNSUPPORTED` alone under them. */
+/** A network's `%` lines: `%NETWORK` first, then `%DISABLED`; `%UNSUPPORTED` alone under them. */
 function checkLines(n: PlainStNetwork, body: BodySpan, out: DiagnosticItem[]): void {
-  const order = ["NETWORK", "DISABLED", "WIRES"]
+  const order = ["NETWORK", "DISABLED"]
   let at = 0
   let code = false
   for (const line of n.lines.slice(1)) {
     const k = order.indexOf(line.key)
     if (k >= 0) {
-      if (k <= at || code) emit(out, line.span, CODE, `'%${line.key}' out of place: a network's % lines stand before its code, in the order %DISABLED, %WIRES`)
+      if (k <= at || code) emit(out, line.span, CODE, `'%${line.key}' out of place: a network's % lines stand first, %NETWORK then %DISABLED`)
       at = Math.max(at, k)
     } else code = true
   }
@@ -370,7 +370,8 @@ function checkComments(body: BodySpan, networks: readonly PlainStNetwork[], out:
         emit(out, t.span, CODE, t.kind === "pragma" ? "a pragma {…} in a network: a network holds none" : "a (* comment in a network: a network's comment is its // lines before the code")
       else if (t.kind === "line_comment" && code)
         emit(out, t.span, CODE, "a // comment after the code starts: a network's comment is its // lines before the code")
-      else if (t.kind !== "whitespace" && t.kind !== "line_comment" && t.kind !== "eof" && !n.lines.some((l) => HEADER_LINES.has(l.key) && t.span.start >= l.span.start && t.span.start <= l.span.end))
+      else if (t.kind !== "whitespace" && t.kind !== "line_comment" && t.kind !== "eof" && !n.lines.some((l) => HEADER_LINES.has(l.key) && t.span.start >= l.span.start && t.span.start <= l.span.end) &&
+               !(n.declaration !== undefined && t.span.start >= n.declaration.start && t.span.start < n.declaration.end))
         code = true
     }
   }

@@ -105,7 +105,7 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 		const name = id("rp_wire")
 		await survivesOrIsRefused(
 			fid("rp_wire", "pou"),
-			program(name, "LD", `%NETWORK\n%WIRES w1\nw1 := a AND b;\nout := w1;\n`),
+			program(name, "LD", `%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := a AND b;\nout := w1;\n`),
 		)
 	})
 

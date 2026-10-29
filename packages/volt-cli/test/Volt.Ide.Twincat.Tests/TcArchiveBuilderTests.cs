@@ -140,9 +140,9 @@ public sealed class TcArchiveBuilderTests(Xunit.Abstractions.ITestOutputHelper o
     /// <c>test/e2e/graphical/native-writer.test.ts</c>.</summary>
     public static readonly (string Name, string Body)[] BeyondTheImport =
     {
-        ("single_consumer_branch", "%NETWORK\n%WIRES w1\nw1 := a AND b;\nout := w1;\n"),
-        ("fanout_two_coils", "%NETWORK\n%WIRES w1\nw1 := a AND b;\nout1 := w1;\nout2 := w1;\n"),
-        ("leaf_fed_split", "%NETWORK\n%WIRES w1\nw1 := a;\nout1 := w1;\nout2 := w1;\n"),
+        ("single_consumer_branch", "%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := a AND b;\nout := w1;\n"),
+        ("fanout_two_coils", "%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := a AND b;\nout1 := w1;\nout2 := w1;\n"),
+        ("leaf_fed_split", "%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := a;\nout1 := w1;\nout2 := w1;\n"),
         ("unconnected_pin", "%NETWORK\nt1(PT := pt);\n"),
         ("pin_to_variable", "%NETWORK\nt1(IN := a, PT := pt, ET => el);\n"),
         ("pin_to_variable_consumed", "%NETWORK\nout := t1(IN := a, PT := pt, ET => el).Q;\n"),

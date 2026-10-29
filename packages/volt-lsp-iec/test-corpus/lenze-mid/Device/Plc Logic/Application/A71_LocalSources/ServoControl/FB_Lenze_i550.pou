@@ -22,12 +22,12 @@ END_VAR
 %NETWORK
 MOVE(EN := TRUE, UINT_TO_WORD(ioUDT.Control.AutoSpeed), OUT => oRefSpeed).ENO;
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 w1 := TRUE;
 ioUDT.Status.Error := w1 AND iStatusWord.Bit3_Fault;
 ioUDT.Status.DriveReady := w1 AND NOT iStatusWord.Bit3_Fault AND iStatusWord.Bit0_ReadyForOperation;
 %NETWORK
-%WIRES w2, w3
+VAR_TEMP w2 : ANY; w3 : ANY; END_VAR
 w2 := TRUE;
 oControlWord.Bit4_RunForward := w2 AND ioUDT.Control.Enable AND ioUDT.Control.StartAuto;
 w3 := w2 AND ioUDT.Control.ResetError;

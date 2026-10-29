@@ -29,9 +29,10 @@ interface Edit {
 }
 
 /**
- * A file with every plain-ST network body as its twin (`%LANGUAGE ST`), the variables each twin needs declared in a
- * `VAR` block of the unit that owns its scope — a POU's or a METHOD's own declaration; an ACTION, which has none, its
- * POU's. A body the twin cannot write is named in `refused` and left as it is.
+ * A file with every plain-ST network body as its twin (`%LANGUAGE ST`), the variables each twin needs declared in the
+ * unit that owns its scope — its wires in a `VAR_TEMP` block, its ENO temps and edge detectors in a `VAR` block; a POU's or
+ * a METHOD's own declaration, an ACTION's (which has none) its POU's. A body the twin cannot write is named in `refused`
+ * and left as it is.
  */
 export function twinFile(source: string, parseResult: ParseResult, project: Scope): { source: string; refused: string[]; twinned: number } {
   const edits: Edit[] = []
@@ -50,7 +51,7 @@ export function twinFile(source: string, parseResult: ParseResult, project: Scop
     }
     const line = body.languageLine!
     edits.push({ start: line.span.start, end: Math.max(body.span.end, line.span.end), text: `%LANGUAGE ST\n${twin.code}\n` })
-    if (twin.declarations.length === 0) continue
+    if (twin.declarations.length === 0 && twin.wires.length === 0) continue
     // an ACTION's POU is the program or function block before it in the file (a pull writes the members after their POU)
     const owner = unit.kind === "action" ? [...units].reverse().find((u) => (u.kind === "program" || u.kind === "function_block") && u.span.start < unit.span.start) ?? unit : unit
     const at = owner === unit ? line.span.start : ("body" in owner && owner.body.kind === "body" ? owner.body.languageLine?.span.start : undefined)
@@ -59,7 +60,8 @@ export function twinFile(source: string, parseResult: ParseResult, project: Scop
       edits.pop()
       continue
     }
-    edits.push({ start: at, end: at, text: `VAR\n\t${twin.declarations.join("\n\t")}\nEND_VAR\n` })
+    const block = (kw: string, decls: readonly string[]) => (decls.length === 0 ? "" : `${kw}\n\t${decls.join("\n\t")}\nEND_VAR\n`)
+    edits.push({ start: at, end: at, text: block("VAR_TEMP", twin.wires) + block("VAR", twin.declarations) })
   }
   let out = source
   for (const e of edits.sort((a, b) => b.start - a.start || b.end - a.end)) out = out.slice(0, e.start) + e.text + out.slice(e.end)

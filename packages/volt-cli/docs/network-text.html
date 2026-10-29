@@ -20,7 +20,7 @@
 </p>
 <pre>%LANGUAGE LD
 %NETWORK "Start the motor"
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 // runs while auto is on
 w1 := start AND NOT stop;
 motor := w1;
@@ -32,12 +32,11 @@ lamp := MOVE(EN := w1, 100, OUT => speed).ENO;</pre>
   <tr><td class="name"><code>%LANGUAGE LD</code></td><td>the body's language, <code>LD</code> or <code>FBD</code>; first line of the body</td></tr>
   <tr><td class="name"><code>%NETWORK "title"</code></td><td>a network starts; the title is optional</td></tr>
   <tr><td class="name"><code>%DISABLED</code></td><td>the network is not compiled</td></tr>
-  <tr><td class="name"><code>%WIRES w1, w2</code></td><td>the network's wires</td></tr>
   <tr><td class="name"><code>// text</code></td><td>the network's comment</td></tr>
   <tr><td class="name"><code>l:</code></td><td>the network's label, its first code line</td></tr>
   <tr><td class="name"><code>%UNSUPPORTED "shape" #hash</code></td><td>a network the text cannot spell (<a href="#unsupported">below</a>)</td></tr>
 </table>
-<p>A network's lines stand in this order, before its code.</p>
+<p>A network's lines stand in this order, before its code; its wires (<a href="#wires">below</a>) after its <code>%</code> lines, before its comment.</p>
 
 <h2 id="elements">Elements</h2>
 <table>
@@ -76,11 +75,12 @@ MOVE(EN := c, 7, ENO => lamp, OUT => x).ENO;</pre>
 
 <h2 id="wires">Wires</h2>
 <pre>%NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; w2 : ANY; END_VAR
 w1 := a AND b;
-x := w1;
-y := w1 AND c;</pre>
-<p>A value read twice is a wire, defined once (<code>w1 := …</code>). A box read once stands where it is read.</p>
+w2 := t1(IN := w1).Q;
+x := w2;
+y := w2 AND w1;</pre>
+<p>A value read twice is a wire, declared <code>: ANY</code> on the network's one <code>VAR_TEMP</code> line (its type is its definition's) and defined once (<code>w1 := …</code>). A box read once stands where it is read.</p>
 
 <h2 id="execute">Execute box</h2>
 <p>Its ST is the string <code>CODE</code>, line breaks as they stand, <code>'</code> written <code>$'</code> and <code>$</code> written <code>$$</code>. Its one output is its ENO.</p>

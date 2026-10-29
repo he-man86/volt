@@ -49,7 +49,7 @@ test("a box closed by .ENO is its ENO, a BOOL; with EN and no ENO its value; an 
 
 test("a wire is of its definition's type: an expression's, an FB output's, an enabled box's value, an ENO", () => {
   const code =
-    "%NETWORK\n%WIRES w1, w2, w3, w4, w5\nw1 := ADD(i, j);\nq1 := w1;\nq2 := w1;\nw2 := t1(IN := a).Q;\np1 := w2;\nw3 := t1(IN := a).ET;\nd1 := w3;\n" +
+    "%NETWORK\nVAR_TEMP w1 : ANY; w2 : ANY; w3 : ANY; w4 : ANY; w5 : ANY; END_VAR\nw1 := ADD(i, j);\nq1 := w1;\nq2 := w1;\nw2 := t1(IN := a).Q;\np1 := w2;\nw3 := t1(IN := a).ET;\nd1 := w3;\n" +
     "w4 := MOVE(EN := b, i);\nn := w4;\nw5 := MOVE(EN := b, i, OUT => n).ENO;\np1 := w5;\n"
   const parseResult = parseSource(`${FB}PROGRAM P\nVAR\n\ta, b, p1 : BOOL;\n\ti, j, n, q1, q2 : INT;\n\tt1 : FB_T;\n\td1 : TIME;\nEND_VAR\n%LANGUAGE LD\n${code}END_PROGRAM\n`, { networkText: true }, "codesys")
   const project = build.buildSymbolTable([{ uri: "P.pou", parseResult, source: "" }], [], "codesys")

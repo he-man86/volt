@@ -15,7 +15,7 @@ END_VAR
 %NETWORK "DONE NETWORK 1: Delay after doors closed"
 Mach1_AuxData.DelayAfterDoorsActuallyClosed := Mach1_AuxData.IEC_TIMERS.TON_DelayAfterDoorsClosed(IN := Mach1.GenFlags.DelayAfterEmergStop AND Mach1_Safety.Status.AllDoorsActuallyClosed AND Mach1_Safety.Status.DoorsOK, PT := T#150MS).Q;
 %NETWORK "DONE NETWORK 2: Activating main drive"
-%WIRES w1, w2, w3, w4
+VAR_TEMP w1 : ANY; w2 : ANY; w3 : ANY; w4 : ANY; END_VAR
 w1 := TRUE;
 MOVE(EN := w1, 0, OUT => tInt).ENO;
 Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper R= w1 AND NOT HMI_Var.Test_Prod;
@@ -30,7 +30,7 @@ tMainDriveJog := oMainDriveJog := Mach1_Safety.Control.RequestManSpeed := w4;
 MOVE(EN := w4, Mach1_Data.MANUALSPEED, OUT => tInt).ENO;
 RPM_To_DriveSpeed(iEN := w1, iRPM := tInt, oDriveSpeed => Mach1_Data.Drives.MainDrive_VM.Control.DriveMasterSpeed);
 %NETWORK "DONE NETWORK 3 : DriveIsRunning flag"
-%WIRES w5
+VAR_TEMP w5 : ANY; END_VAR
 w5 := TRUE;
 Mach1.GenFlags.StopDriveDirect R= w5;
 Mach1.GenFlags.DriveIsRunning := w5 AND (tMainDriveRun OR tMainDriveJog);
@@ -39,7 +39,7 @@ Mach1.GenFlags.DriveAtSpeed := Mach1_AuxData.IEC_TIMERS.TOFF_MainDriveAtProducti
 Mach1.GenFlags.StopDriveDirect S= Alarms_V5_1_100(AlarmDB := Mach1_Alarms, iCond := LT(EN := Mach1_AuxData.IEC_TIMERS.TON_MainDriveBlocked(IN := oMainDriveRun, PT := T#12S).Q, HMI_Var.Mach1.ActualSpeed, 5), iReset := Mach1.GenFlags.StartFlag, iAlm := Mach1_Alarms.Alm040, ioAction := Mach1.GenFlags.MinorAlarm) AND Mach1_Alarms.Alm040;
 %NETWORK "DONE NETWORK 5: Manual brakerelease"
 %DISABLED
-%WIRES w6
+VAR_TEMP w6 : ANY; END_VAR
 w6 := TRUE;
 LST_InputsOutputs.Q101_0_REL_release_brake := w6 AND Mach1_Alarms.Alm001 AND HMI_Var.ReleaseBrake;
 HMI_Var.ReleaseBrake R= w6 AND (NOT Mach1_Alarms.Alm001 OR Mach1_Alarms.Alm001 AND NOT Mach1.GenFlags.StartFlag);

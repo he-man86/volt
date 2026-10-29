@@ -613,7 +613,7 @@ public class CodesysCoilFlagTests
     [Fact]
     public void A_wire_is_written_under_the_models_VarId_verbatim()
     {
-        var (read, scope) = Pushed("%WIRES w1\nw1 := AND(x, lamp);\nx := w1;\nlamp := w1;");
+        var (read, scope) = Pushed("VAR_TEMP w1 : ANY; END_VAR\nw1 := AND(x, lamp);\nx := w1;\nlamp := w1;");
         // the text numbers a network's wires 1, 2, …; the model a pull read carries the vendor's VarId, here 28
         var model = read with { Trees = read.Trees.Select(t => VarIdAs28(t)).ToList() };
         Assert.Equal(28, Assert.IsType<Demux>(model.Trees[0]).VarId);
@@ -640,7 +640,7 @@ public class CodesysCoilFlagTests
     [Fact]
     public void A_data_split_a_push_built_reads_back_as_written_and_pushes_again()
     {
-        var (model, scope) = Pushed("%WIRES w1\nw1 := ADD(a, b);\nn := w1;\nsv := w1;");
+        var (model, scope) = Pushed("VAR_TEMP w1 : ANY; END_VAR\nw1 := ADD(a, b);\nn := w1;\nsv := w1;");
         var live = Different();
 
         CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, BodyLanguage.Fbd, scope);

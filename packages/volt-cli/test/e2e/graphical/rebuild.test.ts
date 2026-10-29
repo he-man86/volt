@@ -116,13 +116,13 @@ END_VAR
 ` +
 			`%LANGUAGE LD
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 w1 := a AND b;
 p := w1;
 q := w1;
 ` +
 			`%NETWORK
-%WIRES w2
+VAR_TEMP w2 : ANY; END_VAR
 w2 := a OR b;
 x := w2;
 y := w2;

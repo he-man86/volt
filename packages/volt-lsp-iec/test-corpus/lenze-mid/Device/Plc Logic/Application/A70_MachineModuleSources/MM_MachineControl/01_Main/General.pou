@@ -20,7 +20,7 @@ fc_Information(EN := TRUE).ENO;
 %NETWORK
 WordConvertor_v2(ioSafetyStatusUDT := Mach1_Safety.Status, ioSafetyControlUDT := Mach1_Safety.Control);
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 w1 := NOT HMI_Var.ForceOutputs;
 Mach1_MIDS(EN := w1).ENO;
 fc_Visualisation_HMI(EN := w1).ENO;

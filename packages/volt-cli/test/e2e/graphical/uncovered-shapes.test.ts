@@ -157,7 +157,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 		const src = prg(
 			name,
 			"LD",
-			`%NETWORK\n%WIRES w1\nw1 := a AND b;\nlatched S= w1;\ncleared R= w1;\n`,
+			`%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := a AND b;\nlatched S= w1;\ncleared R= w1;\n`,
 			"\ta : BOOL;\n\tb : BOOL;\n\tlatched : BOOL;\n\tcleared : BOOL;\n",
 		)
 
@@ -169,7 +169,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 
 		// Each coil keeps its own storage — a SET that came back as the RESET's (or plain) is the bug this pins.
 		expect(back, "the SET or the RESET coil lost its storage")
-			.toContain("%WIRES w1\nw1 := a AND b;\nlatched S= w1;\ncleared R= w1;\n")
+			.toContain("VAR_TEMP w1 : ANY; END_VAR\nw1 := a AND b;\nlatched S= w1;\ncleared R= w1;\n")
 
 		// THE FIXED POINT is the half a create cannot give: push back exactly what came out, and nothing moves.
 		const again = await pushOps([

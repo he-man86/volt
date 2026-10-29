@@ -19,9 +19,9 @@
       "end": "(?i)^(?=\\s*END_(?:FUNCTION_BLOCK|PROGRAM|FUNCTION|METHOD|ACTION|GET|SET)\\b)",
       "patterns": [
         {
-          "comment": "A % line of a network: %NETWORK \"title\", %DISABLED, %WIRES w1, w2, %UNSUPPORTED \"shape\" #hash — a % first on its line, the key touching it.",
+          "comment": "A % line of a network: %NETWORK \"title\", %DISABLED, %UNSUPPORTED \"shape\" #hash — a % first on its line, the key touching it.",
           "name": "meta.line.network-text",
-          "match": "(?i)^(%(?:NETWORK|DISABLED|WIRES|UNSUPPORTED))\\b(.*)$",
+          "match": "(?i)^(%(?:NETWORK|DISABLED|UNSUPPORTED))\\b(.*)$",
           "captures": {
             "1": {
               "name": "keyword.control.network-text"

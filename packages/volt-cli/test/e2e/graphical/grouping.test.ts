@@ -34,7 +34,7 @@ const SHAPES: [string, string, string][] = [
 	// label, VAR block, the ONE network's statements
 	["one connected tree", "\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;", "out := AND(a, b);"],
 	["one wire, two coils", "\ta : BOOL;\n\tb : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;",
-		"%WIRES w1\nw1 := AND(a, b);\nout1 := w1;\nout2 := w1;"],
+		"VAR_TEMP w1 : ANY; END_VAR\nw1 := AND(a, b);\nout1 := w1;\nout2 := w1;"],
 	["two disconnected sinks", "\ta : BOOL;\n\tb : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;",
 		"out1 := a;\nout2 := b;"],
 	["fb call + output read", "\tt1 : TON;\n\ta : BOOL;\n\tpt : TIME;\n\tdone : BOOL;",

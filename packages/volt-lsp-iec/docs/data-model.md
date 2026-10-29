@@ -488,7 +488,7 @@ interface PlainStNetwork {
   header: PlainStLine                       // %NETWORK "title"
   lines: readonly PlainStLine[]             // the network's % lines, %NETWORK first
   disabled: boolean                         // %DISABLED
-  wires: readonly PlainStWire[]             // %WIRES w1, w2 — declared in the body's scope (symbols/network-scope.ts)
+  wires: readonly PlainStWire[]             // VAR_TEMP w1 : ANY; END_VAR — declared in the body's scope (symbols/network-scope.ts)
   unsupported: boolean                      // %UNSUPPORTED "<shape>" #<hash>
   executes: readonly PlainStExecute[]       // EXECUTE(…, CODE := '<ST>'): its call, its ST's span, the ST decoded
 }

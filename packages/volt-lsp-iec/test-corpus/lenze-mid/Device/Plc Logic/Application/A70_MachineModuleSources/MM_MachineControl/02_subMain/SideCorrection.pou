@@ -15,14 +15,14 @@ END_VAR
 %NETWORK "Network 1: Averaging of sensorsignal"
 fc_MeanValue(EN := TRUE, iLength := 20, iAcquireNewValue := True, iNewValue := TO_INT(LST_InputsOutputs.IW340_LeafCoverageSensor), ioValues := db_MeanValuesSideCorrectionSensor.MeasurementValues, oMeanValue => DB_Kantcorrectie.MeasuredValue).ENO;
 %NETWORK
-%WIRES w1
+VAR_TEMP w1 : ANY; END_VAR
 w1 := TRUE;
 DB_Kantcorrectie.CopyMeasuredToDark R= MOVE(EN := w1 AND DB_Kantcorrectie.CopyMeasuredToDark, DB_Kantcorrectie.MeasuredValue, OUT => DB_Kantcorrectie.DarkValue).ENO;
 DB_Kantcorrectie.CopyMeasuredToLight R= MOVE(EN := w1 AND DB_Kantcorrectie.CopyMeasuredToLight, DB_Kantcorrectie.MeasuredValue, OUT => DB_Kantcorrectie.LightValue).ENO;
 %NETWORK "Network 2: Read out inputvalue and calculate correctionvalue"
 MOVE(EN := SidecorrectionCalculation(EN := MOVE(EN := TRUE, Mach1_Data.Settings.Ints.SideCorrectionScaleFactor, OUT => tCorrectionScale).ENO, iAnalogInputValue := DB_Kantcorrectie.MeasuredValue, iSetpoint := DB_Kantcorrectie.Setpoint, iCorrectionScale := -1, iLightValue := DB_Kantcorrectie.LightValue, iDarkValue := DB_Kantcorrectie.DarkValue, iNoWrapperOffsetPercentage01Perc := DB_Kantcorrectie.NoWrapperPercentage, oIntPercentage => DB_Kantcorrectie.Percentage10, oCorrectionValue => DB_Kantcorrectie.MeasuredValueReal, oDeviationNoWrapper => tReal).ENO, REAL_TO_INT(tReal), OUT => DB_Kantcorrectie.DeviationNoWrapper).ENO;
 %NETWORK "Network 3: Determine side-correction value"
-%WIRES w2, w3
+VAR_TEMP w2 : ANY; w3 : ANY; END_VAR
 w2 := fc_CamC_CP_UDT(iEN := TRUE, iMachinePosition := HMI_Var.Mach1.Position, iResetFlag := Mach1.GenFlags.Rotflag, ioPulse := Mach1_Data.CamControls.MeasurementForSidecorrection_CP);
 MOVE(EN := MOVE(EN := w2 AND Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Left_OK AND Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_right_OK, DB_Kantcorrectie.MeasuredValueReal, OUT => DB_Kantcorrectie.CopiedValueReal).ENO, DB_Kantcorrectie.Percentage10, OUT => DB_Kantcorrectie.CopiedValueInt).ENO;
 w3 := w2 AND Mach1_AuxData.MemWrapperDetected_ResetLimitedSpeed;
@@ -30,7 +30,7 @@ Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper R= w3;
 Mach1_AuxData.MemWrapperDetected_ResetLimitedSpeed R= w3;
 Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper S= GT(EN := SUB(EN := w2, DB_Kantcorrectie.LightValue, DB_Kantcorrectie.DeviationNoWrapper, OUT => DB_Kantcorrectie.NoWrapperValue).ENO, LST_InputsOutputs.IW340_LeafCoverageSensor, DB_Kantcorrectie.NoWrapperValue) AND HMI_Var.Test_Prod;
 %NETWORK "DONE Network 4: In case a limit switch is reached: overwrite values"
-%WIRES w4
+VAR_TEMP w4 : ANY; END_VAR
 w4 := True;
 MOVE(EN := w4 AND NOT Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Left_OK AND Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Right_OK, -100.0, OUT => DB_Kantcorrectie.CopiedValueReal).ENO;
 MOVE(EN := MOVE(EN := w4 AND NOT Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Right_OK AND Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Left_OK, 100.0, OUT => DB_Kantcorrectie.CopiedValueReal).ENO, -1, OUT => tCorrectionScale).ENO;
@@ -40,7 +40,7 @@ EXECUTE(EN := TRUE, CODE := 'tReal:=DB_Kantcorrectie.CopiedValueReal*DINT_TO_REA
 Mach1_Data.Drives.SideCorrection.CAM.Y_Scale_Recipe:=REAL_TO_INT(tReal/(-1000));
 ');
 %NETWORK "DONE Network 6 : Manual adjustment of the sidecorrection"
-%WIRES w5
+VAR_TEMP w5 : ANY; END_VAR
 w5 := True;
 Mach1_Data.Drives.SideCorrection_FreeLimit.Control.Jog_LimitToLeft := w5 AND Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Left_OK AND HMI_Var.Mach1.DTA_PositioningLeft;
 Mach1_Data.Drives.SideCorrection_FreeLimit.Control.Jog_LimitToRight := w5 AND Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Right_OK AND HMI_Var.Mach1.DTA_PositioningRight;

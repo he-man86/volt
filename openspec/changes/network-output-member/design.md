@@ -317,3 +317,15 @@ w1 := AND(a, b);
 x := w1;
 y := OR(w1, c);
 ```
+
+**As built (2.8, 2026-10-29).** The writer writes a network's wires as one line `VAR_TEMP w1 : ANY; w2 : ANY; END_VAR`,
+after its `%` lines and before its comment; the reader (`StNetworkReader.WireDeclaration`) and the LSP
+(`syntax/network/plain-st.ts` `wiresOf`, the line trivia to the ST parser, each name a wire symbol typed from its
+definition) read exactly that and refuse by name, in the same words: a type other than `ANY`, the block across lines,
+a comma list (`w1, w2 : ANY;`: one declaration per wire, as the writer writes it — one spelling), `VAR_TEMP` after the
+comment or code, a `%` line after the wires. `%WIRES` is no line of the text: `'%WIRES …': a network holds no such line`.
+The exec twin declares the wires in a `VAR_TEMP` block of the unit that owns the body (an ACTION's: its POU's), each with
+its definition's type; its ENO temps and edge detectors stay in `VAR` (an edge detector keeps its state across scans).
+Open for 2.3 (live): a wire read before its definition (the previous scan's value, design 1.4) reads a `VAR_TEMP` that
+CODESYS initialises each call — the twin's run against the IDE's measures whether that is what the network does.
+Oracle tallies unchanged (CODESYS 301 / 87, TwinCAT 143 / 8, 0 unsupported, 0 gaps).

@@ -38,9 +38,9 @@ const or = (lang: string, x: string, y: string) => (lang === "LD" ? `${x} OR ${y
 
 /** The shapes: name → the body under `%LANGUAGE <LANG>`. */
 const SHAPES: Record<string, (lang: string) => string> = {
-	single_consumer_branch: (l) => `%NETWORK\n%WIRES w1\nw1 := ${and(l, "a", "b")};\nout := w1;\n`,
-	fanout_two_coils: (l) => `%NETWORK\n%WIRES w1\nw1 := ${and(l, "a", "b")};\nout1 := w1;\nout2 := w1;\n`,
-	leaf_fed_split: () => "%NETWORK\n%WIRES w1\nw1 := a;\nout1 := w1;\nout2 := w1;\n",
+	single_consumer_branch: (l) => `%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := ${and(l, "a", "b")};\nout := w1;\n`,
+	fanout_two_coils: (l) => `%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := ${and(l, "a", "b")};\nout1 := w1;\nout2 := w1;\n`,
+	leaf_fed_split: () => "%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := a;\nout1 := w1;\nout2 := w1;\n",
 	rail_pin: () => "%NETWORK\nt1(IN := TRUE, PT := pt);\n",
 	pin_to_variable: () => "%NETWORK\nt1(IN := a, PT := pt, ET => el);\n",
 	negated_input: (l) => `%NETWORK\nout := ${and(l, "NOT a", "b")};\n`,

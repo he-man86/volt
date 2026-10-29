@@ -73,8 +73,8 @@ describe(`graphical / stored shapes, ld-fbd-coverage 2R.5 (${BASE})`, () => {
 	})
 
 	it("#19, #20: a wire read above its definition, and one defined below the top level", async () => {
-		await shape("r5sb", (n) => fb(n, "LD", ["%WIRES w1\nx := w1;\nw1 := a AND b;\ny := w1 AND c;"]), TC.splitBefore)
-		await shape("r5sn", (n) => fb(n, "LD", ["%WIRES w1\nx := (w1 := a AND b);\ny := w1 AND c;"]), TC.splitNested)
+		await shape("r5sb", (n) => fb(n, "LD", ["VAR_TEMP w1 : ANY; END_VAR\nx := w1;\nw1 := a AND b;\ny := w1 AND c;"]), TC.splitBefore)
+		await shape("r5sn", (n) => fb(n, "LD", ["VAR_TEMP w1 : ANY; END_VAR\nx := (w1 := a AND b);\ny := w1 AND c;"]), TC.splitNested)
 	})
 
 	it("Open c: a shorted branch of a parallel is the rail, TRUE", async () => {

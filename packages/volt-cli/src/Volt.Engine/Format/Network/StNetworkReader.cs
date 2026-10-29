@@ -19,7 +19,7 @@ namespace Volt.Engine.Format.Network;
 /// ENO, where the callee declares no <c>EN</c>/<c>ENO</c> of its own; any other <c>.NAME</c> names the output a consumer
 /// reads, required where the callee declares more than one data output and refused where it declares one
 /// (<see cref="NetworkSpelling.SignatureOf(string, bool, NetworkScope)"/>). A statement is an assignment, a call, a call
-/// closed by <c>.ENO</c>, a jump or a return, a label. A name on a network's <c>%WIRES</c> line is a wire: a Demux over its
+/// closed by <c>.ENO</c>, a jump or a return, a label. A name its network declares <c>VAR_TEMP w1 : ANY; END_VAR</c> is a wire: a Demux over its
 /// definition, read by its name any number of times. <c>BRANCH</c>, <c>BRANCH_SHORTCIRCUIT</c>, <c>R_EDGE</c> and
 /// <c>F_EDGE</c> are the text's own elements (<see cref="StNetworkWriter.ElementHeads"/>), and <c>EXECUTE(EN := e, CODE :=
 /// '&lt;ST&gt;')</c> the Execute box, its ST the one string that spans lines.</para>
@@ -41,11 +41,10 @@ public static class StNetworkReader
         var bodyWires = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var allWires = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         char? open = null;
-        foreach (var l in lines)
+        for (var k = 0; k < lines.Count; k++)
         {
-            if (open is null && l.StartsWith(StNetworkWriter.WiresLine + " ", StringComparison.Ordinal))
-                foreach (var w in l.Substring(StNetworkWriter.WiresLine.Length + 1).Split(',')) allWires.Add(w.Trim());
-            open = OpenQuoteAfter(l, open);
+            if (open is null && IsWiresLine(lines[k])) allWires.UnionWith(WireDeclaration(lines[k], k + 1));
+            open = OpenQuoteAfter(lines[k], open);
         }
         var i = 1;
         while (i < lines.Count)
@@ -58,6 +57,38 @@ public static class StNetworkReader
             nets.Add(new NetworkReader(lines.GetRange(start, Math.Min(i, lines.Count) - start), start + 1, nets.Count, scope, bodyWires, allWires).Read());
         }
         return new NetworkBody(lang, nets);
+    }
+
+    /// <summary>Whether <paramref name="line"/> declares wires: its first word <c>VAR_TEMP</c>, in any case.</summary>
+    private static bool IsWiresLine(string line)
+    {
+        var t = line.TrimStart();
+        var k = 0;
+        while (k < t.Length && (char.IsLetterOrDigit(t[k]) || t[k] == '_')) k++;
+        return string.Equals(t.Substring(0, k), StNetworkWriter.WiresOpen, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>THE WIRES A NETWORK DECLARES (owner, 2026-10-28): one line <c>VAR_TEMP w1 : ANY; w2 : ANY; END_VAR</c>, each
+    /// <c>: ANY</c> — the type is its definition's, which the text does not state.</summary>
+    private static IReadOnlyList<string> WireDeclaration(string line, int lineNo)
+    {
+        var form = $"a network's wires are declared on one line, {StNetworkWriter.WiresOpen} w1 : {StNetworkWriter.WireType}; w2 : {StNetworkWriter.WireType}; {StNetworkWriter.WiresClose}";
+        List<Tok> t;
+        try { t = Lex(line, _ => lineNo); }
+        catch (StNetworkReadException e) { throw new StNetworkReadException(lineNo, form + ", not " + e.Message); }
+        static bool Word(Tok tok, string w) => tok.Kind == Tk.Ident && string.Equals(tok.Text, w, StringComparison.OrdinalIgnoreCase);
+        if (t.Count < 2 || !Word(t[t.Count - 1], StNetworkWriter.WiresClose)) throw new StNetworkReadException(lineNo, form);
+        var names = new List<string>();
+        for (var k = 1; k < t.Count - 1; k += 4)
+        {
+            if (k + 3 >= t.Count - 1 || t[k].Kind != Tk.Ident || t[k + 1].Text != ":" || t[k + 2].Kind != Tk.Ident || t[k + 3].Text != ";")
+                throw new StNetworkReadException(lineNo, form);
+            if (!Word(t[k + 2], StNetworkWriter.WireType))
+                throw new StNetworkReadException(lineNo, $"the wire {t[k].Text} is declared {t[k + 2].Text}: a wire is declared : {StNetworkWriter.WireType}, its type its definition's");
+            names.Add(t[k].Text);
+        }
+        if (names.Count == 0) throw new StNetworkReadException(lineNo, form);
+        return names;
     }
 
     private static bool IsNetworkLine(string line) =>
@@ -178,7 +209,7 @@ public static class StNetworkReader
         private StNetworkReadException Error(int index, string what) => new(_firstLine + index, what);
 
         private static bool KnownLine(string line) =>
-            new[] { StNetworkWriter.NetworkLine, StNetworkWriter.DisabledLine, StNetworkWriter.WiresLine, StNetworkWriter.UnsupportedLine }
+            new[] { StNetworkWriter.NetworkLine, StNetworkWriter.DisabledLine, StNetworkWriter.UnsupportedLine }
                 .Any(k => line == k || line.StartsWith(k + " ", StringComparison.Ordinal));
 
         public Network Read()
@@ -196,11 +227,10 @@ public static class StNetworkReader
             var disabled = false;
             string? unsupported = null, hash = null;
             if (i < _lines.Count && _lines[i] == StNetworkWriter.DisabledLine) { disabled = true; i++; }
-            if (i < _lines.Count && _lines[i].StartsWith(StNetworkWriter.WiresLine + " ", StringComparison.Ordinal))
+            if (i < _lines.Count && IsWiresLine(_lines[i]))
             {
-                foreach (var raw in _lines[i].Substring(StNetworkWriter.WiresLine.Length + 1).Split(','))
+                foreach (var w in WireDeclaration(_lines[i], _firstLine + i))
                 {
-                    var w = raw.Trim();
                     if (WireId(w) is null) throw Error(i, $"the wire '{w}': a wire is w<n>");
                     if (_scope.Contains(w) || _scope.InstanceType(w) is not null)
                         throw Error(i, $"the wire '{w}' is also a name declared in reach: a wire is never a variable");
@@ -240,8 +270,10 @@ public static class StNetworkReader
                 {
                     if (line.StartsWith("%", StringComparison.Ordinal))
                         throw Error(i, KnownLine(line)
-                            ? $"the line '{line}' among the code: a network's % lines stand before it, in the order %DISABLED, %WIRES"
+                            ? $"the line '{line}' among the code: a network's % lines stand first, {StNetworkWriter.NetworkLine} then {StNetworkWriter.DisabledLine}"
                             : $"'{line}': a network holds no such line");
+                    if (IsWiresLine(line))
+                        throw Error(i, $"{StNetworkWriter.WiresOpen} after the network's comment or code: its wires are declared after its % lines, before its comment");
                     if (line.TrimStart().StartsWith("//", StringComparison.Ordinal))
                         throw Error(i, "a comment after the code starts: a network's comment is its // lines before the code");
                 }

@@ -242,8 +242,21 @@
       Connector 156 / Contracts 56 / Repo.Gates 276, 0 fail; volt-cli `test/unit` 235, volt-vscode 34; LSP full suite
       (`VOLT_REQUIRE_FULL=1`) 10293 pass / 36 skip / 431 todo / 4 fail — only the 4 known `corpus-twins.test.ts` live
       recordings (awa-palletizer, bakon-nano, lenze-mid, pro2193), which need the live re-record (2.3).
-- [ ] 2.8 Wires as `VAR_TEMP w1 : ANY; END_VAR` at the network start (design.md "Wires"): writer, reader, LSP, exec
+- [x] 2.8 Wires as `VAR_TEMP w1 : ANY; END_VAR` at the network start (design.md "Wires"): writer, reader, LSP, exec
       twin, doc; `%WIRES` deleted.
+      Done 2026-10-29 (design.md "As built (2.8)"): one line `VAR_TEMP w1 : ANY; w2 : ANY; END_VAR` after the `%` lines,
+      before the comment — `StNetworkWriter`, `StNetworkReader.WireDeclaration`, the LSP's `plain-st.ts` (`takeWires`,
+      `wiresOf`; `read` split into helpers for `check-size`), the network check (`%` line order, the comment check skips the
+      declaration), the twin (wires in a `VAR_TEMP` block with their inferred types; ENO temps and edge detectors stay in
+      `VAR`), the doc `#lines`/`#wires`, the VS Code grammar (`%WIRES` no key), the e2e word lists and coverage regex, the
+      case set, corpora (`VOLT_WRITE_CORPUS_TEXT=1`), TwinCAT import texts, conformance fixture sources. Test first: the
+      case set respelled red before the code, 5 new refuse cases (`wires-not-any`, `wires-after-the-comment`,
+      `wires-across-lines`, `wires-as-a-list`, `percent-wires`), `disabled-after-wires` re-phrased. Oracle tallies
+      unchanged (CODESYS 301 / 87, TwinCAT 143 / 8, 0 unsupported, 0 gaps). Open for 2.3 (live): a wire read before its
+      definition now reads a twin `VAR_TEMP`, initialised each call.
+      Gate: typecheck, lint, `bun run check` green; C# Engine 2487 (+1 skip) / Cli 378 / Codesys 538 / Twincat 785 /
+      Connector 156 / Contracts 56 / Repo.Gates 276, 0 fail; volt-cli `test/unit` 235, volt-vscode 34; LSP full suite
+      (`VOLT_REQUIRE_FULL=1`) 10298 pass / 36 skip / 431 todo / 4 fail — only the 4 known `corpus-twins.test.ts` live recordings (2.3).
 - [ ] 2a Gate of 2.1/2.2/2.4 (2026-10-28): NOT green, nothing committed. Typecheck, lint, `bun run check` green; C#
       Engine 2478 (+1 skip) / Cli 378 / Codesys 538 / Twincat 785 / Connector 156 / Contracts 56 / Repo.Gates 276, 0 fail;
       volt-cli `test/unit` 235, volt-vscode 34, 0 fail; LSP full suite (`VOLT_REQUIRE_FULL=1`) 10290 pass / 36 skip /
