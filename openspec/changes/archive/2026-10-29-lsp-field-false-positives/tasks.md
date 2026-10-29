@@ -152,3 +152,9 @@ baseline-d.ts`, its rows `exceptions-lsp-field-8.json`).
 - [x] 8.5 Found on the way: the recorder pushed NOTHING for a fixture whose header the LSP's parser refuses (it sliced items
   by the LSP's units; such a text is now the one item it names); the replay's TwinCAT re-parse kept the CODESYS copy of the
   fixture's own lists bound (their checks found no unit); a stale citation (`network-unresolved.ts`).
+
+## Close-out (2026-10-29)
+
+Families 1-6b and the class sweeps (section 8) are built and merged; 7 ships in the prerelease cut now. Carried to
+openspec `lsp-field-followups`: PLC Assist's lone-CR check over its stored field texts (5 / 5.2), and the two owner
+decisions 8.1.1 (read "Unicode identifiers" from `.projectsettings`) and 8.3.1 (a reserved word as an object's name).

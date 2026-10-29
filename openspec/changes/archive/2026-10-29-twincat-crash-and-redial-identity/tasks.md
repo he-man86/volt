@@ -39,3 +39,10 @@
 - [x] 2.2 Nothing to name: PLC Assist's `relay-redial-same-instance` accepts the redial, decides at `hello` (same
       vendor + pipe → replace the incumbent; different, or no hello in time → close 1013 before any frame).
 - [x] 2.3 Not needed (owner, 2026-10-27).
+
+## Close-out (2026-10-29) — closed with 1.2 unrun
+
+1.1, 1.3 and 1.4 are built: the walk stops at the first RPC failure and fails as `PLC_DISCONNECTED`, naming the failing
+COM call and the last that returned, so the next field crash says where it happened. Section 2 was answered without a
+wire change. 1.2 (the soak) was not run; the release matrix of 2026-10-29 saw the TwinCAT cell go 1 / 64 / 0 failures
+on one commit (an XAE gone mid-test, cause not captured). If it recurs, the new log line names the call: reopen then.

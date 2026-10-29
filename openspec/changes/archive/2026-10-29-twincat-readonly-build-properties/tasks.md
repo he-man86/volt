@@ -13,3 +13,11 @@
 - [ ] 3 Write: refuse by name with the remedy ("log out of the PLC"), under a code PLC Assist can map.
 - [ ] 4 DIALECT C40 amended; a regression test per state.
 - [ ] 5 Tell PLC Assist the code and wording; it maps it in its own error map.
+
+## Close-out (2026-10-29, owner: "close a lot of those now") — closed unfinished
+
+Shipped instead of the repro: a read-only build property is read only where measured (C39: inside an excluded POU) and
+every other read-only state is refused by name, naming EVERY read-only property (commits 766ac8ea4a, 9b4f63ad66), so
+the next field log says exactly which properties turned read-only. The repro (1) cannot run on the dev machine: TwinCAT
+real-time refuses to start under Hyper-V/VBS, and the user-mode runtime needs a trial licence behind a typed security
+code. Reopen as a new change when a field log names the state, or on a machine where Run mode works.
