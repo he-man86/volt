@@ -49,8 +49,12 @@ public class TcItemArchiveTests
 
         /// <summary>Writes a real zip, because <c>Flatten</c> opens and rewrites it — a stub that wrote nothing
         /// would make the test pass without exercising the archive handling at all.</summary>
+        /// <summary>Every archive path the driver exported to — the prefix of every temp file it makes.</summary>
+        public List<string> Exports { get; } = new();
+
         public void ExportChild(string name, string zipPath)
         {
+            Exports.Add(zipPath);
             using var zip = ZipFile.Open(zipPath, ZipArchiveMode.Create);
             var entry = zip.CreateEntry($"POUs/{name}.TcPOU");
             using var w = new StreamWriter(entry.Open());
@@ -285,5 +289,29 @@ public class TcItemArchiveTests
         Assert.Equal(BridgeErrorCodes.Unreadable, ex.ErrorCode);
         Assert.Contains("'FB_X'", ex.Message);
         Assert.Empty(pou.Deleted);
+        AssertNoTempLeft(pou);
+    }
+
+    /// <summary>A refused rewrite leaves nothing in %TEMP%: neither the archive nor its <c>.bodies</c> / <c>.placed</c> /
+    /// <c>.live</c> / <c>.flat</c> sibling. A rewrite that threw while its sibling was open left one behind per run.</summary>
+    [Fact]
+    public void A_refused_member_rewrite_leaves_no_temp_file()
+    {
+        var pou = new FakeNode { Inside = "<Method Name=\"M\"><Implementation><ST><![CDATA[]]></ST></Implementation></Method>" };
+        pou.Children.Add("FB_X");
+        Assert.Throws<BridgeException>(() =>
+            TcItemArchive.SetMemberBodies(pou, "FB_X", NoLive, null, new[] { (new[] { "Missing" }, "<NWL />") }));
+        Assert.Throws<BridgeException>(() => TcItemArchive.MoveMember(pou, "FB_X", NoLive, null, "Missing", "Sub"));
+        Assert.Throws<System.Xml.XmlException>(() =>
+            TcItemArchive.SetMemberBodies(pou, "FB_X", NoLive, null, new[] { (new[] { "M" }, "<NWL") }));
+        Assert.Equal(3, pou.Exports.Count);
+        AssertNoTempLeft(pou);
+    }
+
+    private static void AssertNoTempLeft(FakeNode node)
+    {
+        Assert.NotEmpty(node.Exports);
+        foreach (var zip in node.Exports)
+            Assert.Empty(Directory.GetFiles(Path.GetDirectoryName(zip)!, Path.GetFileName(zip) + "*"));
     }
 }

@@ -216,16 +216,11 @@ internal static class TcItemArchive
     /// deleted: the import would drop it. Returns the name the archive carries.</para></summary>
     private static string CarryLive(string zip, string name, IReadOnlyList<LiveText> live)
     {
-        var rebuilt = zip + ".live";
-        try { File.Delete(rebuilt); } catch { /* fresh temp */ }
         string? archived = null;
         var carried = new HashSet<string>(StringComparer.Ordinal);
-        var changedAny = false;
-        try
+        Rebuild(zip, ".live", (src, dst) =>
         {
-        using (var src = ZipFile.OpenRead(zip))
-        using (var dst = ZipFile.Open(rebuilt, ZipArchiveMode.Create))
-        {
+            var changedAny = false;
             foreach (var entry in src.Entries)
             {
                 var (text, bom) = ReadEntry(entry);
@@ -248,17 +243,11 @@ internal static class TcItemArchive
                 }
                 WriteEntry(dst, entry.FullName, text, bom);
             }
-        }
-        }
-        catch
-        {
-            try { File.Delete(rebuilt); } catch { /* temp */ }
-            throw;
-        }
+            return changedAny;
+        });
         var lost = live.Select(t => string.Join(".", t.Path)).Where(k => !carried.Contains(k)).ToList();
         if (archived is null || lost.Count > 0)
         {
-            try { File.Delete(rebuilt); } catch { /* temp */ }
             if (archived is null) throw new BridgeException(BridgeErrorCodes.Unreadable, $"the archive of '{name}' holds no source document");
             // A vendor limit, not Volt's invariant: TwinCAT's archive carries no member renamed since the save (D45).
             throw new Volt.Engine.BridgeException(Volt.Contracts.BridgeErrorCodes.Unsupported,
@@ -266,8 +255,6 @@ internal static class TcItemArchive
                 "(renamed since the project was saved) — the round trip would drop it, so nothing was changed. Save the " +
                 "project in the IDE and push again.");
         }
-        if (changedAny) { File.Delete(zip); File.Move(rebuilt, zip); }
-        else File.Delete(rebuilt);
         return archived;
     }
 
@@ -372,11 +359,9 @@ internal static class TcItemArchive
     /// re-serializes the vendor's payload.</para></summary>
     private static void Flatten(string zip)
     {
-        var rebuilt = zip + ".flat";
-        using (var src = ZipFile.OpenRead(zip))
+        Rebuild(zip, ".flat", (src, dst) =>
         {
-            if (src.Entries.All(e => Leaf(e.FullName) == e.FullName)) return;   // already flat (item was at the root)
-            using var dst = ZipFile.Open(rebuilt, ZipArchiveMode.Create);
+            if (src.Entries.All(e => Leaf(e.FullName) == e.FullName)) return false;   // already flat (item was at the root)
             foreach (var entry in src.Entries)
             {
                 var copy = dst.CreateEntry(Leaf(entry.FullName), CompressionLevel.Optimal);
@@ -384,9 +369,8 @@ internal static class TcItemArchive
                 using var output = copy.Open();
                 input.CopyTo(output);
             }
-        }
-        File.Delete(zip);
-        File.Move(rebuilt, zip);
+            return true;
+        });
     }
 
     /// <summary>Point the named member at <paramref name="folderPath"/> inside the archived <c>.TcPOU</c>, creating
@@ -397,10 +381,7 @@ internal static class TcItemArchive
     /// never happened.</para></summary>
     private static void SetMemberFolder(string zip, string memberName, string folderPath)
     {
-        var rebuilt = zip + ".placed";
-        try { File.Delete(rebuilt); } catch { /* fresh temp */ }
-        using (var src = ZipFile.OpenRead(zip))
-        using (var dst = ZipFile.Open(rebuilt, ZipArchiveMode.Create))
+        Rebuild(zip, ".placed", (src, dst) =>
         {
             var placed = false;
             foreach (var entry in src.Entries)
@@ -420,9 +401,8 @@ internal static class TcItemArchive
             if (!placed)
                 throw new BridgeException(BridgeErrorCodes.Unreadable,
                     $"'{memberName}' is not in its POU's archive, so it cannot be placed in '{folderPath}'");
-        }
-        File.Delete(zip);
-        File.Move(rebuilt, zip);
+            return true;
+        });
     }
 
     /// <summary>Write each body into the archive's source documents. Same shape as
@@ -431,12 +411,8 @@ internal static class TcItemArchive
     private static void SetBodies(string zip, string pouName,
                                   System.Collections.Generic.IReadOnlyList<(string[] Path, string Nwl)> bodies)
     {
-        var rebuilt = zip + ".bodies";
-        try { File.Delete(rebuilt); } catch { /* fresh temp */ }
-
         var written = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
-        using (var src = ZipFile.OpenRead(zip))
-        using (var dst = ZipFile.Open(rebuilt, ZipArchiveMode.Create))
+        Rebuild(zip, ".bodies", (src, dst) =>
         {
             foreach (var entry in src.Entries)
             {
@@ -449,19 +425,38 @@ internal static class TcItemArchive
 
                 WriteEntry(dst, entry.FullName, text, bom);
             }
-        }
 
-        var missing = bodies.Select(b => string.Join(".", b.Path)).Where(k => !written.Contains(k)).ToList();
-        if (missing.Count > 0)
+            var missing = bodies.Select(b => string.Join(".", b.Path)).Where(k => !written.Contains(k)).ToList();
+            if (missing.Count > 0)
+                throw new BridgeException(BridgeErrorCodes.Unreadable,
+                    $"'{string.Join("', '", missing)}' is not in the POU's archive, so no graphical body could be " +
+                    "written into it");
+            return true;
+        });
+    }
+
+    /// <summary>Rewrite <paramref name="zip"/> through a sibling temp file <c>zip + suffix</c>: <paramref name="write"/>
+    /// copies <c>src</c> into <c>dst</c> and answers whether the result replaces the archive. The sibling is gone on EVERY
+    /// exit — replaced into the archive, discarded, or deleted when <paramref name="write"/> throws — so a refused rewrite
+    /// leaves no file behind in %TEMP%.</summary>
+    private static void Rebuild(string zip, string suffix, Func<ZipArchive, ZipArchive, bool> write)
+    {
+        var rebuilt = zip + suffix;
+        File.Delete(rebuilt);
+        bool replace;
+        try
         {
-            try { File.Delete(rebuilt); } catch { /* temp */ }
-            throw new BridgeException(BridgeErrorCodes.Unreadable,
-                $"'{string.Join("', '", missing)}' is not in the POU's archive, so no graphical body could be " +
-                "written into it");
+            using var src = ZipFile.OpenRead(zip);
+            using var dst = ZipFile.Open(rebuilt, ZipArchiveMode.Create);
+            replace = write(src, dst);
         }
-
-        File.Delete(zip);
-        File.Move(rebuilt, zip);
+        catch
+        {
+            File.Delete(rebuilt);
+            throw;
+        }
+        if (replace) { File.Delete(zip); File.Move(rebuilt, zip); }
+        else File.Delete(rebuilt);
     }
 
     /// <summary>An archive entry's text, and whether the vendor opened it with a UTF-8 byte order mark.
