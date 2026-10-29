@@ -13,3 +13,8 @@
 
 - [ ] 3.1 The VM checklist (`scripts/README.md`) on VirtualBox VMs: TwinCAT-only 4024, tr-TR and ru-RU system locale, Windows
       10 LTSC 2019, non-admin Cyrillic user, no git on PATH, no AVX2; results recorded; failures fixed test-first.
+
+## Close-out (2026-10-29, owner: "close these for now") — closed unfinished
+
+Nothing built. Parked on the owner's own steps (a runner machine with the IDE variants; TwinCAT 4026 / 32-bit SP installs
+behind a myBeckhoff login and VM cells). Reopen as a new change when those exist; this file is the plan to start from.
