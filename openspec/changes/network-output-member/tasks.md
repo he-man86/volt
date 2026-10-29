@@ -166,7 +166,7 @@
       `#subset`); the roundtrip.test.ts comment says the current spelling.
 - [ ] 2.5 Live e2e on CODESYS and TwinCAT; the graphical conformance fixtures re-recorded.
 
-- [ ] 2.6 The Execute box as `EXECUTE(EN := …, CODE := '<ST>')` (design.md, last section): writer, reader, LSP, exec twin, doc;
+- [x] 2.6 The Execute box as `EXECUTE(EN := …, CODE := '<ST>')` (design.md, last section): writer, reader, LSP, exec twin, doc;
       `%EXECUTE` / `%END_EXECUTE` deleted. Count first: an Execute box without EN, and one whose ENO chains on.
       Built 2026-10-29 (design.md "As built (2.6)"), the live measurement open. Counts: 12 Execute boxes (CODESYS 11,
       TwinCAT 1), without EN 0, ENO chaining on 0 (all roots showing EN); case set: without EN 3, read through ENO 5.
@@ -217,6 +217,8 @@
       `ide.ps1 up -Instance network-output-member` refuses while the hand-started CODESYS pid 35692
       (`CodesysTestProject.3.5.21.60.project*`, unsaved) still runs; Volt never closes an IDE it did not start. The
       working tree keeps the 2.6 build and these fixes uncommitted (not reset: it is the only copy of the work).
+      Built 2026-10-29 (451c689db0); C# suites green, LSP 10301 pass with only the 4 corpus-twins recordings red (live
+      re-record blocked by a hand-opened CODESYS; 2.3 re-records them).
 - [ ] 2.7 An FB box is a call on its instance (design.md "FB boxes"); the code on this branch still writes
       `TYPE(FB := inst, …)`.
 - [ ] 2.8 Wires as `VAR_TEMP w1 : ANY; END_VAR` at the network start (design.md "Wires"): writer, reader, LSP, exec
