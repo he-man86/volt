@@ -314,6 +314,23 @@ export const CEILING_EXCEPTIONS_C: readonly CeilingException[] = [
   ...UNNAMED_CALL_BOXES,
   ...BEFORE_CASCADES,
   ...ROOT_GAPS,
+  // a FUNCTION's box at a root showing ENO without EN: CODESYS and TwinCAT do not compile it ("Type of lazy typed
+  // variable '__<POU>__ImpVar<n>' could not be resolved", an internal name the LSP cannot state); network-output-member 2.3
+  ...(
+    [
+      ["fixtures.codesys", "total: GAP"],
+      ["fixtures.codesys", "total: unowned GAP"],
+      ["fixtures.twincat", "total: GAP"],
+      ["fixtures.twincat", "total: unowned GAP"],
+    ] as const
+  ).map(([baseline, measure]) => ({
+    baseline,
+    measure,
+    by: 1,
+    fixture: "rcc_network_eno_function_without_en_root",
+    task: "none: niche, accepted loss (0 occurrences in the corpora)",
+    why: "a root FUNCTION box showing ENO without EN does not compile; the vendor names its own implicit variable",
+  })),
   ...REVERSED_ARRAY_SIZE,
   ...INDEXOF_UNTYPED,
   ...NEGATED_INT_PIN,

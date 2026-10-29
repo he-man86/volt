@@ -12,13 +12,13 @@
  *   `X(EN := e, pins…)`                          the box with EN and no ENO, its value: a comparison's FALSE when disabled
  *                                                (1.3), any other an assignment's whole value, held when disabled (1.4):
  *                                                `IF e THEN y := X(pins…); END_IF`; at the root as with ENO;
- *   `X(pins…).ENO`                               the call, on every scan; its ENO TRUE;
+ *   `X(pins…).ENO`                               the call, on every scan; its ENO FALSE (2.3); at a root, or on an
+ *                                                FB, refused: CODESYS compiles neither (2.3);
  *   `t1(IN := a).Q`                              `t1(IN := a);` before the item, `t1.Q` in it — the FB runs before the tree
  *                                                that reads it, on every scan though an enabled box reads it; with
- *                                                `EN := e` under `IF e THEN … END_IF`, what its pins evaluate with it; read
- *                                                by nothing named, its one output (`t1.Q`); `.ENO` its ENO, as above —
- *                                                the order network-text-st's FB statement and `t1_EN` call had, which
- *                                                network-output-member 2.3 runs against CODESYS;
+ *                                                `EN := e` under `IF e THEN … END_IF`; read by nothing named, its one
+ *                                                output (`t1.Q`); `.ENO` its ENO, as above. What any enabled box's pins
+ *                                                evaluate runs on every scan, only the box under its EN (measured 2.3);
  *   `T(pins…)`, T an FB type                     the vendor's unnamed instance: the call of its type, which the build
  *                                                refuses as it refuses the box;
  *   `g(pins…).OUT`                               a function's value: the call;
@@ -28,11 +28,11 @@
  *   `BRANCH_SHORTCIRCUIT(FEED := f, b1, b2)`     a branch holding a box runs, with the calls it reads, unless the feed
  *                                                and a box-free branch are both TRUE (1.4): `IF NOT (f AND free) THEN …`;
  *   `R_EDGE(x)`, `F_EDGE(x)`                     an `R_TRIG` / `F_TRIG` called with x where its tree is evaluated, read
- *                                                by its Q (1.3): every scan, or under the EN of the enabled FB box whose
- *                                                pin it stands in;
+ *                                                by its Q (1.3): every scan, in an enabled box's pin too (2.3);
  *   `JMP(l, v)`, `RETURN(v)`                     `IF v THEN JMP l; END_IF;` / `IF v THEN RETURN; END_IF;`; in a tree its
  *                                                value held in a temp, the jump taken where the tree is evaluated;
- *   a wire                                       a VAR_TEMP of its definition's type (`types` `network-call.ts`),
+ *   a wire                                       a VAR of its definition's type (`types` `network-call.ts`), kept across
+ *                                                scans: read before its definition, the previous scan's value (2.3);
  *                                                renamed into the twin's own names (`vtw<k>_w1`), as is every ENO;
  *   a `%DISABLED` network                        nothing: CODESYS compiles none of it (1c).
  *
@@ -54,8 +54,8 @@ import { type AssignStatement, guardedCalls, guardedReadBy, valueReads } from ".
 
 export { TwinRefusal } from "./network-twin-boxes.js"
 
-/** One body's twin: its ST statements and the variables they need (`name : TYPE;`) — its wires as the network declares
- *  them, `VAR_TEMP`, each with its definition's type; its ENO temps and edge detectors in `VAR`. */
+/** One body's twin: its ST statements and the variables they need (`name : TYPE;`) — its wires, each with its definition's
+ *  type, its ENO temps and edge detectors, all in `VAR` (a wire keeps its value across scans, measured 2.3). */
 export interface BodyTwin {
   code: string
   declarations: string[]
@@ -95,7 +95,7 @@ class Twinner extends BoxTwinner {
     for (const net of plainStText(body).networks) for (const w of net.wires) this.wires.set(w.name.toLowerCase(), prefix + w.name)
   }
 
-  /** The wires, each with its definition's type (`types` `network-call.ts`): the twin's `VAR_TEMP`. */
+  /** The wires, each with its definition's type (`types` `network-call.ts`). */
   wireDeclarations(): string[] {
     const out: string[] = []
     for (const [lower, renamed] of this.wires) {
@@ -122,10 +122,9 @@ class Twinner extends BoxTwinner {
         const box = s.value.kind === "call" ? this.box(s.value) : undefined
         if (box !== undefined && this.enabledValue(box) && !COMPARISON.has(this.name(box).toUpperCase())) {
           const cond = this.expr(box.enable!.value!, pre)
-          const inner = this.gated(pre)
-          const value = this.boxValue(box, box.pins.filter((a) => !a.output), inner)
-          const text = this.assign(s, value, inner)
-          return [...pre, `IF ${cond} THEN\n\t${[...inner, text].join("\n\t")}\nEND_IF;`]
+          const value = this.boxValue(box, box.pins.filter((a) => !a.output), pre)
+          const text = this.assign(s, value, pre)
+          return [...pre, `IF ${cond} THEN\n\t${text}\nEND_IF;`]
         }
         const text = this.assign(s, this.expr(s.value, pre), pre)
         return [...pre, text]
@@ -178,17 +177,15 @@ class Twinner extends BoxTwinner {
     const box = this.box(call)
     if (box === undefined) return [this.callText(call, call.args, pre) + ";"]
     if (box.instance !== undefined) {
-      this.fb(box, false, undefined, pre) // a root's ENO: read by nothing
+      this.fb(box, eno && box.enable === undefined, undefined, pre) // a root's ENO: read by nothing
       return pre.splice(0)
     }
     if (box.enable !== undefined) {
       this.enabled(box, pre, false)
       return pre.splice(0)
     }
-    if (eno) {
-      this.enoOnly(box, pre)
-      return pre.splice(0)
-    }
+    // measured 2.3: CODESYS does not compile a root box showing ENO without EN (`rcc_network_eno_function_without_en_root`)
+    if (eno) throw new TwinRefusal(`the ${this.name(box)} box at a root shows ENO without EN, which CODESYS does not compile`)
     // a function box at the root: its value to the targets its `OUT =>` names, an operator's infix
     const results = box.pins.filter((a) => a.output && a.param?.name.toUpperCase() === "OUT")
     if (results.length > 0) {

@@ -102,7 +102,10 @@ export function networkBox(call: CallExpr, scope: Scope, project: Scope): Networ
     at++
   }
   const pins = call.args.slice(at)
-  return { call, instance, enable, pins, st: { kind: "call", callee: instance ?? call.callee, args: [...pins], span: call.span }, signature }
+  // a FUNCTION's `OUT => v` is its box's value pin: the ST call the box is returns it, and takes no such argument
+  const value = (a: CallArg) => signature?.shape === "function" && !declaresOut(signature) && a.output && a.param?.name.toUpperCase() === VALUE
+  const args = pins.filter((a) => !value(a))
+  return { call, instance, enable, pins, st: { kind: "call", callee: instance ?? call.callee, args, span: call.span }, signature }
 }
 
 /** The member closing a box's call, `<box>.ENO` / `<box>.NAME`: the box and the name; undefined for any other member. */

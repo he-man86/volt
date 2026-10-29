@@ -69,6 +69,15 @@ public class TcCalleeDerivationTests
     public void An_unwired_output_is_listed_too() =>
         Assert.Equal(new[] { "   ", "doubled" }, Names(Built("twice := F_split(v).OUT;"), "OutputParam"));
 
+    /// <summary>ENO SHOWN WITHOUT EN (DIALECT N16: the flags are independent; network-output-member 2.3): the box shows its
+    /// ENO and reads back read through it. Built only under an enable, the flag was dropped and the next pull lost `.ENO`.</summary>
+    [Fact]
+    public void A_box_showing_its_ENO_without_EN_is_built_showing_it()
+    {
+        var box = Built("x := AwF(v).ENO;");
+        Assert.True(TcNetworkReader.HasEno(box));
+    }
+
     [Fact]
     public void A_method_call_is_built_with_the_method_call_type()
     {

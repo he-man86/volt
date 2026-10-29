@@ -60,7 +60,7 @@ const CASES: readonly Case[] = [
 	{
 		what: "ENO read off a box calling a PROGRAM created by the same push",
 		callee: { name: fid("lagP"), source: program(id("lagP")) },
-		caller: { name: fid("lagPc"), source: caller(id("lagPc"), "LD", "\tgo : BOOL;\n\tdone : BOOL;", `done := ${id("lagP")}_EN(EN := go);`) },
+		caller: { name: fid("lagPc"), source: caller(id("lagPc"), "LD", "\tgo : BOOL;\n\tdone : BOOL;", `done := ${id("lagP")}(EN := go).ENO;`) },
 		twincatRefuses: false,
 	},
 	{
@@ -68,8 +68,8 @@ const CASES: readonly Case[] = [
 		callee: { name: fid("lagF"), source: fun(id("lagF")) },
 		caller: {
 			name: fid("lagFc"),
-			source: caller(id("lagFc"), "FBD", "\tgo : BOOL;\n\tn : INT;\n\tok : BOOL;", `ok := ${id("lagF")}_EN(EN := go, n);`),
-			pulls: caller(id("lagFc"), "FBD", "\tgo : BOOL;\n\tn : INT;\n\tok : BOOL;", `ok := ${id("lagF")}_EN(EN := go, a := n);`),
+			source: caller(id("lagFc"), "FBD", "\tgo : BOOL;\n\tn : INT;\n\tok : BOOL;", `ok := ${id("lagF")}(EN := go, n).ENO;`),
+			pulls: caller(id("lagFc"), "FBD", "\tgo : BOOL;\n\tn : INT;\n\tok : BOOL;", `ok := ${id("lagF")}(EN := go, a := n).ENO;`),
 		},
 		twincatRefuses: false,
 	},

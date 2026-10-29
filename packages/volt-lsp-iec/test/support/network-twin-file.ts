@@ -30,7 +30,7 @@ interface Edit {
 
 /**
  * A file with every plain-ST network body as its twin (`%LANGUAGE ST`), the variables each twin needs declared in the
- * unit that owns its scope — its wires in a `VAR_TEMP` block, its ENO temps and edge detectors in a `VAR` block; a POU's or
+ * unit that owns its scope — its wires, ENO temps and edge detectors in a `VAR` block; a POU's or
  * a METHOD's own declaration, an ACTION's (which has none) its POU's. A body the twin cannot write is named in `refused`
  * and left as it is.
  */
@@ -61,7 +61,7 @@ export function twinFile(source: string, parseResult: ParseResult, project: Scop
       continue
     }
     const block = (kw: string, decls: readonly string[]) => (decls.length === 0 ? "" : `${kw}\n\t${decls.join("\n\t")}\nEND_VAR\n`)
-    edits.push({ start: at, end: at, text: block("VAR_TEMP", twin.wires) + block("VAR", twin.declarations) })
+    edits.push({ start: at, end: at, text: block("VAR", [...twin.wires, ...twin.declarations]) })
   }
   let out = source
   for (const e of edits.sort((a, b) => b.start - a.start || b.end - a.end)) out = out.slice(0, e.start) + e.text + out.slice(e.end)

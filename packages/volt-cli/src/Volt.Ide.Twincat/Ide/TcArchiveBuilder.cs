@@ -283,7 +283,6 @@ internal sealed class TcArchiveBuilder
         var outTypes = Enumerable.Range(0, Math.Max(names.Count, types.Count)).Select(i => i < types.Count ? types[i] : "").ToList();
         while (outNames.Count < outTypes.Count) outNames.Add("");
 
-        var shown = b.Enable is not null || b.StCode is not null;   // EN/ENO shown, as the drawn Execute box and an enabled box
         return new XElement("o",
             Str("BoxType", b.Type),
             Member("Instance", "Operand", instance),
@@ -300,8 +299,9 @@ internal sealed class TcArchiveBuilder
             // ENO SHOWN ONLY WHERE THE BOX HAS ONE: an enabled comparison read as a value is built EN, no ENO, as
             // CODESYS builds it (2R.5 #26), and with ENO shown beside an output list holding none TwinCAT does not compile
             // it — measured live 2026-10-17, `x := a AND (v GT 40 EN c);` built "Identifier '__<POU>__ImpVar8' not
-            // defined" (stored-shapes.test.ts).
-            shown && (eno || b.StCode is not null) ? Raw("ENO", "true") : Null("ENO"),
+            // defined" (stored-shapes.test.ts). The flag is the box's own fact, not its EN's (N16): ENO without EN is shown
+            // too (network-output-member 2.3).
+            eno || b.StCode is not null ? Raw("ENO", "true") : Null("ENO"),
             b.StCode is { } st ? Member("STSnippet", "STSnippet", Snippet(st)) : Null("STSnippet"),
             Raw("ContainsExtensibleInputs", "false"),
             Raw("ProvidesSTSnippet", b.StCode is not null ? "true" : "false"),

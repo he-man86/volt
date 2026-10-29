@@ -329,3 +329,29 @@ its definition's type; its ENO temps and edge detectors stay in `VAR` (an edge d
 Open for 2.3 (live): a wire read before its definition (the previous scan's value, design 1.4) reads a `VAR_TEMP` that
 CODESYS initialises each call — the twin's run against the IDE's measures whether that is what the network does.
 Oracle tallies unchanged (CODESYS 301 / 87, TwinCAT 143 / 8, 0 unsupported, 0 gaps).
+
+## As built (2.3 / 2.5, 2026-10-29), measured live on CODESYS 3.5.21.40 (`st-spellings-run.test.ts`) and recorded
+
+- **ENO without EN was not written.** Both vendors' box writers set the `Eno` flag only under an enable
+  (`CodesysNetworkWriter`, `TcArchiveBuilder`), so a pushed `f(…).ENO` came back without `.ENO` (consumed) or as
+  `%UNSUPPORTED` (root). The flag is now the box's own fact (N16). Test: `TcCalleeDerivationTests`
+  `A_box_showing_its_ENO_without_EN_is_built_showing_it` (offline); live, the spellings run.
+- **What CODESYS runs** (each a twin rule, `test/support/network-twin*.ts`, pinned in `network-twin.test.ts`):
+  a function box showing ENO without EN is called every scan and its ENO is **FALSE**; what an enabled box's pins evaluate
+  (an edge, an FB box read there) runs **on every scan**, only the box under its EN — the order 2a left open; a wire read
+  before its definition reads the **previous scan's** value, so the twin's wires are `VAR` again (2.8's `VAR_TEMP` was
+  wrong for that read).
+- **What CODESYS does not compile** (an IDE error the push stores, as `rcc_network_eno_without_en` already recorded for
+  an operator): a root box showing ENO without EN (recorded on both vendors, `rcc_network_eno_function_without_en_root`:
+  "Type of lazy typed variable … could not be resolved"); an FB box showing ENO without EN ("'ENO' is no component of
+  'CTU'"); an enabled non-comparison box in an enabled box's pin ("A box with EN can be used for comparison operators
+  only"). The twin refuses the first two by name (0 in the corpora).
+- **Execute** (2.6's open measurement): a `CODE` string across lines pushes, round-trips and runs (`execute-runs.test.ts`).
+- Twins re-recorded (awa-palletizer, bakon-nano, pro2193, lenze-mid twice): 0 errors. The 97 graphical conformance
+  fixtures re-recorded on CODESYS and TwinCAT (Project13): unchanged but for the new root fixture; the push refuses 1
+  (CODESYS) / 7 (TwinCAT) of them by name as before, their recordings kept.
+- The push of `.NAME` on a FUNCTION naming a `VAR_OUTPUT` (the one build route 2.5 was to measure) stays refused by
+  name: niche: accepted loss (0 occurrences in the corpora).
+- LSP: a FUNCTION box's `OUT => v` is its value pin; the ST call the box is (`NetworkBox.st`) leaves it out, so the
+  call check no longer calls it an unknown output (found by the new root fixture).
+- e2e texts respelled to this change's grammar; ENO without EN round-trips on both vendors (`create-shapes`).

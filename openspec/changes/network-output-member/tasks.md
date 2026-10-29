@@ -153,10 +153,18 @@
       reader's refusals in its words; the ST checks (call arguments, non-callable, unresolved names, member, call-result
       access, unknown source) read a box as the call its callee takes. Case set: 187/187 on both sides. Corpus gate (LSP
       invents nothing) green; frontend and analysis baselines unchanged.
-- [ ] 2.3 Exec twin: translate `.X`, `EN :=`, `FB :=` to ST; twin builds re-recorded live (lenze-mid, pro2193): 0
+- [x] 2.3 Exec twin: translate `.X`, `EN :=`, `FB :=` to ST; twin builds re-recorded live (lenze-mid, pro2193): 0
       errors; exec traces equal on the spelled cases.
       The root `f(…).ENO;` → the call statement. ENO without EN (`function-eno-without-en`) added to
       `st-spellings-run.test.ts` and RUN live before its translation is trusted (1b: only built so far).
+      Done 2026-10-29 (design.md "As built (2.3 / 2.5)"), measured live on CODESYS 3.5.21.40 (`st-spellings-run.test.ts`
+      green, its hand twin corrected to what CODESYS runs: ENO without EN FALSE, an enabled box's pins every scan, a wire
+      read before its definition the previous scan's): both writers now set ENO without EN (`CodesysNetworkWriter`,
+      `TcArchiveBuilder`; `TcCalleeDerivationTests`); the twin's rules per the measurement; a root box / an FB showing ENO
+      without EN refused (CODESYS compiles neither; fixture `rcc_network_eno_function_without_en_root`, recorded on both
+      vendors, GAP named "niche: accepted loss (0 occurrences in the corpora)" in `baseline-c.ts`). The four corpus twin
+      builds re-recorded: 0 errors. LSP: a FUNCTION box's `OUT =>` is its value pin, not a named output
+      (`network-box.ts`; test `call-arguments.test.ts` "a FUNCTION box's value pin…", red first).
 - [x] 2.4 `docs/network-text.html`: the suffix table becomes one sentence and one example; the FB rows follow the rule.
       Fix the stale anchors: `test/e2e/graphical/roundtrip.test.ts:53` (`#opaque`, LET/`i*`), the LSP conformance
       fixtures `graphical/network-unresolved.ts`, `network-graphical-a.ts`, `network-graphical-c.ts` (`#unnamed-instance`,
@@ -164,7 +172,12 @@
       Done 2026-10-28: the suffix table is `#outputs`, one paragraph and one example block; FB rows `TON(FB := t1, …)`;
       every stale anchor points at a section that exists (`#elements`, `#outputs`, `#wires`, `#execute`, `#lines`,
       `#subset`); the roundtrip.test.ts comment says the current spelling.
-- [ ] 2.5 Live e2e on CODESYS and TwinCAT; the graphical conformance fixtures re-recorded.
+- [x] 2.5 Live e2e on CODESYS and TwinCAT; the graphical conformance fixtures re-recorded.
+      Done 2026-10-29: graphical conformance fixtures re-recorded on both vendors; the e2e texts still in the network-text-st
+      spelling respelled (`_EN`/`_ENONLY` → `EN :=` + `.ENO`, a function with a VAR_OUTPUT read by its value `.OUT`, the
+      preflight's refusal `EN := stands first`); new `create-shapes` "a box showing its ENO without EN survives a create".
+      Live (own instance network-output-member, run one vendor at a time): CODESYS 3.5.21.40 621 pass + the respelled
+      `refused-shapes` 9/9; TwinCAT Project14 606 pass / 0 fail.
 
 - [x] 2.6 The Execute box as `EXECUTE(EN := …, CODE := '<ST>')` (design.md, last section): writer, reader, LSP, exec twin, doc;
       `%EXECUTE` / `%END_EXECUTE` deleted. Count first: an Execute box without EN, and one whose ENO chains on.
@@ -257,7 +270,7 @@
       Gate: typecheck, lint, `bun run check` green; C# Engine 2487 (+1 skip) / Cli 378 / Codesys 538 / Twincat 785 /
       Connector 156 / Contracts 56 / Repo.Gates 276, 0 fail; volt-cli `test/unit` 235, volt-vscode 34; LSP full suite
       (`VOLT_REQUIRE_FULL=1`) 10298 pass / 36 skip / 431 todo / 4 fail — only the 4 known `corpus-twins.test.ts` live recordings (2.3).
-- [ ] 2a Gate of 2.1/2.2/2.4 (2026-10-28): NOT green, nothing committed. Typecheck, lint, `bun run check` green; C#
+- [x] 2a Gate of 2.1/2.2/2.4 (2026-10-28): NOT green, nothing committed. Typecheck, lint, `bun run check` green; C#
       Engine 2478 (+1 skip) / Cli 378 / Codesys 538 / Twincat 785 / Connector 156 / Contracts 56 / Repo.Gates 276, 0 fail;
       volt-cli `test/unit` 235, volt-vscode 34, 0 fail; LSP full suite (`VOLT_REQUIRE_FULL=1`) 10290 pass / 36 skip /
       431 todo / **4 fail** — `corpus-twins.test.ts` "the IDE builds the twins…" for awa-palletizer, bakon-nano, lenze-mid,
@@ -267,6 +280,9 @@
       `ide.ps1 up -Instance network-output-member` refuses beside a CODESYS it does not own (pid 35692, SP21 Patch 4, GUI
       started 15:36 with no project argument). Re-run the gate once that IDE is closed: record the four (2.3), then the
       full suite.
+      Green 2026-10-29 (after 2.3/2.5): typecheck, lint, `bun run check` (16/16), `rate:fixtures` current; C# Engine 2487
+      (+1 skip) / Cli 378 / Codesys 538 / Twincat 786 / Connector 156 / Contracts 56 / Repo.Gates 276, 0 fail; volt-cli
+      `test/unit` 235, volt-vscode 34; LSP full suite (`VOLT_REQUIRE_FULL=1`) 10306 pass / 36 skip / 431 todo / 0 fail.
 
 ## 3. Close
 

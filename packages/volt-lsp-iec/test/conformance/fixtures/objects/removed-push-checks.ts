@@ -190,6 +190,39 @@ END_FUNCTION_BLOCK
     execSkip: NOT_ST,
   },
 
+  // …and the same box at a ROOT, showing ENO without EN (network-output-member 2.3): nothing reads the ENO.
+  {
+    name: "rcc_network_eno_function_without_en_root",
+    pouName: "FB_LANG_rcc_nw_eno_root",
+    kind: "function_block",
+    feature: "a user FUNCTION's box at a root showing ENO without EN",
+    fromDoc: doc,
+    source: `FUNCTION FUN_LANG_rcc_thrice : INT
+VAR_INPUT
+	a : INT;
+	b : INT;
+END_VAR
+FUN_LANG_rcc_thrice := a + b + b;
+END_FUNCTION
+
+FUNCTION_BLOCK FB_LANG_rcc_nw_eno_root
+VAR
+	a : INT;
+	b : INT;
+	y : INT;
+END_VAR
+
+%LANGUAGE FBD
+%NETWORK
+FUN_LANG_rcc_thrice(a := a, b := b, OUT => y).ENO;
+
+END_FUNCTION_BLOCK
+`,
+    plcPrgVar: "inst : FB_LANG_rcc_nw_eno_root;",
+    plcPrgBody: "inst();",
+    execSkip: NOT_ST,
+  },
+
   // ─── 2.7 — a wire is defined wherever in its network ───
   network(
     "rcc_network_var_temp_after_statement",

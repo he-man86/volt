@@ -1,26 +1,33 @@
 ## ADDED Requirements
 
-### Requirement: A box is a call; `.ENO` and `.NAME` state its handed-on output
+### Requirement: A box is a call
 
-Network text SHALL spell every box as one call of its toolbox name (an FB: its instance, `t1(…)`, or its type where it has none; the Execute box:
-`EXECUTE`, its ST the string pin `CODE`).
-Where the callee declares no `EN`, `EN :=` SHALL mean EN shown; where it declares no `ENO`, a box showing ENO SHALL
-close its call with `.ENO`, also at a root. A consumed box without ENO and with several data outputs SHALL close its
-call with `.NAME`, the output its consumer reads. A declared `EN` or `ENO` is an ordinary pin.
+Network text SHALL spell every box as one call of its toolbox name: an FB its instance (`t1(…)`), or its type where it
+has none; the Execute box `EXECUTE`, its ST the string pin `CODE`.
 
 #### Scenario: an FB chains a named output
 - **WHEN** a TON box whose consumer reads `Q` is pulled
 - **THEN** it reads `x := AND(t1(IN := a, PT := T#1S).Q, b);`
-
-#### Scenario: EN and ENO stated independently
-- **WHEN** a MOVE box shows EN and ENO and stands at a root
-- **THEN** it reads `MOVE(EN := c, 1, OUT => y).ENO;`, and the same box without ENO reads `MOVE(EN := c, 1, OUT => y);`
 
 #### Scenario: Execute is a call, its ST a string
 - **WHEN** an Execute box showing EN, its ST two lines, is pulled
 - **THEN** it reads `EXECUTE(EN := c, CODE := 'IF a THEN` / `n := n + 1; END_IF');`, its line break as it stands, a `'` in
   its ST written `$'` and a `$` written `$$`; read by a consumer, `ok := EXECUTE(EN := c, CODE := '…');` (its one output,
   its ENO), and no member closes its call
+
+### Requirement: `EN :=`, `.ENO` and `.NAME` state a box's enable and its handed-on output
+
+Where the callee declares no `EN`, `EN :=` SHALL mean EN shown; where it declares no `ENO`, a box showing ENO SHALL
+close its call with `.ENO`, also at a root. A consumed box without ENO and with several data outputs SHALL close its
+call with `.NAME`, the output its consumer reads. A declared `EN` or `ENO` is an ordinary pin.
+
+#### Scenario: EN and ENO stated independently
+- **WHEN** a MOVE box shows EN and ENO and stands at a root
+- **THEN** it reads `MOVE(EN := c, 1, OUT => y).ENO;`, and the same box without ENO reads `MOVE(EN := c, 1, OUT => y);`
+
+#### Scenario: ENO shown without EN survives a push
+- **WHEN** `x := f(IN := a).ENO;` is pushed and pulled back
+- **THEN** it reads `x := f(IN := a).ENO;`: the box shows its ENO with no EN, on both vendors
 
 ### Requirement: Any other member is refused by name
 
@@ -55,3 +62,13 @@ rebuild-loss warning when a rebuild does not give it back.
 #### Scenario: an edited network holding a root moved pin
 - **WHEN** a push rebuilds a network whose root box stores `MainOutputIndex` 1 and the rebuilt box does not
 - **THEN** the push's rebuild-loss warning names `MainOutputIndex`
+
+### Requirement: A network declares its wires as `VAR_TEMP … : ANY`
+
+A network whose output fans out SHALL declare its wires in one line `VAR_TEMP w1 : ANY; w2 : ANY; END_VAR` after its
+`%` lines and before its comment. A push SHALL refuse by name another type, the block across lines, a comma list, the
+block after the comment or code, and a `%WIRES` line.
+
+#### Scenario: a fan-out pulled
+- **WHEN** a network whose `a AND b` feeds two coils is pulled
+- **THEN** it reads `VAR_TEMP w1 : ANY; END_VAR`, `w1 := AND(a, b);`, `x := w1;`, `y := w1;`

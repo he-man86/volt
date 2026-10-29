@@ -173,7 +173,7 @@ VAR
 END_VAR
 %LANGUAGE FBD
 %NETWORK
-next := VltRefSplit(src, doubled => twice);
+next := VltRefSplit(src, doubled => twice).OUT;
 
 END_FUNCTION_BLOCK
 `,
@@ -186,7 +186,7 @@ VAR
 END_VAR
 %LANGUAGE FBD
 %NETWORK
-next := VltRefSplit(source := src, doubled => twice);
+next := VltRefSplit(source := src, doubled => twice).OUT;
 
 END_FUNCTION_BLOCK
 `,

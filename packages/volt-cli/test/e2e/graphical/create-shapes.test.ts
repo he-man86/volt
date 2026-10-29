@@ -135,4 +135,36 @@ describe(`graphical / create shapes (${BASE})`, () => {
 
 		await clean(item)
 	})
+
+	/** ENO SHOWN WITHOUT EN (DIALECT N16, network-output-member 2.3): the flag is the box's own fact, so `f(…).ENO` read by
+	 * a coil comes back as written. Both writers set it only under an enable, and the pull dropped `.ENO`. */
+	it("a box showing its ENO without EN survives a create", async () => {
+		const fn = id("enofn")
+		const fnItem = inFolder(await projectRoot(), fid("enofn", "pou"))
+		const name = id("enonoen")
+		const item = inFolder(await projectRoot(), fid("enonoen", "pou"))
+		await clean(item)
+		await clean(fnItem)
+
+		const fnSrc = `FUNCTION ${fn} : INT\nVAR_INPUT\n\tIN : INT;\nEND_VAR\n%LANGUAGE ST\n${fn} := IN + 1;\n\nEND_FUNCTION\n`
+		const madeFn = await pushOps([{ op: "set", name: fnItem, sourceText: fnSrc, ifVersion: null }])
+		expect(landed(madeFn), `function create refused: ${JSON.stringify(madeFn.conflicts)}`).toBe(true)
+
+		const src =
+			`PROGRAM ${name}\nVAR\n\ti : INT;\n\tn : INT;\n\tx : BOOL;\nEND_VAR\n` +
+			`%LANGUAGE FBD\n%NETWORK\nx := ${fn}(IN := i, OUT => n).ENO;\n\nEND_PROGRAM\n`
+		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
+		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
+
+		const v1 = await pull(item)
+		expect(v1.sourceText, "the box lost its ENO").toContain(`x := ${fn}(IN := i, OUT => n).ENO;`)
+
+		const refs = await bridge.refs()
+		const again = await pushOps([{ op: "set", name: item, sourceText: v1.sourceText, ifVersion: refs.items[item] }])
+		expect(landed(again), `re-push refused: ${JSON.stringify(again.conflicts)}`).toBe(true)
+		expect((await pull(item)).sourceText).toBe(v1.sourceText)
+
+		await clean(item)
+		await clean(fnItem)
+	})
 })

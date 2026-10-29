@@ -509,6 +509,10 @@ namespace Volt.Ide.Codesys
                             // read through its ENO (N21).
                             NwlInterop.Set(box, "Eno", eno);
                         }
+                        // ENO WITHOUT EN (N16: the two are independent): the flag is the box's fact, not its enable's.
+                        // Set only under an enable, a pushed `f(…).ENO` lost it — the next pull dropped `.ENO`, and a root
+                        // box did not compile (network-output-member 2.3, `st-spellings-run.test.ts`).
+                        else if (eno) NwlInterop.Set(box, "Eno", true);
 
                         foreach (var p in b.Inputs)
                             NwlInterop.Call(box, "AppendInputItem", Node(p.Value));

@@ -55,9 +55,9 @@ const SHAPES: Record<string, (lang: string) => string> = {
 	rail_coil: () => "%NETWORK\nout := TRUE;\n",
 	empty_network: (l) => `%NETWORK\nout := ${and(l, "a", "b")};\n%NETWORK\n`,
 	header: (l) => `%NETWORK "a rung"\n%DISABLED\n// a comment\nHere:\nout := ${and(l, "a", "b")};\n`,
-	enable_move: () => "%NETWORK\nout := MOVE_EN(EN := go, b, OUT => out1);\n",
+	enable_move: () => "%NETWORK\nout := MOVE(EN := go, b, OUT => out1).ENO;\n",
 	function_named: () => `%NETWORK\nn := ${FN}(A := i1, B := i2);\n`,
-	named_eno: () => "%NETWORK\nMOVE_EN(EN := go, 7, ENO => out, OUT => n);\n",
+	named_eno: () => "%NETWORK\nMOVE(EN := go, 7, ENO => out, OUT => n).ENO;\n",
 }
 
 const LANGS = ["LD", "FBD"] as const
@@ -172,7 +172,7 @@ describe(`graphical / native writer (${BASE})`, () => {
 		if (!twincat) return // CODESYS builds both from its live object model
 		const refused: Record<string, string> = {
 			parallel: "%NETWORK\nout := BRANCH(FEED := go, a, b);\n",
-			enable_and: "%NETWORK\nout := AND_EN(EN := go, a, b);\n",
+			enable_and: "%NETWORK\nout := AND(EN := go, a, b).ENO;\n",
 		}
 		for (const [shape, body] of Object.entries(refused)) {
 			const bare = id(`nw_r_${shape}`)
