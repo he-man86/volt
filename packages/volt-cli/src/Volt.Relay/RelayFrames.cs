@@ -23,6 +23,9 @@ namespace Volt.Relay
         Announcement,
         /// <summary>The relay acked one chunk. <see cref="RelayInbound.Id"/> and <see cref="RelayInbound.Seq"/> are set.</summary>
         Ack,
+        /// <summary>The relay no longer waits for a READ's answer (openspec relay-cancel-discarded-calls).
+        /// <see cref="RelayInbound.Id"/> and <see cref="RelayInbound.CancelReason"/> are set.</summary>
+        Cancel,
     }
 
     public sealed class RelayInbound
@@ -43,6 +46,9 @@ namespace Volt.Relay
         public int? MaxBytes { get; set; }
         /// <summary>Set only when <see cref="Kind"/> is <see cref="RelayInboundKind.Ack"/>: the chunk acked.</summary>
         public int? Seq { get; set; }
+        /// <summary>Set only when <see cref="Kind"/> is <see cref="RelayInboundKind.Cancel"/>: <c>timeout</c> or
+        /// <c>caller_gone</c>, the relay's own word, logged as stated.</summary>
+        public string? CancelReason { get; set; }
     }
 
     /// <summary>Reading and writing the tunnel's frames.
@@ -60,6 +66,18 @@ namespace Volt.Relay
         {
             Ops.Health, Ops.Refs, Ops.Fetch, Ops.Push, Ops.Build, Ops.Grep,
         };
+
+        /// <summary>The ops a relay may cancel (openspec relay-cancel-discarded-calls): the READS, which change nothing,
+        /// so not running or not answering one loses nothing. A cancel for any other op breaks the contract and changes
+        /// nothing: a write is never skipped or interrupted, and is answered as ever.</summary>
+        public static readonly HashSet<string> Cancellable = new HashSet<string>(StringComparer.Ordinal)
+        {
+            Ops.Health, Ops.Refs, Ops.Fetch, Ops.Grep,
+        };
+
+        /// <summary>The two reasons a cancel states: the relay's own budget for the call ran out, or its caller went.</summary>
+        public const string CancelTimeout = "timeout";
+        public const string CancelCallerGone = "caller_gone";
 
         public static string Hello(string? voltVersion, string vendor, string pipe)
         {
@@ -153,6 +171,18 @@ namespace Volt.Relay
             return new RelayInbound { Kind = RelayInboundKind.Announcement, MaxBytes = (int)Math.Min(maxBytes, int.MaxValue) };
         }
 
+        /// <summary><c>{"id":"r1","cancel":"timeout"}</c>: the relay no longer waits for r1. A cancel with no string id, or
+        /// a reason that is not one of the two, is refused by name: guessing what it meant could skip a call it did not.</summary>
+        private static RelayInbound ReadCancel(JsonElement root, JsonElement cancel)
+        {
+            if (!root.TryGetProperty("id", out var id) || id.ValueKind != JsonValueKind.String)
+                return Malformed("a cancel has no string `id`");
+            var reason = cancel.ValueKind == JsonValueKind.String ? cancel.GetString() : null;
+            if (reason != CancelTimeout && reason != CancelCallerGone)
+                return Malformed("a cancel's `cancel` is not \"" + CancelTimeout + "\" or \"" + CancelCallerGone + "\": " + cancel.GetRawText());
+            return new RelayInbound { Kind = RelayInboundKind.Cancel, Id = id.GetString()!, CancelReason = reason };
+        }
+
         private static RelayInbound Malformed(string reason) =>
             new RelayInbound { Kind = RelayInboundKind.Malformed, Reason = reason };
 
@@ -185,6 +215,7 @@ namespace Volt.Relay
                     if (root.TryGetProperty("volt", out var volt) && volt.ValueKind == JsonValueKind.String &&
                         volt.GetString() == "relay")
                         return ReadAnnouncement(root);
+                    if (root.TryGetProperty("cancel", out var cancel)) return ReadCancel(root, cancel);
                     // A pong, a keepalive, something from a newer relay. Not ours to act on, and NOT an error:
                     // it still proves the relay is alive, which is what the watchdog cares about.
                     return new RelayInbound { Kind = RelayInboundKind.Ignorable };

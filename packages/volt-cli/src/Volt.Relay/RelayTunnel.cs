@@ -65,13 +65,17 @@ namespace Volt.Relay
         // per dial on the reconnect loop's own flow; the heartbeat writes only its DropCause.
         private Connection? _connection;
         private Task? _loop;
+        /// <summary>Awaited, with the request's id, after the tunnel has taken a request and before its pipe call starts.
+        /// Null in every real bridge. A test sets it to hold a request QUEUED — the state that window is — long enough to
+        /// cancel it there (openspec relay-cancel-discarded-calls); the cancel's own check is the production code's.</summary>
+        internal Func<string, Task>? BeforePipeCall { get; set; }
 
         /// <summary>One dial's facts, for its end line (openspec relay-request-logging).</summary>
         private sealed class Connection
         {
             public DateTime? ConnectedUtc;
-            // id -> op of every request read on THIS connection that has not yet logged its terminal line.
-            public readonly ConcurrentDictionary<string, string> InFlight = new ConcurrentDictionary<string, string>();
+            // id -> every request read on THIS connection that has not yet logged its terminal line.
+            public readonly ConcurrentDictionary<string, Call> InFlight = new ConcurrentDictionary<string, Call>();
             // InFlight at the moment the connection ended, before its abandoned requests drain.
             public string[] InFlightAtEnd = new string[0];
             // Set by the heartbeat when IT drops the socket, so the end line names the watchdog or the dead
@@ -96,6 +100,34 @@ namespace Volt.Relay
             // counts against the connection it went out on (§4).
             public volatile IRelaySocket? Socket;
             public readonly ByteCount Received = new ByteCount();
+        }
+
+        /// <summary>Where a request is, as far as a cancel is concerned (openspec relay-cancel-discarded-calls).</summary>
+        private enum CallState
+        {
+            /// <summary>Taken by the tunnel; its pipe call has not started. A cancelled read never starts.</summary>
+            Queued,
+            /// <summary>On the pipe. A cancelled read finishes on the IDE (never interrupted) and is not answered.</summary>
+            Running,
+            /// <summary>Its whole terminal frame is going out. Too late to cancel.</summary>
+            Answering,
+            /// <summary>Its terminal frame is going out as chunks. A cancel stops it after the chunk in flight.</summary>
+            Streaming,
+        }
+
+        /// <summary>One request read on a connection, until its terminal line. State and cancel change together, under
+        /// the call's own lock: a cancel and the step it races (the pipe call starting, the answer being queued) see one
+        /// order.</summary>
+        private sealed class Call
+        {
+            public Call(string op) { Op = op; }
+            public string Op { get; }
+            public CallState State;
+            // The relay's reason, once it cancelled this read; set only while the cancel still changes something.
+            // Volatile so a progress callback can read it without the lock.
+            public volatile string? Cancelled;
+            // A streaming answer's chunks taken to be sent, and in all, when it was cancelled.
+            public (int Sent, int Of)? CancelledChunks;
         }
 
         /// <summary>One direction's message payload bytes: the total and the largest message, the one in progress
@@ -396,9 +428,46 @@ namespace Volt.Relay
                     case RelayInboundKind.Request:
                         Serve(frame, conn, token);
                         break;
+
+                    case RelayInboundKind.Cancel:
+                        CancelCall(frame.Id!, frame.CancelReason!, conn);
+                        break;
                 }
             }
             return null;
+        }
+
+        /// <summary>The relay no longer waits for <paramref name="id"/> (openspec relay-cancel-discarded-calls). A READ
+        /// that is queued never starts; one running finishes on the IDE, never interrupted, and is not answered; one
+        /// streaming stops after the chunk in flight and frees its window. Its terminal line says <c>cancelled</c>. A
+        /// cancel for anything but a read breaks the contract: named, and the op runs to its end and is answered.</summary>
+        private void CancelCall(string id, string reason, Connection conn)
+        {
+            if (!conn.InFlight.TryGetValue(id, out var call))
+            {
+                Log(VoltLogLevel.Debug, "relay: ignoring a cancel for " + id + " — no request of that id is in flight on this connection");
+                return;
+            }
+            if (!RelayFrames.Cancellable.Contains(call.Op))
+            {
+                Log(VoltLogLevel.Warn, "relay: a cancel for " + call.Op + " (" + id + ") breaks the contract — the relay cancels reads only; the " +
+                    call.Op + " runs to its end and is answered");
+                return;
+            }
+            string? late = null;
+            lock (call)
+            {
+                if (call.Cancelled != null) late = "it was cancelled already";
+                else if (call.State == CallState.Answering) late = "its answer is already going out";
+                else if (call.State == CallState.Streaming)
+                {
+                    var chunks = conn.Window.Cancel(id);
+                    if (chunks == null) late = "its answer was delivered";
+                    else call.CancelledChunks = chunks;
+                }
+                if (late == null) call.Cancelled = reason;
+            }
+            if (late != null) Log(VoltLogLevel.Debug, "relay: ignoring a cancel for " + call.Op + " (" + id + ") — " + late);
         }
 
         private void Serve(RelayInbound request, Connection conn, CancellationToken token)
@@ -407,8 +476,9 @@ namespace Volt.Relay
             // destroy the property the whole design exists for: `health` answering while a `push` holds the IDE thread.
             // Registered here, synchronously, so the end line lists it even when the connection ends before the
             // request's own task has run.
-            conn.InFlight[request.Id!] = request.Op!;
-            _ = ServeAsync(request, conn, token);
+            var call = new Call(request.Op!);
+            conn.InFlight[request.Id!] = call;
+            _ = ServeAsync(request, call, conn, token);
         }
 
         /// <summary>One binary message from the relay: a chunk of a large request (openspec relay-chunked-results, the
@@ -472,7 +542,7 @@ namespace Volt.Relay
         /// <c>relay: -&gt; op (id) outcome Nms [delivered=no]</c>. The op's outcome and the delivery of its frame
         /// are judged apart, so a push that landed and could not be answered reads <c>ok … delivered=no</c>, never
         /// as a failure of the op.</para></summary>
-        private async Task ServeAsync(RelayInbound request, Connection conn, CancellationToken token)
+        private async Task ServeAsync(RelayInbound request, Call call, Connection conn, CancellationToken token)
         {
             // Both non-null by construction: ReceiveLoopAsync only routes a frame here when RelayFrames.Read
             // classified it as a Request, and that arm sets them.
@@ -522,22 +592,39 @@ namespace Volt.Relay
                     // pool work — waited behind them: measured, one ping in 1.5 s at a 100 ms cadence (openspec
                     // twincat-large-solution-refs; HeartbeatCadenceTests.Pings_keep_their_cadence…). The pipe server does the
                     // same for the same reason (PipeServer.AcceptLoop).
+                    var hold = BeforePipeCall;
+                    if (hold != null) await hold(id).ConfigureAwait(false);
                     var client = new PipeClient(_pipeName);
                     // FORWARDED with the remote client's own `protocol`: the bridge refuses a client of another protocol
                     // by name, exactly as on the pipe — the relay never answers for a client it cannot speak to.
-                    var result = await Task.Factory.StartNew(() => client.Forward(
-                        op,
-                        request.Protocol,
-                        request.Body,
-                        progress =>
+                    var result = await Task.Factory.StartNew(() =>
+                    {
+                        // The last moment the request is queued: a read the relay cancelled before now never reaches
+                        // the pipe. From here on the IDE call is never interrupted.
+                        lock (call)
                         {
-                            // Progress is best-effort: a failed progress send must not fail the REQUEST, whose
-                            // terminal frame is the thing the caller is waiting for.
-                            try { SendAsync(RelayFrames.Progress(id, progress), token).GetAwaiter().GetResult(); }
-                            catch (Exception ex) { Log(VoltLogLevel.Debug, "relay: dropped a progress frame: " + ex.Message); }
-                        }), token, TaskCreationOptions.LongRunning, TaskScheduler.Default).ConfigureAwait(false);
-                    outcome = "ok" + PushVerdict(op, result);
-                    frame = RelayFrames.Result(id, result);
+                            if (call.Cancelled != null) return (JsonElement?)null;
+                            call.State = CallState.Running;
+                        }
+                        return client.Forward(
+                            op,
+                            request.Protocol,
+                            request.Body,
+                            progress =>
+                            {
+                                // A cancelled read sends nothing more, its progress included.
+                                if (call.Cancelled != null) return;
+                                // Progress is best-effort: a failed progress send must not fail the REQUEST, whose
+                                // terminal frame is the thing the caller is waiting for.
+                                try { SendAsync(RelayFrames.Progress(id, progress), token).GetAwaiter().GetResult(); }
+                                catch (Exception ex) { Log(VoltLogLevel.Debug, "relay: dropped a progress frame: " + ex.Message); }
+                            });
+                    }, token, TaskCreationOptions.LongRunning, TaskScheduler.Default).ConfigureAwait(false);
+                    if (result is JsonElement answer)
+                    {
+                        outcome = "ok" + PushVerdict(op, answer);
+                        frame = RelayFrames.Result(id, answer);
+                    }
                 }
             }
             catch (PipeCallException ex)
@@ -570,6 +657,9 @@ namespace Volt.Relay
             // A large frame on a connection that announced chunks goes as acked binary chunks, and is delivered at its
             // LAST ACK — the first real "the relay has it" this tunnel gets (a whole frame counts as sent when the OS
             // buffer took it, which on a slow link says nothing).
+            // A read the relay cancelled (openspec relay-cancel-discarded-calls) is not answered: it is decided here, under
+            // the call's lock, against the cancel — an answer either goes out (and a cancel after this is too late) or
+            // is never sent.
             string? sendFailure = null;
             var chunked = "";
             if (frame != null && !token.IsCancellationRequested)
@@ -577,14 +667,26 @@ namespace Volt.Relay
                 try
                 {
                     var size = Encoding.UTF8.GetByteCount(frame);
-                    if (maxBytes > 0 && size > RelayChunks.Over)
+                    var messages = maxBytes > 0 && size > RelayChunks.Over ? RelayChunks.Split(id, frame, maxBytes) : null;
+                    Task<bool>? delivery = null;
+                    bool cancelled;
+                    lock (call)
                     {
-                        var messages = RelayChunks.Split(id, frame, maxBytes);
-                        chunked = ", " + size + " B as " + messages.Count + " chunks";
+                        cancelled = call.Cancelled != null;
+                        if (!cancelled)
+                        {
+                            if (messages != null) delivery = conn.Window.Enqueue(id, messages);
+                            call.State = messages != null ? CallState.Streaming : CallState.Answering;
+                        }
+                    }
+                    if (cancelled) { /* not answered: the cancelled line, below */ }
+                    else if (delivery != null)
+                    {
+                        chunked = ", " + size + " B as " + messages!.Count + " chunks";
                         // A chunk that could not be sent faults the delivery with its reason: a delivery failure, whether
                         // or not the socket drop it causes has already cancelled the token. Only the window closing with
-                        // the connection (a cancellation) is "abandoned".
-                        try { await conn.Window.Enqueue(id, messages).ConfigureAwait(false); }
+                        // the connection (a cancellation) is "abandoned". False is the relay's cancel: the call says so.
+                        try { await delivery.ConfigureAwait(false); }
                         catch (Exception ex) when (!(ex is OperationCanceledException)) { sendFailure = ex.GetType().Name + ": " + ex.Message; }
                     }
                     else await SendAsync(frame, token).ConfigureAwait(false);
@@ -592,10 +694,21 @@ namespace Volt.Relay
                 catch (Exception ex) when (!token.IsCancellationRequested) { sendFailure = ex.GetType().Name + ": " + ex.Message; }
                 catch (Exception) { /* the connection went during the send: abandoned, below */ }
             }
+
+            conn.InFlight.TryRemove(id, out _);
+            string? cancelledFor;
+            (int Sent, int Of)? cancelledChunks;
+            lock (call) { cancelledFor = call.Cancelled; cancelledChunks = call.CancelledChunks; }
+            if (cancelledFor != null)
+            {
+                Log(VoltLogLevel.Info, "relay: -> " + op + " (" + id + ") cancelled (" + cancelledFor + ")" +
+                    (cancelledChunks is { } c ? " after " + c.Sent + " of " + c.Of + " chunks" : "") +
+                    " " + clock.ElapsedMilliseconds + "ms");
+                return;
+            }
             var abandoned = frame == null || (sendFailure == null && token.IsCancellationRequested);
             var delivered = !abandoned && sendFailure == null;
 
-            conn.InFlight.TryRemove(id, out _);
             Log(VoltLogLevel.Info, "relay: -> " + op + " (" + id + ") " +
                 (abandoned ? "abandoned" + (outcome == null ? "" : " " + outcome) : outcome) +
                 " " + clock.ElapsedMilliseconds + "ms" + chunked +
