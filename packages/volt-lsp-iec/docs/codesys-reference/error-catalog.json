@@ -4883,9 +4883,9 @@
     "category": "duplicate method name",
     "cause": "A function block declares two methods with the same name without marking them as intentional overloads via the 'overloaded' attribute or OVERLOAD keyword.",
     "message": "There is another method with the name '{0}'. Use the Attribute {attribute 'overloaded'} if you want to define overloaded methods.",
-    "repro": "FUNCTION_BLOCK FB_Math\nEND_FUNCTION_BLOCK\nMETHOD Calc : INT\nVAR_INPUT\n    a : INT;\nEND_VAR\nEND_METHOD\nMETHOD Calc : INT\nVAR_INPUT\n    a : INT;\n    b : INT;\nEND_VAR\nEND_METHOD",
+    "repro": "FUNCTION_BLOCK FB_Math\nEND_FUNCTION_BLOCK\nMETHOD Compute : INT\nVAR_INPUT\n    a : INT;\nEND_VAR\nEND_METHOD\nMETHOD Compute : INT\nVAR_INPUT\n    a : INT;\n    b : INT;\nEND_VAR\nEND_METHOD",
     "expect": [
-      "There is another method with the name 'Calc'. Use the Attribute {attribute 'overloaded'} if you want to define overloaded methods."
+      "There is another method with the name 'Compute'. Use the Attribute {attribute 'overloaded'} if you want to define overloaded methods."
     ],
     "status": "implemented",
     "ourCheck": "duplicate-declaration",

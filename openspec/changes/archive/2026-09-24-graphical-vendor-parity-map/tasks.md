@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 # Tasks
 
 **Task 1 is the data loss.** Everything else on this list is an investigation; that one is an engineer's coil

@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## SUPERSEDED 2026-09-25 — the library repo (design §6)
 
 Tier 1's intrinsics below are DELETED: the nine string functions are ST in `packages/volt-lsp-iec/libraries/Standard/

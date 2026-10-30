@@ -23,7 +23,7 @@ END_PROGRAM
 `
 
 const scopeOf = () => {
-  const parseResult = parseSource(SRC, { networkText: true }, "codesys")
+  const parseResult = parseSource(SRC, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "P.pou", parseResult, source: SRC }], [], "codesys")
   return { parseResult, project }
 }

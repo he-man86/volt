@@ -140,7 +140,7 @@ public class TcRoundTripTests
     /// <summary>A REAL FAN-OUT WIRE SURVIVES AN EDIT — the half a no-op push can never reach.
     ///
     /// <para>`ladder-demux.TcPOU` network 2 is a `BoxTreeDemux` feeding two assigns: THREE archive items, drawn
-    /// in XAE. Network text v1 spelled that `LET g1 := …; a := g1; b := g1;` — and until 2026-09-22 it spelled a
+    /// in XAE. Network text spells that as a wire, `w1 := …; a := w1; b := w1;` — and until 2026-09-22 it spelled a
     /// MULTI-OUTPUT ASSIGNMENT (one item, two coils) exactly the same way. `Unhoist` folded that spelling back
     /// into one tree so the counts would match, which repaired the assign case and FLATTENED this one. v2 spells
     /// the two apart and the writer folds neither (<c>TcInPlaceSilentNoOpTests</c> holds the other direction).</para>

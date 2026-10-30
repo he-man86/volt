@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Context
 
 The LSP resolves against the project symbol table from mirrored `src/` files. Referenced libraries

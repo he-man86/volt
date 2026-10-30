@@ -54,9 +54,11 @@ export function tmp(purpose: TempPurpose, n?: number | bigint): string {
 }
 
 /** A POU's or DUT's Rust struct name: the ST name as written, so a reader finds `FB_Conveyor` under its own name
- *  (the structs carry `#[allow(non_camel_case_types)]`). */
+ *  (the structs carry `#[allow(non_camel_case_types)]`). A letter or digit of any script is kept — a name CODESYS builds
+ *  with "Unicode identifiers" on (`名前`, DIALECT C28b) is a Rust identifier as written; replaced, it was `__`, no
+ *  identifier at all (`on_function_name_cjk`, 2026-10-30). */
 export function rustName(name: string): string {
-  return name.replace(/[^A-Za-z0-9_]/g, "_")
+  return name.replace(/[^\p{L}\p{Nd}_]/gu, "_")
 }
 
 /**
@@ -69,7 +71,7 @@ export function rustName(name: string): string {
 export function snake(name: string): string {
   const snaked = name
     .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
-    .replace(/[^A-Za-z0-9]+/g, "_")
+    .replace(/[^\p{L}\p{Nd}]+/gu, "_")
     .toLowerCase()
   return name.startsWith("__") ? `_${snaked}` : snaked
 }

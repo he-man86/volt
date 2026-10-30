@@ -25,10 +25,12 @@ export class Scanner {
   startLine = 1
   startCol = 0
 
-  /** `tc`: the source is TwinCAT's — the one vocabulary fact a scanner asks (`lex`'s `dialect`). */
+  /** `tc`: the source is TwinCAT's — the one vocabulary fact a scanner asks (`lex`'s `dialect`); `unicode`: a name may
+   *  hold letters and digits past ASCII (`lex`'s `unicodeIdentifiers`). */
   constructor(
     readonly src: string,
     readonly tc: boolean,
+    readonly unicode: boolean,
   ) {
     this.len = src.length
   }

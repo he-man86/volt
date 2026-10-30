@@ -116,7 +116,7 @@ test("the base compared is the nearest in the LINKED chain that declares the met
 
 test("an FB nothing instances is not checked — the vendor compiles it not (pro2193's uninstanced overrides build)", () => {
   const src = base("METHOD Fetch : INT\nEND_METHOD") + "METHOD Fetch : DINT\nEND_METHOD"
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   const found = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
   expect(found.filter((d) => d.code === "override-mismatch-base")).toEqual([])
@@ -192,7 +192,7 @@ test("C0089: an interface method INHERITED from the base is said at the FB's IMP
     "FB_D.pou": `FUNCTION_BLOCK FB_D EXTENDS FB_Base IMPLEMENTS ITF_X\nVAR\n out : INT;\nEND_VAR\nout := M(a := 3);\nEND_FUNCTION_BLOCK`,
     "P.pou": `PROGRAM P\nVAR\n d : FB_D;\nEND_VAR\nEND_PROGRAM`,
   }
-  const parsed = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source, { networkText: true }, "codesys") }))
+  const parsed = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source, { networkText: true, unicodeIdentifiers: false }, "codesys") }))
   const project = build.buildSymbolTable(parsed, [], "codesys")
   const d = parsed.find((f) => f.uri === "FB_D.pou")!
   const found = computeDiagnostics({ uri: d.uri, parseResult: d.parseResult, source: d.source, project, config: resolveConfig({ vendor: "codesys" }) })

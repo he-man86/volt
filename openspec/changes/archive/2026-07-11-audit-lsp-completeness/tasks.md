@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 # Tasks — LSP completeness audit
 
 Ordered by impact. Each: implement + colocated test (the one that would've caught it) + corpus gate +

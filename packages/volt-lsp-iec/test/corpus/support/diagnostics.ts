@@ -25,7 +25,7 @@
  * and network text in `network` (layer F), so the analysis layer structurally CANNOT return a graphical
  * diagnostic — the two are merged one layer up, in `documentDiagnostics`. Every network-text diagnostic was
  * therefore outside the oracle. Measured: lenze-mid's one "change of sign" warning sat in the MISSING coverage
- * list while the LSP emitted it correctly at `FB_Lenze_i550.pou:23` (`LET i1 := UINT_TO_WORD(ioUDT.Control
+ * list while the LSP emitted it correctly at `FB_Lenze_i550.pou:23` (`w1 := UINT_TO_WORD(ioUDT.Control
  * .AutoSpeed)`, and `AutoSpeed` is an `INT`) — a warning attributed to the product that belonged to the harness.
  * Going through the server's function is both less code and more coverage.
  *

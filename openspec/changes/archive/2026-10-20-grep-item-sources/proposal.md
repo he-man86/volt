@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 > PLC Assist, 2026-10-20. Wanted: the AI's biggest missing tool. Lands in the release coordinated with PLC Assist
 > (see Impact).
 >

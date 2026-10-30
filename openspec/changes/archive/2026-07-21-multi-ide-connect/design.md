@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Context
 
 The bridge wire is one named pipe per vendor (`PipeNames.Codesys` / `PipeNames.Twincat`), keyed by vendor only.

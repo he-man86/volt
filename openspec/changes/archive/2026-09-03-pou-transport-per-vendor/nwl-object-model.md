@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 # The 3S NWL object model — shared by BOTH vendors, and it removes PLCopen entirely
 
 Found 2026-08-28, after the transport checklist was already written. **It supersedes the transport question

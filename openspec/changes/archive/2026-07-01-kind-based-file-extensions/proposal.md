@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Why
 
 Browsing a real full-option CODESYS project makes it obvious that a file's extension should tell you *what the item is*. The just-shipped `unify-item-file-extensions` collapsed every writable source item to `.st`, which throws that away — and the original scheme was never right either (all POUs were `.st` regardless of kind, so you couldn't tell a function block from a program from a function). Kind-in-the-extension (`Motor.fb`, `Main.prg`, `Ramp.fun`, `IMotor.itf`, `Recipe.struct`) is the more useful scheme, and it stays round-trip-safe because kind is recovered from file **content** on push regardless of the extension.

@@ -27,9 +27,9 @@ test("a variable of a FUNCTION type is flagged; FB / elementary types are fine",
 test("a FUNCTION type is flagged past a same-named global, in either file order", () => {
   const prg = "PROGRAM P\nVAR inst : POU;\nEND_VAR\nEND_PROGRAM\nFUNCTION POU : INT\nEND_FUNCTION"
   for (const [a, b] of [["A.pou", "GVL.gvl"], ["Z.pou", "GVL.gvl"]] as const) {
-    const pr = parseSource(prg, { networkText: true }, "codesys")
+    const pr = parseSource(prg, { networkText: true, unicodeIdentifiers: false }, "codesys")
     const gvl = "VAR_GLOBAL\n  pou : INT;\nEND_VAR"
-    const project = build.buildSymbolTable([{ uri: a, parseResult: pr, source: prg }, { uri: b, parseResult: parseSource(gvl, { networkText: true }, "codesys"), source: gvl }], [], "codesys")
+    const project = build.buildSymbolTable([{ uri: a, parseResult: pr, source: prg }, { uri: b, parseResult: parseSource(gvl, { networkText: true, unicodeIdentifiers: false }, "codesys"), source: gvl }], [], "codesys")
     const got = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: prg, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "not-instantiable")
       .map((d) => d.message)

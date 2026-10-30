@@ -66,7 +66,7 @@ export function corpusVendor(dir: string): Vendor {
 export function parseProject(dir: string): ParsedFile[] {
   return walkSources(dir).map((uri) => {
     const source = readSourceText(uri)
-    return { uri, source, parseResult: parseDocument(uri, source, { networkText: true }, EXEC_ORACLE_DIALECT) }
+    return { uri, source, parseResult: parseDocument(uri, source, { networkText: true, unicodeIdentifiers: false }, EXEC_ORACLE_DIALECT) }
   })
 }
 
@@ -83,7 +83,7 @@ export function parseProject(dir: string): ParsedFile[] {
 export function loweringProject(dir: string, parsed: readonly ParsedFile[] = parseProject(dir)): LoweringProject & { files: ParsedFile[] } {
   const manifests = walkSources(dir, new Set([".library"])).map((uri) => ({ uri, source: readFileSync(uri, "utf8") }))
   const inOracleDialect = parsed.map((f) =>
-    f.parseResult.dialect === EXEC_ORACLE_DIALECT ? f : { ...f, parseResult: parseDocument(f.uri, f.source, { networkText: true }, EXEC_ORACLE_DIALECT) },
+    f.parseResult.dialect === EXEC_ORACLE_DIALECT ? f : { ...f, parseResult: parseDocument(f.uri, f.source, { networkText: true, unicodeIdentifiers: false }, EXEC_ORACLE_DIALECT) },
   )
   const byUri = new Map(inOracleDialect.map((f) => [f.uri, f]))
   const files = withImplementations([...inOracleDialect, ...manifests])
@@ -91,7 +91,7 @@ export function loweringProject(dir: string, parsed: readonly ParsedFile[] = par
     .map((f) => {
       const own = byUri.get(f.uri)
       if (own !== undefined && own.source === f.source) return own
-      const body = { ...f, parseResult: parseSource(f.source, { networkText: true }, EXEC_ORACLE_DIALECT) }
+      const body = { ...f, parseResult: parseSource(f.source, { networkText: true, unicodeIdentifiers: false }, EXEC_ORACLE_DIALECT) }
       if (body.parseResult.errors.length > 0) throw new Error(`the library repo's ${f.uri} did not parse: ${body.parseResult.errors[0]!.message}`)
       return body
     })

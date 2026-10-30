@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 # Tasks
 
 - [x] 1 Unicode header names (repro 1). Not a comparison rule: the object's name was read from the document's ENCODED

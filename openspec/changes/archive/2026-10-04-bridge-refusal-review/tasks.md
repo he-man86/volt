@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Re-baseline (2026-10-03)
 
 Re-run against dev HEAD (`7e36c323ad`) after `push-without-header-check`, `push-keeps-what-landed`,

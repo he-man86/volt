@@ -181,7 +181,7 @@ test("IMPLEMENTATION is a name like any other, in every file and every naming po
       src: "FUNCTION_BLOCK Implementation\nVAR\nEND_VAR\n%LANGUAGE ST\n\nEND_FUNCTION_BLOCK\n",
     },
     { what: "an enum value", uri: "file:///E.dut", src: "TYPE E :\n(\n\tIMPLEMENTATION,\n\tB\n);\nEND_TYPE\n" },
-    { what: "a struct member", uri: "file:///S.dut", src: "TYPE S :\nSTRUCT\n\timplementation : INT;\nEND_STRUCT\nEND_TYPE\n" },
+    { what: "a struct member", uri: "file:///DUT_S.dut", src: "TYPE DUT_S :\nSTRUCT\n\timplementation : INT;\nEND_STRUCT\nEND_TYPE\n" },
     { what: "a global", uri: "file:///G.gvl", src: "VAR_GLOBAL\n\ta,\n\tIMPLEMENTATION\n\t: INT;\nEND_VAR\n" },
   ]
   for (const c of cases) {

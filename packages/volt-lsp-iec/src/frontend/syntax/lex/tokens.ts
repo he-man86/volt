@@ -47,6 +47,16 @@ export type TokenKind =
  * (formatters, refactoring) can see comments and whitespace.
  * The parser filters them out by default.
  */
+/**
+ * A CHARACTER PAST ASCII THAT IS NO NAME'S — what a letter or digit past ASCII lexes as where the project's "Unicode
+ * identifiers" is off (`chars.ts`): one `unknown` token per character, which both the declaration and the statement parse
+ * refuse as CODESYS refuses a reserved word there ("Unexpected token '计' found", then a pair per token to the `;`;
+ * conformance `names/unicode-identifiers-off.ts`, CODESYS 3.5.21.40, openspec lsp-field-followups 2).
+ */
+export function isStrayPastAscii(t: { kind: TokenKind; text: string }): boolean {
+  return t.kind === "unknown" && t.text > "\x7f"
+}
+
 export function isTrivia(kind: TokenKind): boolean {
   return kind === "line_comment" || kind === "block_comment" || kind === "pragma" || kind === "whitespace"
 }

@@ -12,7 +12,7 @@ import type { Document } from "../shared/index.js"
 
 test("an elementary type name colors as `type`, not `variable`", () => {
   const src = `FUNCTION_BLOCK FB\nVAR\n\tn : INT;\n\tb : BOOL;\nEND_VAR\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const doc = { uri: "file:///F.pou", source: src, parseResult }
   const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }], [], "codesys")
   const data = semanticTokensData(doc, project) as number[]
@@ -42,7 +42,7 @@ END_FUNCTION_BLOCK
 
 /** token text → semantic type, for the tokens named in `of`. */
 function typesOf(src: string, of: readonly string[]): Record<string, string> {
-  const doc = { uri: "file:///FB.pou", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
+  const doc = { uri: "file:///FB.pou", source: src, parseResult: parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys") }
   const project = build.buildSymbolTable([{ uri: doc.uri, source: src, parseResult: doc.parseResult }], [], "codesys")
   const data = semanticTokensData(doc as never, project)
   const lines = src.split("\n")
@@ -76,7 +76,7 @@ test("semantic tokens: a wire has its own class, resolved through its body's sco
   // A wire is declared on its network's `VAR_TEMP` line, so it resolves only in the body: the POU scope has no `w1`.
   // Every occurrence gets the class: the declaration, the definition and each reference.
   const src = GRAPHICAL
-  const doc = { uri: "file:///FB.pou", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
+  const doc = { uri: "file:///FB.pou", source: src, parseResult: parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys") }
   const project = build.buildSymbolTable([{ uri: doc.uri, source: src, parseResult: doc.parseResult }], [], "codesys")
   const data = semanticTokensData(doc as never, project)
   const lines = src.split("\n")
@@ -112,7 +112,7 @@ END_PROGRAM
 
 /** The semantic-token type each occurrence of `word` gets, in `dialect`. */
 function colourOf(src: string, word: string, dialect: "codesys" | "twincat"): string[] {
-  const parseResult = parseSource(src, { networkText: true }, dialect)
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, dialect)
   const doc = { uri: "file:///F.pou", source: src, parseResult }
   const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }], [], dialect)
   const data = semanticTokensData(doc, project)
@@ -139,7 +139,7 @@ test("a type name the dialect lacks is not painted as a type", () => {
 // went out as ONE token of its whole length on its first line, so only that line was coloured as a comment.
 test("a multi-line block comment is one comment token per line, each its own line's length", () => {
   const src = `PROGRAM P\n(* one\n   two *)\nEND_PROGRAM`
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const doc = { uri: "file:///P.pou", source: src, parseResult }
   const data = semanticTokensData(
     doc,
@@ -161,7 +161,7 @@ test("a multi-line block comment is one comment token per line, each its own lin
 
 describe("the whole-document pass", () => {
   function setup(src: string) {
-    const parseResult = parseSource(src, { networkText: true }, "codesys")
+    const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
     const doc: Document = { uri: "file:///F.pou", source: src, parseResult }
     const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }], [], "codesys")
     return { doc, project }
@@ -221,7 +221,7 @@ describe("the implementation keyword", () => {
    */
   /** `line:text → semantic type` for every token on `lines`. */
   function typesOn(src: string, lines: readonly number[]): Record<string, string> {
-    const doc = { uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
+    const doc = { uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys") }
     const project = build.buildSymbolTable([{ uri: doc.uri, source: src, parseResult: doc.parseResult }], [], "codesys")
     const data = semanticTokensData(doc as never, project)
     const text = src.split("\n")
@@ -284,7 +284,7 @@ END_FUNCTION_BLOCK`
 // so the record after it stands on the next line, and no line end is part of a record's length
 test("a block comment over lone-CR and CRLF line ends is one record per line, on the lexer's lines", () => {
   const src = `PROGRAM P\r(* one\rtwo\r\n three *)\rEND_PROGRAM`
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const doc = { uri: "file:///P.pou", source: src, parseResult }
   const data = semanticTokensData(doc, build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }], [], "codesys"))
   const comments: number[][] = []

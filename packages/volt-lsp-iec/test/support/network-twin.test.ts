@@ -9,7 +9,7 @@ import { twinFile } from "./network-twin-file.js"
 
 function twin(decls: string, body: string, before = ""): { source: string; refused: string[] } {
   const source = `${before}PROGRAM P\nVAR\n${decls}\nEND_VAR\n%LANGUAGE FBD\n${body}END_PROGRAM\n`
-  const parseResult = parseSource(source, { networkText: true }, "codesys")
+  const parseResult = parseSource(source, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "file:///P.pou", parseResult, source }], [], "codesys")
   return twinFile(source, parseResult, project)
 }

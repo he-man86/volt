@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 # volt-cli-rework 1.1b — foreign-client review of the bridge wire
 
 Reviewer stance: a developer outside Volt who writes a client against the named-pipe API, reading ONLY

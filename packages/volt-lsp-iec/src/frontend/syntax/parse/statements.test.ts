@@ -10,9 +10,9 @@ import { bodyStatements } from "./body-parse.js"
 
 /** The errors a body snippet parses with — message, and the vendor-worded token where the message is its shape. */
 function errors(body: string, dialect: Dialect = "codesys"): string[] {
-  const toks = lex(body, dialect).filter((t) => t.kind !== "eof")
+  const toks = lex(body, dialect, false).filter((t) => t.kind !== "eof")
   const span = { start: 0, end: body.length, startLine: 1, startCol: 0, endLine: 1, endCol: 0 }
-  return bodyStatements({ kind: "body", tokens: toks, span, dialect } satisfies BodySpan).errors.map((e) => e.message)
+  return bodyStatements({ kind: "body", tokens: toks, span, dialect, unicodeIdentifiers: false } satisfies BodySpan).errors.map((e) => e.message)
 }
 
 const refusedAssignment = (name: string): string[] => [
@@ -179,9 +179,9 @@ const refusedLiteral = (text: string): string[] => [
 
 /** The statements of a body snippet. */
 function statements(body: string) {
-  const toks = lex(body, "codesys").filter((t) => t.kind !== "eof")
+  const toks = lex(body, "codesys", false).filter((t) => t.kind !== "eof")
   const span = { start: 0, end: body.length, startLine: 1, startCol: 0, endLine: 1, endCol: 0 }
-  return bodyStatements({ kind: "body", tokens: toks, span, dialect: "codesys" } satisfies BodySpan).statements
+  return bodyStatements({ kind: "body", tokens: toks, span, dialect: "codesys", unicodeIdentifiers: false } satisfies BodySpan).statements
 }
 
 test("a malformed literal is refused whole, and the tokens after it resync as after a refused word (lit_*)", () => {

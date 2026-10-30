@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Design — bridge-refusal-review
 
 Each section is the design for one step of `tasks.md`, written before its code. A section names the target, every

@@ -8,15 +8,15 @@ import type { ArrayType, BodySpan, FunctionBlock, Literal, NamedType, StringType
 
 /** First VAR decl of the first unit — the common path into type-expr assertions. */
 function firstDecl(src: string): VarDecl {
-  const unit = parseSource(src, { networkText: true }, "codesys").units[0] as FunctionBlock
+  const unit = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys").units[0] as FunctionBlock
   return unit.varSections[0].decls[0]
 }
 
 /** Materialize a statement list from a body snippet. */
 function stmts(body: string) {
-  const toks = lex(body, "codesys").filter((t) => t.kind !== "eof")
+  const toks = lex(body, "codesys", false).filter((t) => t.kind !== "eof")
   const span = { start: 0, end: body.length, startLine: 1, startCol: 0, endLine: 1, endCol: 0 }
-  return bodyStatements({ kind: "body", tokens: toks, span, dialect: "codesys" } satisfies BodySpan)
+  return bodyStatements({ kind: "body", tokens: toks, span, dialect: "codesys", unicodeIdentifiers: false } satisfies BodySpan)
 }
 
 test("parses an FB with modifiers, EXTENDS, IMPLEMENTS, a method", () => {
@@ -28,7 +28,7 @@ END_VAR
 METHOD PUBLIC Step : BOOL
   Step := TRUE;
 END_METHOD
-END_FUNCTION_BLOCK`, { networkText: true }, "codesys")
+END_FUNCTION_BLOCK`, { networkText: true, unicodeIdentifiers: false }, "codesys")
   expect(r.errors).toEqual([])
   const fb = r.units[0] as FunctionBlock
   expect(fb.kind).toBe("function_block")
@@ -112,7 +112,7 @@ test("scalar init is an Expr; aggregate init is opaque", () => {
 })
 
 test("enum DUT values carry parsed value expressions", () => {
-  const td = parseSource("TYPE E : (Red := 0, Green := 16#0A, Blue) DINT; END_TYPE", { networkText: true }, "codesys").units[0] as TypeDecl
+  const td = parseSource("TYPE E : (Red := 0, Green := 16#0A, Blue) DINT; END_TYPE", { networkText: true, unicodeIdentifiers: false }, "codesys").units[0] as TypeDecl
   expect(td.body.kind).toBe("enum")
   const enumBody = td.body as Extract<TypeDecl["body"], { kind: "enum" }>
   expect((enumBody.values[1].value as Literal).value).toBe(10n)
@@ -134,7 +134,7 @@ test("statement tree: IF / CASE / FOR parse fully", () => {
 })
 
 test("error-tolerant: a malformed unit records an error, never throws", () => {
-  const r = parseSource("FUNCTION_BLOCK", { networkText: true }, "codesys")
+  const r = parseSource("FUNCTION_BLOCK", { networkText: true, unicodeIdentifiers: false }, "codesys")
   expect(r.errors.length).toBeGreaterThan(0)
 })
 
@@ -159,7 +159,7 @@ test("statement tree: CODESYS typed char literal `UCHAR#'A'` parses cleanly", ()
 // `C0009: Unexpected token 'LIMIT' found` on the NAME. The section is still terminated — blaming its header
 // for a missing END_VAR that is right there sent readers hunting the wrong line.
 
-const messages = (src: string) => parseSource(src, { networkText: true }, "codesys").errors.map((e) => e.message)
+const messages = (src: string) => parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys").errors.map((e) => e.message)
 
 test("a stray token after a scalar initializer is a parse error, worded as CODESYS reports it (gap 12)", () => {
   // It was silent: the initializer's tokens were collected up to `;`, and an unparsable tail became an opaque aggregate.
@@ -188,10 +188,10 @@ test("a reserved word as a variable name is reported on the name, not the sectio
     "';' expected instead of 'INT'",
     "Unexpected token 'INT' found",
   ])
-  const err = parseSource(src, { networkText: true }, "codesys").errors[0]!
+  const err = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys").errors[0]!
   expect(src.slice(err.span.start, err.span.end)).toBe("Limit")
   // recovery continues the section: the following decl and END_VAR are still parsed
-  const unit = parseSource(src, { networkText: true }, "codesys").units[0] as { varSections: { decls: VarDecl[] }[] }
+  const unit = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys").units[0] as { varSections: { decls: VarDecl[] }[] }
   expect(unit.varSections[0].decls.map((d) => d.names[0].text)).toEqual(["Ok"])
 })
 
@@ -306,7 +306,7 @@ test("a missing statement `;` echoes the offending token back unless it could st
 test("a declaration missing its `;` after the type: CODESYS's list of what may follow, and the next one is swallowed", () => {
   const fb = "FUNCTION_BLOCK F\nVAR\n\tnPos : INT\n\tnSpeed : INT;\n\tnOk : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n"
   expect(messages(fb)).toEqual(["';, :=, REF=, ( or [' expected instead of 'nSpeed'"])
-  const unit = parseSource(fb, { networkText: true }, "codesys").units[0] as { varSections: { decls: VarDecl[] }[] }
+  const unit = parseSource(fb, { networkText: true, unicodeIdentifiers: false }, "codesys").units[0] as { varSections: { decls: VarDecl[] }[] }
   expect(unit.varSections[0].decls.map((d) => d.names[0].text)).toEqual(["nPos", "nOk"])
   const struct = "TYPE T :\nSTRUCT\n\tnPos : INT\n\tnSpeed : INT;\nEND_STRUCT\nEND_TYPE\n"
   expect(messages(struct)).toEqual(["';, :=, REF=, ( or [' expected instead of 'nSpeed'"])
@@ -326,7 +326,7 @@ test("a parse is told whether LD/FBD bodies are network text: without the option
 
 test("the option decides who reads an %LANGUAGE LD body: network text on reads it, off reads it by neither", () => {
   const readers = (networkText: boolean) =>
-    parseSource(LADDER, { networkText }, "codesys").units.flatMap(unitBodies).map(bodyReader)
+    parseSource(LADDER, { networkText, unicodeIdentifiers: false }, "codesys").units.flatMap(unitBodies).map(bodyReader)
   expect(readers(true)).toEqual(["st"])
   expect(readers(false)).toEqual([undefined])
 })
@@ -385,7 +385,7 @@ test("GET, SET and OVERRIDE name every unit and a type (wp_*_name_get)", () => {
 const VECTOR_FB = "FUNCTION_BLOCK FB\nVAR\n\tv : __VECTOR[4] OF REAL;\n\tn : INT;\nEND_VAR\nn := 1;\nEND_FUNCTION_BLOCK\n"
 
 test("CODESYS reads `__VECTOR[4] OF REAL` as a four-element array (lex_vector_twincat, type_codesys_vector)", () => {
-  const r = parseSource(VECTOR_FB, { networkText: true }, "codesys")
+  const r = parseSource(VECTOR_FB, { networkText: true, unicodeIdentifiers: false }, "codesys")
   expect(r.errors).toEqual([])
   const decls = (r.units[0] as FunctionBlock).varSections[0].decls
   expect(decls.map((d) => d.names[0].text)).toEqual(["v", "n"])
@@ -394,7 +394,7 @@ test("CODESYS reads `__VECTOR[4] OF REAL` as a four-element array (lex_vector_tw
 
 test("TwinCAT has no `__VECTOR`: a type definition is expected instead, and the declaration is dropped (lex_vector_twincat, type_codesys_vector)", () => {
   // TwinCAT, 2026-09-30: the one message, nothing for `[4] OF REAL`, and the variable's uses are "not defined"
-  const r = parseSource(VECTOR_FB, { networkText: true }, "twincat")
+  const r = parseSource(VECTOR_FB, { networkText: true, unicodeIdentifiers: false }, "twincat")
   expect(r.errors.map((e) => e.message)).toEqual(["Type definition expected instead of '__VECTOR'"])
   expect((r.units[0] as FunctionBlock).varSections[0].decls.map((d) => d.names[0].text)).toEqual(["n"])
 })
@@ -402,7 +402,7 @@ test("TwinCAT has no `__VECTOR`: a type definition is expected instead, and the 
 test("a return type the parser refused is stated as refused, not as no return type", () => {
   // `returnType` absent said both "declared none" and "declared one the parser refused" — so a call to a function whose
   // return type failed to parse read as a call that returns nothing (`test/frontend/bound-census.ts`).
-  const unit = (src: string, dialect: "codesys" | "twincat") => parseSource(src, { networkText: true }, dialect).units[0] as { returnType?: unknown; returnTypeRefused?: true }
+  const unit = (src: string, dialect: "codesys" | "twincat") => parseSource(src, { networkText: true, unicodeIdentifiers: false }, dialect).units[0] as { returnType?: unknown; returnTypeRefused?: true }
   const refused = unit("FUNCTION F : __VECTOR[4] OF REAL\nVAR_INPUT\n\tx : INT;\nEND_VAR\nF := 0;\nEND_FUNCTION\n", "twincat")
   expect({ returnType: refused.returnType, returnTypeRefused: refused.returnTypeRefused }).toEqual({ returnType: undefined, returnTypeRefused: true })
   const method = unit("METHOD M : final\nEND_METHOD\n", "codesys")
@@ -428,7 +428,7 @@ test("a malformed literal leading an initializer is the pair, and the declaratio
   expect(decl.init).toBeUndefined()
   expect(decl.refusedInit).toBeDefined()
   // TwinCAT quotes only as far as it lexed
-  const tc = parseSource(src('"$C3$A9"'), { networkText: true }, "twincat").errors.map((e) => e.message)
+  const tc = parseSource(src('"$C3$A9"'), { networkText: true, unicodeIdentifiers: false }, "twincat").errors.map((e) => e.message)
   expect(tc.slice(0, 2)).toEqual(pair('"$C3'))
   // a clean initializer is no refusal
   expect(firstDecl(src('"$0041"')).refusedInit).toBeUndefined()
@@ -456,7 +456,7 @@ test("a malformed literal as a subrange bound: refused as an operand, and the su
 
 test("an AT address with a size and no position is refused by the parser, as a fact the analysis words (A2)", () => {
   // `lit_address_incomplete_sized` (`%IW*`), `lit_address_no_position` (`%MW`), both vendors 2026-10-01
-  const errs = (decl: string) => parseSource(`FUNCTION_BLOCK F\nVAR\n\t${decl}\nEND_VAR\nEND_FUNCTION_BLOCK\n`, { networkText: true }, "codesys").errors
+  const errs = (decl: string) => parseSource(`FUNCTION_BLOCK F\nVAR\n\t${decl}\nEND_VAR\nEND_FUNCTION_BLOCK\n`, { networkText: true, unicodeIdentifiers: false }, "codesys").errors
   expect(errs("w AT %IW* : WORD;").map((e) => [e.message, e.directAddressExpected])).toEqual([["Direct address expected after AT instead of %IW", "%IW"]])
   expect(errs("w AT %MW : WORD;").map((e) => e.directAddressExpected)).toEqual(["%MW"])
   for (const d of ["b AT %I* : BOOL;", "b AT %IX0.0 : BOOL;", "b AT %I0.0 : BOOL;"]) expect(errs(d)).toEqual([])

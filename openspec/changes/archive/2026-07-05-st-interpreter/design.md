@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Context
 
 `st-body-ast` produces a statement/expression tree for ST bodies. An interpreter walks that tree to *execute* logic, giving headless CI tests of PLC behavior — something no current tool provides (TcUnit / CODESYS Test Manager need the real runtime; not headless, not text-diffable).

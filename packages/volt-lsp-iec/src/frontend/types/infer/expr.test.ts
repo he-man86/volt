@@ -12,7 +12,7 @@ function lastExpr(fb: FunctionBlock): Expr {
 
 function inferExpr(unitsBefore: string, varDecls: string, exprSrc: string): Type {
   const src = `${unitsBefore}\nFUNCTION_BLOCK F\n${varDecls}\nprobe := ${exprSrc};\nEND_FUNCTION_BLOCK`
-  const pr = parseSource(src, { networkText: true }, "codesys")
+  const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], "codesys")
   const scope = findChildScope(project, "F")!
   return inferExprType(lastExpr(pr.units.at(-1) as FunctionBlock), scope, project)
@@ -78,7 +78,7 @@ test("infer: THIS and SUPER are pointers to the FB and its base, named upper-cas
   expect(renderType(t, { form: "compiler" })).toBe("POINTER TO F")
   const lower = (body: string): string => {
     const src = `FUNCTION_BLOCK Fb_base\nVAR\n v : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK Fb_derived EXTENDS Fb_base\nVAR\nEND_VAR\nprobe := ${body};\nEND_FUNCTION_BLOCK`
-    const pr = parseSource(src, { networkText: true }, "codesys")
+    const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
     const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], "codesys")
     return renderType(inferExprType(lastExpr(pr.units.at(-1) as FunctionBlock), findChildScope(project, "Fb_derived")!, project), { form: "compiler" })
   }
@@ -102,7 +102,7 @@ PROGRAM Prg_x\nVAR\n x : INT;\nEND_VAR\nEND_PROGRAM
 FUNCTION_BLOCK Fb_other\nEND_FUNCTION_BLOCK`
   const named = (what: string): string => renderType(inferExpr(units, "", what), { form: "compiler" })
   const src = `${units}\nFUNCTION_BLOCK F\nVAR\nEND_VAR\nprobe := 1;\nEND_FUNCTION_BLOCK`
-  const project = build.buildSymbolTable([{ uri: "GVL_x.gvl", parseResult: parseSource("VAR_GLOBAL\n gg : INT;\nEND_VAR", { networkText: true }, "codesys"), source: "" }, { uri: "F.pou", parseResult: parseSource(src, { networkText: true }, "codesys"), source: src }], [], "codesys")
+  const project = build.buildSymbolTable([{ uri: "GVL_x.gvl", parseResult: parseSource("VAR_GLOBAL\n gg : INT;\nEND_VAR", { networkText: true, unicodeIdentifiers: false }, "codesys"), source: "" }, { uri: "F.pou", parseResult: parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys"), source: src }], [], "codesys")
   expect(renderType(inferExprType({ kind: "ident_expr", name: "GVL_x", span: { start: 0, end: 0 } } as Expr, findChildScope(project, "F")!, project), { form: "compiler" })).toBe("GVL_X")
   expect(inferExpr(units, "", "Dut_s")).toMatchObject({ kind: "static", denotes: "struct" })
   expect(named("Dut_s")).toBe("DUT_S")
@@ -118,7 +118,7 @@ FUNCTION_BLOCK Fb_other\nEND_FUNCTION_BLOCK`
 
 test("infer: a FUNCTION's name inside its own body is its result (dt_function_name_in_own_body)", () => {
   const src = `FUNCTION F_x : INT\nVAR\n probe : STRING;\nEND_VAR\nprobe := F_x;\nEND_FUNCTION`
-  const pr = parseSource(src, { networkText: true }, "codesys")
+  const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F_x.pou", parseResult: pr, source: src }], [], "codesys")
   const stmts = bodyStatements((pr.units[0] as unknown as FunctionBlock).body).statements
   const value = (stmts.at(-1) as { value: Expr }).value
@@ -339,9 +339,9 @@ test("infer: a library enum's member through namespace and type is that enum's v
   const lib = "App/Library Manager/Util/WEEKDAY.dut"
   const libSrc = "TYPE WEEKDAY :\n(\n\tMONDAY := 1,\n\tTHURSDAY := 4\n);\nEND_TYPE"
   const src = "FUNCTION_BLOCK F\nVAR\n probe : INT;\nEND_VAR\nprobe := Util.WEEKDAY.THURSDAY;\nEND_FUNCTION_BLOCK"
-  const pr = parseSource(src, { networkText: true }, "codesys")
+  const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([
-    { uri: lib, source: libSrc, parseResult: parseSource(libSrc, { networkText: true }, "codesys") },
+    { uri: lib, source: libSrc, parseResult: parseSource(libSrc, { networkText: true, unicodeIdentifiers: false }, "codesys") },
     { uri: "F.pou", parseResult: pr, source: src },
   ], [{ uri: "App/Library Manager/Util/Util.library", folder: "Util", dir: "App/Library Manager/Util/", namespace: "Util", library: "Util", dependencies: [], materialization: 4 }], "codesys")
   const t = inferExprType(lastExpr(pr.units.at(-1) as FunctionBlock), findChildScope(project, "F")!, project)
@@ -356,10 +356,10 @@ test("infer: a POU a namespace holds is no static base — `Ns.Func`, `Ns.FB.x` 
   const libFb = "FUNCTION_BLOCK FB_T\nVAR\n x : INT;\nEND_VAR\nEND_FUNCTION_BLOCK"
   const typed = (rhs: string): string => {
     const src = `FUNCTION_BLOCK F\nVAR\n probe : INT;\nEND_VAR\nprobe := ${rhs};\nEND_FUNCTION_BLOCK`
-    const pr = parseSource(src, { networkText: true }, "codesys")
+    const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
     const project = build.buildSymbolTable([
-      { uri: "App/Library Manager/Util/F_Void.pou", source: libFun, parseResult: parseSource(libFun, { networkText: true }, "codesys") },
-      { uri: "App/Library Manager/Util/FB_T.pou", source: libFb, parseResult: parseSource(libFb, { networkText: true }, "codesys") },
+      { uri: "App/Library Manager/Util/F_Void.pou", source: libFun, parseResult: parseSource(libFun, { networkText: true, unicodeIdentifiers: false }, "codesys") },
+      { uri: "App/Library Manager/Util/FB_T.pou", source: libFb, parseResult: parseSource(libFb, { networkText: true, unicodeIdentifiers: false }, "codesys") },
       { uri: "F.pou", parseResult: pr, source: src },
     ], [{ uri: "App/Library Manager/Util/Util.library", folder: "Util", dir: "App/Library Manager/Util/", namespace: "Util", library: "Util", dependencies: [], materialization: 4 }], "codesys")
     return inferExprType(lastExpr(pr.units.at(-1) as FunctionBlock), findChildScope(project, "F")!, project).kind
@@ -377,10 +377,10 @@ test("infer: a dependency's namespace through a library's namespace is a static 
   const lenSrc = "FUNCTION LEN : INT\nVAR_INPUT\n\tSTR : STRING(255);\nEND_VAR\nEND_FUNCTION"
   const typed = (rhs: string): string => {
     const src = `FUNCTION_BLOCK F\nVAR\n probe : INT;\nEND_VAR\nprobe := ${rhs};\nEND_FUNCTION_BLOCK`
-    const pr = parseSource(src, { networkText: true }, "codesys")
+    const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
     const project = build.buildSymbolTable([
-      { uri: "App/Library Manager/CommFB/IO_SYSTEM_TYPE.dut", source: enumSrc, parseResult: parseSource(enumSrc, { networkText: true }, "codesys") },
-      { uri: "App/Library Manager/Standard/LEN.pou", source: lenSrc, parseResult: parseSource(lenSrc, { networkText: true }, "codesys") },
+      { uri: "App/Library Manager/CommFB/IO_SYSTEM_TYPE.dut", source: enumSrc, parseResult: parseSource(enumSrc, { networkText: true, unicodeIdentifiers: false }, "codesys") },
+      { uri: "App/Library Manager/Standard/LEN.pou", source: lenSrc, parseResult: parseSource(lenSrc, { networkText: true, unicodeIdentifiers: false }, "codesys") },
       { uri: "F.pou", parseResult: pr, source: src },
     ], [
       { uri: "App/Library Manager/CAA Device Diagnosis/CAA Device Diagnosis.library", folder: "CAA Device Diagnosis", dir: "App/Library Manager/CAA Device Diagnosis/", namespace: "DED", library: "CAA Device Diagnosis", dependencies: ["CommFB"], materialization: 4 },
@@ -415,7 +415,7 @@ test("infer: POINTER ± integer is the pointer, pointer − pointer a DWORD; a r
 
 test("infer: a FUNCTION called inside its own body has no result (cc2_call_recursion, Y20)", () => {
   const src = `FUNCTION F_x : INT\nVAR_INPUT\n d : INT;\nEND_VAR\nF_x := F_x(d := d - 1);\nEND_FUNCTION`
-  const pr = parseSource(src, { networkText: true }, "codesys")
+  const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F_x.pou", parseResult: pr, source: src }], [], "codesys")
   const stmts = bodyStatements((pr.units[0] as unknown as FunctionBlock).body).statements
   expect(inferExprType((stmts.at(-1) as { value: Expr }).value, findChildScope(project, "F_x")!, project)).toEqual(UNKNOWN)

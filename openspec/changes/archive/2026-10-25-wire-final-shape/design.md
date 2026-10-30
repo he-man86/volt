@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 # Design: the wire's final shape
 
 Read this table by table. Every row is before → after, the principle it follows, the evidence, and what a client

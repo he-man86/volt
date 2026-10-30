@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Context
 
 Today the Volt editor surface is co-located in the host's git UI: VS Code renders a native

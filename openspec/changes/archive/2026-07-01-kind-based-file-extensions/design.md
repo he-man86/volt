@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Context
 
 This reverses `unify-item-file-extensions` (which collapsed writable source to `.st`) and goes further:

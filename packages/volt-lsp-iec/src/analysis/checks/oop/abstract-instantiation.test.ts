@@ -31,7 +31,7 @@ END_PROGRAM
 
 function findings(prg: string, vendor: Vendor): string[] {
   const files = [FB, prg].map((source) => {
-    const parseResult = parseSource(source, { networkText: true }, vendor)
+    const parseResult = parseSource(source, { networkText: true, unicodeIdentifiers: false }, vendor)
     return { uri: uriFor(parseResult), source, parseResult }
   })
   const project = build.buildSymbolTable(files, [], vendor)
@@ -64,7 +64,7 @@ test("a pointer to an ABSTRACT FB instantiates nothing (unit_method_abstract_fin
 const inFb = (sections: string) => `FUNCTION_BLOCK FB_LANG_user\n${sections}\nEND_FUNCTION_BLOCK\n`
 function fbFindings(sections: string, vendor: Vendor): string[] {
   const files = [FB, inFb(sections)].map((source) => {
-    const parseResult = parseSource(source, { networkText: true }, vendor)
+    const parseResult = parseSource(source, { networkText: true, unicodeIdentifiers: false }, vendor)
     return { uri: uriFor(parseResult), source, parseResult }
   })
   const project = build.buildSymbolTable(files, [], vendor)

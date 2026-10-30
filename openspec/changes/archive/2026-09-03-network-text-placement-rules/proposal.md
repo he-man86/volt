@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 # Network text: the LSP must enforce WHERE a label, title and comment may appear
 
 Status: **proposed** — not started. Raised 2026-08-31 while closing the CODESYS/TwinCAT graphical diff.

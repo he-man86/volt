@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Why
 
 Today `volt-lsp-iec` parses **declarations** into a real AST, but POU **bodies are flat token streams** (`BodySpan.tokens: Token[]`) analyzed by pattern-matching. Every body-facing check and nav query bails the moment it meets a `.` (member access) or a nested expression: `check-assignment-types` inspects only single-token operands and skips anything with a `.`; go-to-definition/hover/completion resolve only the *head* identifier of `a.b.c`, never the member; there is **no call-argument checking at all** (arg count, arg types, named `x := y`); CASE/FOR/WHILE/IF are token-scanned, never structured.

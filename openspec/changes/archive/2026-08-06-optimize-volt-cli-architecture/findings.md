@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 # Structural findings
 
 Phase 2 output of `optimize-volt-cli-architecture`: 7 independent lenses over `map.md` and the code.

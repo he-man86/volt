@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Context
 
 The current formatter (`lsp/queries/format.ts`) is a **token re-indenter**: it recomputes each line's leading indentation from a running block-nesting count and normalizes trailing whitespace / final newline. It never touches internal spacing. It is deliberately conservative because, when it was written, bodies were opaque token spans. That constraint is gone — `st-body-ast` (Phase 0) gives a statement/expression tree that is 100% clean on the four-project corpus.

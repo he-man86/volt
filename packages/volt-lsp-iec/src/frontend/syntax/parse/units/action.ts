@@ -18,6 +18,7 @@ import { collectBodyUntil } from "../body.js"
 import { joinSpans } from "../../span.js"
 import { identFromToken } from "../names.js"
 import { SOFT_NAME_KEYWORDS } from "../../lex/word-sets.js"
+import { consumeRestOfLine } from "../../format/object-properties.js"
 
 const NO_DECLARATION = "an action has no declaration the IDE stores"
 
@@ -25,7 +26,7 @@ export function parseAction(c: Cursor): Action | undefined {
   const above = c.triviaAhead().find(isStoredTrivia)
   const start = c.expectKeyword("ACTION")
   if (start === undefined) return undefined
-  const line = c.consumeRestOfLine()
+  const line = consumeRestOfLine(c)
   const words = line.filter((t) => !isTrivia(t.kind))
   // a header name (`expectHeaderName`): `ACTION Get` is an action called `Get` (`wp_action_name_*`)
   const nameTok = words.length === 0 ? c.expectHeaderName() : [...words].reverse().find((t) => t.kind === "identifier" || (t.kind === "keyword" && SOFT_NAME_KEYWORDS.has(t.keyword ?? "")))

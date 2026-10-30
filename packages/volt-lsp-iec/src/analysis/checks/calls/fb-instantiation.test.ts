@@ -22,7 +22,7 @@ test("calling an FB by its type name is flagged; calling an instance is fine", (
 
 test("C0199: calling an interface by its type name is flagged", () => {
   const src = `FUNCTION_BLOCK F\nVAR\nEND_VAR\nITF();\nEND_FUNCTION_BLOCK\nINTERFACE ITF\nEND_INTERFACE`
-  const pr = parseSource(src, { networkText: true }, "codesys")
+  const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   const msgs = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "interface-not-instantiated")
@@ -34,7 +34,7 @@ test("a member reached through a TYPE name needs an instance too", () => {
   // silent before: only a direct `FB()` was checked, so `FB.Method()` said nothing (conformance
   // `cc2_fb_not_instantiated`).
   const src = `FUNCTION_BLOCK FB_plain\nVAR\nn : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nMETHOD Get : INT\nGet := n;\nEND_METHOD\n\nFUNCTION_BLOCK FB_user\nVAR\ntaken : INT;\nEND_VAR\ntaken := FB_plain.Get();\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   const msgs = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "fb-not-instantiated")
@@ -44,7 +44,7 @@ test("a member reached through a TYPE name needs an instance too", () => {
 
 test("CALLING an interface by its type name says so twice; reaching into one says it once", () => {
   const src = `INTERFACE ITF_run\nMETHOD Run : INT\nEND_METHOD\nEND_INTERFACE\n\nFUNCTION_BLOCK FB_c\nVAR\nn : INT;\nEND_VAR\nITF_run();\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   const msgs = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "interface-not-instantiated" || d.code === "invalid-call-target")
@@ -56,7 +56,7 @@ test("CALLING an interface by its type name says so twice; reaching into one say
 // (rule DT8, `dt_static_base_fb_type`, `dt_interface_static_base`, CODESYS 2026-10-03) — they said only the store, or nothing.
 test("an FB or interface type name stored as a value must be instantiated (dt_static_base_fb_type, dt_interface_static_base)", () => {
   const src = `FUNCTION_BLOCK F\nVAR\n\ttxt : STRING;\n\tinst : FB;\nEND_VAR\ntxt := FB;\ntxt := ITF;\ntxt := inst;\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK FB\nEND_FUNCTION_BLOCK\nINTERFACE ITF\nEND_INTERFACE`
-  const pr = parseSource(src, { networkText: true }, "codesys")
+  const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   const msgs = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "fb-not-instantiated" || d.code === "interface-not-instantiated")
@@ -68,7 +68,7 @@ test("an FB or interface type name stored as a value must be instantiated (dt_st
 // `op_sys_queryinterface`'s interface named as __QUERYINTERFACE's operand): a type's name passed as a call's ARGUMENT
 test("an FB's or an interface's type name passed as an argument must be instantiated", () => {
   const src = `INTERFACE ITF\nMETHOD M : INT\nEND_METHOD\nEND_INTERFACE\n\nFUNCTION F : INT\nVAR_INPUT\n\ta : FB;\n\tb : ITF;\nEND_VAR\nEND_FUNCTION\n\nPROGRAM P\nVAR\n\tn : INT;\nEND_VAR\nn := F(a := FB, b := ITF);\nEND_PROGRAM\nFUNCTION_BLOCK FB\nEND_FUNCTION_BLOCK`
-  const pr = parseSource(src, { networkText: true }, "codesys")
+  const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   const got = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "fb-not-instantiated" || d.code === "interface-not-instantiated")

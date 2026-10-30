@@ -18,13 +18,14 @@ import { TextDocument } from "vscode-languageserver-textdocument"
 import { folderKey, normalizeKey } from "./document-key.js"
 import { parseDocument, type ParseOptions, type Span } from "../frontend/syntax/index.js"
 import { build, type Scope } from "../frontend/symbols/index.js"
-import type { ResolvedConfig } from "../analysis/index.js"
+import type { AnalysisInitOptions, ResolvedConfig } from "../analysis/index.js"
 import { DeadCodeCache } from "./dead-code-cache.js"
-import { EMPTY_WORKSPACE_REFS, type WorkspaceRefs } from "./workspace-refs.js"
+import { EMPTY_WORKSPACE_REFS, type ProjectSettings, type WorkspaceRefs } from "./workspace-refs.js"
 import { bindFailures, buildProject } from "./project-build.js"
 import { Quarantine, type Layer } from "./quarantine.js"
 import { ApplicationScopes } from "./application-scopes.js"
 import { ProjectConfigs } from "./project-configs.js"
+import { mergedDocs } from "./merged-docs.js"
 import type { Document } from "../services/index.js"
 
 /** Where a document that could not be analysed is told — the server logs it to the client. REQUIRED, never
@@ -64,7 +65,7 @@ export class WorkspaceStore {
     cfg: ResolvedConfig,
     /** How every parse of this store reads its sources — network text on or off. REQUIRED, never defaulted: the server
      *  passes what its environment says (`server/config.ts`), and a test states its own. */
-    private readonly parse: ParseOptions,
+    private readonly parse: Omit<ParseOptions, "unicodeIdentifiers">,
     private readonly onFailure: FailureReport,
   ) {
     this.configs = new ProjectConfigs(cfg)
@@ -113,11 +114,24 @@ export class WorkspaceStore {
       return undefined
     }
     try {
-      return { uri, source, parseResult: parseDocument(uri, source, this.parse, this.configs.editor.vendor) }
+      // read under its project's "Unicode identifiers" (`configFor`)
+      const options: ParseOptions = { ...this.parse, unicodeIdentifiers: this.configs.configFor(uri).unicodeIdentifiers }
+      return { uri, source, parseResult: parseDocument(uri, source, options, this.configs.editor.vendor) }
     } catch (e) {
       this.quarantine(key, uri, source, layer, e)
       return undefined
     }
+  }
+
+  /** The editor's options and each PLC project's settings — and a parse made under a project's "Unicode identifiers" that
+   *  no longer holds read again (as one watched batch): the option decides what a name IS (`lex`). */
+  configure(editor: AnalysisInitOptions, settings: readonly ProjectSettings[]): void {
+    this.configs.configure(editor, settings)
+    const stale = (d: Document) => d.parseResult.unicodeIdentifiers !== this.configs.configFor(d.uri).unicodeIdentifiers
+    for (const [key, hit] of this.cache) if (stale(hit.doc)) (this.cache.delete(key), this.openMutated(key, undefined))
+    const reread = [...this.disk].filter(([, d]) => stale(d))
+    for (const [key] of reread) this.disk.delete(key)
+    this.diskBatch(() => reread.forEach(([, d]) => this.upsertDisk(d.uri, d.source)))
   }
 
   /** Leave `source` out of the merged set until it changes, rebuild the project without it, and report it by name. */
@@ -136,10 +150,7 @@ export class WorkspaceStore {
   /** Whether the document at `uri` is quarantined: what the client sees of it is the content that threw. */
   quarantined(uri: string): boolean {
     const key = normalizeKey(uri)
-    const td = this.open.get(key)
-    if (td !== undefined) return this.failed.has("open", key, td.getText())
-    const bad = this.failed.source("disk", key)
-    return bad !== undefined && (this.disk.get(key)?.source ?? bad) === bad
+    return this.failed.shows(key, this.open.get(key)?.getText(), this.disk.get(key)?.source)
   }
 
   /** The URIs of every quarantined document. */
@@ -149,16 +160,7 @@ export class WorkspaceStore {
 
   /** The merged source set — disk entries overridden by open buffers (open wins). Memoized per edit. */
   private docs(): Document[] {
-    if (this.cachedDocs !== undefined) return this.cachedDocs
-    const merged = new Map<string, Document>()
-    for (const [key, d] of this.disk) if (!this.failed.has("disk", key, d.source)) merged.set(key, d)
-    for (const td of this.open.values()) {
-      const key = normalizeKey(td.uri)
-      const d = this.openParse(td)
-      if (d !== undefined) merged.set(key, d)
-      else merged.delete(key) // the buffer the user sees is quarantined; its disk copy is not what they see
-    }
-    return (this.cachedDocs = [...merged.values()])
+    return (this.cachedDocs ??= mergedDocs(this.disk, this.open.values(), this.failed, (td) => this.openParse(td)))
   }
 
   /** The table names in `uri` resolve against: its application's (`ApplicationScopes`), else the whole project's, built when

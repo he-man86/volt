@@ -46,6 +46,13 @@ export function computeDiagnostics(args: DiagnosticsArgs): DiagnosticItem[] {
       `dialect mismatch: the source was parsed as '${args.parseResult.dialect}' and the analysis asked for ` +
         `'${config.vendor}'. Pass the vendor to parseSource/parseDocument as well.`,
     )
+  // …and the project's "Unicode identifiers": the option decides what a name IS (`lex`), so a parse made under the other
+  // reading is another text's, and checks reading the names would answer for it
+  if (args.parseResult.unicodeIdentifiers !== config.unicodeIdentifiers)
+    throw new Error(
+      `unicode identifiers mismatch: the source was parsed with unicodeIdentifiers=${args.parseResult.unicodeIdentifiers} and ` +
+        `the analysis asked for ${config.unicodeIdentifiers}. Parse it under its project's option (ParseOptions.unicodeIdentifiers).`,
+    )
   const ctx: CheckContext = {
     parseResult: args.parseResult,
     source: args.source,
@@ -92,7 +99,11 @@ export function runRegistry(
       onCheck?.(check, out.slice(from))
     }
   }
-  return withdrawBlockedFixes(applyPolicy(out, ctx.config, ctx.source))
+  // A TEXT THE IDE REFUSES TO CREATE IS NOT IN THE IDE (`checks/names/object-name.ts`): the push's create answers with
+  // the refusal and nothing of that text is built, so the refusal is the vendor's whole answer and any other finding on
+  // the text would be one no build gives.
+  const refusals = out.filter((d) => d.code === "object-name-refused")
+  return withdrawBlockedFixes(applyPolicy(refusals.length > 0 ? refusals : out, ctx.config, ctx.source))
 }
 
 /** Per-check wall time (ms) under `PROFILE_CHECKS=1`, printed slowest first when the process exits. The corpus and

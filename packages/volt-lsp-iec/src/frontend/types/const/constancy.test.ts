@@ -11,7 +11,7 @@ import { constancyOf } from "../index.js"
 /** Classify the value of the single `n := <value>;` assignment in F's body. */
 function classify(decls: string, value: string): string {
   const src = `FUNCTION_BLOCK F\nVAR\n${decls}\n  n : INT;\nEND_VAR\nn := ${value};\nEND_FUNCTION_BLOCK`
-  const pr = parseSource(src, { networkText: true }, "codesys")
+  const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   for (const { scope, statements } of bodies(pr.units, project)) {
     const s = statements[0]
@@ -32,7 +32,7 @@ test("a plain variable is variable", () => {
 
 test("a plain variable is variable; a VAR CONSTANT is constant", () => {
   const src = `FUNCTION_BLOCK F\nVAR\n  v : INT;\nEND_VAR\nVAR CONSTANT\n  K : INT := 7;\nEND_VAR\nv := K;\nEND_FUNCTION_BLOCK`
-  const pr = parseSource(src, { networkText: true }, "codesys")
+  const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   for (const { scope, statements } of bodies(pr.units, project)) {
     const s = statements[0]
@@ -50,8 +50,8 @@ test("a constant from a library file resolves as non-variable under a live `%20`
   const libUri = "file:///App/Library%20Manager/CANopen/GC.gvl"
   const libSrc = `VAR_GLOBAL\n  GC_MAX : USINT := 9;\nEND_VAR`
   const useSrc = `FUNCTION_BLOCK F\nVAR\n  n : INT;\nEND_VAR\nn := GC_MAX;\nEND_FUNCTION_BLOCK`
-  const libPr = parseSource(libSrc, { networkText: true }, "codesys")
-  const usePr = parseSource(useSrc, { networkText: true }, "codesys")
+  const libPr = parseSource(libSrc, { networkText: true, unicodeIdentifiers: false }, "codesys")
+  const usePr = parseSource(useSrc, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([
     { uri: libUri, parseResult: libPr, source: libSrc },
     { uri: "file:///F.pou", parseResult: usePr, source: useSrc },
@@ -64,7 +64,7 @@ test("a constant from a library file resolves as non-variable under a live `%20`
 
 test("an enum member is constant (inline enum), an unresolved name is unknown", () => {
   const src = `FUNCTION_BLOCK F\nVAR\n  stv : (A, B, C);\n  n : INT;\nEND_VAR\nCASE stv OF\n  A: n := Missing;\nEND_CASE\nEND_FUNCTION_BLOCK`
-  const pr = parseSource(src, { networkText: true }, "codesys")
+  const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   for (const { scope, statements } of bodies(pr.units, project)) {
     for (const s of statements) {

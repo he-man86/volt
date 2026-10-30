@@ -49,7 +49,7 @@ test("C0175: a VAR RETAIN block in a FUNCTION is flagged; in an FB it is fine", 
 
 test("C0168: a VAR_CONFIG block in a POU is flagged with its own message", () => {
   const src = `PROGRAM P\nVAR_CONFIG i : INT; END_VAR\nEND_PROGRAM`
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   const msgs = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "misplaced-var-config")

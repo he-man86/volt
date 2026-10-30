@@ -23,7 +23,7 @@ function mutations(src: string): string[] {
 test("parseSource never throws on mutated input", () => {
   for (const sample of SAMPLES) {
     for (const m of mutations(sample)) {
-      expect(() => parseSource(m, { networkText: true }, "codesys")).not.toThrow()
+      expect(() => parseSource(m, { networkText: true, unicodeIdentifiers: false }, "codesys")).not.toThrow()
     }
   }
 })
@@ -31,9 +31,9 @@ test("parseSource never throws on mutated input", () => {
 test("bodyStatements never throws on mutated bodies", () => {
   for (const sample of SAMPLES) {
     for (const m of mutations(sample)) {
-      const tokens = lex(m, "codesys").filter((t) => t.kind !== "eof")
+      const tokens = lex(m, "codesys", false).filter((t) => t.kind !== "eof")
       const span = { start: 0, end: m.length, startLine: 1, startCol: 0, endLine: 1, endCol: 0 }
-      expect(() => bodyStatements({ kind: "body", tokens, span, dialect: "codesys" })).not.toThrow()
+      expect(() => bodyStatements({ kind: "body", tokens, span, dialect: "codesys", unicodeIdentifiers: false })).not.toThrow()
     }
   }
 })

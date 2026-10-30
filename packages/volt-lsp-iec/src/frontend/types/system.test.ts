@@ -21,7 +21,7 @@ test("VERSION is a STRUCT of four UINT components (`ty_version_type`, `ty_versio
 
 test("an ANY / ANY_* input is the compiler's AnyType: diSize a DINT, pValue a POINTER TO BYTE (`type_any_*`, `tr_17_*`)", () => {
   const src = `FUNCTION F : DINT\nVAR_INPUT\n\tx : ANY_INT;\n\ty : ANY;\nEND_VAR\nF := x.diSize;\nF := y.DISIZE;\nF := x.pValue^;\nEND_FUNCTION`
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const p = build.buildSymbolTable([{ uri: "F.pou", source: src, parseResult }], [], "codesys")
   const [body] = [...bodies(parseResult.units, p)]
   const rhs = body!.statements.map((s) => (s as { value: Expr }).value)
@@ -30,7 +30,7 @@ test("an ANY / ANY_* input is the compiler's AnyType: diSize a DINT, pValue a PO
 
 test("a project's own VERSION type wins over the compiler's", () => {
   const src = `TYPE VERSION :\nSTRUCT\n\tmine : BOOL;\nEND_STRUCT\nEND_TYPE`
-  const p = build.buildSymbolTable([{ uri: "VERSION.dut", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }], [], "codesys")
+  const p = build.buildSymbolTable([{ uri: "VERSION.dut", source: src, parseResult: parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys") }], [], "codesys")
   const t = resolveNamedType("VERSION", p, undefined)
   expect(t.kind === "struct" && t.scope?.symbols.has("mine")).toBe(true)
 })

@@ -15,7 +15,7 @@ type File = { uri: string; source: string }
 
 /** Every error the analysis gives `main`, in a project of `main` and `others`. */
 function errors(main: File, others: File[] = [], vendor: Vendor = "codesys"): string[] {
-  const files = [main, ...others].map((f) => ({ ...f, parseResult: parseDocument(f.uri, f.source, { networkText: true }, vendor) }))
+  const files = [main, ...others].map((f) => ({ ...f, parseResult: parseDocument(f.uri, f.source, { networkText: true, unicodeIdentifiers: false }, vendor) }))
   const project = build.buildSymbolTable(files, [], vendor)
   const own = files[0]!
   return computeDiagnostics({ parseResult: own.parseResult, source: own.source, project, config: resolveConfig({ vendor }), uri: own.uri })
@@ -109,7 +109,7 @@ test("a qualified type whose first qualifier names something — silent", () => 
   // (corpus: `L_IE1P.L_IE1P_SeverityLevel`, 51 such references in two projects that build) and not those of one it does
   // not (`DED.IO_SYSTEM_TYPE` is "Unknown type", `lib_ns_direct_dependency_only`); the manifest does not say which (LB2)
   const lib = { uri: "w/Library Manager/Lib/T.dut", source: "TYPE T :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE\n" }
-  const files = [prg("a : Ns.T; b : Ns.Elsewhere;"), lib].map((f) => ({ ...f, parseResult: parseDocument(f.uri, f.source, { networkText: true }, "codesys") }))
+  const files = [prg("a : Ns.T; b : Ns.Elsewhere;"), lib].map((f) => ({ ...f, parseResult: parseDocument(f.uri, f.source, { networkText: true, unicodeIdentifiers: false }, "codesys") }))
   const project = build.buildSymbolTable(files, [{ uri: "w/Library Manager/Lib/Lib.library", folder: "Lib", dir: "w/Library Manager/Lib/", namespace: "Ns", library: "Lib", dependencies: [], materialization: 4 }], "codesys")
   const own = files[0]!
   const said = computeDiagnostics({ parseResult: own.parseResult, source: own.source, project, config: resolveConfig({ vendor: "codesys" }), uri: own.uri })

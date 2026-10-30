@@ -141,8 +141,8 @@ export function statementExprs(list: StatementList): Expr[] {
   return out
 }
 
-const exprTokens = (text: string, dialect: Dialect) =>
-  lex(text, dialect).filter((t) => !isTrivia(t.kind) && t.kind !== "eof")
+const exprTokens = (text: string, dialect: Dialect, unicodeIdentifiers: boolean) =>
+  lex(text, dialect, unicodeIdentifiers).filter((t) => !isTrivia(t.kind) && t.kind !== "eof")
 
 /**
  * What is not a fixed point of the printer in `p`:
@@ -156,7 +156,7 @@ export function printFindings(p: Parsed): PrintFinding[] {
   const out: PrintFinding[] = []
   const once = formatDocument({ uri: p.uri, source: p.source, parseResult: p.parseResult })
   // Re-parsed as the SAME source object (the uri decides how `.dut`/`.gvl`/… are read), as the LSP would read it.
-  const reparsed = parseDocument(p.uri, once, { networkText: true }, p.dialect)
+  const reparsed = parseDocument(p.uri, once, { networkText: true, unicodeIdentifiers: p.parseResult.unicodeIdentifiers }, p.dialect)
   // Only an error the formatter INTRODUCED is its failure: one the original already has, reproduced, is the source's.
   const own = new Map<string, number>()
   for (const e of p.parseResult.errors) own.set(e.message, (own.get(e.message) ?? 0) + 1)
@@ -185,7 +185,7 @@ export function printFindings(p: Parsed): PrintFinding[] {
     const text = exprText(e)
     // …in the grammar of its place: an inline assignment printed bare (`IF x := b THEN`, rule E26) is an expression where
     // a condition, a selector, a bound or an index stands, and nowhere else
-    const again = parseExprFromTokens(exprTokens(text, p.dialect), e.kind === "assign_expr")
+    const again = parseExprFromTokens(exprTokens(text, p.dialect, p.parseResult.unicodeIdentifiers), e.kind === "assign_expr")
     if (again === undefined) out.push({ kind: "expr-reprint-fails", at: at(e.span), detail: text })
     else if (exprText(again) !== text)
       out.push({ kind: "expr-not-fixed", at: at(e.span), detail: `${text} → ${exprText(again)}` })

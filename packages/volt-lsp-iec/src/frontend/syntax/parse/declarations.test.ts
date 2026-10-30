@@ -6,7 +6,7 @@ import { test, expect } from "bun:test"
 import { parseSource } from "./parser.js"
 import type { FunctionBlock, GlobalVarList, TypeDecl, VarDecl } from "../ast/nodes/index.js"
 
-const parse = (src: string, vendor: "codesys" | "twincat" = "codesys") => parseSource(src, { networkText: true }, vendor)
+const parse = (src: string, vendor: "codesys" | "twincat" = "codesys") => parseSource(src, { networkText: true, unicodeIdentifiers: false }, vendor)
 const messages = (src: string) => parse(src).errors.map((e) => e.message)
 const fb = (sections: string) => `FUNCTION_BLOCK F\n${sections}\nEND_FUNCTION_BLOCK\n`
 const inVar = (decl: string) => fb(`VAR\n\t${decl}\nEND_VAR`)

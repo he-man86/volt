@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 # The target layout — structured so the edge cases cannot exist
 
 This is the folder and file plan for `src/Volt.Engine`, decided **before** the featureset in `tasks.md` §3 is

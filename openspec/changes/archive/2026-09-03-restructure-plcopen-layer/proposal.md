@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Why
 
 PLCopen XML used to be **one of several ways** to move code in and out of the IDE, and the one used only for

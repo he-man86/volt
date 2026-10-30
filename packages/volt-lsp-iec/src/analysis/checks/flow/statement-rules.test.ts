@@ -32,7 +32,7 @@ test("C0132: EXIT outside a loop is flagged; EXIT nested inside a loop is not", 
 test("C0509: __NEW in a chained assignment is flagged; a single __NEW is not", () => {
   const src = (b: string) => `FUNCTION_BLOCK F\nVAR pa:POINTER TO BYTE; pb:POINTER TO BYTE;\nEND_VAR\n${b}\nEND_FUNCTION_BLOCK`
   const nw = (b: string) => {
-    const pr = parseSource(src(b), { networkText: true }, "codesys")
+    const pr = parseSource(src(b), { networkText: true, unicodeIdentifiers: false }, "codesys")
     const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src(b) }], [], "codesys")
     return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src(b), project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "multiple-assignment-new")
@@ -45,7 +45,7 @@ test("C0509: __NEW in a chained assignment is flagged; a single __NEW is not", (
 test("CONTINUE outside a loop is reported too, and the compiler names the statement", () => {
   // silent before: only EXIT was checked (conformance `cc2_exit_outside_loop`, which records both).
   const src = `FUNCTION_BLOCK F\nVAR\nn : INT;\nEND_VAR\nn := 1;\nEXIT;\nCONTINUE;\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   const msgs = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "exit-outside-loop")
@@ -53,7 +53,7 @@ test("CONTINUE outside a loop is reported too, and the compiler names the statem
   expect(msgs).toEqual(["No enclosing loop of which to exit", "No enclosing loop of which to continue"])
   // inside a loop, both are fine
   const ok = `FUNCTION_BLOCK F\nVAR\ni : INT;\nEND_VAR\nFOR i := 1 TO 3 DO\nCONTINUE;\nEXIT;\nEND_FOR\nEND_FUNCTION_BLOCK`
-  const okParse = parseSource(ok, { networkText: true }, "codesys")
+  const okParse = parseSource(ok, { networkText: true, unicodeIdentifiers: false }, "codesys")
   expect(
     computeDiagnostics({
       uri: uriFor(okParse),
@@ -69,7 +69,7 @@ test("CONTINUE outside a loop is reported too, and the compiler names the statem
 // "'.gcTarget' is no valid assignment target" (`expr_global_namespace_constant_target`, both vendors 2026-10-02).
 test("C0018: a CONSTANT global written as `.g` is flagged as written (expr_global_namespace_constant_target, E33)", () => {
   const src = `VAR_GLOBAL CONSTANT\ngc : INT := 7;\nEND_VAR\nVAR_GLOBAL\ngv : INT;\nEND_VAR\nFUNCTION_BLOCK F\nVAR gc : INT;\nEND_VAR\n.gc := 5;\n.gv := 5;\ngc := 5;\nEND_FUNCTION_BLOCK`
-  const pr = parseSource(src, { networkText: true }, "codesys")
+  const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   const msgs = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "not-assignment-target")
@@ -148,7 +148,7 @@ test("C0018: a direct address is a target, no literal refused (lit_address_in_bo
 // body without a word from either vendor — CONSTANT there forbids nothing the body does
 test("a VAR_INPUT CONSTANT assigned in the body is no constant target", () => {
   const src = `FUNCTION_BLOCK F\nVAR_INPUT CONSTANT\n\tlimit_ : INT := 4;\nEND_VAR\nlimit_ := 5;\nEND_FUNCTION_BLOCK`
-  const pr = parseSource(src, { networkText: true }, "codesys")
+  const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   expect(
     computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })

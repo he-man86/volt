@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## 1. Implementation (shipped)
 
 - [x] 1.1 Bridge round-trip PlcOpen XML ⇄ VG; CFC/SFC surfaced read-only

@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 # LSP completeness audit — close the resolution-depth & VG-parity gaps
 
 ## Why

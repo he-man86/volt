@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Context
 
 The volt-lsp-codesys coverage harness treats the materialized pro2193 corpus as ground truth: it

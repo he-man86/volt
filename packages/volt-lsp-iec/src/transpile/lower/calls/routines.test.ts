@@ -186,7 +186,7 @@ test("a VAR_OUTPUT first stored from a STRING of another capacity keeps its rese
 test("a call to a member with no body slot is refused by name, never run as an empty body", () => {
   const uri = "file:///w/Base.pou"
   const source = "FUNCTION_BLOCK ABSTRACT Base\n%LANGUAGE ST\nRun();\nEND_FUNCTION_BLOCK\n\nMETHOD PROTECTED ABSTRACT Run\nEND_METHOD\n"
-  const parseResult = parseDocument(uri, source, { networkText: true }, "codesys")
+  const parseResult = parseDocument(uri, source, { networkText: true, unicodeIdentifiers: false }, "codesys")
   expect(parseResult.errors).toEqual([])
   const r = lowerPrepared({ uri, parseResult }, "Base", prepareProject([{ uri, parseResult, source }], []))
   expect(r.pou).toBeUndefined()

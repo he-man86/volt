@@ -215,7 +215,7 @@ function walkProject(p: Pass, dir: string, routines: Set<string>, routinesFromRu
   const vendor = corpusVendor(dir)
   const parsed = walkSources(dir).map((file) => {
     const source = readFileSync(file, "utf8")
-    return { file, source, parseResult: parseDocument(file, source, { networkText: true }, vendor) }
+    return { file, source, parseResult: parseDocument(file, source, { networkText: true, unicodeIdentifiers: false }, vendor) }
   })
   p.files += parsed.length
 
@@ -257,7 +257,7 @@ function readFile(p: Pass, { file, source, parseResult }: { file: string; source
   // ── the formatter re-emits valid ST that re-parses to an EQUIVALENT AST ──
   // Proves the formatter never changes meaning (span/token-free, body statements embedded, key-order-insensitive).
   const formatted = formatDocument({ uri: file, source, parseResult })
-  const reparsed = parseDocument(file, formatted, { networkText: true }, vendor)
+  const reparsed = parseDocument(file, formatted, { networkText: true, unicodeIdentifiers: false }, vendor)
   if (reparsed.errors.length > 0) p.formatFailures.push(`${file}: formatted output has parse errors`)
   else if (astKey(parseResult.units) !== astKey(reparsed.units)) p.formatFailures.push(`${file}: AST changed after formatting`)
 }

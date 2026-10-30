@@ -538,6 +538,6 @@ The deltas the clean design makes to the shapes above (facts-first, structured-n
 - **Network-text operands are ST `Expr`, not a `NetworkOperand`/`NetworkGroup` tree** — Network-text operands are fully-parenthesised ST
   expressions, so they parse into the ST `Expr` tree and reuse the ONE type engine / `resolveMemberChain` /
   nav / hover. There is no network-text-specific operand tree or infer/resolve stack; operator info is the `Expr`
-  binary node's. A network's splits become per-network symbols typed by their feeder
+  binary node's. A network's wires (its `VAR_TEMP w1 : ANY`) become per-network symbols typed by their definition
   (`NetworkTextAnalysis.networkScopes`), and `EXECUTE` boxes hold ordinary ST parsed into a `StatementList`. Supersedes
   the earlier "operator info as a fact on `NetworkGroup`" refinement (there is no `NetworkGroup`).

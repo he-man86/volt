@@ -35,7 +35,7 @@ const manifest = (
   materialization: 2,
 })
 
-const file = (uri: string, source: string) => ({ uri, source, parseResult: parseSource(source, { networkText: true }, "codesys") })
+const file = (uri: string, source: string) => ({ uri, source, parseResult: parseSource(source, { networkText: true, unicodeIdentifiers: false }, "codesys") })
 
 // The two ETRIGs are not the same function block: only one has `fromCbm`.
 const FILES = [
@@ -217,7 +217,7 @@ test("SIZEOF of a STRUCT or a UNION is a UINT; of an enum, an alias or an array 
 // ─── from types.test.ts (transpile-restructure 1.1.11) ───
 
 function proj(src: string): Scope {
-  return build.buildSymbolTable([{ uri: "F.pou", parseResult: parseSource(src, { networkText: true }, "codesys"), source: src }], [], "codesys")
+  return build.buildSymbolTable([{ uri: "F.pou", parseResult: parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys"), source: src }], [], "codesys")
 }
 
 test("resolve: elementary carries facts; alias follows; FB/enum/struct carry scope", () => {

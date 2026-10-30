@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## 1. Census and design
 
 - [x] 1.1 Count on the models (scratch, as network-text-st 1.1): every box shape the rule must spell — ENO shown and

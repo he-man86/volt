@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Why
 
 **The bridge does not check the CODE** (owner, 2026-09-29). A top-level item's kind is its wire name's extension. Its

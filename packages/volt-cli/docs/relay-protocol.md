@@ -122,7 +122,8 @@ fails to send is dropped, the request is not.
 "reading"` first, then one every 25 items). On a large TwinCAT solution the walk alone can take longer than a
 minute, so a relay that counts progress sees the bridge working before any item is read (`wire.html`).
 
-**Anything else** from the relay (a frame with no `op` that is neither the chunk announcement nor an ack: a pong, a
+**Anything else** from the relay (a frame with no `op` that is neither the chunk announcement, an ack nor a
+[cancel](#cancel): a pong, a
 keepalive, a field from a newer relay) is ignored, but counts as traffic for the watchdog.
 
 ## Chunks
@@ -180,7 +181,8 @@ clamped to **16–256 KiB**, starting at 16 KiB. From a cold start W at most dou
 - Whole text frames do not count against W and go out between two chunks (one send at a time), so any frame waits at
   most about W / uplink plus one chunk: ~12 s at 2 KB/s.
 
-**Delivery.** A chunked answer is delivered at its LAST ack. An ack for a chunk that is not awaiting one is a WARN.
+**Delivery.** A chunked answer is delivered at its LAST ack. An ack for a chunk that is not awaiting one is a WARN;
+an ack for a chunk of a [cancelled](#cancel) answer that went out before the cancel is expected and ignored.
 
 - On each heartbeat tick (25 s), a chunk unacked for more than **60 s** drops the socket, 60–85 s after it went.
 - A chunk whose send fails drops the socket: the relay learns from the socket ending that the answer will not
@@ -278,6 +280,37 @@ the IDE's thread nor the requests waiting behind it delay a ping.
 
 A relay may have many requests in flight on one socket. Frames for different ids interleave freely; a relay
 demultiplexes on `id` and nothing else. Frame ORDER is guaranteed only within one id.
+
+## Cancel
+
+A relay that no longer waits for a READ's answer (its own budget ran out, or its caller went) says so:
+
+```json
+{ "id": "r1", "cancel": "timeout" }
+{ "id": "r1", "cancel": "caller_gone" }
+```
+
+No `op`, no `ack`, no `volt`. A cancel whose `id` is not a string, or whose `cancel` is not one of those two words, is a
+malformed frame (WARN, naming which) and changes nothing.
+
+A relay cancels only the reads: `health`, `refs`, `fetch`, `grep` (`RelayFrames.Cancellable`). What the bridge does
+with a read's cancel depends on where the read is:
+
+| The read is | The bridge |
+| --- | --- |
+| queued (taken, its pipe call not started) | never starts it |
+| running on the pipe | lets the IDE call finish (it never interrupts the IDE), then sends nothing for the id, progress included |
+| streaming its answer as chunks | sends no chunk after the one in flight; its unacked chunks stop counting against the window and the 60 s ack limit, so other ids are not held |
+| unknown, finished, or its whole answer already going out | ignores the cancel (a Debug line) |
+
+A cancelled read gets no terminal frame: the relay asked for none. Its terminal log line says `cancelled`.
+
+**A write is never cancelled.** A cancel for `push`, `build` or any op that is not a read breaks this contract: the
+bridge names it in a WARN line, `relay: a cancel for <op> (<id>) breaks the contract — the relay cancels reads only;
+the <op> runs to its end and is answered`, and the op runs to its end and gets its terminal frame as ever.
+
+A bridge from before the cancel reads it as a frame it does not know and ignores it: it serves the read to the end and
+answers it, which the relay discards.
 
 ## Liveness
 
@@ -412,7 +445,10 @@ Local only (see the operational notes); the token is never in it. Per relayed re
     the pipe;
   - `abandoned [<outcome>]` — the connection went before the terminal frame was sent (a chunked one: before its last
     ack); the op's own outcome follows when it had completed (a push that landed reads `abandoned ok landed
-    newProjectVersion=<v>`).
+    newProjectVersion=<v>`);
+  - `cancelled (<reason>)` — the relay [cancelled](#cancel) the read and nothing more was sent for it; the line reads
+    `relay: -> <op> (<id>) cancelled (<reason>)[ after <n> of <m> chunks] <N>ms`, the chunk part when it was cancelled
+    while its answer streamed (`<n>` chunks sent, the one in flight included, of `<m>`).
 
   A chunked answer's line reads `<outcome> <N>ms, <B> B as <n> chunks`. `<N>ms` is the total time from read to
   terminal line (for a chunked answer, to its last ack); the wait for the IDE thread is not split out (the tunnel is a

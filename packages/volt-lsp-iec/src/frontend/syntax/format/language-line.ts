@@ -238,13 +238,13 @@ export function languageLineWords(body: BodySpan): readonly Token[] {
  * Build a BodySpan from a list of tokens. Falls back to `fallback`
  * span if the list is empty.
  */
-export function bodySpanFromTokens(tokens: Token[], fallback: Span, dialect: Dialect): BodySpan {
+export function bodySpanFromTokens(tokens: Token[], fallback: Span, dialect: Dialect, unicodeIdentifiers: boolean): BodySpan {
   if (tokens.length === 0) {
-    return { kind: "body", tokens, span: fallback, dialect }
+    return { kind: "body", tokens, span: fallback, dialect, unicodeIdentifiers }
   }
   const first = tokens[0]
   const last = tokens[tokens.length - 1]
-  return { kind: "body", tokens, span: joinSpans(first.span, last.span), dialect }
+  return { kind: "body", tokens, span: joinSpans(first.span, last.span), dialect, unicodeIdentifiers }
 }
 
 /**
@@ -252,8 +252,8 @@ export function bodySpanFromTokens(tokens: Token[], fallback: Span, dialect: Dia
  * body (`splitLanguage`), and every problem with the line reported through `report` (the parse cursor's errors) — the one
  * place a POU body is built, so no unit kind can skip the line.
  */
-export function codeBody(report: ReportAt, tokens: Token[], fallback: Span, owner: BodyOwner, dialect: Dialect): BodySpan {
+export function codeBody(report: ReportAt, tokens: Token[], fallback: Span, owner: BodyOwner, dialect: Dialect, unicodeIdentifiers: boolean): BodySpan {
   const { tokens: code, languageLine } = splitLanguage(tokens, owner, report)
-  const body = bodySpanFromTokens(code, fallback, dialect)
+  const body = bodySpanFromTokens(code, fallback, dialect, unicodeIdentifiers)
   return languageLine === undefined ? body : { ...body, languageLine }
 }

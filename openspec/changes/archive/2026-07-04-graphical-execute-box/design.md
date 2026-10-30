@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 # Design — Execute-box round-trip (ST-in-FBD/LD) via a first-class VG `EXECUTE` construct
 
 ## The bug, precisely (confirmed live 2026-07-03, Bakon Nano `Recipes.prg`)

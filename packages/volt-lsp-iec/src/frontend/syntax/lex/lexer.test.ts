@@ -3,7 +3,7 @@ import { lex } from "./lexer.js"
 import { isTrivia, type Token } from "./tokens.js"
 
 // Non-trivia tokens, the stream the parser actually consumes.
-const code = (src: string): Token[] => lex(src, "codesys").filter((t) => !isTrivia(t.kind))
+const code = (src: string): Token[] => lex(src, "codesys", false).filter((t) => !isTrivia(t.kind))
 
 test("keywords are canonicalized case-insensitively", () => {
   const [t] = code("function_block")
@@ -58,7 +58,7 @@ test("ExST set/reset assignment operators lex as one punct", () => {
 })
 
 test("nestable block comments are trivia", () => {
-  const all = lex("(* outer (* inner *) still *) x", "codesys")
+  const all = lex("(* outer (* inner *) still *) x", "codesys", false)
   expect(all.find((t) => t.kind === "block_comment")).toBeDefined()
   expect(code("(* outer (* inner *) still *) x").map((t) => t.text)).toEqual(["x", ""])
 })
@@ -69,8 +69,8 @@ test("nestable block comments are trivia", () => {
 // `%LANGUAGE` line after it was no line, and every position after it named a line too few — a finding later in the file
 // reported on a line of an earlier comment (openspec lsp-field-false-positives 5, the strongest candidate found).
 test("a lone CR ends a line exactly as LF does — a line comment, a position, a string", () => {
-  const cr = lex("a := 1; // note\rb := 2;", "codesys").filter((t) => !isTrivia(t.kind))
-  const lf = lex("a := 1; // note\nb := 2;", "codesys").filter((t) => !isTrivia(t.kind))
+  const cr = lex("a := 1; // note\rb := 2;", "codesys", false).filter((t) => !isTrivia(t.kind))
+  const lf = lex("a := 1; // note\nb := 2;", "codesys", false).filter((t) => !isTrivia(t.kind))
   expect(cr.map((t) => t.text)).toEqual(lf.map((t) => t.text))
   expect(cr.map((t) => [t.span.startLine, t.span.startCol])).toEqual(lf.map((t) => [t.span.startLine, t.span.startCol]))
   // a CRLF stays ONE line end, and the source's offsets are the document's, character for character
@@ -81,7 +81,7 @@ test("a lone CR ends a line exactly as LF does — a line comment, a position, a
 })
 
 test("eof always terminates the stream", () => {
-  const toks = lex("", "codesys")
+  const toks = lex("", "codesys", false)
   expect(toks.at(-1)?.kind).toBe("eof")
 })
 
@@ -106,7 +106,7 @@ test("the CODESYS-only words are keywords on CODESYS and identifiers on TwinCAT 
   // it an undefined identifier, as it does `__position`, `__pouname` and `__compare_and_swap`
   for (const w of ["__VECTOR", "__position", "__PouName", "__compare_and_swap"]) {
     expect(code(w)[0].kind).toBe("keyword")
-    expect(lex(w, "twincat")[0]).toMatchObject({ kind: "identifier", text: w })
+    expect(lex(w, "twincat", false)[0]).toMatchObject({ kind: "identifier", text: w })
   }
 })
 
@@ -116,7 +116,7 @@ test("the CODESYS-only words are keywords on CODESYS and identifiers on TwinCAT 
 
 /** `[kind, text, malformed?]` for each code token before eof. */
 const shape = (src: string, dialect: "codesys" | "twincat" = "codesys"): (string | boolean)[][] =>
-  lex(src, dialect)
+  lex(src, dialect, false)
     .filter((t) => !isTrivia(t.kind) && t.kind !== "eof")
     .map((t) => (t.malformed ? [t.kind, t.text, true] : [t.kind, t.text]))
 
@@ -237,11 +237,24 @@ test("an address's `*` stands right after its area letter, nowhere else (A1, A2)
 
 // A NAME IN ANY SCRIPT (openspec `codesys-existing-unicode-members` 3.2, DIALECT C28b): with "Unicode identifiers" on,
 // CODESYS 3.5.21.40 creates and builds each of these names, and refuses a leading digit, a no-break and a zero-width space.
-const words = (src: string) => code(src).filter((t) => t.kind !== "eof").map((t) => [t.kind, t.text])
+const words = (src: string, unicode = true) =>
+  lex(src, "codesys", unicode).filter((t) => !isTrivia(t.kind) && t.kind !== "eof").map((t) => [t.kind, t.text])
 
 test("a name CODESYS builds is one identifier token, in any script", () => {
   for (const name of ["Fööbar", "Ünit", "Привет", "αβ", "名前", "点1", "点_a", "_点", "a٣", "从Modbus读取命令"])
     expect(words(name)).toEqual([["identifier", name]])
+})
+
+// …and with the option OFF, CODESYS's default, a character past ASCII ends the name and is a token of its own: the build
+// quotes it alone ("',, AT or :' expected instead of 'ö'" for `größe`, "Unexpected token '计' found" — conformance
+// `names/unicode-identifiers-off.ts`, CODESYS 3.5.21.40, openspec lsp-field-followups 2)
+test("with \"Unicode identifiers\" off, every character past ASCII is a token of its own", () => {
+  expect(words("größe", false)).toEqual([["identifier", "gr"], ["unknown", "ö"], ["unknown", "ß"], ["identifier", "e"]])
+  expect(words("计数", false)).toEqual([["unknown", "计"], ["unknown", "数"]])
+  expect(words("a٣", false)).toEqual([["identifier", "a"], ["unknown", "٣"]])
+  // a comment and a string are no names
+  expect(words("x // 计数", false)).toEqual([["identifier", "x"]])
+  expect(words("'größe'", false)).toEqual([["string_lit", "'größe'"]])
 })
 
 test("a name CODESYS refuses is no single identifier", () => {

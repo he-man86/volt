@@ -10,7 +10,7 @@ import { build } from "../../frontend/symbols/index.js"
 import { foldingRanges } from "./folding.js"
 
 function setup(src: string) {
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const doc: Document = { uri: "file:///F.pou", source: src, parseResult }
   const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }], [], "codesys")
   return { doc, project }
@@ -94,7 +94,7 @@ END_FUNCTION_BLOCK`
     const folds = foldingRanges({
       uri: "file:///F.pou",
       source: LD_FB,
-      parseResult: parseSource(LD_FB, { networkText: true }, "codesys"),
+      parseResult: parseSource(LD_FB, { networkText: true, unicodeIdentifiers: false }, "codesys"),
     })
     const networks = folds.filter((f) => f.startLine >= 5)
     expect(networks.map((f) => [f.startLine, f.endLine])).toEqual([
@@ -107,7 +107,7 @@ END_FUNCTION_BLOCK`
     const folds = foldingRanges({
       uri: "file:///F.pou",
       source: ST_FB,
-      parseResult: parseSource(ST_FB, { networkText: true }, "codesys"),
+      parseResult: parseSource(ST_FB, { networkText: true, unicodeIdentifiers: false }, "codesys"),
     })
     expect(folds.some((f) => f.startLine === 0 && f.endLine >= 5)).toBe(true)
   })

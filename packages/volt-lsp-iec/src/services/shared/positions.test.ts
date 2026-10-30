@@ -40,7 +40,7 @@ test("spanContains: start inclusive, end exclusive", () => {
 // definition on type names and declared identifiers (from the old `syntax/token-at` test, openspec frontend-conformance 1.10).
 
 // "x := foo;" → x[0,1) :=[2,4) foo[5,8) ;[8,9)   (offsets 1 and 4 are whitespace = trivia)
-const TOKENS = lex("x := foo;", "codesys")
+const TOKENS = lex("x := foo;", "codesys", false)
 
 test("returns the token whose span covers the offset (start inclusive)", () => {
   expect(tokenAtOffset(TOKENS, 0)?.text).toBe("x")
@@ -65,7 +65,7 @@ test("end offset is exclusive — a cursor at a token's end belongs to the next 
 // every token after an `Ä` or an emoji (a German comment, a string) one or more characters off.
 test("a column is a UTF-16 code unit on both sides: the lexer's columns and the position math agree past non-ASCII", () => {
   const src = "s := 'Ä😀'; b := 1;" // Ä is one unit, 😀 two
-  const b = lex(src, "codesys").find((t) => t.text === "b")!
+  const b = lex(src, "codesys", false).find((t) => t.text === "b")!
   expect(b.span.startCol).toBe(12) // UTF-16 units; UTF-8 bytes would make it 15
   expect(offsetFromPosition(src, { line: 0, character: b.span.startCol })).toBe(src.indexOf("b"))
   expect(rangeFromSpan(b.span).start).toEqual({ line: 0, character: 12 })
@@ -84,7 +84,7 @@ test("positions count a lone CR and a CRLF as one line end each, as the client a
   const src = "abc\rdef\r\nghi" // a0 b1 c2 \r3 d4 e5 f6 \r7 \n8 g9 h10 i11
   expect(offsetFromPosition(src, { line: 1, character: 0 })).toBe(4)
   expect(offsetFromPosition(src, { line: 2, character: 1 })).toBe(10)
-  for (const t of lex(src, "codesys")) expect(offsetFromPosition(src, rangeFromSpan(t.span).start)).toBe(t.span.start)
+  for (const t of lex(src, "codesys", false)) expect(offsetFromPosition(src, rangeFromSpan(t.span).start)).toBe(t.span.start)
   expect(clampedOffset(src, { line: 0, character: 99 })).toBe(3)
   expect(clampedOffset(src, { line: 1, character: 99 })).toBe(7) // before the CRLF, never between its CR and LF
   expect(clampedOffset(src, { line: 2, character: 2 })).toBe(11)

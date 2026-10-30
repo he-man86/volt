@@ -33,9 +33,9 @@ END_FUNCTION_BLOCK
 
 function diagnose(plc: string, vendor: Vendor = "codesys") {
   const files = [
-    { uri: "file:///c/FB_Needs.pou", source: FB, parseResult: parseSource(FB, { networkText: true }, vendor) },
-    { uri: "file:///c/FB_Plain.pou", source: PLAIN, parseResult: parseSource(PLAIN, { networkText: true }, vendor) },
-    { uri: "file:///c/PLC_PRG.pou", source: plc, parseResult: parseSource(plc, { networkText: true }, vendor) },
+    { uri: "file:///c/FB_Needs.pou", source: FB, parseResult: parseSource(FB, { networkText: true, unicodeIdentifiers: false }, vendor) },
+    { uri: "file:///c/FB_Plain.pou", source: PLAIN, parseResult: parseSource(PLAIN, { networkText: true, unicodeIdentifiers: false }, vendor) },
+    { uri: "file:///c/PLC_PRG.pou", source: plc, parseResult: parseSource(plc, { networkText: true, unicodeIdentifiers: false }, vendor) },
   ]
   const project = build.buildSymbolTable(files, [], vendor)
   const f = files[2]!
@@ -97,7 +97,7 @@ test("an ARRAY of an FB_Init FB in a FUNCTION's VAR_INPUT is not counted (unmeas
 test("the extra inputs are those not named bInitRetains / bInCopyCode, wherever declared", () => {
   const fb = `FUNCTION_BLOCK FB_First\nVAR\n\tn : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nMETHOD FB_Init : BOOL\nVAR_INPUT\n\tstartValue : INT;\n\tbInitRetains : BOOL;\n\tbInCopyCode : BOOL;\nEND_VAR\nEND_METHOD\n`
   const plc = program("\tx : FB_First;")
-  const files = [fb, plc].map((source, i) => ({ uri: `file:///c/U${i}.pou`, source, parseResult: parseSource(source, { networkText: true }, "codesys") }))
+  const files = [fb, plc].map((source, i) => ({ uri: `file:///c/U${i}.pou`, source, parseResult: parseSource(source, { networkText: true, unicodeIdentifiers: false }, "codesys") }))
   const project = build.buildSymbolTable(files, [], "codesys")
   const f = files[1]!
   const got = computeDiagnostics({ uri: uriFor(f.parseResult), parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor: "codesys" }) })

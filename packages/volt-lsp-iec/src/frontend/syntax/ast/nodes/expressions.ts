@@ -27,6 +27,9 @@ export interface BodySpan {
   /** The vocabulary the tokens were lexed with — the statement parser refuses a type name only where the type exists
    *  (`syntax/lex/vocabulary.ts` `isRefusedWord`). */
   dialect: Dialect
+  /** Whether the tokens were lexed with names past ASCII — what a re-lex of the body's text reads it with (a network's
+   *  Execute code, `network/execute-code.ts`). */
+  unicodeIdentifiers: boolean
   /** The `%LANGUAGE <LANG>` line that opened the body — absent for a body with none (`syntax/format/language-line`). */
   languageLine?: LanguageLine
   /** A METHOD's or a property accessor's body with NO `%LANGUAGE` line and nothing after its declaration: a member whose

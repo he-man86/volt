@@ -67,7 +67,7 @@ describe("the cached dead set", () => {
     const inputs = files.map((f) => ({
       uri: f.uri,
       source: f.source,
-      parseResult: parseSource(f.source, { networkText: true }, "codesys"),
+      parseResult: parseSource(f.source, { networkText: true, unicodeIdentifiers: false }, "codesys"),
     }))
     return {
       dead: [...deadPous(inputs, undefined)].sort(),

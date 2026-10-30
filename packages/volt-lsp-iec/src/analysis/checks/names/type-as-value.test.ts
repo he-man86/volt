@@ -42,7 +42,7 @@ test("a STRUCT type's name called, or reached into for a member it lacks, is a t
 test("an ALIAS type's name as a value or a target is that one message", () => {
   const all = (body: string): string[] => {
     const src = `PROGRAM P\nVAR value : INT;\nEND_VAR\n${body}\nEND_PROGRAM\nTYPE T_Al : INT;\nEND_TYPE\nTYPE MyEnum : (RED, GREEN); END_TYPE`
-    const pr = parseSource(src, { networkText: true }, "codesys")
+    const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
     const project = build.buildSymbolTable([{ uri: "P.pou", parseResult: pr, source: src }], [], "codesys")
     return computeDiagnostics({ uri: "P.pou", parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).map((d) => d.message)
   }

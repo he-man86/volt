@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Why
 
 After the exclude-from-build, standard-function, and reserved-keyword wins, built-only LSP precision was

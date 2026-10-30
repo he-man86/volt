@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 # Close-out — one diagnostic that mattered, three relocations, and three requirements it killed
 
 Complete 2026-09-03, 14 of 14. Gated by `src/network/network-real-shapes.test.ts` (24 cases) and the engine's

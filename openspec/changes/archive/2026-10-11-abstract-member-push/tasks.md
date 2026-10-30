@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## 1. Measure
 
 - [x] 1.1 The abstract PROPERTY accessor's slot on CODESYS (`vendor-facts` `merged-classes`, `implementation.busyget`)

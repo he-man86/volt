@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## 1. Bridge (C# shared Core)
 
 - [x] 1.1 In `Materializer.cs`, normalize the source-item extension via new `SourceExt(lang)`: textual (ST) or editable-graphical (FBD/LD) → `st`; read-only graphical (CFC/SFC) → body language. Non-source (references) still `ItemKind.ExtFor`.

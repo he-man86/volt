@@ -8,11 +8,11 @@ import { parseSource } from "../../src/frontend/syntax/index.js"
 import { build } from "../../src/frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig } from "../../src/analysis/index.js"
 import { lowerCodeKind } from "../../src/transpile/index.js"
-import { CREATE_REFUSAL_BY_NAME_NOT_MODELLED } from "./support/divergences.js"
 import { ALL_TESTS } from "./fixtures/index.js"
 import { RUNS } from "./support/recordings.js"
 import { comparable } from "./support/compare-message.js"
 import { lspErrors } from "./support/evidence.js"
+import { nameRefusal } from "./support/name-refusal.js"
 import { expectStillDiverges } from "./support/expected-failure.js"
 import { BUILDS, lowering, rated, SELECTION, whole } from "./support/fixture-suite.js"
 
@@ -183,29 +183,21 @@ describe("lsp-gap — a refusal the LSP does not make yet", () => {
 })
 
 /**
- * THE IDE REFUSES TO CREATE IT BY NAME, AND THE LSP DOES NOT SAY SO (`CREATE_REFUSAL_BY_NAME_NOT_MODELLED`). A fixture
- * the vendor refuses carries no build, so the agreement replay skips it; without this, a refused name the LSP misreads
- * was rated `unaskable` or `confirmed` (by the OTHER vendor) and nothing showed it (review 5+6).
+ * THE IDE REFUSES TO CREATE IT BY NAME, AND THE LSP SAYS SO IN THE IDE'S WORDS (`checks/names/object-name.ts`, openspec
+ * lsp-field-followups 3). A fixture the vendor refuses carries no build, so the agreement replay skips it; its refusal,
+ * as the push answered it (`vendorRefuses`), is the oracle here. Every name refusal of every fixture, both vendors: the
+ * LSP gives that sentence word for word.
  */
-describe("create refused by name — a vendor refusal the LSP does not make", () => {
+describe("create refused by name — the IDE's own refusal", () => {
   for (const vendor of ["codesys", "twincat"] as const) {
-    for (const [name, sentence] of Object.entries(CREATE_REFUSAL_BY_NAME_NOT_MODELLED[vendor])) {
-      if (!SELECTION.has(name)) continue
-      test(`${name} — ${vendor}: the LSP does not say ${JSON.stringify(sentence)}`, () => {
-        const c = ALL_TESTS.find((t) => t.name === name)
-        expect(c).toBeDefined()
-        // only a fixture the vendor refuses belongs here — any other has a build, and the replay judges it
-        expect(c!.vendorRefuses?.[vendor]).toBeDefined()
-        const check = () => expect(lspErrors(c!, ALL_TESTS, vendor)).toContainEqual(expect.stringContaining(sentence))
-        expectStillDiverges(name, "CREATE_REFUSAL_BY_NAME_NOT_MODELLED", [check], `${vendor}'s create refusal`)
+    for (const c of ALL_TESTS) {
+      const sentence = nameRefusal(c, vendor)
+      if (sentence === undefined || !SELECTION.has(c.name)) continue
+      test(`${c.name} — ${vendor}: ${sentence}`, () => {
+        expect(lspErrors(c, ALL_TESTS, vendor)).toContainEqual(sentence)
       })
     }
   }
-  whole("every entry names a fixture", () => {
-    const names = new Set(ALL_TESTS.map((t) => t.name))
-    const listed = [...Object.keys(CREATE_REFUSAL_BY_NAME_NOT_MODELLED.codesys), ...Object.keys(CREATE_REFUSAL_BY_NAME_NOT_MODELLED.twincat)]
-    expect(listed.filter((n) => !names.has(n))).toEqual([])
-  })
 })
 
 /**
@@ -224,7 +216,7 @@ describe("lines — TwinCAT's, for this change's ST row", () => {
   const name = "rcc_st_body_network"
   const lines = (): { lsp: string[]; ide: string[] } => {
     const t = ALL_TESTS.find((x) => x.name === name)!
-    const pr = parseSource(t.source, { networkText: true }, "twincat")
+    const pr = parseSource(t.source, { networkText: true, unicodeIdentifiers: false }, "twincat")
     const project = build.buildSymbolTable([{ uri: `file:///w/${t.pouName}.pou`, parseResult: pr, source: t.source }], [], "twincat")
     const at = (ds: readonly { severity: string; message: string; line: number }[]) =>
       ds.filter((d) => d.severity === "error" || d.severity === "warning").map((d) => `[${d.severity}] ${comparable(d.message)} @${d.line}`)
