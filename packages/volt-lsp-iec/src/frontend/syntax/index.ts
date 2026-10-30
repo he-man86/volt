@@ -72,7 +72,7 @@ export {
   walkExpr,
   walkStatements,
 } from "./ast/walk.js"
-export { varInputParams } from "./ast/declarations.js"
+export { declaredTypes, varInputParams } from "./ast/declarations.js"
 
 // parsing
 export { parseDocument, parseSource, type ParseOptions } from "./parse/parser.js"

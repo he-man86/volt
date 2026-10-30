@@ -252,10 +252,10 @@ export function dialectMissingType(project: Scope, t: TypeExpr | undefined): str
  * a library's element resolves through the scope, from its materialized declaration, so a BARE name that nothing in
  * the project, no referenced library and no compiler built-in declares is the unknown name CODESYS says it is.</p>
  *
- * <p>Deliberately narrow where it is unmeasured: a bare named type, and a qualified one whose first qualifier names
- * nothing (`unknownQualifiedTypeName`) — a wrapper around an unknown name (`ARRAY OF X`, `POINTER TO X`) is a different
- * shape nobody has recorded. A name some symbol DOES carry is left alone even when that symbol is no type: that is a different
- * error, not this one. A CODESYS-only elementary type on TwinCAT is `dialectMissingType`'s.</p>
+ * <p>One NAMED type: a bare one, and a qualified one whose first qualifier names nothing (`unknownQualifiedTypeName`). The
+ * names a wrapper holds (`ARRAY OF X`, `POINTER TO X`) are `unknownNamedTypes`'s, which asks this of each. A name some
+ * symbol DOES carry is left alone even when that symbol is no type: that is a different error, not this one. A
+ * CODESYS-only elementary type on TwinCAT is `dialectMissingType`'s.</p>
  *
  * <p>CODESYS ONLY, and measured so: TwinCAT answers the same message for the same shapes, but its library
  * materialization (`References/`) does not carry every type its compiler knows — the External Types (`HRESULT`,
@@ -271,6 +271,9 @@ export function dialectMissingType(project: Scope, t: TypeExpr | undefined): str
 const BUILTIN_NAMED_TYPES: ReadonlySet<string> = new Set(["ANY", "VERSION"])
 
 export function unknownTypeName(project: Scope, t: TypeExpr | undefined): string | undefined {
+  // the EMPTY type a header with no type declares (`parse/units/header` `emptyType`) writes no name: what the vendors say of
+  // it is the parser's (`rcc_property_no_type`, `rcc_property_empty_type`)
+  if (t?.kind === "named_type" && t.name.text === "") return undefined
   const dialect = dialectMissingType(project, t)
   if (dialect !== undefined) return dialect
   if (project.dialect !== "codesys") return undefined
@@ -284,6 +287,27 @@ export function unknownTypeName(project: Scope, t: TypeExpr | undefined): string
   if (builtinName(name, project.dialect) !== undefined || ANY_FAMILIES.has(upper) || BUILTIN_NAMED_TYPES.has(upper)) return undefined
   if (lookupLocal(project, name).length > 0) return undefined
   return name
+}
+
+/**
+ * THE NAMED TYPES IN A DECLARED TYPE THAT NAME NOTHING — `unknownTypeName` asked of the type and of every type it wraps:
+ * an ARRAY's element (each dimension count and each nesting alike), a POINTER's and a REFERENCE's target. CODESYS reports
+ * the name inside the wrapper as it reports a bare one, "Unknown type: 'NoSuchType'" once (`tref_array_element`,
+ * `tref_array_two_dims`, `tref_array_nested`, `tref_pointer_to`, `tref_reference_to`, `tref_pointer_to_array`, SP21
+ * 2026-10-30). Each with the name it is reported by.
+ */
+export function unknownNamedTypes(project: Scope, t: TypeExpr): { type: TypeExpr; name: string }[] {
+  switch (t.kind) {
+    case "array_type":
+      return unknownNamedTypes(project, t.element)
+    case "pointer_type":
+    case "reference_type":
+      return unknownNamedTypes(project, t.target)
+    default: {
+      const name = unknownTypeName(project, t)
+      return name === undefined ? [] : [{ type: t, name }]
+    }
+  }
 }
 
 /**

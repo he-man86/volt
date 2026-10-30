@@ -293,9 +293,25 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     //                            reachability rule, and `sn_dut_mismatch_used` is the proof it is only that: add
     //                            one FB that declares a variable of the type and CODESYS reports the mismatch.
     "sn_dut_mismatch",
+    //   `tref_struct_field_unused` — the same reachability rule for a STRUCT field of a type nothing declares: unused,
+    //                            the DUT builds clean; used, `tref_struct_field` reports "Unknown type" (openspec
+    //                            dut-unknown-field-type). The LSP answers about the DUT file in front of it.
+    "tref_struct_field_unused",
     //   `op_sys_new_delete` — the same device fact: the recording project configures no dynamic memory, so every
     //                            __NEW reports that instead of anything about the code.
     "op_sys_new_delete",
+    //   `tref_new` — that device fact again, beside "Unknown type: 'NoSuchType'" (which the LSP gives) and the conversion
+    //                            of `__NEW(NoSuchType)` as 'POINTER TO NoSuchType': the vendor keeps a type it cannot
+    //                            resolve as the NAME written, and the LSP's type model has no such type (an unresolved
+    //                            name is `UNKNOWN`, and a pointer to it too) — the conversion is not said rather than guessed.
+    "tref_new",
+    //   `tref_property_type`, `tref_property_type_get_set` — a PROPERTY of an unknown type with a GET: the LSP gives one
+    //                            "Unknown type" per thing declared (the property and each accessor), and the GET's
+    //                            IMPLEMENTATION adds one more and "Cannot convert type 'NoSuchType' to type 'NoSuchType'"
+    //                            (its result converted into the property's) — the vendor keeping the unresolved type as
+    //                            the NAME written, which the LSP's type model has no form for, as for `tref_new`.
+    "tref_property_type",
+    "tref_property_type_get_set",
     //   …and the four fixtures beside it that reach the same wall. `__NEW` is answered by the application's
     //   memory configuration before anything about the code is considered, so the pragma rule this suite is
     //   really asking about is never reached on THIS recording project.

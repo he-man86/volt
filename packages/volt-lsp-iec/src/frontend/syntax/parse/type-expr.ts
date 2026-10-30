@@ -17,6 +17,7 @@
  */
 import type { Token } from "../lex/tokens.js"
 import type { Dialect } from "../lex/vocabulary.js"
+import { ELEMENTARY_TYPE_WORDS } from "../lex/word-sets.js"
 import type { ArrayDim, Expr, StringLengthDelimiters, TypeExpr } from "../ast/nodes/index.js"
 import { eofSpan, joinSpans, type Span } from "../span.js"
 import { Cursor } from "./cursor.js"
@@ -152,11 +153,16 @@ function parseVectorType(c: Cursor, vectorTok: Token): TypeExpr | undefined {
 
 /**
  * An enum's optional BASE TYPE, after its value list: `(A, B) DINT` — a TYPE enum's (`TYPE E : (A, B) BYTE;`) and an
- * implicit one's (`decl_implicit_enum_with_base`). Read when what follows can begin a type: a name, or a type keyword.
+ * implicit one's (`decl_implicit_enum_with_base`). Read when what follows is an ELEMENTARY type's name or a type keyword:
+ * any other name stands where the declaration's `:=` or `;` belongs, and is the syntax error the vendor reports there —
+ * the name of an alias the project declares as much as one nothing declares (`tref_enum_base_alias`, `tref_enum_base`,
+ * `tref_implicit_enum_base`, CODESYS SP21 2026-10-30).
  */
 export function parseEnumBase(c: Cursor): TypeExpr | undefined {
   const next = c.peek()
-  const typeStart = next.kind === "identifier" || (next.kind === "keyword" && next.keyword !== undefined && TYPE_KEYWORDS.has(next.keyword))
+  const typeStart =
+    (next.kind === "identifier" && ELEMENTARY_TYPE_WORDS.has(next.text.toUpperCase())) ||
+    (next.kind === "keyword" && next.keyword !== undefined && TYPE_KEYWORDS.has(next.keyword))
   return typeStart ? parseTypeExpression(c) : undefined
 }
 

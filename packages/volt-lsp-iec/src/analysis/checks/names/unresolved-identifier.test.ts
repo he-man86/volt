@@ -582,3 +582,14 @@ test("SFC: a POINTER global read with a member in an SFC POU is the step for eve
     "assignment-type-mismatch: Cannot convert type 'TIME' to type 'INT'",
   ])
 })
+
+// An operator that takes a TYPE (`tref_new`, `tref_sizeof`, `tref_string_length_name`, CODESYS SP21 2026-10-30): `__NEW`'s
+// operand is a type and only "Unknown type"; SIZEOF's may be a variable, and is both; a STRING's length is read as a value.
+test("a name nothing declares as __NEW's, SIZEOF's operand and as a STRING's length", () => {
+  const said = (decls: string, body: string) =>
+    diag(`FUNCTION_BLOCK F\nVAR\n${decls}\nEND_VAR\n%LANGUAGE ST\n${body}\nEND_FUNCTION_BLOCK\n`).filter((d) => d.code === "unresolved-identifier" || d.code === "unknown-type").map((d) => d.message)
+  expect(said("p : POINTER TO INT;", "p := __NEW(NoSuchType);")).toEqual(["Unknown type: 'NoSuchType'"])
+  expect(said("n : DINT;", "n := SIZEOF(NoSuchType);")).toEqual(["Unknown type: 'NoSuchType'", "Identifier 'NoSuchType' not defined"])
+  expect(said("n : DINT; v : INT;", "n := SIZEOF(v);")).toEqual([])
+  expect(said("v : STRING(NoSuchLength);", ";")).toEqual(["Identifier 'NoSuchLength' not defined"])
+})

@@ -68,8 +68,94 @@ test("what the LSP has no standing to call unknown — silent", () => {
   expect(errors(prg("a : INT; b : STRING(10); c : __XWORD;"))).toEqual([])
   // the compilers' own named struct, built by both vendors with no library (`type_codesys_version`)
   expect(errors(prg("v : VERSION;"))).toEqual([])
-  // a wrapper around an unknown name is a different shape, and unmeasured
-  expect(errors(prg("a : ARRAY[1..2] OF DUT_Missing; p : POINTER TO DUT_Missing;"))).toEqual([])
+})
+
+// THE CLASS SWEEP (openspec dut-unknown-field-type, conformance `declarations/type-references.ts`, CODESYS SP21
+// 2026-10-30): every position a declaration writes a type in reports a name nothing declares. This test said a wrapper
+// (`ARRAY OF X`, `POINTER TO X`) was "a different shape, and unmeasured" and stayed silent; the recordings measured it.
+test("the name inside an ARRAY, a POINTER, a REFERENCE — `tref_array_*`, `tref_pointer_to*`, `tref_reference_to`", () => {
+  const one = ["Unknown type: 'DUT_Missing'"]
+  expect(errors(prg("a : ARRAY[1..2] OF DUT_Missing;"))).toEqual(one)
+  expect(errors(prg("a : ARRAY[1..2, 0..1] OF DUT_Missing;"))).toEqual(one)
+  expect(errors(prg("a : ARRAY[1..2] OF ARRAY[0..1] OF DUT_Missing;"))).toEqual(one)
+  expect(errors(prg("p : POINTER TO DUT_Missing;"))).toEqual(one)
+  expect(errors(prg("rf : REFERENCE TO DUT_Missing;"))).toEqual(one)
+  expect(errors(prg("p : POINTER TO ARRAY[0..1] OF DUT_Missing;"))).toEqual(one)
+})
+
+test("one per name declared — `tref_var_two_names`", () => {
+  expect(errors(prg("a, b : DUT_Missing;"))).toEqual(["Unknown type: 'DUT_Missing'", "Unknown type: 'DUT_Missing'"])
+})
+
+/** Every error the analysis gives each of `files`, as `<uri>@<line>:<column> <message>` (1-based, as an editor shows it). */
+function located(files: File[]): string[] {
+  const parsed = files.map((f) => ({ ...f, parseResult: parseDocument(f.uri, f.source, { networkText: true }, "codesys") }))
+  const project = build.buildSymbolTable(parsed, [], "codesys")
+  return parsed.flatMap((f) =>
+    computeDiagnostics({ parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor: "codesys" }), uri: f.uri })
+      .filter((d) => d.severity === "error")
+      .map((d) => `${f.uri}@${d.span.startLine}:${d.span.startCol + 1} ${d.message}`),
+  )
+}
+
+// Sim-Assist's repro (proposal.md): the error is the DUT's, on the field's type, and the program using it says nothing.
+test("a STRUCT field of an unknown type is reported on its type, in the DUT — `tref_struct_field`", () => {
+  const dut = { uri: "ST_Data.dut", source: "TYPE ST_Data :\nSTRUCT\n\tvalue : INT;\n\tother : NoSuchType;\nEND_STRUCT\nEND_TYPE\n" }
+  const main = { uri: "Main.pou", source: "PROGRAM Main\nVAR\n\td : ST_Data;\nEND_VAR\n%LANGUAGE ST\nd.value := 1;\nEND_PROGRAM\n" }
+  expect(located([dut, main])).toEqual(["ST_Data.dut@4:10 Unknown type: 'NoSuchType'"])
+})
+
+test("a UNION field, an alias's target, a field of an ARRAY or a POINTER — `tref_union_field`, `tref_alias`, `tref_struct_field_*`", () => {
+  const dut = (body: string): File => ({ uri: "DUT_X.dut", source: `TYPE DUT_X ${body}\nEND_TYPE\n` })
+  const one = ["Unknown type: 'NoSuchType'"]
+  expect(errors(dut(":\nUNION\n\tvalue : INT;\n\tother : NoSuchType;\nEND_UNION"))).toEqual(one)
+  expect(errors(dut(": NoSuchType;"))).toEqual(one)
+  expect(errors(dut(":\nSTRUCT\n\tother : ARRAY[0..1] OF NoSuchType;\nEND_STRUCT"))).toEqual(one)
+  expect(errors(dut(":\nSTRUCT\n\tother : POINTER TO NoSuchType;\nEND_STRUCT"))).toEqual(one)
+})
+
+test("a field of a known DUT, of an FB type and of an elementary type — silent", () => {
+  const known = { uri: "DUT_Known.dut", source: "TYPE DUT_Known :\nSTRUCT\n\tn : INT;\nEND_STRUCT\nEND_TYPE\n" }
+  const fb = { uri: "FB_Known.pou", source: "FUNCTION_BLOCK FB_Known\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK\n" }
+  const holder = { uri: "DUT_H.dut", source: "TYPE DUT_H :\nSTRUCT\n\ta : DUT_Known;\n\tb : FB_Known;\n\tc : ARRAY[0..1] OF DUT_Known;\n\td : LREAL;\nEND_STRUCT\nEND_TYPE\n" }
+  expect(errors(holder, [known, fb])).toEqual([])
+})
+
+test("every VAR section, a GVL's and a METHOD's VAR_INST — `tref_var_*`", () => {
+  const fb = (sections: string): File => ({ uri: "FB_X.pou", source: `FUNCTION_BLOCK FB_X\n${sections}\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK\n` })
+  for (const section of ["VAR_INPUT", "VAR_OUTPUT", "VAR_IN_OUT", "VAR_TEMP", "VAR_STAT"])
+    expect(errors(fb(`${section}\n\tv : NoSuchType;\nEND_VAR`))).toEqual(["Unknown type: 'NoSuchType'"])
+  expect(errors({ uri: "G.gvl", source: "VAR_GLOBAL\n\tg : NoSuchType;\nEND_VAR\n" })).toEqual(["Unknown type: 'NoSuchType'"])
+  expect(errors({ uri: "FB_X.M.pou", source: "METHOD M\nVAR_INST\n\tv : NoSuchType;\nEND_VAR\n%LANGUAGE ST\n;\nEND_METHOD\n" })).toEqual(["Unknown type: 'NoSuchType'"])
+})
+
+test("a FUNCTION's, a METHOD's and an INTERFACE METHOD's result, an interface method's input — `tref_*_return`, `tref_interface_method_input`", () => {
+  const one = ["Unknown type: 'NoSuchType'"]
+  expect(errors({ uri: "F.pou", source: "FUNCTION F : NoSuchType\nVAR_INPUT\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\n;\nEND_FUNCTION\n" })).toEqual(one)
+  expect(errors({ uri: "FB_X.M.pou", source: "METHOD M : NoSuchType\n%LANGUAGE ST\n;\nEND_METHOD\n" })).toEqual(one)
+  expect(errors({ uri: "I.itf", source: "INTERFACE I\nMETHOD M : NoSuchType\nEND_METHOD\nEND_INTERFACE\n" })).toEqual(one)
+  expect(errors({ uri: "I.itf", source: "INTERFACE I\nMETHOD M : BOOL\nVAR_INPUT\n\tx : NoSuchType;\nEND_VAR\nEND_METHOD\nEND_INTERFACE\n" })).toEqual(one)
+})
+
+// A PROPERTY is its accessors: the property and each accessor carry the type, one message each (SET only: 2, an interface
+// property with a GET: 2), and an interface property with NEITHER compiles nothing (`tref_interface_property_type`: a
+// warning, no "Unknown type"). A GET's implementation adds one more and a conversion — a known divergence (`support/divergences.ts`).
+test("a PROPERTY: one per thing declared of its type — `tref_property_type_set`, `tref_interface_property_*`", () => {
+  const unknown = (n: number) => Array.from({ length: n }, () => "Unknown type: 'NoSuchType'")
+  const prop = (accessors: string): File => ({ uri: "FB_X.P.pou", source: `PROPERTY P : NoSuchType\n${accessors}END_PROPERTY\n` })
+  expect(errors(prop("SET\n%LANGUAGE ST\n;\nEND_SET\n"))).toEqual(unknown(2))
+  expect(errors(prop("GET\n%LANGUAGE ST\n;\nEND_GET\nSET\n%LANGUAGE ST\n;\nEND_SET\n"))).toEqual(unknown(3))
+  const itf = (accessors: string): File => ({ uri: "I.itf", source: `INTERFACE I\nPROPERTY P : NoSuchType\n${accessors}END_PROPERTY\nEND_INTERFACE\n` })
+  expect(errors(itf("GET\nEND_GET\n"))).toEqual(unknown(2))
+  expect(errors(itf(""))).toEqual([])
+})
+
+// A PROPERTY with NO type (`PROPERTY P`, `PROPERTY P :`) holds the empty type, which names nothing to look up: its refusal is
+// the parser's (`rcc_property_no_type`, `rcc_property_empty_type`) — the sweep's first census gave "Unknown type: ''" ×2.
+test("a PROPERTY that declares no type is no unknown type", () => {
+  for (const header of ["PROPERTY P", "PROPERTY P :"])
+    for (const vendor of ["codesys", "twincat"] as const)
+      expect(errors({ uri: "FB_X.P.pou", source: `${header}\nGET\n%LANGUAGE ST\n;\nEND_GET\nEND_PROPERTY\n` }, [], vendor).filter((m) => m.startsWith("Unknown type"))).toEqual([])
 })
 
 test("the generic ANY types a FUNCTION may take are not unknown", () => {

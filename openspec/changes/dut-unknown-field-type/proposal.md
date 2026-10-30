@@ -35,7 +35,12 @@ END_PROGRAM
 
 - The type checker resolves STRUCT (and UNION) field types like variable declarations and reports an unknown type on
   the field's type span, in the DUT's own file.
+- Built as the CLASS: every position a declaration writes a type in goes through one walk (`declaredTypes`) and one
+  verdict (`unknownNamedTypes`); the sweep (tasks.md §4) fixed the siblings that missed too — alias, ARRAY/POINTER/
+  REFERENCE wrappers, routine and property result types, interface members, STRUCT EXTENDS, an enum base that names no
+  elementary type (a syntax error), undeclared names in array/subrange bounds and STRING lengths, `__NEW`/`SIZEOF` operands.
 
 ## Impact
 
-- `src/analysis` (type resolution of DUT fields). No runtime change.
+- `src/analysis` (unknown-type, inheritance, const-context, unresolved-identifier) and `src/frontend/syntax` (the
+  declared-type walk; the enum-base parse rule). No runtime change.

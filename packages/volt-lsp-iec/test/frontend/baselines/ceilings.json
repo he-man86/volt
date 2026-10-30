@@ -39,7 +39,7 @@
     "messages twincat: recorded only": 2
   },
   "type-dump": {
-    "findings": 0,
+    "findings": -2,
     "corpus Library Manager: assign_expr UNKNOWN": 0,
     "corpus Library Manager: binary NOSCOPE": 369,
     "corpus Library Manager: binary UNKNOWN": 194,

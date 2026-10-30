@@ -23,6 +23,24 @@ const cinit = run("const-init-non-const")
 const dflt = run("default-not-constant", "FUNCTION F : INT", "END_FUNCTION")
 const strlen = run("string-length-non-const")
 
+// A NAME NOTHING DECLARES is no constant either, in a bound and in a length — and a SUBRANGE's bound is a border in the
+// array's words (`tref_array_bound_name`, `tref_subrange_bound_name`, `tref_subrange_bound_variable`,
+// `tref_string_length_name`, CODESYS SP21 2026-10-30)
+test("C0161: a bound or a length that names nothing, and a subrange's variable bound", () => {
+  expect(bound(`VAR a:ARRAY[0..NoSuchBound] OF INT; END_VAR`)).toEqual(["Border 'NoSuchBound' of array is no constant value"])
+  expect(bound(`VAR v:INT(0..NoSuchBound); END_VAR`)).toEqual(["Border 'NoSuchBound' of array is no constant value"])
+  expect(bound(`VAR\n hi:INT:=5;\n v:INT(0..hi);\nEND_VAR`)).toEqual(["Border 'hi' of array is no constant value"])
+  expect(bound(`VAR CONSTANT HI:INT:=5; END_VAR\nVAR v:INT(0..HI); END_VAR`)).toEqual([])
+  expect(strlen(`VAR str:STRING(NoSuchLength); END_VAR`)).toEqual(["String length 'NoSuchLength' is no constant value"])
+})
+
+// …but a name declared in the SAME qualified-only list is one, bare, from inside it (corpus pro2193 `GVL_IQ`, which builds:
+// `inputs : ARRAY[InputSliceStart..InputSliceEnd] OF …` — five LSP-only borders on the first census of the rule above)
+test("C0161: a bound naming a constant of its own qualified-only list is no unknown name", () => {
+  const gvl = "{attribute 'qualified_only'}\nVAR_GLOBAL CONSTANT\n\tLo : INT := 1;\n\tHi : INT := 4;\nEND_VAR\nVAR_GLOBAL\n\tarr : ARRAY[Lo..Hi] OF INT;\nEND_VAR\n"
+  expect(diagnose(gvl, "codesys").filter((d) => d.code === "array-bound-non-const")).toEqual([])
+})
+
 test("C0161: a variable array bound is flagged; literals and constants are not", () => {
   expect(bound(`VAR\n i:INT:=3;\n a:ARRAY[1..i] OF INT;\nEND_VAR`)).toEqual(["Border 'i' of array is no constant value"])
   expect(bound(`VAR CONSTANT K:INT:=3; END_VAR\nVAR a:ARRAY[1..K] OF INT; END_VAR`)).toEqual([]) // VAR CONSTANT bound
