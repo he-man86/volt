@@ -51,33 +51,24 @@ const bodies = (pou: IrPou): (readonly IrNode[])[] => [
   ...pou.layouts.map((l) => l.body ?? []),
 ]
 
-test("holdsCall and callsIn answer as the reflective walks did, on every lowered fixture", () => {
-  let lowered = 0
-  let nodes = 0
-  const differ: string[] = []
-  for (const t of ALL_TESTS) {
-    // lowering is total: a fixture that throws fails this test by name, never drops out of the comparison
-    const { source, gvls } = assembleFixture(t, ALL_TESTS)
-    const pou = lowerSource(source, "PLC_PRG", gvls, undefined, PROJECT_BASE).pou
-    if (pou === undefined) continue
-    lowered += 1
-    for (const body of bodies(pou)) {
-      const check = (n: IrNode): void => {
-        nodes += 1
-        if (holdsCall(n) !== reflectiveHoldsCall(n)) differ.push(`${t.name}: ${"kind" in n ? n.kind : "place"}`)
-      }
-      forEachStmt(body, check)
-      forEachExpr(body, check)
-      if (holdsCall(body) !== reflectiveHoldsCall(body)) differ.push(`${t.name}: a body`)
-      const calls = callsIn(body)
-      const reflective = reflectiveCallsIn(body)
-      if (calls.length !== reflective.length || calls.some((n, i) => n !== reflective[i])) differ.push(`${t.name}: callsIn`)
+/** What the per-fixture tests compared, for the total at the end (bun runs a file's tests in order). */
+const totals = { lowered: 0, nodes: 0, exprs: 0 }
+
+/** `holdsCall` on every expression and statement, `callsIn` on every body, against the reflective walks. */
+function callWalksDiffer(name: string, pou: IrPou, differ: string[]): void {
+  for (const body of bodies(pou)) {
+    const check = (n: IrNode): void => {
+      totals.nodes += 1
+      if (holdsCall(n) !== reflectiveHoldsCall(n)) differ.push(`${name}: ${"kind" in n ? n.kind : "place"}`)
     }
+    forEachStmt(body, check)
+    forEachExpr(body, check)
+    if (holdsCall(body) !== reflectiveHoldsCall(body)) differ.push(`${name}: a body`)
+    const calls = callsIn(body)
+    const reflective = reflectiveCallsIn(body)
+    if (calls.length !== reflective.length || calls.some((n, i) => n !== reflective[i])) differ.push(`${name}: callsIn`)
   }
-  expect(differ).toEqual([])
-  expect(lowered).toBeGreaterThan(3000)
-  expect(nodes).toBeGreaterThan(10000)
-})
+}
 
 // ── task 1.7.4: the last reflective IR walks of lower/, each kept verbatim as its oracle ──
 
@@ -170,39 +161,52 @@ const visitOrder = (walk: (onPlace: (p: Place) => string | undefined) => unknown
   return seen
 }
 
-test("touchesOnlyItsOwn, writesOnlyLocals and mapPlaces answer as the walks they replaced (1.7.4); the init read walk reads all they read, in their order (5.9)", () => {
-  let lowered = 0
-  let exprs = 0
-  const differ: string[] = []
+/** `touchesOnlyItsOwn`, `writesOnlyLocals` and `mapPlaces` against the walks they replaced (1.7.4); the init read walk
+ *  reads all they read, in their order (5.9). */
+function placeWalksDiffer(name: string, pou: IrPou, differ: string[]): void {
   // a rewrite that moves every place, so a place the walk missed shows
   const bump = (p: Place): Place => ({ ...p, slot: p.slot + 1000 })
-  for (const t of ALL_TESTS) {
+  for (const body of bodies(pou)) {
+    if (touchesOnlyItsOwn(body) !== reflectiveTouchesOnlyItsOwn(body)) differ.push(`${name}: touchesOnlyItsOwn`)
+    if (writesOnlyLocals(body) !== reflectiveWritesOnlyLocals(body)) differ.push(`${name}: writesOnlyLocals`)
+    const mapped = body.map((s) => mapPlaces(s, bump))
+    if (!Bun.deepEquals(mapped, reflectiveMapPlaces(body, bump))) differ.push(`${name}: mapPlaces`)
+    forEachStmt(body, (s) => {
+      if (touchesOnlyItsOwn(s) !== reflectiveTouchesOnlyItsOwn(s)) differ.push(`${name}: touchesOnlyItsOwn ${s.kind}`)
+      if (writesOnlyLocals(s) !== reflectiveWritesOnlyLocals(s)) differ.push(`${name}: writesOnlyLocals ${s.kind}`)
+    })
+    forEachExpr(body, (e) => {
+      totals.exprs += 1
+      const now = visitOrder((onPlace) => findPlace(e, onPlace, initReadChildren))
+      const then = visitOrder((onPlace) => handReads(e, onPlace))
+      // task 5.9 removed the skips (design.md §3.4 step 5d): every place the old walk read is still read, in its order
+      let at = 0
+      for (const p of now) if (p === then[at]) at += 1
+      if (at !== then.length) differ.push(`${name}: reads ${e.kind}`)
+    })
+  }
+}
+
+// ONE TEST PER FIXTURE, its fixture lowered once for every walk. Both walks over the whole set in one test each was a
+// full lowering pass per test (~4 s idle), and timed out at bun's 5 s on a loaded machine. The index every assembly
+// reads (each fixture's declarations, over all of them) is built on the first assembly: done here, with the file's
+// setup like PROJECT_BASE, it is not charged to whichever fixture's test runs first (6.5 s of it, measured loaded).
+assembleFixture(ALL_TESTS[0]!, ALL_TESTS)
+for (const t of ALL_TESTS)
+  test(`${t.name}: the IR walks answer as the walks they replaced`, () => {
     // lowering is total: a fixture that throws fails this test by name, never drops out of the comparison
     const { source, gvls } = assembleFixture(t, ALL_TESTS)
     const pou = lowerSource(source, "PLC_PRG", gvls, undefined, PROJECT_BASE).pou
-    if (pou === undefined) continue
-    lowered += 1
-    for (const body of bodies(pou)) {
-      if (touchesOnlyItsOwn(body) !== reflectiveTouchesOnlyItsOwn(body)) differ.push(`${t.name}: touchesOnlyItsOwn`)
-      if (writesOnlyLocals(body) !== reflectiveWritesOnlyLocals(body)) differ.push(`${t.name}: writesOnlyLocals`)
-      const mapped = body.map((s) => mapPlaces(s, bump))
-      if (!Bun.deepEquals(mapped, reflectiveMapPlaces(body, bump))) differ.push(`${t.name}: mapPlaces`)
-      forEachStmt(body, (s) => {
-        if (touchesOnlyItsOwn(s) !== reflectiveTouchesOnlyItsOwn(s)) differ.push(`${t.name}: touchesOnlyItsOwn ${s.kind}`)
-        if (writesOnlyLocals(s) !== reflectiveWritesOnlyLocals(s)) differ.push(`${t.name}: writesOnlyLocals ${s.kind}`)
-      })
-      forEachExpr(body, (e) => {
-        exprs += 1
-        const now = visitOrder((onPlace) => findPlace(e, onPlace, initReadChildren))
-        const then = visitOrder((onPlace) => handReads(e, onPlace))
-        // task 5.9 removed the skips (design.md §3.4 step 5d): every place the old walk read is still read, in its order
-        let at = 0
-        for (const p of now) if (p === then[at]) at += 1
-        if (at !== then.length) differ.push(`${t.name}: reads ${e.kind}`)
-      })
-    }
-  }
-  expect(differ).toEqual([])
-  expect(lowered).toBeGreaterThan(3000)
-  expect(exprs).toBeGreaterThan(10000)
+    if (pou === undefined) return
+    totals.lowered += 1
+    const differ: string[] = []
+    callWalksDiffer(t.name, pou, differ)
+    placeWalksDiffer(t.name, pou, differ)
+    expect(differ).toEqual([])
+  })
+
+test("the walks were compared on every lowered fixture", () => {
+  expect(totals.lowered).toBeGreaterThan(3000)
+  expect(totals.nodes).toBeGreaterThan(10000)
+  expect(totals.exprs).toBeGreaterThan(10000)
 })
