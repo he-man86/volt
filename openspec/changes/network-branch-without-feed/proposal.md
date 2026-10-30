@@ -39,3 +39,26 @@ What it saves:
 
 1. Does the bridge's reader build the same CODESYS model for `f AND BRANCH(a, b)` as for `BRANCH(FEED := f, a, b)` (both
    vendors)? If yes, `FEED` can go.
+
+## Volt verification (2026-10-30)
+
+**Verdict: C — the three spellings are three different stored models; dropping `FEED` would make two of them one text (a defect).**
+
+Measured live (CODESYS 3.5.21.40 64-bit, native export of the stored NWL after the push; each pulled back identical and re-pushed
+as a fixed point):
+
+| pushed (LD) | stored model |
+|---|---|
+| `x := BRANCH(FEED := auto, a, b);` | `Assign x ← Parallel(Input = auto, Trees = [a, b], Sequential)` |
+| `x := auto AND (a OR b);` | `Assign x ← AND-contact[ auto, OR-contact[a, b] ]` (no Parallel at all) |
+| `x := auto AND BRANCH(a, b);` | `Assign x ← AND-contact[ auto, Parallel(Input = none, Trees = [a, b]) ]` |
+
+All three occur in DRAWN data (`nwl-corpus/lenze-mid.nwl.xml`): Parallels WITH a feed 12 (an operand 4, a wire 4, a box 4),
+Parallels with NO feed standing as an operand of an AND contact 5 (e.g. Mach1_MIDS networks 24, 26, 27, 28), and nested
+AND/OR contacts throughout. The IDE keeps the vendor's `BoxTreeParallel.Input` as its own member, so `FEED` is the only place the
+text says "this Parallel holds its feed" as opposed to "a feed-less Parallel in series after a contact".
+
+Answer to Open 1: no — `f AND BRANCH(a, b)` builds a different model from `BRANCH(FEED := f, a, b)`, so `FEED` cannot go. A
+viewer may draw the three alike (they run alike), but an editor that rewrites one into another changes the stored network.
+Also note the proposal's "keep accepting `FEED :=` for one release" would run against the standing owner rule of no
+backward-compatibility periods.

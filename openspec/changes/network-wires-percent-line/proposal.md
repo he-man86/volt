@@ -32,3 +32,18 @@ What it saves:
 
 1. Is the `VAR_TEMP` line fixed by the bridge's stored format (`StNetworkReader.WireDeclaration`), or free to change in both
    readers and the writer?
+
+## Volt verification (2026-10-30)
+
+**Verdict: D — a language preference, already decided by the owner (2026-10-28: "it should be VAR_TEMP actually").
+Recommendation: keep `VAR_TEMP w1 : ANY; END_VAR`.**
+
+Answer to Open 1: the line is NOT fixed by the stored format — it is free text design. Measured live (CODESYS 3.5.21.40, native
+export after pushing `VAR_TEMP w1 : ANY; END_VAR` / `w1 := a AND b;` / `x := w1;` / `y := w1 AND c;`): the IDE stores one
+`BoxTreeDemux VarId=1` definition and two references, with no name and no type anywhere; pulled identical, fixed point. The
+completeness oracle already records that the text numbers wires by position, not by the vendor's `VarId`
+(`CodesysNwlCompletenessOracleTests`, "BoxTreeDemux.VarId — changed"). So both forms would carry exactly the same fact.
+
+Trade-off. `%WIRES w1, w2` is shorter and puts every non-code line in the `%` family; `VAR_TEMP … : ANY` keeps every line of
+a network that is not a `%` line valid ST in shape, which is why the owner chose it, and it is a standing decision. The proposal's
+"accept the old line for one release" also runs against the standing no-backward-compatibility rule. Nothing is broken.

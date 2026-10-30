@@ -31,3 +31,26 @@ What it saves:
 ## Open (for the owner)
 
 1. Does any vendor model differ between a root box with ENO bound and one with ENO shown and bound? If not, one spelling.
+
+## Volt verification (2026-10-30)
+
+**Verdict: D — nothing is broken; a language preference for the owner. Recommendation: keep the current rule.**
+
+Measured live (CODESYS 3.5.21.40 64-bit, native export of the stored NWL):
+
+| pushed (LD) | outcome |
+|---|---|
+| `MOVE(EN := c, 7, ENO => lamp, OUT => n).ENO;` | stored `MOVE EN=True ENO=True`, output slots `[lamp, n]`; pulled identical, fixed point |
+| `MOVE(EN := c, 7, OUT => n).ENO;` | stored `MOVE EN=True ENO=True`, output slots `[null, n]`; pulled identical, fixed point |
+| `MOVE(EN := c, 7, ENO => lamp, OUT => n);` | refused by the bridge too: `NETWORK_PARSE` line 3, "the call MOVE wires ENO => and shows no ENO …" |
+
+Answer to Open 1: no vendor model has an ENO bound without ENO shown — the ENO slot exists only on a box whose `ENO` flag is
+true (`Box.HasEnoSlot`), so at a root the `.ENO` beside `ENO => v` states nothing more. Drawn data has none of this shape at all:
+128 root boxes show ENO in the corpora, 0 bind it to a variable (`nwl-corpus/*.nwl.xml`).
+
+Trade-off. Today: one uniform rule, `.ENO` ⇔ "ENO shown", and `ENO => v` is a target of the shown ENO; the refusal is a
+consequence of those two rules, not a special case. Proposed: `ENO => v` would ALSO state "ENO shown", so the fact gets two
+markers, and `.ENO` would mean "shown" at a root without a binding and "the value handed on" elsewhere; keeping the root `.ENO`
+accepted beside it (as proposed) makes two spellings of one picture and a compatibility period, against both standing owner
+rules. If the owner wants the shorter form, it must be the only one (root `.ENO` beside `ENO =>` refused, writer changed, no
+compat window). Recommendation: keep today's rule; the refusal message already says what to write.

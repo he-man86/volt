@@ -24,3 +24,26 @@ Why it is questionable:
 1. What does the bridge write for a CODESYS rung with only a coil, and for a rung with a `TRUE` contact? Are they the same
    text?
 2. Update the "rail" row of `network-text.html` to what CODESYS shows, or give the two pictures two spellings.
+
+## Volt verification (2026-10-30)
+
+**Verdict: A (the doc mis-describes what the bridge builds). Sim-Assist's capture is right. The rail↔`TRUE` collapse itself is
+the approved "stored member" design, already counted; whether to keep it is the owner's call.**
+
+Measured live (CODESYS 3.5.21.40 64-bit, native export after the push): LD `y := TRUE;` stores `Assign y ← BoxTreeOperand 'TRUE'`
+— a TRUE contact, never a `BoxTreeTerminator` (the bare rail). Pulled identical, fixed point.
+
+Q1, the bridge's text for each drawn model — the same, `TRUE`: drawn data (`nwl-corpus/lenze-mid.nwl.xml`) holds 3 coils on the
+bare rail (`General`, `POU_systemStart`, `Dryer`), pulled as `LST_General.FirstCycle R= TRUE;` (test-corpus `General.pou:31`) and
+`LST_General.FirstCycle S= TRUE;` (`POU_systemStart.pou:7`), and 1 coil on a drawn TRUE contact (GeneralMachineFlags network
+25), pulled as `… R= True;` — the operand as typed. A contact typed `TRUE` and the rail are therefore one text. Also 4 wires and
+52 box inputs on the rail, written `TRUE` the same way. This is deliberate: archived `2026-10-28-network-text-st/design.md`
+"Stored members, not spelled" ("a coil, a Demux or an input pin fed by the bare rail vs `TRUE`"), and the completeness oracle's
+ledger counts it ("BoxTreeAssign.RValue — node class changed": "a coil fed by the bare rail is written TRUE …, rebuilt as the
+operand TRUE"; the same for `InputItems` and `Demux.Input`). Pairing keeps an unchanged network as drawn; an edited one turns
+the rail into a TRUE contact (runs the same).
+
+The defect: `network-text.html`'s elements row "rail: `x := TRUE;`" says the text builds the rail; the push builds a TRUE contact.
+Fix (Q2): the row is a TRUE contact, not the rail. Owner's call (D part): keep the rail a stored member written `TRUE` (runs
+the same; 3 + 4 + 52 drawn) or give the bare rail a spelling of its own (e.g. a coil with no value), which "one spelling per
+picture" argues for at the cost of one more form.
