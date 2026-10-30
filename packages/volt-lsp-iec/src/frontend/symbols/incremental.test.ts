@@ -22,9 +22,9 @@ const B = `FUNCTION_BLOCK UnitB\nVAR bOwn : INT; END_VAR\nEND_FUNCTION_BLOCK\nME
 const cyclicUnit = (pr: ReturnType<typeof parseSource>) => pr.units.find((u) => u.kind === "method")!
 
 test("a rebound file's method still resolves to its OWN FB, not a same-named sibling's", () => {
-  const prB = parseSource(B, { networkText: true }, "codesys")
+  const prB = parseSource(B, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = buildSymbolTable([
-    { uri: "A.pou", parseResult: parseSource(A, { networkText: true }, "codesys"), source: A },
+    { uri: "A.pou", parseResult: parseSource(A, { networkText: true, unicodeIdentifiers: false }, "codesys"), source: A },
     { uri: "B.pou", parseResult: prB, source: B },
   ], [], "codesys")
 
@@ -34,7 +34,7 @@ test("a rebound file's method still resolves to its OWN FB, not a same-named sib
   // Simulate didOpen on B as the server does it: unbind its disk contribution, bind a freshly-parsed buffer (new span
   // objects), relink (canonicalize + linkExtends). B is rebound because canonical order puts A.pou FIRST: a stale-index
   // name-walk for the fresh `Cyclic` would grab UnitA's.
-  const prB2 = parseSource(B, { networkText: true }, "codesys")
+  const prB2 = parseSource(B, { networkText: true, unicodeIdentifiers: false }, "codesys")
   unbindFile(project, "B.pou")
   bindFile(project, { uri: "B.pou", parseResult: prB2, source: B })
   relink(project)
@@ -44,9 +44,9 @@ test("a rebound file's method still resolves to its OWN FB, not a same-named sib
 })
 
 test("sanity: the two FBs really do share the method name (so the guard is load-bearing)", () => {
-  expect((parseSource(A, { networkText: true }, "codesys").units[0] as FunctionBlock).name.text).toBe("UnitA")
-  expect(cyclicUnit(parseSource(A, { networkText: true }, "codesys")).kind).toBe("method")
-  expect(cyclicUnit(parseSource(B, { networkText: true }, "codesys")).kind).toBe("method")
+  expect((parseSource(A, { networkText: true, unicodeIdentifiers: false }, "codesys").units[0] as FunctionBlock).name.text).toBe("UnitA")
+  expect(cyclicUnit(parseSource(A, { networkText: true, unicodeIdentifiers: false }, "codesys")).kind).toBe("method")
+  expect(cyclicUnit(parseSource(B, { networkText: true, unicodeIdentifiers: false }, "codesys")).kind).toBe("method")
 })
 
 // A rebind costs the FILE (openspec frontend-conformance 2.P.2): the canonical order is restored by inserting what was
@@ -62,7 +62,7 @@ test("a project kept current through random rebinds is the project a fresh build
   }
   sources.set("file:///p/g.gvl", "VAR_GLOBAL\nv1 : INT;\nEND_VAR")
   sources.set("file:///p/a.dut", "TYPE Run : INT; END_TYPE")
-  const parse = (uri: string) => ({ uri, source: sources.get(uri)!, parseResult: parseSource(sources.get(uri)!, { networkText: true }, "codesys") })
+  const parse = (uri: string) => ({ uri, source: sources.get(uri)!, parseResult: parseSource(sources.get(uri)!, { networkText: true, unicodeIdentifiers: false }, "codesys") })
   const uris = [...sources.keys()]
   const id = (s: Scope | undefined) => (s === undefined ? "-" : `${s.kind}|${s.name}|${s.defUri ?? ""}|${s.span?.start}`)
   const state = (p: Scope) => [
@@ -113,7 +113,7 @@ const MANIFESTS: LibraryManifest[] = [
 ]
 
 test("a bare name a project unit and a library unit share finds the project's unit, not the namespace's alias", () => {
-  const f = (uri: string, source: string) => ({ uri, source, parseResult: parseSource(source, { networkText: true }, "codesys") })
+  const f = (uri: string, source: string) => ({ uri, source, parseResult: parseSource(source, { networkText: true, unicodeIdentifiers: false }, "codesys") })
   const project = buildSymbolTable(
     [
       f("file:///p/Application/I_Foo.itf", "INTERFACE I_Foo\nMETHOD Mine : BOOL\nEND_METHOD\nEND_INTERFACE"),
@@ -149,7 +149,7 @@ test("with library namespaces, a project kept current through random rebinds is 
   const parse = (uri: string, fresh = false) => {
     const hit = parsed.get(uri)
     if (!fresh && hit !== undefined) return hit
-    const d = { uri, source: sources.get(uri)!, parseResult: parseSource(sources.get(uri)!, { networkText: true }, "codesys") }
+    const d = { uri, source: sources.get(uri)!, parseResult: parseSource(sources.get(uri)!, { networkText: true, unicodeIdentifiers: false }, "codesys") }
     parsed.set(uri, d)
     return d
   }
@@ -205,7 +205,7 @@ test("binding is order-independent: every unit order within a file and every fil
   const dut = "TYPE S_T :\nSTRUCT\n\tv : INT := 4;\nEND_STRUCT\nEND_TYPE\n"
   const twice = "FUNCTION_BLOCK Twice\nVAR fromFile : INT; END_VAR\nEND_FUNCTION_BLOCK\n"
   const answer = (files: { uri: string; source: string }[]): string[] => {
-    const project = buildSymbolTable(files.map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true }, "codesys") })), [], "codesys")
+    const project = buildSymbolTable(files.map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true, unicodeIdentifiers: false }, "codesys") })), [], "codesys")
     const fb = findScopeByName(project, "FB_U")!
     return [
       ...["bx", "out", "F_X", "S_T", "Twice"].map((n) => {
@@ -261,7 +261,7 @@ test("library rebind equals whole rebuild", () => {
   sources.set("file:///p/src/LB.dut", "TYPE LB :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE")
   sources.set("file:///p/src/FB_App.pou", "FUNCTION_BLOCK FB_App EXTENDS LA.FB_Base\nVAR m : LB.FB_Mid; END_VAR\nEND_FUNCTION_BLOCK")
   const uris = [...sources.keys()]
-  const parse = (uri: string) => ({ uri, source: sources.get(uri)!, parseResult: parseSource(sources.get(uri)!, { networkText: true }, "codesys") })
+  const parse = (uri: string) => ({ uri, source: sources.get(uri)!, parseResult: parseSource(sources.get(uri)!, { networkText: true, unicodeIdentifiers: false }, "codesys") })
   const id = (s: Scope | undefined) => (s === undefined ? "-" : `${s.kind}|${s.name}|${s.defUri ?? ""}|${s.libraryUri ?? ""}|${s.span?.start}`)
   // each name's candidates in order, the names themselves in any: a namespace's keys arrive in its binding's order, which
   // no lookup reads

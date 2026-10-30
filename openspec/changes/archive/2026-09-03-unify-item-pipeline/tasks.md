@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 # Tasks
 
 Every step holds Engine **533** offline (433 when this was written), CLI 124, connector 80, and live CODESYS

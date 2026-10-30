@@ -11,7 +11,7 @@ import { diagnose } from "../../../../test/support/diagnose.js"
 
 /** unknown-attribute diagnostics for one source, with the C0351 warning toggled. */
 function attrs(src: string, enabled: boolean, vendor: Vendor = "codesys") {
-  const parseResult = parseSource(src, { networkText: true }, vendor)
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, vendor)
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
   const config = resolveConfig({ vendor, diagnostics: { "unknown-attribute": enabled ? "warning" : "off" } })
   return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config }).filter(
@@ -117,7 +117,7 @@ test("the C0351 warning can be turned OFF (toggle) — then a typo is not flagge
 })
 
 test("the warning is CODESYS-only — TwinCAT compiles unknown attributes clean (confirmed live)", () => {
-  const parseResult = parseSource(withAttr("qualifid_only"), { networkText: true }, "twincat")
+  const parseResult = parseSource(withAttr("qualifid_only"), { networkText: true, unicodeIdentifiers: false }, "twincat")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: withAttr("qualifid_only") }], [], "twincat")
   const config = resolveConfig({ vendor: "twincat", diagnostics: { "unknown-attribute": "warning" } })
   const d = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: withAttr("qualifid_only"), project, config }).filter(
@@ -155,7 +155,7 @@ test("every legal 'symbol' value is accepted (zero-FP), in lower case only", () 
 test("the invalid-value warning rides the SAME C0351 toggle (off ⇒ silent) and is CODESYS-only", () => {
   expect(attrs(prog("noe"), false)).toEqual([]) // toggled off with the unknown-attribute (C0351) control
   const src = prog("noe")
-  const parseResult = parseSource(src, { networkText: true }, "twincat")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "twincat")
   const project = build.buildSymbolTable([{ uri: "P.pou", parseResult, source: src }], [], "twincat")
   const tc = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "twincat" }) })
     .filter((d) => d.code === "unknown-attribute")
@@ -243,7 +243,7 @@ test("an attribute's value is checked against its published set — unless the d
 
 test("an UNQUOTED attribute value is no value at all — the compiler reads the empty string", () => {
   const src = `FUNCTION_BLOCK F\nVAR\n{attribute 'symbol' := readwrite}\nn : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   const msgs = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "unknown-attribute")

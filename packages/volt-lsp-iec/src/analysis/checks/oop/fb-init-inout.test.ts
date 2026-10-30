@@ -38,9 +38,9 @@ test("a struct (non-FB) init is left alone — no FP", () => {
   // Not `s : S`: CODESYS rejects the name `s` (the set keyword — conformance cc_reserved_name_s_string), so the
   // "no FP" premise did not hold for the names this test used, only for the struct init it is about.
   const src = `TYPE ST_Io : STRUCT io : INT; END_STRUCT END_TYPE`
-  const p1 = parseSource(src, { networkText: true }, "codesys")
+  const p1 = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const main = `PROGRAM PLC_PRG\nVAR\n stIo : ST_Io := (io := 3);\nEND_VAR\nEND_PROGRAM`
-  const p2 = parseSource(main, { networkText: true }, "codesys")
+  const p2 = parseSource(main, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "s.dut", parseResult: p1, source: src }, { uri: uriFor(p2), parseResult: p2, source: main }], [], "codesys")
   const ds = computeDiagnostics({ uri: uriFor(p2), parseResult: p2, source: main, project, config: resolveConfig({ vendor: "codesys" }) })
   expect(ds.map((d) => d.code)).toEqual([])

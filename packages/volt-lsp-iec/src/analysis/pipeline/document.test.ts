@@ -15,7 +15,7 @@ function findingsIn(files: Record<string, string>, uri: string, diagnoseDeadCode
   const docs = Object.entries(files).map(([u, source]) => ({
     uri: u,
     source,
-    parseResult: parseDocument(u, source, { networkText: true }, "codesys"),
+    parseResult: parseDocument(u, source, { networkText: true, unicodeIdentifiers: false }, "codesys"),
   }))
   const dead = diagnoseDeadCode ? new Set<string>() : deadPous(docs, undefined)
   return documentFindings({

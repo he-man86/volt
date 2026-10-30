@@ -122,7 +122,7 @@ test("a reference declaration type-checks its target, and a valid bind stays sil
   // defined" — both checks said it, and CODESYS says it once (`refdecl_target_undeclared`, the census's open FP, 3.2.3)
   expect(mismatches(decl("REF= nope"), ";")).toEqual([])
   const src = `PROGRAM PLC_PRG\nVAR\n${decl("REF= nope")}\nEND_VAR\n;\nEND_PROGRAM`
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   expect(
     computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
@@ -296,7 +296,7 @@ END_METHOD
 METHOD Other : INT
 txt := a.Value;
 END_METHOD`
-  const parseResult = parseSource(units, { networkText: true }, "codesys")
+  const parseResult = parseSource(units, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: units }], [], "codesys")
   const messages = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: units, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.message.startsWith("Cannot convert"))

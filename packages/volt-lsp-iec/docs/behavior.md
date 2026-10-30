@@ -652,22 +652,21 @@ reader's `NETWORK_*` diagnostics) or a model the writer has no spelling for (`NE
 body can be read, edited, and written entirely as network text without drift.
 
 #### Scenario: A valid hand-spelled body is written and its canonical form comes back
-- **WHEN** a push sends network text that is valid but not in canonical spelling (header fields in another order,
-  `AND(a, b)` where infix is canonical)
+- **WHEN** a push sends network text that is valid but not in canonical spelling (other spacing and line
+  breaks)
 - **THEN** the bridge writes the model it reads, raises no diagnostic, and returns the canonical text; there is no
   `NETWORK_NOT_CANONICAL` (the code is gone)
 
 ### Requirement: The bridge owns format, the LSP owns code correctness
 
 The bridge SHALL enforce network-text *structural* well-formedness (the `NETWORK_*` gate) since those checks depend
-only on the text. The LSP SHALL provide *code* correctness — type checks against each split's feeder type, undeclared-variable
+only on the text. The LSP SHALL provide *code* correctness — type checks against each wire's definition type, undeclared-variable
 detection, hover, completion, navigation — and SHOULD mirror the structural codes as diagnostics so a body is fixed
 before it is pushed.
 
-#### Scenario: A split hovers as its definition, its VarId and its references
-- **WHEN** the LSP hovers a split (`split22`, readability.md B6)
-- **THEN** it shows the definition (`split22 := a AND b;`), the VarId and the reference count; `ENO` hovers as the
-  open line it takes and `BRANCH` as its branches and mode (P13)
+#### Scenario: A wire is typed by its definition
+- **WHEN** a network declares `VAR_TEMP w1 : ANY; END_VAR` and defines `w1 := a AND b;`
+- **THEN** every read of `w1` in that network has the type of `a AND b`
 
 ### Requirement: FBD/LD are editable; CFC/SFC/IL are UNSUPPORTED
 
@@ -693,18 +692,17 @@ The push never writes such a body (openspec `implementation-keyword`).
 
 ### Requirement: Content detection covers whole files and inlined graphical methods
 
-`volt-vscode` SHALL highlight network text by a content injection on the `NETWORK` token. Because a POU is named
+`volt-vscode` SHALL highlight network text by a content injection on its `%NETWORK` lines. Because a POU is named
 by its KIND (`.pou`), an editable graphical POU is stored in a kind-named file, not a
-language-named file — so the injection SHALL be keyed purely by the `NETWORK` token (the same
-discriminator the LSP router uses), never by a graphical extension, and SHALL cover both a whole
-graphical POU (e.g. a `.pou` file whose body begins with `NETWORK`) *and* a graphical body inlined
-inside a POU (a graphical method). That token decides COLOUR only. What a body IS — and so what the LSP analyzes —
+language-named file — so the injection SHALL be keyed purely by the `%NETWORK` line, never by a graphical extension, and SHALL cover both a whole
+graphical POU (e.g. a `.pou` file whose body holds `%NETWORK` lines) *and* a graphical body inlined
+inside a POU (a graphical method). That line decides COLOUR only. What a body IS — and so what the LSP analyzes —
 is its stated language: `%LANGUAGE LD|FBD` is network text, `%LANGUAGE ST` is ST, and
 `%LANGUAGE <LANG> UNSUPPORTED` is read by neither.
 
 #### Scenario: An editable graphical body is read by its stated language
 - **WHEN** a kind-named POU file's body is stated `%LANGUAGE LD` or `%LANGUAGE FBD`
-- **THEN** it is analyzed as editable network text, regardless of extension, and its `NETWORK` headers are highlighted
+- **THEN** it is analyzed as editable network text, regardless of extension, and its `%NETWORK` lines are highlighted
 
 #### Scenario: An UNSUPPORTED body is not analyzed
 - **WHEN** a kind-named POU (or inlined method) body is stated `%LANGUAGE <LANG> UNSUPPORTED`

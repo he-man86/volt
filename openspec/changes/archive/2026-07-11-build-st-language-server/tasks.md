@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 Build order = the layer stack, bottom-up. Invariant for EVERY task: `cd packages/volt-lsp-iec && bun test` +
 `bun typecheck` + corpus 0-error + conformance replay green before its commit. Freeze a layer's contract →
 verify → let the next consume it.

@@ -29,7 +29,7 @@ END_PROGRAM
 
 function findings(body: string, vendor: Vendor): string[] {
   const files = [FB, program(body)].map((source) => {
-    const parseResult = parseSource(source, { networkText: true }, vendor)
+    const parseResult = parseSource(source, { networkText: true, unicodeIdentifiers: false }, vendor)
     return { uri: uriFor(parseResult), source, parseResult }
   })
   const project = build.buildSymbolTable(files, [], vendor)
@@ -54,7 +54,7 @@ test("a VAR_OUTPUT written from outside is no input; a VAR_TEMP is no input of t
   const prg = (body: string) => `PROGRAM PLC_PRG\nVAR\n\tw : FB_W;\n\tn : INT;\nEND_VAR\n${body}\nEND_PROGRAM\n`
   const run = (body: string, vendor: Vendor) => {
     const files = [fb, prg(body)].map((source) => {
-      const parseResult = parseSource(source, { networkText: true }, vendor)
+      const parseResult = parseSource(source, { networkText: true, unicodeIdentifiers: false }, vendor)
       return { uri: uriFor(parseResult), source, parseResult }
     })
     const project = build.buildSymbolTable(files, [], vendor)

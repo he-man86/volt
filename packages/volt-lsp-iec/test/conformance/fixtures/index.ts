@@ -134,6 +134,8 @@ import { SCOPE_RULE_TESTS } from "./names/scopes.js"
 import { INHERITANCE_RULE_TESTS } from "./names/inheritance.js"
 import { ENUM_RULE_TESTS } from "./names/enums.js"
 import { WORD_POSITION_TESTS } from "./names/word-positions.js"
+import { OBJECT_NAME_TESTS } from "./names/object-names.js"
+import { UNICODE_IDENTIFIERS_OFF_TESTS } from "./names/unicode-identifiers-off.js"
 import { LIBRARY_RULE_TESTS } from "./names/libraries.js"
 import { MEMBER_RULE_TESTS } from "./names/members.js"
 import { SFC_STEP_TESTS } from "./names/sfc-steps.js"
@@ -194,6 +196,8 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "interface-var", tests: INTERFACE_VAR_TESTS },
   { name: "signature-name", tests: SIGNATURE_NAME_TESTS },
   { name: "names-past-ascii", tests: NAMES_PAST_ASCII_TESTS },
+  { name: "unicode-identifiers-off", tests: UNICODE_IDENTIFIERS_OFF_TESTS },
+  { name: "object-names", tests: OBJECT_NAME_TESTS },
   { name: "written-as-sent", tests: WRITTEN_AS_SENT_TESTS },
   { name: "header-rules", tests: HEADER_RULE_TESTS },
   { name: "removed-push-checks", tests: REMOVED_PUSH_CHECK_TESTS },

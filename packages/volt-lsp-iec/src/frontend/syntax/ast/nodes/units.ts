@@ -321,4 +321,7 @@ export interface ParseResult {
   /** The vocabulary `tokens` were lexed with — so a consumer reading them can refuse a parse made for another vendor
    *  (`computeDiagnostics`) instead of answering with the wrong vocabulary. */
   dialect: Dialect
+  /** Whether `tokens` were lexed with names past ASCII (`ParseOptions.unicodeIdentifiers`) — so the analysis can refuse a
+   *  parse made under another project's option (`computeDiagnostics`), and a re-lexer reads the same names. */
+  unicodeIdentifiers: boolean
 }

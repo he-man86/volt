@@ -15,7 +15,7 @@ const LISTS = [
 
 /** The value of `n := <value>;` in an FB beside `files`. */
 function folded(value: string, files: readonly { uri: string; source: string }[] = LISTS): unknown {
-  const all = [...files, { uri: "file:///p/F.pou", source: `FUNCTION_BLOCK F\nVAR\n  n : INT;\nEND_VAR\nn := ${value};\nEND_FUNCTION_BLOCK\n` }].map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true }, "codesys") }))
+  const all = [...files, { uri: "file:///p/F.pou", source: `FUNCTION_BLOCK F\nVAR\n  n : INT;\nEND_VAR\nn := ${value};\nEND_FUNCTION_BLOCK\n` }].map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true, unicodeIdentifiers: false }, "codesys") }))
   const project = build.buildSymbolTable(all, [], "codesys")
   for (const { scope, statements } of bodies(all.at(-1)!.parseResult.units, project)) {
     const s = statements[0]
@@ -144,7 +144,7 @@ test("an expression over REAL folds wide and rounds once to float32; an LREAL co
 // VAR_INPUT CONSTANT is a PARAMETER holding the caller's argument, so its default is not a compile-time constant.
 test("a VAR_INPUT CONSTANT parameter does not fold to its default; a VAR CONSTANT beside it does", () => {
   const source = "FUNCTION F : INT\nVAR_INPUT CONSTANT\n  n : INT := 1;\nEND_VAR\nVAR CONSTANT\n  K : INT := 2;\nEND_VAR\nF := n;\nF := K;\nEND_FUNCTION\n"
-  const all = [{ uri: "file:///p/F.pou", source, parseResult: parseSource(source, { networkText: true }, "codesys") }]
+  const all = [{ uri: "file:///p/F.pou", source, parseResult: parseSource(source, { networkText: true, unicodeIdentifiers: false }, "codesys") }]
   const project = build.buildSymbolTable(all, [], "codesys")
   const [{ scope, statements }] = [...bodies(all[0]!.parseResult.units, project)]
   const values = statements.map((s) => (s.kind === "assign" ? constEval(s.value, scope) : null))
@@ -153,7 +153,7 @@ test("a VAR_INPUT CONSTANT parameter does not fold to its default; a VAR CONSTAN
 
 test("a platform-integer CONSTANT's literal initializer is held at the target's width: __XINT on a 64-bit target is LINT (step 4a review)", () => {
   const src = "FUNCTION_BLOCK F\nVAR CONSTANT\n  C : __XINT := 16#FFFF_FFFF_FFFF_FFFF;\nEND_VAR\nVAR\n  l : LINT;\nEND_VAR\nl := C;\nEND_FUNCTION_BLOCK\n"
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "file:///p/F.pou", source: src, parseResult }], [], "codesys", { target: { pointerBits: 64 } })
   const [body] = [...bodies(parseResult.units, project)]
   const s = body!.statements[0]
@@ -385,7 +385,7 @@ test("the context type does not reach a conversion's argument or a NOT under a s
 // opening one is refused, a binary operation is "no valid statement" — frontend-conformance 2.6, ST5).
 function evalConst(varDecls: string, exprSrc: string) {
   const src = `FUNCTION_BLOCK F\n${varDecls}\nprobe := ${exprSrc};\nEND_FUNCTION_BLOCK`
-  const pr = parseSource(src, { networkText: true }, "codesys")
+  const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], "codesys")
   const scope = findChildScope(project, "F")!
   const e = lastExpr(pr.units[0] as FunctionBlock)
@@ -436,7 +436,7 @@ test("a VAR_EXTERNAL CONSTANT folds to the global it binds; one whose global is 
   const files = [
     { uri: "file:///p/G.gvl", source: "VAR_GLOBAL CONSTANT\n  gLow : INT := 10;\nEND_VAR\nVAR_GLOBAL\n  gVar : INT := 4;\nEND_VAR\n" },
     { uri: "file:///p/F.pou", source: "FUNCTION_BLOCK F\nVAR_EXTERNAL CONSTANT\n  gLow : INT;\n  gVar : INT;\n  gNone : INT;\nEND_VAR\nVAR\n  n : INT;\nEND_VAR\nn := gLow * 2;\nn := gVar;\nn := gNone;\nEND_FUNCTION_BLOCK\n" },
-  ].map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true }, "codesys") }))
+  ].map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true, unicodeIdentifiers: false }, "codesys") }))
   const project = build.buildSymbolTable(files, [], "codesys")
   const values: unknown[] = []
   for (const { scope, statements } of bodies(files[1]!.parseResult.units, project))

@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## ADDED Requirements
 
 ### Requirement: An abstract member pulled from the IDE can be pushed back

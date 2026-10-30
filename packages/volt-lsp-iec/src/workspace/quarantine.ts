@@ -23,6 +23,14 @@ export class Quarantine {
     return this.layers[layer].get(key)?.source === source
   }
 
+  /** Whether the document at `key` is quarantined as the client sees it: its open buffer's content where it has one (the
+   *  buffer the user sees), else its disk copy's. */
+  shows(key: string, openText: string | undefined, diskSource: string | undefined): boolean {
+    if (openText !== undefined) return this.has("open", key, openText)
+    const bad = this.source("disk", key)
+    return bad !== undefined && (diskSource ?? bad) === bad
+  }
+
   /** The content quarantined at `key` in `layer`, if any. */
   source(layer: Layer, key: string): string | undefined {
     return this.layers[layer].get(key)?.source

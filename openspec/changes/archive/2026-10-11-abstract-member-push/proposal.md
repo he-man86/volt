@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Why
 
 **An owner holding an abstract member pulled from CODESYS cannot be pushed back.** Found by the `vendor-facts` probe

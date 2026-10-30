@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Why
 
 The C# bridges and the HTTP wire are shipped (CODESYS in-proc net48, Beckhoff standalone

@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 # Tasks
 
 Run `bun run scripts/e2e-graphical-coverage.ts` before and after: the gap list is the task list, and it is the

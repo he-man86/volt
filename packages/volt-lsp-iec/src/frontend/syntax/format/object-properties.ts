@@ -159,12 +159,28 @@ export interface PropertyLine {
 }
 
 /** What reading a property line needs of the parse cursor — the cursor itself satisfies it. */
-interface PropertyCursor {
+interface PropertyCursor extends RawCursor {
   peek(offset?: number): Token
   consume(): Token
   triviaAhead(): readonly Token[]
-  consumeRestOfLine(): Token[]
   pushError(message: string, span: Span): void
+}
+
+/** The raw stream at a cursor, trivia included — the parse cursor's (`rawAt`, `advanceRaw`). */
+interface RawCursor {
+  rawAt(): Token | undefined
+  advanceRaw(): void
+}
+
+/** Consume the rest of the current line — every raw token up to the whitespace that ends it, which is left — and return
+ *  the consumed tokens. */
+export function consumeRestOfLine(c: RawCursor): Token[] {
+  const out: Token[] = []
+  for (let t = c.rawAt(); t !== undefined && t.kind !== "eof" && !(t.kind === "whitespace" && t.text.includes("\n")); t = c.rawAt()) {
+    out.push(t)
+    c.advanceRaw()
+  }
+  return out
 }
 
 /**
@@ -186,7 +202,7 @@ function readPropertyLine(c: PropertyCursor): PropertyLine | undefined {
   const nl = before.lastIndexOf("\n")
   const opensLine = nl >= 0 ? /^[ \t]*$/.test(before.slice(nl + 1)) : p.span.startCol === 0
   c.consume() // %
-  const rest = c.consumeRestOfLine()
+  const rest = consumeRestOfLine(c)
   const text = ("%" + rest.map((t) => t.text).join("")).trim()
   const last = rest.at(-1)?.span ?? p.span
   return { text, key: opensLine ? propertyKeyOf(text) : undefined, span: joinSpans(p.span, last) }

@@ -22,7 +22,7 @@ test("4.2 too many positional arguments is flagged", () => {
 
 test("4.2b too-many wording is vendor-mirrored per callee kind: C0040 (function) vs C0044 (FB)", () => {
   const msgs = (...s: string[]) => {
-    const files = s.map((source, i) => ({ uri: `u${i}.pou`, source, parseResult: parseSource(source, { networkText: true }, "codesys") }))
+    const files = s.map((source, i) => ({ uri: `u${i}.pou`, source, parseResult: parseSource(source, { networkText: true, unicodeIdentifiers: false }, "codesys") }))
     const project = build.buildSymbolTable(files, [], "codesys")
     return files.flatMap((f) =>
       computeDiagnostics({ uri: uriFor(f.parseResult), parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor: "codesys" }) }).map((d) => d.message),
@@ -174,7 +174,7 @@ test("the range wording is CODESYS's; TwinCAT says exactly", () => {
 
 test("an FB's inputs are NOT required — they are retained between calls", () => {
   const src = `FUNCTION_BLOCK FB_w\nVAR_INPUT\nneeded : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nFUNCTION_BLOCK FB_u\nVAR\nw : FB_w;\nEND_VAR\nw();\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   expect(
     computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
@@ -265,7 +265,7 @@ test("the callee is upper-cased at a call site, as both vendors print it", () =>
 	const src = `FUNCTION_BLOCK FB_Mixed\nVAR\n\tloc : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`
 	const caller = `PROGRAM P\nVAR\n\tfb : FB_Mixed;\nEND_VAR\nfb(loc := 5);\nEND_PROGRAM`
 	const files = [src, caller].map((source, i) => {
-		const parseResult = parseSource(source, { networkText: true }, "codesys")
+		const parseResult = parseSource(source, { networkText: true, unicodeIdentifiers: false }, "codesys")
 		return { uri: i === 0 ? "FB_Mixed.pou" : "P.pou", source, parseResult }
 	})
 	const project = build.buildSymbolTable(files, [], "codesys")
@@ -300,7 +300,7 @@ test("an input named as a METHOD with no result type is an input", () => {
 test("an unknown named argument the callee declares nothing of is also 'Identifier not defined'", () => {
   const messagesOf = (...sources: string[]): string[] => {
     const files = sources.map((source) => {
-      const parseResult = parseSource(source, { networkText: true }, "codesys")
+      const parseResult = parseSource(source, { networkText: true, unicodeIdentifiers: false }, "codesys")
       const first = parseResult.units.find((u) => "name" in u) as { name: { text: string } }
       return { uri: `${first.name.text}.pou`, source, parseResult }
     })
@@ -331,7 +331,7 @@ test("an FB whose base chain runs into a cycle has no authoritative parameter li
 /** `code: message` of every diagnostic over the sources, each file named after its first unit. */
 function codedMessages(...sources: string[]): string[] {
   const files = sources.map((source) => {
-    const parseResult = parseSource(source, { networkText: true }, "codesys")
+    const parseResult = parseSource(source, { networkText: true, unicodeIdentifiers: false }, "codesys")
     const first = parseResult.units.find((u) => "name" in u) as { name: { text: string } }
     return { uri: `${first.name.text}.pou`, source, parseResult }
   })
@@ -395,7 +395,7 @@ test("M3/E21: the named-argument count leaves unrecorded shapes alone", () => {
 test("a PROGRAM called positionally is refused, one error per argument (dt_program_called_positionally, DT9)", () => {
   const prg = `PROGRAM Prg_t\nVAR_INPUT\n\tk : INT;\nEND_VAR\nEND_PROGRAM`
   const src = `${prg}\nFUNCTION_BLOCK F\nVAR\nEND_VAR\nPrg_t(5);\nPrg_t(k := 5);\nEND_FUNCTION_BLOCK`
-  const pr = parseSource(src, { networkText: true }, "codesys")
+  const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], "codesys")
   const msgs = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "input-assignment-missing")

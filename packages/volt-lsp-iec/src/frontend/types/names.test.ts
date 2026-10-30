@@ -9,7 +9,7 @@ import { build, findScopeByName, type Scope } from "../symbols/index.js"
 import type { LibraryManifest } from "../library/index.js"
 import { resolveBareName, resolveGlobalName, type BareName } from "./names.js"
 
-const file = (uri: string, source: string) => ({ uri, source, parseResult: parseSource(source, { networkText: true }, "codesys") })
+const file = (uri: string, source: string) => ({ uri, source, parseResult: parseSource(source, { networkText: true, unicodeIdentifiers: false }, "codesys") })
 const tag = (b: BareName): string =>
   b.kind === "declared" ? `declared ${b.symbol.kind} in ${b.foundIn.kind}` : b.kind === "builtin" ? `builtin ${b.builtin}` : b.kind
 

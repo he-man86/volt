@@ -62,7 +62,7 @@ function scopes(): ReadonlyMap<string, Scope> {
   if (systemScopes === undefined) {
     // Bound as codesys and read for its member scopes only: the text lexes alike in both dialects, and no caller asks this
     // project root its dialect (`dialectOf` reads the CALLER's project).
-    const project = build.buildSymbolTable([{ uri: "volt:system/types.dut", source: SYSTEM_SOURCE, parseResult: parseSource(SYSTEM_SOURCE, { networkText: false }, "codesys") }], [], "codesys")
+    const project = build.buildSymbolTable([{ uri: "volt:system/types.dut", source: SYSTEM_SOURCE, parseResult: parseSource(SYSTEM_SOURCE, { networkText: false, unicodeIdentifiers: false }, "codesys") }], [], "codesys")
     systemScopes = new Map(project.children.filter((c) => c.kind === "struct").map((c) => [c.name.toUpperCase(), c]))
   }
   return systemScopes

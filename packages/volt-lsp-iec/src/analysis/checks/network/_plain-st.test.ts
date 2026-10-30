@@ -49,7 +49,7 @@ for (const c of CASES.filter((x) => x.accept))
   test(`accept ${c.file}/${c.name}: read by the ST parser, nothing the network check refuses`, () => {
     const src = programOf(c)
     if (c.text.split("\n")[1]?.startsWith("%NETWORK"))
-      expect(unitBodies(parseSource(src, { networkText: true }, "codesys").units.at(-1)!).some(isPlainStNetworkBody)).toBe(true)
+      expect(unitBodies(parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys").units.at(-1)!).some(isPlainStNetworkBody)).toBe(true)
     expect(findings(src).map((d) => `${d.message} at '${src.slice(d.span.start, d.span.end)}'`)).toEqual([])
   })
 

@@ -60,7 +60,7 @@ test("an empty CASE arm is a WARNING — it builds and runs — where an empty b
 // TwinCAT says nothing twice on one line, so anchored at the IF it vanished beside the empty THEN's
 test("an empty THEN and an empty ELSE are two findings on TwinCAT too", () => {
   const src = `FUNCTION_BLOCK F\nVAR\n\tflag : BOOL;\nEND_VAR\nIF flag THEN\nELSE\nEND_IF\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src, { networkText: true }, "twincat")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "twincat")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "twincat")
   expect(
     computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "twincat" }) }).filter((d) => d.code === "empty-block"),

@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Why
 
 VG (Volt Graphical) is shipped as a first-class textual language: editable FBD/LD bodies

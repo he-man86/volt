@@ -16,7 +16,7 @@ import { ALL_TESTS } from "../fixtures/index.js"
 import { splitLists, withDependencies } from "./fixture-units.js"
 import { plcPrgSource } from "./plc-prg.js"
 import { conformanceUri } from "./fixture-uri.js"
-import { RECORDING_ENVIRONMENT } from "./recording-environment.js"
+import { RECORDING_ENVIRONMENT, recordingParse } from "./recording-environment.js"
 import { PROJECT_LIBRARY, PROJECT_MANIFESTS, projectDevices } from "./project-libraries.js"
 
 function extFor(kind: string): string {
@@ -35,7 +35,7 @@ function extFor(kind: string): string {
 // GVL's text the way the IDE reads it (`syntax/format/source-object.ts`).
 const PARSED = ALL_TESTS.map((t) => {
   const uri = conformanceUri(`${t.pouName}.${extFor(t.kind)}`)
-  return { uri, source: t.source, parseResult: parseDocument(uri, t.source, { networkText: true }, "codesys") }
+  return { uri, source: t.source, parseResult: parseDocument(uri, t.source, recordingParse(t), "codesys") }
 })
 // A list a fixture holds beside its POU is an item of its own, under the name the push gives it (`splitLists`): bound
 // once with the declarations, and analysed with its fixture.
@@ -55,6 +55,7 @@ const CROSS_DECLS = SPLIT.map(({ item: p }, i) => ({
     failedDeclarations: ALONE[i] ? [] : p.parseResult.failedDeclarations,
     tokens: p.parseResult.tokens,
     dialect: p.parseResult.dialect,
+    unicodeIdentifiers: p.parseResult.unicodeIdentifiers,
   },
 }))
 // The recorder builds each fixture with a PLC_PRG that instantiates + uses it; usage-only diagnostics
@@ -65,7 +66,7 @@ const PLC_PRGS = ALL_TESTS.map((t) => {
   // A DIRECTORY per fixture, so the file's BASE NAME is the object's name — `PLC_PRG.pou`, as a workspace has it.
   // It used to be `<fixture>__plcprg.pou`, which made every synthesized PLC_PRG look like a POU whose signature
   // disagrees with its object name (`signature-name`), and that is a real CODESYS error, not a harness detail.
-  return { uri: conformanceUri(t.name, "PLC_PRG.pou"), source, parseResult: parseSource(source, { networkText: true }, "codesys") }
+  return { uri: conformanceUri(t.name, "PLC_PRG.pou"), source, parseResult: parseSource(source, recordingParse(t), "codesys") }
 })
 
 /**
@@ -82,7 +83,7 @@ const PLC_PRGS = ALL_TESTS.map((t) => {
  * Measured 2026-09-21 — agreement 2479 -> 2496 and the false-positive list unchanged at three. A specific
  * divergence, when one is found, is a reason to materialize Tc2_Standard separately, not to go back to none.</p>
  */
-const standardLibrary = (vendor: Vendor) => PROJECT_LIBRARY.map((l) => ({ ...l, parseResult: parseSource(l.source, { networkText: true }, vendor) }))
+const standardLibrary = (vendor: Vendor) => PROJECT_LIBRARY.map((l) => ({ ...l, parseResult: parseSource(l.source, { networkText: true, unicodeIdentifiers: false }, vendor) }))
 
 /**
  * THE SAME SOURCE, LEXED AS THE OTHER VENDOR — for the handful of fixtures where that can differ at all.
@@ -116,7 +117,7 @@ function asVendor<T extends ReplayDoc>(doc: T, vendor: Vendor): T | ReplayDoc {
     // A source with none of the CODESYS-only words lexes to the same tokens in both dialects, so its CODESYS parse IS
     // its TwinCAT parse, and says so (`ParseResult.dialect` — the analysis refuses a parse made for the other vendor).
     const parseResult = DIALECT_SENSITIVE.test(doc.source)
-      ? parseDocument(doc.uri, doc.source, { networkText: true }, "twincat")
+      ? parseDocument(doc.uri, doc.source, { networkText: true, unicodeIdentifiers: doc.parseResult.unicodeIdentifiers }, "twincat")
       : { ...doc.parseResult, dialect: "twincat" as const }
     hit = { uri: doc.uri, source: doc.source, parseResult }
     TC_PARSE.set(doc, hit)
@@ -237,10 +238,12 @@ export function withReplayFixture<T>(testIdx: number, vendor: Vendor, ask: (file
  * composed it themselves, and the residue's own project gave two fixtures a different answer (task 0.4).
  */
 export function replayDiagnostics({ own, plc, lists, dependencies }: ReplayFiles, project: Scope, vendor: Vendor): DiagnosticItem[] {
-  const config = resolveConfig({ vendor })
   const docs = replayDocuments({ own, plc, lists, dependencies })
   return [
-    ...docs.flatMap((d) => computeDiagnostics({ uri: d.uri, parseResult: d.parseResult, source: d.source, project, config })),
+    // each document under its own project's "Unicode identifiers", as its parse read it (`recordingParse`)
+    ...docs.flatMap((d) =>
+      computeDiagnostics({ uri: d.uri, parseResult: d.parseResult, source: d.source, project, config: resolveConfig({ vendor, unicodeIdentifiers: d.parseResult.unicodeIdentifiers }) }),
+    ),
     ...networkDocuments({ own, plc, lists, dependencies }).flatMap((d) => networkDiagnostics(d.parseResult, project)),
   ]
 }

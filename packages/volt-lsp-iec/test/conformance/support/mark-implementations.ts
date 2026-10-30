@@ -29,7 +29,9 @@ export const LANGUAGE_ST = languageLine("ST")
 /** Offsets in `source` where a `%LANGUAGE ST` line belongs (`lineUnder`), ascending. */
 function boundaries(source: string): number[] {
   const at: number[] = []
-  for (const unit of parseSource(source, { networkText: true }, "codesys").units) push(unit, at)
+  // names in any script: where a body starts is the same under either reading of a name, and a name past ASCII is one in
+  // the project a fixture naming one was recorded in (`recordingParse`)
+  for (const unit of parseSource(source, { networkText: true, unicodeIdentifiers: true }, "codesys").units) push(unit, at)
   return at.sort((a, b) => a - b)
 }
 

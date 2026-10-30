@@ -34,7 +34,7 @@ const manifest = (folder: string, library: string, namespace: string, dependenci
   materialization: 2,
 })
 
-const file = (uri: string, source: string) => ({ uri, source, parseResult: parseSource(source, { networkText: true }, "codesys") })
+const file = (uri: string, source: string) => ({ uri, source, parseResult: parseSource(source, { networkText: true, unicodeIdentifiers: false }, "codesys") })
 
 // Two libraries, each exporting an ETRIG — and they are not the same type.
 const CBM_ETRIG = file(
@@ -142,7 +142,7 @@ test("an FB whose header is refused is no candidate base", () => {
 // ── rule H9: cycles, of every kind that extends, and the self-cycle `linkExtends` never links ─────────────────────
 describe("extendsCycle", () => {
   const top = (src: string, name: string) => {
-    const project = buildSymbolTable([{ uri: "F.pou", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }], [], "codesys")
+    const project = buildSymbolTable([{ uri: "F.pou", source: src, parseResult: parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys") }], [], "codesys")
     return project.children.find((c) => c.name === name)!
   }
   test("FBs, interfaces and STRUCTs each close one, from any member of it", () => {
@@ -172,7 +172,7 @@ describe("extendsCycle", () => {
  */
 describe("extendsChain", () => {
   const top = (src: string, name: string) => {
-    const project = buildSymbolTable([{ uri: "F.pou", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }], [], "codesys")
+    const project = buildSymbolTable([{ uri: "F.pou", source: src, parseResult: parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys") }], [], "codesys")
     return project.children.find((c) => c.name === name)!
   }
   test("base first, the scope itself last", () => {

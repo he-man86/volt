@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## 1. Measure (vendor-facts rows, never a probe script)
 
 - [x] 1.1 Both compilers on an ABSTRACT METHOD / abstract PROPERTY accessor that HOLDS code (CODESYS SP21 via a

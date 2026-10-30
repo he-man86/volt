@@ -8,7 +8,7 @@ import { parseSource } from "../parser.js"
 import type { FunctionBlock } from "../../ast/nodes/index.js"
 
 const fb = (src: string) => {
-  const r = parseSource(src, { networkText: true }, "codesys")
+  const r = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   return { errors: r.errors.map((e) => e.message), unit: r.units[0] as FunctionBlock }
 }
 

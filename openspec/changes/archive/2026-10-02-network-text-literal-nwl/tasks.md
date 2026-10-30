@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## 1. Measure (before any format change)
 
 Census on live CODESYS SP21 (Lenze_MID-S100) and the TwinCAT fixtures, with the existing probe scripts. Each answer

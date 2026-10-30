@@ -53,7 +53,7 @@ test("the compiler resolves each FIELD NAME against the POU's scope, where they 
   // Why missed: only the "unexpected" sentence was emitted, so six of the seven errors CODESYS gives for
   // `otherWay : INT := (x := 1, y := 2)` were missing (conformance `cc3_unexpected_struct_init`).
   const src = `TYPE DUT_P :\nSTRUCT\nx : INT;\ny : INT;\nEND_STRUCT\nEND_TYPE\n\nFUNCTION_BLOCK F\nVAR\notherWay : INT := (x := 1, y := 2);\nEND_VAR\nEND_FUNCTION_BLOCK`
-  const pr = parseSource(src, { networkText: true }, "codesys")
+  const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "a.pou", parseResult: pr, source: src }], [], "codesys")
   const msgs = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "unexpected-struct-init")
@@ -87,7 +87,7 @@ test("a STRUCT's initializer naming a field the struct lacks: undefined, and no 
 // EXTENDS stands on the TYPE: `STRUCT EXTENDS` is refused by both vendors (`unit_struct_extends_after_struct`).
 test("a field of a struct whose base is unresolved is not reported unknown", () => {
   const src = `PROGRAM P\nVAR\n  rec : sv := (baseF := 1, p1 := 2);\nEND_VAR\nEND_PROGRAM\nTYPE sv EXTENDS LibBase : STRUCT p1 : INT; END_STRUCT END_TYPE`
-  const pr = parseSource(src, { networkText: true }, "codesys")
+  const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], "codesys")
   const codes = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "unknown-struct-field")

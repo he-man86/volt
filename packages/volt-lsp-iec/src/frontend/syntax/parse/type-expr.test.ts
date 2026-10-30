@@ -8,7 +8,7 @@ import { parseSource } from "./parser.js"
 import type { EnumBody, FunctionBlock, TypeDecl, VarDecl } from "../ast/nodes/index.js"
 import { renderTypeExpr } from "../print.js"
 
-const parse = (src: string, vendor: "codesys" | "twincat" = "codesys") => parseSource(src, { networkText: true }, vendor)
+const parse = (src: string, vendor: "codesys" | "twincat" = "codesys") => parseSource(src, { networkText: true, unicodeIdentifiers: false }, vendor)
 const messages = (src: string, vendor: "codesys" | "twincat" = "codesys") => parse(src, vendor).errors.map((e) => e.message)
 const inVar = (decl: string) => `FUNCTION_BLOCK F\nVAR\n\t${decl}\n\tout : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n`
 const first = (decl: string) => messages(inVar(decl))[0]

@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 > Owner, 2026-10-28: "even FBs have 1 output pin that can chain right … you can move the output pin … what if we do the
 > same for the other blocks? like .ENO … good implement". Follows the archived network-text-st.
 

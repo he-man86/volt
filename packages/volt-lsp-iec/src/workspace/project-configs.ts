@@ -1,7 +1,8 @@
 /**
  * ONE CONFIG PER PLC PROJECT (openspec codesys-application-defines-spelled 4.1; split from `workspace-store.ts`). A
  * TwinCAT solution holds one `.projectsettings` per PLC project, each at that project's own node; a CODESYS project has
- * one, at its root. Each file's compiler-warning states govern the documents under its folder — PROJECT LAST over the
+ * one, at its root. Each file's compiler-warning states and its "Unicode identifiers" option govern the documents under
+ * its folder — PROJECT LAST over the
  * editor's options: a warning's state is a fact about the project, and it beats an editor setting. A document under no
  * such folder is analysed under the editor's options alone. No file's settings replace another's.
  */
@@ -34,7 +35,11 @@ export class ProjectConfigs {
     this.projects = settings
       .map((s) => ({
         folder: folderKey(pathToFileURL(s.folder).href),
-        config: resolveConfig({ ...editor, diagnostics: { ...editor.diagnostics, ...s.diagnostics } }),
+        config: resolveConfig({
+          ...editor,
+          diagnostics: { ...editor.diagnostics, ...s.diagnostics },
+          ...(s.unicodeIdentifiers === undefined ? {} : { unicodeIdentifiers: s.unicodeIdentifiers }),
+        }),
       }))
       .sort((a, b) => b.folder.length - a.folder.length)
     this.gen++

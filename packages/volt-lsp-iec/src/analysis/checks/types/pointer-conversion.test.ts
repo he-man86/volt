@@ -19,7 +19,7 @@ import { uriFor } from "../../../../test/support/test-uri.js"
 
 const pc = (body: string, target: Target | undefined, vendor: "codesys" | "twincat" = "codesys"): string[] => {
   const src = `PROGRAM P\nVAR\n ptr:POINTER TO INT; w:WORD; dw:DWORD; ud:UDINT; lw:LWORD; ul:ULINT; xw:__XWORD; i:INT; di:DINT; li:LINT; p2:POINTER TO INT; rr:REAL; lrr:LREAL; o:BOOL; t:TIME; ss:STRING;\nEND_VAR\n${body}\nEND_PROGRAM`
-  const pr = parseSource(src, { networkText: true }, vendor)
+  const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, vendor)
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], vendor, target === undefined ? undefined : { target })
   return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "assignment-type-mismatch" && d.message.includes("POINTER"))
@@ -59,7 +59,7 @@ test("a REAL or an LREAL is silent on CODESYS and refused on TwinCAT; a BOOL, a 
 test("every other elementary type is refused — DATE, DT, TOD, LTIME, WSTRING — and __XINT changes sign as LINT (ptrsc_into_date/_dt/_tod/_ltime/_wstring/_xint, both vendors)", () => {
   const src = (vendor: "codesys" | "twincat") => {
     const text = `PROGRAM P\nVAR\n ptr : POINTER TO INT; d : DATE; dtv : DT; todv : TOD; ltv : LTIME; ws : WSTRING; xi : __XINT;\nEND_VAR\nd := ptr; dtv := ptr; todv := ptr; ltv := ptr; ws := ptr; xi := ptr;\nEND_PROGRAM`
-    const pr = parseSource(text, { networkText: true }, vendor)
+    const pr = parseSource(text, { networkText: true, unicodeIdentifiers: false }, vendor)
     const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: text }], [], vendor, { target: { pointerBits: 64 } })
     return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: text, project, config: resolveConfig({ vendor }) })
       .filter((d) => d.message.includes("POINTER"))
@@ -75,7 +75,7 @@ test("every other elementary type is refused — DATE, DT, TOD, LTIME, WSTRING �
 test("a REFERENCE declared with a pointer as its initial value is refused, named as the reference (ptrsc_reference_initializer, both vendors)", () => {
   const src = `PROGRAM P\nVAR\n held : INT; p : POINTER TO INT; rf : REFERENCE TO INT := p;\nEND_VAR\nEND_PROGRAM`
   for (const vendor of ["codesys", "twincat"] as const) {
-    const pr = parseSource(src, { networkText: true }, vendor)
+    const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, vendor)
     const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], vendor, { target: { pointerBits: 64 } })
     expect(
       computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
@@ -91,7 +91,7 @@ VAR
  x : INT; dw : DWORD := ADR(x); lw : LWORD := ADR(x);
 END_VAR
 END_PROGRAM`
-  const pr = parseSource(src, { networkText: true }, "codesys")
+  const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys", { target: { pointerBits: 64 } })
   expect(
     computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
@@ -107,7 +107,7 @@ test("pointer → pointer stays quiet", () => {
 /** Every error and warning for `body` on a 64-bit target. */
 const all64 = (body: string): string[] => {
   const src = `PROGRAM P\nVAR\n ptr:POINTER TO INT; q:POINTER TO INT; w:WORD; dw:DWORD; ud:UDINT; lw:LWORD; ul:ULINT; i:INT; di:DINT; li:LINT; b:BYTE; rf : REFERENCE TO INT; o : BOOL; x : REAL;\nEND_VAR\n${body}\nEND_PROGRAM`
-  const pr = parseSource(src, { networkText: true }, "codesys")
+  const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys", { target: { pointerBits: 64 } as Target })
   return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => (d.severity === "error" || d.severity === "warning") && d.code !== "signature-name-mismatch")

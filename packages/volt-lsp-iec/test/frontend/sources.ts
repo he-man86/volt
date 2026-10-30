@@ -20,6 +20,8 @@ import { ALL_TESTS } from "../conformance/fixtures/index.js"
 import { plcPrgSource } from "../conformance/support/plc-prg.js"
 import { conformanceUri } from "../conformance/support/fixture-uri.js"
 import type { LanguageTest } from "../conformance/types.js"
+import { recordingParse } from "../conformance/support/recording-environment.js"
+import { projectUnicodeIdentifiersFrom } from "../../src/analysis/index.js"
 
 export const PACKAGE = join(import.meta.dir, "..", "..")
 export const CORPUS = join(PACKAGE, "test-corpus")
@@ -46,6 +48,8 @@ export interface SourceFile {
   /** The uri the LSP reads it under — a disk path for the corpus and the library repo, `file:///conformance/…` for a fixture. */
   uri: string
   source: string
+  /** Its project's Compile option "Unicode identifiers" — what a name is in it (`ParseOptions.unicodeIdentifiers`). */
+  unicodeIdentifiers: boolean
 }
 
 export interface CorpusProject {
@@ -97,13 +101,25 @@ function readCorpus(): readonly CorpusProject[] {
       const vendor: Dialect = existsSync(join(dir, "expected-build.twincat.json")) ? "twincat" : "codesys"
       const recording = join(dir, `expected-build.${vendor}.json`)
       const build = existsSync(recording) ? corpusBuild(recording) : undefined
+      const unicodeIdentifiers = projectUnicodeIdentifiers(dir)
       const files = walkSources(dir).map((path) => ({
         id: `corpus/${rel(path).slice("test-corpus/".length)}`,
         uri: path,
         source: readSourceText(path),
+        unicodeIdentifiers,
       }))
       return { name, dir, vendor, build, files }
     })
+}
+
+/** A corpus project's "Unicode identifiers", as its `.projectsettings` states it — one value for the project; a TwinCAT
+ *  descriptor states none, and TwinCAT's only state is off (DIALECT D39). */
+function projectUnicodeIdentifiers(dir: string): boolean {
+  const stated = new Set(
+    walkSources(dir, new Set([".projectsettings"])).map((p) => projectUnicodeIdentifiersFrom(readFileSync(p, "utf8")) ?? false),
+  )
+  if (stated.size > 1) throw new Error(`${dir}: its PLC projects state "Unicode identifiers" differently — the census reads one`)
+  return stated.has(true)
 }
 
 function corpusBuild(path: string): RecordedBuild {
@@ -166,8 +182,8 @@ export function fixtureSources(): FixtureSources[] {
   }
   fixtureCache = ALL_TESTS.map((t) => ({
     test: t,
-    own: { id: `fixture/${t.name}/${t.pouName}.${fixtureExtension(t.kind)}`, uri: fixtureUri(t), source: t.source },
-    plc: { id: `fixture/${t.name}/PLC_PRG.pou`, uri: plcUri(t), source: plcPrgSource(t) },
+    own: { id: `fixture/${t.name}/${t.pouName}.${fixtureExtension(t.kind)}`, uri: fixtureUri(t), source: t.source, unicodeIdentifiers: recordingParse(t).unicodeIdentifiers },
+    plc: { id: `fixture/${t.name}/PLC_PRG.pou`, uri: plcUri(t), source: plcPrgSource(t), unicodeIdentifiers: recordingParse(t).unicodeIdentifiers },
     codesys: recorded(codesys, t.name) ?? (t.vendorRefuses?.codesys !== undefined ? refusals.get(t.name) : undefined),
     twincat: recorded(twincat, t.name),
   }))
@@ -182,6 +198,8 @@ export function libraryRepoFiles(): SourceFile[] {
     id: `library/${rel(path).slice("libraries/".length)}`,
     uri: path,
     source: readFileSync(path, "utf8"),
+    // Volt's own ST: read as the recording project reads text (option off)
+    unicodeIdentifiers: false,
   }))
 }
 

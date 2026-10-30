@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Why
 
 `Volt.Engine` is 58 files and ~7,850 lines across eight folders, and the folders record how the code was built

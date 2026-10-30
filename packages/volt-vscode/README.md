@@ -1,6 +1,6 @@
 # volt-vscode
 
-> The VS Code / Windsurf extension for PLC code — Structured Text **and the VG graphical language** intelligence, plus one-click sync with your live PLC IDE.
+> The VS Code / Windsurf extension for PLC code — Structured Text **and LD/FBD network text** intelligence, plus one-click sync with your live PLC IDE.
 
 Volt turns the source inside a running CODESYS or TwinCAT/Beckhoff project into ordinary, editable files in your editor. You get Structured Text (IEC 61131-3) syntax highlighting and full language intelligence — hover, go-to-definition, completion, diagnostics — over the kind-named PLC source files (`.pou`/`.itf`/`.gvl`/`.dut`), and a dedicated **Volt** activity-bar view that shows how your workspace and the IDE have diverged and lets you pull, push, and merge between them.
 
@@ -87,7 +87,7 @@ Volt implements **21 of the ~66** dialog codes. The remaining 45 have no setting
 
 - [`../volt-control/README.md`](../volt-control/README.md) — the shared TS control layer (`pull`/`push`/`status`/`show`, health, gates, the view-models) the extension calls.
 - [`../volt-cli/README.md`](../volt-cli/README.md) — the `volt` CLI + the in-IDE bridges + the tray connector (one C# solution; absorbed the former `volt-git`/`volt-bridge`). A PATH prerequisite, not bundled here.
-- [`../volt-lsp-iec/README.md`](../volt-lsp-iec/README.md) — the Structured Text **+ VG** language server.
+- [`../volt-lsp-iec/README.md`](../volt-lsp-iec/README.md) — the Structured Text **+ network text** language server.
 - [`../volt-cli/docs/network-text.html`](../volt-cli/docs/network-text.html) — the **network text** language spec (the text form of an FBD/LD body).
 - [`../../openspec/`](../../openspec/) — Volt design, roadmap, and decision log.
 - [`../../CLAUDE.md`](../../CLAUDE.md) — repo-wide guidance and architecture.

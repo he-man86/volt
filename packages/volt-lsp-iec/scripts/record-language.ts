@@ -62,7 +62,7 @@ function extForKind(kind: string): string {
   return ext
 }
 
-function splitItems(f: { source: string; pouName: string; gvlNames?: readonly string[]; kind: string; asSent?: string }): { wire: string; src: string }[] {
+function splitItems(f: { source: string; pouName: string; gvlNames?: readonly string[]; kind: string; asSent?: string; unicodeIdentifiers?: "on" }): { wire: string; src: string }[] {
   const { source, pouName, gvlNames, kind } = f
   // AS SENT: the source is ONE item's text, and the text is the question — a never-closed `(*`, an empty or prose
   // text, a text of another kind than its extension (`openspec/changes/push-without-header-check`). The parser would
@@ -70,7 +70,8 @@ function splitItems(f: { source: string; pouName: string; gvlNames?: readonly st
   if (f.asSent !== undefined) return [{ wire: `${kind === "gvl" ? (gvlNames?.[0] ?? pouName) : pouName}.${extForKind(kind)}`, src: source }]
   // Each item spans from a top-level unit's start to the NEXT top-level unit's start (or EOF) — a unit's own
   // span.end excludes its END_xxx keyword, and this also folds trailing member units into their POU.
-  const tops = parseSource(source, { networkText: NETWORK_TEXT_ENABLED }, "codesys").units.filter((u) => TOP.has(u.kind))
+  // read as the fixture's recording project reads it (`recordingParse`)
+  const tops = parseSource(source, { networkText: NETWORK_TEXT_ENABLED, unicodeIdentifiers: f.unicodeIdentifiers === "on" }, "codesys").units.filter((u) => TOP.has(u.kind))
   // A header the LSP's parser refuses (`FUNCTION GET`, `TYPE ABSTRACT :` — `names/word-positions.ts`) yields no unit to
   // slice by, and the question is what the VENDOR says of it: the text is the one item the fixture names, as sent
   // (marked as it states it — such a fixture writes its own `%LANGUAGE` lines). Pushing nothing recorded nothing.

@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Why
 
 The LSP is a **single vendor-neutral IEC 61131-3 engine** — one binary that serves both CODESYS and

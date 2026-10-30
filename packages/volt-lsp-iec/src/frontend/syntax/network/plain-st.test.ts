@@ -11,8 +11,8 @@ import { plainStText } from "./plain-st.js"
 import type { BodySpan } from "../ast/nodes/index.js"
 
 const body = (text: string): BodySpan => {
-  const tokens = lexSource(text, "codesys").filter((t) => t.kind !== "eof")
-  return { kind: "body", tokens, span: { start: 0, end: text.length, startLine: 1, startCol: 0, endLine: 1, endCol: 0 }, dialect: "codesys" }
+  const tokens = lexSource(text, "codesys", false).filter((t) => t.kind !== "eof")
+  return { kind: "body", tokens, span: { start: 0, end: text.length, startLine: 1, startCol: 0, endLine: 1, endCol: 0 }, dialect: "codesys", unicodeIdentifiers: false }
 }
 const code = (tokens: readonly Token[]) => tokens.filter((t) => !isTrivia(t.kind)).map((t) => (t.kind === "keyword" ? t.text.toUpperCase() + "!" : t.text)).join(" ")
 

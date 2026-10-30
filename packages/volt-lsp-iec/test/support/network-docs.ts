@@ -8,7 +8,7 @@ import { networkDiagnostics, type DiagnosticItem } from "../../src/analysis/inde
 
 /** The network check's findings for `src`, the one document `file:///FB.pou` of its project. */
 export function networkDiags(src: string, dialect: "codesys" | "twincat" = "codesys"): DiagnosticItem[] {
-  const parseResult = parseSource(src, { networkText: true }, dialect)
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, dialect)
   const project = build.buildSymbolTable([{ uri: "file:///FB.pou", source: src, parseResult }], [], dialect)
   return networkDiagnostics(parseResult, project)
 }

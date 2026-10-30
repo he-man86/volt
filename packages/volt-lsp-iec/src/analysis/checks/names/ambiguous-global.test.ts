@@ -12,9 +12,9 @@ const GVL1 = "VAR_GLOBAL\n g_i : INT;\nEND_VAR"
 const GVL2 = "VAR_GLOBAL\n g_i : INT;\nEND_VAR"
 const run = (prg: string, extraGvl2 = true) => {
   const inputs = [
-    { uri: "PLC_PRG.pou", source: prg, parseResult: parseSource(prg, { networkText: true }, "codesys") },
-    { uri: "GVL1.gvl", source: GVL1, parseResult: parseSource(GVL1, { networkText: true }, "codesys") },
-    ...(extraGvl2 ? [{ uri: "GVL2.gvl", source: GVL2, parseResult: parseSource(GVL2, { networkText: true }, "codesys") }] : []),
+    { uri: "PLC_PRG.pou", source: prg, parseResult: parseSource(prg, { networkText: true, unicodeIdentifiers: false }, "codesys") },
+    { uri: "GVL1.gvl", source: GVL1, parseResult: parseSource(GVL1, { networkText: true, unicodeIdentifiers: false }, "codesys") },
+    ...(extraGvl2 ? [{ uri: "GVL2.gvl", source: GVL2, parseResult: parseSource(GVL2, { networkText: true, unicodeIdentifiers: false }, "codesys") }] : []),
   ]
   const project = build.buildSymbolTable(inputs, [], "codesys")
   return computeDiagnostics({ uri: inputs[0].uri, parseResult: inputs[0].parseResult, source: prg, project, config: resolveConfig({ vendor: "codesys" }) })
@@ -39,15 +39,15 @@ test("a GVL an EDIT adds makes the name ambiguous — the incremental re-index k
   // `WorkspaceStore` binds an added file into the same project Scope; the ambiguous set was memoized on the Scope
   // alone, so the second declaration was never counted
   const prg = "PROGRAM PLC_PRG\nVAR\n j : INT := g_i;\nEND_VAR\nEND_PROGRAM"
-  const prgParse = parseSource(prg, { networkText: true }, "codesys")
+  const prgParse = parseSource(prg, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([
     { uri: "PLC_PRG.pou", source: prg, parseResult: prgParse },
-    { uri: "GVL1.gvl", source: GVL1, parseResult: parseSource(GVL1, { networkText: true }, "codesys") },
+    { uri: "GVL1.gvl", source: GVL1, parseResult: parseSource(GVL1, { networkText: true, unicodeIdentifiers: false }, "codesys") },
   ], [], "codesys")
   const ambiguous = () =>
     computeDiagnostics({ uri: uriFor(prgParse), parseResult: prgParse, source: prg, project, config: resolveConfig({ vendor: "codesys" }) }).filter((d) => d.code === "ambiguous-global").length
   expect(ambiguous()).toBe(0)
-  build.bindFile(project, { uri: "GVL2.gvl", source: GVL2, parseResult: parseSource(GVL2, { networkText: true }, "codesys") })
+  build.bindFile(project, { uri: "GVL2.gvl", source: GVL2, parseResult: parseSource(GVL2, { networkText: true, unicodeIdentifiers: false }, "codesys") })
   expect(ambiguous()).toBe(1)
 })
 
@@ -58,8 +58,8 @@ test("a GVL an EDIT adds makes the name ambiguous — the incremental re-index k
 const TWO_ENUMS = "TYPE E_A : (en_x := 3, en_y := 4);\nEND_TYPE\nTYPE E_B : (en_x := 5, en_z := 6);\nEND_TYPE"
 const inEnumProject = (prg: string) => {
   const inputs = [
-    { uri: "PLC_PRG.pou", source: prg, parseResult: parseSource(prg, { networkText: true }, "codesys") },
-    { uri: "E.dut", source: TWO_ENUMS, parseResult: parseSource(TWO_ENUMS, { networkText: true }, "codesys") },
+    { uri: "PLC_PRG.pou", source: prg, parseResult: parseSource(prg, { networkText: true, unicodeIdentifiers: false }, "codesys") },
+    { uri: "E.dut", source: TWO_ENUMS, parseResult: parseSource(TWO_ENUMS, { networkText: true, unicodeIdentifiers: false }, "codesys") },
   ]
   return computeDiagnostics({ uri: inputs[0].uri, parseResult: inputs[0].parseResult, source: prg, project: build.buildSymbolTable(inputs, [], "codesys"), config: resolveConfig({ vendor: "codesys" }) })
     .map((d) => `${d.code}: ${d.message}`)
@@ -82,10 +82,10 @@ test("EN3 — qualified, unique, or shadowed by a local: silent", () => {
 const F_OF_G = "FUNCTION F : INT\nVAR_INPUT\n g_i : INT;\nEND_VAR\nF := g_i;\nEND_FUNCTION"
 const runWithF = (prg: string) => {
   const inputs = [
-    { uri: "PLC_PRG.pou", source: prg, parseResult: parseSource(prg, { networkText: true }, "codesys") },
-    { uri: "F.pou", source: F_OF_G, parseResult: parseSource(F_OF_G, { networkText: true }, "codesys") },
-    { uri: "GVL1.gvl", source: GVL1, parseResult: parseSource(GVL1, { networkText: true }, "codesys") },
-    { uri: "GVL2.gvl", source: GVL2, parseResult: parseSource(GVL2, { networkText: true }, "codesys") },
+    { uri: "PLC_PRG.pou", source: prg, parseResult: parseSource(prg, { networkText: true, unicodeIdentifiers: false }, "codesys") },
+    { uri: "F.pou", source: F_OF_G, parseResult: parseSource(F_OF_G, { networkText: true, unicodeIdentifiers: false }, "codesys") },
+    { uri: "GVL1.gvl", source: GVL1, parseResult: parseSource(GVL1, { networkText: true, unicodeIdentifiers: false }, "codesys") },
+    { uri: "GVL2.gvl", source: GVL2, parseResult: parseSource(GVL2, { networkText: true, unicodeIdentifiers: false }, "codesys") },
   ]
   const project = build.buildSymbolTable(inputs, [], "codesys")
   return computeDiagnostics({ uri: inputs[0].uri, parseResult: inputs[0].parseResult, source: prg, project, config: resolveConfig({ vendor: "codesys" }) })
@@ -107,9 +107,9 @@ test("the ambiguous name as a named argument's VALUE — still ambiguous", () =>
 // "Program name, function or function block instance expected instead of 'g'" (called)
 const inTwoLists = (prg: string, gvl = GVL1) => {
   const inputs = [
-    { uri: "PLC_PRG.pou", source: prg, parseResult: parseSource(prg, { networkText: true }, "codesys") },
-    { uri: "GVL1.gvl", source: gvl, parseResult: parseSource(gvl, { networkText: true }, "codesys") },
-    { uri: "GVL2.gvl", source: gvl, parseResult: parseSource(gvl, { networkText: true }, "codesys") },
+    { uri: "PLC_PRG.pou", source: prg, parseResult: parseSource(prg, { networkText: true, unicodeIdentifiers: false }, "codesys") },
+    { uri: "GVL1.gvl", source: gvl, parseResult: parseSource(gvl, { networkText: true, unicodeIdentifiers: false }, "codesys") },
+    { uri: "GVL2.gvl", source: gvl, parseResult: parseSource(gvl, { networkText: true, unicodeIdentifiers: false }, "codesys") },
   ]
   return computeDiagnostics({ uri: inputs[0].uri, parseResult: inputs[0].parseResult, source: prg, project: build.buildSymbolTable(inputs, [], "codesys"), config: resolveConfig({ vendor: "codesys" }) })
     .map((d) => d.message)
@@ -140,7 +140,7 @@ test("an FB instance two lists declare, called bare, names nothing", () => {
 // vendors build it and WARN "Ambiguous use of name 'M'" where the name is written bare
 test("a bare name that is both the FB's variable and its METHOD warns ambiguous", () => {
   const src = "FUNCTION_BLOCK FB\nVAR\n M : INT;\n out : INT;\nEND_VAR\nout := M;\nEND_FUNCTION_BLOCK\nMETHOD M : INT\nM := 1;\nEND_METHOD"
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "FB.pou", source: src, parseResult }], [], "codesys")
   const ds = computeDiagnostics({ uri: "FB.pou", parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
   expect(ds.map((d) => `${d.severity} ${d.message}`)).toEqual(["warning Ambiguous use of name 'M'"])
@@ -153,9 +153,9 @@ test("a global and an own enum's member of one name: ambiguous, not defined, a h
   const dut = "TYPE E_M : (emvg := 3, other := 4);\nEND_TYPE"
   const prg = "PROGRAM PLC_PRG\nVAR\n i : INT;\nEND_VAR\ni := emvg;\nEND_PROGRAM"
   const inputs = [
-    { uri: "PLC_PRG.pou", source: prg, parseResult: parseSource(prg, { networkText: true }, "codesys") },
-    { uri: "GVL1.gvl", source: gvl, parseResult: parseSource(gvl, { networkText: true }, "codesys") },
-    { uri: "E_M.dut", source: dut, parseResult: parseSource(dut, { networkText: true }, "codesys") },
+    { uri: "PLC_PRG.pou", source: prg, parseResult: parseSource(prg, { networkText: true, unicodeIdentifiers: false }, "codesys") },
+    { uri: "GVL1.gvl", source: gvl, parseResult: parseSource(gvl, { networkText: true, unicodeIdentifiers: false }, "codesys") },
+    { uri: "E_M.dut", source: dut, parseResult: parseSource(dut, { networkText: true, unicodeIdentifiers: false }, "codesys") },
   ]
   const ds = computeDiagnostics({ uri: inputs[0].uri, parseResult: inputs[0].parseResult, source: prg, project: build.buildSymbolTable(inputs, [], "codesys"), config: resolveConfig({ vendor: "codesys" }) })
   expect(ds.map((d) => d.message).sort()).toEqual(["Ambiguous use of name 'emvg'", "Cannot convert type 'Unknown type: 'emvg'' to type 'INT'", "Identifier 'emvg' not defined"].sort())
@@ -165,7 +165,7 @@ test("a global and an own enum's member of one name: ambiguous, not defined, a h
 // and a CALL `M()` are unmeasured (0 such FBs in the corpora): no ambiguous-global there
 test("a variable named as its FB's METHOD: no warning in another METHOD's body, nor at a call", () => {
   const amb = (src: string) => {
-    const parseResult = parseSource(src, { networkText: true }, "codesys")
+    const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
     const project = build.buildSymbolTable([{ uri: "FB_A.pou", source: src, parseResult }], [], "codesys")
     return computeDiagnostics({ uri: "FB_A.pou", parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "ambiguous-global")

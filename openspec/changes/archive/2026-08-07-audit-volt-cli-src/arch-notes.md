@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 # Architectural notes — observed during the audit, deliberately NOT implemented
 
 Everything here is behavior-changing or structural, and therefore out of scope for this change by construction

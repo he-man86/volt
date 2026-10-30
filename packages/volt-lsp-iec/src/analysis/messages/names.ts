@@ -32,10 +32,16 @@ export interface NameMessages {
   parenExpectedInsteadOf(token: string): string
   /** A statement where a declaration belongs, which is what a bad `calc : INT;` leaves behind. */
   notSupportedInDeclaration(): string
+  /** The IDE refuses to CREATE an object by this name — no build message: the create's own refusal, which the push
+   *  reports (CODESYS `ObjectNameInvalidException`; TwinCAT `ITcSmTreeItem:CreateChild`'s "(Name mismatch)"). Measured on
+   *  both vendors (volt-cli `scripts/vendor-facts.<vendor>.json`, facts `refused-names` and `identifier-shapes`). */
+  objectNameRefused(name: string): string
 }
 
 export function nameMessages({ tc }: VendorWording): NameMessages {
   return {
+    objectNameRefused: (name) =>
+      tc ? `Creating the child named '${name}' is not possible on node (Name mismatch)` : `The name '${name}' is not valid for this object.`,
     expressionExpectedInsteadOf: (token) => `Expression expected instead of '${token}'`,
     // CODESYS SP21, measured in all five `CALC` shapes (`cc_il_name_calc`, `ilc_calc_*`).
     // TwinCAT hyphenates "call-statement" and capitalises "Declaration part" (`cc_il_name_calc`, `ilc_calc_*`,

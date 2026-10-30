@@ -32,7 +32,7 @@ test("bit access on a non-integer base is a different error, not flagged here", 
 
 test("C0061: bit access on a function-call result is flagged (not treated as C0003)", () => {
   const src = `FUNCTION_BLOCK F\nVAR i:INT;\nEND_VAR\ni := Test().2;\nEND_FUNCTION_BLOCK\nFUNCTION Test : INT\nEND_FUNCTION`
-  const pr = parseSource(src, { networkText: true }, "codesys")
+  const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   const msgs = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "bit-access-on-call")

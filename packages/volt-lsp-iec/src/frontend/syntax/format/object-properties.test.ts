@@ -15,7 +15,7 @@ import { type BodySpan, isPlainStNetworkBody, parseSource, bodyStatements, unitB
 
 const FB = "FUNCTION_BLOCK F\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\nx := 1;\nEND_FUNCTION_BLOCK\n\n"
 
-const folderErrors = (src: string) => parseSource(src, { networkText: true }, "codesys").errors.filter((e) => e.message.includes("%FOLDER"))
+const folderErrors = (src: string) => parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys").errors.filter((e) => e.message.includes("%FOLDER"))
 
 test("a property's folder is the last line of its declaration", () => {
   for (const [what, src] of Object.entries({
@@ -23,7 +23,7 @@ test("a property's folder is the last line of its declaration", () => {
     "a blank line after it": `${FB}PROPERTY PUBLIC P : INT\n%FOLDER  sub/dir \n\nSET\n%LANGUAGE ST\nx := P;\nEND_SET\nEND_PROPERTY\n`,
     "no accessor": `${FB}PROPERTY P : INT\n%FOLDER sub/dir\nEND_PROPERTY\n`,
   })) {
-    const pr = parseSource(src, { networkText: true }, "codesys")
+    const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
     expect({ what, errors: pr.errors }).toEqual({ what, errors: [] })
     const p = pr.units.find((u) => u.kind === "property")
     expect({ what, folder: p?.kind === "property" ? p.folder : "no property" }).toEqual({ what, folder: "sub/dir" })
@@ -35,7 +35,7 @@ test("an interface method's folder is the line before END_METHOD, an interface p
     "INTERFACE I\n\nMETHOD PUBLIC M : BOOL\nVAR_INPUT\n\ta : INT;\nEND_VAR\n%FOLDER Commands\nEND_METHOD\n\n" +
     "METHOD Bare\n%FOLDER Other\nEND_METHOD\n\n" +
     "PROPERTY PUBLIC Q : INT\n%FOLDER Props\nGET\nEND_GET\nEND_PROPERTY\n\nEND_INTERFACE\n"
-  const pr = parseSource(src, { networkText: true }, "codesys")
+  const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   expect(pr.errors).toEqual([])
   const itf = pr.units[0]
   if (itf?.kind !== "interface") throw new Error("expected an interface")
@@ -72,12 +72,12 @@ const fb = (impl: string): string =>
 /** Every syntax error of a file: its declarations' (the top-level parse) and each ST body's, as the `parse-errors`
  *  check drains them. A graphical body is the network parser's. */
 function syntaxErrors(src: string): string[] {
-  const parsed = parseSource(src, { networkText: true }, "codesys")
+  const parsed = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const bodies = parsed.units.flatMap(unitBodies).filter((b) => !isPlainStNetworkBody(b))
   return [...parsed.errors, ...bodies.flatMap((b) => bodyStatements(b).errors)].map((e) => e.message)
 }
 
-const bodiesOf = (src: string): BodySpan[] => parseSource(src, { networkText: true }, "codesys").units.flatMap(unitBodies)
+const bodiesOf = (src: string): BodySpan[] => parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys").units.flatMap(unitBodies)
 
 test("a member's %FOLDER is read where the push peels it, and nowhere else — elsewhere it is code the IDE would get", () => {
   // The push (`StReader.PeelFolderUnder`) takes `%FOLDER ` — that spelling, case and all, with a path — off the FIRST
@@ -110,7 +110,7 @@ test("a member's %FOLDER is read where the push peels it, and nowhere else — e
 
 // ── every other %-line: the object's properties (openspec bridge-one-to-one §1.2) ─────────────────────────
 
-const parsed = (src: string) => parseSource(src, { networkText: true }, "codesys")
+const parsed = (src: string) => parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
 
 test("a POU's, a member's, a DUT's, a GVL's, an interface's and a property's %-lines are read where the push peels them", () => {
   const pou = parsed(

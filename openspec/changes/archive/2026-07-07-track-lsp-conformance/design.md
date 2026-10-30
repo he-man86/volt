@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Context
 
 This is the authoritative map of **LSP 3.17** (`microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/`)

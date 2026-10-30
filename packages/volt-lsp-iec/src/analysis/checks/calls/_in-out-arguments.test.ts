@@ -48,7 +48,7 @@ test("4.3e C0201: a VAR_IN_OUT bound to a non-identical type is flagged; the sam
   const fb = `FUNCTION_BLOCK FB\nVAR_IN_OUT Variable : INT; END_VAR\nEND_FUNCTION_BLOCK`
   const call = (b: string) => `PROGRAM P\nVAR inst : FB; i : INT; bo : BOOL; END_VAR\n${b}\nEND_PROGRAM`
   const msgs = (...s: string[]) => {
-    const files = s.map((source, k) => ({ uri: `u${k}.pou`, source, parseResult: parseSource(source, { networkText: true }, "codesys") }))
+    const files = s.map((source, k) => ({ uri: `u${k}.pou`, source, parseResult: parseSource(source, { networkText: true, unicodeIdentifiers: false }, "codesys") }))
     const project = build.buildSymbolTable(files, [], "codesys")
     return files.flatMap((f) =>
       computeDiagnostics({ uri: uriFor(f.parseResult), parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor: "codesys" }) })
@@ -64,7 +64,7 @@ test("a LITERAL bound to a VAR_IN_OUT is typed by its narrowest type for the ide
   // Why missed: an untyped integer literal infers no type, so the by-reference identity test skipped every literal
   // and four fixtures missed this error (conformance `inout_plain_literal_4`, `cc2_in_out_not_assigned`).
   const src = `FUNCTION F_takes : INT\nVAR_IN_OUT\nvalue : INT;\nEND_VAR\nF_takes := value;\nEND_FUNCTION\n\nFUNCTION_BLOCK FB_user\nVAR\nn : INT;\nEND_VAR\nn := F_takes(value := 5);\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   const msgs = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "in-out-type-mismatch")
@@ -74,7 +74,7 @@ test("a LITERAL bound to a VAR_IN_OUT is typed by its narrowest type for the ide
 
 test("a literal whose narrowest type MATCHES the parameter stays silent", () => {
   const src = `FUNCTION F_takes : INT\nVAR_IN_OUT\nvalue : SINT;\nEND_VAR\nF_takes := value;\nEND_FUNCTION\n\nFUNCTION_BLOCK FB_user\nVAR\nn : INT;\nEND_VAR\nn := F_takes(value := 5);\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   expect(
     computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
@@ -127,7 +127,7 @@ test("a STRING bound to a VAR_IN_OUT that declares more units is too short (stri
     const fn = `FUNCTION F_Io : BOOL\nVAR_IN_OUT${constant ? " CONSTANT" : ""}\n\tio : ${param};\nEND_VAR\nF_Io := TRUE;\nEND_FUNCTION`
     const prog = `PROGRAM P\nVAR\n\tv : ${arg};\n\tok : BOOL;\nEND_VAR\nok := F_Io(io := v);\nEND_PROGRAM`
     const files = [fn, prog].map((source) => {
-      const parseResult = parseSource(source, { networkText: true }, vendor)
+      const parseResult = parseSource(source, { networkText: true, unicodeIdentifiers: false }, vendor)
       const first = parseResult.units.find((u) => "name" in u) as { name?: { text: string } } | undefined
       return { uri: `${first?.name?.text}.pou`, source, parseResult }
     })

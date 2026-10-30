@@ -13,7 +13,7 @@ function sizeOf(operand: string, units: string, vars = "", environment: CompileE
   const files = [
     { uri: "file:///p/T.dut", source: units },
     { uri: "file:///p/F.pou", source: `FUNCTION_BLOCK F\nVAR\n  n : ULINT;\n${vars}\nEND_VAR\nn := SIZEOF(${operand});\nEND_FUNCTION_BLOCK\n` },
-  ].map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true }, "codesys") }))
+  ].map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true, unicodeIdentifiers: false }, "codesys") }))
   const project = build.buildSymbolTable(files, [], "codesys", environment === "none" ? undefined : environment)
   for (const { scope, statements } of bodies(files.at(-1)!.parseResult.units, project)) {
     const s = statements[0]

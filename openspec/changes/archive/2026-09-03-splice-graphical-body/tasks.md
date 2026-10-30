@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## 0. Evidence already in hand (do not re-derive)
 
 Six surveys of the graphical write path plus a full census of XML generation across the whole toolchain, all

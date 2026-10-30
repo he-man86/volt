@@ -11,7 +11,7 @@ import type { Document } from "../shared/index.js"
 import { build } from "../../frontend/symbols/index.js"
 
 function setup(src: string) {
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const doc: Document = { uri: "file:///F.pou", source: src, parseResult }
   const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }], [], "codesys")
   return { doc, project }
@@ -65,7 +65,7 @@ END_METHOD`
   const doc: Document = {
     uri: "file:///F.pou",
     source: src,
-    parseResult: parseSource(src, { networkText: true }, "codesys"),
+    parseResult: parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys"),
   }
   const project = build.buildSymbolTable([{ uri: doc.uri, parseResult: doc.parseResult, source: src }], [], "codesys")
   const kw = (needle: string, prefix: string) =>
@@ -88,7 +88,7 @@ test("hover: a built-in the project's dialect does not have answers nothing (one
   // type. The analysis reports each "not defined" on TwinCAT, so hover may not describe it as a built-in there.
   const names = ["__POUNAME", "__COMPARE_AND_SWAP", "BOOL_TO_LDATE", "LDATE_TO_DINT"]
   const src = `PROGRAM P\nVAR\n\tx : DINT;\nEND_VAR\n${names.map((n) => `x := ${n};`).join("\n")}\nEND_PROGRAM`
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const doc: Document = { uri: "file:///P.pou", source: src, parseResult }
   const at = (n: string) => src.indexOf(`:= ${n}`) + 3
   const on = (dialect: "codesys" | "twincat") =>
@@ -109,7 +109,7 @@ test("pragma hover: an {attribute '<name>'} name describes the attribute", () =>
   const doc: Document = {
     uri: "file:///F.pou",
     source: src,
-    parseResult: parseSource(src, { networkText: true }, "codesys"),
+    parseResult: parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys"),
   }
   const h = pragmaHover(doc, projectOf(doc), src.indexOf("qualified_only") + 2)
   expect((h?.contents as { value: string }).value).toMatch(/qualified_only[\s\S]*attribute/i)
@@ -120,7 +120,7 @@ test("pragma hover: a directive word describes the directive; an unknown one yie
   const doc: Document = {
     uri: "file:///F.pou",
     source: src,
-    parseResult: parseSource(src, { networkText: true }, "codesys"),
+    parseResult: parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys"),
   }
   const onIf = pragmaHover(doc, projectOf(doc), src.indexOf("{IF") + 1)
   expect((onIf?.contents as { value: string }).value).toMatch(/[Cc]onditional/)
@@ -129,7 +129,7 @@ test("pragma hover: a directive word describes the directive; an unknown one yie
 
 describe("through the services barrel", () => {
   function setup(src: string) {
-    const parseResult = parseSource(src, { networkText: true }, "codesys")
+    const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
     const doc: Document = { uri: "file:///F.pou", source: src, parseResult }
     const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }], [], "codesys")
     return { doc, project }
@@ -198,7 +198,7 @@ n := drv.Pos;
 END_PROGRAM`
 
   const setup = () => {
-    const parseResult = parseSource(SRC, { networkText: true }, "codesys")
+    const parseResult = parseSource(SRC, { networkText: true, unicodeIdentifiers: false }, "codesys")
     const doc: Document = { uri: "file:///F.pou", source: SRC, parseResult }
     return { doc, project: build.buildSymbolTable([{ uri: doc.uri, parseResult, source: SRC }], [], "codesys") }
   }

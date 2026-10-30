@@ -11,7 +11,7 @@ import type { TypeExpr } from "./nodes/index.js"
 /** `<type>×<declares>` for every type `declaredTypes` yields for `source` (a wrapper is named by its kind). */
 function written(source: string): string[] {
   const name = (t: TypeExpr): string => (t.kind === "named_type" ? t.name.text : t.kind)
-  return [...declaredTypes(parseSource(source, { networkText: true }, "codesys").units)].map((d) => `${name(d.type)}×${d.declares}`)
+  return [...declaredTypes(parseSource(source, { networkText: true, unicodeIdentifiers: false }, "codesys").units)].map((d) => `${name(d.type)}×${d.declares}`)
 }
 
 test("a STRUCT's and a UNION's fields, an alias's target, an enumeration's base", () => {

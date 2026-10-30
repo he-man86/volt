@@ -93,6 +93,13 @@ export const TWINCAT_NON_RETAIN_RECOVERY: readonly string[] = [
   "decl_non_retain_in_gvl",
   "decl_non_retain_in_var_input",
   "decl_retain_non_retain",
+  // the same recovery after a character past ASCII ends the name (`größe : INT;` — `gr` and `ö`; TwinCAT has no
+  // "Unicode identifiers", DIALECT D39; `uoff_*`, TwinCAT 2026-10-30)
+  "uoff_var_latin1",
+  "uoff_var_digit",
+  "uoff_var_ascii_then_cjk",
+  "uoff_var_middle",
+  "uoff_global",
 ]
 
 /**

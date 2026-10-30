@@ -15,7 +15,7 @@ type File = { uri: string; source: string }
 
 /** Every error the analysis gives `main`, in a project of `main` and `others`. */
 function errors(main: File, others: File[] = [], vendor: Vendor = "codesys"): string[] {
-  const files = [main, ...others].map((f) => ({ ...f, parseResult: parseDocument(f.uri, f.source, { networkText: true }, vendor) }))
+  const files = [main, ...others].map((f) => ({ ...f, parseResult: parseDocument(f.uri, f.source, { networkText: true, unicodeIdentifiers: false }, vendor) }))
   const project = build.buildSymbolTable(files, [], vendor)
   const own = files[0]!
   return computeDiagnostics({ parseResult: own.parseResult, source: own.source, project, config: resolveConfig({ vendor }), uri: own.uri })
@@ -89,7 +89,7 @@ test("one per name declared — `tref_var_two_names`", () => {
 
 /** Every error the analysis gives each of `files`, as `<uri>@<line>:<column> <message>` (1-based, as an editor shows it). */
 function located(files: File[]): string[] {
-  const parsed = files.map((f) => ({ ...f, parseResult: parseDocument(f.uri, f.source, { networkText: true }, "codesys") }))
+  const parsed = files.map((f) => ({ ...f, parseResult: parseDocument(f.uri, f.source, { networkText: true, unicodeIdentifiers: false }, "codesys") }))
   const project = build.buildSymbolTable(parsed, [], "codesys")
   return parsed.flatMap((f) =>
     computeDiagnostics({ parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor: "codesys" }), uri: f.uri })
@@ -126,13 +126,13 @@ test("every VAR section, a GVL's and a METHOD's VAR_INST — `tref_var_*`", () =
   for (const section of ["VAR_INPUT", "VAR_OUTPUT", "VAR_IN_OUT", "VAR_TEMP", "VAR_STAT"])
     expect(errors(fb(`${section}\n\tv : NoSuchType;\nEND_VAR`))).toEqual(["Unknown type: 'NoSuchType'"])
   expect(errors({ uri: "G.gvl", source: "VAR_GLOBAL\n\tg : NoSuchType;\nEND_VAR\n" })).toEqual(["Unknown type: 'NoSuchType'"])
-  expect(errors({ uri: "FB_X.M.pou", source: "METHOD M\nVAR_INST\n\tv : NoSuchType;\nEND_VAR\n%LANGUAGE ST\n;\nEND_METHOD\n" })).toEqual(["Unknown type: 'NoSuchType'"])
+  expect(errors({ uri: "M.pou", source: "METHOD M\nVAR_INST\n\tv : NoSuchType;\nEND_VAR\n%LANGUAGE ST\n;\nEND_METHOD\n" })).toEqual(["Unknown type: 'NoSuchType'"])
 })
 
 test("a FUNCTION's, a METHOD's and an INTERFACE METHOD's result, an interface method's input — `tref_*_return`, `tref_interface_method_input`", () => {
   const one = ["Unknown type: 'NoSuchType'"]
   expect(errors({ uri: "F.pou", source: "FUNCTION F : NoSuchType\nVAR_INPUT\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\n;\nEND_FUNCTION\n" })).toEqual(one)
-  expect(errors({ uri: "FB_X.M.pou", source: "METHOD M : NoSuchType\n%LANGUAGE ST\n;\nEND_METHOD\n" })).toEqual(one)
+  expect(errors({ uri: "M.pou", source: "METHOD M : NoSuchType\n%LANGUAGE ST\n;\nEND_METHOD\n" })).toEqual(one)
   expect(errors({ uri: "I.itf", source: "INTERFACE I\nMETHOD M : NoSuchType\nEND_METHOD\nEND_INTERFACE\n" })).toEqual(one)
   expect(errors({ uri: "I.itf", source: "INTERFACE I\nMETHOD M : BOOL\nVAR_INPUT\n\tx : NoSuchType;\nEND_VAR\nEND_METHOD\nEND_INTERFACE\n" })).toEqual(one)
 })
@@ -142,7 +142,7 @@ test("a FUNCTION's, a METHOD's and an INTERFACE METHOD's result, an interface me
 // warning, no "Unknown type"). A GET's implementation adds one more and a conversion — a known divergence (`support/divergences.ts`).
 test("a PROPERTY: one per thing declared of its type — `tref_property_type_set`, `tref_interface_property_*`", () => {
   const unknown = (n: number) => Array.from({ length: n }, () => "Unknown type: 'NoSuchType'")
-  const prop = (accessors: string): File => ({ uri: "FB_X.P.pou", source: `PROPERTY P : NoSuchType\n${accessors}END_PROPERTY\n` })
+  const prop = (accessors: string): File => ({ uri: "P.pou", source: `PROPERTY P : NoSuchType\n${accessors}END_PROPERTY\n` })
   expect(errors(prop("SET\n%LANGUAGE ST\n;\nEND_SET\n"))).toEqual(unknown(2))
   expect(errors(prop("GET\n%LANGUAGE ST\n;\nEND_GET\nSET\n%LANGUAGE ST\n;\nEND_SET\n"))).toEqual(unknown(3))
   const itf = (accessors: string): File => ({ uri: "I.itf", source: `INTERFACE I\nPROPERTY P : NoSuchType\n${accessors}END_PROPERTY\nEND_INTERFACE\n` })
@@ -155,7 +155,7 @@ test("a PROPERTY: one per thing declared of its type — `tref_property_type_set
 test("a PROPERTY that declares no type is no unknown type", () => {
   for (const header of ["PROPERTY P", "PROPERTY P :"])
     for (const vendor of ["codesys", "twincat"] as const)
-      expect(errors({ uri: "FB_X.P.pou", source: `${header}\nGET\n%LANGUAGE ST\n;\nEND_GET\nEND_PROPERTY\n` }, [], vendor).filter((m) => m.startsWith("Unknown type"))).toEqual([])
+      expect(errors({ uri: "P.pou", source: `${header}\nGET\n%LANGUAGE ST\n;\nEND_GET\nEND_PROPERTY\n` }, [], vendor).filter((m) => m.startsWith("Unknown type"))).toEqual([])
 })
 
 test("the generic ANY types a FUNCTION may take are not unknown", () => {
@@ -195,7 +195,7 @@ test("a qualified type whose first qualifier names something — silent", () => 
   // (corpus: `L_IE1P.L_IE1P_SeverityLevel`, 51 such references in two projects that build) and not those of one it does
   // not (`DED.IO_SYSTEM_TYPE` is "Unknown type", `lib_ns_direct_dependency_only`); the manifest does not say which (LB2)
   const lib = { uri: "w/Library Manager/Lib/T.dut", source: "TYPE T :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE\n" }
-  const files = [prg("a : Ns.T; b : Ns.Elsewhere;"), lib].map((f) => ({ ...f, parseResult: parseDocument(f.uri, f.source, { networkText: true }, "codesys") }))
+  const files = [prg("a : Ns.T; b : Ns.Elsewhere;"), lib].map((f) => ({ ...f, parseResult: parseDocument(f.uri, f.source, { networkText: true, unicodeIdentifiers: false }, "codesys") }))
   const project = build.buildSymbolTable(files, [{ uri: "w/Library Manager/Lib/Lib.library", folder: "Lib", dir: "w/Library Manager/Lib/", namespace: "Ns", library: "Lib", dependencies: [], materialization: 4 }], "codesys")
   const own = files[0]!
   const said = computeDiagnostics({ parseResult: own.parseResult, source: own.source, project, config: resolveConfig({ vendor: "codesys" }), uri: own.uri })
