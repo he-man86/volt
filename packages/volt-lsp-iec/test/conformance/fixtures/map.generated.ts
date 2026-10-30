@@ -14,20 +14,20 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     3457
- *     refused       2468
+ *     confirmed     3459
+ *     refused       2510
  *     not-lowered    407
  *     lsp-gap         94
  *     diverges         6
  *     unaskable      317
  *
  *   tier                     lowered    clean
- *     decl                   1009     1009
+ *     decl                   1027     1027
  *     arith                  1765     1765
  *     control                 189      176
  *     aggregate               176      176
  *     call                    430      430
- *     indirect                485      485
+ *     indirect                486      486
  *
  *   surviving lints (a lint listed here is work, not policy — 12 allowed ones are named with their reasons)
  *     unreachable_patterns                       9
@@ -52,10 +52,10 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         3797
+ *     agree         3812
  *     disagree         0
- *     not-run        257
- *       not-run: no elementary variable to seed or compare      101
+ *     not-run        261
+ *       not-run: no elementary variable to seed or compare      105
  *       not-run: reaches the platform's libm (pow, ln, sin…)     77
  *       not-run: the emitted Rust does not build                 73
  *       not-run: the interpreter's loop guard gives up on every variant     6
@@ -94,7 +94,7 @@
  *     tr_a10_string_to_dint_underscore_sign_edges   10.8
  *     tr_a10_string_to_int_literal_forms            10.8
  *
- *   shape — 2014 distinct emission shapes over 4054 lowered fixtures, 2297 distinct constructs.
+ *   shape — 2017 distinct emission shapes over 4073 lowered fixtures, 2298 distinct constructs.
  *   20 constructs carry a review note (`NOTES`): 37 fixtures are improvable, 23 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  *   Notes per owning task (openspec transpile-restructure; a merged note counts once under each owner of its items;
@@ -5859,6 +5859,50 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tr_b5_time_times_udint_literal: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 3.3, shape: "d2057a9c36" },
   tr_b5_time_times_wide_literal: { evidence: "lsp-gap" },
   tr_b5_time_times_word: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 4.5, shape: "3f74067d54" },
+  tref_alias: { evidence: "refused" },
+  tref_array_bound_name: { evidence: "refused" },
+  tref_array_element: { evidence: "refused" },
+  tref_array_nested: { evidence: "refused" },
+  tref_array_two_dims: { evidence: "refused" },
+  tref_enum_base: { evidence: "refused" },
+  tref_enum_base_alias: { evidence: "refused" },
+  tref_function_return: { evidence: "refused" },
+  tref_implicit_enum_base: { evidence: "refused" },
+  tref_interface_method_input: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "not-run", size: 1.5, shape: "1e316565cc" },
+  tref_interface_method_return: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "not-run", size: 2, shape: "1e316565cc" },
+  tref_interface_property_get: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "not-run", size: 1.6, shape: "1e316565cc" },
+  tref_interface_property_type: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "not-run", size: 2, shape: "1e316565cc" },
+  tref_method_return: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.3, shape: "7f327e5fec" },
+  tref_new: { evidence: "refused", diverges: { codesys: "known" } },
+  tref_pointer_to: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.5, shape: "b819e47309" },
+  tref_pointer_to_array: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.5, shape: "b819e47309" },
+  tref_property_get_local: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 1.8, shape: "7f327e5fec" },
+  tref_property_type: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.1, shape: "7f327e5fec", diverges: { codesys: "known" } },
+  tref_property_type_get_set: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 1.8, shape: "7f327e5fec", diverges: { codesys: "known" } },
+  tref_property_type_set: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.1, shape: "7f327e5fec" },
+  tref_reference_to: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.5, shape: "b819e47309" },
+  tref_sizeof: { evidence: "refused" },
+  tref_string_length_name: { evidence: "refused" },
+  tref_struct_extends: { evidence: "refused" },
+  tref_struct_field: { evidence: "refused" },
+  tref_struct_field_array: { evidence: "refused" },
+  tref_struct_field_pointer: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 3.1, shape: "2480948de3" },
+  tref_struct_field_unused: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 1.6, shape: "32c43fc226", diverges: { codesys: "known" } },
+  tref_subrange_base: { evidence: "refused" },
+  tref_subrange_bound_name: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.5, shape: "fbb50c80f5" },
+  tref_subrange_bound_variable: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.4, shape: "f7a9cd9031" },
+  tref_to_conversion: { evidence: "refused" },
+  tref_union_field: { evidence: "refused" },
+  tref_var_config: { evidence: "refused" },
+  tref_var_external: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.3, shape: "7f327e5fec" },
+  tref_var_global: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 3.3, shape: "2d79b22a30" },
+  tref_var_in_out: { evidence: "refused" },
+  tref_var_input: { evidence: "refused" },
+  tref_var_inst: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 1.9, shape: "7f327e5fec" },
+  tref_var_output: { evidence: "refused" },
+  tref_var_stat: { evidence: "refused" },
+  tref_var_temp: { evidence: "refused" },
+  tref_var_two_names: { evidence: "refused" },
   trig_precision: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "not-run", size: 6, shape: "a7ba1c5748" },
   trunc_beyond_dint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 4.7, shape: "899f8679ac" },
   trunc_functions: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 5.5, shape: "c1f7e01c05" },

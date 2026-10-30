@@ -1,7 +1,7 @@
 /**
  * inheritance (oop/) — resolution + structural checks on an FB's, an interface's and a STRUCT's inheritance clauses:
  *   C0091 circular-inheritance — an `EXTENDS` cycle, of FBs, interfaces or STRUCTs (`checkCycles`).
- *   C0090 base-class-not-found  — `EXTENDS <name>` (an FB's, an interface's list's) where `<name>` resolves to no definition.
+ *   C0090 base-class-not-found  — `EXTENDS <name>` (an FB's, an interface's list's, a STRUCT's) where `<name>` resolves to no definition.
  *   C0086 interface-not-found   — `IMPLEMENTS <name>` where `<name>` resolves to no definition.
  *
  * C0090/C0086 reuse the SAME `nameResolves` oracle as `unresolved-identifier`, so the library
@@ -94,6 +94,19 @@ function checkInterfaceBases(ctx: CheckContext, out: DiagnosticItem[]): void {
 }
 
 /**
+ * A STRUCT base that resolves to nothing: the FB's two messages, "Unknown type: 'X'" and "No definition found for base class
+ * 'X'" (`tref_struct_extends`, CODESYS SP21 2026-10-30, openspec dut-unknown-field-type). Unchecked until that sweep.
+ */
+function checkStructBases(ctx: CheckContext, out: DiagnosticItem[]): void {
+  for (const unit of ctx.parseResult.units) {
+    if (unit.kind !== "type_decl" || unit.body.kind !== "struct" || unit.body.extends === undefined) continue
+    const sym = lookupUnit(ctx.project, unit.name.text)?.symbol
+    if (sym !== undefined && isLibrarySymbol(sym)) continue
+    if (!nameResolves(unit.body.extends.text, scopeForUnit(ctx.project, unit) ?? ctx.project)) out.push(...baseNotFound(ctx, unit.body.extends))
+  }
+}
+
+/**
  * A base nothing declares: "No definition found for base class" (C0090, `base-class-not-found`) and, on CODESYS, "Unknown
  * type" (C0077, `unknown-type`) — each sentence under ITS rule's code, so a code filter, the docs link and the config
  * switch name the rule that sentence is. Both went out as `base-class-not-found`, C0090 on the wire for C0077's words.
@@ -107,6 +120,7 @@ function baseNotFound(ctx: CheckContext, base: { text: string; span: DiagnosticI
 export function checkInheritance(ctx: CheckContext, out: DiagnosticItem[]): void {
   const inCycle = checkCycles(ctx, out)
   checkInterfaceBases(ctx, out)
+  checkStructBases(ctx, out)
   for (const unit of ctx.parseResult.units) {
     if (unit.kind !== "function_block") continue
     // A library-provided FB's own EXTENDS/IMPLEMENTS is the library's concern — its base may be another

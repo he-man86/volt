@@ -106,6 +106,19 @@ test("T10 — an implicit enum keeps its base type, and prints it back", () => {
   expect(renderTypeExpr(t)).toBe("(ie_a, ie_b := 300, ie_c) INT")
 })
 
+// A base is an ELEMENTARY type's name: any other name is the token where the `:=` or `;` belongs — one the project
+// declares (an alias of INT) as much as one nothing declares (`tref_enum_base_alias`, `tref_enum_base`,
+// `tref_implicit_enum_base`, CODESYS SP21 2026-10-30, openspec dut-unknown-field-type). The LSP read it as a type.
+test("T10 — an enum's base that names no elementary type is the syntax error the vendor reports there", () => {
+  expect(messages(enumType("(\n\ta,\n\tb\n) NoSuchType;"))).toEqual(["':= or ;' expected instead of 'NoSuchType'"])
+  expect(messages(enumType("(\n\ta,\n\tb\n) DUT_IntAlias;"))).toEqual(["':= or ;' expected instead of 'DUT_IntAlias'"])
+  expect(enumBody(enumType("(\n\ta,\n\tb\n) NoSuchType;")).baseType).toBeUndefined()
+  expect(first("e : (trefA, trefB) NoSuchType;")).toBe("';, :=, REF=, ( or [' expected instead of 'NoSuchType'")
+  // an elementary base, and the enum with none, before END_TYPE with or without its `;`
+  expect(messages(enumType("(a, b) UDINT;"))).toEqual([])
+  expect(messages(enumType("(a, b)"))).toEqual([])
+})
+
 test("T10 — an implicit enum may end in a comma; a TYPE enum may not; neither may be empty", () => {
   // `decl_implicit_enum_trailing_comma` builds; `decl_type_enum_trailing_comma`, `decl_implicit_enum_empty`,
   // `decl_type_enum_empty` are "Identifier expected instead of ')'", both vendors

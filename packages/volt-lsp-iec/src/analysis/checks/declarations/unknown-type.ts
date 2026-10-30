@@ -9,36 +9,31 @@
  *     across 13 fixtures in its recording, none in CODESYS's (2026-09-20). The conversions that carry them fall out of
  *     `nameResolves`.
  *
- * A FUNCTION's RETURN type is a declaration too, for the dialect half only: TwinCAT reports `FUNCTION F : LDT` on the
- * header (`xf_l*_call_once`, 2026-10-01); a bare unknown name as a return type is recorded on neither vendor.
+ * EVERY POSITION A DECLARATION WRITES A TYPE IN (`declaredTypes`), one rule for all (openspec dut-unknown-field-type, its
+ * class sweep, conformance `declarations/type-references.ts`, CODESYS SP21 2026-10-30): a variable in every VAR section, a
+ * STRUCT's and a UNION's field — in the DUT's own file —, an alias's target, a FUNCTION's, a METHOD's and an INTERFACE
+ * METHOD's result, a PROPERTY's type; and the name inside an ARRAY, a POINTER or a REFERENCE (`unknownNamedTypes`). One
+ * message per thing declared of that type (`DeclaredType.declares`: `a, b : X` is two), on the unknown name itself.
  *
  * This file was `dialect-type`, whose header said a general unknown-type check should not exist because "a name the
  * LSP cannot resolve is usually a library type it cannot see". That was true before libraries were materialized; since
  * then `unresolved-identifier` makes exactly this bet for identifiers, and the corpus gate (every error ⊆ the project's
  * own recorded build) holds this one to it for types.
  */
-import { forEachDecl, type Scope } from "../../../frontend/symbols/index.js"
-import type { TypeExpr } from "../../../frontend/syntax/index.js"
+import type { Scope } from "../../../frontend/symbols/index.js"
+import { declaredTypes, type TypeExpr } from "../../../frontend/syntax/index.js"
 import { CODESYS_ONLY_TYPES, ELEMENTARY_TYPES } from "../../../frontend/types/index.js"
-import { dialectMissingType, unknownTypeName } from "../../shared/resolution.js"
+import { dialectMissingType, unknownNamedTypes, unknownTypeName } from "../../shared/resolution.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { emit, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
 import { changeToFixes } from "../../shared/near-miss.js"
 
 export function checkUnknownType(ctx: CheckContext, out: DiagnosticItem[]): void {
-  for (const { decl } of forEachDecl(ctx.parseResult, ctx.project)) {
-    const name = unknownTypeName(ctx.project, decl.type)
-    if (name === undefined) continue
-    const fixes = typeNearMisses(ctx, decl.type)
-    for (const at of decl.names)
-      emit(out, at.span, "unknown-type", ctx.messages.unknownType(name), "error", fixes)
-  }
-  for (const unit of ctx.parseResult.units) {
-    if (unit.kind !== "function" || unit.returnType === undefined) continue
-    const name = dialectMissingType(ctx.project, unit.returnType)
-    if (name !== undefined)
-      emit(out, unit.returnType.span, "unknown-type", ctx.messages.unknownType(name))
-  }
+  for (const { type, declares } of declaredTypes(ctx.parseResult.units))
+    for (const unknown of unknownNamedTypes(ctx.project, type)) {
+      const fixes = typeNearMisses(ctx, unknown.type)
+      for (let i = 0; i < declares; i++) emit(out, unknown.type.span, "unknown-type", ctx.messages.unknownType(unknown.name), "error", fixes)
+    }
 }
 
 /**

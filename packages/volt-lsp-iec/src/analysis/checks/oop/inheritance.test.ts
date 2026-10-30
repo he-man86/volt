@@ -43,6 +43,16 @@ test("C0091: TwinCAT upper-cases the names in the chain", () => {
   expect(of("codesys")).toEqual(["Recursion in base function block list: FB_circleA -> FB_circleA"])
   expect(of("twincat")).toEqual(["Recursion in base function block list: FB_CIRCLEA -> FB_CIRCLEA"])
 })
+
+// A STRUCT's base is a base too: the FB's two messages (`tref_struct_extends`, CODESYS SP21 2026-10-30, openspec
+// dut-unknown-field-type) — it had none, the one EXTENDS position the check never looked at. A base the project declares,
+// and two structs extending each other (a cycle, `inh_struct_extends_cycle`), say no "not found".
+test("C0090: a STRUCT EXTENDS a name nothing declares", () => {
+  const src = (base: string) => `TYPE S EXTENDS ${base} :\nSTRUCT\n\tv : INT;\nEND_STRUCT\nEND_TYPE\n`
+  expect(baseMsgs(src("NoSuchType"))).toEqual([NOT_FOUND("NoSuchType"), UNKNOWN("NoSuchType")])
+  expect(baseMsgs(`TYPE B :\nSTRUCT\n\tb : INT;\nEND_STRUCT\nEND_TYPE\n\n${src("B")}`)).toEqual([])
+  expect(baseMsgs(`TYPE A EXTENDS S :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE\n\n${src("A")}`)).toEqual([])
+})
 test("C0090: an EXTENDS base that resolves nowhere is flagged TWICE; a resolved base is not", () => {
   // the definition it could not find, and the TYPE the FB therefore does not have — an unresolved INTERFACE gets
   // only the first (conformance `cc2_base_and_interface_not_found`)

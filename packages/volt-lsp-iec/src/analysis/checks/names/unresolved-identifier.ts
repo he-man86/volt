@@ -69,9 +69,10 @@ function statementFindings(
         if (base === "function_block" || base === "interface") calledMembers.set(x.callee.member.span.start, x.callee)
       }
     })
+  const types = typeOperands(exprs)
   const uses = usesOf(stmt, exprs)
   for (const ref of unresolvedInExprs(exprs, scope)) {
-    if (unparsed.has(ref.name.toLowerCase())) continue
+    if (unparsed.has(ref.name.toLowerCase()) || !asTypeOperand(ctx, ref, types.get(ref.span.start), out)) continue
     emit(
       out,
       ref.span,
@@ -118,6 +119,34 @@ function statementFindings(
   // `mem_pointer_member_without_deref`, both vendors 2026-10-02) — THIS's and SUPER's sentence, under their code
   for (const base of pointerMemberBases(exprs, scope, ctx.project))
     emit(out, base.span, "self-not-structured", ctx.messages.notStructuredVariable(compilerExprText(base)))
+}
+
+/**
+ * An unresolved name an operator takes as a TYPE names one: "Unknown type: 'X'" — and only that for `__NEW`, whose operand
+ * is nothing else, beside "Identifier 'X' not defined" for `SIZEOF`, whose operand may be a variable too (`tref_new`,
+ * `tref_sizeof`, CODESYS SP21 2026-10-30, openspec dut-unknown-field-type). Whether the name is ALSO an undefined identifier.
+ */
+function asTypeOperand(ctx: CheckContext, ref: { name: string; span: Span }, takes: "type" | "either" | undefined, out: DiagnosticItem[]): boolean {
+  if (takes !== undefined) emit(out, ref.span, "unknown-type", ctx.messages.unknownType(ref.name))
+  return takes !== "type"
+}
+
+/**
+ * THE BARE NAMES AN OPERATOR TAKES AS A TYPE, by their start: `__NEW(T)`'s operand is a type and nothing else (`type`),
+ * `SIZEOF(x)`'s and `XSIZEOF(x)`'s a type or a variable (`either`).
+ */
+function typeOperands(exprs: readonly Expr[]): Map<number, "type" | "either"> {
+  const out = new Map<number, "type" | "either">()
+  for (const e of exprs)
+    walkExpr(e, (x) => {
+      if (x.kind !== "call" || x.callee.kind !== "ident_expr" || x.args.length !== 1) return
+      const operand = x.args[0]!
+      if (operand.param !== undefined || operand.value?.kind !== "ident_expr") return
+      const op = x.callee.name.toUpperCase()
+      if (op === "__NEW") out.set(operand.value.span.start, "type")
+      else if (op === "SIZEOF" || op === "XSIZEOF") out.set(operand.value.span.start, "either")
+    })
+  return out
 }
 
 /**
@@ -274,8 +303,10 @@ function initializerFindings(ctx: CheckContext, unparsed: ReadonlySet<string>, o
   for (const { decl, scope } of forEachDecl(ctx.parseResult, ctx.project)) {
     // an AGGREGATE initializer is a different shape with its own element list, and `struct-init`/`array-init`
     // own it — this is the plain-expression case only
-    if (decl.init === undefined || decl.init.kind === "aggregate_init") continue
-    for (const ref of unresolvedInExprs([decl.init], scope)) {
+    // …and a STRING's length, a name read as a value there too — where an ARRAY's or a subrange's bound is not: those say
+    // only that the border is no constant (`tref_string_length_name`, `tref_array_bound_name`, CODESYS SP21 2026-10-30)
+    const exprs = [decl.init?.kind === "aggregate_init" ? undefined : decl.init, decl.type.kind === "string_type" ? decl.type.length : undefined]
+    for (const ref of unresolvedInExprs(exprs.filter((e) => e !== undefined), scope)) {
       if (unparsed.has(ref.name.toLowerCase())) continue
       // …but a `__` name is the compilers' own namespace, and one they do not know never reaches name resolution
       // here at all — the PARSER refuses it leading an initializer (`parse/initializer` `refuseMalformedInit`).

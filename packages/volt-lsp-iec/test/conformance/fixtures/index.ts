@@ -119,6 +119,7 @@ import { CHECK_COVERAGE_FOUR_TESTS } from "./batches/check-coverage-four.js"
 import { CHECK_COVERAGE_FIVE_TESTS } from "./batches/check-coverage-five.js"
 import { CHECK_COVERAGE_SIX_TESTS } from "./batches/check-coverage-six.js"
 import { INITIALIZER_REPEAT_TESTS } from "./declarations/initializer-repeat.js"
+import { TYPE_REFERENCE_TESTS } from "./declarations/type-references.js"
 import { LEXER_TESTS } from "./grammar/lexer.js"
 import { LITERAL_RULE_TESTS } from "./grammar/literals.js"
 import { DECLARATION_RULE_TESTS } from "./grammar/declarations.js"
@@ -182,6 +183,7 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "check-coverage-five", tests: CHECK_COVERAGE_FIVE_TESTS },
   { name: "check-coverage-six", tests: CHECK_COVERAGE_SIX_TESTS },
   { name: "initializer-repeat", tests: INITIALIZER_REPEAT_TESTS },
+  { name: "type-references", tests: TYPE_REFERENCE_TESTS },
   { name: "pragma", tests: PRAGMA_TESTS },
   { name: "pragma-tc", tests: PRAGMA_TC_TESTS },
   { name: "lifecycle", tests: LIFECYCLE_TESTS },

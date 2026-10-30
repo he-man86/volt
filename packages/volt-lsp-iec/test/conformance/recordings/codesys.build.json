@@ -4,7 +4,7 @@
   "recorded": {
     "at": "2026-10-30T11:55:25.575Z",
     "bridgeVersion": "1.0.0",
-    "testCount": 6411
+    "testCount": 6455
   },
   "tests": {
     "xo_tally_struct": {
@@ -74744,6 +74744,589 @@
       "buildSuccess": true,
       "durationMs": 1135,
       "diagnostics": []
+    },
+    "tref_struct_field": {
+      "buildSuccess": false,
+      "durationMs": 3484,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_struct_field_unused": {
+      "buildSuccess": true,
+      "durationMs": 1518,
+      "diagnostics": []
+    },
+    "tref_union_field": {
+      "buildSuccess": false,
+      "durationMs": 1394,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_alias": {
+      "buildSuccess": false,
+      "durationMs": 1309,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_struct_extends": {
+      "buildSuccess": false,
+      "durationMs": 1390,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        },
+        {
+          "severity": "error",
+          "message": "No definition found for base class 'NoSuchType'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_enum_base": {
+      "buildSuccess": false,
+      "durationMs": 1398,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "':= or ;' expected instead of 'NoSuchType'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_struct_field_array": {
+      "buildSuccess": false,
+      "durationMs": 1367,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_struct_field_pointer": {
+      "buildSuccess": false,
+      "durationMs": 1446,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_var_input": {
+      "buildSuccess": false,
+      "durationMs": 1302,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_var_output": {
+      "buildSuccess": false,
+      "durationMs": 1399,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_var_in_out": {
+      "buildSuccess": false,
+      "durationMs": 1381,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        },
+        {
+          "severity": "error",
+          "message": "VAR_IN_OUT 'v' must be assigned in call of 'FB_LANG_tref_var_in_out'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_var_temp": {
+      "buildSuccess": false,
+      "durationMs": 1262,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_var_stat": {
+      "buildSuccess": false,
+      "durationMs": 1317,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_var_external": {
+      "buildSuccess": false,
+      "durationMs": 1442,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "No global definition found for VAR_EXTERNAL gTrefMissing",
+          "line": 0
+        },
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_var_two_names": {
+      "buildSuccess": false,
+      "durationMs": 1747,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        },
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_var_inst": {
+      "buildSuccess": false,
+      "durationMs": 1305,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_var_global": {
+      "buildSuccess": false,
+      "durationMs": 1620,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_var_config": {
+      "buildSuccess": false,
+      "durationMs": 1612,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_array_element": {
+      "buildSuccess": false,
+      "durationMs": 1379,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_array_two_dims": {
+      "buildSuccess": false,
+      "durationMs": 1639,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_array_nested": {
+      "buildSuccess": false,
+      "durationMs": 1362,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_pointer_to": {
+      "buildSuccess": false,
+      "durationMs": 1376,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_reference_to": {
+      "buildSuccess": false,
+      "durationMs": 1534,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_pointer_to_array": {
+      "buildSuccess": false,
+      "durationMs": 1304,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_subrange_base": {
+      "buildSuccess": false,
+      "durationMs": 1394,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "',' or ')' expected instead of '..'",
+          "line": 0
+        },
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_implicit_enum_base": {
+      "buildSuccess": false,
+      "durationMs": 1419,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "';, :=, REF=, ( or [' expected instead of 'NoSuchType'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_string_length_name": {
+      "buildSuccess": false,
+      "durationMs": 1349,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Identifier 'NoSuchLength' not defined",
+          "line": 0
+        },
+        {
+          "severity": "error",
+          "message": "String length 'NoSuchLength' is no constant value",
+          "line": 0
+        }
+      ]
+    },
+    "tref_function_return": {
+      "buildSuccess": false,
+      "durationMs": 1316,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_method_return": {
+      "buildSuccess": false,
+      "durationMs": 1356,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_property_type": {
+      "buildSuccess": false,
+      "durationMs": 1338,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        },
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        },
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        },
+        {
+          "severity": "error",
+          "message": "Cannot convert type 'NoSuchType' to type 'NoSuchType'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_interface_method_return": {
+      "buildSuccess": false,
+      "durationMs": 1340,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_interface_method_input": {
+      "buildSuccess": false,
+      "durationMs": 1396,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_interface_property_type": {
+      "buildSuccess": true,
+      "durationMs": 1457,
+      "diagnostics": [
+        {
+          "severity": "warning",
+          "message": "The property defines neither a get nor a set accessor.",
+          "line": 0
+        }
+      ]
+    },
+    "tref_sizeof": {
+      "buildSuccess": false,
+      "durationMs": 1402,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Cannot convert type 'Unknown type: 'SIZEOF(NoSuchType)'' to type 'DINT'",
+          "line": 0
+        },
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        },
+        {
+          "severity": "error",
+          "message": "Identifier 'NoSuchType' not defined",
+          "line": 0
+        }
+      ]
+    },
+    "tref_new": {
+      "buildSuccess": false,
+      "durationMs": 1459,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Cannot convert type 'POINTER TO NoSuchType' to type 'POINTER TO INT'",
+          "line": 0
+        },
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        },
+        {
+          "severity": "error",
+          "message": "No memory for dynamic object creation defined for application 'Device.Application'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_to_conversion": {
+      "buildSuccess": false,
+      "durationMs": 1416,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Cannot convert type 'Unknown type: 'TO_NoSuchType(1)'' to type 'DINT'",
+          "line": 0
+        },
+        {
+          "severity": "error",
+          "message": "Identifier 'TO_NoSuchType' not defined",
+          "line": 0
+        },
+        {
+          "severity": "error",
+          "message": "Program name, function or function block instance expected instead of 'TO_NoSuchType'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_property_type_set": {
+      "buildSuccess": false,
+      "durationMs": 1334,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        },
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_property_type_get_set": {
+      "buildSuccess": false,
+      "durationMs": 1865,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        },
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        },
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        },
+        {
+          "severity": "error",
+          "message": "Cannot convert type 'NoSuchType' to type 'NoSuchType'",
+          "line": 0
+        },
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_property_get_local": {
+      "buildSuccess": false,
+      "durationMs": 1469,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_interface_property_get": {
+      "buildSuccess": false,
+      "durationMs": 1447,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        },
+        {
+          "severity": "error",
+          "message": "Unknown type: 'NoSuchType'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_enum_base_alias": {
+      "buildSuccess": false,
+      "durationMs": 2218,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "':= or ;' expected instead of 'DUT_LANG_tref_enum_base_alias_int'",
+          "line": 0
+        }
+      ]
+    },
+    "tref_array_bound_name": {
+      "buildSuccess": false,
+      "durationMs": 11500,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Border 'NoSuchBound' of array is no constant value",
+          "line": 0
+        }
+      ]
+    },
+    "tref_subrange_bound_name": {
+      "buildSuccess": false,
+      "durationMs": 9804,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Border 'NoSuchBound' of array is no constant value",
+          "line": 0
+        }
+      ]
+    },
+    "tref_subrange_bound_variable": {
+      "buildSuccess": false,
+      "durationMs": 18705,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Border 'hi' of array is no constant value",
+          "line": 0
+        }
+      ]
     }
   }
 }

@@ -33238,6 +33238,16 @@
         "inst_uoff_wstring_control.k": "INT#7",
         "inst_uoff_wstring_control.w": "\"größe\""
       }
+    },
+    "tref_interface_property_type": {
+      "cycles": "INT#1",
+      "values": {}
+    },
+    "tref_struct_field_unused": {
+      "cycles": "INT#1",
+      "values": {
+        "n_tref_struct_field_unused": "INT#0"
+      }
     }
   }
 }

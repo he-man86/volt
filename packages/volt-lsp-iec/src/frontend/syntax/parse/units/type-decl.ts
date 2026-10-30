@@ -111,12 +111,17 @@ function skipThroughSemicolon(c: Cursor): void {
 }
 
 /** What ends a body before END_TYPE: an alias's required `;` (`:=` while it has no initializer), an enum's optional
- *  one, and a STRUCT's or UNION's refused one. */
+ *  one — anything else after an enum with no initializer stands where its `:=` or `;` belongs, a base type no elementary
+ *  type names among them (`tref_enum_base`, `tref_enum_base_alias`: "':= or ;' expected instead of 'X'", CODESYS SP21
+ *  2026-10-30) — and a STRUCT's or UNION's refused one. */
 function endBody(c: Cursor, body: DutBody): void {
   if (body.kind === "alias" || body.kind === "refused") {
     if (c.eatPunct(";") === undefined) refuse(c, body.kind === "alias" && body.init !== undefined ? "';'" : "':= or ;'")
-  } else if (body.kind === "enum") c.eatPunct(";")
-  else if (c.peek().kind === "punct" && c.peek().text === ";") refuse(c, "'END_TYPE'")
+  } else if (body.kind === "enum") {
+    if (c.eatPunct(";") !== undefined || body.init !== undefined || (c.peek().kind === "keyword" && c.peek().keyword === "END_TYPE")) return
+    refuse(c, "':= or ;'")
+    c.eatPunct(";")
+  } else if (c.peek().kind === "punct" && c.peek().text === ";") refuse(c, "'END_TYPE'")
 }
 
 // ─── DUT body parsers ────────────────────────────────────────────────
