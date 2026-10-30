@@ -84,7 +84,7 @@ test("a WSTRING is checked too — UTF-16 code units, the same printed prefix", 
 
 test("it is a WARNING, and the length is the decoded one", () => {
   const src = `PROGRAM P\nVAR\n  s2 : STRING(2) := 'abc';\n  fits : STRING(3) := 'a$Tb';\nEND_VAR\nEND_PROGRAM`
-  const pr = parseSource(src, { networkText: true }, "codesys")
+  const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   const found = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "string-constant-too-long")
@@ -146,7 +146,7 @@ test("a bracketed or mismatched STRING length is named STRING(n) in the message"
 // the destination type is named as WRITTEN, `STRING(n)`, never by its fold.
 test("a capacity named by a local constant is the written name in the warning, an assignment's too", () => {
   const src = "FUNCTION_BLOCK F\nVAR CONSTANT\n  n : INT := 3;\nEND_VAR\nVAR\n  txt : STRING(n);\nEND_VAR\ntxt := 'abcdef';\nEND_FUNCTION_BLOCK"
-  const pr = parseSource(src, { networkText: true }, "codesys")
+  const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   const got = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "string-constant-too-long")

@@ -21,7 +21,7 @@ import { run } from "../../../src/transpile/interp/index.js"
 import { assembleFixture, splitLists, withDependencies } from "./fixture-units.js"
 import { plcPrgSource } from "./plc-prg.js"
 import { conformanceUri } from "./fixture-uri.js"
-import { RECORDING_ENVIRONMENT } from "./recording-environment.js"
+import { RECORDING_ENVIRONMENT, recordingParse } from "./recording-environment.js"
 import { RUNS } from "./recordings.js"
 import { PROJECT_LIBRARY, PROJECT_BASE, PROJECT_MANIFESTS, projectDevices } from "./project-libraries.js"
 import type { LanguageTest } from "../types.js"
@@ -84,7 +84,7 @@ export function lspErrors(t: LanguageTest, all: readonly LanguageTest[], vendor:
 const LSP_ERRORS = new WeakMap<LanguageTest, WeakMap<readonly LanguageTest[], Map<Dialect, readonly string[]>>>()
 
 function lspErrorsNow(t: LanguageTest, all: readonly LanguageTest[], vendor: Dialect): string[] {
-  return onFixtureProject(t, all, vendor, RECORDING_ENVIRONMENT, (own, files, project) => diagnosed(t, own, files, project, vendor))
+  return onFixtureProject(t, all, vendor, RECORDING_ENVIRONMENT, (own, files, project) => diagnosed(own, files, project, vendor))
 }
 
 /**
@@ -100,9 +100,10 @@ export function lspMessagesOn(
   diagnostics: AnalysisInitOptions["diagnostics"],
 ): string[] {
   return onFixtureProject(t, all, vendor, environment, (own, files, project) => {
-    const config = resolveConfig({ vendor, diagnostics, unicodeIdentifiers: t.unicodeIdentifiers === "on" })
     const diags = [
-      ...files.flatMap((f) => computeDiagnostics({ uri: f.uri, parseResult: f.parseResult, source: f.source, project, config })),
+      ...files.flatMap((f) =>
+        computeDiagnostics({ uri: f.uri, parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor, diagnostics, unicodeIdentifiers: f.parseResult.unicodeIdentifiers }) }),
+      ),
       ...networkDiagnostics(own.parseResult, project),
     ]
     return diags.filter((d) => d.severity === "error" || d.severity === "warning").map((d) => `[${d.severity}] ${d.message.replace(/\r\n/g, "\n")}`).sort()
@@ -123,16 +124,16 @@ function onFixtureProject(
   // packing its dependencies inline — so it stayed silent and four measured refusals read as `lsp-gap`.
   // …and a list the fixture holds beside its POU is an item of its own too (`splitLists`)
   const ownUri = conformanceUri(`${t.pouName}.${extFor(t.kind)}`)
-  const { item: own, lists } = splitLists(t, { uri: ownUri, source: t.source, parseResult: parseDocument(ownUri, t.source, { networkText: true }, vendor) })
+  const { item: own, lists } = splitLists(t, { uri: ownUri, source: t.source, parseResult: parseDocument(ownUri, t.source, recordingParse(t), vendor) })
   const deps = withDependencies(t, all)
     .filter((f) => f.name !== t.name && f.source !== "")
     .flatMap((f) => {
       const uri = conformanceUri(`${f.pouName}.${extFor(f.kind)}`)
-      const split = splitLists(f, { uri, source: f.source, parseResult: parseDocument(uri, f.source, { networkText: true }, vendor) })
+      const split = splitLists(f, { uri, source: f.source, parseResult: parseDocument(uri, f.source, recordingParse(f), vendor) })
       return [split.item, ...split.lists]
     })
   const plcText = plcPrgSource(t)
-  const plc = { uri: conformanceUri(t.name, "PLC_PRG.pou"), source: plcText, parseResult: parseSource(plcText, { networkText: true }, vendor) }
+  const plc = { uri: conformanceUri(t.name, "PLC_PRG.pou"), source: plcText, parseResult: parseSource(plcText, recordingParse(t), vendor) }
   const files = [own, ...lists, plc, ...deps]
   // the libraries bound once per vendor and environment, this fixture's files on top for the length of the call — as
   // `lsp-replay.test.ts` does
@@ -156,10 +157,11 @@ const lspBase = new Map<string, Scope>()
 
 type FixtureFile = { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }
 
-function diagnosed(t: LanguageTest, own: { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }, files: readonly { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }[], project: Scope, vendor: Dialect): string[] {
-  // the recording project's "Unicode identifiers": off, but in the project the fixture names (`ReplayFiles`)
-  const config = resolveConfig({ vendor, unicodeIdentifiers: t.unicodeIdentifiers === "on" })
-  const analysed = files.flatMap((f) => computeDiagnostics({ uri: f.uri, parseResult: f.parseResult, source: f.source, project, config }))
+function diagnosed(own: { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }, files: readonly { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }[], project: Scope, vendor: Dialect): string[] {
+  // each file under its own project's "Unicode identifiers", as its parse read it (`recordingParse`)
+  const analysed = files.flatMap((f) =>
+    computeDiagnostics({ uri: f.uri, parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor, unicodeIdentifiers: f.parseResult.unicodeIdentifiers }) }),
+  )
   const network = networkDiagnostics(own.parseResult, project)
   return [...analysed, ...network].filter((d) => d.severity === "error").map((d) => d.message)
 }
@@ -193,7 +195,7 @@ function extFor(kind: LanguageTest["kind"]): string {
 
 /** The fixture project's libraries parsed as `vendor` — as `support/replay.ts` `standardLibrary` parses them. */
 const libraryFiles = (vendor: Dialect): { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }[] =>
-  PROJECT_LIBRARY.map((l) => ({ uri: l.uri, source: l.source, parseResult: parseSource(l.source, { networkText: true }, vendor) }))
+  PROJECT_LIBRARY.map((l) => ({ uri: l.uri, source: l.source, parseResult: parseSource(l.source, { networkText: true, unicodeIdentifiers: false }, vendor) }))
 
 export function rateFixture(t: LanguageTest, all: readonly LanguageTest[]): Evidence {
   if (t.execSkip !== undefined || t.recorderSkip === true) return "unaskable"

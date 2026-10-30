@@ -6,7 +6,7 @@ import { expect, test } from "bun:test"
 import { parseDocument } from "../../frontend/syntax/index.js"
 import { effectivelyExcluded } from "./exclusion.js"
 
-const parse = (uri: string, source: string) => parseDocument(uri, source, { networkText: true }, "codesys")
+const parse = (uri: string, source: string) => parseDocument(uri, source, { networkText: true, unicodeIdentifiers: false }, "codesys")
 /** The excluded objects' first lines (1-based), or "file". */
 function excluded(uri: string, source: string): "file" | number[] {
   const e = effectivelyExcluded(parse(uri, source))

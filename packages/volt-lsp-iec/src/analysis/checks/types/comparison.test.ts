@@ -35,7 +35,7 @@ test("all six relational operators are covered", () => {
 test("C0068/C0069: comparing arrays is flagged (same type → one, different → two)", () => {
   const src = (d: string) => `PROGRAM PLC_PRG\nVAR\n  b : BOOL; a1 : ARRAY[1..2] OF INT; a2 : ARRAY[1..2] OF INT; a3 : ARRAY[1..3] OF INT;\nEND_VAR\n${d}\nEND_PROGRAM`
   const run = (d: string) => {
-    const pr = parseSource(src(d), { networkText: true }, "codesys")
+    const pr = parseSource(src(d), { networkText: true, unicodeIdentifiers: false }, "codesys")
     const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src(d) }], [], "codesys")
     return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src(d), project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((x) => x.code.startsWith("compare-array"))
@@ -85,7 +85,7 @@ const every = (body: string, vendor: "codesys" | "twincat" = "codesys"): string[
     `PROGRAM P\nVAR CONSTANT N : INT := 2; END_VAR\nVAR\n o : BOOL; i : INT; si : SINT; di : DINT; li : LINT; bt : BYTE; ui : UINT; ud : UDINT; x : INT;\n` +
     ` a1 : ARRAY[1..2] OF INT; m1 : ARRAY[1..2, 0..1] OF BYTE; m2 : ARRAY[1..2, 0..1] OF BYTE; n1 : ARRAY[0..N] OF INT; n2 : ARRAY[0..N] OF INT;\n` +
     ` s1 : S_Cmp; s2 : S_Cmp; f1 : FB_Cmp; f2 : FB_Cmp; p : POINTER TO INT; ea : E_A;\nEND_VAR\n${body}\nEND_PROGRAM`
-  const pr = parseSource(src, { networkText: true }, vendor)
+  const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, vendor)
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], vendor, { target: { pointerBits: 64 } })
   return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.severity === "error" || d.severity === "warning")

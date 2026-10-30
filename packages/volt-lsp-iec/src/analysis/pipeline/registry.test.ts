@@ -168,7 +168,7 @@ describe("the vendor table", () => {
     const project = build.buildSymbolTable([], [], "twincat")
     const ran: string[] = []
     const ctx: CheckContext = {
-      parseResult: { units: [], errors: [], failedDeclarations: [], tokens: [], dialect: "twincat" },
+      parseResult: { units: [], errors: [], failedDeclarations: [], tokens: [], dialect: "twincat", unicodeIdentifiers: false },
       source: "",
       uri: "empty.st",
       project,

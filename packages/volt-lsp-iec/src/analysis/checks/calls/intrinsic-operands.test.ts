@@ -91,7 +91,7 @@ test("C0234/C0235: __QueryInterface operands of the wrong kind are flagged; vali
 test("__QueryInterface / __QueryPointer with ONE operand: the operand count alone, no operand-kind message (lex_keyword_called_sys_queryinterface, _querypointer)", () => {
   // CODESYS 2026-10-02: `__queryinterface(n);` is "'__QUERYINTERFACE' needs exactly '2' operands" and nothing else
   const src = `FUNCTION_BLOCK F\nVAR\n n:INT;\nEND_VAR\n__queryinterface(n);\n__querypointer(n);\nEND_FUNCTION_BLOCK`
-  const pr = parseSource(src, { networkText: true }, "codesys")
+  const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   const got = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "operator-operand-count" || d.code === "query-interface-operand" || d.code === "query-pointer-operand")
@@ -147,7 +147,7 @@ test("SQRT converts its operand to LREAL: a BOOL or a STRING is refused as that 
   for (const [type, name] of [["BOOL", "BOOL"], ["STRING", "STRING"]] as const) {
     const src = `FUNCTION_BLOCK F\nVAR\n operand : ${type};\n x : LREAL;\nEND_VAR\nx := SQRT(operand);\nEND_FUNCTION_BLOCK`
     for (const vendor of ["codesys", "twincat"] as const) {
-      const pr = parseSource(src, { networkText: true }, vendor)
+      const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, vendor)
       const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], vendor)
       expect(computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) }).map((d) => d.message)).toEqual([
         `Cannot convert type '${name}' to type 'LREAL'`,

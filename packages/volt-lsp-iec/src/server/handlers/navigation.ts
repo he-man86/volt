@@ -86,7 +86,7 @@ export function registerNavigationHandlers(s: ServerState): void {
     return s.at(p.textDocument.uri, p.position, (d, o) => prepareRename(d, s.project(d.uri), o))
   })
   s.onRequest(RenameRequest.type, (p) => {
-    const refused = renameRefusal(p.newName, s.project(p.textDocument.uri)) ?? s.at(p.textDocument.uri, p.position, (d, o) => renameChainRefusal(d, s.project(d.uri), o) ?? null) ?? undefined
+    const refused = renameRefusal(p.newName, s.project(p.textDocument.uri), s.store.configs.configFor(p.textDocument.uri).unicodeIdentifiers) ?? s.at(p.textDocument.uri, p.position, (d, o) => renameChainRefusal(d, s.project(d.uri), o) ?? null) ?? undefined
     if (refused !== undefined) return new ResponseError(LSPErrorCodes.RequestFailed, refused)
     return s.at(p.textDocument.uri, p.position, (d, o) => rename(s.workspace(d.uri), s.project(d.uri), d, o, p.newName) ?? null)
   })

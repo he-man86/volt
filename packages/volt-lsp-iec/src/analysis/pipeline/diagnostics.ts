@@ -46,6 +46,13 @@ export function computeDiagnostics(args: DiagnosticsArgs): DiagnosticItem[] {
       `dialect mismatch: the source was parsed as '${args.parseResult.dialect}' and the analysis asked for ` +
         `'${config.vendor}'. Pass the vendor to parseSource/parseDocument as well.`,
     )
+  // …and the project's "Unicode identifiers": the option decides what a name IS (`lex`), so a parse made under the other
+  // reading is another text's, and checks reading the names would answer for it
+  if (args.parseResult.unicodeIdentifiers !== config.unicodeIdentifiers)
+    throw new Error(
+      `unicode identifiers mismatch: the source was parsed with unicodeIdentifiers=${args.parseResult.unicodeIdentifiers} and ` +
+        `the analysis asked for ${config.unicodeIdentifiers}. Parse it under its project's option (ParseOptions.unicodeIdentifiers).`,
+    )
   const ctx: CheckContext = {
     parseResult: args.parseResult,
     source: args.source,

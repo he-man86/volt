@@ -15,8 +15,8 @@ const ENUM = "TYPE E_Mode :\n(\n\tIdle,\n\tRunning\n);\nEND_TYPE\n"
 
 function errors(type: string, value: string, vendor: Vendor = "codesys"): string[] {
   const src = `FUNCTION_BLOCK F\nVAR\n\tv : ${type};\nEND_VAR\nv := ${value};\nEND_FUNCTION_BLOCK\n`
-  const parseResult = parseSource(src, { networkText: true }, vendor)
-  const enumParse = parseSource(ENUM, { networkText: true }, vendor)
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, vendor)
+  const enumParse = parseSource(ENUM, { networkText: true, unicodeIdentifiers: false }, vendor)
   const project = build.buildSymbolTable(
     [
       { uri: "F.pou", parseResult, source: src },

@@ -114,7 +114,6 @@ function fixtureFindings(i: number, vendor: Vendor, rec: ReturnType<typeof recor
     // a fixture whose create the vendor refuses is answered for the text the push sent, its own item and lists: nothing
     // after the refusal (its PLC_PRG, a build) happened
     const files = ownTextOnly ? { ...fixture, plc: undefined, dependencies: [] } : fixture
-    const config = resolveConfig({ vendor, unicodeIdentifiers: files.unicodeIdentifiers })
     const out: Finding[] = []
     for (const doc of replayDocuments(files)) {
       const ctx: CheckContext = {
@@ -122,7 +121,8 @@ function fixtureFindings(i: number, vendor: Vendor, rec: ReturnType<typeof recor
         source: doc.source,
         uri: doc.uri,
         project,
-        config,
+        // under its own project's "Unicode identifiers", as its parse read it (`recordingParse`)
+        config: resolveConfig({ vendor, unicodeIdentifiers: doc.parseResult.unicodeIdentifiers }),
         messages: rec.messages,
         tokens: () => doc.parseResult.tokens,
       }
@@ -186,7 +186,7 @@ export function fixtureCensus(vendor: Vendor, gaps: Gaps): VendorCensus {
   const probe = withReplayFixture(0, vendor, (_, project) => {
     const names = new Set<string>()
     runRegistry(
-      { parseResult: { units: [], errors: [], failedDeclarations: [], tokens: [], dialect: vendor }, source: "", uri: "probe.st", project, config: resolveConfig({ vendor }), messages: messagesFor(vendor), tokens: () => [] },
+      { parseResult: { units: [], errors: [], failedDeclarations: [], tokens: [], dialect: vendor, unicodeIdentifiers: false }, source: "", uri: "probe.st", project, config: resolveConfig({ vendor }), messages: messagesFor(vendor), tokens: () => [] },
       (check) => names.add(check.name),
     )
     return names

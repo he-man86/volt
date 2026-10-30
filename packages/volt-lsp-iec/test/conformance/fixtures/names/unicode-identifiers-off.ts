@@ -70,7 +70,15 @@ export const UNICODE_IDENTIFIERS_OFF_TESTS: readonly LanguageTest[] = [
   },
   // ─── the controls: past ASCII where no name stands ──────────────────────────────────────────────────────────────
   fb("uoff_comment_control", "text past ASCII in a line and a block comment — no name, the build is clean", "\tn : INT; // 计数 счёт\n", "(* größe *)\nk := n;"),
-  fb("uoff_wstring_control", "text past ASCII in a WSTRING literal — no name", "\tw : WSTRING := \"größe\";\n", "k := LEN(WSTRING_TO_STRING(w));"),
+  {
+    ...fb("uoff_wstring_control", "text past ASCII in a WSTRING literal — no name", "\tw : WSTRING := \"größe\";\n", "k := LEN(WSTRING_TO_STRING(w));"),
+    // CODESYS narrows "größe" to SEVEN units (record:exec 2026-10-30: its UTF-8 bytes); both backends narrow unit for unit,
+    // 5 — the prelude's `narrow` was measured on ASCII alone. The class (the reverse widen, a cut at the capacity inside a
+    // character, a unit no encoding holds) is lsp-field-followups task 4's sweep.
+    deferred: {
+      transpile: "WSTRING_TO_STRING of a character past ASCII is its UTF-8 bytes in CODESYS (k = 7), one unit per unit here (5) — openspec lsp-field-followups 4",
+    },
+  },
   // the DUT `uoff_member_access` reads its member off — ASCII, so only the read is past ASCII
   {
     name: "uoff_access_type",

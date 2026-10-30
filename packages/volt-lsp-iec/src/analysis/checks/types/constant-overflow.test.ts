@@ -36,7 +36,7 @@ test("a typed REAL literal past REAL magnitude names REAL", () => {
 
 test("variable initializers are checked too", () => {
   const src = `FUNCTION_BLOCK F\nVAR x : INT := INT#99999; END_VAR\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   const msgs = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "constant-too-large")

@@ -8,7 +8,7 @@ import { isTrivia, lex, parseExprFromTokens, type Expr } from "../../src/fronten
 import { memberShapes } from "./bound-census-summarize.js"
 
 const expr = (src: string): Expr => {
-  const e = parseExprFromTokens(lex(src, "codesys").filter((t) => !isTrivia(t.kind) && t.kind !== "eof"))
+  const e = parseExprFromTokens(lex(src, "codesys", false).filter((t) => !isTrivia(t.kind) && t.kind !== "eof"))
   if (e === undefined) throw new Error(`no expression: ${src}`)
   return e
 }

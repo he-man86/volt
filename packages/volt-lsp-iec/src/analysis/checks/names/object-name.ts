@@ -60,7 +60,7 @@ export function refused(vendor: Vendor, unicode: boolean, name: string, words: R
 /** An identifier in any script — what CODESYS creates past ASCII with "Unicode identifiers" on (DIALECT C28b). */
 function isIdentifier(name: string): boolean {
   const chars = [...name]
-  return chars.length > 0 && isIdentStart(chars[0]!) && chars.slice(1).every(isIdentCont)
+  return chars.length > 0 && isIdentStart(chars[0]!, true) && chars.slice(1).every((c) => isIdentCont(c, true))
 }
 
 const isCommentary = (t: Token): boolean =>

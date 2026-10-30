@@ -42,10 +42,10 @@ function lspMessagesForCode(
   extra?: { uri: string; source: string }[],
 ): string[] {
   if (ourCode === undefined) return []
-  const pr = parseSource(repro, { networkText: NETWORK_TEXT_ENABLED }, vendor)
+  const pr = parseSource(repro, { networkText: NETWORK_TEXT_ENABLED, unicodeIdentifiers: false }, vendor)
   const files = [
     { uri: "R.pou", parseResult: pr, source: repro },
-    ...(extra ?? []).map((f) => ({ uri: f.uri, source: f.source, parseResult: parseSource(f.source, { networkText: NETWORK_TEXT_ENABLED }, vendor) })),
+    ...(extra ?? []).map((f) => ({ uri: f.uri, source: f.source, parseResult: parseSource(f.source, { networkText: NETWORK_TEXT_ENABLED, unicodeIdentifiers: false }, vendor) })),
   ]
   const project = build.buildSymbolTable(files, [], vendor)
   return computeDiagnostics({
@@ -107,7 +107,7 @@ function leadStart(source: string, start: number): number {
 
 /** Split a repro into { plcBody?, items[], instTypes[] (VAR-instantiable), calls[] (function calls) }. */
 function splitRepro(source: string): { plcBody?: string; items: { wire: string; src: string }[]; instTypes: string[]; calls: string[] } {
-  const tops = parseSource(source, { networkText: NETWORK_TEXT_ENABLED }, "codesys").units.filter((u) => TOP.has(u.kind))
+  const tops = parseSource(source, { networkText: NETWORK_TEXT_ENABLED, unicodeIdentifiers: false }, "codesys").units.filter((u) => TOP.has(u.kind))
   const items: { wire: string; src: string }[] = []
   const instTypes: string[] = []
   const calls: string[] = []

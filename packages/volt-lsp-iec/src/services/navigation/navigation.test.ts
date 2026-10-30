@@ -6,7 +6,7 @@ import type { Document } from "../shared/index.js"
 import { build } from "../../frontend/symbols/index.js"
 
 function setup(src: string) {
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const doc: Document = { uri: "file:///F.pou", source: src, parseResult }
   const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }], [], "codesys")
   return { doc, project }
@@ -174,7 +174,7 @@ function withLibrary() {
   const files = [
     { uri: LIB_URI, source: LIB },
     { uri: "file:///w/P.pou", source: USER },
-  ].map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true }, "codesys") }))
+  ].map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true, unicodeIdentifiers: false }, "codesys") }))
   const project = build.buildSymbolTable(files, [], "codesys")
   const doc: Document = files[1]!
   return { docs: files as Document[], doc, project }
@@ -197,9 +197,9 @@ test("a library element is not renameable: prepare refuses it and rename edits n
 
 test("a new name the dialect refuses is refused by name; one it accepts is not", () => {
   const { project } = setup(FB)
-  for (const bad of ["IF", "1x", "a b", "a__b", "INT", "", "x;"]) expect(renameRefusal(bad, project)).toMatch(/is no name/)
-  expect(renameRefusal("total", project)).toBeUndefined()
+  for (const bad of ["IF", "1x", "a b", "a__b", "INT", "", "x;"]) expect(renameRefusal(bad, project, false)).toMatch(/is no name/)
+  expect(renameRefusal("total", project, false)).toBeUndefined()
   // the dialect decides, from its one fact: LDATE is a CODESYS type word and a plain name on TwinCAT
-  expect(renameRefusal("LDATE", project)).toMatch(/is no name/)
-  expect(renameRefusal("LDATE", build.buildSymbolTable([], [], "twincat"))).toBeUndefined()
+  expect(renameRefusal("LDATE", project, false)).toMatch(/is no name/)
+  expect(renameRefusal("LDATE", build.buildSymbolTable([], [], "twincat"), false)).toBeUndefined()
 })

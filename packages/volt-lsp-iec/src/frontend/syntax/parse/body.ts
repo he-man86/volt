@@ -26,10 +26,10 @@ function collectBodyUntilAny(c: Cursor, enders: readonly Keyword[], context: str
   const startSpan = c.peek().span
   const { tokens, closer } = consumeBodyUntilAny(c, { consumeEnders: enders })
   if (closer !== undefined) {
-    return codeBody(reportOn(c), tokens, joinSpans(startSpan, closer.span), owner, c.dialect)
+    return codeBody(reportOn(c), tokens, joinSpans(startSpan, closer.span), owner, c.dialect, c.unicodeIdentifiers)
   }
   c.pushError(`unterminated ${context}: expected ${enders.join(" or ")}`, startSpan)
-  return codeBody(reportOn(c), tokens, startSpan, owner, c.dialect)
+  return codeBody(reportOn(c), tokens, startSpan, owner, c.dialect, c.unicodeIdentifiers)
 }
 
 /**
@@ -91,13 +91,13 @@ export function collectAccessorBody(c: Cursor, endAccessor: Keyword): { body: Bo
     ? consumeBodyUntilAny(c, { consumeEnders: [endAccessor, otherEnd], peekStoppers: ["END_PROPERTY"] })
     : consumeBodyUntilAny(c, { consumeEnders: [endAccessor], peekStoppers: ["GET", "SET", "END_PROPERTY"] })
   if (closer?.keyword === otherEnd)
-    return { body: codeBody(reportOn(c), tokens, joinSpans(startSpan, closer.span), "accessor", c.dialect), closed: false }
+    return { body: codeBody(reportOn(c), tokens, joinSpans(startSpan, closer.span), "accessor", c.dialect, c.unicodeIdentifiers), closed: false }
   if (closer !== undefined) {
-    return { body: codeBody(reportOn(c), tokens, joinSpans(startSpan, closer.span), "accessor", c.dialect), closed: true }
+    return { body: codeBody(reportOn(c), tokens, joinSpans(startSpan, closer.span), "accessor", c.dialect, c.unicodeIdentifiers), closed: true }
   }
   if (stoppedAt === undefined)
     c.pushError(`unterminated property accessor: expected ${endAccessor} (or next GET/SET/END_PROPERTY)`, startSpan)
-  return { body: codeBody(reportOn(c), tokens, startSpan, "accessor", c.dialect), closed: false }
+  return { body: codeBody(reportOn(c), tokens, startSpan, "accessor", c.dialect, c.unicodeIdentifiers), closed: false }
 }
 
 /** The cursor's error list as a file-format report: what `codeBody` reports lands with the parse errors. */

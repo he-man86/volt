@@ -28,7 +28,7 @@ const ver = async (n: string): Promise<string | null> => (await call("refs")).it
 const key = (d: any): string => `[${d.severity}] ${d.message}`
 
 // LSP side (offline).
-const pr = parseSource(source, { networkText: NETWORK_TEXT_ENABLED }, VENDOR)
+const pr = parseSource(source, { networkText: NETWORK_TEXT_ENABLED, unicodeIdentifiers: false }, VENDOR)
 const project = build.buildSymbolTable([{ uri: "S.pou", parseResult: pr, source }], [], VENDOR)
 const lsp = computeDiagnostics({ uri: "S.pou", parseResult: pr, source, project, config: resolveConfig({ vendor: VENDOR }) })
   .filter((d) => d.severity === "error" || d.severity === "warning")

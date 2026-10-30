@@ -135,7 +135,7 @@ export function statementTokensOf(body: BodySpan, asWritten = false): readonly T
 /** The body read as plain-ST network text — once per body. */
 export function plainStText(body: BodySpan): PlainStText {
   let t = cache.get(body)
-  if (t === undefined) cache.set(body, (t = read(body.tokens, body.dialect)))
+  if (t === undefined) cache.set(body, (t = read(body.tokens, body.dialect, body.unicodeIdentifiers)))
   return t
 }
 
@@ -156,8 +156,8 @@ function lineEnd(tokens: readonly Token[], at: number): number {
   return k
 }
 
-function read(lexed: readonly Token[], dialect: Dialect): PlainStText {
-  const { tokens, unclosed } = joinCodeStrings(lexed, dialect)
+function read(lexed: readonly Token[], dialect: Dialect, unicodeIdentifiers: boolean): PlainStText {
+  const { tokens, unclosed } = joinCodeStrings(lexed, dialect, unicodeIdentifiers)
   const out: Token[] = []
   const networks: PlainStNetwork[] = []
   const stray: { message: string; span: Span }[] = unclosed.map((span) => ({ message: "an unclosed string", span }))
@@ -216,7 +216,7 @@ function read(lexed: readonly Token[], dialect: Dialect): PlainStText {
       // THE EXECUTE BOX'S ST: `CODE := '…'` closing an `EXECUTE(` call is trivia, its ST the statements after its statement
       const code = codeAt(tokens, i, calls)
       if (code !== undefined) {
-        takeCode(tokens, i, code.string, dialect, { out, pending, stray, call: calls[calls.length - 1]! })
+        takeCode(tokens, i, code.string, dialect, unicodeIdentifiers, { out, pending, stray, call: calls[calls.length - 1]! })
         cur.last = tokens[code.string]!.span
         i = code.string
         continue

@@ -41,6 +41,9 @@ export const TYPE_EXPRESSION_RECOVERY: readonly string[] = [
   "decl_array_single_bound_used",
   "decl_type_enum_missing_comma",
   "decl_type_enum_value_then_name",
+  // the same TYPE-enum recovery after a character past ASCII ends a value's name (`grün` is `gr` and `ü`…, "Unicode
+  // identifiers" off — "':=, , or )' expected instead of 'ü'", then the vendors close the TYPE as above)
+  "uoff_enum_value",
 ]
 
 /**

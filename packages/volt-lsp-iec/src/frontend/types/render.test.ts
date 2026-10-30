@@ -5,11 +5,11 @@ import { build, type Scope } from "../symbols/index.js"
 import { renderType, resolveNamedType, resolveTypeExpr } from "./index.js"
 
 function proj(src: string): Scope {
-  return build.buildSymbolTable([{ uri: "F.pou", parseResult: parseSource(src, { networkText: true }, "codesys"), source: src }], [], "codesys")
+  return build.buildSymbolTable([{ uri: "F.pou", parseResult: parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys"), source: src }], [], "codesys")
 }
 
 function declType(src: string): TypeExpr {
-  const fb = parseSource(`FUNCTION_BLOCK F\nVAR\n ${src}\nEND_VAR\nEND_FUNCTION_BLOCK`, { networkText: true }, "codesys").units[0] as FunctionBlock
+  const fb = parseSource(`FUNCTION_BLOCK F\nVAR\n ${src}\nEND_VAR\nEND_FUNCTION_BLOCK`, { networkText: true, unicodeIdentifiers: false }, "codesys").units[0] as FunctionBlock
   return fb.varSections[0].decls[0].type
 }
 

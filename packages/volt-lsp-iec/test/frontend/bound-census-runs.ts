@@ -64,9 +64,10 @@ function sameType(recorded: string, inferred: string): boolean {
   return r === i
 }
 
-/** A run-recording path as an expression — the run recording is CODESYS's, so lexed as CODESYS. */
+/** A run-recording path as an expression — the run recording is CODESYS's, so lexed as CODESYS; a name in it is one the IDE
+ *  read out of a project that has it, so names in any script. */
 export const pathExpr = (path: string): Expr | undefined =>
-  parseExprFromTokens(lex(path, "codesys").filter((t) => !isTrivia(t.kind) && t.kind !== "eof"))
+  parseExprFromTokens(lex(path, "codesys", true).filter((t) => !isTrivia(t.kind) && t.kind !== "eof"))
 
 export function plcScope(plc: Bound): Scope | undefined {
   const unit = plc.parsed.parseResult.units[0]

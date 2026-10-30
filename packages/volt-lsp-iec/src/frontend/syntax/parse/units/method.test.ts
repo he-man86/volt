@@ -7,7 +7,7 @@ import { parseSource } from "../parser.js"
 import type { Method } from "../../ast/nodes/index.js"
 
 const method = (header: string) => {
-  const r = parseSource(`FUNCTION_BLOCK X\nEND_FUNCTION_BLOCK\n\n${header}\nM := 7;\nEND_METHOD\n`, { networkText: true }, "codesys")
+  const r = parseSource(`FUNCTION_BLOCK X\nEND_FUNCTION_BLOCK\n\n${header}\nM := 7;\nEND_METHOD\n`, { networkText: true, unicodeIdentifiers: false }, "codesys")
   return { errors: r.errors.map((e) => e.message), unit: r.units[1] as Method }
 }
 
@@ -45,7 +45,7 @@ test("nothing after the colon but the body's line is the vendors' empty type, no
   // line used to be read as the type's name.
   const r = parseSource(
     "FUNCTION_BLOCK X\n%LANGUAGE ST\nEND_FUNCTION_BLOCK\n\nMETHOD Run :\n%LANGUAGE ST\n;\nEND_METHOD\n",
-    { networkText: true }, "codesys",
+    { networkText: true, unicodeIdentifiers: false }, "codesys",
   )
   expect(r.errors.map((e) => e.message)).toEqual(["Type definition expected instead of ''"])
   const m = r.units[1] as Method
@@ -63,7 +63,7 @@ test("nothing after the colon on an interface member is the same empty type, wha
     "INTERFACE I\nPROPERTY P :\nGET\nEND_GET\nEND_PROPERTY\nEND_INTERFACE\n",
   ]
   for (const source of cases) {
-    const r = parseSource(source, { networkText: true }, "codesys")
+    const r = parseSource(source, { networkText: true, unicodeIdentifiers: false }, "codesys")
     expect([source, r.errors.map((e) => e.message)]).toEqual([source, ["Type definition expected instead of ''"]])
   }
   // A POU PROPERTY is not one of them: recorded since (`rcc_property_empty_type`, both vendors, 2026-10-04), its build
@@ -75,7 +75,7 @@ test("nothing after the colon on an interface member is the same empty type, wha
     "FUNCTION_BLOCK X\n%LANGUAGE ST\nEND_FUNCTION_BLOCK\n\nPROPERTY P :\nSET\n%LANGUAGE ST\n;\nEND_SET\nEND_PROPERTY\n",
   ]
   for (const source of pouProperty) {
-    const r = parseSource(source, { networkText: true }, "codesys")
+    const r = parseSource(source, { networkText: true, unicodeIdentifiers: false }, "codesys")
     expect([source, r.errors.map((e) => e.message)]).toEqual([source, ["Type definition expected instead of ';'"]])
   }
 })
@@ -85,7 +85,7 @@ test("an action's declaration is its ACTION line alone: what the push would drop
   // modifier on the line, a comment on it, above it or under it — and the action is still read by the push's name.
   const fb = "FUNCTION_BLOCK F\nVAR\n\tout : INT;\nEND_VAR\n%LANGUAGE ST\nAct();\nEND_FUNCTION_BLOCK\n\n"
   const read = (action: string) => {
-    const r = parseSource(fb + action, { networkText: true }, "codesys")
+    const r = parseSource(fb + action, { networkText: true, unicodeIdentifiers: false }, "codesys")
     return { errors: r.errors.map((e) => e.message), names: r.units.map((u) => `${u.kind}:${"name" in u ? u.name?.text : ""}`) }
   }
   const body = "%LANGUAGE ST\nout := 4;\nEND_ACTION\n"

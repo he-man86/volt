@@ -49,7 +49,7 @@ test("C0141: `REF= 0` (null idiom) and `REF= <writable var>` are valid", () => {
 
 test("a LITERAL on the right of REF= is a TYPE error, not the write-access one", () => {
   const src = `FUNCTION_BLOCK F\nVAR\nbound : REFERENCE TO INT;\nEND_VAR\nbound REF= 7;\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   const msgs = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "assignment-type-mismatch" || d.code.startsWith("reference-assign"))
@@ -124,7 +124,7 @@ test("REF= judges a plain VARIABLE only: a call's result and a parenthesized var
 // subrange variable — the subrange in the rendered type made the two read as different types.
 test("a REFERENCE TO the base binds a subrange variable", () => {
   const src = "PROGRAM PLC_PRG\nVAR\n\tv : INT(0..10);\n\tw : UINT(1..10);\n\trv : REFERENCE TO INT;\n\trw : REFERENCE TO UINT;\nEND_VAR\nrv REF= v;\nrw REF= w;\nEND_PROGRAM"
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "PLC_PRG.pou", parseResult, source: src }], [], "codesys")
   const errors = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).filter((d) => d.severity === "error")
   expect(errors.map((d) => d.message)).toEqual([])
@@ -135,7 +135,7 @@ test("a REFERENCE TO the base binds a subrange variable", () => {
 // element is a subrange, keep the rendering compare they had before (none recorded; the fix claims nothing wider).
 test("the subrange is stripped from the bound variable's top-level type only", () => {
   const src = "PROGRAM PLC_PRG\nVAR\n\tv : INT;\n\tw : INT(0..20);\n\tz : INT(0..10);\n\tau : ARRAY[0..2] OF INT(0..10);\n\trs : REFERENCE TO INT(0..10);\n\tra : REFERENCE TO ARRAY[0..2] OF INT;\nEND_VAR\nrs REF= v;\nrs REF= w;\nra REF= au;\nrs REF= z;\nEND_PROGRAM"
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "PLC_PRG.pou", parseResult, source: src }], [], "codesys")
   const errors = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).filter((d) => d.severity === "error")
   const lines = errors.map((d) => d.span.startLine)

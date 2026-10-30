@@ -78,7 +78,7 @@ test("grammar-completion forms surface no false positive (gate regression guard)
 test("a global missing its `;`: TwinCAT names it, CODESYS says nothing — and neither declares the next global", () => {
   const src = "VAR_GLOBAL\n\tg_a : INT\n\tg_b : INT;\n\tg_c : INT;\nEND_VAR\n"
   const errors = (vendor: "codesys" | "twincat"): string[] => {
-    const parseResult = parseSource(src, { networkText: true }, vendor, "gvl")
+    const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, vendor, "gvl")
     const project = build.buildSymbolTable([{ uri: "GVL.gvl", parseResult, source: src }], [], vendor)
     return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
       .filter((d) => d.code === "syntax-error")
@@ -86,7 +86,7 @@ test("a global missing its `;`: TwinCAT names it, CODESYS says nothing — and n
   }
   expect(errors("twincat")).toEqual(["';, :=, REF=, ( or [' expected instead of 'g_b'"])
   expect(errors("codesys")).toEqual([])
-  const list = parseSource(src, { networkText: true }, "codesys", "gvl").units[0] as { varSections: { decls: { names: { text: string }[] }[] }[] }
+  const list = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys", "gvl").units[0] as { varSections: { decls: { names: { text: string }[] }[] }[] }
   expect(list.varSections[0].decls.map((d) => d.names[0].text)).toEqual(["g_a", "g_c"])
   // …and in a STRUCT on CODESYS the same slip IS reported (`pwh_struct_missing_semicolon`) — the silence is the GVL's
   expect(syntaxErrors("TYPE T :\nSTRUCT\n\ta : INT\n\tb : INT;\nEND_STRUCT\nEND_TYPE\n")).toEqual([
@@ -111,7 +111,7 @@ test("a Chinese project's DUT, FB with CJK methods and their caller produce no d
       "PROGRAM VltUni_Caller\nVAR\n\tfb : 命令队列管理;\n\tfree : BOOL;\n\tread : BOOL;\nEND_VAR\n\n%LANGUAGE ST\n" +
       "fb();\nfree := fb.区域可占用();\nread := fb.从Modbus读取命令(address := 3);\n\nEND_PROGRAM\n",
   }
-  const parsed = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source, { networkText: true }, "codesys") }))
+  const parsed = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source, { networkText: true, unicodeIdentifiers: true }, "codesys") }))
   const project = build.buildSymbolTable(parsed, [], "codesys")
   const found = parsed.flatMap(({ source, parseResult }) =>
     computeDiagnostics({ uri: uriFor(parseResult), parseResult, source, project, config: resolveConfig({ vendor: "codesys", unicodeIdentifiers: true }) }).map(

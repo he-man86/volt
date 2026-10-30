@@ -9,14 +9,14 @@ import { compilerTypeText, type Expr, exprText, isTrivia, lex, parseSource, rend
 
 /** The meaningful (non-trivia) token stream as `kind:text` pairs — the whitespace-insensitive identity. */
 const toks = (s: string): string[] =>
-  lex(s, "codesys")
+  lex(s, "codesys", false)
     .filter((t) => !isTrivia(t.kind) && t.kind !== "eof")
     .map((t) => `${t.kind}:${t.text}`)
 
 /** Parse `x : <type>;` and return the type node + its exact source text. */
 function typeOf(typeSrc: string): { node: TypeExpr; src: string } {
   const source = `FUNCTION_BLOCK F\nVAR\n x : ${typeSrc};\nEND_VAR\nEND_FUNCTION_BLOCK`
-  const unit = parseSource(source, { networkText: true }, "codesys").units[0]
+  const unit = parseSource(source, { networkText: true, unicodeIdentifiers: false }, "codesys").units[0]
   if (unit?.kind !== "function_block") throw new Error(`not an FB: ${typeSrc}`)
   const node = unit.varSections[0]!.decls[0]!.type
   return { node, src: source.slice(node.span.start, node.span.end) }
@@ -87,7 +87,7 @@ test("nested binary gets precedence parentheses", () => {
   for (const [e, text] of cases) expect(exprText(e)).toBe(text)
   // …and a parsed tree, which carries its own parentheses, prints as written — never a second pair
   for (const src of ["(a + b) * c", "a - (b - c)", "NOT (a AND b)", "a + b * c", "-(a)"]) {
-    const unit = parseSource(`PROGRAM P\nVAR\n x : INT := ${src};\nEND_VAR\nEND_PROGRAM`, { networkText: true }, "codesys").units[0]
+    const unit = parseSource(`PROGRAM P\nVAR\n x : INT := ${src};\nEND_VAR\nEND_PROGRAM`, { networkText: true, unicodeIdentifiers: false }, "codesys").units[0]
     if (unit?.kind !== "program") throw new Error("not a program")
     const init = unit.varSections[0]!.decls[0]!.init
     if (init === undefined || init.kind === "aggregate_init") throw new Error(`no expression initializer: ${src}`)

@@ -23,8 +23,8 @@ const KEYWORD_MAP: Map<string, Keyword> = new Map(KEYWORDS.map((k) => [k, k]))
 
 /** Scans one identifier, keyword, `#`-typed literal or ExST operator at the cursor, if a word starts there. */
 export function scanWord(s: Scanner): boolean {
-  if (!isIdentStart(s.peek())) return false
-  while (s.more && isIdentCont(s.peek())) s.advance(1)
+  if (!isIdentStart(s.peek(), s.unicode)) return false
+  while (s.more && isIdentCont(s.peek(), s.unicode)) s.advance(1)
   const upper = s.text().toUpperCase()
 
   // Check for #-suffixed literal forms: T#10ms, DATE#…,
@@ -112,9 +112,9 @@ function scanWordOperand(s: Scanner): boolean {
     s.emit("typed_lit")
     return true
   }
-  if (isIdentCont(afterHash)) {
+  if (isIdentCont(afterHash, s.unicode)) {
     s.advance(1) // #
-    while (s.more && isIdentCont(s.peek())) s.advance(1)
+    while (s.more && isIdentCont(s.peek(), s.unicode)) s.advance(1)
     s.emit("typed_lit")
     return true
   }

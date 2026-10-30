@@ -14,7 +14,7 @@
 import { test, expect } from "bun:test"
 import { parseSource } from "../../index.js"
 
-const parse = (src: string) => parseSource(src, { networkText: true }, "codesys")
+const parse = (src: string) => parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
 
 test("an interface accessor may declare vars — the vendor stores them and they are not a body", () => {
   const pr = parse(`INTERFACE IThing

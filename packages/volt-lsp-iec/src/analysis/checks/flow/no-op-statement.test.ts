@@ -64,7 +64,7 @@ test("in a body that did not parse, a statement without its `;` is a no-op, and 
 test("a FUNCTION's name alone as a statement is an error beside the no-op warning (stmt_bare_function_name, ST5)", () => {
   // both vendors 2026-10-02: "FUNCTION 'F' referenced without parentheses '()'" and "The code 'F;' has no effect"
   const src = `FUNCTION Fn : INT\nVAR_INPUT\n\tx : INT;\nEND_VAR\nFn := x;\nEND_FUNCTION\n\nPROGRAM P\nVAR\n\ta : INT;\nEND_VAR\nFn;\nEND_PROGRAM\n`
-  const pr = parseSource(src, { networkText: true }, "codesys")
+  const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   const got = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "no-op-statement" || d.code === "function-without-parens")
@@ -75,7 +75,7 @@ test("a FUNCTION's name alone as a statement is an error beside the no-op warnin
 test("a FUNCTION's name alone INSIDE that FUNCTION is its return variable: the no-op warning alone (stmt_function_own_name_bare, ST5)", () => {
   // CODESYS 2026-10-02: only "The code 'F;' has no effect" — no "referenced without parentheses"
   const src = `FUNCTION Fn : INT\nVAR_INPUT\n\tx : INT;\nEND_VAR\nFn := x;\nFn;\nEND_FUNCTION\n`
-  const pr = parseSource(src, { networkText: true }, "codesys")
+  const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   const got = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "no-op-statement" || d.code === "function-without-parens")
@@ -91,7 +91,7 @@ test("a call operator that took the next token for its `(` is no name standing w
 test("an array element indexed by a CALL is a no-op all the same — the vendors warn it (qf_c0139_absent_call)", () => {
   // both vendors 2026-10-12: "The code 'list[F_…_idx()];' has no effect" — the call inside does not make it a statement
   const src = `FUNCTION F_idx : INT\nF_idx := 1;\nEND_FUNCTION\nPROGRAM P\nVAR list : ARRAY[1..3] OF INT;\nEND_VAR\nlist[F_idx()];\nEND_PROGRAM\n`
-  const pr = parseSource(src, { networkText: true }, "codesys")
+  const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   const found = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "no-op-statement")
@@ -102,7 +102,7 @@ test("an array element indexed by a CALL is a no-op all the same — the vendors
 test("a NESTED array element is a no-op whichever subscript holds the call (qf_c0139_absent_call_nested)", () => {
   // both vendors 2026-10-12 warn `m[F()][1];` and `m[1][F()];` alike
   const src = `FUNCTION F_idx : INT\nF_idx := 1;\nEND_FUNCTION\nPROGRAM P\nVAR m : ARRAY[1..3] OF ARRAY[1..3] OF INT;\nEND_VAR\nm[F_idx()][1];\nm[1][F_idx()];\nEND_PROGRAM\n`
-  const pr = parseSource(src, { networkText: true }, "codesys")
+  const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   const found = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "no-op-statement")

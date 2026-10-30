@@ -43,7 +43,7 @@ test("a cycle through an enum member's value is refused at the constant", () => 
 // CODESYS only — an unmeasured sentence on TwinCAT is an LSP-only message.
 test("a recursive constant is refused on CODESYS only — TwinCAT has no recorded answer", () => {
   const src = fb("\tcs : INT := cs + 1;")
-  const parseResult = parseSource(src, { networkText: true }, "twincat")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "twincat")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "twincat")
   const tc = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "twincat" }) }).filter((d) => d.code === "constant-cycle")
   expect(tc).toEqual([])
@@ -51,7 +51,7 @@ test("a recursive constant is refused on CODESYS only — TwinCAT has no recorde
 
 /** Every error a file of several declarations gets on CODESYS — the file split as the project holds it. */
 function errorsOf(files: readonly { uri: string; source: string }[]): string[] {
-  const all = files.map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true }, "codesys") }))
+  const all = files.map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true, unicodeIdentifiers: false }, "codesys") }))
   const project = build.buildSymbolTable(all, [], "codesys")
   return all.flatMap((f) =>
     computeDiagnostics({ uri: uriFor(f.parseResult), parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor: "codesys" }) })

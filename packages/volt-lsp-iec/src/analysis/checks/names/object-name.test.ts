@@ -11,7 +11,7 @@ import { computeDiagnostics, resolveConfig, type Vendor } from "../../index.js"
 import { refused } from "./object-name.js"
 
 const findings = (uri: string, source: string, vendor: Vendor = "codesys", unicodeIdentifiers = false): string[] => {
-  const parseResult = parseSource(source, { networkText: true }, vendor)
+  const parseResult = parseSource(source, { networkText: true, unicodeIdentifiers }, vendor)
   const project = build.buildSymbolTable([{ uri, parseResult, source }], [], vendor)
   return computeDiagnostics({ uri, parseResult, source, project, config: resolveConfig({ vendor, unicodeIdentifiers }) }).map((d) => `${d.code}: ${d.message}`)
 }

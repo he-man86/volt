@@ -19,7 +19,7 @@ function hoversOf(names: readonly string[], dialect: Dialect, environment?: Comp
     at.push([name, src.length + head.length + 1])
     src += `${head}${name};\nEND_FUNCTION_BLOCK\n`
   })
-  const parseResult = parseSource(src, { networkText: true }, dialect)
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, dialect)
   const doc: Document = { uri: "file:///B.pou", source: src, parseResult }
   const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }], [], dialect, environment)
   return new Map(at.map(([name, offset]) => [name, (hover(doc, project, offset)?.contents as { value: string } | undefined)?.value]))
@@ -39,7 +39,7 @@ test("an elementary type's hover carries its range, DERIVED from types/elementar
 
 test("hover falls back to the built-in entry for a built-in type", () => {
   const src = `FUNCTION_BLOCK F\nVAR\n n : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const doc: Document = { uri: "u", source: src, parseResult }
   const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }], [], "codesys")
   // cursor on the `INT` type name (a built-in, not a user symbol)
@@ -128,7 +128,7 @@ test("the nine names nothing described hover through the service on CODESYS", ()
 
 /** `src` parsed and bound in `dialect`; the hover at the first `word` after `after`. */
 function hoverIn(src: string, word: string, after: string, dialect: Dialect = "codesys"): string | undefined {
-  const parseResult = parseSource(src, { networkText: true }, dialect)
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, dialect)
   const doc: Document = { uri: "file:///S.pou", source: src, parseResult }
   const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }], [], dialect)
   return (hover(doc, project, src.indexOf(word, src.indexOf(after)) + 1)?.contents as { value: string } | undefined)?.value
@@ -160,7 +160,7 @@ test("a platform integer's hover names the width the project's target gives it",
 /** A function block with an LD body that names `name` in a network, parsed and bound in `dialect`. */
 function networkDoc(name: string, dialect: Dialect): { doc: Document; project: ReturnType<typeof build.buildSymbolTable>; at: number } {
   const src = `FUNCTION_BLOCK F\nVAR a : BOOL; nm : STRING; out : BOOL; END_VAR\n%LANGUAGE LD\n%NETWORK\nnm := ${name}();\nout := a;\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src, { networkText: true }, dialect)
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, dialect)
   const doc: Document = { uri: "file:///F.pou", source: src, parseResult }
   return { doc, project: build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }], [], dialect), at: src.indexOf(name) + 2 }
 }

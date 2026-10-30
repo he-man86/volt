@@ -10,7 +10,7 @@ const MIXED = ["a := 1;\rb := 2;\r\nc := 3;\nd := 4;\r\re := 5;", "(* one\rtwo\r
 
 test("lineColAt agrees with the lexer's line and column at every token, over LF, CRLF and lone-CR line ends", () => {
   for (const text of MIXED)
-    for (const t of lex(text, "codesys")) {
+    for (const t of lex(text, "codesys", false)) {
       expect(lineColAt(text, t.span.start)).toEqual({ line: t.span.startLine, col: t.span.startCol })
       expect(lineColAt(text, t.span.end)).toEqual({ line: t.span.endLine, col: t.span.endCol })
     }

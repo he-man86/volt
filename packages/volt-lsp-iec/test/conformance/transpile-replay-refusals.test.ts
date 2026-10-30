@@ -216,7 +216,7 @@ describe("lines — TwinCAT's, for this change's ST row", () => {
   const name = "rcc_st_body_network"
   const lines = (): { lsp: string[]; ide: string[] } => {
     const t = ALL_TESTS.find((x) => x.name === name)!
-    const pr = parseSource(t.source, { networkText: true }, "twincat")
+    const pr = parseSource(t.source, { networkText: true, unicodeIdentifiers: false }, "twincat")
     const project = build.buildSymbolTable([{ uri: `file:///w/${t.pouName}.pou`, parseResult: pr, source: t.source }], [], "twincat")
     const at = (ds: readonly { severity: string; message: string; line: number }[]) =>
       ds.filter((d) => d.severity === "error" || d.severity === "warning").map((d) => `[${d.severity}] ${comparable(d.message)} @${d.line}`)

@@ -46,6 +46,8 @@ import { acceptClosingRun, readPropertyRun, reportMisplacedProperty } from "../f
  */
 export interface ParseOptions {
   networkText: boolean
+  /** The project's Compile option "Unicode identifiers" (`lex`) — the project's fact, so REQUIRED like `networkText`. */
+  unicodeIdentifiers: boolean
 }
 
 /**
@@ -53,7 +55,16 @@ export interface ParseOptions {
  * the file holds when it is a workspace file (`sourceObjectOf`); text that is no workspace file passes none.
  */
 export function parseSource(src: string, options: ParseOptions, dialect: Dialect, object?: SourceObject): ParseResult {
-  return parse(lex(src, dialect), dialect, options, object)
+  return parse(lex(src, dialect, requireOptions(options).unicodeIdentifiers), dialect, options, object)
+}
+
+/** Refused by name, not filled in: an untyped caller (a script) that forgets one would otherwise get one reading silently. */
+function requireOptions(options: ParseOptions): ParseOptions {
+  if (typeof options?.networkText !== "boolean")
+    throw new Error("parse: ParseOptions.networkText is required — whether LD/FBD bodies are network text is the caller's fact")
+  if (typeof options.unicodeIdentifiers !== "boolean")
+    throw new Error("parse: ParseOptions.unicodeIdentifiers is required — the project's \"Unicode identifiers\" is the caller's fact")
+  return options
 }
 
 /** A WORKSPACE FILE, read as the object its extension names (`source-object.ts`). */
@@ -63,15 +74,13 @@ export function parseDocument(uri: string, src: string, options: ParseOptions, d
 
 /** Parse a stream of tokens into one or more top-level units. `dialect` is the vocabulary `tokens` were lexed with. */
 export function parse(tokens: readonly Token[], dialect: Dialect, options: ParseOptions, object?: SourceObject): ParseResult {
-  // Refused by name, not filled in: an untyped caller (a script) that forgets it would otherwise get one reading silently.
-  if (typeof options?.networkText !== "boolean")
-    throw new Error("parse: ParseOptions.networkText is required — whether LD/FBD bodies are network text is the caller's fact")
+  requireOptions(options)
   // A DUT or a GVL whose text does not OPEN with its keyword declares nothing, and the IDE says nothing about it
   // (`source-object.ts`): there is no declaration to read and no error to give.
   if (isWrittenAsSent(object)) {
     const first = tokens.find((t) => !isTrivia(t.kind))
     if (first?.keyword === undefined || !OPENING_KEYWORDS[object].includes(first.keyword))
-      return { units: [], errors: [], failedDeclarations: [], tokens, dialect }
+      return { units: [], errors: [], failedDeclarations: [], tokens, dialect, unicodeIdentifiers: options.unicodeIdentifiers }
   }
   // A POU whose text opens with a NAME where its keyword belongs declares nothing either, and the IDE says nothing about
   // it: the push takes it, and the build reports only the USE of the POU it was meant to declare — "Unknown type: 'FB_x'"
@@ -79,8 +88,8 @@ export function parse(tokens: readonly Token[], dialect: Dialect, options: Parse
   // `FUNCTIONBLOCK` for the keyword — both vendors, frontend-conformance 2.8.1). A keyword or a mark there (a `%FOLDER`
   // line, which the push refuses) is unmeasured and keeps the parse.
   if (object === "pou" && tokens.find((t) => !isTrivia(t.kind))?.kind === "identifier")
-    return { units: [], errors: [], failedDeclarations: [], tokens, dialect }
-  const c = new Cursor(tokens, dialect)
+    return { units: [], errors: [], failedDeclarations: [], tokens, dialect, unicodeIdentifiers: options.unicodeIdentifiers }
+  const c = new Cursor(tokens, dialect, false, options.unicodeIdentifiers)
   const units: TopLevel[] = []
 
   while (!c.atEof()) {
@@ -119,7 +128,7 @@ export function parse(tokens: readonly Token[], dialect: Dialect, options: Parse
   if (object !== undefined) for (const unit of allUnits(units)) markSlotless(unit, dialect, (message, span) => c.pushError(message, span))
   if (!options.networkText) for (const unit of allUnits(units)) unitBodies(unit).forEach(readNoNetworkText)
   attachAttributes(units, tokens)
-  return { units, errors: c.getErrors(), failedDeclarations: c.getFailedDeclarations(), tokens, dialect }
+  return { units, errors: c.getErrors(), failedDeclarations: c.getFailedDeclarations(), tokens, dialect, unicodeIdentifiers: options.unicodeIdentifiers }
 }
 
 /**

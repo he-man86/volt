@@ -29,7 +29,7 @@ a();
 END_PROGRAM`
 
 const setup = () => {
-  const parseResult = parseSource(SRC, { networkText: true }, "codesys")
+  const parseResult = parseSource(SRC, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const doc: Document = { uri: "file:///F.pou", source: SRC, parseResult }
   return { doc, project: build.buildSymbolTable([{ uri: doc.uri, parseResult, source: SRC }], [], "codesys") }
 }
@@ -54,7 +54,7 @@ test("rename of a type rewrites its type-position uses (no stale `: FB_Base` lef
   // Apply the edits and confirm no "FB_Base" survives and the code still parses.
   const applied = applyEdits(SRC, edits)
   expect(applied).not.toContain("FB_Base")
-  expect(parseSource(applied, { networkText: true }, "codesys").errors).toHaveLength(0)
+  expect(parseSource(applied, { networkText: true, unicodeIdentifiers: false }, "codesys").errors).toHaveLength(0)
 })
 
 test("a same-named local variable is NOT swept up by a type rename (identity, not text)", () => {
@@ -66,7 +66,7 @@ VAR
 END_VAR
 T := T + 1;
 END_PROGRAM`
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const doc: Document = { uri: "file:///G.pou", source: src, parseResult }
   const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }], [], "codesys")
   // Rename the local var `T : INT` — must touch only the var (decl + 2 body uses = 3), never the FB type `T`.
@@ -105,7 +105,7 @@ VAR
 END_VAR
 gv := .gv;
 END_FUNCTION_BLOCK`
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const doc: Document = { uri: "file:///H.pou", source: src, parseResult }
   const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }], [], "codesys")
   const bare = src.indexOf("o := gv;") + "o := ".length

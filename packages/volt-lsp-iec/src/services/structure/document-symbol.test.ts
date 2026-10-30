@@ -18,7 +18,7 @@ END_FUNCTION_BLOCK`
 const docOf = (src: string, uri = "file:///F.pou"): Document => ({
   uri,
   source: src,
-  parseResult: parseSource(src, { networkText: true }, "codesys"),
+  parseResult: parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys"),
 })
 
 const names = (syms: { name: string }[]) => syms.map((s) => s.name)
@@ -46,7 +46,7 @@ test("document-symbol: a GVL is named from its file and lists its globals", () =
 
 describe("through the services barrel", () => {
   function setup(src: string) {
-    const parseResult = parseSource(src, { networkText: true }, "codesys")
+    const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
     const doc: Document = { uri: "file:///F.pou", source: src, parseResult }
     const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }], [], "codesys")
     return { doc, project }

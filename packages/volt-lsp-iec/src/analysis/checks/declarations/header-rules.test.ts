@@ -49,7 +49,7 @@ test("C0149: a VAR section inside an INTERFACE is flagged; a method-only interfa
 })
 
 const all = (src: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
-  const parseResult = parseSource(src, { networkText: true }, vendor)
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, vendor)
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
   // every message but the object-name one: the sources here are not named after a file
   return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
@@ -125,7 +125,7 @@ test("C0145: IMPLEMENTS on a FUNCTION is flagged; a bare FUNCTION is fine", () =
 
 /** Every error the analysis gives `own`, in a project of `own` and `others` — whole, not filtered by code. */
 const allErrors = (own: { uri: string; source: string }, others: { uri: string; source: string }[]): string[] => {
-  const files = [own, ...others].map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true }, "codesys") }))
+  const files = [own, ...others].map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true, unicodeIdentifiers: false }, "codesys") }))
   const project = build.buildSymbolTable(files, [], "codesys")
   return computeDiagnostics({ parseResult: files[0]!.parseResult, source: own.source, project, config: resolveConfig({ vendor: "codesys" }), uri: own.uri })
     .filter((d) => d.severity === "error")
@@ -145,7 +145,7 @@ test("a FUNCTION that EXTENDS: its base class is never found, even one that exis
 // `twincatActual` for C0145 had it since 2026-07-11, and it is the one word that differs.
 test("C0145 on TwinCAT: 'Functionblocks', as TwinCAT writes it", () => {
   const src = "FUNCTION F_Impl IMPLEMENTS ITF_A\nVAR_INPUT\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\n;\nEND_FUNCTION\n"
-  const parseResult = parseSource(src, { networkText: true }, "twincat")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "twincat")
   const project = build.buildSymbolTable([{ uri: "F_Impl.pou", parseResult, source: src }], [], "twincat")
   const got = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "twincat" }) })
     .filter((d) => d.code === "function-implements")
@@ -168,7 +168,7 @@ test("a clause before the return type is read whole: only the clause's own messa
   })
   const impl = { uri: "F_Impl.pou", source: "FUNCTION F_Impl IMPLEMENTS ITF_A : INT\nVAR_INPUT\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\nF_Impl := x;\nEND_FUNCTION\n" }
   const ext = { uri: "F_Ext.pou", source: "FUNCTION F_Ext EXTENDS FB_Base : INT\nVAR_INPUT\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\nF_Ext := x;\nEND_FUNCTION\n" }
-  expect(parseSource(impl.source, { networkText: true }, "codesys").errors.map((e) => e.message)).toEqual([])
+  expect(parseSource(impl.source, { networkText: true, unicodeIdentifiers: false }, "codesys").errors.map((e) => e.message)).toEqual([])
   expect(allErrors(impl, [itf, caller("F_Impl")])).toEqual(["Interfaces can only be implemented by function blocks"])
   expect(allErrors(caller("F_Impl"), [impl, itf])).toEqual([])
   expect(allErrors(ext, [base, caller("F_Ext")])).toEqual(["No definition found for base class 'FB_Base'"])
@@ -236,7 +236,7 @@ test("an interface METHOD's local sections: each is refused, in each vendor's wo
 test("C0182: a return type on a FUNCTION_BLOCK is flagged, and nothing else", () => {
   const src = `FUNCTION_BLOCK FB : INT\nVAR\n\tout : INT;\nEND_VAR\nout := 1;\nEND_FUNCTION_BLOCK`
   expect(msgs(src, "return-type-not-allowed")).toEqual(["Return type is only possible for POUs of type FUNCTION and METHOD"])
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "FB.pou", parseResult, source: src }], [], "codesys")
   const all = computeDiagnostics({ uri: "FB.pou", parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
   expect(all.map((d) => d.code)).toEqual(["return-type-not-allowed"])

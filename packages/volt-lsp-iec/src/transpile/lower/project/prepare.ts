@@ -17,8 +17,9 @@ import { EXEC_ORACLE_DIALECT, EXEC_ORACLE_TARGET } from "../conditions.js"
 /** How the transpiler reads the text it is handed: the language as Volt defines it, LD/FBD bodies as network text — which
  *  reaches the backend through network text, never through `lowerUnit`, which refuses a body that is not ST (`isStBody`).
  *  Stated, not defaulted (frontend-conformance P5): the transpiler has no environment of its own to take it from, and it
- *  ran with network text on in every run that measured it (the test preload). */
-export const TRANSPILE_PARSE: ParseOptions = { networkText: true }
+ *  ran with network text on in every run that measured it (the test preload). Names in any script: the transpiler's input is
+ *  code CODESYS compiles, so a name past ASCII in it is one the project's "Unicode identifiers" made a name (DIALECT C28b). */
+export const TRANSPILE_PARSE: ParseOptions = { networkText: true, unicodeIdentifiers: true }
 
 /** A file handed to lowering beside the source — a GVL, a sibling POU, or a referenced library's file, which keeps its
  *  `Library Manager/<library>/` path (how `isLibrarySymbol` tells it apart). */

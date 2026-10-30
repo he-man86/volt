@@ -154,7 +154,7 @@ test("the two slug→Cnnnn tables agree on every configurable code", () => {
 test("the pulled TwinCAT descriptor with C0371 disabled stops the VAR_IN_OUT own-access warning", () => {
   const pulled = "Disabled warnings:     C0371\nReplace constants:     off\nMax compiler warnings: 100\n"
   const src = `FUNCTION_BLOCK FB_Test\nVAR_IN_OUT\n io : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\nMETHOD METH : BOOL\nVAR\n x : INT;\nEND_VAR\nio := x;\nEND_METHOD`
-  const parseResult = parseSource(src, { networkText: true }, "twincat")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "twincat")
   const project = build.buildSymbolTable([{ uri: "FB_Test.pou", parseResult, source: src }], [], "twincat")
   const run = (diagnostics: ReturnType<typeof projectDiagnosticsFrom>) =>
     computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "twincat", diagnostics }) }).map((d) => d.code)
