@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 Loop (sized to a medium change, per the 2026-09-27 workflow analysis): implement each section test-first; ONE
 review round per section with the **data** lens (can a file lose, misplace or mislabel its body?); fix; commit. A
 second round runs only if the first found a high or medium finding. One final review covers the whole change with

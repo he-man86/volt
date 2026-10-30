@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Why
 
 The owner (2026-09-28): "we need to support all ld and fbd" — `IMPLEMENTATION LD|FBD UNSUPPORTED` is a temporary state to

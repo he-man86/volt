@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Design: no body slot vs empty body (2.1)
 
 **Target.** A member's text says which of three things the IDE holds, on both vendors: a body (`IMPLEMENTATION ST` +

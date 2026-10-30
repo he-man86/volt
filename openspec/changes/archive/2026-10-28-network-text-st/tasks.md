@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 Owner, 2026-10-27: "just go ahead". Read-only first. Section 1 is docs only and runs while language-line is being built;
 sections 2–3 change network-text code that language-line also touches, so they start only after language-line is
 archived.

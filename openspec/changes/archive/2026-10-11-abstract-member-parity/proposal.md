@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Why
 
 **The same abstract member reads differently by vendor — the Volt layer must be identical.** `abstract-member-push`

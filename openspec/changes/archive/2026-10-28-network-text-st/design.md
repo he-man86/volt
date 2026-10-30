@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 # network-text-st — design
 
 ## 1.1 Census: NWL nodes in the corpora, and their plain-ST spelling

@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Why
 
 The volt-lsp-iec LSP is exercised almost entirely by small, hand-written in-memory fixtures. A real, full-option CODESYS project is a different beast — library-heavy, deeply cross-referenced, and using language features the fixtures never touch — and it's exactly where an LSP earns or loses the agent's trust (a single false-positive diagnostic on valid code teaches the agent to distrust *all* diagnostics). We now have such a project on hand, so we can turn it into a durable regression corpus and harden the LSP against reality instead of toy inputs.

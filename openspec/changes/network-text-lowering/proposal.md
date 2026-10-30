@@ -19,7 +19,7 @@ LD and FBD programs to run in its simulator. It loads Volt's interpreter from a 
 What a network body MEANS is already decided and measured: the exec twin (`test/support/network-twin.ts` +
 `-boxes.ts` + `-reads.ts`, 810 lines) writes, for every body, the CODESYS ST that runs as that network (EN/ENO as an
 `IF`, an FB box called before the tree that reads it, wires as `VAR` kept across scans, `R_EDGE` as an `R_TRIG`,
-`BRANCH_SHORTCIRCUIT`'s guard, `%EXECUTE`, `%DISABLED` dropped, ...). Its rules are pinned by
+`BRANCH_SHORTCIRCUIT`'s guard, the `EXECUTE` box, `%DISABLED` dropped, ...). Its rules are pinned by
 `test/support/network-twin.test.ts` and by CODESYS: the twins of 44 corpus bodies build with 0 errors, and NWL traces
 equal the twin traces on every spelled exec case (N24 20/20, 1.4 6/6, 1c 6/6). Lowering adds no new semantics: it runs
 what the twin already says.

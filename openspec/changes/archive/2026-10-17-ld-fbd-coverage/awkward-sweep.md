@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 # Awkward-shapes sweep — measured 2026-10-16, CODESYS 3.5.21.40 (TwinCAT not measured)
 
 Owner rule (tasks 2R.5): if CODESYS stores a network and it RUNS, Volt encodes and decodes it; how the editor draws it

@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Why
 
 On a large project, `volt init` / `volt pull` shows a progress toast that **fills to 100% in seconds, then sits

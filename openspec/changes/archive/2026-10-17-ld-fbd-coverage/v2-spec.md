@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 # Network text v2.1 — specification (draft, 2026-10-17)
 
 Sources: readability.md "2R.6 proposal v2" + "v2 review", tasks.md 2R.6 (the 10:01 "option 1" entry), the four-lens

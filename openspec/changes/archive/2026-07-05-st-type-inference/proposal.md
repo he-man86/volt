@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Why
 
 Now that `st-body-ast` gives every ST body a real statement/expression tree, the diagnostics can finally see *types through expressions*. Today the type checks are token-pattern heuristics that infer a type only for a single identifier or literal and **bail on any `.`, call, or nested expression** (`check-assignment-types` `classifyRhs`, `check-binary-operators`, `check-conversion`); there is **no call-argument type checking at all**, and the one diagnostic the CODESYS compiler emits that we don't — the LREAL→REAL narrowing warning — is unreachable without expression types. This change adds the **type-inference engine** over the tree and deepens the checks onto it, closing the accuracy gap while holding the zero-false-positive invariant on all four corpora.

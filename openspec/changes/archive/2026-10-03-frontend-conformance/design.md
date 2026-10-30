@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 # Design: frontend-conformance
 
 Paths are relative to `packages/volt-lsp-iec/`. Line numbers were read on 2026-09-29 while other runs were editing `src/transpile/`.

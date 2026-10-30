@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 # Graphical body census — what regeneration destroys
 
 Evidence for `proposal.md`. Every row is either measured against a recorded vendor export or marked

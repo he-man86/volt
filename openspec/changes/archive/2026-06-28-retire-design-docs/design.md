@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Context
 
 `VOLT-DESIGN.md` and `VOLT-PLAN.md` have been superseded by OpenSpec: the invariants are now the

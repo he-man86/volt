@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Context
 
 The audit findings (proposal) show the debt is concentrated in the type/semantic layer: facts and policy are

@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 # Vendor-neutrality audit (task 1.1a), read-only
 
 Scope: the two contracts a new vendor meets: the WIRE (`src/Volt.Contracts/Wire`, `Vocabulary/`, `docs/wire.html`,

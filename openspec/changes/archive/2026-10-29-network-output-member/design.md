@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 # network-output-member — design
 
 ## 1.2 The rule (counts: tasks.md 1.1/1a; CODESYS corpora unless a vendor is named)

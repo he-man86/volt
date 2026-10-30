@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Why
 
 A three-way audit (semantic / query / reference-parser) found the LSP's type-and-semantic foundation has

@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## 0. Census
 
 - [x] 0.1 Pull the six corpora on both vendors (own `ide.ps1 -Instance ld-fbd-coverage`, corpus copies only) and count every

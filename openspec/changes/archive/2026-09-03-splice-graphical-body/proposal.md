@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Why
 
 A push does not edit a graphical body. It **throws the whole `<FBD>`/`<LD>` element away and builds a new one from

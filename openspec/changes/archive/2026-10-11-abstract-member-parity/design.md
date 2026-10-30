@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Design (step 2): one rule, read from the declaration
 
 **Target.** The Volt text of a member depends only on its declaration and its code. The IDE object's class and slot

@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Why
 
 Network text is meant to be "ST transpiled directly from the NWL", and for most of a rung it already is: NWL stores a

@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Property gate
 - [x] A round-trip test: `pull` → `push` (no edits) yields a no-op push (zero state-changing ops).
       → `idempotence.test.ts` (mock, always runs) + `live-idempotence.test.ts` (real bridge, skips if none).
