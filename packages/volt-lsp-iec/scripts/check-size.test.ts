@@ -1,7 +1,9 @@
 /**
- * The size gate (openspec transpile-restructure task 1.0.2; the whole package since lsp-same-standard task 1.1): green
- * on the real tree; on a scratch tree a 401-line file fails anywhere under `src/` or `test/`, a 601-line test fails,
- * `map.generated.ts` is exempt by name, a function over 80 lines fails — each named by its file (and function).
+ * The size gate (openspec transpile-restructure task 1.0.2; the whole package since lsp-same-standard task 1.1): on a
+ * scratch tree a 401-line file fails anywhere under `src/` or `test/`, a 601-line test fails, `map.generated.ts` is
+ * exempt by name, a function over 80 lines fails — each named by its file (and function). The REAL tree is the gate's
+ * own run, `bun run lint` (CI's per-package lint step), not a test here: scanning every file of the package is the
+ * whole gate's work, and a 5 s test budget is no measure of it.
  */
 import { expect, test } from "bun:test"
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
@@ -24,10 +26,6 @@ function inScratch<T>(files: Record<string, string>, run: (root: string) => T): 
 const lines = (n: number): string => Array.from({ length: n }, (_, k) => `export const v${k} = ${k}\n`).join("")
 const fn = (name: string, n: number): string =>
   `export function ${name}(): number {\n  let x = 0\n${Array.from({ length: n - 4 }, () => "  x += 1\n").join("")}  return x\n}\n`
-
-test("the real tree is within its limits", () => {
-  expect(sizeReport().errors).toEqual([])
-})
 
 test("a new 401-line file fails anywhere under src/ or test/; 400 lines passes; scripts/ is not scanned", () => {
   const report = inScratch(
