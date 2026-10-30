@@ -37,7 +37,7 @@
       the diagnostic census measure them (`name-refusal.ts`). `CREATE_REFUSAL_BY_NAME_NOT_MODELLED` deleted (both its
       fixtures modelled). Found on the way: the C0582 catalog repro and test named their methods `Calc` — refused (CALC);
       now `Compute`. TESTS: `object-name.test.ts`, `refused-names.test.ts`.
-- [ ] 4 Found on the way (2026-10-30): CODESYS narrows a WSTRING holding a character past ASCII to its UTF-8 bytes —
+- [x] 4 Moved to its own change `wstring-utf8-narrowing` (2026-10-30). Found on the way (2026-10-30): CODESYS narrows a WSTRING holding a character past ASCII to its UTF-8 bytes —
       `LEN(WSTRING_TO_STRING("größe"))` is 7 (`uoff_wstring_control`, record:exec) — where both backends narrow unit for
       unit (5; the prelude's `narrow` / `widen` were measured on ASCII alone and say so). Sweep the class before a fix: the
       reverse widen of UTF-8 bytes, a cut at the target's capacity inside a character, a unit no encoding holds (a lone
