@@ -1,3 +1,5 @@
+> CLOSED 2026-10-30: not built — the three spellings store three different models, all drawn in real projects; dropping FEED would merge two (verdict C).
+
 > FOR REVIEW (simplification), written from Sim-Assist (change `network-viewer`, 2026-10-30). DRAFT: a proposal to simplify network text, not a measured bug. Nothing is built until the owner answers. Measured on Sim-Assist's bundle of volt dev `5aa22c2a09`.
 
 ## Why

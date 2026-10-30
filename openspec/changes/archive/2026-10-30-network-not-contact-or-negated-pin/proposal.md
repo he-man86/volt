@@ -1,3 +1,5 @@
+> CLOSED 2026-10-30: doc fixed (the row is 'negated input', what a push stores); own spelling for a pin negated on the box is an open owner question.
+
 > FOR REVIEW (language question), written from Sim-Assist (change `network-viewer`, 2026-10-30). DRAFT: a question about network text, not a measured bug. Measured on Sim-Assist's bundle of volt dev `10ca557975`.
 
 ## Why

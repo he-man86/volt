@@ -1,3 +1,5 @@
+> CLOSED 2026-10-30: doc fixed (the row is 'TRUE contact', what a push stores); own spelling for a coil on the bare rail is an open owner question.
+
 > FOR REVIEW (language question), written from Sim-Assist (change `network-viewer`, 2026-10-30). DRAFT: a question about network text, not a measured bug. Measured on Sim-Assist's bundle of volt dev `10ca557975`.
 
 ## Why

@@ -1,3 +1,5 @@
+> CLOSED 2026-10-30: not built — one rule kept: .ENO means ENO is shown; no stored model binds ENO without showing it (verdict D, Volt's recommendation).
+
 > FOR REVIEW (simplification), written from Sim-Assist (change `network-viewer`, 2026-10-30). DRAFT: a proposal to simplify network text, not a measured bug. Nothing is built until the owner answers. Measured on Sim-Assist's bundle of volt dev `5aa22c2a09`.
 
 ## Why

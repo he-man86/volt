@@ -1,3 +1,5 @@
+> CLOSED 2026-10-30: not built — the two orders store two different CODESYS models and both occur in drawn projects; the text is right (verdict C, see Volt verification).
+
 > FOR REVIEW (language question), written from Sim-Assist (change `network-viewer`, 2026-10-30). DRAFT: a question about network text, not a measured bug. Measured on Sim-Assist's bundle of volt dev `10ca557975`.
 
 ## Why

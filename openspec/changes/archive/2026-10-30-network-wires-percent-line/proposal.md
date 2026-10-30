@@ -1,3 +1,5 @@
+> CLOSED 2026-10-30: not built — the owner decided VAR_TEMP w1 : ANY on 2026-10-28 (verdict D, already decided).
+
 > FOR REVIEW (simplification), written from Sim-Assist (change `network-viewer`, 2026-10-30). DRAFT: a proposal to simplify network text, not a measured bug. Nothing is built until the owner answers. Read on volt dev `5aa22c2a09`.
 
 ## Why
