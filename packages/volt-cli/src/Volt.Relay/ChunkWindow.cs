@@ -29,7 +29,13 @@ namespace Volt.Relay
 
         private sealed class Delivery
         {
+            public Delivery(string id, int count) { Id = id; Count = count; Unacked = count; }
+            public string Id { get; }
+            public int Count { get; }
             public int Unacked;
+            // The chunks taken to be sent: what a cancel reports as sent (the chunk in flight included).
+            public int Taken;
+            // True: delivered (its last ack). False: the relay cancelled it. Cancelled: the connection ended first.
             public readonly TaskCompletionSource<bool> Done =
                 new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         }
@@ -47,6 +53,10 @@ namespace Volt.Relay
         private readonly Queue<Entry> _queued = new Queue<Entry>();
         // In send order, so the first is the oldest: what a stall names.
         private readonly List<Entry> _unacked = new List<Entry>();
+        // Chunks of a CANCELLED answer that went out before the cancel: the relay acks each one it got (an ack means
+        // "received"), so that ack is expected — but the window no longer holds their bytes and the stall watchdog no
+        // longer waits for them. Removed by their ack; dropped with the connection.
+        private readonly HashSet<KeyValuePair<string, int>> _cancelledUnacked = new HashSet<KeyValuePair<string, int>>();
         private readonly Queue<KeyValuePair<TimeSpan, int>> _acked = new Queue<KeyValuePair<TimeSpan, int>>();
         private int _unackedBytes;
         private long _ackedInSpan;
@@ -69,11 +79,12 @@ namespace Volt.Relay
             return (int)Math.Max(Floor, Math.Min(Cap, _ackedInSpan));
         }
 
-        /// <summary>Queue an answer's chunks, in order. The task completes when the LAST of them is acked; it is
-        /// cancelled when the connection ends first, and faults when one of them could not be sent.</summary>
-        public Task Enqueue(string id, IReadOnlyList<byte[]> messages)
+        /// <summary>Queue an answer's chunks, in order. The task is true when the LAST of them is acked and false when
+        /// the relay cancels the answer first (<see cref="Cancel"/>); it is cancelled when the connection ends first, and
+        /// faults when one of them could not be sent.</summary>
+        public Task<bool> Enqueue(string id, IReadOnlyList<byte[]> messages)
         {
-            var delivery = new Delivery { Unacked = messages.Count };
+            var delivery = new Delivery(id, messages.Count);
             lock (_gate)
             {
                 if (_closed) delivery.Done.TrySetCanceled();
@@ -102,6 +113,7 @@ namespace Volt.Relay
                 next.SentAt = _now();
                 _unacked.Add(next);
                 _unackedBytes += next.Chunk.Message.Length;
+                next.Delivery.Taken++;
                 chunk = next.Chunk;
                 return true;
             }
@@ -115,7 +127,7 @@ namespace Volt.Relay
             lock (_gate)
             {
                 var index = _unacked.FindIndex(e => e.Chunk.Seq == seq && string.Equals(e.Chunk.Id, id, StringComparison.Ordinal));
-                if (index < 0) return false;
+                if (index < 0) return _cancelledUnacked.Remove(new KeyValuePair<string, int>(id, seq));
                 var entry = _unacked[index];
                 _unacked.RemoveAt(index);
                 var size = entry.Chunk.Message.Length;
@@ -164,6 +176,33 @@ namespace Volt.Relay
             _ready.Release();
         }
 
+        /// <summary>The relay cancelled the answer of <paramref name="id"/> (openspec relay-cancel-discarded-calls): none of
+        /// its queued chunks is sent, and its unacked ones stop holding the window and the stall watchdog — the chunk in
+        /// flight, already taken, still goes out. Its task completes false. Returns the chunks taken to be sent and the
+        /// chunks in the answer, or null when no answer of that id is still awaiting delivery (it was delivered).</summary>
+        public (int Sent, int Of)? Cancel(string id)
+        {
+            Delivery? delivery;
+            lock (_gate)
+            {
+                delivery = _queued.Concat(_unacked).Select(e => e.Delivery)
+                    .FirstOrDefault(d => string.Equals(d.Id, id, StringComparison.Ordinal));
+                if (delivery == null) return null;
+                foreach (var e in _unacked.Where(e => e.Delivery == delivery).ToList())
+                {
+                    _unacked.Remove(e);
+                    _unackedBytes -= e.Chunk.Message.Length;
+                    _cancelledUnacked.Add(new KeyValuePair<string, int>(e.Chunk.Id, e.Chunk.Seq));
+                }
+                var keep = _queued.Where(e => e.Delivery != delivery).ToList();
+                _queued.Clear();
+                foreach (var e in keep) _queued.Enqueue(e);
+            }
+            delivery.Done.TrySetResult(false);
+            _ready.Release();
+            return (delivery.Taken, delivery.Count);
+        }
+
         /// <summary>The connection ended: every answer not yet acked is abandoned, and nothing more is taken.</summary>
         public void Close()
         {
@@ -174,6 +213,7 @@ namespace Volt.Relay
                 pending = _queued.Select(e => e.Delivery).Concat(_unacked.Select(e => e.Delivery)).Distinct().ToList();
                 _queued.Clear();
                 _unacked.Clear();
+                _cancelledUnacked.Clear();
                 _unackedBytes = 0;
             }
             foreach (var d in pending) d.Done.TrySetCanceled();
