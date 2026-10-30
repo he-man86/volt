@@ -45,11 +45,11 @@ export function checkDeclaredType(ctx: CheckContext, out: DiagnosticItem[]): voi
     checkVariableLength(ctx, decl, takesVariableLength(ctx.config.vendor, unit.kind, section.sectionKind), push)
     walk(decl.type, (t, base) => {
       if (base && t.kind === "reference_type") push(t.span, "reference-base-type", ctx.messages.referenceAsBaseType())
-      if (t.kind === "named_type" && t.subrange !== undefined && reversed(t.subrange.lo, t.subrange.hi, scope, 0n))
+      if (t.kind === "named_type" && t.subrange !== undefined && reversed(t.subrange.lo, t.subrange.hi, scope, 0n, ctx.uri))
         push(t.subrange.span, "border-order", ctx.messages.borderOrder(), swapBoundsFix(ctx.source, t.subrange.lo.span, t.subrange.hi.span))
       if (t.kind !== "array_type") return
       for (const d of t.dims)
-        if (reversed(d.lower, d.upper, scope, 1n)) push(d.span, "border-order", ctx.messages.borderOrder(), d.lower !== undefined && d.upper !== undefined ? swapBoundsFix(ctx.source, d.lower.span, d.upper.span) : undefined)
+        if (reversed(d.lower, d.upper, scope, 1n, ctx.uri)) push(d.span, "border-order", ctx.messages.borderOrder(), d.lower !== undefined && d.upper !== undefined ? swapBoundsFix(ctx.source, d.lower.span, d.upper.span) : undefined)
       if (t.vector !== undefined && !vectorElement(t.element)) push(t.span, "vector-base-type", ctx.messages.vectorBaseType())
     })
   }
@@ -85,10 +85,10 @@ function walk(t: TypeExpr, visit: (t: TypeExpr, base: boolean) => void, base = f
  * (`qf_c0228_bound_chained`) — while `2..0` is refused (`qf_c0228_bound_literal_two_below`), CODESYS 2026-10-12. A
  * subrange's `lo = hi + 1` is unmeasured, so a subrange keeps the plain order (`empty` 0).
  */
-function reversed(lo: Expr | undefined, hi: Expr | undefined, scope: Scope, empty: bigint): boolean {
+function reversed(lo: Expr | undefined, hi: Expr | undefined, scope: Scope, empty: bigint, uri: string): boolean {
   if (lo === undefined || hi === undefined) return false
-  const l = constEval(lo, scope)
-  const h = constEval(hi, scope)
+  const l = constEval(lo, scope, false, undefined, uri)
+  const h = constEval(hi, scope, false, undefined, uri)
   return typeof l === "bigint" && typeof h === "bigint" && l > h + empty
 }
 

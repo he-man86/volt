@@ -6,6 +6,21 @@ import { build } from "../../frontend/symbols/index.js"
 import { uriFor } from "../../../test/support/test-uri.js"
 import { diagnose } from "../../../test/support/diagnose.js"
 
+// THE NETWORK CHECK IS PART OF THE PIPELINE (openspec network-diagnostics-in-compute): a consumer that calls only
+// `computeDiagnostics` (a bundle, not the language server) gets the network refusals too, each once.
+const XOR_PROGRAM = (language: string, body: string) =>
+  `PROGRAM Main\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tx : BOOL;\nEND_VAR\n%LANGUAGE ${language}\n${body}END_PROGRAM\n`
+
+test("computeDiagnostics reports a network body's network check once: an infix XOR is one network-plain-st", () => {
+  const src = XOR_PROGRAM("LD", "%NETWORK\nx := a XOR b;\n")
+  const network = diagnose(src).filter((d) => d.code === "network-plain-st")
+  expect(network.map((d) => src.slice(d.span.start, d.span.end))).toEqual(["a XOR b"])
+})
+
+test("an ST body gives no network finding", () => {
+  expect(diagnose(XOR_PROGRAM("ST", "x := a XOR b;\n")).filter((d) => d.code.startsWith("network-"))).toEqual([])
+})
+
 function diag(src: string, vendor: Vendor): DiagnosticItem[] {
   return diagnose(src, vendor)
 }

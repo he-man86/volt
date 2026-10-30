@@ -54,9 +54,10 @@ export function networkScope(parent: Scope, body: BodySpan): Scope {
         ast: WIRE_AST,
       })
     }
-  // a coil nobody named (`??? := a;`) is the IDE's, not a name the body declares: typed by its value, as a wire is,
-  // so no check reads it as an undeclared name — the network check names it as the IDE's build does
-  const unnamed = definitions.get(UNNAMED)
+  // what the IDE stores unnamed, `???` (a coil, an operand), is the IDE's, not a name the body declares: typed by its value
+  // where it is a coil's, as a wire is, else unknown — so no check reads it as an undeclared name; the network check
+  // names it as the IDE's build does
+  const unnamed = definitions.get(UNNAMED) ?? (plainStText(body).sourceTokens.some((t) => t.text === UNNAMED) ? { kind: "none" as const } : undefined)
   if (unnamed !== undefined)
     defineSymbol(scope, {
       kind: "var",

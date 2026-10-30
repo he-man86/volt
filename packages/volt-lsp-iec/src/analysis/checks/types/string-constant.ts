@@ -23,7 +23,7 @@ export function checkStringConstant(ctx: CheckContext, out: DiagnosticItem[]): v
     // The sized string a declaration stores into — its own type, or an array's ELEMENT type.
     const sized = decl.type.kind === "array_type" ? decl.type.element : decl.type
     if (sized.kind !== "string_type" || sized.length === undefined) continue
-    const size = constEval(sized.length, scope)
+    const size = constEval(sized.length, scope, false, undefined, ctx.uri) // in its own list, a qualified-only one's constants bare
     if (typeof size !== "bigint") continue
     const wide = sized.wide === true
     const rendered = compilerTypeText(sized)

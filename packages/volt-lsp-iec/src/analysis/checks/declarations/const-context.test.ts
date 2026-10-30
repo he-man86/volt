@@ -41,6 +41,20 @@ test("C0161: a bound naming a constant of its own qualified-only list is no unkn
   expect(diagnose(gvl, "codesys").filter((d) => d.code === "array-bound-non-const")).toEqual([])
 })
 
+// …and it FOLDS there, as a plain list's does: a bound or a length naming a constant of its own qualified-only list sizes
+// the type (corpus pro2193 `GVL_Constants`: `AllRecipeDefinitions : ARRAY[1..RecipeDefinitionsCount] OF STRING := […]`,
+// which builds). The bare lookup skips a qualified-only list's names, so the bound stayed unfolded and every check that
+// reads the size was silent there — the same list unqualified reported both findings below.
+test("a bound and a length naming a constant of its own qualified-only list fold as a plain list's", () => {
+  const gvl = "VAR_GLOBAL CONSTANT\n\tN : INT := 3;\nEND_VAR\nVAR_GLOBAL\n\tnames : ARRAY[1..N] OF INT := [1, 2, 3, 4];\n\ttxt : STRING(N) := 'abcdef';\n\tdown : ARRAY[N..1] OF INT;\nEND_VAR\n"
+  const findings = (src: string) => diagnose(src, "codesys").map((d) => d.code).sort()
+  expect(findings(gvl)).toEqual(["array-init-count", "border-order", "string-constant-too-long"])
+  expect(findings(`{attribute 'qualified_only'}\n${gvl}`)).toEqual(findings(gvl))
+  // the corpus shape builds clean
+  const constants = "{attribute 'qualified_only'}\nVAR_GLOBAL CONSTANT\n\tCount : INT := 3;\n\tNames : ARRAY[1..Count] OF STRING := ['a', 'b', 'c'];\n\tTotal : INT := Count * 2;\nEND_VAR\n"
+  expect(diagnose(constants, "codesys")).toEqual([])
+})
+
 test("C0161: a variable array bound is flagged; literals and constants are not", () => {
   expect(bound(`VAR\n i:INT:=3;\n a:ARRAY[1..i] OF INT;\nEND_VAR`)).toEqual(["Border 'i' of array is no constant value"])
   expect(bound(`VAR CONSTANT K:INT:=3; END_VAR\nVAR a:ARRAY[1..K] OF INT; END_VAR`)).toEqual([]) // VAR CONSTANT bound

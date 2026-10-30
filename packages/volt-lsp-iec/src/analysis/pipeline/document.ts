@@ -1,6 +1,6 @@
 /**
  * ONE DOCUMENT'S FINDINGS, COMPOSED (openspec lsp-server-scheduling 2.4; moved here from the server, whose layer G is
- * the LSP adapter and nothing else) — the semantic pass, the network-text pass and the missing-language finding, under
+ * the LSP adapter and nothing else) — the pipeline (its network check included) and the missing-language finding, under
  * the suppression rules the compiler's recordings set:
  *
  * - a referenced library's materialized source gives nothing: CODESYS never recompiles a precompiled library, so any
@@ -25,7 +25,6 @@
 import { isLibrarySymbol, type Scope } from "../../frontend/symbols/index.js"
 import { allUnits, isPlainStNetworkBody, unitBodies, type ParseResult, type Span } from "../../frontend/syntax/index.js"
 import { materializationMismatch, type LibraryManifest } from "../../frontend/library/index.js"
-import { networkDiagnostics } from "../checks/network/_plain-st.js"
 import { PARSE_ERROR_CODES } from "../checks/syntax/parse-errors.js"
 import { missingLanguage, unstatedBodies } from "../checks/syntax/missing-language.js"
 import type { ResolvedConfig } from "../config.js"
@@ -66,7 +65,7 @@ export function documentFindings(args: DocumentFindingsArgs): DiagnosticItem[] {
     inExcluded(it.span, excluded.objects) ||
     within(unstated.map((u) => u.body), it.span) ||
     within(unread, it.span)
+  // the network check is the pipeline's; in another materialization's workspace `unread` quiets it with the rest of the body
   const items = silent ? [] : computeDiagnostics({ parseResult: doc.parseResult, source: doc.source, project, config, uri: doc.uri })
-  const network = silent || otherFormat ? [] : networkDiagnostics(doc.parseResult, project)
-  return [...[...items, ...network].filter((it) => !quiet(it)), ...missing]
+  return [...items.filter((it) => !quiet(it)), ...missing]
 }

@@ -40,9 +40,13 @@ export type Constancy = "constant" | "variable" | "unknown"
  * the context an untyped literal under the NOT or the shift the initializer IS takes (`FoldContext.expected`, as
  * `declaredValue` folds one): `c1 : WORD := NOT 0` is 65535, `w : WORD := ROL(129, 1)` 258 (`ce_fold_untyped_in_context_values`,
  * `tr_a30_rotate_untyped_literal_initializer`; transpile-restructure 6.A.29, 6.A.30).
+ *
+ * `list`: the file the expression was written in, when it may be a global list's — its own constants are seen bare
+ * first there, a `qualified_only` list's too (`FoldContext.list`; pro2193 `GVL_Constants`' `ARRAY[1..RecipeDefinitionsCount]`).
  */
-export function constEval(expr: Expr, scope: Scope, asConstant = false, declared?: ElementaryType): ConstValue {
-  const ctx = expecting(asConstant ? { folding: new Set(), inConstant: true } : { folding: new Set() }, unsignedType(integerType(declared)))
+export function constEval(expr: Expr, scope: Scope, asConstant = false, declared?: ElementaryType, list?: string): ConstValue {
+  const base: FoldContext = { folding: new Set(), ...(asConstant ? { inConstant: true } : {}), ...(list === undefined ? {} : { list }) }
+  const ctx = expecting(base, unsignedType(integerType(declared)))
   const { value, width } = fold(expr, scope, ctx)
   return width === 32 && !asConstant && typeof value === "number" ? Math.fround(value) : value
 }

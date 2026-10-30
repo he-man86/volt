@@ -67,7 +67,7 @@ export function checkArrayInit(ctx: CheckContext, out: DiagnosticItem[]): void {
       }
     }
     // C0075 — too many values for every dimension together.
-    const capacity = elementCapacity(t, scope)
+    const capacity = elementCapacity(t, scope, ctx.uri)
     const count = elementCount(init.elements, scope)
     if (capacity === undefined || count === undefined || BigInt(count) <= capacity) continue // indeterminate or fits → skip
     emit(out, init.span, "array-init-count", ctx.messages.tooManyArrayInit()) // C0075
@@ -75,12 +75,12 @@ export function checkArrayInit(ctx: CheckContext, out: DiagnosticItem[]): void {
 }
 
 /** How many elements the array holds over all its dimensions, or undefined when a bound is dynamic or does not fold. */
-function elementCapacity(t: Extract<Type, { kind: "array" }>, scope: Scope): bigint | undefined {
+function elementCapacity(t: Extract<Type, { kind: "array" }>, scope: Scope, uri: string): bigint | undefined {
   let n = 1n
   for (const dim of t.dims) {
     if (dim.lower === undefined || dim.upper === undefined) return undefined
-    const lo = constEval(dim.lower, scope)
-    const hi = constEval(dim.upper, scope)
+    const lo = constEval(dim.lower, scope, false, undefined, uri)
+    const hi = constEval(dim.upper, scope, false, undefined, uri)
     if (typeof lo !== "bigint" || typeof hi !== "bigint") return undefined
     n *= hi - lo + 1n
   }

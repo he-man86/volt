@@ -206,7 +206,7 @@ function read(lexed: readonly Token[], dialect: Dialect, unicodeIdentifiers: boo
     }
     // a network runs to its last token that is not whitespace — a comment after its code is in it
     if (cur !== undefined && t.kind !== "whitespace" && t.kind !== "eof") reached(cur, t)
-    if (cur !== undefined && isUnnamedTarget(tokens, i, out)) {
+    if (cur !== undefined && isUnnamed(tokens, i)) {
       out.push({ kind: "identifier", text: UNNAMED, span: joinSpans(t.span, tokens[i + 2]!.span) })
       cur.last = tokens[i + 2]!.span
       i += 2
@@ -345,21 +345,16 @@ function lastWord(out: readonly Token[]): Token | undefined {
   return t !== undefined && (t.kind === "identifier" || t.kind === "keyword") ? t : undefined
 }
 
-/** The name of what the IDE stores unnamed, `???`: a coil (`??? := a;`) and an FB box's instance (`TON(…)`, the call of
- *  its type: `types` `infer/network-box.ts`). */
+/** The name of what the IDE stores unnamed, `???`: a coil (`??? := a;`), an operand (a contact, a box input, an output
+ *  binding) and an FB box's instance (`TON(…)`, the call of its type: `types` `infer/network-box.ts`). */
 export const UNNAMED = "???"
 
-/** Does `tokens[at]` open `???` — three touching `?` — as a statement's target (`:=` next, at the start of a statement)? */
-function isUnnamedTarget(tokens: readonly Token[], at: number, before: readonly Token[]): boolean {
+/** Does `tokens[at]` open `???` — three touching `?`, one name wherever it stands, as the bridge's reader lexes it
+ *  (`StNetworkReader`: `???` an identifier token)? */
+function isUnnamed(tokens: readonly Token[], at: number): boolean {
   const q = (k: number) => tokens[k]?.kind === "punct" && tokens[k]!.text === "?"
   if (!q(at) || !q(at + 1) || !q(at + 2)) return false
-  if (tokens[at + 1]!.span.start !== tokens[at]!.span.end || tokens[at + 2]!.span.start !== tokens[at + 1]!.span.end) return false
-  let p = before.length - 1
-  while (p >= 0 && isTrivia(before[p]!.kind)) p--
-  let n = at + 3
-  while (n < tokens.length && isTrivia(tokens[n]!.kind)) n++
-  if (tokens[n]?.kind !== "punct" || tokens[n]!.text !== ":=") return false
-  return p < 0 || before[p]!.text === ";" || before[p]!.text === ":"
+  return tokens[at + 1]!.span.start === tokens[at]!.span.end && tokens[at + 2]!.span.start === tokens[at + 1]!.span.end
 }
 
 /** Does `tokens[at]` head a keyword operator's CALL: a keyword box word, `(` next, and no operand ending before it in
