@@ -1,6 +1,6 @@
 ## 1. Decide
 
-- [ ] 1.1 Owner answers open points 1–2 (refuse vs wrap; long STRING) — BUILT AS THE DEFAULTS, both REFUSE (CODESYS's online write refuses), pending the owner's answer
+- [x] 1.1 Owner answers open points 1–2 (refuse vs wrap; long STRING) — BUILT AS THE DEFAULTS, both REFUSE (CODESYS's online write refuses), pending the owner's answer — owner 2026-10-30 left it to the recommendation: refuse (both points)
 
 ## 2. Build
 
@@ -10,7 +10,7 @@
 
 ## 3. Consumers
 
-- [ ] 3.1 Sim-Assist regenerates its bundle (`npm run build:volt`) and may drop its own range check in `toVal`
+- [x] 3.1 Sim-Assist regenerates its bundle (`npm run build:volt`) and may drop its own range check in `toVal` — handed to Sim-Assist 2026-10-30 (its task, not Volt's)
 
 ## 4. Class sweep
 

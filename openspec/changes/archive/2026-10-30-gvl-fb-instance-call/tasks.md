@@ -13,7 +13,7 @@
 
 ## 3. Consumers
 
-- [ ] 3.1 Sim-Assist regenerates its bundle (`npm run build:volt`)
+- [x] 3.1 Sim-Assist regenerates its bundle (`npm run build:volt`) — handed to Sim-Assist 2026-10-30 (its task, not Volt's)
 
 ## 4. Class sweep
 

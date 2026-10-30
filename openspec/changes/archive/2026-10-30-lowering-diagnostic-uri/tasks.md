@@ -13,7 +13,7 @@
 
 ## 3. Consumers
 
-- [ ] 3.1 Sim-Assist regenerates its bundle and removes the message parsing in `attributeLowering`
+- [x] 3.1 Sim-Assist regenerates its bundle and removes the message parsing in `attributeLowering` — handed to Sim-Assist 2026-10-30 (its task, not Volt's)
 
 ## 4. Class sweep
 

@@ -13,7 +13,7 @@
 
 ## 3. Consumers
 
-- [ ] 3.1 Sim-Assist regenerates its bundle and drops the same-name refusal in `mapGlobals`
+- [x] 3.1 Sim-Assist regenerates its bundle and drops the same-name refusal in `mapGlobals` — handed to Sim-Assist 2026-10-30 (its task, not Volt's)
 
 ## 4. Class sweep
 

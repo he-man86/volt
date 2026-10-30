@@ -12,7 +12,7 @@
 
 ## 3. Consumers
 
-- [ ] 3.1 Sim-Assist regenerates its bundle, lists all GVL globals and drops its "not used by the program" note
+- [x] 3.1 Sim-Assist regenerates its bundle, lists all GVL globals and drops its "not used by the program" note — handed to Sim-Assist 2026-10-30 (its task, not Volt's)
 
 ## 4. Class sweep
 
