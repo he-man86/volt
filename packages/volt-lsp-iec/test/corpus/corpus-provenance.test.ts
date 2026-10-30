@@ -9,21 +9,17 @@
  * package's, and the three corpus suites read it as the bridge's answer.
  */
 import { describe, expect, test } from "bun:test"
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
+import { existsSync, readFileSync, readdirSync } from "node:fs"
 import { join, relative } from "node:path"
 import { CORPUS, hasCorpus, projectDirs } from "./support/walk.js"
 import { MISSING_OBJECTS, STALE_MANIFESTS } from "./support/stale.js"
 
-/** Every `.library` manifest under `dir`, relative to it, `/`-separated. */
-function manifests(dir: string, root = dir): string[] {
-  const out: string[] = []
-  for (const e of readdirSync(dir)) {
-    const p = join(dir, e)
-    if (statSync(p).isDirectory()) out.push(...manifests(p, root))
-    else if (e.endsWith(".library")) out.push(relative(root, p).split("\\").join("/"))
-  }
-  return out
-}
+/** Every `.library` manifest under `dir`, relative to it, `/`-separated. One recursive listing: a `stat` per entry of
+ *  the 30k-file corpus was ten times the cost, and timed the test out on a loaded machine. */
+const manifests = (dir: string): string[] =>
+  readdirSync(dir, { recursive: true, withFileTypes: true })
+    .filter((e) => e.isFile() && e.name.endsWith(".library"))
+    .map((e) => relative(dir, join(e.parentPath, e.name)).split("\\").join("/"))
 
 /** The retired spelling: `LibraryManifest.Write` writes `SYSTEM` only where it is true. */
 const RETIRED = /^SYSTEM false\r?$/m

@@ -30,7 +30,7 @@ public class IdeBusyTests
     /// never answers, which must fail the test rather than hang it.</summary>
     private static PipeCallException Refused(Func<object> call)
     {
-        var t = Task.Run(call);
+        var t = TestUtil.OnOwnThread(call);
         try
         {
             Assert.True(t.Wait(15_000), "the call did not answer — it ran beside the held build instead of being refused");
@@ -58,7 +58,7 @@ public class IdeBusyTests
         using var host = new BridgePipeHost(ide, pipe);
         host.Start();
 
-        var first = Task.Run(() => new PipeClient(pipe).Call("build", Demo));
+        var first = TestUtil.OnOwnThread(() => new PipeClient(pipe).Call("build", Demo));
         try
         {
             Assert.True(entered.Wait(15_000), "the first build never reached the compile");

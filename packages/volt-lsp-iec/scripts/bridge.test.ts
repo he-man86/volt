@@ -46,7 +46,7 @@ test("a bridge with LD and FBD off is refused, naming the switch and how to turn
 
 test("a bridge that states no languages is refused", async () => {
   const pipe = await bridgeAnswering(unique("silent"), { projects: [] })
-  expect(requireNetworkText(pipe)).rejects.toThrow("OFF")
+  await expect(requireNetworkText(pipe)).rejects.toThrow("OFF")
 })
 
 test("pipeName has no name of its own: the bare `volt.bridge.<vendor>` it used to fall back to is refused as a prefix", () => {

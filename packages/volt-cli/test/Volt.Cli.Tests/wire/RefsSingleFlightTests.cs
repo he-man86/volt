@@ -60,9 +60,9 @@ public class RefsSingleFlightTests
         host.Start();
 
         var watch = Watch();
-        var first = Task.Run(() => new PipeClient(pipe).Call("refs").GetRawText());
+        var first = TestUtil.OnOwnThread(() => new PipeClient(pipe).Call("refs").GetRawText());
         Assert.True(entered.Wait(15_000), "the first refs never reached its walk");
-        var second = Task.Run(() => new PipeClient(pipe).Call("refs").GetRawText());
+        var second = TestUtil.OnOwnThread(() => new PipeClient(pipe).Call("refs").GetRawText());
         try { Assert.True(watch.Joined.Wait(15_000), "the second refs never joined the first"); }
         finally { Volt.Contracts.VoltLog.TeeTo(null); release.Set(); }
 
@@ -83,7 +83,7 @@ public class RefsSingleFlightTests
         using var host = new BridgePipeHost(ide, pipe);
         host.Start();
 
-        var first = Task.Run(() => new PipeClient(pipe).Call("refs"));
+        var first = TestUtil.OnOwnThread(() => new PipeClient(pipe).Call("refs"));
         Assert.True(entered.Wait(15_000), "the first refs never reached its walk");
         // Another baseline is another question: its `removed` is its own, so it is not answered from the first walk.
         var other = new PipeClient(pipe).Call("refs", new { knownItems = new { }, knownApplications = new string[0] });
@@ -101,11 +101,11 @@ public class RefsSingleFlightTests
         using var host = new BridgePipeHost(ide, pipe);
         host.Start();
 
-        var first = Task.Run(() => new PipeClient(pipe).Call("refs"));
+        var first = TestUtil.OnOwnThread(() => new PipeClient(pipe).Call("refs"));
         Assert.True(entered.Wait(15_000), "the first refs never reached its walk");
         var frames = 0;
         var watch = Watch();
-        var second = Task.Run(() => new PipeClient(pipe).Call("refs", onProgress: _ => Interlocked.Increment(ref frames)));
+        var second = TestUtil.OnOwnThread(() => new PipeClient(pipe).Call("refs", onProgress: _ => Interlocked.Increment(ref frames)));
         try { Assert.True(watch.Joined.Wait(15_000), "the second refs never joined the first"); }
         finally { Volt.Contracts.VoltLog.TeeTo(null); release.Set(); }
 

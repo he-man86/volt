@@ -38,7 +38,7 @@ public class ProgressStreamingTests
         var serverDone = new ManualResetEventSlim(false);
         var listening = new ManualResetEventSlim(false);
 
-        var server = Task.Run(() =>
+        var server = TestUtil.OnOwnThread(() =>
         {
             using var s = new NamedPipeServerStream(pipe, PipeDirection.InOut);
             listening.Set();        // the pipe EXISTS from construction — see the wait below for why this is here
@@ -69,14 +69,12 @@ public class ProgressStreamingTests
             serverDone.Set();
         });
 
-        // WAIT FOR THE PIPE TO EXIST BEFORE CONNECTING. `Task.Run` queues the server; it does not start it, and
-        // this test used to connect straight afterwards. Run alone that is fine — a free thread picks the task up
-        // instantly. Run with the rest of the class's 155 siblings it is not: the pool is saturated, the server
-        // body had not executed at all, and the client's connect timed out against a pipe nobody had created yet.
-        // The failure read as a transport timeout (`NamedPipeClientStream.ConnectInternal`) and was neither — it
-        // was this test racing its own server. `NamedPipeServerStream`'s constructor is what publishes the name,
-        // so setting the gate there is exactly "the pipe is now connectable".
-        Assert.True(listening.Wait(TimeSpan.FromSeconds(30)), "the server task never got a thread-pool slot");
+        // WAIT FOR THE PIPE TO EXIST BEFORE CONNECTING. Starting the server's thread does not run its body, so a
+        // connect straight afterwards races the server's constructor and times out against a pipe nobody has created
+        // yet — read as a transport timeout (`NamedPipeClientStream.ConnectInternal`) when it is this test racing its
+        // own server. `NamedPipeServerStream`'s constructor is what publishes the name, so setting the gate there is
+        // exactly "the pipe is now connectable".
+        Assert.True(listening.Wait(TimeSpan.FromSeconds(30)), "the server thread never created its pipe");
 
         var client = new PipeClient(pipe);
         var progressCount = 0;
