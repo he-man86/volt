@@ -121,6 +121,16 @@ function describePipe(facts: Facts, pipe: string): string {
 	return `${pipe} (project ${sln ?? (p?.title || "unknown")})`
 }
 
+/** A named pipe that is not ONE exact `volt.bridge.<vendor>.<pid>` is refused by its spelling alone — decided before
+ *  the machine is read, so the refusal never waits on the process table (a PowerShell CIM query, seconds when loaded). */
+function refuseUnspelledPipe(pipe: string, vendor: Vendor): void {
+	if (pipePid(pipe, vendor) === undefined)
+		throw new FixtureRefusal(
+			`refusing VOLT_PIPE='${pipe}': it must name ONE exact volt.bridge.${vendor}.<pid> pipe — a prefix is ` +
+				`discovery, and discovery is how the suite once wrote into a project that was not a fixture`,
+		)
+}
+
 /**
  * The fixture pipes the suite may drive, sorted — or a {@link FixtureRefusal} saying which pipes it refuses and why.
  *
@@ -131,11 +141,7 @@ export function resolveFixturePipes(facts: Facts, opts: { instance: string; expl
 	const live = facts.pipes.filter((n) => pipePid(n, facts.vendor) !== undefined).sort()
 	if (opts.explicit) {
 		const pipe = opts.explicit
-		if (pipePid(pipe, facts.vendor) === undefined)
-			throw new FixtureRefusal(
-				`refusing VOLT_PIPE='${pipe}': it must name ONE exact volt.bridge.${facts.vendor}.<pid> pipe — a prefix is ` +
-					`discovery, and discovery is how the suite once wrote into a project that was not a fixture`,
-			)
+		refuseUnspelledPipe(pipe, facts.vendor)
 		if (!facts.pipes.includes(pipe)) throw new FixtureRefusal(`VOLT_PIPE='${pipe}' is not a live pipe`)
 		const reasons: string[] = []
 		for (const inst of facts.instances) {
@@ -326,6 +332,7 @@ export const E2E_INSTANCE = process.env.VOLT_E2E_INSTANCE ?? ""
 
 /** Resolve against the live machine. Throws {@link FixtureRefusal}. */
 export function fixturePipesFor(vendor: Vendor, explicit?: string, instance = E2E_INSTANCE): string[] {
+	if (explicit) refuseUnspelledPipe(explicit, vendor)
 	return resolveFixturePipes(gatherFacts(vendor), { instance, explicit: explicit || undefined })
 }
 
@@ -335,6 +342,7 @@ export function fixturePipesFor(vendor: Vendor, explicit?: string, instance = E2
  * not touch. Probes, `corpus-migration.ts` and the LSP recorders all come through here.
  */
 export function scriptPipe(vendor: Vendor, explicit = process.env.VOLT_PIPE, instance = E2E_INSTANCE): string {
+	if (explicit) refuseUnspelledPipe(explicit, vendor)
 	return resolveOnePipe(gatherFacts(vendor), { instance, explicit: explicit || undefined })
 }
 
