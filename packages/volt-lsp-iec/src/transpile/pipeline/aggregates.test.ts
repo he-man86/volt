@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { load } from "../index.js"
+import { load, RunnerValueError } from "../index.js"
 
 // End to end, ST -> lower -> interpreter: structs, FB instances, arrays, enums, aliases.
 describe("interp — the executable core", () => {
@@ -113,12 +113,17 @@ END_PROGRAM`,
     expect(pou.get("x")).toBe(43n)
   })
 
-  test("a value set from outside is stored as the slot's type holds it", () => {
-    // `set` wrote the raw value, so a test could plant 300 in a SINT — a value no program on the PLC can produce
+  test("a value set from outside is stored as the slot's type holds it — one it does not hold is refused", () => {
+    // `set` wrote the raw value, so a test could plant 300 in a SINT — a value no program on the PLC can produce. It was
+    // stored wrapped (44) and cut ('abcde'); since openspec runner-set-checks such a write is REFUSED, as CODESYS's online
+    // write refuses it — every type's rule is `interp/set-value.test.ts`'s
     const pou = load("PROGRAM P\nVAR si : SINT; rv : REAL; five : STRING(5); END_VAR\nsi := si;\nEND_PROGRAM\n")
-    pou.set("si", 300n)
+    pou.set("si", -128n)
     pou.set("rv", 0.1)
-    pou.set("five", "abcdefgh")
-    expect([pou.get("si"), pou.get("rv"), pou.get("five")]).toEqual([44n, Math.fround(0.1), "abcde"])
+    pou.set("five", "abcde")
+    expect([pou.get("si"), pou.get("rv"), pou.get("five")]).toEqual([-128n, Math.fround(0.1), "abcde"])
+    expect(() => pou.set("si", 300n)).toThrow(RunnerValueError)
+    expect(() => pou.set("five", "abcdefgh")).toThrow(RunnerValueError)
+    expect([pou.get("si"), pou.get("five")]).toEqual([-128n, "abcde"])
   })
 })

@@ -9,6 +9,7 @@ import { instantiate, Memory, NaNBits, storeAs, toImage, type Val, visible } fro
 import { namesVariable, pathRoot } from "../ir/path.js"
 import type { Located } from "./frame.js"
 import { Machine } from "./machine.js"
+import { checkValue } from "./set-value.js"
 
 /** How a harness runs a POU. */
 interface RunOptions {
@@ -111,6 +112,7 @@ export function run(pou: IrPou, options: RunOptions = {}): Runner {
     // harness cannot plant a value the PLC couldn't hold; then stored as the type holds it, like every write the program makes
     set: (path, value) => {
       const found = resolvePath(pou, machine, layouts, path)
+      checkValue(path, value, found.type, layouts)
       if ("image" in found) return machine.write(found.image, value)
       const { at, type } = found
       ;(at.container as Record<string | number, Val>)[at.key] = storeAs(value, type)
