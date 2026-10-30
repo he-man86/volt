@@ -47,11 +47,11 @@ export function resolveTypeExpr(
       // two referenced libraries exporting the same element (see symbols/precedence.ts). It was dropped here
       // while every other arm threaded it, so the one lookup that can be ambiguous was the one without it.
       if ((t.qualifiers?.length ?? 0) > 0) return resolveQualifiedType(t.qualifiers!.map((q) => q.text), t.name.text, project, depth, askerUri)
-      return withSubrange(resolveNamedType(t.name.text, project, askerUri, depth), t, valueScope)
+      return withSubrange(resolveNamedType(t.name.text, project, askerUri, depth), t, valueScope, askerUri)
     case "string_type": {
       // Carry a declared capacity (`STRING(5)`); a length this scope cannot fold leaves it unstated, never guessed.
       const base = elementaryRef(t.wide ? "WSTRING" : "STRING")
-      const length = t.length === undefined ? undefined : constEval(t.length, valueScope)
+      const length = t.length === undefined ? undefined : constEval(t.length, valueScope, false, undefined, askerUri)
       if (base.kind !== "elementary" || t.length === undefined) return base
       if (typeof length !== "bigint") return { ...base, unfoldedLength: true, lengthText: exprText(t.length) }
       return t.length.kind === "literal" ? { ...base, length: Number(length) } : { ...base, length: Number(length), lengthText: exprText(t.length) }
@@ -62,8 +62,8 @@ export function resolveTypeExpr(
     case "array_type": {
       const element = resolveTypeExpr(t.element, project, depth + 1, valueScope, askerUri)
       const bounds = t.dims.map((d) => {
-        const lower = d.lower === undefined ? undefined : constEval(d.lower, valueScope)
-        const upper = d.upper === undefined ? undefined : constEval(d.upper, valueScope)
+        const lower = d.lower === undefined ? undefined : constEval(d.lower, valueScope, false, undefined, askerUri)
+        const upper = d.upper === undefined ? undefined : constEval(d.upper, valueScope, false, undefined, askerUri)
         return typeof lower === "bigint" && typeof upper === "bigint" ? { lower, upper } : undefined
       })
       return bounds.every((b) => b !== undefined)
@@ -79,10 +79,10 @@ export function resolveTypeExpr(
 
 /** A subrange's bounds on the integer type it narrows (`INT(0..10)`), folded where it is declared — rule DT3. A bound that
  *  does not fold leaves the base alone: no guessed range. */
-function withSubrange(base: Type, t: Extract<TypeExpr, { kind: "named_type" }>, valueScope: Scope): Type {
+function withSubrange(base: Type, t: Extract<TypeExpr, { kind: "named_type" }>, valueScope: Scope, askerUri: string | undefined): Type {
   if (t.subrange === undefined || base.kind !== "elementary") return base
-  const lower = constEval(t.subrange.lo, valueScope)
-  const upper = constEval(t.subrange.hi, valueScope)
+  const lower = constEval(t.subrange.lo, valueScope, false, undefined, askerUri)
+  const upper = constEval(t.subrange.hi, valueScope, false, undefined, askerUri)
   return typeof lower === "bigint" && typeof upper === "bigint" ? { ...base, subrange: { lower, upper } } : base
 }
 
