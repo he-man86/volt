@@ -1,8 +1,8 @@
 ## ADDED Requirements
 
 ### Requirement: a cancelled read stops without interrupting the IDE
-On a relay frame `{"id": "<id>", "cancel": "timeout" | "caller_gone"}` for a read (`health`, `refs`, `fetch`, `grep`),
-the bridge SHALL send nothing more for that id and SHALL never interrupt an IDE call; its terminal log line SHALL read
+The bridge SHALL, on a relay frame `{"id": "<id>", "cancel": "timeout" | "caller_gone"}` for a read (`health`, `refs`,
+`fetch`, `grep`), send nothing more for that id and SHALL never interrupt an IDE call; its terminal log line SHALL read
 `relay: -> <op> (<id>) cancelled (<reason>)[ after <n> of <m> chunks] <N>ms` (contract:
 `packages/volt-cli/docs/relay-protocol.md`, "Cancel").
 
