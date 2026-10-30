@@ -14,6 +14,8 @@ describe("transpile — public surface", () => {
       "LOWER_CODE_PREFIXES",
       // a harness's loop guard giving up — thrown only when `run(pou, { loopGuard })` asked for one (task 27)
       "LoopGuardError",
+      // a value `Runner.set` refuses — its path, its type, why; nothing written (openspec runner-set-checks)
+      "RunnerValueError",
       "emitRust",
       // a project's libraries bound once, which a sweep lowers every program on top of
       "libraryBase",

@@ -20,8 +20,9 @@ import type { LibraryManifest } from "../../../frontend/library/index.js"
 export interface LibraryBase {
   readonly prepared: LoweringProject
   readonly manifests: readonly LibraryManifest[]
-  /** Every file the base holds, by uri — a program's file of the same uri would be taken off WITH it (`lowerSource`). */
-  readonly uris: ReadonlySet<string>
+  /** Every file the base holds, its text by uri — a program's file of the same uri would be taken off WITH it, and a
+   *  refusal in a library is checked against its text (`lowerSource`). */
+  readonly sources: ReadonlyMap<string, string>
   /** Every name a base unit EXTENDS, lower-cased — a program unit named so can change which base that unit links to. */
   readonly extended: ReadonlySet<string>
 }
@@ -32,5 +33,5 @@ export function libraryBase(libraries: readonly LibraryFile[]): LibraryBase {
   if ("unparsed" in read) throw new Error(`${read.unparsed.uri} did not parse: ${read.unparsed.parseResult.errors[0]!.message}`)
   const prepared = prepareProject(read.files, read.manifests)
   const extended = new Set(prepared.project.children.flatMap((c) => (c.extendsName === undefined ? [] : [c.extendsName.toLowerCase()])))
-  return { prepared, manifests: read.manifests, uris: new Set(read.files.map((f) => f.uri)), extended }
+  return { prepared, manifests: read.manifests, sources: new Map(read.files.map((f) => [f.uri, f.source])), extended }
 }

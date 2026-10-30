@@ -29,7 +29,7 @@ import { NaNBits } from "../../src/transpile/semantics/nan.js"
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { LoopGuardError, lowerSource, run, type IrPou } from "../../src/transpile/index.js"
+import { LoopGuardError, lowerSource, run, RunnerValueError, type IrPou } from "../../src/transpile/index.js"
 import { type RustAccess, rustAccess } from "./support/rust-access.js"
 import type { Type } from "../../src/frontend/types/index.js"
 import { ALL_TESTS } from "./fixtures/index.js"
@@ -174,7 +174,10 @@ function interpreterOutcome(c: Case): Outcome | undefined {
       const n = seedFor(p.path)
       try {
         runner.set(p.path, kind === "bool" ? n % 2 === 1 : kind === "real" ? realSeedFor(p.path) : BigInt(n))
-      } catch {
+      } catch (error) {
+        // a seed the type does not hold would be the Rust's wrapped `as` cast and nothing here: the two backends would run
+        // different programs (openspec runner-set-checks) — said, never skipped
+        if (error instanceof RunnerValueError) throw error
         // not settable through this path (an alias, a read-only place) — it is still read below
       }
     }

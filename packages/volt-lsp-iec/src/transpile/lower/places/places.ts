@@ -7,8 +7,7 @@ import { type Expr, isSelfRef, selfRefKind, type Span } from "../../../frontend/
 import { type Access, fieldIn, type IrExpr, type Place } from "../../ir/index.js"
 import { imageStep } from "../../semantics/index.js"
 import { imageType } from "../pointers/escape.js"
-import { lookup } from "../../../frontend/symbols/index.js"
-import { listVariableShadows, qualifiedGlobal } from "./globals.js"
+import { namesListMember, qualifiedGlobal } from "./globals.js"
 import { pointeePlace, throughReference } from "../pointers/deref.js"
 import { addressPlace } from "../storage/addresses.js"
 import { namePlace, namesOuterTemp, outerTemp } from "./names.js"
@@ -23,7 +22,7 @@ import { pointerFrame } from "../pointers/state.js"
 export function lowerPlace(lw: Lowering, e: Expr, notAMember = "place-shape"): Place | undefined {
   if (e.kind === "member") {
     if (/^\d+$/.test(e.member.name)) return bitPlace(lw, e, notAMember)
-    if (e.base.kind === "ident_expr" && !lw.holds(e.base.name) && lookup(lw.scope, e.base.name)?.symbol.kind === "gvl_block" && !listVariableShadows(lw, e.base.name, e.member.name))
+    if (namesListMember(lw, e))
       return qualifiedGlobal(lw, e.base.name, e.member.name, e.span)
     // a struct's field or an instance's variable: one `field` step on the base place (design §9)
     const base = throughReference(lw, lowerPlace(lw, e.base, notAMember), e.base.span)

@@ -2,6 +2,7 @@
 import type { Span } from "../../../frontend/syntax/index.js"
 import type { IrPou } from "../../ir/index.js"
 import { emittedKind, type LowerCodeKind } from "./codes.js"
+import { LoweringBug } from "../../semantics/faults.js"
 
 /**
  * A construct the lowering could not represent. Lowering is TOTAL on its input — any ST answers an IR or refusals,
@@ -24,6 +25,30 @@ export interface LowerDiagnostic {
   kind: LowerCodeKind
   message: string
   span: Span
+  /** THE FILE `span` IS IN (openspec `lowering-diagnostic-uri`) — the main source, a sibling POU, a GVL, a library: the
+   *  file that holds the cause. A span alone names no file, and a program lowered from several cannot be read without it. */
+  uri: string
+}
+
+/** The 1-based line the offset `at` stands on in `source` — a line ends at CR LF, LF or a lone CR, as the lexer reads it
+ *  (the `*_cr` fixtures end their lines with a CR alone). */
+const lineAt = (source: string, at: number): number => source.slice(0, at).split(/\r\n|\r|\n/).length
+
+/**
+ * EACH DIAGNOSTIC THAT IS NOT WHERE IT SAYS (openspec `lowering-diagnostic-uri`), said by name: its uri is none of `sources`
+ * (the lowering's files' text, by uri), or its span is not a span of that file — outside it, or its start on another line
+ * than the span says. A span carried over from another file (a callee's refusal at the call site, a GVL's at the POU)
+ * almost never lands on a consistent line of the file named. Asked of every `lowerSource` answer and of every corpus POU.
+ */
+export function misplaced(diagnostics: readonly LowerDiagnostic[], sources: (uri: string) => string | undefined): string[] {
+  return diagnostics.flatMap((d) => {
+    const source = sources(d.uri)
+    if (source === undefined) return [`${d.code}: ${d.uri} is none of the lowering's files`]
+    const { start, end, startLine } = d.span
+    if (start > end || end > source.length) return [`${d.code}: ${start}..${end} is outside ${d.uri} (${source.length} characters)`]
+    const line = lineAt(source, start)
+    return line === startLine ? [] : [`${d.code}: offset ${start} is on line ${line} of ${d.uri}, the span says ${startLine}`]
+  })
 }
 
 export interface LoweredPou {
@@ -39,6 +64,8 @@ export interface LoweredPou {
  * That is the whole point: `kind` answers a question the user asks ("is this my bug or yours?"), and a field
  * assembled independently at a hundred call sites answers it a hundred slightly different ways.
  */
-export function lowerDiagnostic(code: string, message: string, span: Span): LowerDiagnostic {
-  return { code, kind: emittedKind(code), message, span }
+export function lowerDiagnostic(code: string, message: string, span: Span, uri: string | undefined): LowerDiagnostic {
+  // a refusal in no file is a lowering made without one — a bug of lowering's, never a diagnostic with its file left out
+  if (uri === undefined) throw new LoweringBug(`${code} ("${message}") was refused by a lowering that names no file`)
+  return { code, kind: emittedKind(code), message, span, uri }
 }

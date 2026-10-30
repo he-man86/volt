@@ -103,15 +103,19 @@ function callArguments(p: Printer, callee: string, inputs: readonly string[], in
 }
 
 /**
- * WHETHER A CALL ON A PROGRAM'S INSTANCE RUNS MOVED OUT OF `Programs` (lean 7.7.6): only where the call borrows `prg`
- * beside it — the callee reaches `Programs` (it is handed `prg`), or an in-out or a lent instance is a place of that same
- * program. Otherwise `prg.p.call(…)` borrows one field of `Programs` and the arguments disjoint ones, and the
- * move-out (a whole `P::new()` built as the stand-in, moved twice) buys nothing.
+ * WHETHER A CALL ON A PROGRAM'S INSTANCE RUNS MOVED OUT OF `Programs` (lean 7.7.6) — or one on an FB instance declared in
+ * a GVL, out of `Globals` (openspec `gvl-fb-instance-call`): only where the call borrows `prg` (`g`) beside it — the
+ * callee reaches `Programs` (`Globals`), or an in-out or a lent instance is a place of that same global. Otherwise
+ * `prg.p.call(…)` borrows one field and the arguments disjoint ones, and the move-out (a whole `::new()` built as the
+ * stand-in, moved twice) buys nothing. Lowering refuses a run that could reach the global it is moved out of
+ * (`calls/reentrancy.ts`).
  */
 function movesOut(p: Printer, instance: Place, callee: string, inouts: readonly IrBinding[], lent: readonly Place[]): boolean {
-  if (instance.root !== "global" || p.globals.slots[instance.slot]?.section !== "program") return false
-  const sameProgram = (at: Place): boolean => at.root === "global" && at.slot === instance.slot
-  return reachOfBody(p, callee).usesPrograms || inouts.some((b) => !("kind" in b) && sameProgram(b)) || lent.some(sameProgram)
+  if (instance.root !== "global") return false
+  const program = p.globals.slots[instance.slot]?.section === "program"
+  const same = (at: Place): boolean => at.root === "global" && at.slot === instance.slot
+  const reach = reachOfBody(p, callee)
+  return (program ? reach.usesPrograms : reach.usesGlobals) || inouts.some((b) => !("kind" in b) && same(b)) || lent.some(same)
 }
 
 export function exprDispatch(p: Printer, e: Extract<IrExpr, { kind: "dispatch" }>, slots: IrPou["slots"]): Printed {

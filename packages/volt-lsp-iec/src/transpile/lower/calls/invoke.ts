@@ -21,7 +21,7 @@ import { namespaceOf } from "./namespace.js"
 import { methodOf, ownMember } from "../places/names.js"
 import { lowerPlace } from "../places/places.js"
 import { interfaceCall } from "../interfaces/dispatch.js"
-import { inGlobals, programReentrant, programTarget, routineCallee } from "./reentrancy.js"
+import { globalReentrant, inGlobals, programReentrant, programTarget, routineCallee } from "./reentrancy.js"
 import { staticPath } from "../places/path.js"
 import { positionalBinding, positionalOf } from "./parameters.js"
 import { bindCursorArgument, cursorInputsOf } from "../pointers/cursor.js"
@@ -156,7 +156,13 @@ function memberTarget(
   if (base === undefined) return undefined
   // through an interface: the method of whichever instance it holds (conformance `itf_call_dispatches_on_instance`)
   if (base.type.kind === "interface") return interfaceCall(lw, base, call, callee.member.name)
-  if (inGlobals(lw, base)) return lw.bail("call-global-instance", `${callee.member.name} is called on an instance declared in a GVL`, call.span)
+  // A METHOD of an instance declared in a GVL runs moved out of `Globals`: it must not reach that variable (`globalReentrant`).
+  if (inGlobals(lw, base)) {
+    if (base.type.kind !== "function_block") return lw.bail("call-method", `${callee.member.name} is not a METHOD or ACTION lowering can call`, call.span)
+    const routine = methodOf(lw, base.type, callee.member.name, call.span, call)
+    if (routine === undefined || globalReentrant(lw, routineCallee(lw, routine), base, callee.member.name, call.span)) return undefined
+    return { routine, instance: base }
+  }
   // A METHOD of a PROGRAM's one instance (conformance `callshape_method_on_program`) runs moved out of `Programs`, as the
   // program's own call does — and so does one of an FB instance INSIDE a program (`callshape_program_instance_from_outside`),
   // on the path into the moved-out program. It was refused (`prg.p.inst.m(g, prg)` borrows `Programs` twice). A runtime

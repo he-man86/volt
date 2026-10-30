@@ -29,14 +29,15 @@ import { finishInterfaces } from "./finish.js"
 import type { IrLayout, IrPou, IrRoutine, IrStmt, Place } from "../../ir/index.js"
 import { openDims } from "../places/bounds.js"
 import { declareVars } from "../storage/declare.js"
+import { declareLists, unloweredGlobals } from "../places/globals.js"
 import { buildInitSequence } from "../init/sequence.js"
 import { localInits } from "../init/temp-resets.js"
 import { lowerBlock } from "../statements/statements.js"
-import { addressSharedByInstances } from "../storage/addresses.js"
-import { representable, reversedArray } from "./checks.js"
+import { storageRefusal } from "./checks.js"
 import { storageOf } from "../storage/layout.js"
 import { resolveNamedType } from "../../../frontend/types/index.js"
-import { type BodyRefusal, bodyOf, calledLayout } from "../calls/routines.js"
+import { calledLayout } from "../calls/routines.js"
+import { type BodyRefusal, bodyOf } from "../calls/body.js"
 import { withoutReplacedGenerics } from "../calls/specialize.js"
 
 /** How many lowerings the escape pass may take to reach its fixed point (`pointers/escape.ts`): the first finds what is
@@ -55,7 +56,7 @@ const ESCAPE_PASSES = 4
  */
 export function lowerUnit(unit: TopLevel, scope: Scope, prepared: LoweringProject, fold = true): LoweredPou {
   if (unit.kind !== "program" && unit.kind !== "function_block")
-    return { diagnostics: [lowerDiagnostic("unit-kind", `${unit.kind} is not lowered yet`, unit.span)] }
+    return { diagnostics: [lowerDiagnostic("unit-kind", `${unit.kind} is not lowered yet`, unit.span, scopeUri(scope))] }
   let answer: Escapes | undefined
   // the target sets a use read while they still grew (`pointers/state.grownTargets`), each as it ended — design.md §3.3
   // step 4f, task 4.13 (a): the next lowering starts with them, so no use lowers on part of a set
@@ -68,18 +69,22 @@ export function lowerUnit(unit: TopLevel, scope: Scope, prepared: LoweringProjec
     const seen = escapesSeen(shared)
     const grown = grownTargets(shared)
     const settled = answer === undefined ? isEmpty(seen) : covers(answer, seen)
-    if (settled && grown.size === 0) return lowered
-    if (pass === ESCAPE_PASSES) return grown.size === 0 ? lowered : stillGrowing(unit, grown)
+    if (settled && grown.size === 0) return once(lowered)
+    if (pass === ESCAPE_PASSES) return grown.size === 0 ? once(lowered) : stillGrowing(unit, scopeUri(scope), grown)
     if (!settled) answer = answer === undefined ? seen : joined(answer, seen)
     for (const [key, targets] of grown) seed.set(key, targets)
   }
 }
 
+/** The answer with each refusal once: a body or routine refused at its first call is reported again at every later one
+ *  (`calls/routines.ts` `again`) — the same diagnostic, which the POU states once. */
+const once = (lowered: LoweredPou): LoweredPou => (lowered.diagnostics.length < 2 ? lowered : { ...lowered, diagnostics: [...new Set(lowered.diagnostics)] })
+
 /** A target set that still grew under a use in the last lowering the escape loop takes — refused, never lowered on part
  *  of a set. (Each lowering is seeded with every set the previous one ended with, so one more lowering settles any set.) */
-function stillGrowing(unit: TopLevel, grown: ReadonlyMap<string, readonly PointerTarget[]>): LoweredPou {
+function stillGrowing(unit: TopLevel, uri: string | undefined, grown: ReadonlyMap<string, readonly PointerTarget[]>): LoweredPou {
   const keys = [...grown.keys()].join(", ")
-  return { diagnostics: [lowerDiagnostic("pointer-targets", `the targets of ${keys} still grew after a use read them, ${ESCAPE_PASSES} lowerings on`, unit.span)] }
+  return { diagnostics: [lowerDiagnostic("pointer-targets", `the targets of ${keys} still grew after a use read them, ${ESCAPE_PASSES} lowerings on`, unit.span, uri)] }
 }
 
 /** One lowering of the unit, on the escape answer `shared` carries (none on the first). */
@@ -89,7 +94,9 @@ function lowerOnce(unit: Extract<TopLevel, { kind: "program" | "function_block" 
   // a POU that "succeeds" and does nothing. Refuse it explicitly, before anything is declared; FBD/LD reach the backend
   // through network text, not through here.
   if (!isStBody(unit.body) || isPlainStNetworkBody(unit.body))
-    return refusedBody(unit, bodyOf(lowering, unit, unit.body, undefined, { library: false }) as BodyRefusal)
+    return refusedBody(lowering, unit, bodyOf(lowering, unit, unit.body, undefined, { library: false }) as BodyRefusal)
+  // every list's VAR_GLOBAL is the application's storage, reached by the body or not (`places/globals.ts`)
+  declareLists(lowering)
   lowering.isRoot = true
   lowering.displayName = unit.name.text
   lowering.frameContext = pouContext(unit.name.text)
@@ -117,7 +124,7 @@ function lowerOnce(unit: Extract<TopLevel, { kind: "program" | "function_block" 
   // an FB's own struct already carries its name, so the POU that holds one instance of it is named apart
   const name = asInstance ? `${unit.name.text}__root` : unit.name.text
   const locals = lowering.localSlots.length === 0 ? {} : { locals: lowering.localSlots }
-  const pou: IrPou = withoutReplacedGenerics({ name, slots: lowering.slots, ...locals, body, layouts, routines, globals: lowering.globals, ...(init.length > 0 ? { init } : {}), span: unit.span })
+  const pou: IrPou = withoutReplacedGenerics({ name, slots: lowering.slots, ...locals, body, layouts, routines, globals: lowering.globals, ...unloweredGlobals(lowering), ...(init.length > 0 ? { init } : {}), span: unit.span })
   // the constants folded last, over the IR every rule above built (`values/fold.ts`, lean 2), then the narrow-arithmetic
   // rule over the folded IR (`values/promote.ts` `narrowPou`, lean 3), and a quiet AND / OR short-circuits
   // (`expressions/operators.ts` `shortCircuitPou`, lean 5)
@@ -186,6 +193,7 @@ function programBody(lowering: Lowering, unit: Extract<TopLevel, { kind: "functi
           "root-inout",
           `${unit.name.text} has the ARRAY[*] VAR_IN_OUT ${array.names.map((n) => n.text).join(", ")}, whose size only a caller's array gives`,
           array.span,
+          lowering.uri,
         ),
       ],
     }
@@ -196,39 +204,15 @@ function programBody(lowering: Lowering, unit: Extract<TopLevel, { kind: "functi
   // are kept for `initStep` to place; only the order they are BUILT in moves.
   if (buildInitSequence(lowering) === undefined) return { diagnostics: lowering.diagnostics }
   const parsed = bodyOf(lowering, unit, unit.body, undefined, { library: false })
-  if ("code" in parsed) return refusedBody(unit, parsed)
+  if ("code" in parsed) return refusedBody(lowering, unit, parsed)
   // its VAR_TEMP: the scan's locals, started over on every scan (conformance `life_program_var_temp_runs`; 7.6.4)
   return [...(localInits(lowering) ?? []), ...lowerBlock(lowering, parsed.statements)]
 }
 
-/** The refusal of a lowered POU whose storage a backend cannot hold: an address shared by instances, a reversed array, or a
- *  slot with no runtime representation. */
+/** The refusal of a lowered POU whose storage a backend cannot hold (`checks.ts` `storageRefusal`), at the POU. */
 function slotRefusal(lowering: Lowering, unit: Extract<TopLevel, { kind: "function_block" | "program" }>, layouts: readonly IrLayout[], routines: readonly IrRoutine[]): LoweredPou | undefined {
-  const locals = [...lowering.localSlots, ...layouts.flatMap((l) => l.locals ?? [])]
-  const sharedAddress = addressSharedByInstances(lowering, [...lowering.slots, ...locals, ...lowering.globals, ...routines.flatMap((r) => r.locals)])
-  if (sharedAddress !== undefined)
-    return { diagnostics: [lowerDiagnostic("var-at-instances", `${sharedAddress} binds a variable AT an address and has several instances, which would share it`, unit.span)] }
-  // WHICH SLOTS A CALL LENDS: a VAR_IN_OUT, and a routine's VAR_INPUT (a function's or a method's — CODESYS takes an
-  // `ARRAY[*]` there and builds it, `decl_array_star_in_function_input`). An FB's frame, fields and globals are its own
-  // storage, where an `ARRAY[*]` has no size: `decl_array_star_in_var`, `_two_stars`, `_in_fb_input` (both vendors refuse
-  // them) lowered as if every open array were a VAR_IN_OUT, and the Rust emitter threw on the slot.
-  const slots = [
-    ...[...lowering.slots, ...locals].map((s) => ({ s, lent: false })),
-    ...layouts.flatMap((l) => [...l.fields.map((s) => ({ s, lent: false })), ...(l.inouts ?? []).map((s) => ({ s, lent: true }))]),
-    ...routines.flatMap((r) => [...r.locals.map((s) => ({ s, lent: s.section === "VAR_INPUT" })), ...r.inouts.map((s) => ({ s, lent: true }))]),
-    ...lowering.globals.map((s) => ({ s, lent: false })),
-  ]
-  // A REVERSED ARRAY is refused by name: both vendors refuse it ("Lower border must be lower than upper border",
-  // `decl_array_reversed_bounds`), and lowered it was a negative length the Rust compiler rejected
-  const reversed = slots.find(({ s }) => reversedArray(s.type))?.s
-  if (reversed !== undefined)
-    return { diagnostics: [lowerDiagnostic("array-reversed", `${reversed.name} is an ARRAY whose lower bound is above its upper`, unit.span)] }
-  const unrepresentable = slots.find(({ s, lent }) => !representable(s.type, lent))?.s
-  if (unrepresentable !== undefined) {
-    const kind = unrepresentable.type.kind
-    return { diagnostics: [lowerDiagnostic(`slot-${kind}`, `${unrepresentable.name} is a ${kind} variable, which has no runtime representation yet`, unit.span)] }
-  }
-  return undefined
+  const refused = storageRefusal(lowering, layouts, routines)
+  return refused === undefined ? undefined : { diagnostics: [lowerDiagnostic(refused.code, refused.message, refused.at?.span ?? unit.span, refused.at?.uri ?? lowering.uri)] }
 }
 
 /**
@@ -268,6 +252,6 @@ function rootInstance(lw: Lowering, unit: Extract<TopLevel, { kind: "function_bl
 }
 
 /** The POU's own body refused (`bodyOf`): a POU with no IR, the refusal its one diagnostic. */
-function refusedBody(unit: TopLevel, refusal: BodyRefusal): LoweredPou {
-  return { diagnostics: [lowerDiagnostic(refusal.code, refusal.message, unit.span)] }
+function refusedBody(lowering: Lowering, unit: TopLevel, refusal: BodyRefusal): LoweredPou {
+  return { diagnostics: [lowerDiagnostic(refusal.code, refusal.message, unit.span, lowering.uri)] }
 }

@@ -15,7 +15,8 @@ import { ownMember } from "../places/names.js"
 import { namespaceOf } from "./namespace.js"
 import { lowerPlace } from "../places/places.js"
 import { instancePlace } from "../places/self.js"
-import { inGlobals, programReentrant, programTarget, touchedOf } from "./reentrancy.js"
+import { globalReentrant, inGlobals, programReentrant, programTarget, touchedOf } from "./reentrancy.js"
+import { namesListMember } from "../places/globals.js"
 import { staticPath } from "../places/path.js"
 import { calledLayout } from "./routines.js"
 import { isInFrame } from "./specialize.js"
@@ -92,6 +93,8 @@ function routineCallStatement(lw: Lowering, call: Extract<Statement, { kind: "ca
   if (callee.kind === "member") {
     // `SUPER^.M()`, and `Stu.StrTrimA(…)` through a library namespace — calls of a routine, not of an instance
     if (isSuper(callee.base) || namespaceOf(lw, callee.base) !== undefined) return asInvoke()
+    // `GVL.inst(…)` — an instance named through its list, which is no variable of its own
+    if (namesListMember(lw, callee)) return null
     const named = lowerPlace(lw, callee.base)
     const base = named === undefined ? undefined : instancePlace(lw, named, call.span)
     if (base === undefined) return undefined
@@ -127,16 +130,17 @@ function calledInstance(lw: Lowering, call: Extract<Statement, { kind: "call_stm
       )
     return lw.bail("call-not-callable", "a call of something that is not an FB instance", call.span)
   }
-  if (inGlobals(lw, instance)) return lw.bail("call-global-instance", `${instance.type.name} is called on an instance declared in a GVL`, call.span)
   // An FB instance inside a PROGRAM, called from outside it (`callshape_program_instance_from_outside`): the program is
   // moved out of `Programs` for the call, as for its own. It was refused (`prg.p.inst.call(g, prg)` borrows `Programs`
   // twice). A runtime index on the way would be read on the stand-in, and a body reaching its program would too: refused.
-  if (instance.root === "global" && !staticPath(instance))
+  if (instance.root === "global" && !inGlobals(lw, instance) && !staticPath(instance))
     return lw.bail("call-program-member", `${instance.type.name} is called inside a PROGRAM's instance through a runtime index`, call.span)
   const layout = calledLayout(lw, instance.type.name, call.span)
   if (layout === undefined) return undefined
   const body = lw.bodies.get(instance.type.name.toUpperCase())
   const run = { touched: body === undefined ? undefined : touchedOf(body.lowering), body: layout.body ?? [] }
+  // an instance declared in a GVL is called moved out of `Globals` — its body must not reach it (`globalReentrant`)
+  if (globalReentrant(lw, run, instance, `${instance.type.name}'s body`, call.span)) return undefined
   const reentrant = programReentrant(lw, run, programTarget(instance), { touched: "inside", dispatch: "inside" })
   if (reentrant === "touches") return lw.bail("call-program-reentrant", `${instance.type.name}'s body reaches the PROGRAM it is called inside`, call.span)
   if (reentrant === "dispatch")

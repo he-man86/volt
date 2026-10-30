@@ -73,6 +73,8 @@ export const LOWER_CODES: Readonly<Record<string, LowerCodeKind>> = {
   "call-body": "not-modelled",
   "call-fb-inout": "not-modelled",
   "call-global-instance": "not-modelled",
+  // a call on a GVL instance whose run could reach that variable while it is moved out of `Globals` (`globalReentrant`)
+  "call-global-reentrant": "not-modelled",
   "call-inout-alias": "not-modelled",
   "call-inout-bit": "not-modelled",
   "call-inout-capacity": "not-modelled",

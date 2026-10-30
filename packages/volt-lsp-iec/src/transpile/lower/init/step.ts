@@ -11,7 +11,7 @@ import { initFrame, type InitStep } from "./state.js"
 import { typeZero } from "../../../frontend/types/index.js"
 import { declaredArgs, reachesFbInit, unreached, visit, writesGlobal } from "./fb-init.js"
 import { startStatement, startsAsStatement } from "./position.js"
-import { bodyOf } from "../calls/routines.js"
+import { bodyOf } from "../calls/body.js"
 import { leadingCalls } from "../core/ast-walk.js"
 import { bindsOnly } from "./bindings.js"
 
@@ -68,7 +68,7 @@ export function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
   const programOrder = calledOrder(st, programs)
   if (programOrder === undefined) return undefined
   const outside = unreachedHolder(st)
-  if (outside !== undefined) return unreached(st, outside)
+  if (outside !== undefined) return unreached(st, outside.where, outside.at)
   const steps = [...ordered, ...programOrder.flatMap((p) => p.statements)]
   // a global an FB_Init argument reads while an FB_Init of this init step writes globals: which value arrives is not recorded
   if (st.globalArguments.size > 0 && writesGlobal(lw, steps))
@@ -126,13 +126,15 @@ function ownFrame(st: InitStep): IrStmt[] | undefined {
  * routine's local, a VAR_TEMP (a local of its body's run, 7.6.4: the scan's or an FB body's). Whether and when its init
  * would run there is not measured.
  */
-function unreachedHolder(st: InitStep): string | undefined {
+function unreachedHolder(st: InitStep): { where: string; at?: IrSlot["origin"] } | undefined {
   const { lw } = st
-  const reaches = (slots: readonly IrSlot[]): boolean => slots.some((s) => reachesFbInit(st, s.type, "init-step"))
-  if (reaches(lw.globals.filter((g) => g.section !== "program"))) return "the globals"
-  for (const r of lw.routines.values()) if (r.state === "lowered" && reaches(r.routine.locals)) return `${r.routine.name}'s locals`
-  if (reaches(lw.localSlots)) return "the scan's VAR_TEMP"
-  return [...lw.layouts.values()].find((l) => reaches(l.locals ?? []))?.name.concat("'s VAR_TEMP")
+  const reaching = (slots: readonly IrSlot[]): IrSlot | undefined => slots.find((s) => reachesFbInit(st, s.type, "init-step"))
+  const global = reaching(lw.globals.filter((g) => g.section !== "program"))
+  if (global !== undefined) return { where: "the globals", at: global.origin }
+  for (const r of lw.routines.values()) if (r.state === "lowered" && reaching(r.routine.locals) !== undefined) return { where: `${r.routine.name}'s locals` }
+  if (reaching(lw.localSlots) !== undefined) return { where: "the scan's VAR_TEMP" }
+  const layout = [...lw.layouts.values()].find((l) => reaching(l.locals ?? []) !== undefined)
+  return layout === undefined ? undefined : { where: `${layout.name}'s VAR_TEMP` }
 }
 
 /**

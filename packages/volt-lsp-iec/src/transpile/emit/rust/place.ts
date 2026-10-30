@@ -128,10 +128,13 @@ function widenedIndex(e: IrExpr): e is Extract<IrExpr, { kind: "convert" }> {
 /** An integer of 32 bits or fewer widened to a LINT — two of them subtract without overflow. */
 const widenedNarrow = (e: IrExpr): e is Extract<IrExpr, { kind: "convert" }> => e.kind === "convert" && isIntegral(e.value.type) && e.value.type.kind === "elementary" && e.value.type.elem.bits <= 32
 
-/** The PROGRAM's own place, the member path under it, and the move that takes it out of `Programs` for a call, a
- *  `P::new()` swapped in — `std::mem::replace`, which needs no `Default` (lean 7.8.11: no struct has one any more). */
+/** What a call moves out for its run, the member path under it, and the move, a `::new()` swapped in —
+ *  `std::mem::replace`, which needs no `Default` (lean 7.8.11: no struct has one any more): a PROGRAM's whole instance out
+ *  of `Programs` (an instance inside it is called on the path under it); an FB instance declared in a GVL itself, out of
+ *  `Globals` — the rest of `g` stays where its callee reaches it. */
 export function movedOut(p: Printer, at: Place, slots: IrPou["slots"]): { program: string; member: string; take: string } {
-  const program = place(p, { ...at, path: [] }, slots)
-  const take = `std::mem::replace(&mut ${program}, ${rustType(p.globals.slots[at.slot]!.type)}::new())`
-  return { program, member: place(p, at, slots).slice(program.length), take }
+  const program = p.globals.slots[at.slot]!.section === "program"
+  const moved = place(p, program ? { ...at, path: [] } : at, slots)
+  const take = `std::mem::replace(&mut ${moved}, ${rustType(program ? p.globals.slots[at.slot]!.type : at.type)}::new())`
+  return { program: moved, member: place(p, at, slots).slice(moved.length), take }
 }

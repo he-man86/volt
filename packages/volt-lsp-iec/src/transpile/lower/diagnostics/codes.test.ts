@@ -129,10 +129,12 @@ describe("the refusal registry covers what lowering emits", () => {
 
 describe("an unregistered code is a lowering bug, never a kind (1.7.16, design P8)", () => {
   test("bail and lowerDiagnostic throw LoweringBug on a code the registry does not hold", () => {
-    const lw = new Lowering({} as Scope, {} as Scope)
+    const lw = new Lowering({} as Scope, {} as Scope, undefined, "test://file")
     const span = undefined as never
     expect(() => lw.bail("no-such-refusal", "m", span)).toThrow(LoweringBug)
-    expect(() => lowerDiagnostic("no-such-refusal", "m", span)).toThrow(LoweringBug)
+    expect(() => lowerDiagnostic("no-such-refusal", "m", span, "test://file")).toThrow(LoweringBug)
+    // a refusal in no file is a bug too (openspec lowering-diagnostic-uri): a lowering made with no file cannot refuse
+    expect(() => new Lowering({} as Scope, {} as Scope).bail("parse", "m", span)).toThrow(LoweringBug)
     expect(lw.diagnostics).toEqual([])
     // a registered code and a templated family answer their kind
     lw.bail("parse", "m", span)

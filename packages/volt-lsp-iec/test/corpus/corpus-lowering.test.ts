@@ -49,7 +49,15 @@ import { hasCorpus, LOWERING_TIMEOUT, fromPou, pass } from "./support/walk.js"
 // twincat-project14 brings `POUs/VltFixtureMembers.pou` (authored in fixture 14 at step 2), an FB whose ST body
 // (`nTick := nTick + 1;`) lowers; its CFC method is `UNSUPPORTED` and holds no body. The other files the re-pull touched
 // are manifest/stub/settings lines that carry no body.
-const REACH = { bodies: 301, lowered: 54 }
+// 54 -> 45 on 2026-10-30, DOWN and a correction (openspec runner-unused-globals): every VAR_GLOBAL of every list is now
+// the application's storage, referenced or not, and its INIT with it. pro2193's lists hold FB instances whose type
+// carries an `{attribute 'instance-path'}` field (the ModuleRegisterableFB and PnozAlarmsBaseFB families): CODESYS
+// initializes them before the first scan, and the init step does not walk a GVL frame (`attr-init-unreached`, not
+// measured). Before, such an instance was dropped whenever the POU did not name it — its init, which may write other
+// globals, silently skipped — so 33 pro2193 POUs (9 with a body) "lowered" past it. Measured per POU, with and without the
+// lists declared up front, by a one-off probe: exactly those 33 changed verdict, every one to `attr-init-unreached`. A list variable whose
+// own declaration does not lower is named in `IrPou.unlowered` and refuses nothing it is not read by.
+const REACH = { bodies: 301, lowered: 45 }
 
 /**
  * The METHOD/ACTION half of the same contract, measured 2026-09-19. `index.ts` said **none reachable** and that was
@@ -83,7 +91,9 @@ const REACH = { bodies: 301, lowered: 54 }
 // 14 -> 13 on 2026-10-11, the same correction as REACH (openspec abstract-member-push): the routine was
 // `ActuatorWithAlarm_BaseFB.Alarms`, an abstract method with no body slot (no `%LANGUAGE` line) its abstract owner's body
 // (`Alarms();`, nothing else) ran as an empty body.
-const ROUTINES = { routines: 13, routinesFromRunning: 13 }
+// 13 -> 0 on 2026-10-30, the same correction as REACH (openspec runner-unused-globals): all 13 were reached from pro2193
+// POUs now refused `attr-init-unreached`.
+const ROUTINES = { routines: 0, routinesFromRunning: 0 }
 
 /** Every node kind the IR defines — `IrExpr` and `IrStmt`, from `ir/expr.ts` and `ir/stmt.ts`. Checked by the compiler
  *  both ways, as BUILTINS is below: it held eight expression kinds while the IR defined eleven (`fresh`, `select`, and
@@ -174,6 +184,8 @@ const AMBIGUOUS: readonly string[] = [
 describe.skipIf(!hasCorpus)("3. lowering is total, and its documented reach is measured", () => {
   test("NOTHING THROWS — invalid input ends in a LowerDiagnostic, never an exception", () => {
     expect(pass().throws).toEqual([])
+    // and every refusal names the file its span is in (openspec lowering-diagnostic-uri)
+    expect(pass().incoherent).toEqual([])
   }, LOWERING_TIMEOUT)
 
   test(`REACH — the documented figures are what the corpus measures`, () => {

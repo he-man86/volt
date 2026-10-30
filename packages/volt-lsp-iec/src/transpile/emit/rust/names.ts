@@ -113,6 +113,18 @@ export function fieldNames(slots: IrPou["slots"], reserved: readonly string[] = 
   })
 }
 
+/**
+ * The `Globals` struct's field names (`fieldNames`), in order — the one naming the emitter prints and a harness reads. A
+ * name two lists declare is two globals (6.A.17, `tr_a17_two_lists_one_name_both_qualified`): each such field is named
+ * by its LIST (`IrSlot.list`), `<list>_<name>`, so the two are apart whatever order they are declared in; every other
+ * collision still refuses (`fieldNames`' contract-name rule).
+ */
+export function globalFieldNames(variables: IrPou["slots"]): string[] {
+  const declared = new Map<string, number>()
+  for (const s of variables) declared.set(s.name.toUpperCase(), (declared.get(s.name.toUpperCase()) ?? 0) + 1)
+  return fieldNames(variables.map((s) => (s.list !== undefined && declared.get(s.name.toUpperCase())! > 1 ? { ...s, name: `${s.list}_${s.name}` } : s)))
+}
+
 /** `g` and `prg` before a generated call's arguments, as far as the program has them. */
 export function globalsArgs(uses: GlobalsUse): string[] {
   return [...(uses.usesGlobals ? ["g"] : []), ...(uses.usesPrograms ? ["prg"] : []), ...(uses.usesImage === true ? ["__mem"] : [])]

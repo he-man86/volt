@@ -15,7 +15,7 @@ const span = undefined as never
 const routine = (name: string): IrRoutine => ({ name, key: name.toUpperCase(), kind: "method", locals: [], inputs: [], inouts: [], body: [] }) as never
 
 test("once: built once and cached; a failure is refused by name on every later ask, a call reached while building as recursion", () => {
-  const lw = new Lowering(scope, scope)
+  const lw = new Lowering(scope, scope, undefined, "test://file")
   let builds = 0
   const r = once(lw, "F", span, () => (builds++, routine("F")))
   expect(once(lw, "f", span, () => (builds++, routine("F")))).toBe(r!)
@@ -29,7 +29,7 @@ test("once: built once and cached; a failure is refused by name on every later a
 })
 
 test("once: a routine reached again from its OWN lowering is `call-recursive` only when the call named it bare", () => {
-  const lw = new Lowering(scope, scope)
+  const lw = new Lowering(scope, scope, undefined, "test://file")
   lw.shared.routineLowerings.set("K", lw)
   // `K(...)` in K's body: its name is its result there, refused by both vendors (`cc2_call_recursion`, `calls_method_recursive`)
   expect(once(lw, "K", span, () => once(lw, "K", span, () => routine("K"), { bare: true }))).toBeUndefined()
@@ -40,7 +40,7 @@ test("once: a routine reached again from its OWN lowering is `call-recursive` on
 })
 
 test("once quiet: a built routine's failure is not refused again, and it has no recursion guard", () => {
-  const lw = new Lowering(scope, scope)
+  const lw = new Lowering(scope, scope, undefined, "test://file")
   expect(once(lw, "I", span, () => undefined, { quiet: true })).toBeUndefined()
   expect(once(lw, "I", span, () => routine("I"), { quiet: true })).toBeUndefined()
   expect(once(lw, "J", span, () => once(lw, "J", span, () => routine("J"), { quiet: true }), { quiet: true })?.name).toBe("J")
@@ -188,7 +188,7 @@ test("a call to a member with no body slot is refused by name, never run as an e
   const source = "FUNCTION_BLOCK ABSTRACT Base\n%LANGUAGE ST\nRun();\nEND_FUNCTION_BLOCK\n\nMETHOD PROTECTED ABSTRACT Run\nEND_METHOD\n"
   const parseResult = parseDocument(uri, source, { networkText: true, unicodeIdentifiers: false }, "codesys")
   expect(parseResult.errors).toEqual([])
-  const r = lowerPrepared(parseResult, "Base", prepareProject([{ uri, parseResult, source }], []))
+  const r = lowerPrepared({ uri, parseResult }, "Base", prepareProject([{ uri, parseResult, source }], []))
   expect(r.pou).toBeUndefined()
   const refusal = r.diagnostics.find((d) => d.code === "graphical-body")
   expect(refusal?.message).toContain("has no body slot: it holds no code (no %LANGUAGE line)")

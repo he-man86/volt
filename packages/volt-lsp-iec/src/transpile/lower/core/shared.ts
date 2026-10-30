@@ -5,6 +5,7 @@
  */
 import type { TopLevel } from "../../../frontend/syntax/index.js"
 import type { IrLayout, IrRoutine, IrSlot } from "../../ir/index.js"
+import type { LowerDiagnostic } from "../diagnostics/diagnostic.js"
 import type { Lowering } from "./lowering.js"
 
 /** A unit's, member's or declaration's attribute names, by its AST node — what `project/prepare.ts` reads from every file
@@ -22,10 +23,14 @@ export interface PendingBody {
   uri?: string
   /** `lowering` while its body lowers: reached again then, the body calls itself (through a program, say) — refused */
   state: "pending" | "lowering" | "lowered" | "failed"
+  /** A failed body's refusals, which every later call reports again (`calledLayout`) — the same cause, once per POU. */
+  refusals?: readonly LowerDiagnostic[]
 }
 
 /** A METHOD, ACTION or FUNCTION lowered once per POU — or the fact that it could not be. */
-export type CalledRoutine = { state: "lowering" } | { state: "lowered"; routine: IrRoutine } | { state: "failed" }
+/** A failed one carries the refusals its lowering met, which every later call reports again — the same cause, once
+ *  per POU (`once`), never a second refusal of its own. */
+export type CalledRoutine = { state: "lowering" } | { state: "lowered"; routine: IrRoutine } | { state: "failed"; refusals: readonly LowerDiagnostic[] }
 
 /** What every lowering of one POU shares — the frames of the types, bodies and routines its calls reach, and the
  *  application's globals. */
