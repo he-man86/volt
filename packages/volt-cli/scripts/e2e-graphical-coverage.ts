@@ -59,9 +59,10 @@ const CONSTRUCTS: { name: string; where: string; match: RegExp; archive?: RegExp
 	{ name: "function call", where: "#elements", match: /:=\s*[A-Z_]\w*\(/ },
 	{ name: "FB instance call", where: "#elements", match: /\b\w+\((\w+\s*:=|\s*\))/ },
 	{ name: "output pin (=>)", where: "#elements", match: /=>/, archive: /n="OutputItems"[\s\S]{0,400}?<n \/>[\s\S]{0,400}?<v n="Operand">"[^"]+"/ },
-	{ name: "EN and ENO (X_EN)", where: "#en-eno", match: /\w_EN\(EN\s*:=/ },
-	{ name: "ENO without EN (X_ENO)", where: "#en-eno", match: /\w_ENO\(/ },
-	{ name: "EN without ENO (X_ENONLY)", where: "#en-eno", match: /\w_ENONLY\(EN\s*:=/ },
+	{ name: "EN and ENO (X(EN := …).ENO)", where: "#en-eno", match: /\w\(EN\s*:=[^;]*\.ENO/ },
+	// ponytail: one call level only — a nested box inside an ENO-only call is not counted here
+	{ name: "ENO without EN (X(…).ENO)", where: "#en-eno", match: /\w\((?!EN\s*:=)[^;()]*\)\.ENO/ },
+	{ name: "EN without ENO (X(EN := …))", where: "#en-eno", match: /\w\(EN\s*:=(?:(?!\.ENO)[^;])*;/ },
 	{ name: "Execute box", where: "#execute", match: /\bEXECUTE\(/, archive: /<v n="ProvidesSTSnippet">true<|n="STSnippet"[^\/]*>\s*<o/ },
 	{ name: "negated contact (NOT a)", where: "#elements", match: /:=\s*NOT\s|\bAND\s+NOT\b|\bOR\s+NOT\b/ },
 	{ name: "rising edge (R_EDGE)", where: "#elements", match: /\bR_EDGE\(/ },
