@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Why
 
 The bridge silently **loses program logic** when materializing FBD/CFC bodies that contain a CODESYS

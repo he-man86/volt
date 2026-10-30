@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## ADDED Requirements
 
 ### Requirement: Per-network metadata that cannot round-trip is diagnosed before the push

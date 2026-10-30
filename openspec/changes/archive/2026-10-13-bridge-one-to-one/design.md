@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 # Design — bridge-one-to-one
 
 > **State.** §1 (step 1, tasks 1.1-1.3), §2 (step 2, tasks 2.1-2.3) and §3 (step 3, tasks 3.1-3.5) hold the DECISIONS. §0.1 / §0.2 (step 0) hold MEASUREMENTS only; a

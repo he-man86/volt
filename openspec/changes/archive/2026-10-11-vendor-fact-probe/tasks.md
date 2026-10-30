@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## 0. Design gate
 
 - [x] 0.1 Design the table row shape (fact id, item types, vendor applicability, reader, DIALECT row) and the vendor

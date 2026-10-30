@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Why
 
 Volt materializes each IDE item as `name.<ext>` where the extension encodes the item's kind/body-language (`.st`, `.fbd`, `.ld`, `.itf`, `.gvl`, `.struct`, `.enum`, `.union`, `.alias`, …). But every one of those is Structured Text (or an editable graphical body that already round-trips through the NETWORK-token VG form), and the kind is fully recoverable from file **content** on push-back — so the per-kind extension buys nothing and instead fragments the editor/LSP/agent surface (nine file types, nine language ids, nine icons) and forces every consumer to enumerate a long extension list. Collapsing the writable source types to a single `.st` makes the workspace one coherent language.

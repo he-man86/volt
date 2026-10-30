@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Why
 
 Data-loss bugs in the bridge have shipped before and were only caught by chance — e.g. TwinCAT `WriteText`

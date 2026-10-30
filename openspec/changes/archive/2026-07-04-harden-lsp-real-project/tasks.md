@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 > **CLOSURE (archived 2026-07-04 — disposition of open items).** The two delta requirements this change
 > owned are **achieved and synced**: the real-project conformance corpus (4 corpora committed + ratcheted)
 > and false-positive-free diagnostics on valid code (zero FP on built objects). Remaining open tasks are

@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## 1. Lock the gap in a failing test FIRST (regression-first) — DONE
 
 - [x] 1.1 Ground truth captured: the real Execute-box PlcOpen XML from Bakon `Recipes.prg` is committed as

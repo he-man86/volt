@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## Context
 
 `packages/volt-www` is a static Vite/React site (no SSR — runs and deploys from Windows, independent of the vendored

@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## 1. Current situation
 
 - [x] 1.1 List every push path that parses or checks the header, per kind (POU, DUT, GVL), starting from the call

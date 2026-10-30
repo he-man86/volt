@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## 0. Baseline — the gate every step below compares to
 
 Measured 2026-08-27, immediately before this change:

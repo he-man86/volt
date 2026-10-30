@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 # Target architecture and the ordered move list
 
 Phase 3 output of `optimize-volt-cli-architecture`: three independently-biased architects (minimal-move /

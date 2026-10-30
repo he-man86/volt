@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 > ## ⚠ HISTORICAL SNAPSHOT — phase 1, before any move landed
 >
 > **This is not the current map.** It is the structure as it stood at the START of

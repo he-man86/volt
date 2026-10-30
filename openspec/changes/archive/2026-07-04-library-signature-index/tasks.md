@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 ## 1. Spike — DONE (findings in design.md)
 
 - [x] 1.1 Reach the library symbol table live. Two accessors, both build-INDEPENDENT of the app's success but

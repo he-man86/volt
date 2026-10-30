@@ -1,3 +1,5 @@
+> Superseded 2026-10-30: the current network-text spelling is packages/volt-cli/docs/network-text.html.
+
 # Tasks: XML-Based POU Materialization
 
 ## Step 1: `PlcOpenPouParser` ✅
