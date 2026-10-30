@@ -49,8 +49,8 @@ lamp := MOVE(EN := w1, 100, OUT => speed).ENO;</pre>
   <tr><td class="name">FB</td><td><code>t1(IN := a, PT := T#1S, Q => x);</code></td></tr>
   <tr><td class="name">output pin</td><td><code>y := f(IN := a, err => e).OUT;</code></td></tr>
   <tr><td class="name">edge</td><td><code>x := R_EDGE(a);</code> <code>x := F_EDGE(a);</code></td></tr>
-  <tr><td class="name">negated pin</td><td><code>t1(IN := NOT a, PT := T#1S);</code></td></tr>
-  <tr><td class="name">rail</td><td><code>x := TRUE;</code></td></tr>
+  <tr><td class="name">negated input</td><td><code>t1(IN := NOT a, PT := T#1S);</code></td></tr>
+  <tr><td class="name">TRUE contact</td><td><code>x := TRUE;</code></td></tr>
   <tr><td class="name">parallel</td><td><code>x := BRANCH(FEED := start, a, b);</code> <code>x := BRANCH_SHORTCIRCUIT(FEED := start, a, b);</code></td></tr>
   <tr><td class="name">jump</td><td><code>JMP l;</code> <code>JMP(l, a);</code> <code>x := JMP(l, a);</code></td></tr>
   <tr><td class="name">return</td><td><code>RETURN;</code> <code>RETURN(a);</code></td></tr>
