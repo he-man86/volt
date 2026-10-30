@@ -5,7 +5,8 @@
 import { type FbType, type Lowering, type RoutineSymbol, zeroInit } from "../core/lowering.js"
 import type { Expr, Property, Span, Statement } from "../../../frontend/syntax/index.js"
 import type { IrDispatch, IrExpr, IrInvoke, IrRoutine, IrStmt, Place } from "../../ir/index.js"
-import { bodyOf, once, routineLowering } from "./routines.js"
+import { once, routineLowering } from "./routines.js"
+import { bodyOf } from "./body.js"
 import { childScopesByName, lookupMember } from "../../../frontend/symbols/index.js"
 import { storageOf } from "../storage/layout.js"
 import { inferExprType, UNKNOWN } from "../../../frontend/types/index.js"
@@ -14,7 +15,7 @@ import { lowerBlock } from "../statements/statements.js"
 import { isSuper } from "./super.js"
 import { instancePlace, selfFb, thisPlace } from "../places/self.js"
 import { lowerPlace } from "../places/places.js"
-import { inGlobals, programReentrant, programTarget, routineCallee } from "./reentrancy.js"
+import { globalReentrant, inGlobals, programReentrant, programTarget, routineCallee } from "./reentrancy.js"
 import { interfacePropertyGet, interfacePropertySet } from "../interfaces/dispatch.js"
 import { staticPath } from "../places/path.js"
 import { lowerExpr } from "../expressions/expressions.js"
@@ -39,7 +40,7 @@ export function propertyRoutine(lw: Lowering, frame: FbType, sym: RoutineSymbol,
     const unmeasured = part.varSections.find((s) => s.sectionKind !== "VAR" && s.sectionKind !== "VAR_TEMP")
     if (unmeasured !== undefined) return lw.bail(`routine-${unmeasured.sectionKind.toLowerCase()}`, `${name} has ${unmeasured.sectionKind}, not measured yet`, span)
     const parsed = bodyOf(lw, ast, part.body, name)
-    if ("code" in parsed) return lw.bail(parsed.code, parsed.message, span)
+    if ("code" in parsed) return lw.bail(parsed.code, parsed.message, sym.span, sym.uri)
     const key = name.toUpperCase()
     const r = routineLowering(lw, scope, frame, sym.owner, key, name)
     const type = storageOf(r, r.resolve(ast.dataType), ast.dataType.span)
@@ -88,7 +89,6 @@ function propertyAccess(lw: Lowering, e: Expr): { instance: Place; frame: FbType
   const instance = instancePlace(lw, resolved, e.base.span)
   if (instance === undefined) return undefined
   if (instance.type.kind !== "function_block" || instance.type.scope === undefined) return null
-  if (inGlobals(lw, instance)) return lw.bail("call-global-instance", `${e.member.name} is read or written on an instance declared in a GVL`, e.span)
   const sym = lookupMember(instance.type.scope, e.member.name)
   return sym?.kind === "property" ? { instance, frame: instance.type, sym } : null
 }
@@ -105,7 +105,9 @@ export function lowerPropertyGet(lw: Lowering, e: Expr): IrInvoke | IrDispatch |
   // The getter of an FB instance inside a PROGRAM runs on the program's instance (conformance
   // `callshape_program_instance_property`: 33, 34), with the program moved out as for a METHOD there — under the same checks.
   const inside = access.instance
-  if (inside.root === "global" && inside.path.length > 0) {
+  // on an instance declared in a GVL: moved out of `Globals` while the getter runs (`globalReentrant`)
+  if (globalReentrant(lw, routineCallee(lw, routine), inside, `${access.sym.name}'s getter`, e.span)) return undefined
+  if (inside.root === "global" && !inGlobals(lw, inside) && inside.path.length > 0) {
     if (!staticPath(inside)) return lw.bail("call-program-property", `${access.sym.name} is read on an instance inside a PROGRAM through a runtime index`, e.span)
     if (programReentrant(lw, routineCallee(lw, routine), programTarget(inside)) !== undefined)
       return lw.bail("call-program-reentrant", `${access.sym.name}'s getter may reach the PROGRAM it is read inside`, e.span)
@@ -125,10 +127,10 @@ export function lowerPropertySet(lw: Lowering, s: Extract<Statement, { kind: "as
   if (s.op !== undefined || s.chained !== undefined) return lw.bail("property-store", `${access.sym.name} set by ${s.op ?? "a chain"}`, s.span)
   // written from outside the PROGRAM it lives in, it does not compile: "'gauge' is no input of 'PRG_CS_station21'"
   // (recorded while making `callshape_program_instance_property`; `rk_program_instance_property_written`: "'cell' is no input of …")
-  if (access.instance.root === "global" && access.instance.path.length > 0)
+  if (access.instance.root === "global" && !inGlobals(lw, access.instance) && access.instance.path.length > 0)
     return lw.bail("program-property-written", `${access.sym.name} is written on an instance inside a PROGRAM, from outside it`, s.span)
   const routine = propertyRoutine(lw, access.frame, access.sym, "set", s.span, access.as)
-  if (routine === undefined) return undefined
+  if (routine === undefined || globalReentrant(lw, routineCallee(lw, routine), access.instance, `${access.sym.name}'s setter`, s.span)) return undefined
   const type = routine.locals[0]!.type
   const value = lowerExpr(lw, s.value, type)
   if (value === undefined || refuseImplicitString(lw, value, type, s.span)) return undefined

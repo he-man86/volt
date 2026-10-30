@@ -3,8 +3,8 @@
  * not the emitter: the emitter prints, and a harness reaching into what it printed is the conformance suite's concern.
  */
 import type { Access, IrExpr, IrPou, Place } from "../../../src/transpile/ir/index.js"
-import { namesVariable, parsePath } from "../../../src/transpile/ir/path.js"
-import { fieldNames } from "../../../src/transpile/emit/rust/names.js"
+import { namesVariable, pathRoot } from "../../../src/transpile/ir/path.js"
+import { fieldNames, globalFieldNames } from "../../../src/transpile/emit/rust/names.js"
 import { rustType } from "../../../src/transpile/emit/rust/types.js"
 import { toImage } from "../../../src/transpile/semantics/memory.js"
 import { elementaryRef, isBoolValued, peelArray, type Type } from "../../../src/frontend/types/index.js"
@@ -52,23 +52,17 @@ export function rustAccess(pou: IrPou, path: string): RustAccess {
 
 /** A path as the place it names, under the POU's frame or the application's globals. */
 function placeOf(pou: IrPou, path: string): { place: Place; rootType: Type; address?: number; global: boolean; rawBool: { rawBool?: true } } {
-  // the IDE's path grammar (`ir/path.ts`), the one the interpreter's `get` reads
-  const parts = parsePath(path)
-  const head = parts[0]
-  const first = head?.kind === "name" ? head.name : undefined
-  const names = (declared: string): boolean => first !== undefined && namesVariable(declared, first)
-  const slot = pou.slots.findIndex((s) => names(s.name))
-  // not the POU's own: a GVL variable, or the `__clock` a harness sets — a field of `Globals`, as the interpreter finds it
-  const global = slot < 0 ? pou.globals.findIndex((s) => s.section !== "program" && names(s.name)) : -1
-  if (slot < 0 && global < 0) throw new Error(`no variable ${path} in ${pou.name}`)
-  let root = global >= 0 ? pou.globals[global]! : pou.slots[slot]!
-  let at = global >= 0 ? global : slot
-  let inGlobals = global >= 0
+  // the IDE's path grammar and where it starts (`ir/path.ts` `pathRoot`), the one rule the interpreter's `get` reads: a
+  // GVL variable, or the `__clock` a harness sets, is a field of `Globals`
+  const start = pathRoot(pou, path)
+  let root = start.global ? pou.globals[start.slot]! : pou.slots[start.slot]!
+  let at = start.slot
+  let inGlobals = start.global
   let type = root.type
   let steps: Access[] = []
   // the slot or field the path names whole — whether it is a BOOL held as its byte
   let whole: { rawBool?: true } | undefined = root
-  for (const part of parts.slice(1)) {
+  for (const part of start.rest) {
     if (part.kind === "name") {
       const named = type.kind === "struct" || type.kind === "function_block" ? type.name.toUpperCase() : undefined
       const layout = pou.layouts.find((l) => l.name.toUpperCase() === named)
@@ -105,7 +99,7 @@ function placeOf(pou: IrPou, path: string): { place: Place; rootType: Type; addr
 function fieldPath(pou: IrPou, place: Place, rootType: Type): string {
   const slots = place.root === "global" ? pou.globals.filter((s) => s.section !== "program") : pou.slots
   const own = place.root === "global" ? slots.indexOf(pou.globals[place.slot]!) : place.slot
-  let text = fieldNames(slots)[own]!
+  let text = (place.root === "global" ? globalFieldNames(slots) : fieldNames(slots))[own]!
   let type = rootType
   for (const step of place.path) {
     if (step.kind === "field") {

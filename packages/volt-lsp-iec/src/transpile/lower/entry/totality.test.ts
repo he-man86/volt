@@ -350,12 +350,15 @@ END_PROGRAM
   })
 
   // Transpiler review 2026-09-15. Why missed: the globals tests read and wrote GVL variables and called a PROGRAM; none
-  // declared an FB INSTANCE in a GVL, and the rustc crate check is the only thing that sees the double borrow.
-  test("an FB instance declared in a GVL is refused as a call target — `g.inst.call(g)` borrows g twice", () => {
-    const code = (body: string) =>
-      lowerSource(`PROGRAM P\n${body}\nEND_PROGRAM\nVAR_GLOBAL\n  gInst : FB_G;\nEND_VAR\nFUNCTION_BLOCK FB_G\nVAR n : INT; END_VAR\nn := n + 1;\nEND_FUNCTION_BLOCK\nMETHOD M\nn := 0;\nEND_METHOD\n`, "P").diagnostics.map((d) => d.code)
-    expect(code("gInst();")).toEqual(["call-global-instance"])
-    expect(code("gInst.M();")).toEqual(["call-global-instance"])
+  // declared an FB INSTANCE in a GVL, and the rustc crate check is the only thing that sees the double borrow. It was
+  // refused (`call-global-instance`); since openspec `gvl-fb-instance-call` the instance is called moved out of `Globals`
+  // (`pipeline/globals.test.ts` builds both backends), and only a run that reaches it again is refused.
+  test("an FB instance declared in a GVL is a call target — refused only where its run reaches it while moved out", () => {
+    const code = (body: string, own = "n := n + 1;") =>
+      lowerSource(`PROGRAM P\n${body}\nEND_PROGRAM\nVAR_GLOBAL\n  gInst : FB_G;\nEND_VAR\nFUNCTION_BLOCK FB_G\nVAR n : INT; END_VAR\n${own}\nEND_FUNCTION_BLOCK\nMETHOD M\nn := 0;\nEND_METHOD\n`, "P").diagnostics.map((d) => d.code)
+    expect(code("gInst();")).toEqual([])
+    expect(code("gInst.M();")).toEqual([])
+    expect(code("gInst();", "gInst.n := 1;")).toEqual(["call-global-reentrant"])
   })
 
   // Transpiler review 2026-09-15. Why missed: the in-out tests bound ONE VAR_IN_OUT per call, and the alias test compared

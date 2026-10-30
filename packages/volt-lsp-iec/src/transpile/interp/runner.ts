@@ -6,7 +6,7 @@ import type { Access, IrLayout, IrPou, Place } from "../ir/index.js"
 import { elementaryRef, peelArray, type Type } from "../../frontend/types/index.js"
 import type { Span } from "../../frontend/syntax/index.js"
 import { instantiate, Memory, NaNBits, storeAs, toImage, type Val, visible } from "../semantics/index.js"
-import { namesVariable, parsePath } from "../ir/path.js"
+import { namesVariable, pathRoot } from "../ir/path.js"
 import type { Located } from "./frame.js"
 import { Machine } from "./machine.js"
 
@@ -19,8 +19,11 @@ interface RunOptions {
 export interface Runner {
   /** Live slot values, in frame order. */
   readonly frame: readonly Val[]
-  /** A variable by its path from the POU, as the IDE names it: `count`, `inst.q`, `arr[2].x`. */
+  /** A variable by its path from the POU, as the IDE names it: `count`, `inst.q`, `arr[2].x`, `GVL.g` — every global of
+   *  every list by `<list>.<name>`, its bare name where that names one variable (`ir/path.ts` `pathRoot`). */
   get(path: string): Val
+  /** Write a variable by its path — refused with a `RunnerValueError`, nothing written, when its declared type does not
+   *  hold the value (`set-value.ts`). */
   set(path: string, value: Val): void
   /** Run one scan cycle. */
   scan(): void
@@ -35,20 +38,15 @@ const INDEX_TYPE = elementaryRef("LINT")
  *  `Q`; `arr[2]` one index step (the dimension's lower bound subtracted, the bounds checked, by `Frame.locate`). Shared by
  *  `get` and `set`, so a test reads exactly where the program writes. */
 function resolvePath(pou: IrPou, machine: Machine, layouts: ReadonlyMap<string, IrLayout>, path: string): ({ at: Located } | { image: Place }) & { type: Type } {
-  // the IDE's path grammar (`ir/path.ts`): a quoted name unquoted, `a[1, 2]` one index segment per dimension
-  const parts = parsePath(path)
-  const head = parts[0]
-  const first = head?.kind === "name" ? head.name : undefined
-  const slot = first === undefined ? -1 : pou.slots.findIndex((s) => namesVariable(s.name, first))
-  // not the POU's own: a global by its name — a GVL variable, or the `__clock` a harness sets before a scan
-  const global = slot < 0 && first !== undefined ? pou.globals.findIndex((s) => s.section !== "program" && namesVariable(s.name, first)) : -1
-  if (slot < 0 && global < 0) throw new Error(`no variable ${path} in ${pou.name}`)
-  let root: Place["root"] = global >= 0 ? "global" : undefined
-  let at = global >= 0 ? global : slot
-  let rootSlot = global >= 0 ? pou.globals[global]! : pou.slots[slot]!
+  // the IDE's path grammar and where it starts (`ir/path.ts`): the POU's own variable, a GVL variable by `<list>.<name>`
+  // (or its bare name where that is unambiguous), or the `__clock` a harness sets before a scan
+  const start = pathRoot(pou, path)
+  let root: Place["root"] = start.global ? "global" : undefined
+  let at = start.slot
+  let rootSlot = start.global ? pou.globals[at]! : pou.slots[at]!
   let steps: Access[] = []
-  let type: Type = global >= 0 ? pou.globals[global]!.type : pou.slots[slot]!.type
-  for (const part of parts.slice(1)) {
+  let type: Type = rootSlot.type
+  for (const part of start.rest) {
     if (part.kind === "name") {
       const layout = type.kind === "struct" || type.kind === "function_block" ? layouts.get(type.name.toUpperCase()) : undefined
       const field = layout?.fields.find((f) => namesVariable(f.name, part.name))
@@ -109,7 +107,8 @@ export function run(pou: IrPou, options: RunOptions = {}): Runner {
       const { container, key } = found.at
       return shown((container as Record<string | number, Val>)[key]!)
     },
-    // stored as the variable's type holds it, like every write the program makes — a test cannot plant a value the PLC couldn't
+    // only a value the variable's declared type holds, or a `RunnerValueError` and nothing written (`set-value.ts`) — a
+    // harness cannot plant a value the PLC couldn't hold; then stored as the type holds it, like every write the program makes
     set: (path, value) => {
       const found = resolvePath(pou, machine, layouts, path)
       if ("image" in found) return machine.write(found.image, value)

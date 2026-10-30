@@ -20,6 +20,7 @@ import { lowerUnit } from "../../../src/transpile/index.js"
 import type { IrPou, IrRoutine, IrStmt } from "../../../src/transpile/ir/index.js"
 import { formatDocument } from "../../../src/services/index.js"
 import { corpusVendor, loweringProject, walkSources } from "./project.js"
+import { misplaced } from "../../../src/transpile/lower/diagnostics/diagnostic.js"
 import type { Vendor } from "../../../src/analysis/index.js"
 
 export const CORPUS = join(import.meta.dir, "..", "..", "..", "test-corpus")
@@ -161,6 +162,9 @@ export interface Pass {
    *  best precedence rank AND do not hold the same declaration text. */
   ambiguous: string[]
   throws: string[]
+  /** Each lowering diagnostic whose uri is no file of its project or whose span is not one of that file
+   *  (`lower/diagnostics/diagnostic.ts` `misplaced`, openspec lowering-diagnostic-uri). */
+  incoherent: string[]
   codes: Set<string>
   kinds: Set<string>
   builtins: Set<string>
@@ -189,6 +193,7 @@ export function pass(): Pass {
     routinesFromRunning: 0,
     ambiguous: [],
     throws: [],
+    incoherent: [],
     codes: new Set(),
     kinds: new Set(),
     builtins: new Set(),
@@ -289,6 +294,8 @@ function ambiguousDeclarations(p: Pass, clean: readonly { file: string; parseRes
  *  is not the customer's code to count. */
 function lowerPous(p: Pass, lowering: ReturnType<typeof loweringProject>, routines: Set<string>, routinesFromRunning: Set<string>): void {
   const lowerProject = lowering.project
+  // every file the project is lowered from, by uri — what a diagnostic's file must be one of
+  const sources = new Map(lowering.files.map((f) => [f.uri, f.source]))
   for (const { uri: file, parseResult } of lowering.files.filter((f) => !isLibrarySymbol(f)))
     for (const unit of parseResult.units.filter(isRunnable)) {
       const scope = scopeForUnit(lowerProject, unit)
@@ -308,6 +315,7 @@ function lowerPous(p: Pass, lowering: ReturnType<typeof loweringProject>, routin
           if (hasCode) routinesFromRunning.add(`${file}:${r.key}`)
         }
         for (const d of diagnostics ?? []) p.codes.add(d.code)
+        p.incoherent.push(...misplaced(diagnostics, (uri) => sources.get(uri)).map((line) => `${relative(CORPUS, file)} :: ${line}`))
         if (pou !== undefined) fromPou(pou, p.kinds, p.builtins)
       } catch (error) {
         const name = "name" in unit && unit.name !== undefined ? String((unit.name as { text: string }).text) : "?"

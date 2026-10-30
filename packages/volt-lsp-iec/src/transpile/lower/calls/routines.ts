@@ -15,7 +15,9 @@
 import { fbContext, functionContext, routineContext } from "../core/keys.js"
 import { type FbType, Lowering, type RoutineSymbol, zeroInit } from "../core/lowering.js"
 import type { PendingBody } from "../core/shared.js"
-import { type Expr, isPlainStNetworkBody, isStBody, type Span, type StatementList, type TopLevel, type VarSection } from "../../../frontend/syntax/index.js"
+import type { LowerDiagnostic } from "../diagnostics/diagnostic.js"
+import type { Expr, Span, TopLevel, VarSection } from "../../../frontend/syntax/index.js"
+import { bodyOf } from "./body.js"
 import type { IrExpr, IrLayout, IrRoutine, IrStmt, Place } from "../../ir/index.js"
 import { holdsCall, someNode, somePlace } from "../../ir/walk.js"
 import { programReentrant, touchedOf, touchesOf } from "./reentrancy.js"
@@ -30,7 +32,6 @@ import { typeKey } from "./variants.js"
 import { declareStringInputs, type StringInput, stringInputArguments } from "./string-inputs.js"
 import { viewInOuts, widerStringInOuts } from "./string-inouts.js"
 import { libraryOf } from "../../../frontend/library/index.js"
-import { execBodyStatements } from "../conditions.js"
 import { storageOf } from "../storage/layout.js"
 import { overridesCalled } from "../core/ast-walk.js"
 import { brokenAtLibrary, chainOf } from "../core/chain.js"
@@ -60,7 +61,7 @@ export function once(
 ): IrRoutine | undefined {
   const key = name.toUpperCase()
   const cached = lw.routines.get(key)
-  if (cached?.state === "failed") return quiet ? undefined : lw.bail("call-body", `${name}'s body does not lower`, span)
+  if (cached?.state === "failed") return quiet ? undefined : again(lw, cached.refusals, name, span)
   // A FUNCTION or METHOD naming ITSELF by its BARE name in its own body is refused by both vendors — its name is its result
   // there ("Program name, function or function block instance expected instead of 'F_C2_loop'", `cc2_call_recursion`,
   // `calls_method_recursive`): `bare` says the call named it so, and the routine has a result (an ACTION or a METHOD with no
@@ -74,18 +75,35 @@ export function once(
   let routine = cached?.state === "lowered" ? cached.routine : undefined
   if (routine === undefined) {
     if (!quiet) lw.routines.set(key, { state: "lowering" })
+    const before = lw.diagnostics.length
     routine = build()
-    lw.routines.set(key, routine === undefined ? { state: "failed" } : { state: "lowered", routine })
+    lw.routines.set(key, routine === undefined ? { state: "failed", refusals: lw.diagnostics.slice(before) } : { state: "lowered", routine })
   }
   // the program instances the routine reaches are reached by whoever calls it (`touchedOf`)
   for (const slot of touchesOf(lw).get(key) ?? []) touchedOf(lw).add(slot)
   return routine
 }
 
-/** A body that cannot lower: marked failed — every later call refuses it by name (`call-body`) — and reported. */
-function fail(lw: Lowering, pending: PendingBody, code: string, message: string, span: Span): undefined {
+/**
+ * A body that cannot lower: marked failed and reported AT THE BODY, in its own file (openspec `lowering-diagnostic-uri`) —
+ * the cause is the FB's, whichever call reached it first. Every later call reports the same refusal again (`again`).
+ */
+function fail(lw: Lowering, pending: PendingBody, code: string, message: string): undefined {
   pending.state = "failed"
-  return lw.bail(code, message, span)
+  lw.bail(code, message, pending.unit.name.span, pending.uri)
+  pending.refusals = lw.diagnostics.slice(-1)
+  return undefined
+}
+
+/**
+ * A call of a body or routine that failed before: the refusals it met, reported again — the same diagnostics, which the
+ * POU's answer holds once (`entry/lower-unit.ts`), never a `call-body` beside them for the same cause. A failure with no
+ * refusal of its own to repeat (one reported where another lowering built it) is `call-body`, at this call.
+ */
+function again(lw: Lowering, refusals: readonly LowerDiagnostic[] | undefined, name: string, span: Span): undefined {
+  if (refusals === undefined || refusals.length === 0) return lw.bail("call-body", `${name}'s body does not lower`, span)
+  lw.diagnostics.push(...refusals)
+  return undefined
 }
 
 /** The lowering a routine body is lowered in: the frame's fields (when it runs on an instance) plus per-call locals. */
@@ -128,7 +146,7 @@ function keptVariables(lw: Lowering, sym: RoutineSymbol, sections: readonly VarS
       // a VAR_INST is a field of the FB's own frame; a VAR_STAT one global (`declareGlobals`)
       const before = frameLowering.diagnostics.length
       if (inst) declareVars(frameLowering, [prefixed(section, prefix)])
-      if (inst ? drain(lw, frameLowering, before) : !declareGlobals(lw, lw.project, prefixed(section, prefix))) return undefined
+      if (inst ? drain(lw, frameLowering, before) : !declareGlobals(lw, lw.project, prefixed(section, prefix), "", sym.uri)) return undefined
     }
     for (const n of names) (section.sectionKind === "VAR_INST" ? out.inst : out.stat).set(n.toUpperCase(), `${prefix}${n}`.toUpperCase())
   }
@@ -183,67 +201,6 @@ function declareOutputs(lw: Lowering, r: Lowering, sections: readonly VarSection
   return resets
 }
 
-/**
- * A LIBRARY CALLABLE DECLARED WITHOUT A BODY — refused, not lowered to a routine that does nothing.
- *
- * A project's libraries are materialized as DECLARATION files: signatures and VAR sections, no statements. The library
- * repo (`libraries/<library>/<version>/`) replaces them with ST bodies for the versions it has written; any other
- * library element is still only its declaration here. `execBodyStatements` answers an empty statement list for that, and an
- * empty routine lowers cleanly — so `t1(IN := TRUE)` would run nothing and `t1.Q` would read FALSE forever. That is an
- * INVENTED meaning rather than a missing one, and it is the same hazard `lowerUnit` already refuses for a graphical
- * body, for the same stated reason.
- *
- * An empty body is legal IEC, so emptiness alone is not the discriminator — PROVENANCE is (`LoweringProject.libraryUnits`).
- * A POU written in the project with no statements genuinely does nothing and must still lower; a library element with
- * no statements is one whose body nobody has written. A library with real source — the repo's — lowers like any POU.
- */
-function isBodylessLibrary(lw: Lowering, ast: object, statements: readonly unknown[]): boolean {
-  return statements.length === 0 && lw.shared.libraryUnits.has(ast)
-}
-
-/** Why a body cannot be lowered: not ST, not parsed, or a library's declaration with no body written. */
-export interface BodyRefusal {
-  code: "graphical-body" | "parse" | "pragma-undecided" | "call-library"
-  message: string
-}
-
-/**
- * THE ONE BODY PIPELINE (transpile-restructure 1.7.7): a unit's ST body as the statements lowering lowers — or why it
- * cannot be. Every body comes through here: a METHOD's, ACTION's and FUNCTION's (`calledRoutine`), a PROPERTY
- * accessor's (`calls/property.ts`), a base body run by `SUPER^()` (`baseBody`), an FB's body at its first call
- * (`calledLayout`), and the POU's own (`entry/lower-unit.ts`). The site reports the refusal its way — a diagnostic, the
- * pending body marked failed, a POU with no IR. `name` names the body in the message; the POU's own body is unnamed
- * (its messages say "body"), and is the one a library's empty declaration is not asked of (`library: false` — a POU is
- * lowered from the project).
- */
-export function bodyOf(
-  lw: Lowering,
-  unit: Parameters<typeof execBodyStatements>[1],
-  body: Parameters<typeof isStBody>[0],
-  name: string | undefined,
-  { library = true }: { library?: boolean } = {},
-): { statements: StatementList } | BodyRefusal {
-  // A member with no body slot (no %LANGUAGE line, openspec language-line) runs nothing a lowering could run — lowered as
-  // an empty ST body, an abstract base calling its own abstract member counted as reach. Named for what it is; the
-  // category is the one a hidden body has.
-  if (body.noSlot !== undefined)
-    return { code: "graphical-body", message: `${name ?? "the body"} has no body slot: it holds no code (no %LANGUAGE line)` }
-  if (!isStBody(body)) return { code: "graphical-body", message: name === undefined ? "a body that is not ST is not lowered here" : `${name} has no ST body` }
-  // plain-ST network text is ST to the front-end, but its boxes (`GT(…)`, `t1(…).Q`, `EXECUTE`) and wires are no ST a
-  // lowering runs: refused by name until its lowering exists (openspec network-text-st)
-  if (isPlainStNetworkBody(body))
-    return { code: "graphical-body", message: `${name ?? "the body"} is plain-ST network text, which is not lowered yet` }
-  const parsed = execBodyStatements(lw.project, unit, body)
-  // A body that parses but for a conditional pragma asking what Volt is not given — a project option, a device fact, a
-  // compile define — is valid ST CODESYS decides (`prag_if_hasconstanttype`: c 5, out 1) and no recording settles here:
-  // `pragma-undecided`. A body that does not parse is `parse` (transpile-refusal-classification 2.1).
-  if (!parsed.ok && parsed.errors.length === 0 && parsed.refused !== undefined) return { code: "pragma-undecided", message: parsed.refused }
-  if (!parsed.ok) return { code: "parse", message: parsed.firstError ?? (name === undefined ? "body did not parse" : `${name}'s body did not parse`) }
-  if (library && isBodylessLibrary(lw, unit, parsed.statements))
-    return { code: "call-library", message: `${name ?? "the body"} is a library declaration without a body` }
-  return { statements: parsed.statements }
-}
-
 /** A FUNCTION or METHOD declaring a result type — the routines whose bare name is their result in their own body. */
 function hasResult(sym: RoutineSymbol): boolean {
   const ast = sym.ast as Extract<TopLevel, { kind: "method" | "action" | "function" }>
@@ -280,8 +237,9 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
     const scope = routineScope(lw, sym)
     if (scope === undefined) return lw.bail("call-target", `${name} did not bind`, span)
     const sections = ast.kind === "action" ? [] : ast.varSections
+    // a body that does not lower is refused at the routine, in its own file — the cause is its, not the call's
     const parsed = bodyOf(lw, ast, ast.body, name)
-    if ("code" in parsed) return lw.bail(parsed.code, parsed.message, span)
+    if ("code" in parsed) return lw.bail(parsed.code, parsed.message, sym.span, sym.uri)
     const kept = keptVariables(lw, sym, sections, frame, span)
     if (kept === undefined) return undefined
 
@@ -323,9 +281,9 @@ export function baseBody(lw: Lowering, frame: FbType, base: PendingBody, span: S
   const name = `${frame.name}.SUPER_${unit.name.text}`
   return once(lw, name, span, () => {
     const chain = chainOf(lw, unit)
-    if (chain === undefined) return lw.bail(brokenAtLibrary(lw, unit) ? "call-library" : "base-unresolved", `a base of ${unit.name.text} has no body lowering can reach`, span)
+    if (chain === undefined) return lw.bail(brokenAtLibrary(lw, unit) ? "call-library" : "base-unresolved", `a base of ${unit.name.text} has no body lowering can reach`, unit.name.span, base.uri)
     const parsed = bodyOf(lw, unit, unit.body, unit.name.text)
-    if ("code" in parsed) return lw.bail(parsed.code, parsed.message, span)
+    if ("code" in parsed) return lw.bail(parsed.code, parsed.message, unit.name.span, base.uri)
     const key = name.toUpperCase()
     const r = routineLowering(lw, base.lowering.scope, frame, base.lowering.codeOwner, key)
     declareInOuts(r, inOutSections(chain))
@@ -364,14 +322,14 @@ export function calledLayout(lw: Lowering, name: string, span: Span): IrLayout |
     for (const slot of touchedOf(pending.lowering)) touchedOf(lw).add(slot)
     return layout
   }
-  if (pending.state === "failed") return lw.bail("call-body", `${name}'s body does not lower`, span)
+  if (pending.state === "failed") return again(lw, pending.refusals, name, span)
   // a PROGRAM or FB body reached again while it lowers runs: CODESYS warns "Call recursion" and runs it (`rk_program_calls_itself`: 3)
   if (pending.state === "lowering") return lw.bail("call-recursion", `${name} is reached again while its own body lowers`, span)
   const unit = pending.unit
   const chain = chainOf(lw, unit)
-  if (chain === undefined) return fail(lw, pending, brokenAtLibrary(lw, unit) ? "call-library" : "base-unresolved", `a base of ${name} has no body lowering can reach`, span)
+  if (chain === undefined) return fail(lw, pending, brokenAtLibrary(lw, unit) ? "call-library" : "base-unresolved", `a base of ${name} has no body lowering can reach`)
   const parsed = bodyOf(lw, unit, unit.body, name)
-  if ("code" in parsed) return fail(lw, pending, parsed.code, parsed.message, span)
+  if ("code" in parsed) return fail(lw, pending, parsed.code, parsed.message)
   const frame = pending.lowering
   const before = frame.diagnostics.length
   declareInOuts(frame, inOutSections(chain))
@@ -387,6 +345,7 @@ export function calledLayout(lw: Lowering, name: string, span: Span): IrLayout |
     frame.bail("call-program-reentrant", `${name} reaches its own instance while it runs`, span)
   if (drain(lw, frame, before)) {
     pending.state = "failed"
+    pending.refusals = frame.diagnostics.slice(before)
     return undefined
   }
   pending.state = "lowered"

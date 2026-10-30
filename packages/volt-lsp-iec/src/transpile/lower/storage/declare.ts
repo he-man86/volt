@@ -62,7 +62,8 @@ function declareOne(lw: Lowering, sec: VarSection, written: VarDecl, deferInit: 
   // (conformance `type_dut_alias_with_init`, 43 after `x := x + 1`). It started at 0 — `resolve` sees through the
   // alias to INT and the alias's initializer went with it.
   // …but a CONSTANT that states none does NOT: it holds its base type's zero (`bareConstant`).
-  const decl = { ...written, init: written.init ?? (bareConstant(sec, written) ? undefined : aliasInit(lw, written.type)) }
+  const alias = written.init !== undefined || bareConstant(sec, written) ? undefined : aliasInit(lw, written.type)
+  const decl = { ...written, init: written.init ?? alias?.init }
   // AN INITIAL VALUE THAT IS NOT CONSTANT IS NOT A REFUSAL — it is the INIT STEP's. The slot takes its default
   // and the expression is queued in declaration order (`InitFrame.pendingInits`), which is what `ADR(x)`, `THIS`
   // and a call to a user FUNCTION are.
@@ -94,7 +95,8 @@ function declareOne(lw: Lowering, sec: VarSection, written: VarDecl, deferInit: 
   // `[k, 0 + F(k), g]` and `(a := k, c := F(g))` re-evaluated per call). Only the declaration's own initializer.
   const dynamic: DynamicLeaves | undefined = steps && written.init?.kind === "aggregate_init" ? { leaves: [] } : undefined
   const before = lw.diagnostics.length
-  const init = deferrable ? undefined : startValue(lw, sec, written, decl, resolved, type, dynamic)
+  // the alias's initializer is the alias's text: folded, its refusals point into the alias's file
+  const init = deferrable ? undefined : lw.inFile(alias?.uri ?? lw.uri, () => startValue(lw, sec, written, decl, resolved, type, dynamic))
   const deferred = deferrable
   // A DROPPED INITIALIZER MUST HAVE SAID SO. `attempt()` answering undefined means the declaration's initial
   // value did not become the slot's — and the ONLY acceptable version of that is a refusal the caller can see.
@@ -227,7 +229,7 @@ export function declareInOuts(lw: Lowering, sections: readonly VarSection[]): vo
         const constant = sec.constant === true ? { constant: true, ...(holdsInstance(lw, type) ? {} : { readOnly: true }) } : {}
         // a BOOL in-out lent a BOOL held as its byte reads that byte (`pointers/raw-bool.ts` `refusedBoolLent`)
         const raw = rawBoolSlot(lw, name.text, type, lw.perRun("VAR_IN_OUT"))
-        lw.inoutSlots.push({ name: name.text, type: raw?.type ?? type, section: "VAR_IN_OUT", init: zeroInit(raw?.type ?? type), ...constant, ...(raw === undefined ? {} : { rawBool: true }) })
+        lw.inoutSlots.push({ name: name.text, type: raw?.type ?? type, section: "VAR_IN_OUT", init: zeroInit(raw?.type ?? type), ...constant, ...(raw === undefined ? {} : { rawBool: true }), ...(lw.uri === undefined ? {} : { origin: { uri: lw.uri, span: name.span } }) })
       }
     }
 }
@@ -250,6 +252,6 @@ export function declareOpenBounds(lw: Lowering, sections: readonly VarSection[],
  * `scope` (where their types and bounds fold), each keyed by `prefix` and its name (a `qualified_only` list's), in a
  * scratch lowering whose diagnostics are drained into `into`. True when it declared them without one.
  */
-export function declareGlobals(into: Lowering, scope: Scope, section: VarSection, prefix = ""): boolean {
-  return !nested(into, scope, { globalMode: true, globalPrefix: prefix }, (global) => declareVars(global, [section])).drained
+export function declareGlobals(into: Lowering, scope: Scope, section: VarSection, prefix = "", uri?: string): boolean {
+  return !nested(into, scope, { globalMode: true, globalPrefix: prefix, ...(uri === undefined ? {} : { uri }) }, (global) => declareVars(global, [section])).drained
 }

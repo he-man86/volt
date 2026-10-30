@@ -10,8 +10,8 @@ const scope = {} as Scope
 const span = undefined as never
 
 test("drain copies what was reported since a point — the source keeps it — and says whether there was any", () => {
-  const into = new Lowering(scope, scope)
-  const from = new Lowering(scope, scope, into.shared)
+  const into = new Lowering(scope, scope, undefined, "test://file")
+  const from = new Lowering(scope, scope, into.shared, "test://file")
   from.bail("parse", "first", span)
   const before = from.diagnostics.length
   expect(drain(into, from, before)).toBe(false)
@@ -24,8 +24,8 @@ test("drain copies what was reported since a point — the source keeps it — a
 })
 
 test("nested: a scratch lowering in its modes, sharing the POU's state, drained into the asker once", () => {
-  const lw = new Lowering(scope, scope)
-  const { value, drained } = nested(lw, scope, { routineMode: true, globalPrefix: "L." }, (scratch) => {
+  const lw = new Lowering(scope, scope, undefined, "test://file")
+  const { value, drained } = nested(lw, scope, { routineMode: true, globalPrefix: "L.", uri: "test://file" }, (scratch) => {
     expect(scratch.shared).toBe(lw.shared)
     expect([scratch.routineMode, scratch.globalMode, scratch.globalPrefix]).toEqual([true, false, "L."])
     scratch.bail("parse", "inside", span)

@@ -5,11 +5,10 @@
  * model's own `state.ts`, keyed by the frame (`frameState`); what a whole POU's lowering shares is `shared.ts`.
  */
 import type { Identifier, Span, TypeExpr, VarSection } from "../../../frontend/syntax/index.js"
-import type { lookup, Scope } from "../../../frontend/symbols/index.js"
+import { type lookup, type Scope, scopeUri } from "../../../frontend/symbols/index.js"
 import { DEFAULT_STRING_LENGTH, peelArray, resolveTypeExpr, type Type, typeZero } from "../../../frontend/types/index.js"
 import type { IrInit, IrLayout, IrSlot } from "../../ir/index.js"
-import { emittedKind } from "../diagnostics/codes.js"
-import type { LowerDiagnostic } from "../diagnostics/diagnostic.js"
+import { lowerDiagnostic, type LowerDiagnostic } from "../diagnostics/diagnostic.js"
 import { type CalledRoutine, newShared, type PendingBody, type Shared } from "./shared.js"
 
 export type FbType = Extract<Type, { kind: "function_block" }>
@@ -72,7 +71,27 @@ export class Lowering {
     readonly scope: Scope,
     readonly project: Scope,
     readonly shared: Shared = newShared(),
+    /** THE FILE THIS LOWERING LOWERS — where its refusals point (`LowerDiagnostic.uri`): its scope's own file, or, for a
+     *  lowering in the project's scope (a GVL's declarations, a METHOD's VAR_STAT), the file its maker names. */
+    private file: string | undefined = scopeUri(scope),
   ) {}
+
+  /** The file this lowering is lowering text of now (`file`, or the one `inFile` names). */
+  get uri(): string | undefined {
+    return this.file
+  }
+
+  /** `lower` run on text of ANOTHER file — an alias type's own initializer, which a variable of the type takes: its
+   *  refusals point there, where the text is. */
+  inFile<T>(uri: string | undefined, lower: () => T): T {
+    const was = this.file
+    this.file = uri
+    try {
+      return lower()
+    } finally {
+      this.file = was
+    }
+  }
 
   /** Every composite type's storage, by upper-cased name. */
   get layouts(): Map<string, IrLayout> {
@@ -92,12 +111,14 @@ export class Lowering {
     return this.shared.globals.slots
   }
 
-  bail(code: string, message: string, span: Span): undefined {
+  /** A refusal at `span` — in this lowering's file, or in `uri` when the cause is another file's (a body refused at the
+   *  POU it belongs to, a type at its declaration). */
+  bail(code: string, message: string, span: Span, uri: string | undefined = this.uri): undefined {
     // THE TAXONOMY IS RESOLVED HERE, not at the call site. Every literal code and the templated families reach
     // this one method, so one lookup keeps every refusal classified consistently; a field each call site had to
     // remember is a field that ends up disagreeing with itself. An unregistered code is a lowering bug and throws
     // (`emittedKind`); `diagnostics/codes.test.ts` names every literal one before it can.
-    this.diagnostics.push({ code, kind: emittedKind(code), message, span })
+    this.diagnostics.push(lowerDiagnostic(code, message, span, uri))
     return undefined
   }
 
@@ -141,7 +162,8 @@ export class Lowering {
   }
 
   slot(name: Identifier, type: Type, section: VarSection["sectionKind"], init?: IrInit, extra?: Pick<IrSlot, "readAs" | "declared" | "rawBool">): void {
-    const slot: IrSlot = { name: name.text, type, section, init: init ?? zeroInit(type), ...extra }
+    const origin = this.uri === undefined ? {} : { origin: { uri: this.uri, span: name.span } }
+    const slot: IrSlot = { name: name.text, type, section, init: init ?? zeroInit(type), ...extra, ...origin }
     if (this.globalMode) {
       this.shared.globals.byName.set(`${this.globalPrefix}${name.text}`.toUpperCase(), this.shared.globals.slots.length)
       this.shared.globals.slots.push(slot)

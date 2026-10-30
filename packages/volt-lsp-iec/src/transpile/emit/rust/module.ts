@@ -22,7 +22,7 @@
  */
 import type { IrLayout, IrPou } from "../../ir/index.js"
 import type { Span } from "../../../frontend/syntax/index.js"
-import { fieldNames, globalsParams, reachOf, routineFnNames, rustName } from "./names.js"
+import { fieldNames, globalFieldNames, globalsParams, reachOf, routineFnNames, rustName } from "./names.js"
 import { code, Printer, push, use } from "./printer.js"
 import { bodyNames, printBody, printCall, printRoutine } from "./routine.js"
 import { BACK, closure, FRONT, helperText, runtimeText } from "./runtime/index.js"
@@ -100,11 +100,7 @@ function held<S extends { image?: number; scoped?: true }>(slots: readonly S[], 
 function storageOf(pou: IrPou): { variables: IrPou["slots"]; programs: IrPou["slots"]; variableNames: string[]; programNames: string[] } {
   const variables = pou.globals.filter((s) => s.section !== "program")
   const programs = pou.globals.filter((s) => s.section === "program")
-  // Two lists declaring one name are two globals (6.A.17, `tr_a17_two_lists_one_name_both_qualified`): each such slot is
-  // named by its LIST (`IrSlot.list`), so the two fields are apart whatever order they are reached in, and every other
-  // collision still refuses (`fieldNames`' contract-name rule)
-  const named = variables.map((s) => (s.list === undefined ? s : { ...s, name: `${s.list}_${s.name}` }))
-  return { variables, programs, variableNames: fieldNames(named), programNames: fieldNames(programs) }
+  return { variables, programs, variableNames: globalFieldNames(variables), programNames: fieldNames(programs) }
 }
 
 /** The printer for one POU: its layouts' and slots' Rust field names, the globals' accesses, every routine's fn name. */

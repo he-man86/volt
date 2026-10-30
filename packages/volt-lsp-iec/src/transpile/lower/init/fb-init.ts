@@ -103,8 +103,9 @@ export function declaredArgs(lw: Lowering, owner: TopLevel | undefined, name: st
 }
 
 /** An instance the init step would have to reach where its walk does not go: refused. */
-export function unreached(st: InitStep, where: string): undefined {
-  return st.lw.bail("attr-init-unreached", `an instance with a ${INIT_ATTRIBUTE} method or an instance-path in ${where}, which the init step does not reach`, st.span)
+export function unreached(st: InitStep, where: string, at?: IrSlot["origin"]): undefined {
+  // at the instance's declaration where the walk names one (a global, in its list's file), else at the POU
+  return st.lw.bail("attr-init-unreached", `an instance with a ${INIT_ATTRIBUTE} method or an instance-path in ${where}, which the init step does not reach`, at?.span ?? st.span, at?.uri ?? st.lw.uri)
 }
 
 /**

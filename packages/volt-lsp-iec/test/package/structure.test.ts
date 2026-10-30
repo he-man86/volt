@@ -255,7 +255,7 @@ const NETWORK_TEXT = "network text: its tests are laid out with the change that 
  * whole folder, not of one file beside it.
  */
 const TOPIC_SUITES: ReadonlyMap<string, string> = new Map([
-  ...["aggregates", "arith", "calls", "control", "pointers", "strings", "time"].map(
+  ...["aggregates", "arith", "calls", "control", "globals", "pointers", "strings", "time"].map(
     (s): [string, string] => [`src/transpile/pipeline/${s}.test.ts`, PIPELINE],
   ),
   ["src/frontend/syntax/parse/fuzz.test.ts", "the parser never throws: a mutation sweep over the whole parser"],

@@ -37,9 +37,15 @@ export interface IrSlot {
    *  layout's field at this offset from its instance's `__base`, a struct's field at this offset from the struct. Such a
    *  slot is reached only through an `image` place; the Rust struct does not hold it. */
   image?: number
-  /** A GVL variable whose name another list also declares: its list's name. The two are two globals (6.A.17), and the
-   *  emitter names each Rust field `<list>_<name>` — by its list, never by which one a body reached first. */
+  /** A GVL variable: the name of the list that declares it — its runner path is `<list>.<name>` (`ir/path.ts`
+   *  `pathRoot`). Two lists may declare one name: two globals (6.A.17), and the emitter names each Rust field
+   *  `<list>_<name>` — by its list, never by which one a body reached first. */
   list?: string
+  /** A GVL variable of a `qualified_only` list: reached only as `<list>.<name>`, its bare name never names it. */
+  qualifiedOnly?: true
+  /** The declaration the slot was made from — its name, in its own file — where a refusal of the slot's storage points
+   *  (`lower/entry/checks.ts` `storageRefusal`). Absent for a slot lowering makes of its own (a temp, a PROGRAM instance). */
+  origin?: { readonly uri: string; readonly span: Span }
   /** A slot whose storage is wider than the type its reads have, every read converted to this type by lowering
    *  (`places/access-guards.ts` `loadValue`); no backend reads it. Two cases:
    *  - a CONSTANT held past its type, to hold its unwrapped fold (`constantSlotType`): the monitor shows that fold
@@ -181,8 +187,9 @@ export interface IrPou {
   body: readonly IrStmt[]
   layouts: readonly IrLayout[]
   routines: readonly IrRoutine[]
-  /** The application's global storage the POU reaches: GVL variables, and the instance of every PROGRAM it calls — one
-   *  each, shared by every body (conformance `fbcall_program_writes_global`: the called program's VAR persists). */
+  /** The application's global storage: EVERY VAR_GLOBAL of every GVL the POU was lowered with, referenced or not (each a
+   *  runner variable, `<list>.<name>`), and the instance of every PROGRAM it calls — one each, shared by every body
+   *  (conformance `fbcall_program_writes_global`: the called program's VAR persists). */
   globals: readonly IrSlot[]
   /** THE ORDERED INIT STEP, run once before the first scan (`lower/init/step.ts`, design.md §3.4): per frame in recorded
    *  order (the POU's, then the PROGRAMs it calls, in call order), per declaration a dynamic initializer, a constant after
@@ -192,5 +199,20 @@ export interface IrPou {
   init?: readonly IrStmt[]
   /** The byte image, when any variable's address is stored. */
   image?: IrImage
+  /** The GVL variables the POU does not reach whose declaration does not lower — each named with the refusal it met
+   *  lowered alone; the runner refuses its path by name (`ir/path.ts` `pathRoot`). Absent when there are none. */
+  unlowered?: readonly IrUnlowered[]
   span: Span
+}
+
+/** A GVL variable with no global slot: its declaration does not lower (`IrPou.unlowered`). */
+export interface IrUnlowered {
+  readonly name: string
+  readonly list: string
+  readonly qualifiedOnly?: true
+  /** The refusal its declaration met, lowered alone — a `LowerDiagnostic`'s code, message, file and span. */
+  readonly code: string
+  readonly message: string
+  readonly uri: string
+  readonly span: Span
 }

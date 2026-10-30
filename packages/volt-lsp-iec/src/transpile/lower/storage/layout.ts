@@ -10,7 +10,7 @@ import { sharedState } from "../core/shared.js"
 import { baseOf } from "../core/chain.js"
 import type { Span, VarSection } from "../../../frontend/syntax/index.js"
 import { enumStorage } from "../values/enums.js"
-import { lookup } from "../../../frontend/symbols/index.js"
+import { lookup, scopeUri } from "../../../frontend/symbols/index.js"
 import { declareOpenBounds, declareVars } from "./declare.js"
 import { overlayBytes, unionsOf } from "./unions.js"
 import { declareStatics } from "./statics.js"
@@ -37,7 +37,7 @@ const INSTANCE_STORAGE: ReadonlySet<string> = new Set(["VAR", "VAR_INPUT", "VAR_
  * case-insensitive and Rust is not, so `fb_x : fb_conveyor` and `FB_Conveyor` must be one struct), an array of
  * those. Building it builds the layout of every composite type it reaches, dependencies first.
  */
-export function storageOf(lw: Lowering, t: Type, at: Span): Type {
+export function storageOf(lw: Lowering, t: Type, at: Span, atUri: string | undefined = lw.uri): Type {
   if (t.kind === "array") return { ...t, element: storageOf(lw, t.element, at) }
   if (t.kind === "enum") return enumStorage(lw, t)
   // A POINTEE's type is not one `Lowering.resolve` returned — a `POINTER TO STRING`'s target is resolved with the
@@ -50,7 +50,7 @@ export function storageOf(lw: Lowering, t: Type, at: Span): Type {
   const key = name.toUpperCase()
   // WHERE A REFUSAL POINTS: the type's own declaration, or — for a compiler struct the project does not declare
   // (`VERSION`, an `ANY` input's struct; frontend-conformance TY14/TY15) — the place that USES it. It pointed at 0:0.
-  const where = sym?.span ?? at
+  const where: At = sym === undefined ? { span: at, uri: atUri } : { span: sym.span, uri: sym.uri }
   // A TYPE THAT CONTAINS ITSELF HAS NO SIZE, and saying so beats running out of stack. `FUNCTION_BLOCK FB_R VAR rv :
   // FB_R; END_VAR` — or any longer cycle through a struct — sent `storageOf` and `buildLayout` into each other until
   // the process died with a RangeError, where the rule for this component is that invalid input ends in a
@@ -59,7 +59,7 @@ export function storageOf(lw: Lowering, t: Type, at: Span): Type {
   // `TOTALITY` never saw it — found by aiming at `calls.ts`'s uncovered refusals (0.7).
   // (a type whose layout is SET while its build finishes — its init sequence lowering `THIS` — is laid out, not recursive)
   if (buildingOf(lw).has(key) && !lw.layouts.has(key)) {
-    lw.bail("layout-recursive", `${name} contains itself, so it has no size`, where)
+    lw.bail("layout-recursive", `${name} contains itself, so it has no size`, where.span, where.uri)
     return { ...t, name }
   }
   if (!lw.layouts.has(key)) {
@@ -73,12 +73,16 @@ export function storageOf(lw: Lowering, t: Type, at: Span): Type {
   return { ...t, name }
 }
 
+/** Where a type's refusal points: its declaration in its own file, or the place that uses it (`storageOf`). */
+type At = { span: Span; uri: string | undefined }
+
 /** The symbol a laid-out type is declared by, when lowering found one. */
 type LayoutSymbol = ReturnType<typeof lookup> extends infer R ? (R extends { symbol: infer S } ? S : never) | undefined : never
 
 /** A struct's fields or an FB instance's storage, lowered in the type's own scope — a base type's fields first. */
-function buildLayout(lw: Lowering, t: Extract<Type, { kind: "struct" | "function_block" }>, sym: LayoutSymbol, where: Span): void {
-  const nested = new Lowering(t.scope ?? lw.project, lw.project, lw.shared)
+function buildLayout(lw: Lowering, t: Extract<Type, { kind: "struct" | "function_block" }>, sym: LayoutSymbol, where: At): void {
+  // its refusals are in the file of the declaration it lays out — `sym`, whose fields these are
+  const nested = new Lowering(t.scope ?? lw.project, lw.project, lw.shared, sym?.uri ?? scopeUri(t.scope))
   nested.selfType = t
   nested.codeOwner = t.scope
   nested.frameContext = fbContext(t.name)
@@ -102,7 +106,7 @@ function buildLayout(lw: Lowering, t: Extract<Type, { kind: "struct" | "function
     // (`rk_union_member_initial_value`: w 16#0100, b 0) and is `layout-union`, not modelled.
     const unmeasured = !(pointers || nested.slots.every((f) => overlayBytes(f.type) !== undefined))
     if (unmeasured || ast.body.fields.some((f) => f.init !== undefined)) {
-      lw.bail(unmeasured ? "union-overlay" : "layout-union", `${t.name} has a member whose overlaid bytes are not measured, or an initial value`, where)
+      lw.bail(unmeasured ? "union-overlay" : "layout-union", `${t.name} has a member whose overlaid bytes are not measured, or an initial value`, where.span, where.uri)
       return
     }
     unionsOf(lw).add(t.name.toUpperCase())
@@ -125,7 +129,7 @@ function buildLayout(lw: Lowering, t: Extract<Type, { kind: "struct" | "function
     nested.displayName = ast.name.text
     lw.bodies.set(t.name.toUpperCase(), { lowering: nested, unit: ast, state: "pending", ...(sym?.uri === undefined ? {} : { uri: sym.uri }) })
   } else {
-    lw.bail(`layout-${t.kind}`, `${t.name} has no declaration lowering can lay out`, where)
+    lw.bail(`layout-${t.kind}`, `${t.name} has no declaration lowering can lay out`, where.span, where.uri)
     return
   }
   drain(lw, nested)
@@ -149,12 +153,12 @@ function inheritBase(
   nested: Lowering,
   t: Extract<Type, { kind: "struct" | "function_block" }>,
   sym: LayoutSymbol,
-  where: Span,
+  where: At,
   statics: { name: string; global: number }[],
   name: string | undefined,
 ): void {
   if (name === undefined) return
-  const baseType = storageOf(lw, resolveNamedType(name, lw.project, sym?.uri), where)
+  const baseType = storageOf(lw, resolveNamedType(name, lw.project, sym?.uri), where.span, where.uri)
   const layout = baseType.kind === "struct" || baseType.kind === "function_block" ? lw.layouts.get(baseType.name.toUpperCase()) : undefined
   // A base the binder linked to an FB or a STRUCT, not on its way back to the type, whose own declaration did not lay
   // out — or a library FB lowering resolves no type for (`unit_fb_extends_qualified`: CODESYS builds it) — is
@@ -166,7 +170,7 @@ function inheritBase(
     const linked = resolved
       ? !buildingOf(lw).has(baseType.name.toUpperCase())
       : baseType.kind === "unknown" && (t.scope?.baseScope?.kind === "pou" || t.scope?.baseScope?.kind === "struct")
-    return void lw.bail(linked ? "layout-base" : "base-unresolved", `the base type ${name} of ${t.name} has no layout`, where)
+    return void lw.bail(linked ? "layout-base" : "base-unresolved", `the base type ${name} of ${t.name} has no layout`, where.span, where.uri)
   }
   nested.inherit(layout.fields)
   for (const shared of layout.statics ?? []) {

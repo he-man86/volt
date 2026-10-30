@@ -214,9 +214,9 @@ export function elementDefaults(lw: Lowering, written: TypeExpr, type: Type): Ir
     written.element.kind === "array_type"
       ? elementDefaults(lw, written.element, element)
       : alias !== undefined
-        ? alias.kind === "aggregate_init"
-          ? aggregateInit(lw, alias, element, arrayWritten(lw, written.element))
-          : scalarInit(lw, alias, element)
+        ? lw.inFile(alias.uri, () =>
+            alias.init.kind === "aggregate_init" ? aggregateInit(lw, alias.init, element, arrayWritten(lw, written.element)) : scalarInit(lw, alias.init, element),
+          )
         : enumStart === undefined
           ? undefined
           : stored(enumStart, element)
@@ -275,12 +275,13 @@ function fieldWritten(lw: Lowering, layoutName: string, field: string): TypeExpr
 
 /** The initializer the variable's alias type carries — the direct alias's own `:=` only: an alias OF an initialized alias
  *  without one of its own starts at 0, not at the inner alias's (`array_element_alias_of_alias`: `Plain : Base` with
- *  `Base : INT := 5` is 0, as a variable and as an element; `Own : Base := 6` is 6). */
-export function aliasInit(lw: Lowering, t: TypeExpr): Initializer | undefined {
+ *  `Base : INT := 5` is 0, as a variable and as an element; `Own : Base := 6` is 6) — with the file it is written in, where
+ *  a refusal of it points (`Lowering.inFile`). */
+export function aliasInit(lw: Lowering, t: TypeExpr): { init: Initializer; uri: string } | undefined {
   if (t.kind !== "named_type") return undefined
   const sym = lookup(lw.scope, t.name.text)?.symbol
   const body = sym?.kind === "type" ? (sym.ast as TypeDecl).body : undefined
-  return body?.kind === "alias" ? body.init : undefined
+  return body?.kind === "alias" && body.init !== undefined ? { init: body.init, uri: sym!.uri } : undefined
 }
 
 /**

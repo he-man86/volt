@@ -1,6 +1,6 @@
 /**
- * A PROGRAM runs moved out of `Programs` while it is called: what a routine touches, and whether it could reach the
- * program it runs in.
+ * A PROGRAM runs moved out of `Programs`, and a GVL instance out of `Globals`, while it is called: what a routine touches,
+ * and whether it could reach the instance it runs on.
  */
 
 import { fbContext } from "../core/keys.js"
@@ -9,6 +9,8 @@ import type { IrRoutine, IrStmt, Place } from "../../ir/index.js"
 import { type IrNode, isPlace, someNode } from "../../ir/walk.js"
 import { routineFacts } from "./facts.js"
 import type { InitStep } from "../init/state.js"
+import type { Span } from "../../../frontend/syntax/index.js"
+import { staticPath } from "../places/path.js"
 
 /** What `programReentrant` asks of a callee: the PROGRAM instances it touches, and its body (an interface call in it). */
 interface Callee {
@@ -55,8 +57,9 @@ export function programReentrant(
   return undefined
 }
 
-/** The PROGRAM instances (global slots) a body reads or calls, and those of every body it calls. In Rust a program
- *  runs moved out of `Programs`, so a program whose run reaches its own instance would read a stand-in: refused. */
+/** The global slots — a PROGRAM's instance, a GVL variable — a body reads or calls, and those of every body it calls. In
+ *  Rust a program, and a GVL instance being called, runs moved out of `Programs` / `Globals`, so a run that reaches the
+ *  instance it runs on would read a stand-in: refused. */
 export const touchedOf = frameState(() => new Set<number>())
 
 /** Each routine's `touched` set — so the routine's callers can take it on. */
@@ -64,10 +67,35 @@ export const touchesOf = routineFacts<ReadonlySet<number>>()
 
 /**
  * An FB instance held in the GVL storage. Every body is handed that storage as one `&mut g`, so calling the instance —
- * `g.inst.call(g)` — borrows it twice (E0499; transpiler review 2026-09-15). A PROGRAM's instance lives apart, in `prg`.
+ * `g.inst.call(g)` — would borrow it twice (E0499; transpiler review 2026-09-15): it is called moved out of `Globals` and
+ * back, as a PROGRAM is moved out of `Programs` (`emit/rust/calls.ts` `movesOut`). A PROGRAM's instance lives apart, in
+ * `prg`.
  */
 export function inGlobals(lw: Lowering, place: Place): boolean {
   return place.root === "global" && lw.shared.globals.slots[place.slot]!.section !== "program"
+}
+
+/**
+ * THE GVL-INSTANCE REENTRANCY TEST (openspec `gvl-fb-instance-call`) — a body, METHOD or PROPERTY accessor run on an FB
+ * instance declared in a GVL runs with that variable moved out of `Globals`, so its run must not reach the variable again:
+ * its touched set holds the slot, it calls through an interface (whose arms are finished only after the POU lowers), or
+ * the instance is reached through a runtime index (read with the variable moved out). Each refused by name; true when
+ * refused. The interpreter has no such limit — the refusal is the Rust backend's, said where lowering knows it.
+ */
+export function globalReentrant(lw: Lowering, callee: Callee, instance: Place, what: string, span: Span): boolean {
+  if (!inGlobals(lw, instance)) return false
+  const variable = lw.shared.globals.slots[instance.slot]!
+  const named = variable.list === undefined ? variable.name : `${variable.list}.${variable.name}`
+  const why = !staticPath(instance)
+    ? "is reached through a runtime index"
+    : callee.touched?.has(instance.slot) === true
+      ? "reaches it while it runs"
+      : reachesDispatch(lw, callee.body)
+        ? "calls through an interface, which may reach it while it runs"
+        : undefined
+  if (why === undefined) return false
+  lw.bail("call-global-reentrant", `${what} runs on ${named}, moved out of the globals while it runs, and ${why}`, span)
+  return true
 }
 
 /**
