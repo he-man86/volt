@@ -9,6 +9,7 @@ import type { ParseResult } from "../../frontend/syntax/index.js"
 import type { Scope } from "../../frontend/symbols/index.js"
 import { resolveConfig, type AnalysisInitOptions, type ResolvedConfig } from "../config.js"
 import { messagesFor } from "../messages/index.js"
+import { networkDiagnostics } from "../checks/network/_plain-st.js"
 import { withdrawBlockedFixes, type DiagnosticItem } from "../shared/diagnostic-item.js"
 import type { Check, CheckContext } from "./context.js"
 import { applyPolicy } from "./policy.js"
@@ -62,7 +63,9 @@ export function computeDiagnostics(args: DiagnosticsArgs): DiagnosticItem[] {
     messages: messagesFor(config.vendor),
     tokens: () => args.parseResult.tokens,
   }
-  return runRegistry(ctx)
+  // what a network may hold is the one check outside the registry (`checks/network/_plain-st.ts`), after the policy as
+  // the language server always gave it: every consumer of this entry point gets it, each finding once
+  return [...runRegistry(ctx), ...networkDiagnostics(args.parseResult, args.project)]
 }
 
 /** The check registry in run order, READ-ONLY — exported for the diagnostic census (`test/analysis/census.ts`), which

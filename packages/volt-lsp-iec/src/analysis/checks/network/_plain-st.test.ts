@@ -130,7 +130,7 @@ test("GT(a, b) stays the vendor's syntax error in ST: only a network spells a bo
 
 test("an FB box with no instance, the call of its type, is the build's errors over the marker ??? at its head", () => {
   const src = ld("\ta : BOOL;", "%NETWORK\nFB_T(IN := a);\n")
-  expect(diagnose(src)).toEqual([])
+  expect(diagnose(src)).toEqual(networkDiags(src)) // the network check is all the pipeline says
   expect(networkDiags(src).map((d) => d.message)).toEqual([
     "Expression expected instead of '?'",
     "Unexpected token '?' found",
@@ -173,7 +173,7 @@ test("on CODESYS a library function's box named through its namespace and shown 
 
 test("a coil nobody named, ??? := v, is the build's own error in each vendor's words, and nothing else", () => {
   const src = ld("\ta : BOOL;\n\tgo : BOOL;", "%NETWORK\n??? := a;\n%NETWORK\n??? := MOVE(EN := go, 1, OUT => a).ENO;\n")
-  expect(diagnose(src)).toEqual([])
+  expect(diagnose(src)).toEqual(networkDiags(src)) // the network check is all the pipeline says
   expect(networkDiags(src).map((d) => d.message)).toEqual(["The assignment target is not specified.", "The assignment target is not specified."])
   expect(networkDiags(src, "twincat").map((d) => d.message)).toEqual(["Assignment target not specified", "Assignment target not specified"])
 })

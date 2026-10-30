@@ -13,7 +13,7 @@
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { computeDiagnostics, networkDiagnostics, resolveConfig, type AnalysisInitOptions } from "../../../src/analysis/index.js"
+import { computeDiagnostics, resolveConfig, type AnalysisInitOptions } from "../../../src/analysis/index.js"
 import { parseDocument, parseSource, type CompileEnvironment, type Dialect } from "../../../src/frontend/syntax/index.js"
 import { build, type Scope } from "../../../src/frontend/symbols/index.js"
 import { lowerSource } from "../../../src/transpile/lower/index.js"
@@ -54,21 +54,18 @@ function sourceOf(t: LanguageTest, all: readonly LanguageTest[]): { source: stri
 /**
  * Does the LSP report an ERROR for this source?
  *
- * Three things a naive version got wrong, each of which turned a covered fixture into a phantom gap:
+ * Two things a naive version got wrong, each of which turned a covered fixture into a phantom gap:
  *
  *   PARSE ERRORS COUNT. A reserved word in name position is reported by `cursor.ts` with CODESYS's own wording, not
  *   by a semantic check — and the pipeline reports it (`checkParseErrors`), ONCE: this walk added each file's raw
  *   `parseResult.errors` beside it, so every declaration parse error counted twice (analysis-conformance 2.6).
- *
- *   NETWORK TEXT HAS ITS OWN CHECK. What a network may hold is `networkDiagnostics`, outside the registry
- *   (`lsp-replay.test.ts` runs both for exactly this reason).
  *
  *   THE URI IS PART OF THE INPUT. A signature-name check compares the declared name against the FILE's, so a fixture
  *   analysed under a made-up filename cannot trigger it. The uri is built the way `lsp-replay.test.ts` builds it.
  *
  * `lspReportsAnError` asks only WHETHER the LSP objects; `lspErrors` returns the same messages for the fixtures that
  * carry the vendor's own text to compare against. They are the same walk on purpose — the wording check used to build
- * its own two-file project, which is the very assembly the third note above says defeats `signature-name`.
+ * its own two-file project, which is the very assembly the second note above says defeats `signature-name`.
  */
 export function lspErrors(t: LanguageTest, all: readonly LanguageTest[], vendor: Dialect): string[] {
   // ONCE per fixture, fixture list and vendor: the rating, the refused rows and the resolution dump all ask it, and the
@@ -100,12 +97,9 @@ export function lspMessagesOn(
   diagnostics: AnalysisInitOptions["diagnostics"],
 ): string[] {
   return onFixtureProject(t, all, vendor, environment, (own, files, project) => {
-    const diags = [
-      ...files.flatMap((f) =>
-        computeDiagnostics({ uri: f.uri, parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor, diagnostics, unicodeIdentifiers: f.parseResult.unicodeIdentifiers }) }),
-      ),
-      ...networkDiagnostics(own.parseResult, project),
-    ]
+    const diags = files.flatMap((f) =>
+      computeDiagnostics({ uri: f.uri, parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor, diagnostics, unicodeIdentifiers: f.parseResult.unicodeIdentifiers }) }),
+    )
     return diags.filter((d) => d.severity === "error" || d.severity === "warning").map((d) => `[${d.severity}] ${d.message.replace(/\r\n/g, "\n")}`).sort()
   })
 }
@@ -162,8 +156,7 @@ function diagnosed(own: { uri: string; source: string; parseResult: ReturnType<t
   const analysed = files.flatMap((f) =>
     computeDiagnostics({ uri: f.uri, parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor, unicodeIdentifiers: f.parseResult.unicodeIdentifiers }) }),
   )
-  const network = networkDiagnostics(own.parseResult, project)
-  return [...analysed, ...network].filter((d) => d.severity === "error").map((d) => d.message)
+  return analysed.filter((d) => d.severity === "error").map((d) => d.message)
 }
 
 /** Whether the LSP objects at all — a parse error counts, and so does a check the PROJECT could configure louder. */

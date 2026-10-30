@@ -27,6 +27,15 @@ function findingsIn(files: Record<string, string>, uri: string, diagnoseDeadCode
     manifests: [],
   })
 }
+// openspec network-diagnostics-in-compute: the network check is the pipeline's, so the language server gives it once
+test("a network refusal is one finding, not one from the pipeline and one beside it", () => {
+  const files = {
+    "C:/w/PLC_PRG.pou":
+      "PROGRAM PLC_PRG\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tx : BOOL;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\nx := a XOR b;\nEND_PROGRAM\n",
+  }
+  expect(findingsIn(files, "C:/w/PLC_PRG.pou").filter((d) => d.code === "network-plain-st").map((d) => d.span.startLine)).toEqual([9])
+})
+
 const lines = (files: Record<string, string>, uri: string, diagnoseDeadCode = false): [string, number][] =>
   findingsIn(files, uri, diagnoseDeadCode)
     .map((d): [string, number] => [codesysCodeFor(d.code)?.code ?? d.code, d.span.startLine - 1])

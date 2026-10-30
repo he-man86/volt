@@ -11,7 +11,7 @@
  */
 import { CODESYS_ONLY_KEYWORDS, CODESYS_ONLY_TYPE_WORDS, TWINCAT_LITERAL_PREFIXES, parseDocument, parseSource } from "../../../src/frontend/syntax/index.js"
 import { build, type Scope } from "../../../src/frontend/symbols/index.js"
-import { computeDiagnostics, networkDiagnostics, resolveConfig, type DiagnosticItem, type Vendor } from "../../../src/analysis/index.js"
+import { computeDiagnostics, resolveConfig, type DiagnosticItem, type Vendor } from "../../../src/analysis/index.js"
 import { ALL_TESTS } from "../fixtures/index.js"
 import { splitLists, withDependencies } from "./fixture-units.js"
 import { plcPrgSource } from "./plc-prg.js"
@@ -232,20 +232,16 @@ export function withReplayFixture<T>(testIdx: number, vendor: Vendor, ask: (file
 /**
  * WHAT THE LSP SAYS ABOUT ONE BOUND FIXTURE — the conformance composition, in ONE place (analysis-conformance P1, task 2.6):
  * the pipeline (`computeDiagnostics`) over each document the replay analyses — its own item, its PLC_PRG, its global
- * lists, each under its own uri — then the network-text pass over its own item, which stays a call of its own while
- * design.md §3 is parked. No parse error is added beside the pipeline's: `checkParseErrors` reports each one. The replay
- * gate (`lsp-replay.test.ts` `runLsp`) and the agreement residue (`scripts/agreement-residue.ts`) both ask this; they each
- * composed it themselves, and the residue's own project gave two fixtures a different answer (task 0.4).
+ * lists, each under its own uri — its network check included (openspec network-diagnostics-in-compute). No parse error
+ * is added beside the pipeline's: `checkParseErrors` reports each one. The replay gate (`lsp-replay.test.ts` `runLsp`)
+ * and the agreement residue (`scripts/agreement-residue.ts`) both ask this; they each composed it themselves, and the
+ * residue's own project gave two fixtures a different answer (task 0.4).
  */
 export function replayDiagnostics({ own, plc, lists, dependencies }: ReplayFiles, project: Scope, vendor: Vendor): DiagnosticItem[] {
-  const docs = replayDocuments({ own, plc, lists, dependencies })
-  return [
-    // each document under its own project's "Unicode identifiers", as its parse read it (`recordingParse`)
-    ...docs.flatMap((d) =>
-      computeDiagnostics({ uri: d.uri, parseResult: d.parseResult, source: d.source, project, config: resolveConfig({ vendor, unicodeIdentifiers: d.parseResult.unicodeIdentifiers }) }),
-    ),
-    ...networkDocuments({ own, plc, lists, dependencies }).flatMap((d) => networkDiagnostics(d.parseResult, project)),
-  ]
+  // each document under its own project's "Unicode identifiers", as its parse read it (`recordingParse`)
+  return replayDocuments({ own, plc, lists, dependencies }).flatMap((d) =>
+    computeDiagnostics({ uri: d.uri, parseResult: d.parseResult, source: d.source, project, config: resolveConfig({ vendor, unicodeIdentifiers: d.parseResult.unicodeIdentifiers }) }),
+  )
 }
 
 /** The documents the pipeline runs over: the fixture's item, its PLC_PRG, its lists, and its dependencies' files. */
@@ -253,7 +249,8 @@ export function replayDocuments({ own, plc, lists, dependencies }: ReplayFiles):
   return [own, ...(plc === undefined ? [] : [plc]), ...lists, ...dependencies]
 }
 
-/** The documents the network-text pass runs over: the fixture's own item and its dependencies' files. */
+/** The documents the census attributes the network check over (it runs the registry, not `computeDiagnostics`): the
+ *  fixture's own item and its dependencies' files. */
 export function networkDocuments({ own, dependencies }: ReplayFiles): ReplayDoc[] {
   return [own, ...dependencies]
 }

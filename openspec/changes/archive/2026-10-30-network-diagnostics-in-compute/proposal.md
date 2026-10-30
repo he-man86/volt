@@ -1,4 +1,4 @@
-> DRAFT, written from Sim-Assist (change `network-viewer`, 2026-10-30). Measured, not started.
+> Written from Sim-Assist (change `network-viewer`, 2026-10-30); built in volt-lsp-iec 2026-10-30.
 
 ## Why
 
