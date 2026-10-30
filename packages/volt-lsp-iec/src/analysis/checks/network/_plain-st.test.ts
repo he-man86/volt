@@ -6,7 +6,7 @@
  * Then the check's rules one by one, each on a small made-up network.
  */
 import { expect, test } from "bun:test"
-import { isPlainStNetworkBody, parseSource, unitBodies } from "../../../frontend/syntax/index.js"
+import { isPlainStNetworkBody, parseSource, sourceStatements, stmtExprs, unitBodies, walkExpr, walkStatements } from "../../../frontend/syntax/index.js"
 import { caseRoot, readCases, type Case } from "../../../../test/support/network-cases.js"
 import { networkDiags } from "../../../../test/support/network-docs.js"
 import { diagnose } from "../../../../test/support/diagnose.js"
@@ -153,10 +153,43 @@ test("a METHOD box given positional pins is the build's count of its inputs: the
   expect(networkDiags(src).map((d) => d.message)).toEqual(["Function 'M_twice' requires exactly '1' inputs"])
 })
 
-test("??? as an operand is the build's reading of the marker as text: the token error beside the parser's", () => {
-  const src = ld("\ta, x : BOOL;", "%NETWORK\nx := AND(???, a);\n")
-  expect(networkDiags(src).map((d) => d.message)).toEqual(["Unexpected token '?' found"])
-  expect(networkDiags(src, "twincat").map((d) => d.message)).toEqual(["Unexpected Token '?' found"])
+// THE UNNAMED OPERAND (openspec network-unnamed-operand): `???` is an operand wherever network text takes one, as the
+// bridge's reader reads it (`StNetworkReader.TryOperandSpan`), so the rung stays in the tree; the build reads the marker
+// as text, the pair of `network_unnamed_input_pin` / `network_unnamed_group_operand` (both vendors) at each `???`
+const UNNAMED_OPERANDS = "%NETWORK\nx := ??? AND a;\n%NETWORK\n??? := a;\n%NETWORK\nx := MOVE(EN := a, ???, OUT => ???).ENO;\n%NETWORK\nt1(IN := ???);\n"
+const unnamedSrc = ld("\ta, x : BOOL;\n\tt1 : FB_T;", UNNAMED_OPERANDS)
+
+test("??? in every operand position is an identifier ??? with its span, and every statement stays in the tree", () => {
+  const unit = parseSource(unnamedSrc, { networkText: true, unicodeIdentifiers: false }, "codesys").units.at(-1)!
+  const statements = unitBodies(unit).filter(isPlainStNetworkBody).flatMap((b) => sourceStatements(b).statements)
+  expect(statements.map((s) => s.kind)).toEqual(["assign", "assign", "assign", "call_stmt"])
+  const unnamed: string[] = []
+  walkStatements(statements, (s) => {
+    if (s.kind === "assign") walkExpr(s.target, (e) => e.kind === "ident_expr" && e.name === "???" && unnamed.push(unnamedSrc.slice(e.span.start, e.span.end)))
+    for (const e of stmtExprs(s)) walkExpr(e, (x) => x.kind === "ident_expr" && x.name === "???" && unnamed.push(unnamedSrc.slice(x.span.start, x.span.end)))
+  })
+  expect(unnamed.length).toBeGreaterThanOrEqual(5)
+  expect(new Set(unnamed)).toEqual(new Set(["???"]))
+})
+
+test("an unnamed operand is the build's pair at the ???, in each vendor's words, and nothing else in its statement", () => {
+  const src = ld("\ta, x : BOOL;", "%NETWORK\nx := ??? AND a;\n")
+  const at = src.indexOf("???")
+  expect(diagnose(src).map((d) => [d.message, d.span.start, d.span.end])).toEqual([
+    ["Expression expected instead of '?'", at, at + 3],
+    ["Unexpected token '?' found", at, at + 3],
+  ])
+  expect(diagnose(src, "twincat").map((d) => d.message)).toEqual(["Expression expected instead of '?'", "Unexpected Token '?' found"])
+  // a box input, positional and named, and an output binding: the same pair at each; the coil its own message
+  const pair = ["Expression expected instead of '?'@???", "Unexpected token '?' found@???"]
+  expect(diagnose(unnamedSrc).map((d) => `${d.message}@${unnamedSrc.slice(d.span.start, d.span.end)}`).sort()).toEqual(
+    [...pair, ...pair, ...pair, ...pair, "The assignment target is not specified.@???"].sort(),
+  )
+})
+
+test("??? in an ST body stays the vendor's syntax error", () => {
+  const st = `PROGRAM P\nVAR\n\ta, x : BOOL;\nEND_VAR\n%LANGUAGE ST\nx := ??? AND a;\nEND_PROGRAM\n`
+  expect(diagnose(st).some((d) => d.code === "syntax-error" && d.message === "Expression expected instead of '?'")).toBe(true)
 })
 
 test("a FUNCTION box given more pins than it declares, positional and named together, is the build's count", () => {

@@ -99,23 +99,26 @@ function checkUnnamed(body: BodySpan, scope: Scope | undefined, project: Scope, 
     if (t.kind === "ident_expr" && t.name === UNNAMED) error(t.span, tc ? "Assignment target not specified" : "The assignment target is not specified.")
   }
   const marker = "Expression expected instead of '?'"
+  const unexpected = tc ? "Unexpected Token '?' found" : "Unexpected token '?' found"
+  const targets = new Set<number>()
   walkStatements(sourceStatements(body).statements, (stmt) => {
     if (stmt.kind === "assign") target(stmt.target)
+    if (stmt.kind === "assign") targets.add(stmt.target.span.start)
     for (const e of stmtExprs(stmt))
       walkExpr(e, (x) => {
         if (x.kind === "assign_expr") target(x.target)
+        if (x.kind === "assign_expr") targets.add(x.target.span.start)
         const instance = x.kind === "call" && scope !== undefined ? networkBox(x, scope, project)?.instance : undefined
         if (x.kind === "call" && instance?.kind === "ident_expr" && instance.name === UNNAMED)
-          for (const m of [marker, tc ? "Unexpected Token '?' found" : "Unexpected token '?' found",
+          for (const m of [marker, unexpected,
             "Program name, function or function block instance expected instead of '!!!'ERROR'!!!'", marker]) error(x.callee.span, m)
       })
   })
-  const tokens = plainStText(body).sourceTokens
-  const q = (k: number) => tokens[k]?.kind === "punct" && tokens[k]!.text === "?"
-  for (let i = 0; i + 2 < tokens.length; i++)
-    if (q(i) && q(i + 1) && q(i + 2) && tokens[i + 2]!.span.start === tokens[i]!.span.end + 1) {
-      error(tokens[i]!.span, tc ? "Unexpected Token '?' found" : "Unexpected token '?' found")
-      i += 2
+  // every other `???` is an operand (a contact, a box input, an output binding): the marker read as text
+  for (const t of plainStText(body).sourceTokens)
+    if (t.kind === "identifier" && t.text === UNNAMED && !targets.has(t.span.start)) {
+      error(t.span, marker)
+      error(t.span, unexpected)
     }
 }
 
