@@ -416,10 +416,18 @@ every behaviour gets a red test before code (`Volt.Relay.Tests`, FakeRelay exten
 
 ## 7. Joint gate
 
-- [ ] 7.1 STOP for the owner: once PLC Assist's relay ships reassembly + the announcement, run a joint gate through a
+- [x] 7.1 STOP for the owner: once PLC Assist's relay ships reassembly + the announcement, run a joint gate through a
       2 KB/s proxy: a large fetch plus a concurrent health, and a large push request. Then release.
+      Done 2026-10-30 on 0.1.18160 (f49c131945) with PLC Assist, CODESYS 3.5.21.40 64-bit, a 2000 B/s proxy each way:
+      case 1 Lenze init fetch: 8 KiB chunks at line rate, 26 healths all 200, socket up; the call hit PLC Assist's
+      300 s relay ceiling (0.9 MB needs ~7.5 min at 2 KB/s) and the bridge still sent all 110 chunks, acked, after the
+      relay discarded the id (joint follow-up after go-live). Case 2 two concurrent fetches (CodesysTestProject): both
+      complete, 12 chunks each. Case 3 a 156 KB push as 10 request chunks, ok in 38 s. Case 4 proxy killed mid-reply:
+      BRIDGE_DISCONNECTED at the drop, redial in 6.5 s. A CODESYS restart reused the pairing in the install folder.
+      4.1b production (wss://relay.plc-assist.com): fetch 626 KB as 12 chunks in 1.4 s / 0.6 s, same hash twice.
 
 ## 8. Close
 
-- [ ] 8.1 Cold full suites (all C# test projects, volt-cli `bun test test/unit`, typecheck, lint, `bun run check`),
+- [x] 8.1 Cold full suites (all C# test projects, volt-cli `bun test test/unit`, typecheck, lint, `bun run check`),
       then archive.
+      Done: CI run 40968770932 on f49c131945, every job green (volt-cli in machine, tr-TR, ru-RU, de-DE).
