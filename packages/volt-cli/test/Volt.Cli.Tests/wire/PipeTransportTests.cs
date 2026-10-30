@@ -146,14 +146,14 @@ public class PipeTransportTests
         host.Start();
 
         // Hold the one IDE thread inside a running op (init blocks in library-extract on the STA worker).
-        var init = Task.Run(() => new PipeClient(pipe).Call("fetch", new { init = true }));
+        var init = TestUtil.OnOwnThread(() => new PipeClient(pipe).Call("fetch", new { init = true }));
         Assert.True(entered.Wait(15_000), "init never reached the library-extract step");
 
         // With the IDE thread held, the health poll must still COMPLETE (release hasn't been Set) — served from
         // cache, off the held thread. The bound is a generous liveness/deadlock detector: a correct read returns in
         // ms, a WRONG one that marshalled onto the held STA thread deadlocks. NOT a latency budget (a 2s budget on a
         // <10ms read flaked under CI build-load).
-        var health = Task.Run(() => new PipeClient(pipe).Call("health"));
+        var health = TestUtil.OnOwnThread(() => new PipeClient(pipe).Call("health"));
         Assert.True(health.Wait(30_000),
             "health HUNG behind the busy IDE thread — it marshalled instead of serving the cached snapshot");
         Assert.True(health.Result.TryGetProperty("projects", out var arr) && arr.GetArrayLength() == 1,
@@ -195,7 +195,7 @@ public class PipeTransportTests
         hIdle.Start();
 
         // Hold the BUSY bridge's one IDE thread inside a running op.
-        var op = Task.Run(() => new PipeClient(pBusy).Call("fetch", new { init = true }));
+        var op = TestUtil.OnOwnThread(() => new PipeClient(pBusy).Call("fetch", new { init = true }));
         Assert.True(entered.Wait(15_000), "the long op never reached the held step");
 
         // BOTH health polls must COMPLETE while the op is still held (release hasn't been Set yet) — that is the
@@ -203,8 +203,8 @@ public class PipeTransportTests
         // cache-served health returns in ms; a WRONG one that marshalled onto the held STA thread would DEADLOCK
         // (that thread is inside the op, unreleasable until below). So the bound here is a generous liveness/
         // deadlock detector — NOT a latency budget (an earlier 2s budget flaked under CI build-load on a <10ms read).
-        var hb = Task.Run(() => new PipeClient(pBusy).Call("health"));
-        var hi = Task.Run(() => new PipeClient(pIdle).Call("health"));
+        var hb = TestUtil.OnOwnThread(() => new PipeClient(pBusy).Call("health"));
+        var hi = TestUtil.OnOwnThread(() => new PipeClient(pIdle).Call("health"));
         Assert.True(Task.WaitAll(new[] { hb, hi }, 30_000),
             "a health poll HUNG behind the busy IDE thread — it marshalled instead of serving the cached snapshot");
 
@@ -551,9 +551,14 @@ public class PipeTransportTests
     /// <summary>A REQUEST FRAME HAS A SIZE CAP (<see cref="PipeServer.MaxFrameBytes"/>). The frame is read into memory
     /// before it is parsed, and on CODESYS that memory is the IDE's own process: a client that streams bytes with no
     /// newline used to grow the buffer without bound. Past the cap the server answers BAD_REQUEST naming the cap,
-    /// closes the connection, and keeps serving.</summary>
+    /// closes the connection, and keeps serving.
+    /// <para>The frame is written in ONE write, on a thread of its own: the client handle is overlapped (the answer is
+    /// read while the write is still pending, so the two cannot share a synchronous handle), and each overlapped
+    /// completion is resumed on the thread pool. Written as 65 awaited 1 MiB chunks it was 65 pool hand-offs in
+    /// series, and on a loaded machine, where the suite's blocked bodies saturate the pool, they did not finish
+    /// inside 30 s.</para></summary>
     [Fact]
-    public async Task A_request_frame_over_the_size_cap_is_a_BAD_REQUEST_and_the_bridge_keeps_serving()
+    public void A_request_frame_over_the_size_cap_is_a_BAD_REQUEST_and_the_bridge_keeps_serving()
     {
         var pipe = Pipe();
         using var host = new BridgePipeHost(new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;")), pipe);
@@ -563,39 +568,35 @@ public class PipeTransportTests
                    System.IO.Pipes.PipeOptions.Asynchronous))
         {
             client.Connect(5000);
-            // Writes past the cap with no newline, until the server closes the connection under it.
-            var flood = Task.Run(async () =>
+            // One byte past the cap with no newline; the write ends when the server closes the connection under it.
+            var flood = TestUtil.OnOwnThread(() =>
             {
-                var chunk = new byte[1 << 20];
-                Array.Fill(chunk, (byte)'x');
-                try
-                {
-                    for (long sent = 0; sent <= PipeServer.MaxFrameBytes + chunk.Length; sent += chunk.Length)
-                        await client.WriteAsync(chunk, 0, chunk.Length);
-                }
+                var frame = new byte[PipeServer.MaxFrameBytes + 1];
+                Array.Fill(frame, (byte)'x');
+                try { client.Write(frame, 0, frame.Length); }
                 catch (System.IO.IOException) { /* the server closed the connection: expected */ }
                 catch (ObjectDisposedException) { }
             });
 
-            var buf = new byte[64 * 1024];
             var answer = new System.IO.MemoryStream();
-            var read = Task.Run(async () =>
+            var read = TestUtil.OnOwnThread(() =>
             {
+                var buf = new byte[64 * 1024];
                 int n;
-                while ((n = await client.ReadAsync(buf, 0, buf.Length)) > 0)
+                while ((n = client.Read(buf, 0, buf.Length)) > 0)
                 {
                     answer.Write(buf, 0, n);
                     if (Array.IndexOf(buf, (byte)'\n', 0, n) >= 0) break;
                 }
             });
-            await read.WaitAsync(TimeSpan.FromSeconds(30));   // TimeoutException: the bridge never answered
+            Assert.True(read.Wait(30_000), "the bridge never answered");
             var raw = System.Text.Encoding.UTF8.GetString(answer.ToArray()).Trim();
             using var doc = JsonDocument.Parse(raw);
             var err = doc.RootElement.GetProperty("error");
             Assert.Equal("BAD_REQUEST", err.GetProperty("code").GetString());
             Assert.Contains(PipeServer.MaxFrameBytes.ToString(System.Globalization.CultureInfo.InvariantCulture),
                 err.GetProperty("message").GetString());
-            await flood.WaitAsync(TimeSpan.FromSeconds(30));  // TimeoutException: the connection was not closed
+            Assert.True(flood.Wait(30_000), "the connection was not closed");
         }
 
         // The process did not fall over and the server still answers.
