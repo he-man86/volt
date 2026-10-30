@@ -15,7 +15,7 @@ out := a AND b;
 out := a OR b;
 out := a;
 END_FUNCTION_BLOCK`
-  const folds = foldingRanges({ uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") })
+  const folds = foldingRanges({ uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys") })
   // unit + VAR + 2 networks; assert both networks fold (multi-line regions past the VAR section).
   const networkFolds = folds.filter((f) => f.startLine >= 4)
   expect(networkFolds).toHaveLength(2)

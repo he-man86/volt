@@ -16,7 +16,7 @@ VAR
 END_VAR
 END_FUNCTION_BLOCK
 `
-  const parseResult = parseSource(source, { networkText: true }, "codesys")
+  const parseResult = parseSource(source, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const byName = new Map([...declarationAttributes(parseResult)].map(([decl, names]) => [decl.names[0]!.text, [...names].sort()]))
   expect([...byName]).toEqual([["sPath", ["instance-path", "noinit"]]])
 })
@@ -34,7 +34,7 @@ END_METHOD
 METHOD AfterInit
 END_METHOD
 `
-  const parseResult = parseSource(source, { networkText: true }, "codesys")
+  const parseResult = parseSource(source, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const byName = new Map([...memberAttributes(parseResult)].map(([unit, names]) => ["name" in unit ? unit.name.text : unit.kind, [...names]]))
   // the set holds the NAME, and `name=value` beside it where the pragma carries one (`addAttribute`), so a consumer
   // that needs the value has it — `pack_mode=1` is a different struct layout from `pack_mode=2`
@@ -60,7 +60,7 @@ END_METHOD
 FUNCTION_BLOCK FB_B
 END_FUNCTION_BLOCK
 `
-  const parseResult = parseSource(source, { networkText: true }, "codesys")
+  const parseResult = parseSource(source, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const byName = new Map([...unitAttributes(parseResult)].map(([unit, names]) => ["name" in unit ? unit.name.text : unit.kind, [...names].sort()]))
   expect(byName.get("FB_A")).toEqual(["call_after_global_init_slot", "call_after_global_init_slot=50000", "instance-path", "reflection"])
   expect(byName.has("FB_B")).toBe(false)
@@ -79,7 +79,7 @@ test("an attribute is spelled `attribute` in lower case; `{ATTRIBUTE '…'}` is 
 // (`prag_rule_unknown_attribute_in_body`, analysis-conformance 3.10), and attached to the unit the printer wrote it above
 // the unit a second time.
 test("an attribute in a body is attached to no node", () => {
-  const parseResult = parseSource("FUNCTION_BLOCK F\nVAR\n\tout : INT;\nEND_VAR\n{attribute 'volt_x'}\nout := 1;\nEND_FUNCTION_BLOCK\n", { networkText: true }, "codesys")
+  const parseResult = parseSource("FUNCTION_BLOCK F\nVAR\n\tout : INT;\nEND_VAR\n{attribute 'volt_x'}\nout := 1;\nEND_FUNCTION_BLOCK\n", { networkText: true, unicodeIdentifiers: false }, "codesys")
   expect(parseResult.units[0]!.attributes).toBeUndefined()
   expect([...unitAttributes(parseResult).values()]).toEqual([])
 })
@@ -87,8 +87,8 @@ test("an attribute in a body is attached to no node", () => {
 // …a KNOWN name included (the 3.10 gate review): `{ATTRIBUTE 'qualified_only'}` above a GVL leaves its global readable
 // bare — both vendors build `out := g_…;` clean (`prag_rule_qualified_only_upper_case`) — so it attaches as nothing.
 test("`{ATTRIBUTE 'qualified_only'}` is no attribute of the list", () => {
-  const parseResult = parseSource("{ATTRIBUTE 'qualified_only'}\nVAR_GLOBAL\n\tg : INT;\nEND_VAR\n", { networkText: true }, "codesys")
+  const parseResult = parseSource("{ATTRIBUTE 'qualified_only'}\nVAR_GLOBAL\n\tg : INT;\nEND_VAR\n", { networkText: true, unicodeIdentifiers: false }, "codesys")
   expect(parseResult.units[0]!.attributes).toBeUndefined()
-  const lower = parseSource("{attribute 'qualified_only'}\nVAR_GLOBAL\n\tg : INT;\nEND_VAR\n", { networkText: true }, "codesys")
+  const lower = parseSource("{attribute 'qualified_only'}\nVAR_GLOBAL\n\tg : INT;\nEND_VAR\n", { networkText: true, unicodeIdentifiers: false }, "codesys")
   expect(lower.units[0]!.attributes?.map((a) => a.name)).toEqual(["qualified_only"])
 })

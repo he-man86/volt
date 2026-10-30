@@ -22,6 +22,7 @@ import {
 import { readdirSync } from "node:fs"
 import { join } from "node:path"
 import type { LanguageTest } from "../types.js"
+import { recordingParse } from "./recording-environment.js"
 import { plcPrgSource } from "./plc-prg.js"
 import { conformanceUri } from "./fixture-uri.js"
 import { pragmasBefore, asMember, asUnit } from "./fixture-units-split.js"
@@ -57,7 +58,7 @@ export interface LoadUnit {
 
 export function fixtureUnits(t: LanguageTest): LoadUnit[] {
   const source = t.source
-  const { units } = parseSource(source, { networkText: true }, "codesys")
+  const { units } = parseSource(source, recordingParse(t), "codesys")
   const out: LoadUnit[] = []
   let previousEnd = 0
   for (const unit of units) {
@@ -148,7 +149,7 @@ const parseCache = new Map<string, ParseResult>()
 function parsed(t: LanguageTest): ParseResult {
   let result = parseCache.get(t.name)
   if (result === undefined) {
-    result = parseSource(t.source, { networkText: true }, "codesys")
+    result = parseSource(t.source, recordingParse(t), "codesys")
     parseCache.set(t.name, result)
   }
   return result
@@ -192,7 +193,7 @@ function referencedNames(t: LanguageTest): Set<string> {
         if (s.sectionKind === "VAR_EXTERNAL") for (const n of d.names) names.add(n.text.toUpperCase())
       }
   }
-  const units = [...parsed(t).units, ...parseSource(plcPrgSource(t), { networkText: true }, "codesys").units]
+  const units = [...parsed(t).units, ...parseSource(plcPrgSource(t), recordingParse(t), "codesys").units]
   for (const u of units) {
     if (u.kind === "function_block") {
       if (u.extends !== undefined) names.add(u.extends.text.toUpperCase())
@@ -223,7 +224,7 @@ function referencedNames(t: LanguageTest): Set<string> {
   // nothing. Measured when it was added: zero of 2561 fixtures gain a dependency, so no recording moves — which
   // is exactly when to close a trap like this. As CODESYS: its vocabulary reserves more words, so it collects no name
   // TwinCAT's would not (a CODESYS-only word is no fixture's POU).
-  for (const tok of lex(t.source, "codesys")) if (tok.kind === "identifier") names.add(tok.text.toUpperCase())
+  for (const tok of lex(t.source, "codesys", false)) if (tok.kind === "identifier") names.add(tok.text.toUpperCase())
   return names
 }
 
@@ -292,7 +293,7 @@ export function splitLists<F extends { uri: string; source: string; parseResult:
 function withoutLists(f: LanguageTest): { source: string; lists: { uri: string; source: string }[] } {
   if (f.gvlNames === undefined) return { source: f.source, lists: [] }
   const lists = fixtureUnits(f).filter((u) => u.kind === "gvl")
-  const spans = parseSource(f.source, { networkText: true }, "codesys").units.filter((u) => u.kind === "global_var_list").map((u) => u.span)
+  const spans = parseSource(f.source, recordingParse(f), "codesys").units.filter((u) => u.kind === "global_var_list").map((u) => u.span)
   let source = f.source
   for (const span of [...spans].reverse()) {
     const end = span.end + (/^\s*END_\w+;?/i.exec(source.slice(span.end))?.[0].length ?? 0)

@@ -10,8 +10,8 @@ import { uriFor } from "../../../../test/support/test-uri.js"
 
 const run = (prg: string, gvl?: string) => {
   const inputs = [
-    { uri: "PLC_PRG.pou", source: prg, parseResult: parseSource(prg, { networkText: true }, "codesys") },
-    ...(gvl ? [{ uri: "GVL.gvl", source: gvl, parseResult: parseSource(gvl, { networkText: true }, "codesys") }] : []),
+    { uri: "PLC_PRG.pou", source: prg, parseResult: parseSource(prg, { networkText: true, unicodeIdentifiers: false }, "codesys") },
+    ...(gvl ? [{ uri: "GVL.gvl", source: gvl, parseResult: parseSource(gvl, { networkText: true, unicodeIdentifiers: false }, "codesys") }] : []),
   ]
   const project = build.buildSymbolTable(inputs, [], "codesys")
   return computeDiagnostics({ uri: inputs[0].uri, parseResult: inputs[0].parseResult, source: prg, project, config: resolveConfig({ vendor: "codesys" }) })
@@ -27,7 +27,7 @@ test("a VAR_EXTERNAL instance path is no dangling global; its unknown member is 
   const all = (decl: string) => {
     const user = `FUNCTION_BLOCK F\nVAR_EXTERNAL\n\t${decl} : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n`
     const prg = "PROGRAM PLC_PRG\nVAR\n\tinst : FB_T;\nEND_VAR\nEND_PROGRAM\n"
-    const docs = [["F.pou", user], ["PLC_PRG.pou", prg], ["FB_T.pou", fbT]].map(([uri, source]) => ({ uri: uri!, source: source!, parseResult: parseSource(source!, { networkText: true }, "codesys") }))
+    const docs = [["F.pou", user], ["PLC_PRG.pou", prg], ["FB_T.pou", fbT]].map(([uri, source]) => ({ uri: uri!, source: source!, parseResult: parseSource(source!, { networkText: true, unicodeIdentifiers: false }, "codesys") }))
     const project = build.buildSymbolTable(docs, [], "codesys")
     return computeDiagnostics({ ...docs[0]!, project, config: resolveConfig({ vendor: "codesys" }) }).map((d) => [d.code, d.message, user.slice(d.span.start, d.span.end)])
   }

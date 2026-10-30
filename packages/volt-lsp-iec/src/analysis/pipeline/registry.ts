@@ -100,6 +100,7 @@ import { checkTypeAsValue } from "../checks/names/type-as-value.js"
 import { checkReservedKeyword } from "../checks/names/reserved-keyword.js"
 import { checkUnknownSource } from "../checks/types/unknown-source.js"
 import { checkSignatureName } from "../checks/declarations/signature-name.js"
+import { checkObjectName } from "../checks/names/object-name.js"
 import { checkUnaryOperand } from "../checks/types/unary-operand.js"
 import { checkTypedLiteral } from "../checks/types/typed-literal.js"
 import { checkVarSectionPlacement } from "../checks/declarations/var-section-placement.js"
@@ -229,6 +230,7 @@ export const REGISTRY: readonly RegistryEntry[] = [
   codesys(checkAbstractOutputDefault, "oop", "live /build: TwinCAT silently accepts a VAR_OUTPUT default here"),
   both(checkPragmas, "pragmas"),
   both(checkSignatureName, "declarations"),
+  both(checkObjectName, "names"),
   // surfaces every parser-recorded syntax error (declaration structure + statement bodies), held to the corpus +
   // conformance zero-FP gate (a parse error on clean code is a grammar gap to fix, never a shipped FP). See change
   // `resilient-st-parse-errors`.

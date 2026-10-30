@@ -20,7 +20,7 @@ test("gap 9: a library FUNCTION's arguments are checked — Standard's LEN given
     source: "FUNCTION LEN : INT\nVAR_INPUT\n\tSTR : STRING(255);\nEND_VAR\nEND_FUNCTION",
   }
   const program = "PROGRAM P\nVAR\n\twide : WSTRING;\n\tn : INT;\nEND_VAR\nn := LEN(wide);\nEND_PROGRAM"
-  const files = [len, { uri: "P.pou", source: program }].map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true }, "codesys") }))
+  const files = [len, { uri: "P.pou", source: program }].map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true, unicodeIdentifiers: false }, "codesys") }))
   const project = build.buildSymbolTable(files, [], "codesys")
   const messages = computeDiagnostics({ uri: files[1]!.uri, parseResult: files[1]!.parseResult, source: program, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "call-argument-type")
@@ -52,7 +52,7 @@ test("an enum VALUE argument converts as INT, like an assignment — into a SINT
   const fn = (target: string) => `FUNCTION F_Take : BOOL\nVAR_INPUT x : ${target}; END_VAR\nF_Take := TRUE;\nEND_FUNCTION`
   const call = `PROGRAM P\nVAR ok : BOOL; END_VAR\nok := F_Take(E_Mode.Busy);\nEND_PROGRAM`
   const messages = (target: string): string[] => {
-    const files = [enumMode, fn(target), call].map((source, i) => ({ uri: `u${i}.pou`, source, parseResult: parseSource(source, { networkText: true }, "codesys") }))
+    const files = [enumMode, fn(target), call].map((source, i) => ({ uri: `u${i}.pou`, source, parseResult: parseSource(source, { networkText: true, unicodeIdentifiers: false }, "codesys") }))
     const project = build.buildSymbolTable(files, [], "codesys")
     return computeDiagnostics({ uri: files[2]!.uri, parseResult: files[2]!.parseResult, source: call, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "call-argument-type" || d.code === "sign-change-conversion")
@@ -147,8 +147,8 @@ function genericCall(group: string, decls: string, arg: string, vendor: "codesys
   const fn = `FUNCTION F : DINT\nVAR_INPUT\n\tx : ${group};\nEND_VAR\nF := x.diSize;\nEND_FUNCTION`
   const prg = `PROGRAM P\nVAR\n${decls}\n\tres : DINT;\nEND_VAR\nres := F(${arg});\nEND_PROGRAM`
   const files = [
-    { uri: "F.pou", source: fn, parseResult: parseSource(fn, { networkText: true }, vendor) },
-    { uri: "P.pou", source: prg, parseResult: parseSource(prg, { networkText: true }, vendor) },
+    { uri: "F.pou", source: fn, parseResult: parseSource(fn, { networkText: true, unicodeIdentifiers: false }, vendor) },
+    { uri: "P.pou", source: prg, parseResult: parseSource(prg, { networkText: true, unicodeIdentifiers: false }, vendor) },
   ]
   const project = build.buildSymbolTable(files, [], vendor)
   const f = files[1]!
@@ -223,7 +223,7 @@ test("a FUNCTION's output bound => a narrower target is judged as the FB's twin 
     const fn = `FUNCTION F_O : BOOL\nVAR_OUTPUT\n\to : ${out};\nEND_VAR\nF_O := TRUE;\nEND_FUNCTION`
     const prog = `PROGRAM P\nVAR\n\tt : INT;\n\tok : BOOL;\nEND_VAR\nok := F_O(o => t);\nEND_PROGRAM`
     const files = [fn, prog].map((source) => {
-      const parseResult = parseSource(source, { networkText: true }, "codesys")
+      const parseResult = parseSource(source, { networkText: true, unicodeIdentifiers: false }, "codesys")
       const first = parseResult.units.find((u) => "name" in u) as { name?: { text: string } } | undefined
       return { uri: `${first?.name?.text}.pou`, source, parseResult }
     })

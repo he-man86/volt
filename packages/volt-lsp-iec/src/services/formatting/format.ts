@@ -154,7 +154,7 @@ function reprint(doc: Document, unit: TopLevel): string | undefined {
  *  inside a string literal (`s := '// TODO';`) and counted it kept. */
 function dropsCommentary(doc: Document, unit: TopLevel, printed: string): boolean {
   const { start, end } = reprintedOffsets(doc, unit)
-  const printedCommentary = lex(printed, doc.parseResult.dialect).filter(isCommentary).map((t) => commentaryText(t.text))
+  const printedCommentary = lex(printed, doc.parseResult.dialect, doc.parseResult.unicodeIdentifiers).filter(isCommentary).map((t) => commentaryText(t.text))
   let from = 0
   for (const t of doc.parseResult.tokens) {
     if (t.span.start < start || t.span.end > end || !isCommentary(t)) continue

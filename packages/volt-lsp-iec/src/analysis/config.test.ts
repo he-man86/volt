@@ -1,7 +1,7 @@
 import { test, expect } from "bun:test"
 import { parseSource } from "../frontend/syntax/index.js"
 import { build } from "../frontend/symbols/index.js"
-import { computeDiagnostics, resolveConfig, projectDiagnosticsFrom } from "./index.js"
+import { computeDiagnostics, resolveConfig, projectDiagnosticsFrom, projectUnicodeIdentifiersFrom } from "./index.js"
 import { CONFIGURABLE_CHECKS } from "./config.js"
 import { CODESYS_CODE_MAP } from "./error-code-map.js"
 import { uriFor } from "../../test/support/test-uri.js"
@@ -99,6 +99,18 @@ test("a code Volt does not implement is skipped, not rejected", () => {
   expect(projectDiagnosticsFrom("Disabled warnings: C0999, C0371")).toEqual({ "inout-own-access": "off" })
 })
 
+// openspec lsp-field-followups 2: the Compile option "Unicode identifiers" — a row CODESYS's descriptor always writes, as
+// `on` or `off` (pro2193's file, as pulled); TwinCAT's has no such row (DIALECT D39) — and what the analysis takes from it
+test("the project's \"Unicode identifiers\" row is read, on or off; no row states nothing; any other value is refused", () => {
+  expect(projectUnicodeIdentifiersFrom("Disabled warnings:     C0371\nReplace constants:     on\nUnicode identifiers:   off\nUTF-8 encoding:        off")).toBe(false)
+  expect(projectUnicodeIdentifiersFrom("Replace constants:     on\r\nUnicode identifiers:   on\r\n")).toBe(true)
+  expect(projectUnicodeIdentifiersFrom("Replace constants:     off\nMax compiler warnings: 100")).toBeUndefined()
+  expect(() => projectUnicodeIdentifiersFrom("Unicode identifiers:   yes")).toThrow("neither 'on' nor 'off'")
+  // unstated, a project has CODESYS's default and TwinCAT's only state: off
+  expect(resolveConfig({ vendor: "codesys" }).unicodeIdentifiers).toBe(false)
+  expect(resolveConfig({ vendor: "codesys", unicodeIdentifiers: true }).unicodeIdentifiers).toBe(true)
+})
+
 test("a settings file with no warning lines configures nothing", () => {
   expect(projectDiagnosticsFrom("Replace constants: on\nUTF-8 encoding: off")).toEqual({})
   expect(projectDiagnosticsFrom("")).toEqual({})
@@ -142,7 +154,7 @@ test("the two slug→Cnnnn tables agree on every configurable code", () => {
 test("the pulled TwinCAT descriptor with C0371 disabled stops the VAR_IN_OUT own-access warning", () => {
   const pulled = "Disabled warnings:     C0371\nReplace constants:     off\nMax compiler warnings: 100\n"
   const src = `FUNCTION_BLOCK FB_Test\nVAR_IN_OUT\n io : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\nMETHOD METH : BOOL\nVAR\n x : INT;\nEND_VAR\nio := x;\nEND_METHOD`
-  const parseResult = parseSource(src, { networkText: true }, "twincat")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "twincat")
   const project = build.buildSymbolTable([{ uri: "FB_Test.pou", parseResult, source: src }], [], "twincat")
   const run = (diagnostics: ReturnType<typeof projectDiagnosticsFrom>) =>
     computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "twincat", diagnostics }) }).map((d) => d.code)

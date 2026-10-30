@@ -28,7 +28,7 @@ export function checkExternalGlobal(ctx: CheckContext, out: DiagnosticItem[]): v
       // (`dp_var_external_dotted`, 2026-10-29) — and reads it as the member access it spells, "'nope' is no component of
       // 'FB'" for a member the type does not have (`dp_var_external_dotted_unknown`)
       if (name.text.includes(".")) {
-        for (const ref of unresolvedMembers([pathExpr(ctx.source, name, ctx.parseResult.dialect)].filter((e) => e !== undefined), ctx.project, ctx.project))
+        for (const ref of unresolvedMembers([pathExpr(ctx.source, name, ctx.parseResult.dialect, ctx.parseResult.unicodeIdentifiers)].filter((e) => e !== undefined), ctx.project, ctx.project))
           emit(out, ref.span, "unknown-member", ctx.messages.notAMember(ref.member, ref.typeName))
         continue
       }
@@ -73,9 +73,9 @@ function usesOf(ctx: CheckContext, external: Identifier, unitScope: Scope): { st
 /** Is `scope` `outer` or nested in it? */
 /** A declared PATH (`PLC_PRG.inst.y`) as the member access it spells, at the name's own place in the document: the text
  *  before it blanked (line ends kept), so every span is the document's. */
-function pathExpr(source: string, name: Identifier, dialect: Dialect): Expr | undefined {
+function pathExpr(source: string, name: Identifier, dialect: Dialect, unicodeIdentifiers: boolean): Expr | undefined {
   const before = source.slice(0, name.span.start).replace(/[^\r\n]/g, " ")
-  const tokens = lex(before + name.text, dialect).filter((t) => t.kind !== "whitespace" && t.kind !== "eof")
+  const tokens = lex(before + name.text, dialect, unicodeIdentifiers).filter((t) => t.kind !== "whitespace" && t.kind !== "eof")
   return parseExprFromTokens(tokens)
 }
 

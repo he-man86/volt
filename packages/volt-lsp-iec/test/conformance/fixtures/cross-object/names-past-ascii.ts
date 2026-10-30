@@ -29,7 +29,7 @@ const fb = (name: string, pouName: string, header: string, feature: string): Lan
   plcPrgBody: `inst_${name}();`,
 })
 
-export const NAMES_PAST_ASCII_TESTS: readonly LanguageTest[] = [
+export const NAMES_PAST_ASCII_TESTS: readonly LanguageTest[] = ([
   // ─── the signature against the object: every POU kind and a DUT, the object named past ASCII ─────────────────────
   fb("upa_fb_cjk", "FB_LANG_主控制", "FB_LANG_主控制", "an FB named `FB_LANG_主控制` whose signature agrees"),
   fb("upa_fb_cyrillic", "FB_LANG_Привод", "FB_LANG_Привод", "an FB named in Cyrillic whose signature agrees"),
@@ -131,4 +131,4 @@ export const NAMES_PAST_ASCII_TESTS: readonly LanguageTest[] = [
     plcPrgVar: "inst_upa_gvl_ambiguous_qualified : FB_LANG_upa_gvl_ambiguous_qualified;",
     plcPrgBody: "inst_upa_gvl_ambiguous_qualified();",
   },
-]
+] as LanguageTest[]).map((t) => ({ ...t, unicodeIdentifiers: "on" as const }))

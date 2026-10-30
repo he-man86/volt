@@ -63,6 +63,11 @@ export interface AnalysisInitOptions {
   /** Diagnose dead (unreachable) code. Default OFF — matches the compiler, which never checks code it
    *  doesn't compile. When off, diagnostics on structurally-dead units are suppressed. */
   diagnoseDeadCode?: boolean
+  /** The project's Compile option "Unicode identifiers" (`projectUnicodeIdentifiersFrom`): whether a name may hold a
+   *  letter or digit past ASCII. Default OFF — CODESYS's default for a project (DIALECT C28b), and TwinCAT's only state:
+   *  no page of its project sets the option and its create refuses every name past ASCII (D39, volt-cli
+   *  `scripts/vendor-facts.twincat.json`, fact `identifier-shapes`). */
+  unicodeIdentifiers?: boolean
 }
 
 export interface ResolvedConfig {
@@ -71,6 +76,7 @@ export interface ResolvedConfig {
    *  and forces the chosen severity on the rest; non-configurable codes are never consulted here. */
   diagnostics: Record<ConfigurableCode, DiagnosticState>
   diagnoseDeadCode: boolean
+  unicodeIdentifiers: boolean
 }
 
 /** All configurable codes → "warning" — CODESYS's default. */
@@ -86,6 +92,7 @@ export function resolveConfig(opts: AnalysisInitOptions): ResolvedConfig {
     vendor: opts.vendor,
     diagnostics: { ...defaultDiagnostics(), ...opts.diagnostics },
     diagnoseDeadCode: opts.diagnoseDeadCode ?? false,
+    unicodeIdentifiers: opts.unicodeIdentifiers ?? false,
   }
 }
 
@@ -137,4 +144,19 @@ export function projectDiagnosticsFrom(body: string): Partial<Record<Configurabl
     }
   }
   return out
+}
+
+/**
+ * The project's Compile option "Unicode identifiers", as its `.projectsettings` states it — the CODESYS descriptor's
+ * `Unicode identifiers:` row, `on` or `off` (volt-cli `ProjectSettingsFormat`: a flag CODESYS always writes). Undefined
+ * where the file has no such row: a TwinCAT descriptor omits it, having no source for it (DIALECT D39). Any other value
+ * is refused by name — the bridge writes only these two.
+ */
+export function projectUnicodeIdentifiersFrom(body: string): boolean | undefined {
+  const line = splitLines(body).find((l) => l.toLowerCase().startsWith("unicode identifiers:"))
+  if (line === undefined) return undefined
+  const value = line.slice(line.indexOf(":") + 1).trim()
+  if (value === "on") return true
+  if (value === "off") return false
+  throw new Error(`.projectsettings: "Unicode identifiers" is '${value}', neither 'on' nor 'off'`)
 }

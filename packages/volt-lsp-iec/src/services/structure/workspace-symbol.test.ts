@@ -8,7 +8,7 @@ import { workspaceSymbols } from "./workspace-symbol.js"
 import type { Document } from "../shared/index.js"
 
 function setupFiles(files: Record<string, string>) {
-  const docs: Document[] = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source, { networkText: true }, "codesys") }))
+  const docs: Document[] = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source, { networkText: true, unicodeIdentifiers: false }, "codesys") }))
   const project = build.buildSymbolTable(docs.map((d) => ({ uri: d.uri, parseResult: d.parseResult, source: d.source })), [], "codesys")
   return { docs, project }
 }

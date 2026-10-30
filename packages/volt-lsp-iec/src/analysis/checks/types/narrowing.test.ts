@@ -32,7 +32,7 @@ VAR
 	i : DINT := REAL_TO_DINT(EXPT(2, 10));
 END_VAR
 END_FUNCTION_BLOCK`
-  const pr = parseSource(src, { networkText: true }, "codesys")
+  const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], "codesys")
   const messages = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "narrowing-conversion")
@@ -143,7 +143,7 @@ test("LIMIT, SEL and MUX warn on each value argument that converts into the meet
 // (finding 4b), code CODESYS builds with only the operand's sign warning (`cc_bitwise_sint_and_literal`).
 test("a bit operator's out-of-signed-range literal is refused nowhere (`cc_bitwise_sint_and_literal`, `ar_bitwise_literal_beyond_width`)", () => {
   const src = `FUNCTION_BLOCK F\nVAR\nsi : SINT; i : INT; di : DINT; w : WORD; res : INT;\nEND_VAR\nres := si AND 255;\nsi := si AND 255;\ni := i AND 16#FF00;\ndi := di OR 16#80000000;\nw := i AND 16#FF00;\nEND_FUNCTION_BLOCK`
-  const pr = parseSource(src, { networkText: true }, "codesys")
+  const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], "codesys")
   const all = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
   expect(all.filter((d) => /Cannot convert/.test(d.message)).map((d) => d.message)).toEqual([])
@@ -194,7 +194,7 @@ test("a duration scaled by a same-width unsigned integer warns its change of sig
 describe("implicit conversions", () => {
   const conv = (decls: string, body: string, vendor: Vendor = "codesys") => {
     const src = `FUNCTION_BLOCK F\nVAR\n${decls}\nEND_VAR\n${body}\nEND_FUNCTION_BLOCK`
-    const pr = parseSource(src, { networkText: true }, vendor)
+    const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, vendor)
     const p = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], vendor)
     return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project: p, config: resolveConfig({ vendor }) }).filter(
       (d) => d.code === "narrowing-conversion" || d.code === "sign-change-conversion",
@@ -247,7 +247,7 @@ describe("implicit conversions", () => {
     // The warning typed the value by inference alone, which gives an enum VALUE no type (conformance `cc_enum_into_uint`,
     // `cc_enum_into_dword`; into DINT silent, `cc_enum_into_dint`).
     const src = `TYPE E_Mode :\n(\n\tIdle := 0,\n\tBusy := 1\n);\nEND_TYPE\n\nFUNCTION_BLOCK F\nVAR\n\tu : UINT;\n\tw : DWORD;\n\ti : DINT;\nEND_VAR\nu := E_Mode.Busy;\nw := E_Mode.Busy;\ni := E_Mode.Busy;\nEND_FUNCTION_BLOCK`
-    const pr = parseSource(src, { networkText: true }, "codesys")
+    const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
     const p = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], "codesys")
     const messages = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project: p, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "sign-change-conversion")
@@ -263,8 +263,8 @@ describe("implicit conversions", () => {
     // project enum's variable does warn (conformance `cc_enum_var_into_word`). Why is unrecorded, so no rule is guessed.
     const lib = `TYPE E_Lib :\n(\n\tIdle := 0,\n\tBusy := 1\n);\nEND_TYPE`
     const src = `FUNCTION_BLOCK F\nVAR\n\te : E_Lib;\n\tw : WORD;\nEND_VAR\nw := e;\nEND_FUNCTION_BLOCK`
-    const libResult = parseSource(lib, { networkText: true }, "codesys")
-    const pr = parseSource(src, { networkText: true }, "codesys")
+    const libResult = parseSource(lib, { networkText: true, unicodeIdentifiers: false }, "codesys")
+    const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
     const p = build.buildSymbolTable([
       { uri: "Application/Library Manager/Lib/E_Lib.dut", parseResult: libResult, source: lib },
       { uri: "F.pou", parseResult: pr, source: src },

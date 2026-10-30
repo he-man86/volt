@@ -48,9 +48,9 @@ function renameTarget(doc: Document, project: Scope, offset: number): Symbol | u
  * identifier (no keyword, no literal, nothing around it) the dialect's declarations accept (`isRefusedDeclaredName`: no
  * type or IL word, no `__`). Written over every occurrence, anything else leaves a project the compiler refuses.
  */
-export function renameRefusal(newName: string, project: Scope): string | undefined {
+export function renameRefusal(newName: string, project: Scope, unicodeIdentifiers: boolean): string | undefined {
   const dialect = dialectOf(project)
-  const tokens = lex(newName, dialect).filter((t) => !isTrivia(t.kind) && t.kind !== "eof")
+  const tokens = lex(newName, dialect, unicodeIdentifiers).filter((t) => !isTrivia(t.kind) && t.kind !== "eof")
   const one = tokens.length === 1 && tokens[0]!.kind === "identifier" && tokens[0]!.text === newName
   return one && !isRefusedDeclaredName(newName, dialect) ? undefined : `'${newName}' is no name a declaration accepts`
 }

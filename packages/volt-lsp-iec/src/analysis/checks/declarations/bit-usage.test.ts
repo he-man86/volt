@@ -50,7 +50,7 @@ test("a BIT in an FB's VAR_TEMP: CODESYS says the section AND the container, Twi
     "Variables of type BIT must be declared within a VAR_INPUT, VAR_OUTPUT, or VAR section",
     "Only structures and function blocks can contain variables of type BIT",
   ])
-  const pr = parseSource(src, { networkText: true }, "twincat")
+  const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "twincat")
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "twincat")
   expect(
     computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "twincat" }) })

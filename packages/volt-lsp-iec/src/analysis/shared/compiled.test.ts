@@ -11,7 +11,7 @@ import { build } from "../../frontend/symbols/index.js"
 import { compiledFbs } from "./compiled.js"
 
 const compiled = (src: string): string[] => {
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   return [...compiledFbs(project)].map((s) => s.name).sort()
 }

@@ -19,6 +19,7 @@ import { build } from "../../../src/frontend/symbols/index.js"
 import { parseSource, type TopLevel, type TypeExpr, type VarSection, type VarSectionKind } from "../../../src/frontend/syntax/index.js"
 import { constEval, isElementaryTypeName } from "../../../src/frontend/types/index.js"
 import type { LanguageTest } from "../types.js"
+import { recordingParse } from "./recording-environment.js"
 import { withDependencies } from "./fixture-units.js"
 import { plcPrgSource } from "./plc-prg.js"
 import { PROJECT_LIBRARY } from "./project-libraries.js"
@@ -34,8 +35,8 @@ const MAX_DEPTH = 4
 
 export function runPaths(t: LanguageTest, all: readonly LanguageTest[]): string[] {
   const fixtures = withDependencies(t, all)
-  const parsedFixtures = fixtures.map((f) => ({ uri: f.name, source: f.source, parseResult: parseSource(f.source, { networkText: true }, "codesys") }))
-  const plc = parseSource(plcPrgSource(t), { networkText: true }, "codesys")
+  const parsedFixtures = fixtures.map((f) => ({ uri: f.name, source: f.source, parseResult: parseSource(f.source, recordingParse(f), "codesys") }))
+  const plc = parseSource(plcPrgSource(t), recordingParse(t), "codesys")
   const project = build.buildSymbolTable([...parsedFixtures, { uri: "plc_prg", parseResult: plc, source: plcPrgSource(t) }], [], "codesys")
   // The TYPES a variable can be declared of, by name — a library's first, then a fixture's own over them, as the project's
   // own declaration wins in CODESYS. The same filter for both: a library file folds its FBs' METHOD blocks in as

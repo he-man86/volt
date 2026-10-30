@@ -9,7 +9,7 @@
  * - Provides convenience eaters for keyword, punct, identifier — the
  *   three things parsers check most.
  */
-import { isTrivia, type Token } from "../lex/tokens.js"
+import { isStrayPastAscii, isTrivia, type Token } from "../lex/tokens.js"
 import type { Span } from "../span.js"
 import type { ParseError } from "../ast/nodes/index.js"
 import { opensLanguageLine as opensLanguageLineAt } from "../format/language-line.js"
@@ -38,7 +38,17 @@ export class Cursor {
     /** Whether the tokens are a BODY's statements — where a refused word is refused as a name and an operand
      *  (`refusedWord`). A declaration's initializer and a contained expression are no body. */
     private readonly body = false,
+    /** Whether the tokens were lexed with names past ASCII (`ParseOptions.unicodeIdentifiers`) — the document cursor's,
+     *  which the bodies it builds carry for a re-lex (`BodySpan.unicodeIdentifiers`). */
+    private readonly unicode?: boolean,
   ) {}
+
+  /** The project's "Unicode identifiers" the tokens were lexed with — thrown for, by name, on a cursor given none. */
+  get unicodeIdentifiers(): boolean {
+    if (this.unicode === undefined)
+      throw new Error("Cursor.unicodeIdentifiers: this cursor was made without it — pass it to `new Cursor`")
+    return this.unicode
+  }
 
   /** Is `t` a word refused where a name or an operand of a body belongs — an IL operator, an elementary type's name
    *  (`syntax/lex/vocabulary.ts` `isRefusedWord`, rule R6)? Only in a body; the other places a refused word is refused
@@ -46,7 +56,7 @@ export class Cursor {
    *  `rec_refused_word_struct_field*`), and an initializer's operand (`initializer` `refuseMalformedInit`,
    *  `rec_refused_word_initializer*`), both vendors 2026-10-02. */
   refusedWord(t: Token): boolean {
-    return this.body && t.kind === "identifier" && isRefusedWord(t.text, this.dialect)
+    return this.body && ((t.kind === "identifier" && isRefusedWord(t.text, this.dialect)) || isStrayPastAscii(t))
   }
 
   /** The dialect the tokens were lexed with — thrown for, by name, on a cursor that was given none. */
@@ -212,7 +222,7 @@ export class Cursor {
   /** A cursor at this position over the same tokens, with errors of its own: a speculative parse that leaves this
    *  cursor untouched (`statements.ts` `isArmStart`). */
   fork(): Cursor {
-    const ahead = new Cursor(this.tokens, this.vocabulary, this.body)
+    const ahead = new Cursor(this.tokens, this.vocabulary, this.body, this.unicode)
     ahead.pos = this.pos
     return ahead
   }
@@ -348,19 +358,6 @@ export class Cursor {
   triviaAhead(): readonly Token[] {
     const out: Token[] = []
     for (let i = this.pos; i < this.tokens.length && isTrivia(this.tokens[i].kind); i++) out.push(this.tokens[i])
-    return out
-  }
-
-  /** Consume the rest of the current line — every raw token up to the whitespace that ends it, which is left — and
-   *  return the consumed tokens. */
-  consumeRestOfLine(): Token[] {
-    const out: Token[] = []
-    while (this.pos < this.tokens.length) {
-      const t = this.tokens[this.pos]
-      if (t.kind === "eof" || (t.kind === "whitespace" && t.text.includes("\n"))) break
-      out.push(t)
-      this.pos += 1
-    }
     return out
   }
 

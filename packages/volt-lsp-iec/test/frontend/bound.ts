@@ -15,7 +15,7 @@ import { build, type Scope } from "../../src/frontend/symbols/index.js"
 import { scanWorkspaceRefs, workspaceEnvironment } from "../../src/workspace/workspace-refs.js"
 import { splitLists, withDependencies } from "../conformance/support/fixture-units.js"
 import { PROJECT_LIBRARY, PROJECT_LOWERING, PROJECT_MANIFESTS, projectDevices } from "../conformance/support/project-libraries.js"
-import { RECORDING_ENVIRONMENT } from "../conformance/support/recording-environment.js"
+import { RECORDING_ENVIRONMENT, recordingParse } from "../conformance/support/recording-environment.js"
 import { ALL_TESTS } from "../conformance/fixtures/index.js"
 import { parse, type Bound, type Parsed } from "./dumps.js"
 import { fixtureUri, libraryRepoFiles, type CorpusProject, type FixtureSources } from "./sources.js"
@@ -43,7 +43,7 @@ function fixtureBase(vendor: Dialect): Scope {
   let project = libraryProjects.get(vendor)
   if (project === undefined) {
     project = build.buildSymbolTable(
-      PROJECT_LIBRARY.map((l) => ({ uri: l.uri, source: l.source, parseResult: parseSource(l.source, { networkText: true }, vendor) })),
+      PROJECT_LIBRARY.map((l) => ({ uri: l.uri, source: l.source, parseResult: parseSource(l.source, { networkText: true, unicodeIdentifiers: false }, vendor) })),
       PROJECT_MANIFESTS,
       vendor,
       RECORDING_ENVIRONMENT, // the recording projects' measured compile defines — the replay's
@@ -73,7 +73,7 @@ export function withBoundFixture<T>(
   const deps: Parsed[] = withDependencies(f.test, ALL_TESTS)
     .filter((d) => d.name !== f.test.name && d.source !== "")
     .flatMap((d) => {
-      const split = named(d, parse({ id: d.name, uri: fixtureUri(d), source: d.source }, vendor))
+      const split = named(d, parse({ id: d.name, uri: fixtureUri(d), source: d.source, unicodeIdentifiers: recordingParse(d).unicodeIdentifiers }, vendor))
       return [split.item, ...split.lists]
     })
   const files = [own, plc, ...lists, ...deps]

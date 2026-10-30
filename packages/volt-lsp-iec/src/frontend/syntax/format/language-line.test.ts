@@ -60,12 +60,12 @@ const NETWORK = "%NETWORK\nout := a;"
 const fb = (impl: string): string =>
   `FUNCTION_BLOCK F\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR\n${impl}\nEND_FUNCTION_BLOCK\n`
 
-const bodiesOf = (src: string): BodySpan[] => parseSource(src, { networkText: true }, "codesys").units.flatMap(unitBodies)
+const bodiesOf = (src: string): BodySpan[] => parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys").units.flatMap(unitBodies)
 
 /** Every syntax error of a file: its declarations' (the top-level parse) and each ST body's (parsed on demand), as the
  *  `parse-errors` check drains them. A graphical body is the network parser's. */
 function syntaxErrors(src: string): string[] {
-  const parsed = parseSource(src, { networkText: true }, "codesys")
+  const parsed = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const bodies = parsed.units.flatMap(unitBodies).filter((b) => !isPlainStNetworkBody(b))
   return [...parsed.errors, ...bodies.flatMap((b) => bodyStatements(b).errors)].map((e) => e.message)
 }
@@ -74,7 +74,7 @@ function syntaxErrors(src: string): string[] {
 
 test("an ST file with %LANGUAGE ST on every body parses clean", () => {
   expect(syntaxErrors(MOTOR)).toEqual([])
-  expect(parseSource(MOTOR, { networkText: true }, "codesys").units.map((u) => u.kind)).toEqual(["function_block", "method", "action", "property"])
+  expect(parseSource(MOTOR, { networkText: true, unicodeIdentifiers: false }, "codesys").units.map((u) => u.kind)).toEqual(["function_block", "method", "action", "property"])
 })
 
 /** `METHOD PROTECTED Override` with no return type and no VAR (pro2193's `LedFB.pou`): its line comes straight after the
@@ -85,7 +85,7 @@ test("a method named after a modifier keyword keeps its name when its line follo
     "METHOD PROTECTED Override\n%LANGUAGE ST\nTHIS^.xOverride := TRUE;\nEND_METHOD\n\n" +
     "METHOD PUBLIC Final\n%LANGUAGE ST\n;\nEND_METHOD\n"
   expect(syntaxErrors(src)).toEqual([])
-  const methods = parseSource(src, { networkText: true }, "codesys").units.filter((u) => u.kind === "method")
+  const methods = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys").units.filter((u) => u.kind === "method")
   expect(methods.map((m) => [m.kind === "method" && m.modifiers, m.name.text])).toEqual([
     [["PROTECTED"], "Override"],
     [["PUBLIC"], "Final"],
@@ -100,7 +100,7 @@ test("a function block named after a modifier keyword keeps its name when its li
   ] as const) {
     const src = `${header}\n%LANGUAGE ST\nx := 1;\nEND_FUNCTION_BLOCK\n`
     expect(syntaxErrors(src)).toEqual([])
-    const units = parseSource(src, { networkText: true }, "codesys").units
+    const units = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys").units
     expect(units.map((u) => (u.kind === "function_block" ? [u.name.text, u.modifiers] : [u.kind]))).toEqual([
       [name, [...access]],
     ])
@@ -108,7 +108,7 @@ test("a function block named after a modifier keyword keeps its name when its li
 })
 
 test("the line belongs to no declaration and to no statement", () => {
-  const { units } = parseSource(MOTOR, { networkText: true }, "codesys")
+  const { units } = parseSource(MOTOR, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const method = units.find((u) => u.kind === "method")!
   if (method.kind !== "method") throw new Error("not a method")
   expect(method.varSections.flatMap((s) => s.decls.flatMap((d) => d.names.map((n) => n.text)))).toEqual(["force"])
@@ -177,7 +177,7 @@ test("a line inside a comment is no boundary", () => {
   ]) {
     const src = `${decl}\n%LANGUAGE ST\nout := a;\nEND_FUNCTION_BLOCK\n`
     expect({ decl, errors: syntaxErrors(src) }).toEqual({ decl, errors: [] })
-    const unit = parseSource(src, { networkText: true }, "codesys").units[0]!
+    const unit = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys").units[0]!
     if (unit.kind !== "function_block") throw new Error("not a function block")
     expect({ decl, names: unit.varSections.flatMap((s) => s.decls.flatMap((d) => d.names.map((n) => n.text))) }).toEqual({ decl, names: ["a", "out"] })
     expect({ decl, languages: bodiesOf(src).map(graphicalMarkerLanguage) }).toEqual({ decl, languages: [undefined] })
@@ -207,7 +207,7 @@ test("a line that states no body is reported naming it and what it lacks", () =>
     ["%LANGUAGE NONE", "'NONE' is no language a body can state"],
   ] as const) {
     const src = fb(`${line}\n${NETWORK}`)
-    const errors = parseSource(src, { networkText: true }, "codesys").errors.map((e) => e.message)
+    const errors = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys").errors.map((e) => e.message)
     expect({ line, named: errors.some((m) => m.startsWith(`the body states '${line}': `) && m.includes(lacks)) }).toEqual({ line, named: true })
     expect({ line, reader: bodiesOf(src).map((b) => [b.languageLine?.statement, isStBody(b), isPlainStNetworkBody(b)]) }).toEqual({
       line,
@@ -296,7 +296,7 @@ test("code, a comment or a pragma under an UNSUPPORTED line is refused naming th
   for (const line of ["%LANGUAGE CFC UNSUPPORTED", "%LANGUAGE LD UNSUPPORTED"])
     for (const under of ["out := a;", "// a note", "(* a note *)", "{attribute 'x'}", NETWORK]) {
       const src = fb(`${line}\n${under}`)
-      const errors = parseSource(src, { networkText: true }, "codesys").errors.map((e) => e.message)
+      const errors = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys").errors.map((e) => e.message)
       expect({ line, under, named: errors.some((m) => m.includes(`under '${line}'`)) }).toEqual({ line, under, named: true })
       expect({ line, under, reader: bodiesOf(src).map((b) => [isStBody(b), isPlainStNetworkBody(b)]) }).toEqual({
         line,
@@ -311,13 +311,13 @@ test("an identifier spelled Implementation on a line of its own is code, not a l
   for (const code of ["out := a OR\n  Implementation;", "out := a\nImplementation OR b;"]) {
     const src = fb(`%LANGUAGE ST\n${code}`)
     expect({ code, line: bodiesOf(src)[0]!.languageLine?.text }).toEqual({ code, line: "%LANGUAGE ST" })
-    const lineFindings = parseSource(src, { networkText: true }, "codesys").errors.map((e) => e.message).filter((m) => m.includes("line inside a body"))
+    const lineFindings = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys").errors.map((e) => e.message).filter((m) => m.includes("line inside a body"))
     expect({ code, lineFindings }).toEqual({ code, lineFindings: [] })
   }
 })
 
 test("a second %LANGUAGE line inside a body is reported where it stands", () => {
-  const errors = parseSource(fb("%LANGUAGE ST\nout := a;\n%LANGUAGE LD"), { networkText: true }, "codesys").errors.map((e) => e.message)
+  const errors = parseSource(fb("%LANGUAGE ST\nout := a;\n%LANGUAGE LD"), { networkText: true, unicodeIdentifiers: false }, "codesys").errors.map((e) => e.message)
   expect(errors).toContain("a second %LANGUAGE line inside a body: '%LANGUAGE LD'. A body states its language once, on the line that opens it.")
 })
 
@@ -357,7 +357,7 @@ test("the retired IMPLEMENTATION line is the hint of a body with no line", () =>
 
 // ── a member with no body slot (DIALECT C2n): no line, nothing after its declaration ──────────────────
 
-const workspace = (src: string) => parseDocument("file:///w/FB_Base.pou", src, { networkText: true }, "codesys")
+const workspace = (src: string) => parseDocument("file:///w/FB_Base.pou", src, { networkText: true, unicodeIdentifiers: false }, "codesys")
 const OWNER = "FUNCTION_BLOCK ABSTRACT FB_Base\nVAR\nEND_VAR\n%LANGUAGE ST\n\nEND_FUNCTION_BLOCK\n"
 
 test("a workspace METHOD and accessor with no line and nothing after the declaration have no body slot, and are clean", () => {
@@ -384,7 +384,7 @@ test("a no-line member that is not ABSTRACT, or on TwinCAT, is no member without
   const tc = parseDocument(
     "file:///w/FB_Base.pou",
     OWNER + "\nMETHOD ABSTRACT Run : INT\nEND_METHOD\n\nPROPERTY ABSTRACT P : INT\nGET\nEND_GET\nEND_PROPERTY\n",
-    { networkText: true },
+    { networkText: true, unicodeIdentifiers: false },
     "twincat",
   )
   expect(tc.units.flatMap(unitBodies).map((b) => b.noSlot)).toEqual([undefined, undefined, undefined])
@@ -396,6 +396,6 @@ test("a workspace member with code and no line, a POU with no line, and the IDE'
   const pou = workspace("FUNCTION_BLOCK F\nVAR\nEND_VAR\n\nEND_FUNCTION_BLOCK\n").units.flatMap(unitBodies)
   expect(pou[0]!.noSlot).toBeUndefined()
   // A fixture or a library body is the IDE's text, which states no line anywhere: an empty method is an empty ST body.
-  const ide = parseSource("FUNCTION_BLOCK F\nVAR\nEND_VAR\nEND_FUNCTION_BLOCK\nMETHOD M\nEND_METHOD\n", { networkText: true }, "codesys")
+  const ide = parseSource("FUNCTION_BLOCK F\nVAR\nEND_VAR\nEND_FUNCTION_BLOCK\nMETHOD M\nEND_METHOD\n", { networkText: true, unicodeIdentifiers: false }, "codesys")
   expect(ide.units.flatMap(unitBodies).map((b) => b.noSlot)).toEqual([undefined, undefined])
 })

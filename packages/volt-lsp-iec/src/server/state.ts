@@ -186,7 +186,7 @@ export class ServerState {
    * govern its own documents (`WorkspaceStore.configFor`).
    */
   applyResolvedConfig(): void {
-    this.store.configs.configure({ ...this.editorOptions, vendor: this.vendor }, this.projectSettings)
+    this.store.configure({ ...this.editorOptions, vendor: this.vendor }, this.projectSettings)
   }
 
   /** The whole reference state from one scan: refs and task roots in one store mutation, and the config re-resolved

@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { emitRust } from "./index.js"
-import { globalsArgs, globalsParams, snake, TEMP_PURPOSES, tmp } from "./names.js"
+import { globalsArgs, globalsParams, rustName, snake, TEMP_PURPOSES, tmp } from "./names.js"
 import { lowerSource } from "../../lower/index.js"
 import { rust } from "../../../../test/support/transpile.js"
 
@@ -157,6 +157,17 @@ describe("emit/rust — routine names are unique within an impl block", () => {
       expect(code).toContain(`self.b.${fn}()`)
     }
   })
+})
+
+// A name CODESYS builds with "Unicode identifiers" on (DIALECT C28b) keeps its letters: Rust takes them as written. Each
+// was replaced by `_`, and `名前` emitted `__`, no identifier at all (`on_function_name_cjk`, openspec lsp-field-followups 3).
+test("a name past ASCII keeps its letters and digits, in the struct name and the field", () => {
+  expect(rustName("名前")).toBe("名前")
+  expect(rustName("FB_Größe")).toBe("FB_Größe")
+  expect(rustName("a٣")).toBe("a٣")
+  expect(snake("Привод")).toBe("привод")
+  expect(snake("计数")).toBe("计数")
+  expect(rustName("My-Name")).toBe("My_Name")
 })
 
 test("a generated temporary is `__<purpose>`, numbered as `__<purpose>_<n>`", () => {

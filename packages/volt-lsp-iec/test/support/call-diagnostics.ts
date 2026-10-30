@@ -15,7 +15,7 @@ function diagnostics(vendor: "codesys" | "twincat", sources: string[]) {
   // to the object name"), which `signature-name` now reports — so a harness that invents file names accuses its
   // own fixtures.
   const files = sources.map((source, i) => {
-    const parseResult = parseSource(source, { networkText: true }, vendor)
+    const parseResult = parseSource(source, { networkText: true, unicodeIdentifiers: false }, vendor)
     const first = parseResult.units.find((u) => "name" in u) as { name?: { text: string } } | undefined
     return { uri: `${first?.name?.text ?? `u${i}`}.pou`, source, parseResult }
   })

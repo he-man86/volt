@@ -26,8 +26,8 @@ END_FUNCTION
 `
 
 function obs(src: string, state: DiagnosticState = "warning") {
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
-  const old = parseSource(OLD, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
+  const old = parseSource(OLD, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([
     { uri: "F.pou", parseResult, source: src },
     { uri: "Old.pou", parseResult: old, source: OLD },

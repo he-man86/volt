@@ -187,7 +187,7 @@ for (const t of ABSENT) {
 /** The actions on every finding of `code` in a CODESYS document: an FB `body` over `vars`, then the units `after`. */
 function offeredOn(vars: string, body: string, code: string, after = ""): { doc: Document; actions: CodeAction[] } {
   const source = `FUNCTION_BLOCK FB\nVAR\n${vars}\nEND_VAR\n%LANGUAGE ST\n${body}\nEND_FUNCTION_BLOCK\n${after}`
-  const parseResult = parseSource(source, { networkText: true }, "codesys")
+  const parseResult = parseSource(source, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "FB.pou", parseResult, source }], [], "codesys")
   const doc: Document = { uri: uriFor(parseResult), source, parseResult }
   const found = computeDiagnostics({ uri: doc.uri, parseResult, source, project, config: resolveConfig({ vendor: "codesys" }) })
@@ -242,13 +242,13 @@ test("code-actions: a fix whose span no longer holds the text it was made for is
   const { doc } = offeredOn("\twide : LREAL;\n\tnarrow : REAL;\n\txwide : LREAL;", "narrow := wide;", "C0197")
   const source = doc.source.replace("narrow := wide;", "narrow := xwide;")
   const published = (() => {
-    const parseResult = parseSource(doc.source, { networkText: true }, "codesys")
+    const parseResult = parseSource(doc.source, { networkText: true, unicodeIdentifiers: false }, "codesys")
     const project = build.buildSymbolTable([{ uri: "FB.pou", parseResult, source: doc.source }], [], "codesys")
     return computeDiagnostics({ uri: doc.uri, parseResult, source: doc.source, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => wireCode(d.code) === "C0197")
   })()
   expect(published.length).toBe(1)
-  const edited: Document = { uri: doc.uri, source, parseResult: parseSource(source, { networkText: true }, "codesys") }
+  const edited: Document = { uri: doc.uri, source, parseResult: parseSource(source, { networkText: true, unicodeIdentifiers: false }, "codesys") }
   expect(codeActions(doc, published.map(toLspDiagnostic), () => published.map(toLspDiagnostic)).map((a) => a.title)).toEqual(["Wrap in TO_REAL(…)"])
   expect(codeActions(edited, published.map(toLspDiagnostic), () => published.map(toLspDiagnostic))).toEqual([])
 })
@@ -304,7 +304,7 @@ test("code-actions: a chained C0032 is reported per link, and only the innermost
 test("code-actions: a chain's C0032 names each link's own pair", () => {
   const found = (vars: string, body: string) => {
     const source = `FUNCTION_BLOCK FB\nVAR\n${vars}\nEND_VAR\n%LANGUAGE ST\n${body}\nEND_FUNCTION_BLOCK\n`
-    const parseResult = parseSource(source, { networkText: true }, "codesys")
+    const parseResult = parseSource(source, { networkText: true, unicodeIdentifiers: false }, "codesys")
     const project = build.buildSymbolTable([{ uri: "FB.pou", parseResult, source }], [], "codesys")
     return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => wireCode(d.code) === "C0032")
@@ -319,7 +319,7 @@ test("code-actions: a chain's C0032 names each link's own pair", () => {
 
 /** Every action on every finding of `code` in a CODESYS FB whose whole source is `source`. */
 function offeredIn(source: string, code: string): { doc: Document; actions: CodeAction[] } {
-  const parseResult = parseSource(source, { networkText: true }, "codesys")
+  const parseResult = parseSource(source, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "FB.pou", parseResult, source }], [], "codesys")
   const doc: Document = { uri: uriFor(parseResult), source, parseResult }
   const found = computeDiagnostics({ uri: doc.uri, parseResult, source, project, config: resolveConfig({ vendor: "codesys" }) })
@@ -362,7 +362,7 @@ test("code-actions: no C0119 input added where FB_Init holds an input of its own
 
 /** The document's findings as the server hands them to `codeActions`, and the actions for the first one / for `only`. */
 function fixAllIn(source: string, only?: string[]) {
-  const parseResult = parseSource(source, { networkText: true }, "codesys")
+  const parseResult = parseSource(source, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "FB.pou", parseResult, source }], [], "codesys")
   const doc: Document = { uri: uriFor(parseResult), source, parseResult }
   const all = computeDiagnostics({ uri: doc.uri, parseResult, source, project, config: resolveConfig({ vendor: "codesys" }) }).map(toLspDiagnostic)
@@ -403,7 +403,7 @@ function errorsAfter(doc: Document, actions: readonly CodeAction[], title: strin
   const action = actions.find((a) => a.title === title)
   if (action === undefined) throw new Error(`no action '${title}' among ${actions.map((a) => a.title).join(", ")}`)
   const source = applyEdits(doc.source, editsOn(action, doc.uri))
-  const parseResult = parseSource(source, { networkText: true }, "codesys")
+  const parseResult = parseSource(source, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "FB.pou", parseResult, source }], [], "codesys")
   return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.severity === "error")
@@ -458,7 +458,7 @@ test("code-actions: C0046/C0004 near misses fit the use — no FUNCTION or PROGR
 // F9: the rename is recorded on an FB; a FUNCTION stores its result under its own name, which a header rename orphans
 test("code-actions: no 'Rename to' on a FUNCTION whose object is named otherwise", () => {
   const source = "FUNCTION F : INT\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\nF := x;\nEND_FUNCTION\n"
-  const parseResult = parseSource(source, { networkText: true }, "codesys")
+  const parseResult = parseSource(source, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const uri = "file:///proj/FB.pou"
   const project = build.buildSymbolTable([{ uri, parseResult, source }], [], "codesys")
   const found = computeDiagnostics({ uri, parseResult, source, project, config: resolveConfig({ vendor: "codesys" }) }).filter((d) => d.code === "signature-name-mismatch")

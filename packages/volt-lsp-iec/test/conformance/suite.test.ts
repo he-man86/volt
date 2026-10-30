@@ -62,7 +62,7 @@ function fixtureTokens(): Set<string> {
   const seen = new Set<string>()
   for (const fixture of ALL_TESTS)
     for (const source of [fixture.source, plcPrgSource(fixture)])
-      for (const token of lex(source, "codesys")) seen.add((token.kind === "keyword" ? (token.keyword ?? token.text) : token.text).toUpperCase())
+      for (const token of lex(source, "codesys", false)) seen.add((token.kind === "keyword" ? (token.keyword ?? token.text) : token.text).toUpperCase())
   cachedTokens = seen
   return seen
 }

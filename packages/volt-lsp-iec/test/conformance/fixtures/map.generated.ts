@@ -14,20 +14,20 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     3455
- *     refused       2453
+ *     confirmed     3457
+ *     refused       2468
  *     not-lowered    407
  *     lsp-gap         94
- *     diverges         5
- *     unaskable      254
+ *     diverges         6
+ *     unaskable      317
  *
  *   tier                     lowered    clean
- *     decl                    965      965
+ *     decl                   1009     1009
  *     arith                  1765     1765
  *     control                 189      176
  *     aggregate               176      176
- *     call                    426      426
- *     indirect                478      478
+ *     call                    430      430
+ *     indirect                485      485
  *
  *   surviving lints (a lint listed here is work, not policy — 12 allowed ones are named with their reasons)
  *     unreachable_patterns                       9
@@ -52,10 +52,10 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         3750
+ *     agree         3797
  *     disagree         0
- *     not-run        249
- *       not-run: no elementary variable to seed or compare       93
+ *     not-run        257
+ *       not-run: no elementary variable to seed or compare      101
  *       not-run: reaches the platform's libm (pow, ln, sin…)     77
  *       not-run: the emitted Rust does not build                 73
  *       not-run: the interpreter's loop guard gives up on every variant     6
@@ -70,17 +70,17 @@
  *       agree,   5/6 unanswered (the interpreter's loop guard): tr_27_loop_cap_repeat_1000001
  *       agree,   5/6 unanswered (the interpreter's loop guard): tr_27_loop_cap_while_5000000
  *
- *   pedantic — 2283 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *   pedantic — 2288 clippy::pedantic + clippy::perf findings; the ten most frequent
  *     clippy::cast_possible_truncation          972
  *     clippy::cast_sign_loss                    732
- *     clippy::cast_possible_wrap                322
+ *     clippy::cast_possible_wrap                323
  *     clippy::pub_underscore_fields             110
  *     clippy::struct_excessive_bools             44
  *     clippy::cast_precision_loss                31
  *     clippy::float_cmp                          14
+ *     clippy::no_effect_underscore_binding       13
  *     clippy::used_underscore_binding            12
  *     clippy::cast_lossless                      10
- *     clippy::single_match_else                  10
  *
  *   size — emitted Rust lines per ST line, runtime-registry lines not counted: median 2.7; the ten largest
  *     string_positions_low                          26.2
@@ -94,7 +94,7 @@
  *     tr_a10_string_to_dint_underscore_sign_edges   10.8
  *     tr_a10_string_to_int_literal_forms            10.8
  *
- *   shape — 1989 distinct emission shapes over 3999 lowered fixtures, 2241 distinct constructs.
+ *   shape — 2014 distinct emission shapes over 4054 lowered fixtures, 2297 distinct constructs.
  *   20 constructs carry a review note (`NOTES`): 37 fixtures are improvable, 23 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  *   Notes per owning task (openspec transpile-restructure; a merged note counts once under each owner of its items;
@@ -3702,6 +3702,69 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   obs_attribute_without_value: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "9906a0762e" },
   obs_fb_extended: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.8, shape: "5e6d366ccc" },
   obs_struct_as_type: { evidence: "confirmed", tier: "aggregate", rust: "compiles", pedantic: 0, edge: "agree", size: 2.7, shape: "a0fcf15b8d" },
+  on_action_name_abs: { evidence: "unaskable" },
+  on_action_name_case: { evidence: "unaskable" },
+  on_action_name_cjk: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.1, shape: "7f327e5fec" },
+  on_action_name_double_underscore: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.1, shape: "7f327e5fec" },
+  on_action_name_int_lower: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.1, shape: "7f327e5fec" },
+  on_action_name_int_to_bool: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.1, shape: "7f327e5fec" },
+  on_action_name_latin1: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.1, shape: "7f327e5fec" },
+  on_dut_name_abs: { evidence: "unaskable" },
+  on_dut_name_case: { evidence: "unaskable" },
+  on_dut_name_cjk: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "not-run", size: 3.2, shape: "3d1cf6a449" },
+  on_dut_name_double_underscore: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 3.2, shape: "f563ffde98" },
+  on_dut_name_int_lower: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 1.8, shape: "32c43fc226" },
+  on_dut_name_int_to_bool: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 3.2, shape: "c3b2134be8" },
+  on_dut_name_latin1: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "not-run", size: 3.2, shape: "f32e6b2699" },
+  on_fb_name_abs: { evidence: "unaskable" },
+  on_fb_name_case: { evidence: "unaskable" },
+  on_fb_name_cjk: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "not-run", size: 2.7, shape: "21d55f9111" },
+  on_fb_name_double_underscore: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.7, shape: "de51ceaac8" },
+  on_fb_name_int_lower: { evidence: "unaskable" },
+  on_fb_name_int_to_bool: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.7, shape: "7f327e5fec" },
+  on_fb_name_latin1: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "not-run", size: 2.7, shape: "e74a18f0f4" },
+  on_function_name_abs: { evidence: "unaskable" },
+  on_function_name_case: { evidence: "unaskable" },
+  on_function_name_cjk: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 1, edge: "agree", size: 1.5, shape: "6ecc56f66f" },
+  on_function_name_double_underscore: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 1, edge: "agree", size: 1.5, shape: "4c6de7cd0b" },
+  on_function_name_int_lower: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 1, edge: "agree", size: 1.5, shape: "4c6de7cd0b" },
+  on_function_name_int_to_bool: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 1.1, shape: "83234c202b" },
+  on_function_name_latin1: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 1, edge: "agree", size: 1.5, shape: "7f230b682b" },
+  on_gvl_name_abs: { evidence: "unaskable" },
+  on_gvl_name_case: { evidence: "unaskable", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 3.7, shape: "2d79b22a30" },
+  on_gvl_name_cjk: { evidence: "unaskable", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 3.7, shape: "2d79b22a30" },
+  on_gvl_name_double_underscore: { evidence: "unaskable", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 3.7, shape: "2d79b22a30" },
+  on_gvl_name_int_lower: { evidence: "unaskable" },
+  on_gvl_name_int_to_bool: { evidence: "unaskable", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 3.7, shape: "2d79b22a30" },
+  on_gvl_name_latin1: { evidence: "unaskable", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 3.7, shape: "2d79b22a30" },
+  on_interface_name_abs: { evidence: "unaskable" },
+  on_interface_name_case: { evidence: "unaskable" },
+  on_interface_name_cjk: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "not-run", size: 2, shape: "1e316565cc" },
+  on_interface_name_double_underscore: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "not-run", size: 2, shape: "1e316565cc" },
+  on_interface_name_int_lower: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2, shape: "32c43fc226" },
+  on_interface_name_int_to_bool: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "not-run", size: 2, shape: "1e316565cc" },
+  on_interface_name_latin1: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "not-run", size: 2, shape: "1e316565cc" },
+  on_method_name_abs: { evidence: "unaskable" },
+  on_method_name_case: { evidence: "unaskable" },
+  on_method_name_cjk: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 1.8, shape: "7f327e5fec" },
+  on_method_name_double_underscore: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 1.8, shape: "7f327e5fec" },
+  on_method_name_int_lower: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 1.8, shape: "7f327e5fec" },
+  on_method_name_int_to_bool: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 1.8, shape: "7f327e5fec" },
+  on_method_name_latin1: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 1.8, shape: "7f327e5fec" },
+  on_program_name_abs: { evidence: "unaskable" },
+  on_program_name_case: { evidence: "unaskable" },
+  on_program_name_cjk: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 3.8, shape: "11200f97ce" },
+  on_program_name_double_underscore: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 3.8, shape: "cd1bb1cddd" },
+  on_program_name_int_lower: { evidence: "unaskable" },
+  on_program_name_int_to_bool: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 3.8, shape: "8a4387a124" },
+  on_program_name_latin1: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 3.8, shape: "54955960c2" },
+  on_property_name_abs: { evidence: "unaskable" },
+  on_property_name_case: { evidence: "unaskable" },
+  on_property_name_cjk: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 1.8, shape: "7f327e5fec" },
+  on_property_name_double_underscore: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 1.8, shape: "7f327e5fec" },
+  on_property_name_int_lower: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 1.8, shape: "7f327e5fec" },
+  on_property_name_int_to_bool: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 1.8, shape: "7f327e5fec" },
+  on_property_name_latin1: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 1.8, shape: "7f327e5fec" },
   oop_abstract_fb: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "not-run", size: 1.8, shape: "1cff40fa06" },
   oop_abstract_instantiated: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.5, shape: "f77529764a" },
   oop_action_block: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "fbfd76f4d7" },
@@ -6020,6 +6083,24 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   unknown_attribute_typo: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.7, shape: "1219638616" },
   unresolved_identifier_in_body: { evidence: "refused" },
   unsigned_underflow: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 4, shape: "7538dfa9ec" },
+  uoff_access_type: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 3.2, shape: "c3b2134be8" },
+  uoff_comment_control: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.5, shape: "18959e77be" },
+  uoff_enum_value: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 1.6, shape: "32c43fc226", diverges: { codesys: "known", twincat: "known" } },
+  uoff_global: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 3.3, shape: "2d79b22a30", diverges: { twincat: "known" } },
+  uoff_label: { evidence: "refused" },
+  uoff_member_access: { evidence: "refused" },
+  uoff_struct_member: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 3.1, shape: "9ae1356c71" },
+  uoff_type_named: { evidence: "refused" },
+  uoff_use_call_argument: { evidence: "refused" },
+  uoff_use_read: { evidence: "refused" },
+  uoff_use_target: { evidence: "refused" },
+  uoff_var_ascii_then_cjk: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.6, shape: "dda1f2c103", diverges: { twincat: "known" } },
+  uoff_var_cjk: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.6, shape: "b5dfe616e8" },
+  uoff_var_cyrillic: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.6, shape: "5f2042ac59" },
+  uoff_var_digit: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.6, shape: "cbead8f955", diverges: { twincat: "known" } },
+  uoff_var_latin1: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.6, shape: "8e5437f9c3", diverges: { twincat: "known" } },
+  uoff_var_middle: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.6, shape: "b6c6a01d74", diverges: { twincat: "known" } },
+  uoff_wstring_control: { evidence: "diverges", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 2.9, shape: "a8a5d981de" },
   uop_neg_bool: { evidence: "refused" },
   uop_neg_byte: { evidence: "refused" },
   uop_neg_date: { evidence: "refused" },
@@ -6059,19 +6140,19 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   uop_not_udint: { evidence: "refused" },
   uop_not_word: { evidence: "refused" },
   uop_not_wstring: { evidence: "refused" },
-  upa_dut_cjk: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 3.2, shape: "c3b2134be8" },
-  upa_fb_cjk: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "fc896ff999" },
-  upa_fb_cyrillic: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "fc896ff999" },
-  upa_fb_latin1: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "fc896ff999" },
-  upa_fb_mismatch: { evidence: "refused", tier: "call", rust: "compiles", pedantic: 0, edge: "agree", size: 2.9, shape: "fc896ff999" },
-  upa_function_cjk: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 1.8, shape: "1f58dd0969" },
-  upa_gvl_ambiguous: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2.2, shape: "8b3d4cc77a" },
-  upa_gvl_ambiguous_qualified: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.2, shape: "8b3d4cc77a" },
+  upa_dut_cjk: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 3.2, shape: "126c647a21" },
+  upa_fb_cjk: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "beee0630ab" },
+  upa_fb_cyrillic: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "e64c5aecf6" },
+  upa_fb_latin1: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "85bb60fe4d" },
+  upa_fb_mismatch: { evidence: "refused", tier: "call", rust: "compiles", pedantic: 0, edge: "agree", size: 2.9, shape: "6ad8647463" },
+  upa_function_cjk: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 1.8, shape: "ede96e80a2" },
+  upa_gvl_ambiguous: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2.2, shape: "961f9cc573" },
+  upa_gvl_ambiguous_qualified: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.2, shape: "961f9cc573" },
   upa_gvl_duplicate: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 3.3, shape: "2d79b22a30" },
   upa_gvl_qualified: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3.7, shape: "2d79b22a30" },
   upa_gvl_qualified_unknown: { evidence: "refused" },
   upa_interface_latin1: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "not-run", size: 2, shape: "1e316565cc" },
-  upa_program_cyrillic: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 4.2, shape: "0f1e7fa274" },
+  upa_program_cyrillic: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 4.2, shape: "166019ec1e" },
   use_array_indexed_method_call: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "80f8e39d5c" },
   use_fb_callable: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "590248dc46" },
   use_fb_method_call_named_args: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 1.9, shape: "3893bf7757" },

@@ -26,6 +26,7 @@ import { CHECK_REGISTRY } from "../../src/analysis/index.js"
 import { checkBaseline } from "../baseline/baseline.js"
 import { readFileSync } from "node:fs"
 import { ALL_TESTS } from "../conformance/fixtures/index.js"
+import { nameRefusal } from "../conformance/support/name-refusal.js"
 import { corpusCode, corpusSeverity, runCensus, unownedClass } from "./census.js"
 import { matchMultiset } from "./census-fixtures.js"
 import { builderOwners, recordingMessages, registryRows, shapeOf } from "./census-owners.js"
@@ -115,7 +116,11 @@ describe("the census rows are exactly the registry's entries", () => {
         const build = JSON.parse(readFileSync(join(import.meta.dir, "..", "conformance", "recordings", `${vendor}.build.json`), "utf8")) as {
           tests: Record<string, unknown>
         }
-        expect(census.report.measured[vendor]).toBe(ALL_TESTS.filter((t) => build.tests[t.name] !== undefined && t.vendorRefuses?.[vendor] === undefined).length)
+        // …and every fixture whose create the vendor refuses by name, answered by that refusal (`name-refusal.ts`)
+        const measured = ALL_TESTS.filter((t) =>
+          nameRefusal(t, vendor) !== undefined || (build.tests[t.name] !== undefined && t.vendorRefuses?.[vendor] === undefined),
+        )
+        expect(census.report.measured[vendor]).toBe(measured.length)
       }
     },
     CENSUS_TIMEOUT,

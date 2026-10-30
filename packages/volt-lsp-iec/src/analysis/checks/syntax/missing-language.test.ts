@@ -7,7 +7,7 @@ import { expect, test } from "bun:test"
 import { parseDocument } from "../../../frontend/syntax/index.js"
 import { missingLanguage, unstatedBodies } from "./missing-language.js"
 
-const parse = (source: string) => parseDocument("file:///F.pou", source, { networkText: true }, "codesys").units
+const parse = (source: string) => parseDocument("file:///F.pou", source, { networkText: true, unicodeIdentifiers: false }, "codesys").units
 
 test("a body with no %LANGUAGE line is unstated; one with it is not", () => {
   const units = parse(

@@ -152,7 +152,7 @@ export const WORD_FAMILIES: Readonly<Record<string, readonly string[]>> = {
  * name or an elementary type name ("The name 'INT' is not valid for this object.", 2026-10-29 — the IDE's create rule,
  * DIALECT C28, which measured every reserved word), so those fixtures have no build: their refusal is the data.
  */
-const OBJECT_POSITIONS: ReadonlySet<string> = new Set([
+export const OBJECT_POSITIONS: ReadonlySet<string> = new Set([
   "fb_name", "function_name", "program_name", "interface_name", "dut_name", "gvl_name", "method_name", "action_name", "property_name",
 ])
 

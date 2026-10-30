@@ -21,9 +21,20 @@
  * condition on them stays refused here as in the LSP (the transpiler states the exec oracle's,
  * `transpile/lower/conditions.ts`).
  */
-import type { CompileEnvironment } from "../../../src/frontend/syntax/index.js"
+import type { CompileEnvironment, ParseOptions } from "../../../src/frontend/syntax/index.js"
+import type { LanguageTest } from "../types.js"
 
 export const RECORDING_ENVIRONMENT: CompileEnvironment = Object.freeze({
   project: Object.freeze({ defines: new Set<string>() }),
   target: Object.freeze({ pointerBits: 64 as const }),
 })
+
+/**
+ * HOW A FIXTURE'S TEXT IS READ — as its recording project read it: LD/FBD bodies as network text, and names past ASCII as
+ * that project's Compile option "Unicode identifiers" says. Off in both vendors' recording projects (CODESYS's
+ * `.projectsettings` states `Unicode identifiers: off`; TwinCAT has no other state, DIALECT D39), on in the project a fixture
+ * names (`LanguageTest.unicodeIdentifiers`, volt-cli's `CodesysUnicodeMembers.3.5.21.40.project`).
+ */
+export function recordingParse(t: Pick<LanguageTest, "unicodeIdentifiers">): ParseOptions {
+  return { networkText: true, unicodeIdentifiers: t.unicodeIdentifiers === "on" }
+}

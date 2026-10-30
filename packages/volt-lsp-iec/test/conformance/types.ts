@@ -257,4 +257,10 @@ export interface LanguageTest {
    * its own recording and replay hold it, as for any fixture.
    */
   alone?: string
+  /**
+   * RECORDED ON THE PROJECT WHOSE COMPILE OPTION "UNICODE IDENTIFIERS" IS ON — volt-cli's
+   * `CodesysUnicodeMembers.3.5.21.40.project` (DIALECT C28b; `cross-object/names-past-ascii.ts`). Every other fixture's
+   * project has it off, CODESYS's default, so the replay reads this one as that project's `.projectsettings` states it.
+   */
+  unicodeIdentifiers?: "on"
 }

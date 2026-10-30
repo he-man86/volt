@@ -9,7 +9,7 @@ import type { Scope } from "./model.js"
 import { externalGlobal, findChildScope, findScopeByName, lookup, lookupMember, lookupUnit, resolveGvlMember, scopeForUnit } from "./index.js"
 import { bindFile, buildSymbolTable, relink, unbindFile } from "./incremental.js"
 
-const file = (uri: string, source: string) => ({ uri, source, parseResult: parseSource(source, { networkText: true }, "codesys") })
+const file = (uri: string, source: string) => ({ uri, source, parseResult: parseSource(source, { networkText: true, unicodeIdentifiers: false }, "codesys") })
 
 /** The pre-index implementation, kept here as the oracle. */
 function walk(scope: Scope, name: string): Scope | undefined {
@@ -100,7 +100,7 @@ test("resolveGvlMember: a library's list named through the library's namespace (
   const project = buildSymbolTable([file(lib, "VAR_GLOBAL\n HALFSHIFT : INT := 10;\nEND_VAR")], [
     { uri: "App/Library Manager/StringUtils/StringUtils.library", folder: "StringUtils", dir: "App/Library Manager/StringUtils/", namespace: "Stu", library: "StringUtils", dependencies: [], materialization: 4 },
   ], "codesys")
-  const expr = parseSource("PROGRAM P\nx := Stu.GVL_UTF8.HALFSHIFT;\nEND_PROGRAM", { networkText: true }, "codesys")
+  const expr = parseSource("PROGRAM P\nx := Stu.GVL_UTF8.HALFSHIFT;\nEND_PROGRAM", { networkText: true, unicodeIdentifiers: false }, "codesys")
   const statement = bodyStatements((expr.units[0] as { body: Parameters<typeof bodyStatements>[0] }).body).statements[0] as { value: Parameters<typeof resolveGvlMember>[0] }
   expect(resolveGvlMember(statement.value, project, project)?.uri).toBe(lib)
 })

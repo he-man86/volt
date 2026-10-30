@@ -27,7 +27,7 @@ const MANIFEST_FILES = walkSources(LIBRARY_MANAGER, new Set([".library"])).map(r
 
 /** Every library's declarations, PARSED ONCE — what the LSP replay binds a library name against, as the LSP binds a
  *  project that references them. A caller re-parses only for another dialect. */
-export const PROJECT_LIBRARY: readonly LibraryFile[] = DECLARATIONS.map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true }, "codesys") }))
+export const PROJECT_LIBRARY: readonly LibraryFile[] = DECLARATIONS.map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true, unicodeIdentifiers: false }, "codesys") }))
 
 /** Every library's manifest — its NAMESPACE, DEPENDENCIES and the RESOLUTION the repo is looked up by. */
 export const PROJECT_MANIFESTS: readonly LibraryManifest[] = MANIFEST_FILES.flatMap((l) => parseLibraryManifest(l.uri, l.source) ?? [])
@@ -35,7 +35,7 @@ export const PROJECT_MANIFESTS: readonly LibraryManifest[] = MANIFEST_FILES.flat
 /** What the transpiler lowers against: every library, with the bodies the library repo holds for the versions the
  *  project resolved — parsed ONCE, since every fixture lowers against them. */
 export const PROJECT_LOWERING: readonly LibraryFile[] = withImplementations([...DECLARATIONS, ...MANIFEST_FILES]).map((f) =>
-  f.uri.endsWith(".library") ? f : { ...f, parseResult: parseSource(f.source, { networkText: true }, "codesys") },
+  f.uri.endsWith(".library") ? f : { ...f, parseResult: parseSource(f.source, { networkText: true, unicodeIdentifiers: false }, "codesys") },
 )
 
 /** Those libraries bound ONCE (`libraryBase`): every fixture lowers on top of them, rather than binding 857 files anew. */

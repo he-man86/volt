@@ -19,7 +19,7 @@
  */
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { basename, dirname, extname, join } from "node:path"
-import { projectDiagnosticsFrom, type ConfigurableCode, type DiagnosticState } from "../analysis/index.js"
+import { projectDiagnosticsFrom, projectUnicodeIdentifiersFrom, type ConfigurableCode, type DiagnosticState } from "../analysis/index.js"
 import { parseLibraryManifest, type LibraryManifest } from "../frontend/library/index.js"
 import type { DeviceInstance } from "../frontend/symbols/index.js"
 import type { CompileEnvironment, Target } from "../frontend/syntax/index.js"
@@ -148,6 +148,8 @@ export interface WorkspaceRefScan {
 export interface ProjectSettings {
   folder: string
   diagnostics: Partial<Record<ConfigurableCode, DiagnosticState>>
+  /** Its Compile option "Unicode identifiers" (`projectUnicodeIdentifiersFrom`) — undefined where the file states none. */
+  unicodeIdentifiers: boolean | undefined
 }
 
 /** A file that exists and could not be read, with the I/O code that said so. */
@@ -195,7 +197,8 @@ class RefCollector {
     } else if (ext === ".projectsettings") {
       // One PLC project's compiler-warning configuration — see `projectDiagnosticsFrom`. A TwinCAT solution holds one
       // per PLC project: each governs its own folder, and none replaces another's.
-      this.projectSettings.push({ folder: dirname(file), diagnostics: projectDiagnosticsFrom(readFileSync(file, "utf8")) })
+      const body = readFileSync(file, "utf8")
+      this.projectSettings.push({ folder: dirname(file), diagnostics: projectDiagnosticsFrom(body), unicodeIdentifiers: projectUnicodeIdentifiersFrom(body) })
     } else {
       for (const p of taskRootsOf(file)) this.taskRoots.add(p.toLowerCase())
     }

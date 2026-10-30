@@ -24,7 +24,7 @@ Fn := 2;
 END_FUNCTION
 END_NAMESPACE
 END_NAMESPACE`
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = buildSymbolTable([{ uri: "NS.pou", parseResult, source: src }], [], "codesys")
   const walked = [...bodies(parseResult.units, project)].map((b) => `${b.scope.kind}:${b.scope.name}<${b.scope.parent?.name}`)
   expect(walked).toEqual(["pou:Foo<NS", "method:M<Foo", "pou:Fn<Inner"])

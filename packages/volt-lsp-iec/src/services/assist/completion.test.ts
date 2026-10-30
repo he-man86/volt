@@ -10,7 +10,7 @@ import type { Document } from "../shared/index.js"
 import { build } from "../../frontend/symbols/index.js"
 
 function setup(src: string) {
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const doc: Document = { uri: "file:///F.pou", source: src, parseResult }
   const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }], [], "codesys")
   return { doc, project }
@@ -38,7 +38,7 @@ test("completion: inside {attribute '…'} offers the known attribute names, not
   const doc: Document = {
     uri: "file:///F.pou",
     source: src,
-    parseResult: parseSource(src, { networkText: true }, "codesys"),
+    parseResult: parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys"),
   }
   const project = build.buildSymbolTable([{ uri: doc.uri, parseResult: doc.parseResult, source: src }], [], "codesys")
   const items = completion(doc, project, src.indexOf("qual") + 4)
@@ -79,7 +79,7 @@ END_FUNCTION_BLOCK`
 
 describe("through the services barrel", () => {
   function setup(src: string) {
-    const parseResult = parseSource(src, { networkText: true }, "codesys")
+    const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
     const doc: Document = { uri: "file:///F.pou", source: src, parseResult }
     const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }], [], "codesys")
     return { doc, project }
@@ -131,8 +131,8 @@ describe("GVL-qualified members (P1)", () => {
     const gvl = `{attribute 'qualified_only'}\nVAR_GLOBAL\n speed : INT;\n mode : BOOL;\nEND_VAR`
     const prg = `PROGRAM PLC_PRG\nVAR\n x : INT;\nEND_VAR\nx := GVL.speed;\nEND_PROGRAM`
     const inputs = [
-      { uri: "file:///GVL.gvl", source: gvl, parseResult: parseSource(gvl, { networkText: true }, "codesys") },
-      { uri: "file:///P.pou", source: prg, parseResult: parseSource(prg, { networkText: true }, "codesys") },
+      { uri: "file:///GVL.gvl", source: gvl, parseResult: parseSource(gvl, { networkText: true, unicodeIdentifiers: false }, "codesys") },
+      { uri: "file:///P.pou", source: prg, parseResult: parseSource(prg, { networkText: true, unicodeIdentifiers: false }, "codesys") },
     ]
     const project = build.buildSymbolTable(inputs, [], "codesys")
     const labels = (completion(inputs[1], project, prg.indexOf("GVL.") + 4) ?? []).map((c) => c.label)
@@ -165,7 +165,7 @@ n := drv.Pos;
 END_PROGRAM`
 
   const setup = () => {
-    const parseResult = parseSource(SRC, { networkText: true }, "codesys")
+    const parseResult = parseSource(SRC, { networkText: true, unicodeIdentifiers: false }, "codesys")
     const doc: Document = { uri: "file:///F.pou", source: SRC, parseResult }
     return { doc, project: build.buildSymbolTable([{ uri: doc.uri, parseResult, source: SRC }], [], "codesys") }
   }

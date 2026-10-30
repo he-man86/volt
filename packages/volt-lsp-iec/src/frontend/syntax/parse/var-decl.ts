@@ -5,7 +5,7 @@
  */
 import type { AccessPath, VarDecl, Identifier } from "../ast/nodes/index.js"
 import { bodySpanFromTokens } from "../format/language-line.js"
-import type { Token } from "../lex/tokens.js"
+import { isStrayPastAscii, type Token } from "../lex/tokens.js"
 import type { Keyword } from "../lex/vocabulary.js"
 import { addressShape } from "../literal/address.js"
 import { joinSpans } from "../span.js"
@@ -92,7 +92,8 @@ function refuseNameAfterName(c: Cursor): boolean {
   // …and a `[` where the list reads no index on a name (`ax[1] : INT;` in a TwinCAT global list, `dp_gvl_index_only`;
   // a POU's section, `dp_fb_var_index_only`)
   const dot = next.kind === "punct" && (next.text === "." || next.text === "[")
-  if (next.kind !== "identifier" && next.kind !== "address_lit" && !semicolon && !dot) return false
+  // …and a character past ASCII that ends the name (`größe : INT;` is `gr` and `ö`… — `isStrayPastAscii`, `uoff_var_*`)
+  if (next.kind !== "identifier" && next.kind !== "address_lit" && !semicolon && !dot && !isStrayPastAscii(next)) return false
   c.pushError(`',, AT or :' expected instead of '${next.text}'`, next.span)
   if (semicolon) c.consume()
   return true
@@ -144,7 +145,7 @@ export function parseVarDecl(c: Cursor, list: DeclList): VarDecl | DeclFailure |
       tokens.push(c.consume())
     }
     atRefused = refuseAtOperand(c, tokens)
-    at = bodySpanFromTokens(tokens, atKw.span, c.dialect)
+    at = bodySpanFromTokens(tokens, atKw.span, c.dialect, c.unicodeIdentifiers)
   }
 
   const colon = c.expectPunct(":")

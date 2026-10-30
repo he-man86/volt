@@ -23,7 +23,7 @@ interface Workspace {
 
 /** Diagnostics for one FB source, in a project optionally binding a workspace's manifests and devices. */
 function diag(src: string, workspace: Workspace = {}) {
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], workspace.manifests ?? [], "codesys", undefined, workspace.devices ?? [])
   return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
 }
@@ -78,8 +78,8 @@ test("a bare-accessible enum member (non-qualified_only) is not flagged", () => 
 /** unresolved-identifier messages in `consumer`, with `enumDut` supplied as a second workspace file. */
 const enumUse = (enumDut: string, consumer: string): string[] => {
   const files = [
-    { uri: "E.dut", parseResult: parseSource(enumDut, { networkText: true }, "codesys"), source: enumDut },
-    { uri: "F.pou", parseResult: parseSource(consumer, { networkText: true }, "codesys"), source: consumer },
+    { uri: "E.dut", parseResult: parseSource(enumDut, { networkText: true, unicodeIdentifiers: false }, "codesys"), source: enumDut },
+    { uri: "F.pou", parseResult: parseSource(consumer, { networkText: true, unicodeIdentifiers: false }, "codesys"), source: consumer },
   ]
   const project = build.buildSymbolTable(files, [], "codesys")
   return computeDiagnostics({ uri: files[1].uri, parseResult: files[1].parseResult, source: consumer, project, config: resolveConfig({ vendor: "codesys" }) })
@@ -231,8 +231,8 @@ test("member access on a LIBRARY-typed base is not flagged (signatures may be lo
   // The struct type lives under a `Library Manager/` uri → isLibrarySymbol → the member check must skip it.
   const libSrc = "TYPE Pt : STRUCT x : INT; END_STRUCT END_TYPE"
   const useSrc = `FUNCTION_BLOCK F\nVAR p : Pt; i : INT; END_VAR\ni := p.z;\nEND_FUNCTION_BLOCK`
-  const libPr = parseSource(libSrc, { networkText: true }, "codesys")
-  const usePr = parseSource(useSrc, { networkText: true }, "codesys")
+  const libPr = parseSource(libSrc, { networkText: true, unicodeIdentifiers: false }, "codesys")
+  const usePr = parseSource(useSrc, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([
     { uri: "Device/Plc Logic/Application/Library Manager/MyLib/Pt.dut", parseResult: libPr, source: libSrc },
     { uri: "F.pou", parseResult: usePr, source: useSrc },
@@ -267,7 +267,7 @@ test("a name that does not resolve and is CALLED is two errors", () => {
   // CODESYS has no `TIME_OF_DAY_TO_UDINT` — only `TOD_TO_UDINT` — and says both that the name is undefined and that
   // it is not something you can call (conformance `cc_conv_spelled_source_ok` and its three siblings).
   const src = `FUNCTION_BLOCK F\nVAR\nt : TOD;\nu : UDINT;\nEND_VAR\nu := TIME_OF_DAY_TO_UDINT(t);\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   const msgs = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "unresolved-identifier" || d.code === "invalid-call-target")
@@ -302,7 +302,7 @@ test("`.g` declared by two global lists names no global (expr_global_namespace_a
     { uri: "file:///GVL_A.gvl", source: "VAR_GLOBAL\n\tgAmb : INT;\nEND_VAR\n" },
     { uri: "file:///GVL_B.gvl", source: "VAR_GLOBAL\n\tgAmb : INT;\nEND_VAR\n" },
     { uri: "file:///F.pou", source: "FUNCTION_BLOCK F\nVAR\n\tout : INT;\nEND_VAR\nout := .gAmb;\nEND_FUNCTION_BLOCK\n" },
-  ].map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true }, "codesys") }))
+  ].map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true, unicodeIdentifiers: false }, "codesys") }))
   const project = build.buildSymbolTable(files, [], "codesys")
   const fb = files[2]!
   const messages = computeDiagnostics({ uri: uriFor(fb.parseResult), parseResult: fb.parseResult, source: fb.source, project, config: resolveConfig({ vendor: "codesys" }) })
@@ -318,9 +318,9 @@ test("`.g` declared by two global lists names no global (expr_global_namespace_a
 test("a member a global variable list does not declare is no component of the list, and the access has no type", () => {
   const gvl = "VAR_GLOBAL\n g_known : INT;\nEND_VAR"
   const src = fb("VAR a : INT; END_VAR\na := GVL_X.nope;\na := GVL_X.g_known;")
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable(
-    [{ uri: "F.pou", parseResult, source: src }, { uri: "GVL_X.gvl", parseResult: parseSource(gvl, { networkText: true }, "codesys"), source: gvl }],
+    [{ uri: "F.pou", parseResult, source: src }, { uri: "GVL_X.gvl", parseResult: parseSource(gvl, { networkText: true, unicodeIdentifiers: false }, "codesys"), source: gvl }],
     [],
     "codesys",
   )
@@ -399,9 +399,9 @@ test("M3: a VAR written through a REFERENCE TO an FB is no input of the FB; a VA
 test("M1: a called unknown member of a GLOBAL LIST or through a dereferenced POINTER gets no call-target sentence", () => {
   const gvl = "VAR_GLOBAL\n g : INT;\nEND_VAR"
   const src = `${SUB}FUNCTION_BLOCK F\nVAR\n\tsb : FB_Sub;\n\tp : POINTER TO FB_Sub;\n\tout : INT;\nEND_VAR\np := ADR(sb);\nout := GVL_X.nope();\nout := p^.Nope();\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable(
-    [{ uri: "F.pou", parseResult, source: src }, { uri: "GVL_X.gvl", parseResult: parseSource(gvl, { networkText: true }, "codesys"), source: gvl }],
+    [{ uri: "F.pou", parseResult, source: src }, { uri: "GVL_X.gvl", parseResult: parseSource(gvl, { networkText: true, unicodeIdentifiers: false }, "codesys"), source: gvl }],
     [],
     "codesys",
   )
@@ -423,7 +423,7 @@ test("a member a type's, a program's or THIS^'s name does not declare is no comp
 INTERFACE I_x\nMETHOD M : INT\nEND_METHOD\nEND_INTERFACE
 PROGRAM Prg_x\nVAR\nx : INT;\nEND_VAR\nEND_PROGRAM
 FUNCTION_BLOCK Fb_a\nVAR\nn : INT;\nEND_VAR\nn := Dut_s.nope;\nn := I_x.nope;\nn := Prg_x.nope;\nn := THIS^.nope;\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   const ds = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
   expect(ds.filter((d) => d.code === "unknown-member").map((d) => d.message)).toEqual([
@@ -448,7 +448,7 @@ FUNCTION_BLOCK Fb_a\nVAR\nn : INT;\nEND_VAR\nn := Dut_s.nope;\nn := I_x.nope;\nn
 
 /** Every error code and message for `files` (one item per file, as the pull lays them out), bound as one project. */
 function sfcDiag(files: Record<string, string>): string[] {
-  const inputs = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source, { networkText: true }, "codesys") }))
+  const inputs = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source, { networkText: true, unicodeIdentifiers: false }, "codesys") }))
   const project = build.buildSymbolTable(inputs, [], "codesys")
   return inputs
     .flatMap((f) => computeDiagnostics({ uri: uriFor(f.parseResult), parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor: "codesys" }) }))

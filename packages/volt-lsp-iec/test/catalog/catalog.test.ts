@@ -22,10 +22,10 @@ const catalog = errorCatalog()
 /** Diagnostic messages the LSP emits for a repro (a full ST source). Every check runs by default (errors always,
  *  warnings default-ON like CODESYS), so no per-lint config is needed. Includes warnings as well as errors. */
 function lspMessages(repro: string, extra?: { uri: string; source: string }[]): string[] {
-  const parseResult = parseSource(repro, { networkText: true }, "codesys")
+  const parseResult = parseSource(repro, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const files = [
     { uri: "F.pou", parseResult, source: repro },
-    ...(extra ?? []).map((f) => ({ uri: f.uri, source: f.source, parseResult: parseSource(f.source, { networkText: true }, "codesys") })),
+    ...(extra ?? []).map((f) => ({ uri: f.uri, source: f.source, parseResult: parseSource(f.source, { networkText: true, unicodeIdentifiers: false }, "codesys") })),
   ]
   const project = build.buildSymbolTable(files, [], "codesys")
   const semantic = computeDiagnostics({

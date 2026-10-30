@@ -9,6 +9,7 @@ import type { Property } from "../../ast/nodes/index.js"
 const property = (header: string) => {
   const r = parseSource(`FUNCTION_BLOCK X\nEND_FUNCTION_BLOCK\n\n${header}\nGET\nP := 6;\nEND_GET\nEND_PROPERTY\n`, {
     networkText: true,
+    unicodeIdentifiers: false,
   }, "codesys")
   return { errors: r.errors.map((e) => e.message), unit: r.units[1] as Property }
 }
@@ -53,6 +54,7 @@ const accessors = (text: string) => {
     `FUNCTION_BLOCK X\nVAR\n\tstored : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nPROPERTY P : INT\n${text}END_PROPERTY\n`,
     {
       networkText: true,
+      unicodeIdentifiers: false,
     }, "codesys",
   )
   return { errors: r.errors.map((e) => e.message), unit: r.units[1] as Property }
@@ -155,7 +157,7 @@ test("a header ending at its colon is the build's \"Type definition expected ins
 const named = (decls: string, text: string, type = "INT") => {
   const r = parseSource(
     `FUNCTION_BLOCK X\nVAR\n${decls}END_VAR\n%LANGUAGE ST\nEND_FUNCTION_BLOCK\n\nPROPERTY P : ${type}\n${text}END_PROPERTY\n`,
-    { networkText: true }, "codesys",
+    { networkText: true, unicodeIdentifiers: false }, "codesys",
   )
   return { errors: r.errors.map((e) => e.message), unit: r.units[1] as Property }
 }

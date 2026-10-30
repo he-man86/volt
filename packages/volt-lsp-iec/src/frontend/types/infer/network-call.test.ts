@@ -24,7 +24,7 @@ END_FUNCTION_BLOCK
 /** The type of every expression `x := <expr>;` assigns to `probe…` in the network body of `code`, by the probe's name. */
 function probes(language: "LD" | "ST", code: string): Record<string, string> {
   const src = `${FB}PROGRAM P\nVAR\n\ta, b, c, p1, p2, p3, p4, p5, p6 : BOOL;\n\ti, j, n, q1, q2 : INT;\n\tt1 : FB_T;\n\td1 : TIME;\nEND_VAR\n%LANGUAGE ${language}\n${code}END_PROGRAM\n`
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "P.pou", parseResult, source: src }], [], "codesys")
   const out: Record<string, string> = {}
   for (const { scope, statements } of bodies(parseResult.units, project))
@@ -51,7 +51,7 @@ test("a wire is of its definition's type: an expression's, an FB output's, an en
   const code =
     "%NETWORK\nVAR_TEMP w1 : ANY; w2 : ANY; w3 : ANY; w4 : ANY; w5 : ANY; END_VAR\nw1 := ADD(i, j);\nq1 := w1;\nq2 := w1;\nw2 := t1(IN := a).Q;\np1 := w2;\nw3 := t1(IN := a).ET;\nd1 := w3;\n" +
     "w4 := MOVE(EN := b, i);\nn := w4;\nw5 := MOVE(EN := b, i, OUT => n).ENO;\np1 := w5;\n"
-  const parseResult = parseSource(`${FB}PROGRAM P\nVAR\n\ta, b, p1 : BOOL;\n\ti, j, n, q1, q2 : INT;\n\tt1 : FB_T;\n\td1 : TIME;\nEND_VAR\n%LANGUAGE LD\n${code}END_PROGRAM\n`, { networkText: true }, "codesys")
+  const parseResult = parseSource(`${FB}PROGRAM P\nVAR\n\ta, b, p1 : BOOL;\n\ti, j, n, q1, q2 : INT;\n\tt1 : FB_T;\n\td1 : TIME;\nEND_VAR\n%LANGUAGE LD\n${code}END_PROGRAM\n`, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "P.pou", parseResult, source: "" }], [], "codesys")
   const types: Record<string, string> = {}
   for (const { scope, statements } of bodies(parseResult.units, project))

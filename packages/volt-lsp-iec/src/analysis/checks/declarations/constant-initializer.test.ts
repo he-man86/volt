@@ -22,7 +22,7 @@ test("a CONSTANT without an initializer is flagged; one with an initializer is n
 
 test("it is a WARNING, not an error (live-confirmed on the bakon-nano build)", () => {
   const src = `FUNCTION_BLOCK FB\nVAR CONSTANT\nk : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`
-  const pr = parseSource(src, { networkText: true }, "codesys")
+  const pr = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   const ds = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).filter(
     (d) => d.code === "constant-no-initial-value",

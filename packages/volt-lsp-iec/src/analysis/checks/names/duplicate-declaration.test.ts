@@ -15,11 +15,12 @@ const diag = (src: string) => {
   return diagnose(src)
 }
 
+// (named `Compute`: both IDEs refuse to create a METHOD named `Calc` — CALC is an IL operator, `refused-names`)
 test("C0582 — two methods with the same name in one FB", () => {
-  const src = `FUNCTION_BLOCK FB_Math\nEND_FUNCTION_BLOCK\nMETHOD Calc : INT\nVAR_INPUT\n a : INT;\nEND_VAR\nEND_METHOD\nMETHOD Calc : INT\nVAR_INPUT\n a : INT;\n b : INT;\nEND_VAR\nEND_METHOD`
+  const src = `FUNCTION_BLOCK FB_Math\nEND_FUNCTION_BLOCK\nMETHOD Compute : INT\nVAR_INPUT\n a : INT;\nEND_VAR\nEND_METHOD\nMETHOD Compute : INT\nVAR_INPUT\n a : INT;\n b : INT;\nEND_VAR\nEND_METHOD`
   const ds = diag(src).filter((d) => d.code === "duplicate-method")
   expect(ds.length).toBe(1)
-  expect(ds[0].message).toBe(`There is another method with the name 'Calc'. Use the Attribute {attribute 'overloaded'} if you want to define overloaded methods.`)
+  expect(ds[0].message).toBe(`There is another method with the name 'Compute'. Use the Attribute {attribute 'overloaded'} if you want to define overloaded methods.`)
 })
 
 test("a duplicate variable keeps the generic wording (not the method one)", () => {
@@ -85,7 +86,7 @@ test("a METHOD named as the FB's variable is not a duplicate declaration", () =>
 
 test("a name declared twice in one global list is a duplicate, in the list's object", () => {
   const src = `VAR_GLOBAL\n g : INT;\n g : BOOL;\nEND_VAR`
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "GVL_Main.gvl", parseResult, source: src }], [], "codesys")
   const ds = computeDiagnostics({ uri: "GVL_Main.gvl", parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
   expect(ds.map((d) => `${d.code}: ${d.message}`)).toEqual(["duplicate-declaration: A local variable named 'g' is already defined in 'GVL_Main'"])
@@ -107,7 +108,7 @@ test("a METHOD named as an ACTION or a PROPERTY of its FB is still a duplicate d
 // declaration whose AT operand is refused is dropped by the vendor (binder `ingestGlobalVarList`)
 test("a global list's VAR_ACCESS name or refused-AT declaration does not duplicate its variable", () => {
   const gvl = (src: string) => {
-    const parseResult = parseSource(src, { networkText: true }, "codesys")
+    const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
     const project = build.buildSymbolTable([{ uri: "GVL_A.gvl", parseResult, source: src }], [], "codesys")
     return computeDiagnostics({ uri: "GVL_A.gvl", parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "duplicate-declaration")
@@ -122,8 +123,9 @@ test("a global list's VAR_ACCESS name or refused-AT declaration does not duplica
 test("a GVL with a non-ASCII name is named as given, not as its URI encodes it", () => {
   const uri = pathToFileURL(join(process.cwd(), "A14_升降.gvl")).href
   const src = `VAR_GLOBAL\n g : INT;\n g : INT;\nEND_VAR`
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: true }, "codesys")
   const project = build.buildSymbolTable([{ uri, parseResult, source: src }], [], "codesys")
-  const ds = computeDiagnostics({ uri, parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  // a list named so exists only where the project's "Unicode identifiers" is on (DIALECT C28b)
+  const ds = computeDiagnostics({ uri, parseResult, source: src, project, config: resolveConfig({ vendor: "codesys", unicodeIdentifiers: true }) })
   expect(ds.map((d) => `${d.code}: ${d.message}`)).toEqual(["duplicate-declaration: A local variable named 'g' is already defined in 'A14_升降'"])
 })

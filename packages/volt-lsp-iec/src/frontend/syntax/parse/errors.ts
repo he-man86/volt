@@ -6,7 +6,7 @@
  * replaced by the recorded one (`rec_expected_expression*`, `rec_type_expected_literal`, both vendors 2026-10-02).
  */
 import type { Span } from "../span.js"
-import type { Token } from "../lex/tokens.js"
+import { isStrayPastAscii, type Token } from "../lex/tokens.js"
 import { type Dialect, type Keyword } from "../lex/vocabulary.js"
 import { isRefusedDeclaredName, SOFT_NAME_KEYWORDS, UNIT_STARTERS } from "../lex/word-sets.js"
 
@@ -96,14 +96,15 @@ export function vendorExpressionExpected(t: Token): string {
  * (`decl_names_trailing_comma`, both vendors 2026-10-01; every recorded instance has the capital).
  */
 export function nameExpected(t: Token): string {
-  return t.kind === "keyword"
+  return t.kind === "keyword" || isStrayPastAscii(t)
     ? `Unexpected token ${vendorTokenText(t)} found`
     : `Identifier expected instead of ${vendorTokenText(t)}`
 }
 
-/** The token, when `nameExpected` words it as the "Unexpected token" shape — see `ParseError.unexpectedToken`. */
+/** The token, when `nameExpected` words it as the "Unexpected token" shape — see `ParseError.unexpectedToken`. A character
+ *  past ASCII where a name belongs is worded so too (`isStrayPastAscii`: `计数 : INT;` is "Unexpected token '计' found"). */
 export function unexpectedTokenOf(t: Token): string | undefined {
-  return t.kind === "keyword" ? t.text : undefined
+  return t.kind === "keyword" || isStrayPastAscii(t) ? t.text : undefined
 }
 
 /**

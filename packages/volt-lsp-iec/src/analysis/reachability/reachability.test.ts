@@ -4,7 +4,7 @@ import { deadPous, deadMemberSpans, ownerPou, type ReachabilityInput } from "./r
 
 /** Build a reachability input from a file's bare name + source (uri drives GVL naming, not needed here). */
 function file(name: string, source: string): ReachabilityInput {
-  return { uri: `file:///${name}`, parseResult: parseSource(source, { networkText: true }, "codesys") }
+  return { uri: `file:///${name}`, parseResult: parseSource(source, { networkText: true, unicodeIdentifiers: false }, "codesys") }
 }
 
 const PRG = (name: string, body: string) => file(`${name}.pou`, `PROGRAM ${name}\n${body}\nEND_PROGRAM`)
@@ -206,8 +206,8 @@ test("a method of a DEAD FB is not double-reported (whole file already suppresse
 })
 
 test("ownerPou returns the file's primary POU, undefined for a non-POU file", () => {
-  expect(ownerPou(parseSource("FUNCTION_BLOCK F\nEND_FUNCTION_BLOCK", { networkText: true }, "codesys"))).toBe("f")
-  expect(ownerPou(parseSource("INTERFACE I\nEND_INTERFACE", { networkText: true }, "codesys"))).toBeUndefined()
+  expect(ownerPou(parseSource("FUNCTION_BLOCK F\nEND_FUNCTION_BLOCK", { networkText: true, unicodeIdentifiers: false }, "codesys"))).toBe("f")
+  expect(ownerPou(parseSource("INTERFACE I\nEND_INTERFACE", { networkText: true, unicodeIdentifiers: false }, "codesys"))).toBeUndefined()
 })
 
 // EXCLUDED CODE IS NO EDGE (openspec lsp-excluded-from-build): the compiler does not build an excluded object (DIALECT

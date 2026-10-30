@@ -21,7 +21,7 @@ const CODE_PIN = "CODE"
  * dollar), the rest of the body lexed again after it. One not closed runs to the BODY's end, no further, and is "an
  * unclosed string", as the bridge's reader refuses it — the units after the body keep their own analysis.
  */
-export function joinCodeStrings(tokens: readonly Token[], dialect: Dialect): { tokens: Token[]; unclosed: Span[] } {
+export function joinCodeStrings(tokens: readonly Token[], dialect: Dialect, unicodeIdentifiers: boolean): { tokens: Token[]; unclosed: Span[] } {
   const out = [...tokens]
   const unclosed: Span[] = []
   const heads: (Token | undefined)[] = []
@@ -32,7 +32,7 @@ export function joinCodeStrings(tokens: readonly Token[], dialect: Dialect): { t
     if (isTrivia(t.kind) || t.kind === "eof") continue
     if (t.kind === "string_lit" && !closedString(t.text) && last?.text === ":=" && before?.text.toUpperCase() === CODE_PIN &&
         heads.at(-1)?.text.toUpperCase() === EXECUTE) {
-      const joined = rejoin(out, i, dialect)
+      const joined = rejoin(out, i, dialect, unicodeIdentifiers)
       out.splice(i, out.length - i, ...joined.tokens)
       if (!joined.closed) unclosed.push(out[i]!.span)
     }
@@ -46,7 +46,7 @@ export function joinCodeStrings(tokens: readonly Token[], dialect: Dialect): { t
 
 /** The string opening at `tokens[at]`, read across lines to its closing quote (or to the body's end), and the body's
  *  tokens after it lexed again, each where it stands. */
-function rejoin(tokens: readonly Token[], at: number, dialect: Dialect): { tokens: Token[]; closed: boolean } {
+function rejoin(tokens: readonly Token[], at: number, dialect: Dialect, unicodeIdentifiers: boolean): { tokens: Token[]; closed: boolean } {
   const first = tokens[at]!
   let src = ""
   let pos = first.span.start
@@ -77,7 +77,7 @@ function rejoin(tokens: readonly Token[], at: number, dialect: Dialect): { token
   }
   const string: Token = { kind: "string_lit", text: src.slice(0, p), span: { start: first.span.start, end: first.span.start + p, startLine: first.span.startLine, startCol: first.span.startCol, endLine: line, endCol: col } }
   const base = first.span.start + p
-  const rest = lex(src.slice(p), dialect)
+  const rest = lex(src.slice(p), dialect, unicodeIdentifiers)
     .filter((t) => t.kind !== "eof")
     .map((t) => ({ ...t, span: {
       start: base + t.span.start,
@@ -130,7 +130,7 @@ function contentSpan(t: Token): Span {
  * dollar, everything else as it stands (`StNetworkReader` / `NetworkSpelling.UnescapeCode`, one spelling per code) — lexed,
  * each span mapped back through the escapes. Any other `$` answers the refusal, in the bridge's words.
  */
-function codeTokens(string: Token, dialect: Dialect): { tokens: Token[]; st: string } | string {
+function codeTokens(string: Token, dialect: Dialect, unicodeIdentifiers: boolean): { tokens: Token[]; st: string } | string {
   const raw = string.text.slice(1, string.text.length >= 2 && string.text.endsWith("'") ? -1 : undefined)
   let decoded = ""
   const at: number[] = [] // decoded index → raw index
@@ -164,7 +164,7 @@ function codeTokens(string: Token, dialect: Dialect): { tokens: Token[]; st: str
   }
   const base = string.span.start + 1
   const map = (offset: number) => at[offset]!
-  const tokens = lex(decoded, dialect)
+  const tokens = lex(decoded, dialect, unicodeIdentifiers)
     .filter((t) => t.kind !== "eof")
     .map((t) => {
       const s = map(t.span.start)
@@ -181,6 +181,7 @@ export function takeCode(
   at: number,
   string: number,
   dialect: Dialect,
+  unicodeIdentifiers: boolean,
   into: { out: Token[]; pending: Token[]; stray: { message: string; span: Span }[]; call: { code?: Span; st?: string } },
 ): void {
   const { out } = into
@@ -188,7 +189,7 @@ export function takeCode(
   while (p >= 0 && isTrivia(out[p]!.kind)) p--
   if (out[p]?.text === ",") out[p] = { ...out[p]!, kind: "whitespace", keyword: undefined }
   for (let k = at; k <= string; k++) out.push({ ...tokens[k]!, kind: "whitespace", keyword: undefined })
-  const st = codeTokens(tokens[string]!, dialect)
+  const st = codeTokens(tokens[string]!, dialect, unicodeIdentifiers)
   if (typeof st === "string") into.stray.push({ message: st, span: tokens[string]!.span })
   else into.pending.push(...st.tokens)
   into.call.code = contentSpan(tokens[string]!)

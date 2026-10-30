@@ -44,7 +44,7 @@ test("an EDIT that introduces a recursion is reported — the incremental re-ind
   const before = "FUNCTION_BLOCK FB1\nVAR n : INT; END_VAR\nEND_FUNCTION_BLOCK"
   const after = "FUNCTION_BLOCK FB1\nVAR sv : FB1; END_VAR\nEND_FUNCTION_BLOCK"
   // the document diagnosed is the one bound, as the server's is: its unit spans are the scopes' spans
-  const file = (src: string) => ({ uri: "F", parseResult: parseSource(src, { networkText: true }, "codesys"), source: src })
+  const file = (src: string) => ({ uri: "F", parseResult: parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys"), source: src })
   const check = (f: ReturnType<typeof file>) =>
     computeDiagnostics({ ...f, project, config: cfg }).filter((d) => d.code === "data-recursion").length
   const first = file(before)
@@ -63,7 +63,7 @@ test("a cycle across two files follows an edit to EITHER one — a rebound file'
   const a = "FUNCTION_BLOCK FB_A\nVAR b : FB_B; END_VAR\nEND_FUNCTION_BLOCK"
   const bCycle = "FUNCTION_BLOCK FB_B\nVAR a : FB_A; END_VAR\nEND_FUNCTION_BLOCK"
   const bFlat = "FUNCTION_BLOCK FB_B\nVAR a : POINTER TO FB_A; END_VAR\nEND_FUNCTION_BLOCK"
-  const file = (uri: string, src: string) => ({ uri, source: src, parseResult: parseSource(src, { networkText: true }, "codesys") })
+  const file = (uri: string, src: string) => ({ uri, source: src, parseResult: parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys") })
   const fileA = file("A", a)
   const project = build.buildSymbolTable([fileA, file("B", bFlat)], [], "codesys")
   const onA = () =>
@@ -86,10 +86,10 @@ test("two same-named types are ONE node, with both declarations' members as its 
   const cfg = resolveConfig({ vendor: "codesys" })
   const first = "TYPE sv :\nSTRUCT\nn : INT;\nEND_STRUCT\nEND_TYPE"
   const second = "TYPE SV :\nSTRUCT\nloop : sv;\nEND_STRUCT\nEND_TYPE"
-  const pr = parseSource(first, { networkText: true }, "codesys")
+  const pr = parseSource(first, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([
     { uri: "1", parseResult: pr, source: first },
-    { uri: "2", parseResult: parseSource(second, { networkText: true }, "codesys"), source: second },
+    { uri: "2", parseResult: parseSource(second, { networkText: true, unicodeIdentifiers: false }, "codesys"), source: second },
   ], [], "codesys")
   expect(
     computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: first, project, config: cfg })

@@ -373,7 +373,7 @@ test("no check opens with a whole-body vendor early return — the registry deci
 // "which vendor is this?" the project/config mismatch is, and is refused the same way rather than answered.
 test("a parse lexed as one vendor is refused by name when analysed as the other", () => {
   const src = "PROGRAM P\nVAR\n  x : INT;\nEND_VAR\nx := 1;\nEND_PROGRAM"
-  const parseResult = parseSource(src, { networkText: true }, "twincat")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "twincat")
   const project = build.buildSymbolTable([{ uri: "P.pou", parseResult, source: src }], [], "codesys")
   expect(() =>
     computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) }),
@@ -384,7 +384,7 @@ test("a parse lexed as one vendor is refused by name when analysed as the other"
 // with a copy, and that copy must still carry what the check offered to fix it.
 test("a finding whose severity the policy forces keeps its fixes", () => {
   const src = "FUNCTION_BLOCK FB\nVAR\n\twide : LREAL;\n\tnarrow : REAL;\nEND_VAR\nnarrow := wide;\nEND_FUNCTION_BLOCK\n"
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   const config = resolveConfig({ vendor: "codesys", diagnostics: { "narrowing-conversion": "error" } })
   const [d, ...rest] = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config })

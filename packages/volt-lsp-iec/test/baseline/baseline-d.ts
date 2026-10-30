@@ -1,5 +1,6 @@
 /**
- * the ceiling exceptions (`baseline.ts`) — part D: openspec lsp-field-false-positives 8, the class sweeps (2026-10-29).
+ * the ceiling exceptions (`baseline.ts`) — part D: openspec lsp-field-false-positives 8, the class sweeps (2026-10-29), and
+ * lsp-field-followups 2, names past ASCII with "Unicode identifiers" off (2026-10-30).
  *
  * Four sweeps recorded 649 fixtures on both vendors — new ground, measured, not a regression. What each family adds to a
  * disagreement measure is one of the reasons below, per fixture, in `exceptions-lsp-field-8.json` (`[baseline, measure,
@@ -32,6 +33,16 @@ const FAMILIES: readonly { name: RegExp; task: string; why: string }[] = [
     name: /^upa_/,
     task: "none: a list's own declarations have no scope in the census (`bound.ts` `withBoundFixture`)",
     why: "a GVL named past ASCII with an initializer (`fixtures/cross-object/names-past-ascii.ts`, class 1)",
+  },
+  {
+    name: /^on_/,
+    task: "none: the text is no IDE's — both refuse to create the object (`checks/names/object-name.ts` reports that alone)",
+    why: "an object named by a refused word or past ASCII (`fixtures/names/object-names.ts`, openspec lsp-field-followups 3): its names and its caller's are the census's to hold, and the IDE holds none of them",
+  },
+  {
+    name: /^uoff_/,
+    task: "none: the recovery classes divergences-units.ts and divergences-declarations.ts pin (TYPE_EXPRESSION_RECOVERY, TWINCAT_NON_RETAIN_RECOVERY)",
+    why: "a name past ASCII with \"Unicode identifiers\" off (`fixtures/names/unicode-identifiers-off.ts`, openspec lsp-field-followups 2): the LSP gives the vendor's first line, not its recovery past it",
   },
   {
     name: /^lex_(implicit_)?enum_value_/,

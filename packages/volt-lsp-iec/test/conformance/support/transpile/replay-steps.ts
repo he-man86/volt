@@ -42,7 +42,7 @@ export function enumsOf(c: LanguageTest): Map<string, bigint> {
   // `eninit_gvl_constant`) — is the value it folds to in the fixture's own project; it was numbered as the member before
   // it plus one, a guess the run recording contradicted
   const source = runSource(c)
-  const parseResult = parseSource(source, { networkText: true }, "codesys")
+  const parseResult = parseSource(source, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "file:///run.st", parseResult, source }], [], "codesys")
   const fold = (unit: TopLevel, e: Expr): bigint | undefined => {
     const v = constEval(e, scopeForUnit(project, unit) ?? project)
