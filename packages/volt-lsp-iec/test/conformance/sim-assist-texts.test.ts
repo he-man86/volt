@@ -7,8 +7,8 @@
 import { expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { caseRoot } from "../../../../test/support/network-cases.js"
-import { networkDiags } from "../../../../test/support/network-docs.js"
+import { caseRoot } from "../support/network-cases.js"
+import { networkDiags } from "../support/network-docs.js"
 
 const read = (name: string) => readFileSync(join(caseRoot("nwl-schema"), name), "utf8").replace(/\r\n/g, "\n").trim().split("\n")
 
