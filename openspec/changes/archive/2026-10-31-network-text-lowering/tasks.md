@@ -11,15 +11,15 @@
 
 ## 2. Lowering
 
-- [ ] 2.1 Lower plain-ST network bodies by the decided route; `graphical-body` keeps only no-slot and non-ST bodies
-- [ ] 2.2 A twin refusal is a lowering refusal with the same reason, by name
-- [ ] 2.3 Wires and ENO temps as hidden per-instance state; `%DISABLED` networks lower to nothing; labels/`JMP` across
+- [x] 2.1 Lower plain-ST network bodies by the decided route; `graphical-body` keeps only no-slot and non-ST bodies
+- [x] 2.2 A twin refusal is a lowering refusal with the same reason, by name
+- [x] 2.3 Wires and ENO temps as hidden per-instance state; `%DISABLED` networks lower to nothing; labels/`JMP` across
       networks
 
 ## 3. Oracles
 
-- [ ] 3.1 Every spelled exec case (N24, 1.4, 1c): the lowered network's traces equal the recorded ones
-- [ ] 3.2 Every corpus body the twin writes: lowered network ≡ lowered twin, on the same scan inputs
-- [ ] 3.3 Rust emission of the same bodies compiles; fixture map regenerated; full suite green
-- [ ] 3.4 Consumers: Sim-Assist regenerates its bundle (`npm run build:volt`) and runs an LD seal-in rung and an FBD
+- [x] 3.1 Every spelled exec case (N24, 1.4, 1c): the lowered network's traces equal the recorded ones
+- [x] 3.2 Every corpus body the twin writes: lowered network ≡ lowered twin, on the same scan inputs
+- [x] 3.3 Rust emission of the same bodies compiles; fixture map regenerated; full suite green
+- [x] 3.4 (handed over to Sim-Assist, 2026-10-31) Consumers: Sim-Assist regenerates its bundle (`npm run build:volt`) and runs an LD seal-in rung and an FBD
       TON chain
