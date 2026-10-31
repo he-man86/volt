@@ -335,18 +335,19 @@ public class StNetworkTextTests
                        Set(Op("AND", L("x"), L("y")) with { Flags = Rise }, T("c"))),
             "%LANGUAGE LD\n%NETWORK\na := RISING(clk);\nb := FALLING(NOT clk);\nc := RISING(x AND y);\n");
 
-    /// <summary>An FB box is the call of its instance (design "FB boxes: the instance is the call head"); one with no usable
-    /// instance — the vendor's <c>???</c>, or one no declaration in reach holds (network-text-st 3.0: the build refuses both)
-    /// — is the call of its TYPE, which names no instance; a type no declaration in reach states as an FB's has no such call.</summary>
+    /// <summary>An FB box is the call of its instance (design "FB boxes: the instance is the call head"); the vendor's unnamed
+    /// instance <c>???</c> is the call of its TYPE; an instance no declaration in reach holds has no call (it would read back as
+    /// the unnamed one: network-text-one-to-one F5), nor has a type no declaration states as an FB's.</summary>
     [Fact]
-    public void An_FB_box_with_no_declared_instance_is_the_call_of_its_type()
+    public void An_FB_box_with_no_declared_instance_is_refused_by_name()
     {
         var none = new System.Collections.Generic.Dictionary<string, string>();
         var scope = new NetworkScope(new[] { "go" }, Array.Empty<string>(), none, new[] { "Axis" }, AxisSignature);
         var undeclared = Fbd1(Fb("ax9", new[] { In(L("go"), "xEnable") }, type: "Axis"));
-        Assert.Equal("%LANGUAGE FBD\n%NETWORK\nAxis(xEnable := go);\n", StNetworkWriter.Write(undeclared, scope));
-        var back = Assert.IsType<Box>(StNetworkReader.Read(StNetworkWriter.Write(undeclared, scope), scope).Networks[0].Trees[0]);
-        Assert.Equal((Box.UnnamedInstance, "Axis"), (back.Instance!.Text, back.Type));
+        var u = Assert.Throws<StNetworkUnspellableException>(() => StNetworkWriter.Write(undeclared, scope));
+        Assert.Equal("an FB instance no declaration in reach holds", u.Reason);
+        var unnamed = Fbd1(Fb("???", new[] { In(L("go"), "xEnable") }, type: "Axis"));
+        Assert.Equal("%LANGUAGE FBD\n%NETWORK\nAxis(xEnable := go);\n", StNetworkWriter.Write(unnamed, scope));
 
         var unstated = Fbd1(Fb("???", new[] { In(L("go"), "xEnable") }, type: "Axis"));
         var e = Assert.Throws<StNetworkUnspellableException>(() => StNetworkWriter.Write(unstated, new NetworkScope(new[] { "go" }, Array.Empty<string>(), none)));

@@ -778,9 +778,12 @@ public static class StNetworkWriter
                     throw Unspellable("a box named like an element of the text", $"the instance '{inst.Text}' reads as an element of the text.");
                 return inst.Text;
             }
-            // THE UNNAMED INSTANCE, and one no declaration holds (a stored member, network-text-st 3.0): the call of the FB TYPE,
-            // which names no instance — what the IDE draws, and the build's error ("Program name, function or function block
-            // instance expected").
+            // AN INSTANCE NO DECLARATION HOLDS has no call: the call of its type is the unnamed instance's text, and would read
+            // back as `???` (network-text-one-to-one F5).
+            if (inst.Text != Box.UnnamedInstance)
+                throw Unspellable("an FB instance no declaration in reach holds", $"the '{b.Type}' box's instance '{inst.Text}' is declared nowhere in reach.");
+            // THE UNNAMED INSTANCE (a stored member, network-text-st 3.0): the call of the FB TYPE, which names no instance — what
+            // the IDE draws, and the build's error ("Program name, function or function block instance expected").
             if (!_scope.IsBlockType(b.Type))
                 throw Unspellable("an FB box with no instance whose type is no FB type in reach",
                     $"the '{b.Type}' box's instance is {inst.Text}, which no declaration holds, and '{b.Type}' names no function block type in reach.");
