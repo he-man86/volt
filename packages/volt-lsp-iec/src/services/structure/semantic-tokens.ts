@@ -42,7 +42,7 @@ export const SEMANTIC_TOKEN_TYPES = [
   "comment",
   "macro",
   "namespace",
-  // A network-text wire — a name a network's `VAR_TEMP` line declares. Its own class so an editor can tell it from a variable the POU
+  // A network-text wire — a name a network's `VAR` line declares. Its own class so an editor can tell it from a variable the POU
   // declares; volt-vscode declares it with `variable` as its super type, so a theme that knows nothing of it still
   // paints it as a variable. LAST, so every other type keeps its index.
   "wire",

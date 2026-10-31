@@ -96,7 +96,9 @@ export function networkDiagnostics(parseResult: ParseResult, project: Scope): Di
  *  - an FB box with no instance (`TON(IN := a);`, the call of its type): the build reads the instance `???` as text — the
  *    two errors of the marker, the instance error over the marker, the marker's first again — at the call's head;
  *  - `???` as an operand: the build reads it as text, "Expression expected instead of '?'" (the ST parser's, here too)
- *    and "Unexpected token '?' found".
+ *    and "Unexpected token '?' found";
+ *  - `???` on a box's output pin (`p(OUT => ???)`): an output nothing is wired to, which the build compiles clean
+ *    (lenze-mid's recorded build, its `Mach1_MIDS` and `AHWF` boxes) — nothing.
  */
 function checkUnnamed(body: BodySpan, scope: Scope | undefined, project: Scope, dialect: ParseResult["dialect"], out: DiagnosticItem[]): void {
   const tc = dialect === "twincat"
@@ -114,6 +116,8 @@ function checkUnnamed(body: BodySpan, scope: Scope | undefined, project: Scope, 
       walkExpr(e, (x) => {
         if (x.kind === "assign_expr") target(x.target)
         if (x.kind === "assign_expr") targets.add(x.target.span.start)
+        if (x.kind === "call")
+          for (const a of x.args) if (a.output && a.value?.kind === "ident_expr" && a.value.name === UNNAMED) targets.add(a.value.span.start)
         const instance = x.kind === "call" && scope !== undefined ? networkBox(x, scope, project)?.instance : undefined
         if (x.kind === "call" && instance?.kind === "ident_expr" && instance.name === UNNAMED)
           for (const m of [marker, unexpected,

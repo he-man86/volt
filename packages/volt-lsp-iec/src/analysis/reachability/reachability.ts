@@ -21,10 +21,14 @@ import {
   allUnits,
   type Function,
   type FunctionBlock,
+  isPlainStNetworkBody,
   type ParseResult,
+  plainStText,
   type Program,
   type Span,
+  type Token,
   type TopLevel,
+  unitBodies,
 } from "../../frontend/syntax/index.js"
 import { effectivelyExcluded, inExcluded } from "./exclusion.js"
 
@@ -99,7 +103,7 @@ export function fileReachInfo(file: ReachabilityInput): FileReachInfo {
   const buckets = new Map<TopLevel, Set<string>>()
   for (const u of ordered) buckets.set(u, new Set())
   let ui = 0
-  for (const tok of parseResult.tokens) {
+  for (const tok of scannedTokens(parseResult)) {
     if (tok.kind !== "identifier" || excluded.file || inExcluded(tok.span, excluded.objects)) continue
     const lc = tok.text.toLowerCase()
     refs.add(lc)
@@ -137,6 +141,18 @@ export function fileReachInfo(file: ReachabilityInput): FileReachInfo {
     ifaceMethods,
     units,
   }
+}
+
+/**
+ * The tokens the identifier scan reads, in source order: the file's, and a network body's statement tokens besides —
+ * where an operand's or an Execute box's ST stands in a string (`OPERAND('fc(x)')`), the file's tokens hold one string
+ * literal, and only the statement tokens name what that ST calls.
+ */
+function scannedTokens(parseResult: ParseResult): Token[] {
+  const tokens = [...parseResult.tokens]
+  for (const unit of allUnits(parseResult.units))
+    for (const body of unitBodies(unit)) if (isPlainStNetworkBody(body)) tokens.push(...plainStText(body).statementTokens)
+  return tokens.sort((a, b) => a.span.start - b.span.start)
 }
 
 /** Dead POUs from pre-extracted per-file infos (the graph fixpoint only — no lexing). */

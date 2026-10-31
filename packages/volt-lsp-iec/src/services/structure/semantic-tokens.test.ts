@@ -59,8 +59,8 @@ function typesOf(src: string, of: readonly string[]): Record<string, string> {
   return out
 }
 
-test("semantic tokens: the keys of a network's % lines and its VAR_TEMP line colour as keywords, not variables", () => {
-  expect(typesOf(GRAPHICAL, ["NETWORK", "DISABLED", "VAR_TEMP", "END_VAR"])).toEqual({ NETWORK: "keyword", DISABLED: "keyword", VAR_TEMP: "keyword", END_VAR: "keyword" })
+test("semantic tokens: the keys of a network's % lines and its VAR line colour as keywords, not variables", () => {
+  expect(typesOf(GRAPHICAL, ["NETWORK", "DISABLED", "VAR", "END_VAR"])).toEqual({ NETWORK: "keyword", DISABLED: "keyword", VAR: "keyword", END_VAR: "keyword" })
 })
 
 test("semantic tokens: operands inside a network still colour as what they are", () => {
@@ -73,7 +73,7 @@ test("semantic tokens: operands inside a network still colour as what they are",
 })
 
 test("semantic tokens: a wire has its own class, resolved through its body's scope", () => {
-  // A wire is declared on its network's `VAR_TEMP` line, so it resolves only in the body: the POU scope has no `w1`.
+  // A wire is declared on its network's `VAR` line, so it resolves only in the body: the POU scope has no `w1`.
   // Every occurrence gets the class: the declaration, the definition and each reference.
   const src = GRAPHICAL
   const doc = { uri: "file:///FB.pou", source: src, parseResult: parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys") }
