@@ -197,3 +197,18 @@ test("an Execute box's CODE string not closed yet runs to its body's end, no fur
   expect(method(unit("n := 1;"))).toEqual(closed)
   expect(networkDiags(unit("n := 1;")).map((d) => d.message)).toContain("an unclosed string")
 })
+
+test("the operand a COMMENT wraps is the operand: its name resolves and types, an undefined one is the ST error", () => {
+  const said = (body: string) => {
+    const src = ld("\ta, y : BOOL;\n\ti : INT;", body)
+    return diagnose(src).map((d) => `${d.message} at '${src.slice(d.span.start, d.span.end)}'`)
+  }
+  const commented = said("%NETWORK\ny := COMMENT(a, 'why');\nCOMMENT(y, 'w') := COMMENT(nowhere, 'x');\ny := COMMENT(i, 'n');\n")
+  expect(commented).toEqual(said("%NETWORK\ny := a;\ny := nowhere;\ny := i;\n"))
+  expect(commented).toContain("Identifier 'nowhere' not defined at 'nowhere'")
+})
+
+test("COMMENT is the text's own: declared in reach, it is refused as RAIL and OPERAND are", () => {
+  const src = ld("\ta, y, COMMENT : BOOL;", "%NETWORK\ny := COMMENT(a, 'why');\n")
+  expect(networkDiags(src).map((d) => d.message)).toContain("the call COMMENT names something declared in reach, which the text reads as its own operand comment")
+})

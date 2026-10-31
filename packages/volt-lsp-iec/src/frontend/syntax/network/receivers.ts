@@ -5,6 +5,7 @@
  */
 import { isTrivia, type Token } from "../lex/tokens.js"
 import { joinSpans, type Span } from "../span.js"
+import { isCommentHead } from "./comment-text.js"
 
 /** The one form of a jump and the return: a target (the bridge's reader's words). */
 const CONTROL_FORM = "a jump or a return is a target: JMP.label := value; RETURN := value; (on the rail, := RAIL())"
@@ -50,6 +51,42 @@ function emptyName(tokens: readonly Token[], k: number): number | undefined {
   return p >= 0 && (isPunct(tokens[p], "(") || isPunct(tokens[p], ",")) ? marks : undefined
 }
 
+/** THE ASSIGNMENT ITEM'S MARKS, the unnamed receiver between the targets and the value (`y := NOT := a`): the words and
+ *  where they stand, recorded at the offset of their `:=` (`at`) — the statement parser reads the assignment around them
+ *  (`networkStatements` puts them on it). */
+export interface ItemMarks {
+  words: string[]
+  span: Span
+  at: number
+}
+
+/** Is `tokens[i]` a mark word of an ITEM's marks, or their `:=` — mark words, then a `:=` that names no pin (`emptyName`)?
+ *  The index of that `:=`, else undefined. */
+function itemMarksAt(tokens: readonly Token[], i: number): number | undefined {
+  if (isPunct(tokens[i], ":=")) {
+    const p = prevWord(tokens, i)
+    return p >= 0 && isMarkWord(tokens, p) && emptyName(tokens, i) === undefined ? i : undefined
+  }
+  if (!isMarkWord(tokens, i)) return undefined
+  let k = i
+  while (isMarkWord(tokens, k)) k = nextWord(tokens, k)
+  return isPunct(tokens[k], ":=") && emptyName(tokens, k) === undefined ? k : undefined
+}
+
+/** `COMMENT(x, '…')` at `tokens[k]`, a receiver's operand with its comment (`comment-text.ts`): the index of the operand
+ *  and of the call's `)`, else undefined. */
+function commented(tokens: readonly Token[], k: number): { operand: number; close: number } | undefined {
+  const t = tokens[k]
+  if (t === undefined || !isCommentHead(tokens, k)) return undefined
+  const open = nextWord(tokens, k)
+  let depth = 0
+  for (let n = open; n < tokens.length; n = nextWord(tokens, n)) {
+    if (isPunct(tokens[n], "(")) depth++
+    else if (isPunct(tokens[n], ")") && --depth === 0) return { operand: nextWord(tokens, open), close: n }
+  }
+  return undefined
+}
+
 /** THE RECEIVER the mark word `tokens[at]` stands before — the index of its first token — or undefined where the mark is
  *  the value's: after the mark words, a complete operand (a name chain `s.x[i]^.y`, `JMP.l`, `RETURN`), then an assignment
  *  operator. */
@@ -60,6 +97,9 @@ function receiverOfMark(tokens: readonly Token[], at: number): number | undefine
   const start = tokens[k]
   // the empty name, `NOT := b`: the receiver is the pin the value stands in, keyed by the value
   if (isPunct(start, ":=") && emptyName(tokens, k) !== undefined) return nextWord(tokens, k)
+  // a commented operand, `NOT COMMENT(y, 'why') := a`: the receiver is the operand it wraps
+  const c = commented(tokens, k)
+  if (c !== undefined) return receiverOperator(tokens[nextWord(tokens, c.close)]) ? c.operand : undefined
   if (start === undefined || (start.kind !== "identifier" && !(start.kind === "keyword" && (start.keyword === "JMP" || start.keyword === "RETURN"))))
     return undefined
   let n = nextWord(tokens, k)
@@ -98,18 +138,28 @@ export function takeReceiverToken(
   tokens: readonly Token[],
   i: number,
   marks: Map<number, { words: string[]; span: Span }>,
+  items: ItemMarks[],
   stray: { message: string; span: Span }[],
   out: Token[],
 ): boolean {
   const t = tokens[i]!
+  // THE ASSIGNMENT ITEM'S MARKS, `y := NOT := a`: the marks and their `:=` trivia, recorded at that `:=`
+  const item = itemMarksAt(tokens, i)
+  if (item !== undefined) {
+    const at = tokens[item]!.span.start
+    let m = items.find((x) => x.at === at)
+    if (m === undefined) items.push((m = { words: [], span: t.span, at }))
+    if (i !== item) {
+      m.words.push(t.text.toUpperCase())
+      m.span = joinSpans(m.span, t.span)
+    }
+    out.push({ ...t, kind: "whitespace", keyword: undefined })
+    return true
+  }
   // A RECEIVER'S MARK: trivia, recorded on the receiver it stands before
     const receiver = receiverOfMark(tokens, i)
     if (receiver !== undefined) {
       const at = tokens[receiver]!
-      if (!marks.has(at.span.start) && at.kind === "keyword" && (at.keyword === "JMP" || at.keyword === "RETURN")) {
-        const label = at.keyword === "JMP" ? "." + (tokens[nextWord(tokens, nextWord(tokens, receiver))]?.text ?? "") : ""
-        stray.push({ message: `a mark on the target ${at.text.toUpperCase()}${label}: a jump or a return carries none`, span: t.span })
-      }
       const m = marks.get(at.span.start) ?? { words: [], span: t.span }
       m.words.push(t.text.toUpperCase())
       m.span = joinSpans(m.span, t.span)

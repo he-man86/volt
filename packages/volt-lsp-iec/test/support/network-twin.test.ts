@@ -123,3 +123,29 @@ test("a wire is a VAR of the twin: read before its definition, the previous scan
   expect(t.source).not.toContain("VAR_TEMP")
   expect(t.source).toContain("VAR\n\tvtw1_w1 : BOOL;\nEND_VAR\n")
 })
+
+test("the assignment item's marks mark the value every target receives, the negation first, then the edge", () => {
+  expect(code(twin("\tx, y, a : BOOL;", "%NETWORK\ny := x := NOT := a;\n").source)).toBe("y := x := (NOT a);")
+  const t = twin("\ty, a : BOOL;", "%NETWORK\ny := RISING NOT := a;\n")
+  expect(t.refused).toEqual([])
+  expect(code(t.source)).toBe("vtw1_trig1(CLK := (NOT a));\ny := vtw1_trig1.Q;")
+})
+
+test("a jump and the return on NOT their value; an edge on a jump is refused (unmeasured)", () => {
+  const t = twin("\ta, c : BOOL;", "%NETWORK\nNOT JMP.l1 := a;\nNOT RETURN := c;\n%NETWORK\nl1:\n;\n")
+  expect(t.refused).toEqual([])
+  expect(code(t.source)).toBe("IF (NOT a) THEN JMP l1; END_IF;\nIF (NOT c) THEN RETURN; END_IF;\nl1:")
+  expect(twin("\ta : BOOL;", "%NETWORK\nRISING JMP.l1 := a;\n%NETWORK\nl1:\n;\n").refused).toHaveLength(1)
+})
+
+test("a value standing alone: a box runs, its marks of no effect; any other value writes nothing", () => {
+  const t = twin("\ta, b, c : BOOL;\n\tt1 : FB_T2;", "%NETWORK\na;\nNOT b;\nBRANCH(FEED := a, b, c);\nRAIL();\nNOT AND(a, b);\nNOT t1(IN := a);\n", timer)
+  expect(t.refused).toEqual([])
+  expect(code(t.source)).toBe("t1(IN := a);")
+})
+
+test("NOT before an Execute box's ENO, and the operand comment as the operand it wraps", () => {
+  const t = twin("\tgo, y, a, x : BOOL;\n\tn : INT;", "%NETWORK\ny := NOT EXECUTE(EN := go, 'n := n + 1;').ENO;\nNOT COMMENT(x, 'why') := COMMENT(a, 'in');\n")
+  expect(t.refused).toEqual([])
+  expect(code(t.source)).toBe("vtw1_eno1 := go;\nIF vtw1_eno1 THEN\nn := n + 1;\nEND_IF;\ny := (NOT vtw1_eno1);\nvtw1_eno2 := a;\nx := (NOT vtw1_eno2);")
+})

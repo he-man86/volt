@@ -38,6 +38,9 @@ export interface Assignment {
   /** In a plain-ST network body, each target's marks (`NOT`, `RISING`, `FALLING`, outermost first), parallel to
    *  `[target, ...chained]` (`network/plain-st.ts`). */
   marks?: readonly (readonly string[] | undefined)[]
+  /** In a plain-ST network body, the assignment ITEM's own marks, between its targets and its value (`y := NOT := a`),
+   *  outermost first: they mark the value every target receives. */
+  itemMarks?: readonly string[]
   span: Span
 }
 export interface CallStatement {
@@ -130,6 +133,9 @@ export interface ReturnStatement {
   value?: Expr
   /** In a plain-ST network body, a return on the value of the item before it (`y := RETURN := v;`): written once. */
   sharesValue?: true
+  /** In a plain-ST network body, the return's own marks (`NOT RETURN := v;`) and its item's (`RETURN := NOT := v;`). */
+  marks?: readonly string[]
+  itemMarks?: readonly string[]
   span: Span
 }
 export interface ExitStatement {
@@ -156,6 +162,9 @@ export interface JmpStatement {
   value?: Expr
   /** In a plain-ST network body, a jump on the value of the item before it (`y := JMP.l := v;`): written once. */
   sharesValue?: true
+  /** In a plain-ST network body, the jump's own marks (`NOT JMP.l := v;`) and its item's (`JMP.l := NOT := v;`). */
+  marks?: readonly string[]
+  itemMarks?: readonly string[]
   span: Span
 }
 /** A jump label `<name>:` at statement start (distinct from `:=` assignment and CASE labels). */

@@ -34,7 +34,11 @@
  *                                                refused (unmeasured);
  *   `NOT y := x := a`                            every target receives the power flow, the first its mark applied (a
  *                                                coil's edge runs as a plain coil, 1.3): `t := a; x := t; y := (NOT t);`;
- *   `JMP.l := v`, `RETURN := v`                  `IF v THEN JMP l; END_IF;` / `IF v THEN RETURN; END_IF;`; beside coils the
+ *   `y := x := RISING NOT := a`                  the item's marks on the value every target receives, negation first;
+ *   `a;`, `NOT t1(…);`, `RAIL();`                a value standing alone: a box runs, its marks of no effect; else nothing;
+ *   `COMMENT(a, 'why')`                          `a` (the front-end reads the operand it wraps);
+ *   `JMP.l := v`, `RETURN := v`                  `IF v THEN JMP l; END_IF;` / `IF v THEN RETURN; END_IF;` (`NOT JMP.l`: on
+ *                                                `(NOT v)`); beside coils the
  *                                                value held in a temp, the coils written, then the jump; in a tree its
  *                                                value held in a temp, the jump taken where the tree is evaluated;
  *   a wire                                       a VAR of its definition's type (`types` `network-call.ts`), kept across
@@ -55,7 +59,7 @@ import {
   walkExpr,
 } from "../../src/frontend/syntax/index.js"
 import { lookup, type Scope } from "../../src/frontend/symbols/index.js"
-import { boxMember, inferExprType, renderType, type NetworkBox } from "../../src/frontend/types/index.js"
+import { boxMember, inferExprType, renderType, rootBox, type NetworkBox } from "../../src/frontend/types/index.js"
 import { BoxTwinner, COMPARISON, INFIX, TwinRefusal } from "./network-twin-boxes.js"
 import { type AssignStatement, guardedCalls, guardedReadBy, valueReads } from "./network-twin-reads.js"
 
@@ -145,14 +149,15 @@ class Twinner extends BoxTwinner {
         const box = s.value.kind === "call" ? this.box(s.value) : undefined
         const first = s.marks?.[0]
         if (box !== undefined && this.enabledValue(box) && !COMPARISON.has(this.name(box).toUpperCase())) {
-          if (first !== undefined || this.sharing.has(s))
+          if (first !== undefined || s.itemMarks !== undefined || this.sharing.has(s))
             throw new TwinRefusal(`the enabled ${this.name(box)} box's value with a marked coil or a jump on it`)
           const cond = this.pin(box.enable!, pre)
           const value = this.boxValue(box, box.pins.filter((a) => !a.output), pre)
           const text = this.assign(s, value, pre)
           return [...pre, `IF ${cond} THEN\n\t${text}\nEND_IF;`]
         }
-        let value = this.expr(s.value, pre)
+        // the item's marks mark the value every target receives (`y := x := NOT := a`)
+        let value = this.marked(s.itemMarks, this.expr(s.value, pre), pre)
         if (first !== undefined || this.sharing.has(s)) {
           const t = this.temp()
           pre.push(`${t} := ${value};`)
@@ -166,12 +171,19 @@ class Twinner extends BoxTwinner {
         return [...pre, ...rest, `${this.expr(s.target, pre)} ${ops[0]} ${first.includes("NOT") ? `(NOT ${value})` : value};`]
       }
       case "call_stmt":
-        return [...pre, ...this.callStatement(s.call, false, pre)]
-      case "expr_stmt":
-        // a box at a root closed by `.ENO`: the call statement, its ENO read by nobody
-        if (s.expr.kind === "member" && s.expr.base.kind === "call" && boxMember(s.expr, this.scope, this.project)?.eno === true)
-          return [...pre, ...this.callStatement(s.expr.base, true, pre)]
-        throw new TwinRefusal(`the statement ${this.text(s)} in a network`)
+      case "expr_stmt": {
+        // a value standing alone: a box consumed by nothing runs, its ENO read by nobody, the marks around it of no effect;
+        // any other value is evaluated, what it runs kept, its value unread
+        const value = s.kind === "call_stmt" ? s.call : s.expr
+        const root = rootBox(value)
+        if (root === undefined) {
+          this.expr(value, pre)
+          return pre
+        }
+        if (root.member !== undefined && this.text(root.call.callee).toUpperCase() !== "EXECUTE" && boxMember(root.member, this.scope, this.project)?.eno !== true)
+          throw new TwinRefusal(`the statement ${this.text(s)} in a network`)
+        return [...pre, ...this.callStatement(root.call, root.member !== undefined, pre)]
+      }
       case "empty":
         return []
       case "jmp":
@@ -179,16 +191,16 @@ class Twinner extends BoxTwinner {
         const jump = s.kind === "jmp" ? `JMP ${this.text(s.target)}` : "RETURN"
         if (s.sharesValue === true) {
           if (this.shared === undefined) throw new TwinRefusal(`the jump ${this.text(s)} shares a value no item before it holds`)
-          return [`IF ${this.shared} THEN ${jump}; END_IF;`]
+          return [`IF ${this.jumpCond(s.marks, this.shared, s)} THEN ${jump}; END_IF;`]
         }
         if (s.value === undefined) throw new TwinRefusal(`the jump ${this.text(s)} on no value`)
-        let cond = this.expr(s.value, pre)
+        let cond = this.marked(s.itemMarks, this.expr(s.value, pre), pre)
         if (this.sharing.has(s)) {
           const t = this.temp()
           pre.push(`${t} := ${cond};`)
           cond = this.shared = t
         }
-        return [...pre, `IF ${cond} THEN ${jump}; END_IF;`]
+        return [...pre, `IF ${this.jumpCond(s.marks, cond, s)} THEN ${jump}; END_IF;`]
       }
       case "label":
         return [this.text(s)]
@@ -297,6 +309,8 @@ class Twinner extends BoxTwinner {
   /** `(JMP.l := v)` / `(RETURN := v)` in a tree (read as the call `JMP(l, v)` / `RETURN(v)`): the value in a temp, the
    *  jump taken on it, the temp handed on. */
   private control(call: CallExpr, upper: string, pre: string[]): string {
+    if (call.marks !== undefined || call.itemMarks !== undefined)
+      throw new TwinRefusal(`the marked jump ${this.text(call)} in a tree: what a marked jump hands on is unmeasured`)
     const t = this.temp()
     pre.push(`${t} := ${this.expr(call.args.at(-1)!.value!, pre)};`)
     pre.push(`IF ${t} THEN ${upper === "JMP" ? `JMP ${this.text(call.args[0]!.value!)}` : "RETURN"}; END_IF;`)
@@ -305,11 +319,30 @@ class Twinner extends BoxTwinner {
 
   /** `RISING(x)` / `FALLING(x)`: an edge detector called with x where its tree is evaluated (`pre`), read by its Q (1.3). */
   private edge(call: CallExpr, pre: string[]): string {
-    const rising = (call.callee as { name: string }).name.toUpperCase() === "RISING"
+    return this.edgeOf((call.callee as { name: string }).name.toUpperCase() === "RISING", this.expr(call.args[0]!.value!, pre), pre)
+  }
+
+  private edgeOf(rising: boolean, clk: string, pre: string[]): string {
     const name = `${this.prefix}trig${this.trigs.length + 1}`
     this.trigs.push(`${name} : ${rising ? "R_TRIG" : "F_TRIG"};`)
-    pre.push(`${name}(CLK := ${this.expr(call.args[0]!.value!, pre)});`)
+    pre.push(`${name}(CLK := ${clk});`)
     return `${name}.Q`
+  }
+
+  /** A value under the assignment item's marks (`y := RISING NOT := a`): negated first, then its edge, as everywhere. */
+  private marked(marks: readonly string[] | undefined, value: string, pre: string[]): string {
+    if (marks === undefined) return value
+    const negated = marks.includes("NOT") ? `(NOT ${value})` : value
+    const edge = marks.find((m) => m === "RISING" || m === "FALLING")
+    return edge === undefined ? negated : this.edgeOf(edge === "RISING", negated, pre)
+  }
+
+  /** A jump's or the return's condition under its own marks: `NOT JMP.l := a` jumps when NOT a; an edge on a jump has no
+   *  measured run. */
+  private jumpCond(marks: readonly string[] | undefined, cond: string, s: Statement): string {
+    if (marks === undefined) return cond
+    if (marks.some((m) => m !== "NOT")) throw new TwinRefusal(`the edge mark on the jump ${this.text(s)}: how a jump's edge runs is unmeasured`)
+    return `(NOT ${cond})`
   }
 
   override expr(e: Expr, pre: string[]): string {
@@ -342,6 +375,7 @@ class Twinner extends BoxTwinner {
       case "paren":
         return `(${this.expr(e.inner, pre)})`
       case "assign_expr":
+        if (e.itemMarks !== undefined) throw new TwinRefusal(`the marked assignment ${this.text(e)} in a tree: what it hands on is unmeasured`)
         return `(${this.expr(e.target, pre)} ${e.op ?? ":="} ${this.expr(e.value, pre)})`
       default:
         return this.text(e)

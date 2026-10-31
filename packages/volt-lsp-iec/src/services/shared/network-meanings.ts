@@ -18,6 +18,7 @@ export const NETWORK_MEANINGS = {
   BRANCH_SHORTCIRCUIT: "a short-circuit parallel branch: a branch holding a box runs unless FEED and a box-free branch are TRUE",
   EXECUTE: "an Execute box: IF EN THEN its ST END_IF; its ENO is its EN",
   OPERAND: "an operand written as ST text: the expression its string holds",
+  COMMENT: "an operand comment: the operand it wraps, the comment the engineer typed beside it",
   RISING: "a rising edge of its value: an R_TRIG called with it, read by its Q",
   FALLING: "a falling edge of its value: an F_TRIG called with it, read by its Q",
   JMP: "a jump as a target: IF its value THEN JMP to the label END_IF",
@@ -32,15 +33,28 @@ export const labelMeaning = (name: string, jump: boolean): string =>
 
 const MARKS: Record<string, string> = { NOT: "a negation mark", RISING: "a rising-edge mark", FALLING: "a falling-edge mark" }
 
-/** What a mark stands before: a coil, a pin of a call (EN among them), an output a box hands on (`Q => x`). */
-export type MarkReceiver = { kind: "coil" | "pin" | "output"; name: string }
+/** What a mark stands before: a coil, a pin of a call (EN among them), an output a box hands on (`Q => x`), a jump
+ *  (`NOT JMP.l :=`, its label the name), the return, or the assignment item (`y := NOT := a`). */
+export type MarkReceiver = { kind: "coil" | "pin" | "output" | "jump"; name: string } | { kind: "return" | "item" }
 
 /** A receiver's mark: `RISING IN :=` → "a rising-edge mark on the IN pin". */
 export function markMeaning(word: string, receiver: MarkReceiver): string {
-  const on =
-    receiver.kind === "coil" ? `the coil ${receiver.name}`
-    : receiver.kind === "output" ? `the output ${receiver.name}`
-    : receiver.name.toUpperCase() === "EN" ? "EN"
-    : `the ${receiver.name} pin`
-  return `${MARKS[word.toUpperCase()]} on ${on}`
+  return `${MARKS[word.toUpperCase()]} on ${receiverText(receiver)}`
+}
+
+function receiverText(receiver: MarkReceiver): string {
+  switch (receiver.kind) {
+    case "item":
+      return "the assignment: the value every target receives"
+    case "return":
+      return "the return"
+    case "jump":
+      return `the jump to ${receiver.name}`
+    case "coil":
+      return `the coil ${receiver.name}`
+    case "output":
+      return `the output ${receiver.name}`
+    default:
+      return receiver.name.toUpperCase() === "EN" ? "EN" : `the ${receiver.name} pin`
+  }
 }

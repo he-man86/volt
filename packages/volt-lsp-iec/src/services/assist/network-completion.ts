@@ -1,14 +1,15 @@
 /**
  * Completion of the network words in a plain-ST network body, each only where the text takes it: after `JMP.` the labels
- * of the body; before a receiver (a statement's start, a call's argument) the mark words; where a value or a call stands
- * `RAIL()` and the network's own boxes. A plain ST body is never offered one (`completion` asks only in a network body).
+ * of the body; before a receiver (a statement's start, a call's argument, the assignment item after `:=`) the mark words;
+ * where a value stands — a statement's start too, a value standing alone — `RAIL()` and the network's own boxes; after `=>`
+ * the operand comment. A plain ST body is never offered one (`completion` asks only in a network body).
  */
 import { CompletionItemKind, type CompletionItem } from "vscode-languageserver-protocol"
 import type { BodySpan } from "../../frontend/syntax/index.js"
 import { NETWORK_MEANINGS, networkLabels, type NetworkForm } from "../shared/index.js"
 
 const MARKS: readonly NetworkForm[] = ["RISING", "FALLING"]
-const VALUES: readonly NetworkForm[] = ["RAIL", "BRANCH", "BRANCH_SHORTCIRCUIT", "EXECUTE", "OPERAND"]
+const VALUES: readonly NetworkForm[] = ["RAIL", "BRANCH", "BRANCH_SHORTCIRCUIT", "EXECUTE", "OPERAND", "COMMENT"]
 
 /** After `JMP.`: the labels of this body; undefined anywhere else. */
 export function jumpLabelCompletions(source: string, offset: number, body: BodySpan): CompletionItem[] | undefined {
@@ -23,8 +24,11 @@ export function networkWordCompletions(source: string, offset: number): Completi
   const before = source.slice(0, at).trimEnd()
   const linePrefix = source.slice(lineStart(source, at), at)
   if (before.endsWith("(") || before.endsWith(",")) return [...marks(), ...values()]
-  if (/(:=|S=|R=)$/i.test(before)) return values()
-  if (linePrefix.trim() === "") return [...marks(), ...values().filter((v) => v.label === "EXECUTE")]
+  // after a target's operator the item's marks stand (`y := NOT := a`), after a pin's only its value
+  const inCall = linePrefix.split("(").length > linePrefix.split(")").length
+  if (/(:=|S=|R=)$/i.test(before)) return inCall ? values() : [...marks(), ...values()]
+  if (before.endsWith("=>")) return values().filter((v) => v.label === "COMMENT")
+  if (linePrefix.trim() === "") return [...marks(), ...values()]
   return []
 }
 

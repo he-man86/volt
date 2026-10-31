@@ -86,6 +86,22 @@ function instanceOf(call: CallExpr, scope: Scope, project: Scope): Expr | undefi
   return head.kind === "ident_expr" && typed === "unknown" ? head : undefined
 }
 
+/** THE BOX A VALUE STANDING ALONE IS, consumed by nothing (`NOT AND(a, b);`, `RISING(NOT t1(…));`, `EXECUTE(…).ENO;`): its
+ *  call and the member closing it, the value marks around it — as the bridge's reader reads a root
+ *  (`StNetworkReader.RootValue`); undefined where the value is no box (an operand, contacts, a branch, the rail). */
+export function rootBox(e: Expr): { call: CallExpr; member: MemberExpr | undefined } | undefined {
+  const box = (x: Expr) => {
+    const inner = x.kind === "unary" && x.op.toUpperCase() === "NOT" ? x.operand : x
+    const member = inner.kind === "member" && inner.base.kind === "call" ? inner : undefined
+    const call = member?.base.kind === "call" ? member.base : inner.kind === "call" ? inner : undefined
+    const head = call?.callee.kind === "ident_expr" ? call.callee.name.toUpperCase() : undefined
+    return call === undefined || (head !== undefined && (NETWORK_ELEMENTS.has(head) || NETWORK_CONTROLS.has(head))) ? undefined : { call, member }
+  }
+  const edgeCall = e.kind === "call" && e.callee.kind === "ident_expr" && ["RISING", "FALLING"].includes(e.callee.name.toUpperCase()) ? e : undefined
+  const edge = edgeCall?.args[0]?.value
+  return (edge === undefined ? undefined : box(edge)) ?? box(e)
+}
+
 /** The box `call` is, in a network body; undefined outside one and for the text's own elements and controls (`BRANCH`,
  *  `RISING`, `RAIL`, `JMP`, …) and the Execute box. */
 export function networkBox(call: CallExpr, scope: Scope, project: Scope): NetworkBox | undefined {

@@ -5,6 +5,7 @@
  */
 import { isTrivia, type Token } from "../lex/tokens.js"
 import { joinSpans, type Span } from "../span.js"
+import type { PlainStComment } from "./comment-text.js"
 
 /** The `%` lines of the form, by their key. */
 const PLAIN_ST_LINES: ReadonlySet<string> = new Set(["NETWORK", "DISABLED", "UNSUPPORTED"])
@@ -47,6 +48,8 @@ export interface PlainStNetwork {
   executes: readonly PlainStExecute[]
   /** Each `OPERAND('…')`'s text: an operand's own ST, which the network check does not hold to the subset. */
   operands: readonly Span[]
+  /** Each operand comment, `COMMENT(a, 'why')` (`comment-text.ts`). */
+  comments: readonly PlainStComment[]
 }
 
 export interface PlainStExecute {
@@ -104,6 +107,7 @@ export interface NetworkState {
   lines: PlainStLine[]
   executes: PlainStExecute[]
   operands: Span[]
+  comments: PlainStComment[]
   last: Span
   wires: PlainStWire[]
   declaration?: Span
@@ -124,6 +128,7 @@ export function networkOf(cur: NetworkState, index: number): PlainStNetwork {
     unsupported: cur.lines.some((l) => l.key === "UNSUPPORTED"),
     executes: cur.executes,
     operands: cur.operands,
+    comments: cur.comments,
   }
 }
 

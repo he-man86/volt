@@ -17,7 +17,7 @@
  * '()'", an error, beside the no-op warning (`stmt_bare_function_name`, both vendors 2026-10-02) — but not inside
  * that FUNCTION, where the name is its return variable (`stmt_function_own_name_bare`). Only the statement is measured.
  */
-import { isStBody, KEYWORDS, lineBreakOf, bodyStatements, unitBodies, walkStatements, walkExpr } from "../../../frontend/syntax/index.js"
+import { isStBody, KEYWORDS, lineBreakOf, bodyStatements, unitBodies, valueItemsOf, walkStatements, walkExpr } from "../../../frontend/syntax/index.js"
 import { bodies, bodyConditionWorld, lookup, visibleNames, type Scope } from "../../../frontend/symbols/index.js"
 import { inferExprType, resolveMemberChain } from "../../../frontend/types/index.js"
 import type { Expr, Function, Statement } from "../../../frontend/syntax/index.js"
@@ -49,12 +49,15 @@ export function checkNoOpStatement(ctx: CheckContext, out: DiagnosticItem[]): vo
     const br = s.unterminated ? lineBreakOf(ctx.source) : withLineEnd(ctx.source, s.span.end, s.span.end)
     emit(out, s.expr.span, "no-valid-statement", ctx.messages.noValidStatement(`${compilerExprText(s.expr)};${br}`))
   }
-  for (const { unit, scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
+  for (const { unit, body, scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
     // inside a FUNCTION its own name is its return variable, a name like any other: the no-op alone
     // (`stmt_function_own_name_bare`, CODESYS 2026-10-02)
     const ownName = unit.kind === "function" ? unit.name.text.toLowerCase() : undefined
+    // in a network's code a value standing alone is an item of the network, no statement of ST (`valueItemsOf`)
+    const items = valueItemsOf(body)
     walkStatements(statements, (s) => {
       if (s.kind !== "expr_stmt" || (containsCall(s.expr) && !callsInSubscriptOnly(s.expr))) return
+      if (items?.(s.span) === true) return
       if (s.expr.kind === "binary") return invalid(s)
       const fn = s.expr.kind === "ident_expr" && s.expr.name.toLowerCase() !== ownName ? lookup(scope, s.expr.name)?.symbol : undefined
       if (s.expr.kind === "ident_expr" && fn?.kind === "function") {
