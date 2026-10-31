@@ -129,3 +129,31 @@ test("C0526 is not said for a PROGRAM's input, and is for a METHOD's (dflt_progr
   expect(said("codesys")).toEqual(["Default value is not constant"]) // the METHOD's only
   expect(said("twincat")).toEqual([])
 })
+
+// A bound, a length or a subrange bound is "no constant value" for a name nothing declares too; only THAT finding names
+// the unresolved name (`dependsOnProject`), so a client checking one item alone can drop it. A local VAR is no constant
+// in any project: no marker. Code and message stay as recorded (`tref_subrange_bound_name`).
+const marked = (body: string) =>
+  diagnose(`PROGRAM P\n${body}\nEND_PROGRAM`, "codesys")
+    .filter((d) => d.code === "array-bound-non-const" || d.code === "string-length-non-const")
+    .map((d) => ({ code: d.code, message: d.message, dependsOnProject: d.dependsOnProject }))
+test("dependsOnProject: an array bound naming nothing carries the marker; code and message unchanged", () => {
+  expect(marked(`VAR a:ARRAY[0..NoSuchBound] OF INT; END_VAR`)).toEqual([
+    {
+      code: "array-bound-non-const",
+      message: "Border 'NoSuchBound' of array is no constant value",
+      dependsOnProject: { unresolved: "NoSuchBound" },
+    },
+  ])
+})
+test("dependsOnProject: a bound that is a local VAR carries none", () => {
+  expect(marked(`VAR n:INT; a:ARRAY[0..n] OF INT; END_VAR`).map((d) => d.dependsOnProject)).toEqual([undefined])
+})
+test("dependsOnProject: a string length naming nothing carries it, a local VAR does not", () => {
+  expect(marked(`VAR str:STRING(NoLen); END_VAR`).map((d) => d.dependsOnProject)).toEqual([{ unresolved: "NoLen" }])
+  expect(marked(`VAR n:INT; str:STRING(n); END_VAR`).map((d) => d.dependsOnProject)).toEqual([undefined])
+})
+test("dependsOnProject: a subrange bound naming nothing carries it, a local VAR does not", () => {
+  expect(marked(`VAR x:INT(0..NoHi); END_VAR`).map((d) => d.dependsOnProject)).toEqual([{ unresolved: "NoHi" }])
+  expect(marked(`VAR hi:INT; x:INT(0..hi); END_VAR`).map((d) => d.dependsOnProject)).toEqual([undefined])
+})

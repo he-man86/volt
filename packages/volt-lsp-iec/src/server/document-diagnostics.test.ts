@@ -38,6 +38,15 @@ test("the same source in a PROJECT file IS checked (the gate is library-only, no
   expect(diags.some((x) => x.code === "C0161")).toBe(true) // the mapped wire code for array-bound-non-const
 })
 
+// A finding that hangs only on a name nothing declares names it in `data` (`DiagnosticItem.dependsOnProject`); one that
+// holds in any project has no `data` at all.
+test("a project-dependent finding carries data.dependsOnProject on the wire, a local one no data", () => {
+  const uri = "C:/w/G.gvl"
+  const wire = (decl: string) => diagnoseIn({ [uri]: `VAR_GLOBAL\n${decl}\nEND_VAR\n` }, uri).filter((d) => d.code === "C0161")
+  expect(wire("a : ARRAY[0..NoSuch] OF INT;").map((d) => d.data)).toEqual([{ dependsOnProject: { unresolved: "NoSuch" } }])
+  expect(wire("n : INT; a : ARRAY[0..n] OF INT;").map((d) => d.data)).toEqual([undefined])
+})
+
 // What a client SEES for a GVL whose global misses its `;` (`pwh_gvl_missing_semicolon`): on CODESYS nothing, since the
 // compiler says nothing; on TwinCAT the one message it gives.
 test("a global missing its `;`: silent on CODESYS, reported on TwinCAT, in what the client receives", () => {

@@ -12,7 +12,7 @@ import { constancyOf } from "../../../frontend/types/index.js"
 import type { Expr, Span } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { forEachDecl, lookupLocal } from "../../../frontend/symbols/index.js"
-import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import { nameResolves } from "../../shared/resolution.js"
 
 export function checkConstantContext(ctx: CheckContext, out: DiagnosticItem[]): void {
@@ -21,17 +21,23 @@ export function checkConstantContext(ctx: CheckContext, out: DiagnosticItem[]): 
     // constant (`tref_array_bound_name`, `tref_subrange_bound_name`, `tref_string_length_name`, CODESYS SP21 2026-10-30)
     // …a name nothing declares, where a name declared in THIS VERY LIST is one, `{attribute 'qualified_only'}` or not
     // (corpus pro2193 `GVL_IQ`: `inputs : ARRAY[InputSliceStart..InputSliceEnd] OF …`, as `unresolved-identifier` holds)
-    const notConstant = (e: Expr): boolean =>
-      constancyOf(e, scope) === "variable" ||
-      (e.kind === "ident_expr" && !nameResolves(e.name, scope) && lookupLocal(scope, e.name).length === 0)
-    const bound = (e: Expr | undefined) => {
-      if (e !== undefined && notConstant(e))
-        emit(out, e.span, "array-bound-non-const", ctx.messages.arrayBoundNonConst(text(ctx.source, e.span)))
+    // why `e` is no constant: a variable in any project (`{}`), or ONLY because its name resolves to nothing here —
+    // `dependsOnProject`, so a client checking one item alone tells the two apart (code and message are the IDE's)
+    const notConstant = (e: Expr): Pick<DiagnosticItem, "dependsOnProject"> | undefined => {
+      if (constancyOf(e, scope) === "variable") return {}
+      if (e.kind === "ident_expr" && !nameResolves(e.name, scope) && lookupLocal(scope, e.name).length === 0)
+        return { dependsOnProject: { unresolved: e.name } }
+      return undefined
     }
+    const flag = (e: Expr | undefined, code: string, message: (t: string) => string) => {
+      const why = e === undefined ? undefined : notConstant(e)
+      if (e !== undefined && why !== undefined)
+        out.push({ severity: "error", span: e.span, source: SOURCE, code, message: message(text(ctx.source, e.span)), ...why })
+    }
+    const bound = (e: Expr | undefined) => flag(e, "array-bound-non-const", ctx.messages.arrayBoundNonConst)
     // a STRING/WSTRING length is a constant as a bound is: "String length 'n' is no constant value"
     // (`decl_string_length_variable`, both vendors 2026-10-01)
-    if (decl.type.kind === "string_type" && decl.type.length !== undefined && notConstant(decl.type.length))
-      emit(out, decl.type.length.span, "string-length-non-const", ctx.messages.stringLengthNonConst(text(ctx.source, decl.type.length.span)))
+    if (decl.type.kind === "string_type") flag(decl.type.length, "string-length-non-const", ctx.messages.stringLengthNonConst)
     if (decl.type.kind === "array_type")
       for (const dim of decl.type.dims) {
         bound(dim.lower) // C0161

@@ -17,7 +17,7 @@ import { compilerTypeText, type AggregateElement, type Initializer, type Span } 
 import { resolveTypeExpr, type Type } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { forEachDecl, hasUnresolvedBase, lookup, lookupMember, visibleNames, type Scope } from "../../../frontend/symbols/index.js"
-import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { emit, SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import { findWord } from "../../shared/fixes.js"
 import { changeToFixes } from "../../shared/near-miss.js"
 import { structEcho } from "../../shared/expr-echo.js"
@@ -37,7 +37,7 @@ export function checkStructInit(ctx: CheckContext, out: DiagnosticItem[]): void 
     emit(out, init.span, "unexpected-struct-init", ctx.messages.unexpectedStructInit())
     for (const name of unresolvedFieldNames(init, scope)) {
       for (const message of [ctx.messages.undefinedIdentifier(name), ctx.messages.notAssignmentTarget(name)])
-        emit(out, init.span, "unexpected-struct-init", message)
+        out.push({ severity: "error", span: init.span, source: SOURCE, code: "unexpected-struct-init", message, dependsOnProject: { unresolved: name } })
     }
     emit(
       out,
