@@ -33,7 +33,7 @@ w4 := w3 AND Trayfiller_Data.commInterface.HoldFeedFwd;
 MOVE(EN := (Mach1_AuxData.ADS_StopOnZeroPulse := w4 AND (LST_InputsOutputs.I133_1_PROX_zero_position_transport_ADS OR Mach1_AuxData.ADS_StopOnZeroPulse)), 750, OUT => Droger_Data.Cor_numerator).ENO;
 MOVE(EN := Mach1_AuxData.Edge.Osr_SetCounter(CLK := w4 AND Trayfiller_Data.commInterface.Permission), 5, OUT => Mach1_AuxData.CounterHighSpeedATF_ADS).ENO;
 MUL(EN := NE(EN := w3 AND Trayfiller_Data.commInterface.Permission, Mach1_AuxData.CounterHighSpeedATF_ADS, 0), Mach1_Data.AUTOSPEED, 13, OUT => Droger_Data.Cor_numerator).ENO;
-EXECUTE(EN := w2, CODE := 'cor_NumDI:=Droger_Data.Cor_numerator;
+EXECUTE(EN := w2, 'cor_NumDI:=Droger_Data.Cor_numerator;
 cor_DenumDI:=Droger_Data.Cor_denumerator;
 //cor_NumDI:=1;
 //cor_DenumDI:=1;

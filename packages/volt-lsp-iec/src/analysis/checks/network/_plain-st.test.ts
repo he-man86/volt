@@ -87,30 +87,30 @@ test("a plain-ST network body is ST: its boxes and wires resolve and type, a wro
 })
 
 test("a disabled network is not compiled: no finding inside it, and its label is no jump target", () => {
-  const src = ld("\ta, x : BOOL;", "%NETWORK\n%DISABLED\nl9:\nx := nowhere;\n%NETWORK\nJMP(l9, a);\n")
+  const src = ld("\ta, x : BOOL;", "%NETWORK\n%DISABLED\nl9:\nx := nowhere;\n%NETWORK\nJMP.l9 := a;\n")
   expect(diagnose(src).map((d) => d.message)).toEqual(["No such label 'L9' within the scope of the JMP statement"])
 })
 
-test("a jump and a return are functions on their value: JMP(label, value) names a label, in a tree too, and no IF stands in a network", () => {
-  const src = ld("\ta, c, d, y : BOOL;", "%NETWORK\nJMP(l9, a);\nRETURN(c);\ny := JMP(l9, c) AND d;\n%NETWORK\nl9:\ny := a;\n")
+test("a jump and a return are targets on their value: JMP.label := value names a label, in a tree too, and no IF stands in a network", () => {
+  const src = ld("\ta, c, d, y : BOOL;", "%NETWORK\nJMP.l9 := a;\nRETURN := c;\ny := (JMP.l9 := c) AND d;\n%NETWORK\nl9:\ny := a;\n")
   expect([...diagnose(src), ...networkDiags(src)].map((d) => d.message)).toEqual([])
-  const missing = ld("\tc, y : BOOL;", "%NETWORK\ny := JMP(nowhere, c);\n")
+  const missing = ld("\tc, y : BOOL;", "%NETWORK\ny := JMP.nowhere := c;\n")
   expect(diagnose(missing).map((d) => d.message)).toEqual(["No such label 'NOWHERE' within the scope of the JMP statement"])
-  const typed = ld("\tc : BOOL;\n\ti : INT;", "%NETWORK\nl1:\ni := JMP(l1, c);\n")
+  const typed = ld("\tc : BOOL;\n\ti : INT;", "%NETWORK\nl1:\ni := JMP.l1 := c;\n")
   expect(diagnose(typed).map((d) => d.message)).toEqual(["Cannot convert type 'BOOL' to type 'INT'"])
   const iff = ld("\ta : BOOL;", "%NETWORK\nl1:\nIF a THEN JMP l1; END_IF;\n")
-  expect(networkDiags(iff).map((d) => d.message)).toContain("a network holds no IF: a jump on a value is JMP(label, value), a return RETURN(value)")
+  expect(networkDiags(iff).map((d) => d.message)).toContain("a network holds no IF: a jump on a value is JMP.label := value, a return RETURN := value")
 })
 
 test("an UNSUPPORTED network keeps its label under its line: still the jump target, and nothing else stands there", () => {
-  const ok = ld("\ta : BOOL;", "%NETWORK\n%UNSUPPORTED \"an edge contact\" #0011aabb\nl9:\n%NETWORK\nJMP(l9, a);\n")
+  const ok = ld("\ta : BOOL;", "%NETWORK\n%UNSUPPORTED \"an edge contact\" #0011aabb\nl9:\n%NETWORK\nJMP.l9 := a;\n")
   expect([...diagnose(ok), ...networkDiags(ok)].map((d) => d.message)).toEqual([])
   const more = ld("\ta, x : BOOL;", "%NETWORK\n%UNSUPPORTED \"an edge contact\" #0011aabb\nl9:\nx := a;\n")
   expect(networkDiags(more).map((d) => d.message)).toContain("a network shown %UNSUPPORTED holds nothing else but its label")
 })
 
 test("an Execute box's EN is code, and its ST is ST where it stands in its CODE string: each name it reads resolves", () => {
-  const src = ld("\ta : BOOL;\n\tn : INT;", "%NETWORK\nok := EXECUTE(EN := nowhere, CODE := 'n := n + 1;\n  IF a THEN m := $'x$'; END_IF') AND a;\n")
+  const src = ld("\ta : BOOL;\n\tn : INT;", "%NETWORK\nok := EXECUTE(EN := nowhere, 'n := n + 1;\n  IF a THEN m := $'x$'; END_IF') AND a;\n")
   const found = diagnose(src).map((d) => `${d.message} at '${src.slice(d.span.start, d.span.end)}' ${d.span.startLine}:${d.span.startCol}`)
   const line = src.split("\n").findIndex((l) => l.startsWith("  IF a")) + 1
   expect(found).toEqual([
@@ -213,7 +213,7 @@ test("a coil nobody named, ??? := v, is the build's own error in each vendor's w
 
 test("an Execute box's CODE string not closed yet runs to its body's end, no further: the units after it keep their findings", () => {
   const unit = (code: string) =>
-    `FUNCTION_BLOCK FB1\nVAR\n\tgo : BOOL;\n\tn : INT;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\nEXECUTE(EN := go, CODE := '${code}\n` +
+    `FUNCTION_BLOCK FB1\nVAR\n\tgo : BOOL;\n\tn : INT;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\nEXECUTE(EN := go, '${code}\n` +
     `END_FUNCTION_BLOCK\nMETHOD M\n%LANGUAGE ST\nn := 'x';\nnowhere := 1;\nEND_METHOD\n`
   const method = (src: string) => diagnose(src).filter((d) => d.span.startLine >= 10).map((d) => `${d.message}@${d.span.startLine}`)
   const closed = method(unit("n := 1;');"))

@@ -80,7 +80,7 @@ Mach1_AuxData.SetDrivesInSync := TON_0(IN := OffDelaySync(IN := w3 AND Mach1_Saf
 w4 := w3 AND Mach1_AuxData.SetDrivesInSync;
 bServoDrivesInSync := w4 AND Mach1_Data.Drives.MainDrive.Status.InSync AND (Mach1_Data.Drives.WrappingDevice.Status.InSync OR NOT Mach1_Data.Drives.WrappingDevice.Control.SetDriveEnable) AND (Mach1_Data.Drives.SideCorrection.Status.InSync OR NOT Mach1_Data.Drives.SideCorrection.Control.SetDriveEnable);
 bInSyncTimeOut := TimeOutInSync(IN := w4 AND NOT bServoDrivesInSync, PT := T#10S).Q;
-Mach1_AuxData.SetDrivesInLock := BRANCH_SHORTCIRCUIT(FEED := w3 AND bServoDrivesInSync, Mach1_AuxData.IEC_TIMERS.OffDelayLockDrives(IN := TRUE, PT := T#2s).Q, TRUE);
+Mach1_AuxData.SetDrivesInLock := BRANCH_SHORTCIRCUIT(FEED := w3 AND bServoDrivesInSync, Mach1_AuxData.IEC_TIMERS.OffDelayLockDrives(IN := RAIL(), PT := T#2s).Q, TRUE);
 w5 := w3 AND (Mach1_AuxData.SetDrivesInLock OR Mach1_AuxData.SetDrivesInSync);
 Mach1_AuxData.AllDrivesInLock := w5 AND Mach1_Data.Drives.MainDrive.Status.InSync AND (Mach1_Data.Drives.WrappingDevice.Status.InSync OR NOT Mach1_Data.Drives.WrappingDevice.Control.SetDriveEnable) AND (Mach1_Data.Drives.SideCorrection.Status.InSync OR NOT Mach1_Data.Drives.SideCorrection.Control.SetDriveEnable);
 bInLockTimeOut := TimeOutInLock(IN := w5 AND NOT Mach1_AuxData.AllDrivesInLock, PT := T#5S).Q;

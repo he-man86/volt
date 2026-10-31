@@ -20,7 +20,7 @@ END_VAR
 
 %LANGUAGE LD
 %NETWORK
-tBool := GE(EN := TRUE, iMachinePosition, iStartCam) AND NOT iResetFlag AND iEN;
+tBool := GE(EN := RAIL(), iMachinePosition, iStartCam) AND NOT iResetFlag AND iEN;
 %NETWORK
 fc_CamC_CP_Base := tbool AND NOT ioAuxOneShot;
 %NETWORK

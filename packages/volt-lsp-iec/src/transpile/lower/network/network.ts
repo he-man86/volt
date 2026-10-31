@@ -2,24 +2,30 @@
  * A PLAIN-ST NETWORK BODY AS THE ST STATEMENTS IT RUNS AS (openspec network-text-lowering; the spelling is
  * `docs/network-text.html`'s): every box by its rule (`boxes.ts`), the network's own elements here —
  *
- *   `EXECUTE(EN := e, CODE := '<ST>')`        `IF e THEN <its ST> END_IF`; read where it stands, its ENO, which is its EN;
+ *   `EXECUTE(EN := e, '<ST>')`                `IF e THEN <its ST> END_IF`; read where it stands, its ENO, which is its EN;
  *   `BRANCH(FEED := f, b1, b2)`               `f AND (b1 OR b2)`: every branch runs;
  *   `BRANCH_SHORTCIRCUIT(FEED := f, b1, b2)`  a branch holding a box runs, with the calls it reads, unless the feed and a
  *                                             box-free branch are both TRUE: `IF NOT (f AND free) THEN … END_IF`;
- *   `R_EDGE(x)`, `F_EDGE(x)`                  an `R_TRIG` / `F_TRIG` called with x where its tree is evaluated, read by Q;
- *   `JMP(l, v)`, `RETURN(v)`                  `IF v THEN JMP l; END_IF` / `IF v THEN RETURN; END_IF`; in a tree its value
- *                                             held in a temp, the jump taken where the tree is evaluated;
+ *   `RISING(x)`, `FALLING(x)`                 an `R_TRIG` / `F_TRIG` called with x where its tree is evaluated, read by Q;
+ *   `RAIL()`                                  `TRUE`;
+ *   `NOT y := x := a`                         every target receives the power flow, the first its mark applied:
+ *                                             `x := a; y := NOT a` (`RISING y`, `FALLING y`: a coil's edge runs as a
+ *                                             plain coil, measured, network-text-st 1.3);
+ *   `JMP.l := v`, `RETURN := v`               `IF v THEN JMP l; END_IF` / `IF v THEN RETURN; END_IF`; beside coils
+ *                                             (`y := JMP.l := v`) the value held in a temp, the coils written, then the
+ *                                             jump; in a tree its value held in a temp, the jump taken where the tree is
+ *                                             evaluated;
  *   a wire                                    a variable of its definition's type kept across scans — read before its
  *                                             definition, the previous scan's value (scan 1: the recording,
  *                                             `nt_wire_read_before_definition_scan*`);
  *   a `%DISABLED` network                     nothing: CODESYS compiles none of it (its code is no statement).
  *
- * Everything else — contacts, coils, `S=`/`R=`, labels, `JMP`, `RETURN` — is ST as it stands. The hidden state (wires,
+ * Everything else — contacts, coils, `S=`/`R=`, labels — is ST as it stands. The hidden state (wires,
  * ENO temps, edge detectors) is named `__nw<N>_<wire>`, `__nw<N>_eno<k>`, `__nw<N>_trig<k>` (`<N>` the network's 1-based
  * index in the body) behind `prefix`; the lowering declares it (`state.ts`). A box no rule writes is refused by name
  * (`NetworkRefusal`).
  */
-import { type BodySpan, type CallExpr, type Expr, plainStText, type PlainStNetwork, type Span, type Statement, walkExpr } from "../../../frontend/syntax/index.js"
+import { type BodySpan, type CallExpr, type Expr, plainStText, type PlainStNetwork, type Span, type Statement, stmtExprs, walkExpr } from "../../../frontend/syntax/index.js"
 import { lookup, type Scope } from "../../../frontend/symbols/index.js"
 import { boxMember, elementaryRef, inferExprType, type Type } from "../../../frontend/types/index.js"
 import { assign, binary, bool, call, ident, ifThen, member, NetworkRefusal, NOT_COMPILED, not } from "./ast.js"
@@ -39,7 +45,20 @@ export function lowerNetworks(body: BodySpan, statements: readonly Statement[], 
   const text = plainStText(body)
   const executes = text.networks.flatMap((n) => n.executes)
   const code = statements.filter((s) => !executes.some((x) => s.span.start >= x.code.start && s.span.start < x.code.end))
+  // a marked output has no measured run
+  for (const s of code)
+    for (const e of stmtExprs(s))
+      walkExpr(e, (x) => {
+        const marked = x.kind === "call" ? x.args.find((a) => a.output && a.marks !== undefined) : undefined
+        if (marked !== undefined) throw new NetworkRefusal(`the mark on the output ${marked.param?.name ?? ""}: how a marked output runs is unmeasured`)
+      })
   const n = new Networker(body, scope, project, prefix, statements, code)
+  // the items a jump or a return after them shares the value of (`y := JMP.l := v;`)
+  code.forEach((s, i) => {
+    const next = code[i + 1]
+    if ((next?.kind === "jmp" || next?.kind === "return") && next.sharesValue === true && !((s.kind === "jmp" || s.kind === "return") && s.sharesValue === true))
+      n.sharing.add(s)
+  })
   const out: Statement[] = []
   for (const s of code) {
     if (n.guarded.has(s)) continue // lowered inside its short-circuit branch's guard
@@ -56,6 +75,9 @@ class Networker extends BoxLowerer {
   private readonly counts = new Map<number, { eno: number; trig: number }>()
   private network: PlainStNetwork | undefined
   readonly guarded: Set<Statement>
+  /** The items whose value a jump or a return after them shares, and the temp the last one's value is held in. */
+  readonly sharing = new Set<Statement>()
+  private shared: Expr | undefined
   private readonly guardedByWire: ReadonlyMap<string, Statement>
 
   constructor(
@@ -121,14 +143,35 @@ class Networker extends BoxLowerer {
         // an enabled box other than a comparison, the assignment's whole value: the assignment runs only when enabled, and
         // its targets hold when disabled (1.4)
         const box = s.value.kind === "call" ? this.box(s.value) : undefined
+        const first = s.marks?.[0]
         if (box !== undefined && box.instance === undefined && box.enable !== undefined && !COMPARISON.has(this.name(box).toUpperCase())) {
-          const cond = this.expr(box.enable.value!, pre)
+          if (first !== undefined || this.sharing.has(s))
+            throw new NetworkRefusal(`the enabled ${this.name(box)} box's value with a marked coil or a jump on it`)
+          const cond = this.pin(box.enable, pre)
           const value = this.boxValue(box, box.pins.filter((a) => !a.output), pre)
           return [...pre, ifThen(cond, [this.assign(s, value, pre)], [], s.span)]
         }
-        const value = this.expr(s.value, pre)
-        const stored = this.assign(s, value, pre)
-        return [...pre, stored]
+        let value = this.expr(s.value, pre)
+        if (first !== undefined || this.sharing.has(s)) {
+          const t = this.temp(s.span)
+          pre.push(assign(t, value, s.span))
+          value = t
+          if (this.sharing.has(s)) this.shared = t
+        }
+        if (first === undefined) return [...pre, this.assign(s, value, pre)]
+        // every target receives the power flow, the first its own mark applied (a coil's edge runs as a plain coil)
+        const [next, ...rest] = s.chained ?? []
+        const restOps = (s.chainOps ?? []).slice(1)
+        const others: Statement[] = next === undefined ? [] : [this.assign({
+          kind: "assign", target: next, value: s.value, span: s.span,
+          ...(s.chainOps?.[0] !== undefined ? { op: s.chainOps[0] } : {}),
+          ...(rest.length > 0 ? { chained: rest, chainOps: restOps } : {}),
+        }, value, pre)]
+        const marked: Statement = {
+          kind: "assign", target: this.expr(s.target, pre), value: first.includes("NOT") ? not(value, s.span) : value, span: s.span,
+          ...(s.op !== undefined ? { op: s.op } : {}),
+        }
+        return [...pre, ...others, marked]
       }
       case "call_stmt":
         return this.callStatement(s.call, false, pre)
@@ -140,9 +183,22 @@ class Networker extends BoxLowerer {
       case "empty":
         return []
       case "jmp":
-      case "return":
+      case "return": {
+        const jump: Statement = s.kind === "jmp" ? { kind: "jmp", target: s.target, span: s.span } : { kind: "return", span: s.span }
+        // beside coils: on the value they were written from, held once
+        if (s.sharesValue === true) {
+          if (this.shared === undefined) throw new NetworkRefusal(`the jump ${this.text(s.span)} shares a value no item before it holds`)
+          return [ifThen(this.shared, [jump], [], s.span)]
+        }
         if (s.value === undefined) return [s]
-        return [...pre, ifThen(this.expr(s.value, pre), [s.kind === "jmp" ? { kind: "jmp", target: s.target, span: s.span } : { kind: "return", span: s.span }], [], s.span)]
+        let cond = this.expr(s.value, pre)
+        if (this.sharing.has(s)) {
+          const t = this.temp(s.span)
+          pre.push(assign(t, cond, s.span))
+          cond = this.shared = t
+        }
+        return [...pre, ifThen(cond, [jump], [], s.span)]
+      }
       case "label":
         return [s]
       case "if": {
@@ -195,7 +251,7 @@ class Networker extends BoxLowerer {
     if (box?.st === undefined) throw new NetworkRefusal("an EXECUTE call that is no Execute box")
     const en = c.args.find((a) => a.param?.name.toUpperCase() === "EN")
     const st = this.all.filter((s) => s.span.start >= box.code.start && s.span.start < box.code.end)
-    return { cond: en === undefined ? bool(true, c.span) : this.expr(en.value!, pre), st }
+    return { cond: en === undefined ? bool(true, c.span) : this.pin(en, pre), st }
   }
 
   /** `BRANCH(…)`: every branch runs; `BRANCH_SHORTCIRCUIT(…)`: a branch holding a box runs unless the feed and a box-free
@@ -234,7 +290,8 @@ class Networker extends BoxLowerer {
     return binary("AND", f, any(values), span)
   }
 
-  /** `JMP(l, v)` / `RETURN(v)` in a tree: the value in a temp, the jump taken on it, the temp handed on. */
+  /** `(JMP.l := v)` / `(RETURN := v)` in a tree (read as the call `JMP(l, v)` / `RETURN(v)`): the value in a temp, the
+   *  jump taken on it, the temp handed on. */
   private control(c: CallExpr, upper: string, pre: Statement[]): Expr {
     const t = this.temp(c.span)
     const value = this.expr(c.args.at(-1)!.value!, pre)
@@ -244,9 +301,9 @@ class Networker extends BoxLowerer {
     return t
   }
 
-  /** `R_EDGE(x)` / `F_EDGE(x)`: an edge detector called with x where its tree is evaluated, read by its Q (1.3). */
+  /** `RISING(x)` / `FALLING(x)`: an edge detector called with x where its tree is evaluated, read by its Q (1.3). */
   private edge(c: CallExpr, pre: Statement[]): Expr {
-    const rising = (c.callee as { name: string }).name.toUpperCase() === "R_EDGE"
+    const rising = (c.callee as { name: string }).name.toUpperCase() === "RISING"
     const name = `${this.at(this.network!)}trig${++this.count().trig}`
     this.temps.push({ name, span: c.span, fb: rising ? "R_TRIG" : "F_TRIG" })
     const clk = this.expr(c.args[0]!.value!, pre)
@@ -269,7 +326,8 @@ class Networker extends BoxLowerer {
         const head = e.callee.kind === "ident_expr" ? e.callee.name : undefined
         const upper = head?.toUpperCase()
         if ((upper === "BRANCH" || upper === "BRANCH_SHORTCIRCUIT") && lookup(this.scope, head!) === undefined) return this.branch(e, pre)
-        if ((upper === "R_EDGE" || upper === "F_EDGE") && lookup(this.scope, head!) === undefined) return this.edge(e, pre)
+        if ((upper === "RISING" || upper === "FALLING") && lookup(this.scope, head!) === undefined) return this.edge(e, pre)
+        if (upper === "RAIL" && lookup(this.scope, head!) === undefined) return bool(true, e.span)
         if (upper === "JMP" || upper === "RETURN") return this.control(e, upper, pre)
         if (upper === "EXECUTE") {
           const { cond, st } = this.execute(e, pre)

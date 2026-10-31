@@ -45,7 +45,7 @@
         },
         {
           "comment": "A box is a call: an operator box, MOVE, a parallel, an edge and the Execute box are the text's own heads, coloured where a call opens.",
-          "match": "(?i)(?<![\\w.])(ADD|SUB|MUL|DIV|MOD|GT|GE|EQ|NE|LE|LT|AND|OR|XOR|NOT|MOVE|BRANCH|BRANCH_SHORTCIRCUIT|R_EDGE|F_EDGE|EXECUTE)(?=\\s*\\()",
+          "match": "(?i)(?<![\\w.])(ADD|SUB|MUL|DIV|MOD|GT|GE|EQ|NE|LE|LT|AND|OR|XOR|NOT|MOVE|BRANCH|BRANCH_SHORTCIRCUIT|RISING|FALLING|RAIL|EXECUTE)(?=\\s*\\()",
           "name": "keyword.operator.word.network-text"
         },
         {

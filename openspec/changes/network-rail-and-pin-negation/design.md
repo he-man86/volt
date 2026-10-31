@@ -659,3 +659,25 @@ This replaces the "Joint proposal" wherever the two differ.
   `a--(/)x--( )y` measurement (`network-text-one-to-one` finding 7).
 - **Words:** `CODE` goes (`EXECUTE(EN := go, '…')`). `ANY` (untypable wires), `FEED`, `BRANCH` and
   `BRANCH_SHORTCIRCUIT` stay.
+
+## Measured 2026-10-31 (the chain, step 2.1)
+
+Live CODESYS 3.5.21.40 64-bit (`ide.ps1 -Run nrpnchain`, CodesysTestProject fixture copy). Three LD programs pushed (`a`
+initialised TRUE), run one scan in simulation, read back; the PLCopen export of each read for the stored target order:
+
+| text pushed | stored targets (PLCopen, in order) | x | y |
+|---|---|---|---|
+| `NOT x := y := a;` | coil x `negated`, coil y — both fed by the contact `a` | FALSE | TRUE |
+| `y := NOT x := a;` | coil y, coil x `negated` — both fed by the contact `a` | FALSE | TRUE |
+| `RISING x := y := a;` | coil x (edge), coil y | TRUE | TRUE |
+
+- The pushed order is the stored order, and the pull gives it back as written.
+- Every target receives the rung's power flow UNCHANGED: y = a whichever side the negated coil stands; CODESYS does not
+  pass `NOT a` on. So a marked coil stands only as the FIRST (outermost) target, any other position refused by name
+  (`a marked coil inside a chain`); `NOT y := x := a` then reads the same in ST and in the run.
+- The PLCopen export places both coils at position 0, each fed from the contact, so it does not state which coil the
+  editor draws left: the drawn left-to-right order is not measured here.
+- No CODESYS corpus network holds a marked coil (census above); every CODESYS corpus network round-trips.
+
+Built against this: the lowering and the exec twin run `NOT y := x := a` as `t := a; x := t; y := NOT t`, a coil's edge
+as a plain coil (network-text-st 1.3), and refuse an edge mark on a pin or EN and any mark on an output (unmeasured).

@@ -10,8 +10,8 @@ namespace Volt.Engine.Format.Network;
 /// PLAIN-ST NETWORK TEXT (<see cref="StNetworkWriter"/>) → the <see cref="NetworkBody"/> model (openspec
 /// <c>network-text-st</c> 2.2). Its own small lexer and recursive-descent parser for the subset a network holds (the engine
 /// has no ST expression parser): assignments (<c>:=</c> <c>S=</c> <c>R=</c>, chained, nested in brackets), calls with
-/// formal and positional pins, the infix operators by ST precedence, <c>NOT</c>, <c>JMP(l, c)</c> /
-/// <c>RETURN</c>, a leading label, and the <c>%</c> lines. Anything else is refused by name, with its line.
+/// formal and positional pins, the infix operators by ST precedence, <c>NOT</c> and the marks, <c>JMP.l</c> /
+/// <c>RETURN</c> targets, a leading label, and the <c>%</c> lines. Anything else is refused by name, with its line.
 ///
 /// <para>The call is the box (openspec network-output-member): a call of an FB instance in reach is an FB box of the
 /// instance's declared type, a call of an FB type the box with no instance (<c>???</c>); <c>EN :=</c> first is the shown EN
@@ -20,8 +20,8 @@ namespace Volt.Engine.Format.Network;
 /// reads, required where the callee declares more than one data output and refused where it declares one
 /// (<see cref="NetworkSpelling.SignatureOf(string, bool, NetworkScope)"/>). A statement is an assignment, a call, a call
 /// closed by <c>.ENO</c>, a jump or a return, a label. A name its network declares <c>VAR_TEMP w1 : ANY; END_VAR</c> is a wire: a Demux over its
-/// definition, read by its name any number of times. <c>BRANCH</c>, <c>BRANCH_SHORTCIRCUIT</c>, <c>R_EDGE</c> and
-/// <c>F_EDGE</c> are the text's own elements (<see cref="StNetworkWriter.ElementHeads"/>), and <c>EXECUTE(EN := e, CODE :=
+/// definition, read by its name any number of times. <c>BRANCH</c>, <c>BRANCH_SHORTCIRCUIT</c>, <c>RISING</c>, <c>RAIL</c> and
+/// <c>FALLING</c> are the text's own elements (<see cref="StNetworkWriter.ElementHeads"/>), and <c>EXECUTE(EN := e,
 /// '&lt;ST&gt;')</c> the Execute box, its ST the one string that spans lines.</para>
 ///
 /// <para>The push reads every LD/FBD body through it (<see cref="StNetworkGate"/>, <see cref="NetworkBodyReader"/>), as
@@ -316,17 +316,19 @@ public static class StNetworkReader
     private sealed class AWire : AExpr { public string Name = ""; }
     private sealed class ANot : AExpr { public AExpr Inner = null!; }
     private sealed class ABin : AExpr { public string Type = ""; public List<AExpr> Operands = new(); }
-    private sealed class AAssign : AExpr { public List<(string Text, string Op)> Targets = new(); public AExpr Value = null!; }
+    private sealed class AAssign : AExpr { public List<ATarget> Targets = new(); public AExpr Value = null!; }
+    /// <summary>One target of an assignment: a coil (its operand, its operator, the marks before it), a jump
+    /// <c>JMP.label</c> or the return <c>RETURN</c>.</summary>
+    private sealed class ATarget { public string Text = ""; public string Op = ":="; public List<string> Marks = new(); public bool Jump; public bool Return; }
     /// <summary>A call: <c>Head(args)</c>, closed by <c>.Member</c> where written.</summary>
     private sealed class ACall : AExpr { public string Head = ""; public List<AArg> Args = new(); public string? Member; }
-    /// <summary><c>JMP(label, value)</c> (a label) / <c>RETURN(value)</c> (none).</summary>
-    private sealed class AJump : AExpr { public string? Label; public AExpr Value = null!; }
-    private sealed class AArg { public string? Formal; public bool Out; public AExpr? Value; public string? Target; }
+    /// <summary>A pin of a call: its formal where named, the marks before it (<c>NOT IN := a</c>), its value or its output's
+    /// target.</summary>
+    private sealed class AArg { public string? Formal; public bool Out; public AExpr? Value; public string? Target; public List<string> Marks = new(); }
 
     private abstract class AStmt { public int Line; }
     private sealed class SAssign : AStmt { public AAssign Assign = null!; }
     private sealed class SCall : AStmt { public ACall Call = null!; }
-    private sealed class SControl : AStmt { public AExpr? Condition; public string? Jump; }
     private sealed class SEmpty : AStmt { }
 
     // ── lexer ────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -410,14 +412,13 @@ public static class StNetworkReader
             }
             if (c == '\'' || c == '"')
             {
-                // The Execute box's ST, `CODE := '…'`, is the one string that spans lines: its code as it stands.
-                var code = c == '\'' && toks.Count >= 2 && toks[toks.Count - 1] is { Kind: Tk.Sym, Text: ":=" } &&
-                           toks[toks.Count - 2] is { Kind: Tk.Ident } pin && string.Equals(pin.Text, StNetworkWriter.CodePin, StringComparison.OrdinalIgnoreCase);
+                // The Execute box's ST, `EXECUTE(…, '…')`, is the one string that spans lines: its code as it stands.
+                var code = c == '\'' && toks.Count >= 1 && toks[toks.Count - 1] is { Kind: Tk.Sym, Text: "(" or "," } && InExecuteCall(toks);
                 i++;
                 while (i < s.Length && s[i] != c)
                 {
                     if (s[i] == '$' && i + 1 < s.Length) i++;
-                    if (s[i] == '\n' && !code) throw new StNetworkReadException(Line(i), "a string across a line: only the Execute box's CODE spans lines");
+                    if (s[i] == '\n' && !code) throw new StNetworkReadException(Line(i), "a string across a line: only the Execute box's ST spans lines");
                     i++;
                 }
                 if (i >= s.Length) throw new StNetworkReadException(Line(start), "an unclosed string");
@@ -444,6 +445,21 @@ public static class StNetworkReader
             toks.Add(new Tok(Tk.Sym, sym, start, i));
         }
         return toks;
+    }
+
+    /// <summary>Whether the innermost bracket open at the end of <paramref name="toks"/> is an <c>EXECUTE(</c> call's: its ST,
+    /// a positional string, is the one string that spans lines.</summary>
+    private static bool InExecuteCall(List<Tok> toks)
+    {
+        var depth = 0;
+        for (var k = toks.Count - 1; k >= 0; k--)
+        {
+            if (toks[k] is { Kind: Tk.Sym, Text: ")" }) depth++;
+            else if (toks[k] is { Kind: Tk.Sym, Text: "(" } && depth-- == 0)
+                return k > 0 && toks[k - 1].Kind == Tk.Ident &&
+                       string.Equals(toks[k - 1].Text, StNetworkWriter.ExecuteHead, StringComparison.OrdinalIgnoreCase);
+        }
+        return false;
     }
 
     // ── parser ───────────────────────────────────────────────────────────────────────────────────────────────────
@@ -516,7 +532,7 @@ public static class StNetworkReader
         private AStmt Statement()
         {
             var line = Line;
-            if (IsWord("IF")) throw Error("a network holds no IF: a jump on a value is JMP(label, value), a return RETURN(value)");
+            if (IsWord("IF")) throw Error("a network holds no IF: a jump on a value is JMP.label := value, a return RETURN := value");
             foreach (var w in new[] { "FOR", "WHILE", "REPEAT", "CASE", "EXIT", "CONTINUE" })
                 if (IsWord(w)) throw Error($"an LD/FBD network cannot hold a {w}");
             // ST's empty statement: the empty item.
@@ -525,18 +541,21 @@ public static class StNetworkReader
                 _i++;
                 return new SEmpty { Line = line };
             }
-            if (IsWord("JMP") || IsWord("RETURN"))
-            {
-                var c = Control();
-                c.Line = line;
-                return c;
-            }
+            if (IsWord("JMP") && !Is(".", 1) || IsWord("RETURN") && !Is(":=", 1) && !IsWord("S", 1) && !IsWord("R", 1)) throw Error(ControlForm);
             if (KeywordCallHead() is { } op)
             {
                 _i++;
                 return CallStatement(CallArgs(op, line), line);
             }
             var at = _i;
+            if (TryTarget() is not null)
+            {
+                _i = at;
+                var assign = AssignTail(line);
+                Expect(";");
+                return new SAssign { Assign = assign, Line = line };
+            }
+            _i = at;
             var span = TryOperandSpan(_i, allowCall: true) ?? throw Error("a statement (an assignment, a call, a jump or a return)");
             if (span.IsCall)
             {
@@ -559,67 +578,62 @@ public static class StNetworkReader
             return new SCall { Call = call, Line = line };
         }
 
-        /// <summary><c>JMP l;</c> / <c>RETURN;</c> on the rail, <c>JMP(l, value);</c> / <c>RETURN(value);</c> on a value.</summary>
-        private SControl Control()
+        /// <summary>The one form of a jump and a return: a target.</summary>
+        private const string ControlForm =
+            "a jump or a return is a target: JMP.label := value; RETURN := value; (on the rail, := RAIL())";
+
+        /// <summary>The marks a network writes before a receiver or as a prefix: <c>NOT</c>, <c>RISING</c>, <c>FALLING</c>.</summary>
+        private static readonly string[] MarkWords = { "NOT", StNetworkWriter.RisingHead, StNetworkWriter.FallingHead };
+
+        /// <summary>A mark word at <paramref name="k"/> that heads no call (a word followed by <c>(</c> is a call).</summary>
+        private bool IsMark(int k = 0) => MarkWords.Any(w => IsWord(w, k)) && !Is("(", k + 1);
+
+        /// <summary>The mark words at the current position, consumed, in text order (outermost first).</summary>
+        private List<string> Marks()
         {
-            if (Is("(", 1))
-            {
-                var j = ControlCall();
-                Expect(";");
-                return new SControl { Jump = j.Label, Condition = j.Value };
-            }
-            if (IsWord("JMP"))
-            {
-                _i++;
-                if (Peek() is not { Kind: Tk.Ident } l || IsKeyword(l.Text)) throw Error("a label");
-                _i++;
-                Expect(";");
-                return new SControl { Jump = l.Text };
-            }
-            ExpectWord("RETURN");
-            Expect(";");
-            return new SControl();
+            var marks = new List<string>();
+            while (IsMark()) marks.Add(_t[_i++].Text.ToUpperInvariant());
+            return marks;
         }
 
-        /// <summary><c>JMP(label, value)</c> / <c>RETURN(value)</c> at the current position.</summary>
-        private AJump ControlCall()
+        /// <summary>A TARGET and its operator at the current position, consumed — the marks before it, then a coil's operand,
+        /// <c>JMP.label</c> or <c>RETURN</c>, then <c>:=</c>, <c>S=</c> or <c>R=</c> — else null, nothing consumed: a complete
+        /// operand followed by an assignment operator takes the marks before it on its receiver.</summary>
+        private ATarget? TryTarget()
         {
-            var line = Line;
-            var jump = IsWord("JMP");
-            _i += 2;
-            string? label = null;
-            if (jump)
+            var save = _i;
+            var marks = Network ? Marks() : new List<string>();
+            ATarget? t = null;
+            if (IsWord("JMP") && Is(".", 1) && Peek(2) is { Kind: Tk.Ident } l && !IsKeyword(l.Text))
             {
-                if (Peek() is not { Kind: Tk.Ident } l || IsKeyword(l.Text) || !Is(",", 1))
-                    throw Error("JMP(label, value): a label, then the value the jump is on");
-                label = l.Text;
-                _i += 2;
+                _i += 3;
+                t = new ATarget { Text = l.Text, Jump = true };
             }
-            var value = Expr();
-            Expect(")");
-            return new AJump { Label = label, Value = value, Line = line };
+            else if (IsWord("RETURN"))
+            {
+                _i++;
+                t = new ATarget { Text = Box.UnnamedInstance, Return = true };
+            }
+            else if (TryOperandSpan(_i, allowCall: false) is { IsCall: false } s)
+            {
+                _i = s.Next;
+                t = new ATarget { Text = s.Text };
+            }
+            if (t is not null && AssignOp() is { } op)
+            {
+                t.Op = op;
+                t.Marks = marks;
+                return t;
+            }
+            _i = save;
+            return null;
         }
 
         /// <summary><c>t1 op t2 op … value</c> at the current position.</summary>
         private AAssign AssignTail(int line)
         {
             var a = new AAssign { Line = line };
-            while (true)
-            {
-                var save = _i;
-                var span = TryOperandSpan(_i, allowCall: false);
-                if (span is { IsCall: false } s)
-                {
-                    _i = s.Next;
-                    if (AssignOp() is { } op)
-                    {
-                        a.Targets.Add((s.Text, op));
-                        continue;
-                    }
-                }
-                _i = save;
-                break;
-            }
+            while (TryTarget() is { } t) a.Targets.Add(t);
             if (a.Targets.Count == 0)
                 throw Error(Peek() is { Kind: Tk.Ident } && Is(":", 1) ? "a label stands first in its network: it is the network's label"
                     : "a statement (an assignment, a call, a jump or a return)");
@@ -695,15 +709,14 @@ public static class StNetworkReader
                 _i++;
                 return CallArgs(op, line);
             }
-            if (Network && (IsWord("JMP") || IsWord("RETURN")) && Is("(", 1)) return ControlCall();
+            if (Network && (IsWord("JMP") || IsWord("RETURN"))) throw Error(ControlForm);
             if (IsWord("NOT") && !Is("(", 1))
             {
                 _i++;
-                var inner = Unary();
-                if (Network && inner is not AOperand)
-                    throw new StNetworkReadException(line, "NOT before a call, a wire or another NOT: NOT before an operand is a negated contact, and the NOT box is NOT(…)");
-                return new ANot { Inner = inner, Line = line };
+                return new ANot { Inner = Unary(), Line = line };
             }
+            if (Network && IsMark())
+                throw Error("a value's edge is the call RISING(…) / FALLING(…); a mark word before a name marks a receiver, followed by :=, S=, R= or =>");
             if (Is("-") && Peek(1) is { Kind: Tk.Literal } n && n.Start == _t[_i].End && char.IsDigit(n.Text[0]))
             {
                 _i += 2;
@@ -714,16 +727,12 @@ public static class StNetworkReader
                 // A nested assignment `(t := v)`, else a bracketed expression.
                 var save = _i;
                 _i++;
-                if (TryOperandSpan(_i, allowCall: false) is { IsCall: false } s)
+                if (TryTarget() is not null)
                 {
-                    _i = s.Next;
-                    if (AssignOp() is not null)
-                    {
-                        _i = save + 1;
-                        var a = AssignTail(line);
-                        Expect(")");
-                        return a;
-                    }
+                    _i = save + 1;
+                    var a = AssignTail(line);
+                    Expect(")");
+                    return a;
                 }
                 _i = save + 1;
                 var e = Expr();
@@ -755,20 +764,27 @@ public static class StNetworkReader
             if (Is(")")) { _i++; return call; }
             while (true)
             {
+                // The marks before a formal are the pin's (`NOT IN := a`, `NOT Q => x`); before anything else, the value's.
+                var save = _i;
+                var marks = Network ? Marks() : new List<string>();
                 if (Peek() is { Kind: Tk.Ident } f && Is("=>", 1))
                 {
                     _i += 2;
                     var span = TryOperandSpan(_i, allowCall: false) ?? throw Error("an output target");
                     if (span.IsCall) throw Error("an output target");
                     _i = span.Next;
-                    call.Args.Add(new AArg { Formal = f.Text, Out = true, Target = span.Text });
+                    call.Args.Add(new AArg { Formal = f.Text, Out = true, Target = span.Text, Marks = marks });
                 }
                 else if (Peek() is { Kind: Tk.Ident } g && Is(":=", 1) && !IsKeyword(g.Text))
                 {
                     _i += 2;
-                    call.Args.Add(new AArg { Formal = g.Text, Value = Expr() });
+                    call.Args.Add(new AArg { Formal = g.Text, Value = Expr(), Marks = marks });
                 }
-                else call.Args.Add(new AArg { Value = Expr() });
+                else
+                {
+                    _i = save;
+                    call.Args.Add(new AArg { Value = Expr() });
+                }
                 if (Is(",")) { _i++; continue; }
                 Expect(")");
                 return call;
@@ -869,11 +885,10 @@ public static class StNetworkReader
         {
             switch (s)
             {
-                case SControl k:
-                    return ControlNode(k.Jump, k.Condition is null ? new Terminator(Flags.None) : Expr(k.Condition));
                 case SAssign a when IsWireDefinition(a.Assign):
                 {
                     var name = a.Assign.Targets[0].Text;
+                    if (a.Assign.Targets[0].Marks.Count > 0) throw Error(s.Line, $"a mark on the wire {name}: a wire holds none, its producer or a consumer does");
                     // An enabled box other than a comparison is a wire's whole value only where every read of the wire is a
                     // coil's value.
                     if (a.Assign.Value is ACall valueCall && EnOnlyByValue(valueCall) is not null) _enabledValue[name] = valueCall.Head;
@@ -882,30 +897,70 @@ public static class StNetworkReader
                 case SAssign a: return Assign(a.Assign);
                 case SEmpty: return new Leaf(new Operand(""), Flags.None);
                 case SCall c when ElementHead(c.Call.Head, c.Line) is not null:
-                    throw Error(s.Line, $"the call {c.Call.Head} stands alone: a branch or an edge is a value in a tree");
+                    throw Error(s.Line, $"the call {c.Call.Head} stands alone: a branch, an edge or the rail is a value in a tree");
                 case SCall c: return CallBox(c.Call, consumed: false);
                 default: throw Error(s.Line, "an unknown statement");
             }
         }
 
-        /// <summary>The jump to <paramref name="label"/> (the return where null) on <paramref name="value"/>.</summary>
-        private static Assign ControlNode(string? label, Node value) =>
-            label is not null
-                ? new Assign(value, new[] { new Operand(label, IsLValue: true, Flags: Flags.None with { Jump = true }) }, Flags.None with { Jump = true })
-                : new Assign(value, new[] { new Operand(Box.UnnamedInstance, IsLValue: true, Flags: Flags.None with { Return = true }) },
-                    Flags.None with { Return = true });
-
         private bool IsWireDefinition(AAssign a) =>
-            a.Targets.Count == 1 && a.Targets[0].Op == ":=" && _net.IsWire(a.Targets[0].Text);
+            a.Targets.Count == 1 && a.Targets[0] is { Op: ":=", Jump: false, Return: false } t && _net.IsWire(t.Text);
 
         private Node Assign(AAssign a)
         {
-            if (IsWireDefinition(a)) return new Demux(VarId(a.Targets[0].Text, a.Line), Expr(a.Value));
+            if (IsWireDefinition(a))
+            {
+                if (a.Targets[0].Marks.Count > 0) throw Error(a.Line, $"a mark on the wire {a.Targets[0].Text}: a wire holds none, its producer or a consumer does");
+                return new Demux(VarId(a.Targets[0].Text, a.Line), Expr(a.Value));
+            }
             foreach (var t in a.Targets)
-                if (_net.IsWire(t.Text)) throw Error(a.Line, $"the wire {t.Text} is assigned beside other targets: a wire is defined alone");
-            var targets = a.Targets.Select(t => new Operand(t.Text, IsLValue: true,
-                Flags: t.Op == "S=" ? Flags.None with { Set = true } : t.Op == "R=" ? Flags.None with { Reset = true } : null)).ToList();
-            return new Assign(Expr(a.Value, assignValue: true), targets, Flags.None);
+                if (!t.Jump && !t.Return && _net.IsWire(t.Text)) throw Error(a.Line, $"the wire {t.Text} is assigned beside other targets: a wire is defined alone");
+            var targets = a.Targets.Select(t => Target(t, a.Line)).ToList();
+            StNetworkWriter.RequireChainMarks(targets, reason => Error(a.Line, reason));
+            // A jump's or a return's value is no coil's: an enabled box other than a comparison is read by its value only as
+            // a coil's (1.4).
+            var item = Flags.None.WithControlFlowFrom(targets);
+            return new Assign(Expr(a.Value, assignValue: !item.Jump && !item.Return), targets, item);
+        }
+
+        /// <summary>One target as the model holds it: a coil with its kind (<c>S=</c>, <c>R=</c>) and its marks; a jump
+        /// (<c>JMP.label</c>) or the return (<c>RETURN</c>, the vendor's <c>???</c>), which take <c>:=</c> and no mark.</summary>
+        private static Operand Target(ATarget t, int line)
+        {
+            var marks = MarkFlags(t.Marks, line);
+            if (t.Jump || t.Return)
+            {
+                var what = t.Jump ? "JMP." + t.Text : "RETURN";
+                if (!marks.IsNone) throw Error(line, $"a mark on the target {what}: a jump or a return carries none");
+                if (t.Op != ":=") throw Error(line, $"{what} {t.Op}: a jump or a return takes :=");
+                return new Operand(t.Text, IsLValue: true, Flags: t.Jump ? Flags.None with { Jump = true } : Flags.None with { Return = true });
+            }
+            var f = t.Op == "S=" ? Flags.None with { Set = true } : t.Op == "R=" ? Flags.None with { Reset = true } : Flags.None;
+            if (marks.Negated && (f.Set || f.Reset))
+                throw Error(line, $"NOT {t.Text} {t.Op}: a negated set or reset coil is no coil of its own (the reset coil is {t.Text} R= value)");
+            f = f with { Negated = marks.Negated, Rising = marks.Rising, Falling = marks.Falling };
+            return new Operand(t.Text, IsLValue: true, Flags: f.IsNone ? null : f);
+        }
+
+        /// <summary>THE MARKS BEFORE A RECEIVER, outermost first, as the flags it holds: <c>NOT</c> a negation, <c>RISING</c> /
+        /// <c>FALLING</c> an edge. The IDE negates first (N17), so a stacked mark is written edge, then NOT
+        /// (<c>RISING NOT IN := a</c>); the reverse order, or a mark twice, is refused by name.</summary>
+        private static Flags MarkFlags(IReadOnlyList<string> marks, int line)
+        {
+            var f = Flags.None;
+            foreach (var m in marks)
+            {
+                if (m == "NOT")
+                {
+                    if (f.Negated) throw Error(line, "NOT twice before one receiver");
+                    f = f with { Negated = true };
+                    continue;
+                }
+                if (f.Rising || f.Falling) throw Error(line, "two edges before one receiver");
+                if (f.Negated) throw Error(line, $"NOT {m}: the IDE negates first, so the edge is written outside the negation, {m} NOT");
+                f = m == StNetworkWriter.RisingHead ? f with { Rising = true } : f with { Falling = true };
+            }
+            return f;
         }
 
         /// <param name="assignValue">The expression is an assignment's whole value: the one place an enabled box other than a
@@ -915,7 +970,7 @@ public static class StNetworkReader
             switch (e)
             {
                 case AOperand o:
-                    if (o.Text.IndexOf('\n') >= 0) throw Error(o.Line, "a string across a line: only the Execute box's CODE spans lines");
+                    if (o.Text.IndexOf('\n') >= 0) throw Error(o.Line, "a string across a line: only the Execute box's ST spans lines");
                     if (_net.IsForeignWire(o.Text)) throw Error(o.Line, $"the wire {o.Text} is read outside its network: a wire is its network's");
                     return new Leaf(new Operand(o.Text), Flags.None);
                 case AWire w:
@@ -925,17 +980,27 @@ public static class StNetworkReader
                     return new Demux(WireId(w.Name)!.Value, null);
                 case ANot n:
                 {
+                    // The value mark NOT: on a contact its negation, on a box read where it stands its negated output
+                    // (`NOT t1(…).Q`); the NOT box is the call NOT(…).
                     var inner = Expr(n.Inner);
-                    return inner is Leaf { Flags.IsNone: true } l && n.Inner is AOperand
-                        ? l with { Flags = Flags.None with { Negated = true } }
-                        : StNetworkWriter.NotBox(inner);
+                    switch (inner)
+                    {
+                        case Leaf { Flags.IsNone: true } l when n.Inner is AOperand:
+                            return l with { Flags = Flags.None with { Negated = true } };
+                        case Box { Flags.IsNone: true, StCode: null } b when n.Inner is ACall:
+                            return b with { Flags = Flags.None with { Negated = true } };
+                        case Leaf { Flags: { Rising: true } or { Falling: true } }:
+                        case Box { Flags: { Rising: true } or { Falling: true } }:
+                            throw Error(n.Line, "NOT before an edge: the IDE negates first, so the edge is written outside the negation, RISING(NOT a)");
+                        default:
+                            throw Error(n.Line, "NOT before a wire, a branch, a coil, the rail, an Execute box or another NOT: NOT marks a contact or a box read where it stands, and the NOT box is NOT(…)");
+                    }
                 }
                 case ABin b:
                     return new Box(b.Type, null, CallKind.Operator, b.Operands.Select(o => new Input(null, Expr(o), Flags.None)).ToList(),
                         Array.Empty<Output>(), null, null, Flags.None, ConnectedSlot: NetworkSpelling.MainSlotOfCall(b.Type),
                         Members: StNetworkWriter.ElementMembers(b.Type, contact: true));
                 case AAssign a: return Assign(a);
-                case AJump j: return ControlNode(j.Label, Expr(j.Value));
                 case ACall c:
                     if (ElementHead(c.Head, c.Line) is { } element) return Element(c, element);
                     if (!assignValue && EnOnlyByValue(c) is not null) throw EnabledValueNotACoil(c.Line, c.Head);
@@ -954,10 +1019,15 @@ public static class StNetworkReader
             return element;
         }
 
-        /// <summary><c>BRANCH(FEED := f, b1, b2)</c> / <c>BRANCH_SHORTCIRCUIT(…)</c>: the parallel branch; <c>R_EDGE(x)</c> /
-        /// <c>F_EDGE(x)</c>: the edge on the contact or the box <c>x</c> (a negated contact negated first, N17).</summary>
+        /// <summary><c>BRANCH(FEED := f, b1, b2)</c> / <c>BRANCH_SHORTCIRCUIT(…)</c>: the parallel branch; <c>RISING(x)</c> /
+        /// <c>FALLING(x)</c>: the edge on the contact or the box <c>x</c> (a negated contact negated first, N17).</summary>
         private Node Element(ACall c, string element)
         {
+            if (element == StNetworkWriter.RailHead)
+            {
+                if (c.Args.Count != 0 || c.Member is not null) throw Error(c.Line, $"the rail {c.Head}() takes no value and names no output");
+                return new Terminator(Flags.None);
+            }
             if (element is StNetworkWriter.BranchHead or StNetworkWriter.ShortCircuitHead)
             {
                 Node? feed = null;
@@ -988,7 +1058,7 @@ public static class StNetworkReader
                 case Box { Flags: { Rising: false, Falling: false }, StCode: null } b when b.Enable is null || b.Instance is not null || NetworkSpelling.ConnectedByEno(b):
                     return b with { Flags = b.Flags with { Rising = rising, Falling = !rising } };
                 default:
-                    throw Error(c.Line, $"the edge {c.Head} over a wire, a branch, a coil, an Execute box or another edge: an edge is on a contact or on a box read where it stands");
+                    throw Error(c.Line, $"the edge {c.Head} over a wire, a branch, a coil, the rail, an Execute box or another edge: an edge is on a contact or on a box read where it stands");
             }
         }
 
@@ -1035,13 +1105,15 @@ public static class StNetworkReader
             var declaresEno = signature is { DeclaresEno: true };
 
             Node? enable = null;
+            var enableFlags = Flags.None;
             if (!declaresEn && at < c.Args.Count && c.Args[at] is { Out: false } en && Is(en.Formal, Box.EnablePin))
             {
                 enable = Expr(en.Value!);
+                enableFlags = MarkFlags(en.Marks, c.Line);
                 at++;
             }
             var inputs = new List<Input>();
-            var outputs = new List<(string? Formal, string Target)>();
+            var outputs = new List<(string? Formal, string Target, Flags Marks)>();
             for (var k = at; k < c.Args.Count; k++)
             {
                 var a = c.Args[k];
@@ -1050,14 +1122,18 @@ public static class StNetworkReader
                     if (_net.IsWire(a.Target!))
                         throw Error(c.Line, $"the call {c.Head} wires its output {a.Formal} to the wire {a.Target}: a wire is defined by `{a.Target} := <box>`, its box closed by the output it reads");
                     // `OUT =>` is a function's value, each the next unnamed slot; on an FB call it is the FB's own output named OUT.
-                    outputs.Add((Is(a.Formal, StNetworkWriter.ResultPin) && instance is null ? null : a.Formal, a.Target!));
+                    outputs.Add((Is(a.Formal, StNetworkWriter.ResultPin) && instance is null ? null : a.Formal, a.Target!, MarkFlags(a.Marks, c.Line)));
                     continue;
                 }
                 if (signature is not null && !declaresEn && Is(a.Formal, Box.EnablePin))
                     throw Error(c.Line, enable is null
                         ? $"EN := stands first in the call {c.Head}: it is the box's shown EN"
                         : $"the call {c.Head} holds EN := twice");
-                inputs.Add(new Input(a.Formal, Expr(a.Value!), Flags.None));
+                // An operator's pin named by its default formal (the formal a mark stands before, `AND(NOT IN2 := a, b)`) is the
+                // pin the IDE stores unnamed.
+                var formal = NetworkSpelling.IsOperatorBox(type) && a.Formal is { } named &&
+                             string.Equals(named, NetworkSpelling.DefaultFormal(type, inputs.Count), StringComparison.OrdinalIgnoreCase) ? null : a.Formal;
+                inputs.Add(new Input(formal, Expr(a.Value!), MarkFlags(a.Marks, c.Line)));
             }
 
             var (hasEno, connected, byName) = Member(c, type, instance is not null, signature, consumed, declaresEno);
@@ -1066,15 +1142,17 @@ public static class StNetworkReader
             var eno = hasEno ? 0 : (int?)null;
             var next = 0;
             var outs = new List<Output>();
-            foreach (var (formal, target) in outputs)
+            foreach (var (formal, target, marks) in outputs)
             {
-                if (formal is not null) { outs.Add(new Output(formal, new Operand(target, IsLValue: true))); continue; }
+                var operand = new Operand(target, IsLValue: true, Flags: marks.IsNone ? null : marks);
+                if (formal is not null) { outs.Add(new Output(formal, operand)); continue; }
                 next = NetworkSpelling.NextFreeSlot(next, eno, connected);
-                outs.Add(new Output(null, new Operand(target, IsLValue: true), next++));
+                outs.Add(new Output(null, operand, next++));
             }
             return new Box(type, instance, NetworkSpelling.KindOf(type, instance is not null), inputs, outs, enable, null, Flags.None,
                 ConnectedSlot: connected, HasEnoOutput: hasEno, MainOutputName: byName,
-                Members: enable is not null || instance is not null || outs.Count > 0 ? null : StNetworkWriter.ElementMembers(type, contact: false));
+                Members: enable is not null || instance is not null || outs.Count > 0 ? null : StNetworkWriter.ElementMembers(type, contact: false))
+                { EnableFlags = enableFlags };
         }
 
         /// <summary>
@@ -1114,9 +1192,8 @@ public static class StNetworkReader
             return block ? (false, null, member) : (false, slot, null);
         }
 
-        /// <summary>THE EXECUTE BOX (openspec network-output-member 2.6): <c>EXECUTE(EN := e, CODE := '&lt;ST&gt;')</c> — EN where
-        /// it shows EN, then its ST, nothing else; its one output its ENO (by type), read through it where consumed, so no
-        /// member closes the call.</summary>
+        /// <summary>THE EXECUTE BOX: <c>EXECUTE(EN := e, '&lt;ST&gt;')</c> — EN where it shows EN, then its ST, one string,
+        /// nothing else; its one output its ENO (by type), read through it where consumed, so no member closes the call.</summary>
         private Box ExecuteBox(ACall c, bool consumed)
         {
             if (_net.InReach(c.Head))
@@ -1125,17 +1202,19 @@ public static class StNetworkReader
                 throw Error(c.Line, $"the Execute box is closed by .{member}: its one output is its ENO, read where the box stands");
             var at = 0;
             Node? enable = null;
+            var enableFlags = Flags.None;
             if (c.Args.Count > 0 && c.Args[0] is { Out: false } en && Is(en.Formal, Box.EnablePin))
             {
                 enable = Expr(en.Value!);
+                enableFlags = MarkFlags(en.Marks, c.Line);
                 at = 1;
             }
-            if (c.Args.Count != at + 1 || c.Args[at] is not { Out: false, Value: AOperand { Text: var literal } } code ||
-                !Is(code.Formal, StNetworkWriter.CodePin) || literal.Length < 2 || literal[0] != '\'' || literal[literal.Length - 1] != '\'')
-                throw Error(c.Line, $"the Execute box takes {Box.EnablePin} := first where it shows EN, then {StNetworkWriter.CodePin} := '<ST>', and nothing else");
+            if (c.Args.Count != at + 1 || c.Args[at] is not { Out: false, Formal: null, Value: AOperand { Text: var literal } } ||
+                literal.Length < 2 || literal[0] != '\'' || literal[literal.Length - 1] != '\'')
+                throw Error(c.Line, $"the Execute box takes {Box.EnablePin} := first where it shows EN, then its ST as one string '<ST>', and nothing else");
             var st = NetworkSpelling.UnescapeCode(literal.Substring(1, literal.Length - 2), out var error) ?? throw Error(c.Line, error!);
             return new Box(NetworkSpelling.ExecuteType, null, NetworkSpelling.KindOf(NetworkSpelling.ExecuteType, false), Array.Empty<Input>(),
-                Array.Empty<Output>(), enable, st, Flags.None, ConnectedSlot: consumed ? 0 : null, HasEnoOutput: true);
+                Array.Empty<Output>(), enable, st, Flags.None, ConnectedSlot: consumed ? 0 : null, HasEnoOutput: true) { EnableFlags = enableFlags };
         }
     }
 

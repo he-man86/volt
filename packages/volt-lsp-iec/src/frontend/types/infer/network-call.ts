@@ -11,8 +11,8 @@
  *   `r1(CLK := a)`              an FB box with one output: that output's type (`r1.Q`);
  *   `<box>.ENO`                               the shown ENO, a BOOL;
  *   `<box>.OUT`, `<box>.Q`                    a function's value, a VAR_OUTPUT's or an FB output's type (`t1.Q`);
- *   `EXECUTE(EN := e, CODE := '<ST>')`        the Execute box: its ENO, a BOOL (its `CODE` pin is no code, `plain-st.ts`);
- *   `JMP(label, value)`, `RETURN(value)`      the jump and the return in a tree: the value they hand on;
+ *   `EXECUTE(EN := e, '<ST>')`                the Execute box: its ENO, a BOOL (its ST string is no pin, `plain-st.ts`);
+ *   `(JMP.label := value)`, `(RETURN := value)`  the jump and the return in a tree: the value they hand on;
  *   a wire                                    its definition's: the expression assigned to it.
  *
  * Only inside a network body (`Scope.network`): in ST, `GT(i, 3)` is the vendor's syntax error, and stays one.

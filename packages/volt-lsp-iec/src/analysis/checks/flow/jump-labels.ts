@@ -36,7 +36,7 @@ export function checkJumpLabels(ctx: CheckContext, out: DiagnosticItem[]): void 
       } else if (s.kind === "jmp") {
         jmps.push(s.target)
       }
-      // a network's jump inside a tree, `JMP(label, value)` (plain-ST network text)
+      // a network's jump inside a tree, `(JMP.label := value)`, read as the call `JMP(label, value)` (plain-ST network text)
       for (const e of stmtExprs(s))
         walkExpr(e, (x) => {
           if (x.kind === "call" && x.args[0]?.value !== undefined && isJumpLabel(x, x.args[0].value)) jmps.push(x.args[0].value)

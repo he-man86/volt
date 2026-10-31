@@ -39,6 +39,34 @@ describe("a network body lowers to what it runs", () => {
     expect(trace(r, "motor", [{ start: true }, { start: false }, { stop: true }, { stop: false }])).toEqual([true, true, false, false])
   })
 
+  test("the rail is TRUE", () => {
+    const r = runner("x : BOOL;", "%NETWORK\nx := RAIL();\n")
+    expect(trace(r, "x", [{}])).toEqual([true])
+  })
+
+  test("a coil's NOT negates what it writes; in a chain every target receives the power flow, the first its mark applied", () => {
+    const r = runner("a, x, y : BOOL;", "%NETWORK\nNOT y := x := a;\n")
+    expect(trace(r, "y", [{ a: true }, { a: false }])).toEqual([false, true])
+    expect(r.get("x")).toBe(false)
+  })
+
+  test("a coil's edge mark runs as a plain coil (network-text-st 1.3)", () => {
+    const r = runner("a, y : BOOL;", "%NETWORK\nRISING y := a;\n")
+    expect(trace(r, "y", [{ a: true }, {}])).toEqual([true, true])
+  })
+
+  test("a pin's and EN's NOT negate what the box reads", () => {
+    const r = runner("a, c : BOOL; n : INT;", "%NETWORK\nMOVE(NOT EN := c, 1, OUT => n).ENO;\n", "", "FBD")
+    expect(trace(r, "n", [{ c: true }, { c: false }])).toEqual([0n, 1n])
+    const s = runner("a, x : BOOL;", "%NETWORK\nx := AND(NOT IN1 := a, TRUE);\n", "", "FBD")
+    expect(trace(s, "x", [{ a: true }, { a: false }])).toEqual([false, true])
+  })
+
+  test("a box read where it stands takes the value mark NOT on its output", () => {
+    const r = runner("a, b, x : BOOL;", "%NETWORK\nx := NOT AND(a, b);\n", "", "FBD")
+    expect(trace(r, "x", [{ a: true, b: true }, { b: false }])).toEqual([false, true])
+  })
+
   test("a wire is kept across scans, read before its definition the previous scan's value, by the path __nw<N>_<wire>", () => {
     const r = runner("a, b, x : BOOL;", "%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nx := a AND w1;\nw1 := b;\n")
     expect(trace(r, "x", [{ a: true, b: true }, { b: false }, {}])).toEqual([false, true, false])
@@ -75,13 +103,13 @@ describe("a network body lowers to what it runs", () => {
   })
 
   test("an edge is an edge detector __nw<N>_trig<k> called on every scan, read by its Q", () => {
-    const r = runner("x, en, a : BOOL;", "%NETWORK\nx := en AND R_EDGE(a);\n", TRIGS)
+    const r = runner("x, en, a : BOOL;", "%NETWORK\nx := en AND RISING(a);\n", TRIGS)
     expect(trace(r, "x", [{ en: true, a: true }, {}, { a: false }, { a: true }])).toEqual([true, false, false, true])
     expect(r.get("__nw1_trig1.M")).toBe(true)
   })
 
   test("a falling edge's detector starts as its declaration says (F_TRIG's M := TRUE)", () => {
-    const r = runner("x, a : BOOL;", "%NETWORK\nx := F_EDGE(a);\n", TRIGS)
+    const r = runner("x, a : BOOL;", "%NETWORK\nx := FALLING(a);\n", TRIGS)
     expect(trace(r, "x", [{}, { a: true }, { a: false }])).toEqual([false, false, true])
   })
 
@@ -92,7 +120,7 @@ describe("a network body lowers to what it runs", () => {
   })
 
   test("a return on a value is the IF that takes it", () => {
-    const r = runner("a, x : BOOL; n : INT;", "%NETWORK\nRETURN(a);\n%NETWORK\nn := ADD(n, 1);\n")
+    const r = runner("a, x : BOOL; n : INT;", "%NETWORK\nRETURN := a;\n%NETWORK\nn := ADD(n, 1);\n")
     expect(trace(r, "n", [{}, { a: true }, { a: false }])).toEqual([1n, 1n, 2n])
   })
 })
@@ -110,8 +138,13 @@ describe("what the lowering refuses, by name", () => {
       ["network-box", "the enabled ADD box is read by its value other than as an assignment's whole value"],
     ]))
 
+  test("an edge mark on a pin and a mark on an output are unmeasured", () => {
+    expect(codes("a, x : BOOL;", "%NETWORK\nx := MOVE(RISING EN := a, a);\n").map(([c]) => c)).toContain("network-box")
+    expect(codes("a, x, y : BOOL;", "%NETWORK\ny := MOVE(EN := a, a, NOT OUT => x).ENO;\n").map(([c]) => c)).toContain("network-box")
+  })
+
   test("a jump, as in an ST body", () =>
-    expect(codes("a, x : BOOL;", "%NETWORK\nJMP(l1, a);\n%NETWORK\nl1:\nx := a;\n").map(([c]) => c)).toContain("stmt-jmp"))
+    expect(codes("a, x : BOOL;", "%NETWORK\nJMP.l1 := a;\n%NETWORK\nl1:\nx := a;\n").map(([c]) => c)).toContain("stmt-jmp"))
 })
 
 describe("where a network's state lives", () => {

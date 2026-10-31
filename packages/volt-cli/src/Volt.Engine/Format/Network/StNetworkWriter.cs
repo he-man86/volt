@@ -21,10 +21,10 @@ namespace Volt.Engine.Format.Network;
 /// // runs while auto is on
 /// l1:
 /// w3 := start AND NOT stop;
-/// lamp := t1(IN := w3, PT := T#1S).Q;
+/// lamp := t1(NOT IN := w3, PT := T#1S).Q;
 /// done := MOVE(EN := MOVE(EN := w3, 1, OUT => x).ENO, 2, OUT => y).ENO;
-/// hot := GT(temp, 80);
-/// JMP(l1, a);
+/// NOT hot := GT(temp, 80);
+/// JMP.l1 := a;
 /// </code>
 ///
 /// <para><b>Contacts.</b> An AND/OR box is a contact when the IDE stores it with no output (its <c>OutputParam.Names</c>
@@ -44,17 +44,18 @@ namespace Volt.Engine.Format.Network;
 /// definition too (the value it held). Every wire is declared at its network's start, <c>VAR_TEMP w1 : ANY; END_VAR</c> (its
 /// type its definition's), so the text alone says what is a wire.</para>
 ///
-/// <para><b>The other elements</b> (3.0): the parallel branch <c>BRANCH(FEED := f, b1, b2)</c> /
-/// <c>BRANCH_SHORTCIRCUIT(…)</c>; the edge <c>R_EDGE(x)</c> / <c>F_EDGE(x)</c> on a contact or a box; the empty item
-/// <c>;</c>; the Execute box <c>EXECUTE(EN := e, CODE := '&lt;ST&gt;')</c>, its ST a string with its line breaks as they stand
+/// <para><b>The other elements</b>: the parallel branch <c>BRANCH(FEED := f, b1, b2)</c> / <c>BRANCH_SHORTCIRCUIT(…)</c>; the
+/// rail <c>RAIL()</c> (a Terminator, in every value slot); the empty item <c>;</c>; the Execute box
+/// <c>EXECUTE(EN := e, '&lt;ST&gt;')</c>, its ST a string with its line breaks as they stand
 /// (<see cref="NetworkSpelling.EscapeCode"/>), its one output its ENO.</para>
 ///
-/// <para><b>Stored members</b> (design "Stored members, not spelled") are written as their spelling, and read back as it:
-/// a negation on a pin, a coil, an EN or a box output as <c>NOT</c> on the value; an edge on a pin or an EN as the edge on
-/// its value; the rail (Terminator) as <c>TRUE</c>, and as the empty item; an edge flag on a coil dropped; an extra output
-/// slot to <c>???</c> dropped; an operand holding an ST expression as that expression; TwinCAT's unconditional jump (its
-/// empty operand) as <c>JMP l;</c>. A shape with no spelling throws <see cref="StNetworkUnspellableException"/>, naming
-/// it; a pull shows such a network as <c>%UNSUPPORTED "&lt;shape&gt;" #&lt;hash&gt;</c> (<see cref="WritePulled"/>).</para>
+/// <para><b>Marks</b> (openspec network-rail-and-pin-negation): a flag is written where the model holds it. On a value:
+/// <c>NOT a</c> (a contact's negation, or a box read where it stands, <c>NOT t1(…).Q</c>), <c>RISING(a)</c>,
+/// <c>FALLING(a)</c>. On a receiver, the same words before it: a pin or EN (<c>t1(NOT IN := a)</c>), an output
+/// (<c>NOT Q =&gt; x</c>), a coil (<c>RISING y := a;</c>). Stacked, the edge stands outside the negation (the IDE negates
+/// first, N17). A jump and a return are targets of the item: <c>JMP.l := v;</c>, <c>RETURN := v;</c>, <c>y := JMP.l := v;</c>.
+/// A shape with no spelling throws <see cref="StNetworkUnspellableException"/>, naming it; a pull shows such a network as
+/// <c>%UNSUPPORTED "&lt;shape&gt;" #&lt;hash&gt;</c> (<see cref="WritePulled"/>).</para>
 /// </summary>
 public static class StNetworkWriter
 {
@@ -112,24 +113,25 @@ public static class StNetworkWriter
 
     public const string FeedPin = "FEED";
 
-    /// <summary>The edge on a contact or on a box's output (the vendor's <c>Rtrig</c>/<c>Ftrig</c> flag): <c>R_EDGE(x)</c>,
-    /// <c>F_EDGE(x)</c>; <c>R_EDGE(NOT x)</c> the edge of the negated contact (the IDE negates first, N17).</summary>
-    public const string RisingHead = "R_EDGE";
+    /// <summary>The edge mark (the vendor's <c>Rtrig</c>/<c>Ftrig</c> flag): on a value the call <c>RISING(x)</c> /
+    /// <c>FALLING(x)</c>, <c>RISING(NOT x)</c> the edge of the negated contact (the IDE negates first, N17); before a
+    /// receiver the word (<c>RISING IN := x</c>, <c>RISING y := x;</c>).</summary>
+    public const string RisingHead = "RISING";
 
-    public const string FallingHead = "F_EDGE";
+    public const string FallingHead = "FALLING";
 
-    /// <summary>The jump and the return as functions on their value (owner, 2026-10-28): <c>JMP(label, value)</c>,
-    /// <c>RETURN(value)</c>, an item or a node in a tree, the value passed on. Unconditional (on the rail): ST's own
-    /// <c>JMP label;</c> and <c>RETURN;</c>.</summary>
+    /// <summary>The rail, the vendor's <c>BoxTreeTerminator</c>: <c>RAIL()</c> wherever a value stands.</summary>
+    public const string RailHead = "RAIL";
+
+    /// <summary>A jump and the return are TARGETS of an item: <c>JMP.label := value;</c>, <c>RETURN := value;</c>, chained after
+    /// coils as the IDE stores them (<c>y := JMP.l := v;</c>).</summary>
     public const string JumpHead = "JMP";
 
     public const string ReturnHead = "RETURN";
 
-    /// <summary>The function names the text gives an element of its own (a branch, an edge): declared in reach, the text
-    /// would mean two things, and the writer refuses it by name.</summary>
-    internal static readonly string[] ElementHeads = { BranchHead, ShortCircuitHead, RisingHead, FallingHead };
-
-    internal const string True = "TRUE";
+    /// <summary>The function names the text gives an element of its own (a branch, an edge, the rail): declared in reach, the
+    /// text would mean two things, and the writer refuses it by name.</summary>
+    internal static readonly string[] ElementHeads = { BranchHead, ShortCircuitHead, RisingHead, FallingHead, RailHead };
 
     internal const string NetworkLine = "%NETWORK";
     internal const string DisabledLine = "%DISABLED";
@@ -140,11 +142,9 @@ public static class StNetworkWriter
     internal const string WiresClose = "END_VAR";
 
     internal const string WireType = "ANY";
-    /// <summary>The Execute box (openspec network-output-member 2.6): <c>EXECUTE(EN := e, CODE := '&lt;ST&gt;')</c>, a call like
-    /// every box, its ST the string input <c>CODE</c>, its one output its ENO (by type).</summary>
+    /// <summary>The Execute box: <c>EXECUTE(EN := e, '&lt;ST&gt;')</c>, a call like every box, its ST one string, its one
+    /// output its ENO (by type).</summary>
     public const string ExecuteHead = NetworkSpelling.ExecuteType;
-
-    public const string CodePin = "CODE";
     internal static string UnsupportedLine => "%" + NetworkSpelling.UnsupportedWord;
 
     /// <summary>The contact operators: infix <c>AND</c> / <c>OR</c>, an unbracketed chain of one being ONE box.</summary>
@@ -175,31 +175,32 @@ public static class StNetworkWriter
     // The round-trip oracle (test/shared/StNetworkOracle.cs) states each of these stored members by the same RULE, in its own
     // code: a canonical form shared by code would make the oracle agree with the writer by construction.
 
-    /// <summary>The NOT a negation is written as: a plain leaf negated, anything else under a NOT box.</summary>
-    private static Node Negate(Node n) => n switch
+    /// <summary>THE MARKS BEFORE A RECEIVER (a pin, EN, an output, a coil), outermost first: the edge, then <c>NOT</c> — the
+    /// order the IDE applies them in, negation first (N17). Any other bit there has no mark.</summary>
+    internal static string Marks(Flags f, string where)
     {
-        Terminator t => Negate(new Leaf(new Operand(True), t.Flags)),
-        Leaf { Flags: { Negated: false, Rising: false, Falling: false } } l => l with { Flags = l.Flags with { Negated = true } },
-        _ => NotBox(n),
-    };
+        if (f.Jump || f.Return) throw Unspellable("a jump or return flag on a receiver", $"{where} carries {Describe(f)}.");
+        if (f.Rising && f.Falling) throw Unspellable("a rising and falling edge on one node", $"{where} carries both edges.");
+        return (f.Rising ? RisingHead + " " : f.Falling ? FallingHead + " " : "") + (f.Negated ? "NOT " : "");
+    }
 
+    /// <summary>THE CHAIN RULE: every target of one item receives the rung's power flow unchanged and applies its own mark
+    /// (measured, CODESYS 3.5.21.40, 2026-10-31: <c>NOT x := y := a</c> and <c>y := NOT x := a</c> both run x = FALSE,
+    /// y = TRUE for a = TRUE), while a chained assignment hands its value on. The two agree only where a marked coil is the
+    /// outermost target (written first), so a mark on any other coil of a chain is refused by name.</summary>
+    public static void RequireChainMarks(IReadOnlyList<Operand> targets, Func<string, Exception> refuse)
+    {
+        for (var k = 1; k < targets.Count; k++)
+            if (targets[k].Flags is { } f && (f.Negated || f.Rising || f.Falling))
+                throw refuse($"{ChainMarkReason}: '{targets[k].Text}' carries {Describe(f)} and is not the first target of its chain; " +
+                             "every target receives the rung's power flow, and a chained assignment would hand the marked value on");
+    }
+
+    public const string ChainMarkReason = "a marked coil inside a chain";
+
+    /// <summary>The NOT box over <paramref name="n"/>.</summary>
     public static Box NotBox(Node n) =>
         new(NetworkSpelling.NotBox, null, CallKind.Operator, new[] { new Input(null, n, Flags.None) }, Array.Empty<Output>(), null, null, Flags.None);
-
-    /// <summary>An edge flag carried onto the node it is spelled on (<c>R_EDGE(x)</c>): a leaf, a box read where it stands,
-    /// the rail as <c>TRUE</c>; an edge on a pin or on EN is a stored member spelled as the edge of its value. Any other node
-    /// (a wire, a branch, a node already carrying an edge) has no spelling.</summary>
-    private static Node Edge(Node n, Flags edge, string where)
-    {
-        var bits = Flags.None with { Rising = edge.Rising, Falling = edge.Falling };
-        return n switch
-        {
-            Terminator t => Edge(new Leaf(new Operand(True), t.Flags), edge, where),
-            Leaf { Flags: { Rising: false, Falling: false } } l => l with { Flags = l.Flags with { Rising = bits.Rising, Falling = bits.Falling } },
-            Box { Flags: { Rising: false, Falling: false } } b => b with { Flags = b.Flags with { Rising = bits.Rising, Falling = bits.Falling } },
-            _ => throw Unspellable("an edge on a wire, a branch or an edge", $"{where} carries {Describe(bits)} over a {n.GetType().Name}."),
-        };
-    }
 
     internal static string Describe(Flags f) =>
         string.Join("+", new[] { f.Negated ? "negation" : null, f.Set ? "set" : null, f.Reset ? "reset" : null, f.Jump ? "jump" : null,
@@ -420,12 +421,11 @@ public static class StNetworkWriter
                     if (!b.Flags.IsNone)
                         throw Unspellable("a modifier on a box at the root", $"the '{b.Type}' box at the root carries {Describe(b.Flags)}.");
                     return Call(b, consumed: false) + ";";
-                // The empty item is ST's empty statement: the empty operand CODESYS stores, and the rail a stored member.
+                // The empty item is ST's empty statement: the empty operand CODESYS stores.
                 case Leaf { Operand.Text.Length: 0, Flags.IsNone: true }:
-                case Terminator { Flags.IsNone: true }:
                     return ";";
                 case Terminator:
-                    throw Unspellable("a modifier on an empty item", "an item holding only the rail carries a modifier.");
+                    throw Unspellable("a rail-only item", "an item that is the rail alone, with no target.");
                 case Leaf:
                     throw Unspellable("a lone leaf item", "an item that is a lone operand: ST has no expression statement.");
                 case Parallel:
@@ -435,111 +435,46 @@ public static class StNetworkWriter
             }
         }
 
-        private string AssignItem(Assign a)
+        private string AssignItem(Assign a) => AssignText(a) + ";";
+
+        /// <summary>ONE TARGET with its operator: a coil (its marks, its operand, <c>:=</c> / <c>S=</c> / <c>R=</c>), a jump
+        /// <c>JMP.label :=</c>, the return <c>RETURN :=</c>.</summary>
+        private static string TargetText(Operand t)
         {
-            if (!a.Targets.Any(IsControl)) return AssignText(a) + ";";
-            if (a.Targets.Count == 1)
+            var f = t.Flags ?? Flags.None;
+            if (f.Jump || f.Return)
             {
-                // Unconditional: the rail CODESYS stores, or the empty operand TwinCAT stores (a stored member).
-                if (a.Value is Terminator { Flags.IsNone: true } or Leaf { Operand.Text.Length: 0, Flags.IsNone: true })
-                    return a.Targets[0].Flags!.Jump ? "JMP " + Label(a.Targets[0]) + ";" : ReturnTarget(a.Targets[0]) + "RETURN;";
-                return Control(a.Targets[0].Flags!.Jump, a.Targets[0], Expr(a.Value, 0)) + ";";
+                if (f.Jump && f.Return) throw Unspellable("a jump and a return on one target", $"the target '{t.Text}' carries {Describe(f)}.");
+                if (f.Set || f.Reset || f.Negated || f.Rising || f.Falling)
+                    throw Unspellable("a mark on a jump or a return", $"the target '{t.Text}' carries {Describe(f)}.");
+                if (f.Return)
+                {
+                    if (t.Text != Box.UnnamedInstance) throw Unspellable("a return with a named target", t.Text);
+                    return ReturnHead + " := ";
+                }
+                if (!NetworkSpelling.Identifier.IsMatch(t.Text) || StNetworkReader.IsKeyword(t.Text))
+                    throw Unspellable("a jump with no label", $"a jump to '{t.Text}'.");
+                return JumpHead + "." + t.Text + " := ";
             }
-            // A COIL OR A JUMP SHARING ITS VALUE WITH A JUMP (owner, 2026-10-28: `lamp := c; JMP(done, c);`): one item per
-            // target, each on the value — a stored member: the coils first, then the jumps, as a rung writes its coils
-            // before it jumps (TwinCAT's drawn rung stores its jump first, `TcDrawnJumpTests`).
-            var coils = a.Targets.Where(t => !IsControl(t)).ToList();
-            var controls = a.Targets.Where(IsControl).ToList();
-            if (!Repeatable(a.Value))
-                throw Unspellable("a jump sharing a value that holds a box", "a jump shares its value with other targets, and the value holds a box, a wire or an edge, which the text cannot repeat.");
-            // The stored rung evaluates its value once; a repeated value reading a variable a coil of the rung writes would
-            // read the written variable instead (`a := NOT a; JMP(skip, NOT a);` jumps on the inverse).
-            var written = new HashSet<string>(coils.Select(t => BaseName(t.Text)), StringComparer.OrdinalIgnoreCase);
-            if (Reads(a.Value, written))
-                throw Unspellable("a jump sharing a value that reads a variable its own coil writes", "a jump shares its value with a coil, and the value reads a variable that coil writes, which the repeated value would read after the write.");
-            var items = new List<string>();
-            if (coils.Count > 0) items.Add(AssignText(a with { Targets = coils }) + ";");
-            foreach (var t in controls)
-            {
-                var value = a.Value is Terminator { Flags.IsNone: true } ? null : Expr(a.Value, 0);
-                var jump = t.Flags!.Jump;
-                items.Add(value is null ? (jump ? "JMP " + Label(t) + ";" : ReturnTarget(t) + "RETURN;") : Control(jump, t, value) + ";");
-            }
-            return string.Join("\n", items);
+            if (f.Negated && (f.Set || f.Reset))
+                throw Unspellable("a negated set or reset coil", $"the coil '{t.Text}' carries {Describe(f)}.");
+            return Marks(f with { Negated = f.Negated && !f.Reset, Set = false, Reset = false }, $"the coil '{t.Text}'") +
+                   Target(t.Text) + (f.Reset ? " R= " : f.Set ? " S= " : " := ");
         }
 
-        /// <summary>Whether <paramref name="n"/> reads one of <paramref name="vars"/>, compared by base name (<c>s.x[i]</c> is <c>s</c>).</summary>
-        private static bool Reads(Node n, HashSet<string> vars) =>
-            n is Leaf l ? vars.Contains(BaseName(l.Operand.Text)) : n.Children().Any(c => Reads(c, vars));
-
-        private static string BaseName(string text)
-        {
-            var end = text.IndexOfAny(new[] { '.', '[' });
-            return (end < 0 ? text : text.Substring(0, end)).Trim();
-        }
-
-        private static bool IsControl(Operand t) => t.Flags is { Jump: true } or { Return: true };
-
-        /// <summary>A value the text may write twice and run the same: operands, contacts and operator boxes, no call with a
-        /// side effect or a state (an FB, a function, an Execute or enabled box, an edge), no wire definition, no coil.</summary>
-        private static bool Repeatable(Node n) => n switch
-        {
-            Terminator => true,
-            Leaf { Flags: { Rising: false, Falling: false } } => true,
-            Demux { Input: null } => true,
-            Parallel p => (p.Input is null || Repeatable(p.Input)) && p.Branches.All(Repeatable),
-            Box { Instance: null, StCode: null, Enable: null, Flags: { Rising: false, Falling: false } } b =>
-                IsKeywordOperator(b.Type) && b.Inputs.All(i => i.Flags is { Rising: false, Falling: false } && Repeatable(i.Value)),
-            _ => false,
-        };
-
-        /// <summary><c>JMP(label, value)</c> / <c>RETURN(value)</c>: the jump and the return as functions on their value
-        /// (owner, 2026-10-28), an item or a node in a tree.</summary>
-        private string Control(bool jump, Operand target, string value)
-        {
-            if (jump) return JumpHead + "(" + Label(target) + ", " + value + ")";
-            ReturnTarget(target);
-            return ReturnHead + "(" + value + ")";
-        }
-
-        private static string Label(Operand t)
-        {
-            if (!NetworkSpelling.Identifier.IsMatch(t.Text)) throw Unspellable("a jump with no label", $"a jump to '{t.Text}'.");
-            if (t.Flags is { Set: true } or { Reset: true } or { Negated: true } or { Rising: true } or { Falling: true })
-                throw Unspellable("a coil modifier on a jump", $"the jump to '{t.Text}' carries {Describe(t.Flags!)}.");
-            return t.Text;
-        }
-
-        /// <summary>A return's target is the vendor's empty one (<c>???</c>); its text is nothing.</summary>
-        private static string ReturnTarget(Operand t)
-        {
-            if (t.Text != Box.UnnamedInstance) throw Unspellable("a return with a named target", t.Text);
-            if (t.Flags is { Set: true } or { Reset: true } or { Negated: true } or { Rising: true } or { Falling: true })
-                throw Unspellable("a coil modifier on a jump", $"the return carries {Describe(t.Flags!)}.");
-            return "";
-        }
-
-        /// <summary><c>t1 := t2 S= value</c>; a negated coil negates its value, an edge coil is a plain coil (stored members).</summary>
+        /// <summary><c>t1 := JMP.l := t2 S= value</c>: the targets in stored order, the value written once.</summary>
         private string AssignText(Assign a)
         {
             if (a.Targets.Count == 0) throw Unspellable("an assignment with no target", "an Assign item holding no target.");
             var value = a.Value;
-            if (a.Targets.Any(t => t.Flags is { Negated: true, Reset: false }))
-            {
-                if (a.Targets.Count > 1) throw Unspellable("a negated coil among several", "a negated coil beside other coils on one value.");
-                value = Negate(value);
-            }
+            RequireChainMarks(a.Targets, reason => Unspellable(ChainMarkReason, reason));
             var sb = new StringBuilder();
-            foreach (var t in a.Targets)
-            {
-                var f = t.Flags ?? Flags.None;
-                if (f.Jump || f.Return) throw Unspellable("a jump among coils", "a jump or return target beside a coil.");
-                sb.Append(Target(t.Text)).Append(f.Reset ? " R= " : f.Set ? " S= " : " := ");
-            }
+            foreach (var t in a.Targets) sb.Append(TargetText(t));
             if (value is Leaf { Operand.Text.Length: 0 })
                 throw Unspellable("an empty operand as a coil value", "a coil is driven by an operand holding no text.");
             var outer = _coilValue;
-            _coilValue = value;
+            // A jump's or a return's value is no coil's (1.4).
+            _coilValue = a.Targets.Any(t => t.Flags is { Jump: true } or { Return: true }) ? null : value;
             sb.Append(Expr(value, 0));
             _coilValue = outer;
             return sb.ToString();
@@ -552,7 +487,10 @@ public static class StNetworkWriter
         {
             switch (n)
             {
-                case Terminator t: return Expr(new Leaf(new Operand(True), t.Flags), parent);
+                case Terminator t:
+                    if (!t.Flags.IsNone) throw Unspellable("a modifier on the rail", $"the rail carries {Describe(t.Flags)}.");
+                    RequireElementHead(RailHead);
+                    return RailHead + "()";
                 case Leaf { Flags: { Rising: true } or { Falling: true } } edged:
                     return EdgeCall(edged.Flags, Expr(edged with { Flags = edged.Flags with { Rising = false, Falling = false } }, 0));
                 case Leaf l:
@@ -561,7 +499,12 @@ public static class StNetworkWriter
                         throw Unspellable("a coil flag on an operand", $"the operand '{l.Operand.Text}' carries {Describe(l.Flags)}.");
                     // An operand holding an ST expression an engineer typed into it is written as the boxes it reads as (a
                     // stored member: it runs the same, gap probe 911876691e), so the text is one text whichever it came from.
-                    if (OperandExpression(l.Operand.Text) is { } tree) return Expr(l.Flags.Negated ? Negate(tree) : tree, parent);
+                    if (OperandExpression(l.Operand.Text) is { } tree)
+                    {
+                        if (!l.Flags.Negated) return Expr(tree, parent);
+                        // NOT before an expression's tree: a box takes the mark, anything else is under a NOT box.
+                        return Expr(tree is Box { Flags.IsNone: true } tb && !IsContact(tb) ? tb with { Flags = Flags.None with { Negated = true } } : NotBox(tree), parent);
+                    }
                     var atom = Operand(l.Operand.Text);
                     return l.Flags.Negated ? Bracket("NOT " + atom, 9, parent) : atom;
                 }
@@ -577,12 +520,6 @@ public static class StNetworkWriter
                     var wire = Define(d.VarId);
                     return "(" + wire + " := " + Expr(d.Input!, 0) + ")";
                 }
-                case Assign a when a.Targets.Any(IsControl):
-                    // A jump or return inside a tree: the function on its value (owner, 2026-10-28), its value passed on.
-                    if (a.Targets.Count != 1) throw Unspellable("a jump among coils inside a tree", "a jump or return nested in a tree beside another target.");
-                    if (a.Value is Terminator or Leaf { Operand.Text.Length: 0 })
-                        throw Unspellable("a jump on the rail inside a tree", "a jump or return nested in a tree takes no value.");
-                    return Control(a.Targets[0].Flags!.Jump, a.Targets[0], Expr(a.Value, 0));
                 case Assign a:
                     return "(" + AssignText(a) + ")";
                 case Parallel p:
@@ -599,15 +536,23 @@ public static class StNetworkWriter
                 case Box b:
                 {
                     if (IsEnabledValueBox(b)) RequireCoilValue(n, $"the '{b.Type}' box");
-                    // A negated output is a NOT box over the box (a stored member); the IDE negates before the edge (N17).
-                    if (b.Flags.Negated)
-                        return Expr(NotBox(b with { Flags = Flags.None }) with { Flags = b.Flags with { Negated = false } }, parent);
+                    // An edge stands outside the negation (the IDE negates first, N17): RISING(NOT t1(…).Q).
                     if (b.Flags.Rising || b.Flags.Falling)
                         return EdgeCall(b.Flags, Expr(b with { Flags = b.Flags with { Rising = false, Falling = false } }, 0));
+                    if (b.Flags.Jump || b.Flags.Return || b.Flags.Set || b.Flags.Reset)
+                        throw Unspellable("a coil flag on a box", $"the '{b.Type}' box carries {Describe(b.Flags)}.");
+                    if (b.Flags.Negated)
+                    {
+                        // The value mark NOT on the box read where it stands; a contact group has none (`NOT (a AND b)` is
+                        // the NOT box).
+                        var plain = b with { Flags = Flags.None };
+                        if (IsContact(plain)) throw Unspellable("a negated contact group", $"the '{b.Type}' contacts carry a negation of their own.");
+                        return Bracket("NOT " + Expr(plain, 9), 9, parent);
+                    }
                     if (IsContact(b))
                     {
                         var prec = Precedence(b.Type);
-                        var parts = b.Inputs.Select(p => Expr(PinValue(b, p), prec));
+                        var parts = b.Inputs.Select(p => Expr(p.Value, prec));
                         return Bracket(string.Join(" " + b.Type + " ", parts), prec, parent);
                     }
                     return Call(b, consumed: true);
@@ -616,7 +561,7 @@ public static class StNetworkWriter
             }
         }
 
-        /// <summary><c>R_EDGE(x)</c> / <c>F_EDGE(x)</c> over the text of the node the edge is on.</summary>
+        /// <summary><c>RISING(x)</c> / <c>FALLING(x)</c> over the text of the node the edge is on.</summary>
         private string EdgeCall(Flags f, string inner)
         {
             if (f.Rising && f.Falling) throw Unspellable("a rising and falling edge on one node", "a node carries both edges.");
@@ -633,14 +578,11 @@ public static class StNetworkWriter
 
         private static string Bracket(string s, int prec, int parent) => prec > parent ? s : "(" + s + ")";
 
-        /// <summary>A pin's value with its own negation and edge (stored members: the negation, then the edge, on the value,
-        /// as the IDE applies them, N17).</summary>
-        private static Node PinValue(Box b, Input p)
+        /// <summary>A pin's own marks (the vendor's <c>InputFlags</c>), written before its formal.</summary>
+        private static string PinMarks(Box b, string? formal, Flags f)
         {
-            if (p.Flags.Set || p.Flags.Reset || p.Flags.Jump || p.Flags.Return)
-                throw Unspellable("a coil flag on a pin", $"the '{b.Type}' box's pin '{p.Formal}' carries {Describe(p.Flags)}.");
-            var v = p.Flags.Negated ? Negate(p.Value) : p.Value;
-            return p.Flags.Rising || p.Flags.Falling ? Edge(v, p.Flags, $"the '{b.Type}' box's pin '{p.Formal}'") : v;
+            if (f.Set || f.Reset) throw Unspellable("a coil flag on a pin", $"the '{b.Type}' box's pin '{formal}' carries {Describe(f)}.");
+            return Marks(f, $"the '{b.Type}' box's pin '{formal}'");
         }
 
         /// <summary>The Execute box: a box whose call is raw ST.</summary>
@@ -650,7 +592,7 @@ public static class StNetworkWriter
         /// no pin of its own; with no stored names, any AND/OR in LD (FBD's toolbox has no contacts).</summary>
         private bool IsContact(Box b) =>
             Contacts.Contains(b.Type) && b.Instance is null && b.Enable is null && b.StCode is null && b.Outputs.Count == 0 &&
-            b.Inputs.Count >= 2 && b.Inputs.All(p => p.Flags.IsNone || p.Flags.Negated) &&
+            b.Inputs.Count >= 2 && b.Inputs.All(p => p.Flags.IsNone) &&
             b.Inputs.Select((p, i) => NetworkSpelling.IsDefaultFormal(b.Type, i, p.Formal)).All(x => x) &&
             (b.Members?[NetworkMembers.OutputNames] is { } names ? names.AsTexts.Count == 0 : _language == BodyLanguage.Ld);
 
@@ -728,13 +670,7 @@ public static class StNetworkWriter
         private List<string> Args(Box b, CalleeSignature? signature = null)
         {
             var args = new List<string>();
-            if (b.Enable is { } en)
-            {
-                // A negation or an edge on the EN pin is a stored member: spelled on the value feeding it.
-                var value = b.EnableFlags.Negated ? Negate(en) : en;
-                if (b.EnableFlags.Rising || b.EnableFlags.Falling) value = Edge(value, b.EnableFlags, $"the '{b.Type}' box's EN");
-                args.Add(Box.EnablePin + " := " + Expr(value, 0));
-            }
+            if (b.Enable is { } en) args.Add(PinMarks(b, Box.EnablePin, b.EnableFlags) + Box.EnablePin + " := " + Expr(en, 0));
             var op = NetworkSpelling.IsOperatorBox(b.Type);
             for (var i = 0; i < b.Inputs.Count; i++)
             {
@@ -748,8 +684,13 @@ public static class StNetworkWriter
                     if (b.Instance is not null && p.Formal is not null && empty.Flags.IsNone && p.Flags.IsNone) continue;
                     throw Unspellable("an empty operand on a pin", $"the '{b.Type}' box's pin {p.Formal ?? "#" + i.ToString(CultureInfo.InvariantCulture)} holds an empty operand (an unconnected input), measured only on an FB's named pin.");
                 }
-                var value = Expr(PinValue(b, p), 0);
-                var positional = p.Formal is null || op && NetworkSpelling.IsDefaultFormal(b.Type, i, p.Formal);
+                var value = Expr(p.Value, 0);
+                // A marked pin is written by its formal, which the mark stands before: an operator's pin by its default
+                // formal where the IDE stores none (`AND(NOT IN2 := a, b)`).
+                var positional = p.Flags.IsNone && (p.Formal is null || op && NetworkSpelling.IsDefaultFormal(b.Type, i, p.Formal));
+                var formal = p.Formal ?? (p.Flags.IsNone ? null : NetworkSpelling.DefaultFormal(b.Type, i));
+                if (!positional && formal is null)
+                    throw Unspellable("a mark on a pin with no name", $"the '{b.Type}' box's pin #{i.ToString(CultureInfo.InvariantCulture)} carries {Describe(p.Flags)} and has no formal to stand before.");
                 if (!positional && string.Equals(p.Formal, Box.EnablePin, StringComparison.OrdinalIgnoreCase))
                 {
                     if (b.Enable is not null)
@@ -758,15 +699,14 @@ public static class StNetworkWriter
                     if (signature is { DeclaresEn: false })
                         throw Unspellable("a pin named EN its callee does not declare", $"the '{b.Type}' box has an input named EN, and '{b.Type}' declares none.");
                 }
-                args.Add(positional ? value : Name(p.Formal!) + " := " + value);
+                args.Add(positional ? value : PinMarks(b, formal, p.Flags) + Name(formal!) + " := " + value);
             }
             var eno = b.HasEnoOutput ? 0 : (int?)null;
             var connected = b.ConnectedSlot;
             var next = 0;
             foreach (var o in b.Outputs)
             {
-                if (o.Value.Flags is { IsNone: false } of)
-                    throw Unspellable("a modifier on an output pin", $"the '{b.Type}' box's output to '{o.Value.Text}' carries {Describe(of)}.");
+                var marks = o.Value.Flags is { } of ? PinMarks(b, o.Formal ?? ResultPin, of) : "";
                 if (o.Formal is { } f)
                 {
                     if (b.Instance is null && string.Equals(f, ResultPin, StringComparison.OrdinalIgnoreCase))
@@ -774,24 +714,24 @@ public static class StNetworkWriter
                     // `ENO => v` is a target of the shown ENO wherever the callee declares no ENO.
                     if (!b.HasEnoOutput && signature is { DeclaresEno: false } && string.Equals(f, Box.EnoPin, StringComparison.OrdinalIgnoreCase))
                         throw Unspellable("an ENO output on a box showing no ENO", $"the '{b.Type}' box wires an output ENO, shows no ENO, and '{b.Type}' declares none.");
-                    args.Add(Name(f) + " => " + Target(o.Value.Text));
+                    args.Add(marks + Name(f) + " => " + Target(o.Value.Text));
                     continue;
                 }
-                if (o.Value.Text == Box.UnnamedInstance) continue;   // an extra slot past the names (stored member)
+                if (o.Value.Text == Box.UnnamedInstance && marks.Length == 0) continue;   // an extra slot past the names (stored member)
                 // Each `OUT =>` is the next unnamed output slot: ENO and the slot a consumer reads are skipped.
                 next = NetworkSpelling.NextFreeSlot(next, eno, connected);
                 if (o.Slot != next)
                     throw Unspellable("an unnamed output by an unspellable slot",
                         $"the '{b.Type}' box wires its unnamed output slot {o.Slot?.ToString(CultureInfo.InvariantCulture) ?? "(none)"} to '{o.Value.Text}'; the next OUT is slot {next}.");
-                args.Add(ResultPin + " => " + Target(o.Value.Text));
+                args.Add(marks + ResultPin + " => " + Target(o.Value.Text));
                 next++;
             }
             return args;
         }
 
-        /// <summary>THE EXECUTE BOX (openspec network-output-member 2.6): <c>EXECUTE(EN := e, CODE := '&lt;ST&gt;')</c>, a call like
-        /// every box, its ST the string input <c>CODE</c> with its line breaks as they stand, its one output its ENO — read
-        /// through it where consumed, so no member closes the call.</summary>
+        /// <summary>THE EXECUTE BOX: <c>EXECUTE(EN := e, '&lt;ST&gt;')</c>, a call like every box, its ST one string with its
+        /// line breaks as they stand, its one output its ENO — read through it where consumed, so no member closes the
+        /// call.</summary>
         private string ExecuteCall(Box b, bool consumed)
         {
             if (!b.Flags.IsNone) throw Unspellable("a modifier on an Execute box output", $"the '{b.Type}' box carries {Describe(b.Flags)}.");
@@ -803,7 +743,7 @@ public static class StNetworkWriter
             var st = b.StCode!.Replace("\r\n", "\n");
             if (st.IndexOf('\r') >= 0) throw Unspellable("an Execute box's ST holding a lone carriage return", "a line of the Execute box's ST ends in a carriage return.");
             var args = Args(b);
-            args.Add(CodePin + " := '" + NetworkSpelling.EscapeCode(st) + "'");
+            args.Add("'" + NetworkSpelling.EscapeCode(st) + "'");
             return ExecuteHead + "(" + string.Join(", ", args) + ")";
         }
 

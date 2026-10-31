@@ -52,10 +52,11 @@ export function resolveBareName(scope: Scope, name: string): BareName {
 }
 
 /** The text's own elements, each a function returning BOOL: the parallel branch (`BRANCH(FEED := f, b1, b2)`, one per
- *  mode) and the edge on a contact or a box (`R_EDGE(x)`, `F_EDGE(x)`). */
-export const NETWORK_ELEMENTS: ReadonlySet<string> = new Set(["BRANCH", "BRANCH_SHORTCIRCUIT", "R_EDGE", "F_EDGE"])
+ *  mode), the edge on a contact or a box (`RISING(x)`, `FALLING(x)`) and the rail (`RAIL()`). */
+export const NETWORK_ELEMENTS: ReadonlySet<string> = new Set(["BRANCH", "BRANCH_SHORTCIRCUIT", "RISING", "FALLING", "RAIL"])
 
-/** The jump and the return on a value, in a tree (`JMP(label, value)`, `RETURN(value)`): each hands its value on. */
+/** The jump and the return in a tree (`(JMP.l := v)`, read as the call `JMP(l, v)` / `RETURN(v)`,
+ *  `network/plain-st.ts`): each hands its value on. */
 export const NETWORK_CONTROLS: ReadonlySet<string> = new Set(["JMP", "RETURN"])
 
 /**

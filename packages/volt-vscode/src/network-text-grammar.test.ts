@@ -46,10 +46,11 @@ test("the % lines of a network are its keywords; a title is a string", () => {
 
 test("a box's head is coloured where its call opens; the same word as a contact or a name is not", () => {
 	const words = rule("keyword.operator.word.network-text")
-	expect(matches(words, "x := ADD(a, b); y := BRANCH_SHORTCIRCUIT(FEED := c, a, b); z := R_EDGE(c); q := a AND b; EXECUTE(CODE := 'n := 1;');")).toEqual([
+	expect(matches(words, "x := ADD(a, b); y := BRANCH_SHORTCIRCUIT(FEED := c, a, b); z := RISING(c); r := RAIL(); q := a AND b; EXECUTE('n := 1;');")).toEqual([
 		"ADD",
 		"BRANCH_SHORTCIRCUIT",
-		"R_EDGE",
+		"RISING",
+		"RAIL",
 		"EXECUTE",
 	])
 	expect(matches(words, "s.ADD(a); xADD(a);")).toEqual([])

@@ -2,7 +2,7 @@
 === text
 %LANGUAGE LD
 %NETWORK
-EXECUTE(CODE := 'x := 1;');
+EXECUTE('x := 1;');
 === model
 NETWORK
   (EXECUTE "x := 1;")
@@ -11,7 +11,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-EXECUTE(EN := TRUE, CODE := 'iCount:=icount+1;
+EXECUTE(EN := TRUE, 'iCount:=icount+1;
 ');
 === model
 NETWORK
@@ -21,7 +21,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-done := EXECUTE(EN := go, CODE := 'i := i + 1;');
+done := EXECUTE(EN := go, 'i := i + 1;');
 === model
 NETWORK
   (:= done (EXECUTE "i := i + 1;" en:go conn:0))
@@ -30,7 +30,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-lamp := MOVE(EN := EXECUTE(EN := go, CODE := 'i := i + 1;'), 1, OUT => t).ENO;
+lamp := MOVE(EN := EXECUTE(EN := go, 'i := i + 1;'), 1, OUT => t).ENO;
 === model
 NETWORK
   (:= lamp (MOVE 1 =>1:t en:(EXECUTE "i := i + 1;" en:go conn:0) conn:0 eno:1))
@@ -39,8 +39,8 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-x := EXECUTE(EN := go, CODE := 'i := 1;') AND d;
-y := BRANCH(FEED := EXECUTE(EN := go, CODE := 'j := 1;'), d, e);
+x := EXECUTE(EN := go, 'i := 1;') AND d;
+y := BRANCH(FEED := EXECUTE(EN := go, 'j := 1;'), d, e);
 === model
 NETWORK
   (:= x (AND (EXECUTE "i := 1;" en:go conn:0) d))
@@ -51,7 +51,7 @@ NETWORK
 %LANGUAGE LD
 %NETWORK
 VAR_TEMP w1 : ANY; END_VAR
-w1 := EXECUTE(EN := go, CODE := 'i := 1;');
+w1 := EXECUTE(EN := go, 'i := 1;');
 x := w1;
 y := w1 AND d;
 === model
@@ -64,7 +64,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-EXECUTE(CODE := 's := $'a$$Nb$'; // `x`');
+EXECUTE('s := $'a$$Nb$'; // `x`');
 === model
 NETWORK
   (EXECUTE "s := 'a$Nb'; // `x`")
@@ -73,7 +73,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-EXECUTE(EN := go, CODE := '// count
+EXECUTE(EN := go, '// count
 %QX0.1 := TRUE;
 	n := n + 1;');
 === model
@@ -84,7 +84,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-EXECUTE(CODE := '');
+EXECUTE('');
 === model
 NETWORK
   (EXECUTE "")

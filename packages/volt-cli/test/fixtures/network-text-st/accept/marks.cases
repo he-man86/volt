@@ -1,0 +1,131 @@
+#### rail-coil — a coil on the bare rail
+=== text
+%LANGUAGE LD
+%NETWORK
+y := RAIL();
+x := TRUE;
+=== model
+NETWORK
+  (:= y _)
+  (:= x TRUE)
+
+#### rail-pin-en-wire — the rail in every value slot
+=== scope
+instance t1 TON
+=== text
+%LANGUAGE LD
+%NETWORK
+VAR_TEMP w1 : ANY; END_VAR
+w1 := RAIL();
+y := t1(IN := RAIL(), PT := T#1S).Q;
+x := MOVE(EN := RAIL(), w1, OUT => n).ENO;
+=== model
+NETWORK
+  (split 1 _)
+  (:= y (TON@t1 IN=_ PT=T#1S name:Q))
+  (:= x (MOVE #1 =>1:n en:_ conn:0 eno:1))
+
+#### value-marks — NOT, RISING and FALLING on a value; stacked, the edge outside
+=== text
+%LANGUAGE LD
+%NETWORK
+a := RISING(x);
+b := FALLING(x);
+c := RISING(NOT x);
+d := NOT x;
+=== model
+NETWORK
+  (:= a rise:x)
+  (:= b fall:x)
+  (:= c rise:not:x)
+  (:= d not:x)
+
+#### pin-marks — a mark before a pin's name is the pin's own
+=== scope
+instance t1 TON
+=== text
+%LANGUAGE FBD
+%NETWORK
+y := t1(NOT IN := a, PT := T#1S).Q;
+%NETWORK
+y := t1(RISING IN := a, PT := T#1S).Q;
+%NETWORK
+y := t1(FALLING NOT IN := a, PT := T#1S).Q;
+%NETWORK
+y := t1(IN := NOT a, PT := T#1S).Q;
+=== model
+NETWORK
+  (:= y (TON@t1 !IN=a PT=T#1S name:Q))
+NETWORK
+  (:= y (TON@t1 /IN=a PT=T#1S name:Q))
+NETWORK
+  (:= y (TON@t1 \!IN=a PT=T#1S name:Q))
+NETWORK
+  (:= y (TON@t1 IN=not:a PT=T#1S name:Q))
+
+#### en-marks — a mark before EN is the EN pin's own
+=== text
+%LANGUAGE LD
+%NETWORK
+x := MOVE(NOT EN := c, 1, OUT => n).ENO;
+x := MOVE(RISING EN := c, 2, OUT => n).ENO;
+=== model
+NETWORK
+  (:= x (MOVE 1 =>1:n !en:c conn:0 eno:1))
+  (:= x (MOVE 2 =>1:n /en:c conn:0 eno:1))
+
+#### coil-marks — a mark before a coil is the coil's own
+=== text
+%LANGUAGE LD
+%NETWORK
+NOT y := a;
+RISING y := a;
+FALLING y := a;
+RISING NOT y := a;
+RISING y S= a;
+FALLING y R= a;
+=== model
+NETWORK
+  (:= not:y a)
+  (:= rise:y a)
+  (:= fall:y a)
+  (:= rise:not:y a)
+  (:= S=rise:y a)
+  (:= R=fall:y a)
+
+#### chain-mark-outermost — a marked coil leads its chain: every target receives the power flow
+=== text
+%LANGUAGE LD
+%NETWORK
+NOT y := x := a;
+=== model
+NETWORK
+  (:= not:y x a)
+
+#### output-marks — a mark before an output's name is the output's own
+=== scope
+instance t1 TON
+=== text
+%LANGUAGE FBD
+%NETWORK
+t1(IN := a, PT := T#1S, NOT Q => x);
+t1(IN := a, PT := T#1S, RISING Q => y);
+=== model
+NETWORK
+  (TON@t1 IN=a PT=T#1S =>Q:not:x)
+  (TON@t1 IN=a PT=T#1S =>Q:rise:y)
+
+#### negated-box-output — NOT before a box read where it stands negates its output; NOT(…) is the NOT box
+=== scope
+instance t1 TON
+=== text
+%LANGUAGE FBD
+%NETWORK
+y := NOT t1(IN := a, PT := T#1S).Q;
+z := NOT AND(a, b);
+w := NOT(AND(a, b));
+=== model
+NETWORK
+  (:= y not:(TON@t1 IN=a PT=T#1S name:Q))
+  (:= z not:(AND a b))
+  (:= w (NOT (AND a b)))

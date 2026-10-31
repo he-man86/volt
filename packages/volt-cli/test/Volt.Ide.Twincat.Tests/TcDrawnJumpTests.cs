@@ -211,16 +211,15 @@ public class TcDrawnJumpTests
     }
 
     /// <summary>THE DRAWN RUNG IS A JUMP BESIDE A COIL — two targets on one terminator: the jump destination <c>owrods</c>
-    /// (<c>Flags = 4</c>) and the coil <c>out</c> (<c>Flags = 0</c>), the jump stored first. Plain-ST network text writes a
-    /// coil and a jump on one value as one item per target, the coils first (openspec network-text-st design.md "3.0", owner
-    /// 2026-10-28): here on the rail, <c>out := TRUE; JMP owrods;</c>; and a push of that text unchanged keeps the network
-    /// as the IDE holds it.</summary>
+    /// (<c>Flags = 4</c>) and the coil <c>out</c> (<c>Flags = 0</c>), the jump stored first. The jump is a target of the item
+    /// like the coil, in stored order (openspec network-rail-and-pin-negation), on the rail:
+    /// <c>JMP.owrods := out := RAIL();</c>; and a push of that text unchanged keeps the network as the IDE holds it.</summary>
     [Fact]
-    public void The_drawn_rung_is_its_coil_then_its_jump()
+    public void The_drawn_rung_is_its_jump_and_its_coil_on_the_rail()
     {
         var pulled = TcNetworkReader.Read(Impl(), BodyLanguage.Ld);
 
-        Assert.StartsWith("%LANGUAGE LD\n%NETWORK\nowrods:\nout := TRUE;\nJMP owrods;\n", TcText.Write(pulled));
+        Assert.StartsWith("%LANGUAGE LD\n%NETWORK\nowrods:\nJMP.owrods := out := RAIL();\n", TcText.Write(pulled));
         Assert.Contains("\nowrods:\n", TcText.Write(pulled));
         var nwl = XDocument.Load(Fixtures.Path("tc-pou", "drawn-refused-shapes.TcPOU"), LoadOptions.PreserveWhitespace)
             .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting);

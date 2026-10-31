@@ -119,7 +119,7 @@ w5 := w4 AND iPulseCounterElevator;
 tBool := stRePulseCounter(CLK := w5);
 tBool S= stFePulseCounter(CLK := w5);
 ADD(EN := w4 AND tBool AND (stDecendTray OR stTrayDecended OR stTiltInpusher), stActHeightElevator, 5, OUT => stActHeightElevator).ENO;
-stTrayDecended S= stDecendTray R= BRANCH_SHORTCIRCUIT(FEED := ADD(EN := MUL(EN := w3 AND stDecendTray, ioActNumberOfRows, iRowHeight, OUT => tInt).ENO, tInt, iInitialDescentValue, OUT => tInt).ENO, GE(EN := TRUE, stActHeightElevator, tInt), iPsElevatorDown);
+stTrayDecended S= stDecendTray R= BRANCH_SHORTCIRCUIT(FEED := ADD(EN := MUL(EN := w3 AND stDecendTray, ioActNumberOfRows, iRowHeight, OUT => tInt).ENO, tInt, iInitialDescentValue, OUT => tInt).ENO, GE(EN := RAIL(), stActHeightElevator, tInt), iPsElevatorDown);
 %NETWORK "TODO NETWORK 10: Condition: Tilt inpusher"
 stTiltInpusher S= stTrayDecended R= bReturnInfeedConv S= stTrayDecended;
 %NETWORK "TODO NETWORK 11: Condition: Return inpusher"
@@ -127,7 +127,7 @@ stReturnInpusher S= stTiltInpusher R= TMR_InpusherTilted(IN := stTiltInpusher, P
 %NETWORK "TODO NETWORK 12: Condition: Lower inpusher"
 stLowerInpusher S= stReturnInpusher R= bRecoverFromLightCurtainInterrupted R= LT(EN := stReturnInpusher AND iRpsInpusher, ioActNumberOfRows, iSetNumberOfRows) AND NOT iPsElevatorDown AND NOT stFaultInpusherBlocked.Q1;
 %NETWORK "TODO NETWORK 13: Condition: Move elevator down"
-stMoveElevatorDown S= stReturnInpusher R= stOutfeedConvFull R= stRestposition R= BRANCH_SHORTCIRCUIT(BRANCH_SHORTCIRCUIT(FEED := stReturnInpusher AND iRpsInpusher, GE(EN := TRUE, ioActNumberOfRows, iSetNumberOfRows), iPsElevatorDown) AND NOT stFaultInpusherBlocked.Q1 AND iMachineStarted, stOutfeedConvFull AND iGenFlags.StartFlag, TMR_DelayEmptying(IN := stRestposition AND iGenFlags.DelayAfterEmergStop AND iPsElevatorDown, PT := T#2S).Q);
+stMoveElevatorDown S= stReturnInpusher R= stOutfeedConvFull R= stRestposition R= BRANCH_SHORTCIRCUIT(BRANCH_SHORTCIRCUIT(FEED := stReturnInpusher AND iRpsInpusher, GE(EN := RAIL(), ioActNumberOfRows, iSetNumberOfRows), iPsElevatorDown) AND NOT stFaultInpusherBlocked.Q1 AND iMachineStarted, stOutfeedConvFull AND iGenFlags.StartFlag, TMR_DelayEmptying(IN := stRestposition AND iGenFlags.DelayAfterEmergStop AND iPsElevatorDown, PT := T#2S).Q);
 %NETWORK "TODO NETWORK 14: Condition: Elevator at bottom"
 stElevatorAtBottom S= stMoveElevatorDown R= stTrayFaultOutfeeding R= stElevatorAtTop R= bReturnInfeedConv S= stMoveElevatorDown AND iPsElevatorDown OR stTrayFaultOutfeeding AND iGenFlags.StartFlag OR stElevatorAtTop AND oElevatorMotorDown AND iPsElevatorDown AND iButtonTrayDown;
 %NETWORK "TODO NETWORK 15: Condition: Outfeed conveyor full"

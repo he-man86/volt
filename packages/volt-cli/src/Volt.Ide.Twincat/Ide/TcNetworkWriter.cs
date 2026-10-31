@@ -493,7 +493,7 @@ internal static class TcNetworkWriter
                 // written either way (gate 2R.5): skipped, `RETURN S= ;` reported a push and wrote a plain return.
                 var loneReturn = a.Flags.Return && a.Targets.Count <= 1;
                 return changed
-                     | WriteChild(e, "RValue", a.Value)
+                     | WriteChild(e, "RValue", RailJumpValue(e, a))
                      | (loneReturn ? false : WriteOutputs(e, a.Targets))
                      | WriteTargetBits(e, a, loneReturn);
             }
@@ -1080,6 +1080,20 @@ internal static class TcNetworkWriter
     /// <para>Only for an element that carries its own <c>t</c>. An element typed by its list's <c>cet</c> is
     /// one of a HOMOGENEOUS list (N11) and retyping it alone would make the list a mixture — the exact shape
     /// TwinCAT stores and then cannot load (openspec twincat-inproc-host, attempt 1: a <c>cet</c> on a mixed list).</para></summary>
+    /// <summary>THE VALUE AN ITEM'S RVALUE IS WRITTEN FROM: the model's, except the rail of a jump or a return the archive holds
+    /// as TwinCAT's empty operand (<see cref="TcNetworkReader.IsRailJump"/>) — that operand is the rail on TwinCAT, kept as
+    /// the IDE holds it.</summary>
+    private static Node RailJumpValue(XElement e, Assign a)
+    {
+        if (a.Value is not Terminator { Flags.IsNone: true }) return a.Value;
+        var empty = new Leaf(new Operand(""), Flags.None);
+        return TcArchive.Obj(e, "RValue") is { } rv && (string?)rv.Attribute("t") == "BoxTreeOperand" &&
+               TcArchive.Obj(rv, "Operand") is { } op && TcArchive.RequireText(op, "Operand", "an operand").Length == 0 &&
+               TcNetworkReader.IsRailJump(a.Targets, empty)
+            ? empty
+            : a.Value;
+    }
+
     private static bool SwapToTerminator(XElement e, Flags? flags)
     {
         var id = TcArchive.RequireInt(e, "Id", "an item that becomes unconnected (its id is kept)");

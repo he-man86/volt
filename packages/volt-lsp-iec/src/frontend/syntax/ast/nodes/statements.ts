@@ -35,6 +35,9 @@ export interface Assignment {
    *  `a S= b R= c` compiles in CODESYS (conformance `set_reset_chained`) — so one `op` for the whole chain is not
    *  enough, and the formatter printing that one `op` for every link silently rewrote `R=` into `S=`. */
   chainOps?: ("S=" | "R=" | "REF=" | undefined)[]
+  /** In a plain-ST network body, each target's marks (`NOT`, `RISING`, `FALLING`, outermost first), parallel to
+   *  `[target, ...chained]` (`network/plain-st.ts`). */
+  marks?: readonly (readonly string[] | undefined)[]
   span: Span
 }
 export interface CallStatement {
@@ -123,8 +126,10 @@ export interface RepeatStatement {
 }
 export interface ReturnStatement {
   kind: "return"
-  /** In a plain-ST network body, the value the return is on: `RETURN(value)` (`network/plain-st.ts`). */
+  /** In a plain-ST network body, the value the return is on: `RETURN := value;` (`network/plain-st.ts`). */
   value?: Expr
+  /** In a plain-ST network body, a return on the value of the item before it (`y := RETURN := v;`): written once. */
+  sharesValue?: true
   span: Span
 }
 export interface ExitStatement {
@@ -147,8 +152,10 @@ export interface JmpStatement {
   /** The token the vendor took for the destination where no label stands — `JMP;` takes its `;` (`rec_jmp_without_label`);
    *  `target` is then the refused placeholder. The analysis words it (`checks/flow/jump-labels`). */
   refusedDestination?: string
-  /** In a plain-ST network body, the value the jump is on: `JMP(label, value)` (`network/plain-st.ts`). */
+  /** In a plain-ST network body, the value the jump is on: `JMP.label := value;` (`network/plain-st.ts`). */
   value?: Expr
+  /** In a plain-ST network body, a jump on the value of the item before it (`y := JMP.l := v;`): written once. */
+  sharesValue?: true
   span: Span
 }
 /** A jump label `<name>:` at statement start (distinct from `:=` assignment and CASE labels). */

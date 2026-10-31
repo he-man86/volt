@@ -14,9 +14,9 @@ namespace Volt.Engine.Format.Network;
 /// FB's type, which the text deliberately does not repeat (it would bury every rung — page, "FB BoxType not
 /// written"), (3) the reserved set a wire name must not collide with, case-insensitively — the SAME set the
 /// writer renames against, or the writer's output would be refused by the reader — and (4) whether a POU or an
-/// instance takes a name the text spells a construct with (<c>R_EDGE</c>, <c>PARALLEL</c>): a variable of that
+/// instance takes a name the text spells a construct with (<c>RISING</c>, <c>BRANCH</c>): a variable of that
 /// name is harmless (an operand spelled like a word of the text is backticked), a callable one would make
-/// <c>R_EDGE(x)</c> mean two things. A reader that guessed any of these would be a reader that assumes; so the
+/// <c>RISING(x)</c> mean two things. A reader that guessed any of these would be a reader that assumes; so the
 /// scope is a required argument, and a caller that has none passes <see cref="Empty"/> and says so.</para>
 /// </summary>
 public sealed class NetworkScope
@@ -172,7 +172,7 @@ public sealed class NetworkScope
         // 1.12, spec "an FB instance that is an expression": the text cannot say which instance it is.
         //
         // And only a variable whose type can be a FUNCTION BLOCK is an instance (the LSP's `instanceFb`, the other side
-        // of the parity). Taking any variable's type, a BOOL named R_EDGE would count as a callable (every edge in its
+        // of the parity). Taking any variable's type, a BOOL named RISING would count as a callable (every edge in its
         // POU refused on push), and `k(x)` with `k : INT` would become a box of an FB named INT.
         string? InstanceType(string head)
         {

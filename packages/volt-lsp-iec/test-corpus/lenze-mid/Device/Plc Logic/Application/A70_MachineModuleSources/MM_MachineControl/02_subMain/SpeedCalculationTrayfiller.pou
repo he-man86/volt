@@ -9,7 +9,7 @@ END_VAR
 %LANGUAGE LD
 %NETWORK "NETWORK 1: Write setpoint speed in DB"
 // The speed of the trayfiller has to be higher then the speed of the dryer. In this way there is always an empty space at the startpostition of the trayfiller. 
-MOVE(EN := ADD(EN := TRUE, Mach1_Data.Drives.FeedForwardADS.Control.AutoSpeed, 30, OUT => tInt).ENO, tInt, OUT => Mach1_Data.Drives.FeedForwardATF.Control.AutoSpeed).ENO;
+MOVE(EN := ADD(EN := RAIL(), Mach1_Data.Drives.FeedForwardADS.Control.AutoSpeed, 30, OUT => tInt).ENO, tInt, OUT => Mach1_Data.Drives.FeedForwardATF.Control.AutoSpeed).ENO;
 %NETWORK "NETWORK 2: Activation + Runtime guard feed forward dryer/trayfiller"
 // Runtime calculation:
 // 1 cycle = 60s/rpm

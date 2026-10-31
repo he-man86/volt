@@ -2,7 +2,7 @@
 === text
 %LANGUAGE LD
 %NETWORK
-JMP(Done, a AND b);
+JMP.Done := a AND b;
 %NETWORK
 Done:
 x := TRUE;
@@ -16,7 +16,7 @@ NETWORK label:Done
 === text
 %LANGUAGE LD
 %NETWORK
-JMP Done;
+JMP.Done := RAIL();
 %NETWORK
 Done:
 x := TRUE;
@@ -30,7 +30,7 @@ NETWORK label:Done
 === text
 %LANGUAGE LD
 %NETWORK
-RETURN(NOT xReady);
+RETURN := NOT xReady;
 === model
 NETWORK
   (ret not:xReady)
@@ -39,37 +39,47 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-RETURN;
+RETURN := RAIL();
 === model
 NETWORK
   (ret _)
 
-#### coil-and-jump — a coil and a jump on one value: one item per target, the coil first
+#### coil-and-jump — coils, a jump and the return on one value: one item, its targets in stored order
 === text
 %LANGUAGE LD
 %NETWORK
-x1 := c;
-JMP(Done, c);
-x2 := c;
-RETURN(c);
+x1 := JMP.Done := x2 := RETURN := c;
 %NETWORK
 Done:
 x := TRUE;
 === model
 NETWORK
-  (:= x1 c)
-  (jmp Done c)
-  (:= x2 c)
-  (ret c)
+  (:= x1 jmp:Done x2 ret c)
 NETWORK label:Done
   (:= x TRUE)
+
+#### coil-and-jump-on-a-box — the value is written once, whatever it holds
+=== scope
+instance t1 TON
+=== text
+%LANGUAGE LD
+%NETWORK
+y := JMP.Done := t1(IN := c, PT := T#1S).Q;
+%NETWORK
+Done:
+x := RAIL();
+=== model
+NETWORK
+  (:= y jmp:Done (TON@t1 IN=c PT=T#1S name:Q))
+NETWORK label:Done
+  (:= x _)
 
 #### two-jumps — two jumps on one value: one item per jump
 === text
 %LANGUAGE LD
 %NETWORK
-JMP(L1, c);
-JMP(L2, c);
+JMP.L1 := c;
+JMP.L2 := c;
 %NETWORK
 L1:
 x := TRUE;
@@ -89,20 +99,20 @@ NETWORK label:L2
 === text
 %LANGUAGE LD
 %NETWORK
-%UNSUPPORTED "a coil modifier on a jump" #929f3675
+%UNSUPPORTED "a mark on a jump or a return" #929f3675
 %NETWORK
 Done:
 x := TRUE;
 === model
-NETWORK unsupported:"a coil modifier on a jump" hash:929f3675
+NETWORK unsupported:"a mark on a jump or a return" hash:929f3675
 NETWORK label:Done
   (:= x TRUE)
 
-#### nested-jump — a jump inside a tree is the function on its value
+#### nested-jump — a jump inside a tree is a nested assignment to its target
 === text
 %LANGUAGE LD
 %NETWORK
-y := JMP(Done, c);
+y := (JMP.Done := c);
 %NETWORK
 Done:
 x := TRUE;

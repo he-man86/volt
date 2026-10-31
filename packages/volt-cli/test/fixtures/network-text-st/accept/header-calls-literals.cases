@@ -178,9 +178,9 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-a := R_EDGE(x);
-b := F_EDGE(x);
-c := R_EDGE(NOT x);
+a := RISING(x);
+b := FALLING(x);
+c := RISING(NOT x);
 === model
 NETWORK
   (:= a rise:x)

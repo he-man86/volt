@@ -200,49 +200,72 @@ public class StNetworkTextTests
         RoundTrips(Body(net, BodyLanguage.Ld), "%LANGUAGE LD\n%NETWORK \"Start $\"it$\"\"\n%DISABLED\n// first\n// second $$1\nl1:\nx := a;\n");
     }
 
+    /// <summary>A jump and the return are TARGETS on their value; unconditional, on the rail, <c>RAIL()</c>.</summary>
     [Fact]
-    public void A_jump_and_a_return_are_functions_on_their_value_and_unconditional_ones_bare() =>
+    public void A_jump_and_a_return_are_targets_and_unconditional_ones_on_the_rail() =>
         RoundTrips(Ld1(new Assign(L("a"), new[] { T("done", JumpBit) }, JumpBit),
                        new Assign(L("b"), new[] { T("???", ReturnBit) }, ReturnBit),
                        new Assign(Empty, new[] { T("done", JumpBit) }, JumpBit),
                        new Assign(Empty, new[] { T("???", ReturnBit) }, ReturnBit)),
-            "%LANGUAGE LD\n%NETWORK\nJMP(done, a);\nRETURN(b);\nJMP done;\nRETURN;\n");
+            "%LANGUAGE LD\n%NETWORK\nJMP.done := a;\nRETURN := b;\nJMP.done := RAIL();\nRETURN := RAIL();\n");
 
-    /// <summary>A jump inside a tree is the function on its value, which it passes on (owner, 2026-10-28).</summary>
+    /// <summary>A jump inside a tree is a nested assignment to its target, its value passed on.</summary>
     [Fact]
-    public void A_jump_inside_a_tree_passes_its_value_on() =>
+    public void A_jump_inside_a_tree_is_a_nested_target() =>
         RoundTrips(Ld1(Set(Op("AND", new Assign(L("c"), new[] { T("done", JumpBit) }, JumpBit), L("d")), T("y"))),
-            "%LANGUAGE LD\n%NETWORK\ny := JMP(done, c) AND d;\n");
+            "%LANGUAGE LD\n%NETWORK\ny := (JMP.done := c) AND d;\n");
 
-    /// <summary>A shared value that reads a variable one of the rung's own coils writes is not repeated: the repeated
-    /// statement would read the written variable, while the stored rung evaluates its value once.</summary>
+    /// <summary>A coil sharing its value with a jump or the return is ONE item, the value written once — whatever it reads
+    /// (its own coil's variable) or holds (a box): no value is repeated, so neither has a refusal.</summary>
     [Fact]
-    public void A_jump_sharing_a_value_that_reads_its_own_coil_is_refused()
+    public void A_coil_sharing_its_value_with_a_jump_is_one_item_its_value_written_once()
     {
-        const string reason = "a jump sharing a value that reads a variable its own coil writes";
-        var toggle = Ld1(new Assign(Op("NOT", L("a")), new[] { T("a"), T("skip", JumpBit) }, JumpBit));
-        Assert.Equal(reason, Assert.Throws<StNetworkUnspellableException>(() => StNetworkWriter.Write(toggle, Scope(toggle))).Reason);
-        var sealIn = Ld1(new Assign(Op("AND", L("start"), L("S.x[1]")), new[] { T("s"), T("???", ReturnBit) }, ReturnBit));
-        Assert.Equal(reason, Assert.Throws<StNetworkUnspellableException>(() => StNetworkWriter.Write(sealIn, Scope(sealIn))).Reason);
-        var setCoil = Ld1(new Assign(Op("AND", L("a"), L("x")), new[] { T("x", SetBit), T("skip", JumpBit) }, JumpBit));
-        Assert.Equal(reason, Assert.Throws<StNetworkUnspellableException>(() => StNetworkWriter.Write(setCoil, Scope(setCoil))).Reason);
+        RoundTrips(Ld1(new Assign(Op("NOT", L("a")), new[] { T("a"), T("skip", JumpBit) }, JumpBit)),
+            "%LANGUAGE LD\n%NETWORK\na := JMP.skip := NOT(a);\n");
+        RoundTrips(Ld1(new Assign(Op("AND", L("start"), L("seal.x[1]")), new[] { T("seal"), T("???", ReturnBit) }, ReturnBit)),
+            "%LANGUAGE LD\n%NETWORK\nseal := RETURN := start AND seal.x[1];\n");
+        RoundTrips(Ld1(new Assign(Op("AND", L("a"), L("x")), new[] { T("x", SetBit), T("skip", JumpBit) }, JumpBit)),
+            "%LANGUAGE LD\n%NETWORK\nx S= JMP.skip := a AND x;\n");
     }
 
-    /// <summary>A coil and a jump on one value (one stored item) are one item per target, each on the value, the coils first
-    /// (owner, 2026-10-28: <c>lamp := c; JMP(done, c);</c>), the coils first — a stored member; a value holding a box is not
-    /// repeated.</summary>
+    /// <summary>The targets stand in the order the IDE stores them (TwinCAT's drawn rung stores its jump first).</summary>
     [Fact]
-    public void A_coil_and_a_jump_on_one_value_are_one_item_per_target()
+    public void A_coil_and_a_jump_on_one_value_are_one_item_in_stored_order()
     {
         var shared = Ld1(new Assign(Op("AND", L("a"), L("b")), new[] { T("lamp"), T("done", JumpBit), T("???", ReturnBit) }, JumpBit with { Return = true }));
-        var text = StNetworkWriter.Write(shared, Scope(shared));
-        Assert.Equal("%LANGUAGE LD\n%NETWORK\nlamp := a AND b;\nJMP(done, a AND b);\nRETURN(a AND b);\n", text);
-        Assert.Equal(3, StNetworkReader.Read(text, Scope(shared)).Networks[0].Trees.Count);
-        var boxed = Ld1(new Assign(Call("f", new[] { In(L("a"), "IN") }, connected: 0), new[] { T("lamp"), T("done", JumpBit) }, JumpBit));
-        Assert.Equal("a jump sharing a value that holds a box", Assert.Throws<StNetworkUnspellableException>(() => StNetworkWriter.Write(boxed, Scope(boxed))).Reason);
-        // the coils first, whatever order the IDE stores the targets in (TwinCAT's drawn rung stores its jump first)
-        var jumpFirst = Ld1(new Assign(L("a"), new[] { T("done", JumpBit), T("lamp") }, JumpBit));
-        Assert.Equal("%LANGUAGE LD\n%NETWORK\nlamp := a;\nJMP(done, a);\n", StNetworkWriter.Write(jumpFirst, Scope(jumpFirst)));
+        RoundTrips(shared, "%LANGUAGE LD\n%NETWORK\nlamp := JMP.done := RETURN := a AND b;\n");
+        RoundTrips(Ld1(new Assign(Call("f", new[] { In(L("a"), "IN") }, connected: 0), new[] { T("lamp"), T("done", JumpBit) }, JumpBit)),
+            "%LANGUAGE LD\n%NETWORK\nlamp := JMP.done := f(IN := a);\n");
+        RoundTrips(Ld1(new Assign(L("a"), new[] { T("done", JumpBit), T("lamp") }, JumpBit)),
+            "%LANGUAGE LD\n%NETWORK\nJMP.done := lamp := a;\n");
+    }
+
+    /// <summary>A mark is written where the model holds it (the drawn samples of network-rail-and-pin-negation): the rail,
+    /// a pin's, EN's, an output's and a coil's own marks, a box's negated output, each stacked edge outside the negation.</summary>
+    [Fact]
+    public void Each_mark_is_written_where_the_model_holds_it()
+    {
+        RoundTrips(Ld1(Set(Empty, T("y"))), "%LANGUAGE LD\n%NETWORK\ny := RAIL();\n");
+        RoundTrips(Ld1(Set(L("a"), T("y", Neg)), Set(L("a"), T("y", Rise)), Set(L("a"), T("y", Neg with { Falling = true })),
+                       Set(L("a"), T("y", SetBit with { Rising = true }))),
+            "%LANGUAGE LD\n%NETWORK\nNOT y := a;\nRISING y := a;\nFALLING NOT y := a;\nRISING y S= a;\n");
+        RoundTrips(Ld1(new Assign(L("a"), new[] { T("y", Neg), T("x") }, Flags.None)), "%LANGUAGE LD\n%NETWORK\nNOT y := x := a;\n");
+        RoundTrips(Fbd1(Set(Op("AND", L("a"), L("b")) with { Flags = Neg, ConnectedSlot = 0 }, T("x"))),
+            "%LANGUAGE FBD\n%NETWORK\nx := NOT AND(a, b);\n");
+    }
+
+    /// <summary>A mark the model cannot hold where it stands is refused by name: a mark on a coil inside a chain (every target
+    /// receives the power flow, measured), a negated set coil, a mark on a jump, the rail alone.</summary>
+    [Fact]
+    public void A_mark_the_text_cannot_hold_is_refused_by_name()
+    {
+        void Refused(NetworkBody body, string reason) =>
+            Assert.Equal(reason, Assert.Throws<StNetworkUnspellableException>(() => StNetworkWriter.Write(body, Scope(body))).Reason);
+        Refused(Ld1(new Assign(L("a"), new[] { T("y"), T("x", Neg) }, Flags.None)), StNetworkWriter.ChainMarkReason);
+        Refused(Ld1(Set(L("a"), T("y", SetBit with { Negated = true }))), "a negated set or reset coil");
+        Refused(Ld1(new Assign(L("a"), new[] { T("done", JumpBit with { Negated = true }) }, JumpBit)), "a mark on a jump or a return");
+        Refused(Ld1(Empty), "a rail-only item");
+        Refused(Ld1(Set(new Terminator(Neg), T("y"))), "a modifier on the rail");
     }
 
     [Fact]
@@ -253,13 +276,13 @@ public class StNetworkTextTests
     [Fact]
     public void An_Execute_box_is_a_call_its_ST_the_string_CODE_with_its_line_breaks_as_they_stand() =>
         RoundTrips(Ld1(Exec("IF go THEN\r\n\to := o + 'i$';\r\nEND_IF", en: L("en"))),
-            "%LANGUAGE LD\n%NETWORK\nEXECUTE(EN := en, CODE := 'IF go THEN\n\to := o + $'i$$$';\nEND_IF');\n");
+            "%LANGUAGE LD\n%NETWORK\nEXECUTE(EN := en, 'IF go THEN\n\to := o + $'i$$$';\nEND_IF');\n");
 
     [Fact]
     public void An_Execute_box_read_twice_defines_a_wire_like_any_box() =>
         RoundTrips(Ld1(new Demux(1, Exec("k := 1;", en: L("go"), connected: 0)), Set(new Demux(1, null), T("x")),
                 Set(new Demux(1, null), T("y"))),
-            "%LANGUAGE LD\n%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := EXECUTE(EN := go, CODE := 'k := 1;');\nx := w1;\ny := w1;\n");
+            "%LANGUAGE LD\n%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := EXECUTE(EN := go, 'k := 1;');\nx := w1;\ny := w1;\n");
 
     /// <summary>The Execute box's spellings the writer refuses (2.6 review), each by its reason: EXECUTE declared in reach
     /// (anything of that name, a variable too: the text's own word), a lone CR in its ST, a consumer reading it by another
@@ -288,9 +311,9 @@ public class StNetworkTextTests
         var plain = new Volt.Engine.Format.Network.Network(1, null, null, null, false, new Node[] { Set(L("a"), T("y")) });
         var body = new NetworkBody(BodyLanguage.Ld, new[] { jump, plain });
         var text = StNetworkWriter.WritePulled(body, Scope(body));
-        Assert.Equal($"%LANGUAGE LD\n%NETWORK \"jump\"\n%UNSUPPORTED \"a coil modifier on a jump\" #{NetworkHash.Of(jump)}\n%NETWORK\ny := a;\n", text);
+        Assert.Equal($"%LANGUAGE LD\n%NETWORK \"jump\"\n%UNSUPPORTED \"a mark on a jump or a return\" #{NetworkHash.Of(jump)}\n%NETWORK\ny := a;\n", text);
         var back = StNetworkReader.Read(text, Scope(body));
-        Assert.Equal("a coil modifier on a jump", back.Networks[0].Unsupported);
+        Assert.Equal("a mark on a jump or a return", back.Networks[0].Unsupported);
         Assert.Throws<StNetworkUnspellableException>(() => StNetworkWriter.Write(body, Scope(body)));
     }
 
@@ -307,10 +330,10 @@ public class StNetworkTextTests
 
     /// <summary>3.0: an edge is a call on the contact or the box it is on; the IDE negates before the edge (N17).</summary>
     [Fact]
-    public void An_edge_is_R_EDGE_or_F_EDGE_on_its_contact_or_box() =>
+    public void An_edge_is_RISING_or_FALLING_on_its_contact_or_box() =>
         RoundTrips(Ld1(Set(L("clk", Rise), T("a")), Set(L("clk", Neg with { Falling = true }), T("b")),
                        Set(Op("AND", L("x"), L("y")) with { Flags = Rise }, T("c"))),
-            "%LANGUAGE LD\n%NETWORK\na := R_EDGE(clk);\nb := F_EDGE(NOT clk);\nc := R_EDGE(x AND y);\n");
+            "%LANGUAGE LD\n%NETWORK\na := RISING(clk);\nb := FALLING(NOT clk);\nc := RISING(x AND y);\n");
 
     /// <summary>An FB box is the call of its instance (design "FB boxes: the instance is the call head"); one with no usable
     /// instance — the vendor's <c>???</c>, or one no declaration in reach holds (network-text-st 3.0: the build refuses both)
@@ -371,12 +394,12 @@ public class StNetworkTextTests
     [InlineData("WHILE a DO x := b; END_WHILE;", "cannot hold a WHILE")]
     [InlineData("CASE i OF 1: x := a; END_CASE;", "cannot hold a CASE")]
     [InlineData("IF a THEN x := b; END_IF;", "holds no IF")]
-    [InlineData("IF a THEN JMP l; END_IF;", "a jump on a value is JMP(label, value)")]
+    [InlineData("IF a THEN JMP l; END_IF;", "a jump on a value is JMP.label := value")]
     [InlineData("x := a; (* note *)", "comment")]
     [InlineData("MOVE(1, EN := c, OUT => x).ENO;", "EN := stands first")]
     [InlineData("x := i > 3;", "every box is a call")]
     [InlineData("x := a + b;", "every box is a call")]
-    [InlineData("x := NOT f(a);", "the NOT box is NOT(")]
+    [InlineData("x := NOT RISING(a);", "NOT before an edge")]
     public void What_a_network_cannot_hold_is_refused_by_name_with_its_line(string code, string named)
     {
         var ex = Assert.Throws<StNetworkReadException>(() => StNetworkReader.Read("%LANGUAGE LD\n%NETWORK\n" + code + "\n", NetworkScope.Empty));

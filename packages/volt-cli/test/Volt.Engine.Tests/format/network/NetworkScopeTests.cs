@@ -24,7 +24,7 @@ public class NetworkScopeTests
     const string Gvl = "VAR_GLOBAL\n    G7 : BOOL;\n    split7 : BOOL;\n    fbGlobal : TOF;\nEND_VAR";
     const string Machine = "VAR_GLOBAL\n    timers : ST_Timers;\nEND_VAR";
     const string Timers = "TYPE ST_Timers :\nSTRUCT\n    offDelay : TOF;\nEND_STRUCT\nEND_TYPE";
-    const string REdge = "FUNCTION R_EDGE : BOOL\nVAR_INPUT\n    x : BOOL;\nEND_VAR";
+    const string REdge = "FUNCTION RISING : BOOL\nVAR_INPUT\n    x : BOOL;\nEND_VAR";
 
     /// <summary>The project around the bodies: two GVLs, a DUT, and a FUNCTION named like an edge word.</summary>
     static readonly Dictionary<string, string> Items = new(StringComparer.OrdinalIgnoreCase)
@@ -32,7 +32,7 @@ public class NetworkScopeTests
         ["GVL_Main"] = Gvl,
         ["Machine"] = Machine,
         ["ST_Timers"] = Timers,
-        ["R_EDGE"] = REdge,
+        ["RISING"] = REdge,
     };
 
     /// <summary>Each item's WIRE KIND — what the push's wire name or the IDE's class says it is (D3).</summary>
@@ -41,13 +41,13 @@ public class NetworkScopeTests
         ["GVL_Main"] = ItemKind.Kinds.Gvl,
         ["Machine"] = ItemKind.Kinds.Gvl,
         ["ST_Timers"] = ItemKind.Kinds.Dut,
-        ["R_EDGE"] = ItemKind.Kinds.Pou,
+        ["RISING"] = ItemKind.Kinds.Pou,
     };
 
     static NetworkScope ScopeOf(string? declaration, bool withEdgeFunction = false)
     {
         bool InProject(string name) =>
-            withEdgeFunction || !string.Equals(name, "R_EDGE", StringComparison.OrdinalIgnoreCase);
+            withEdgeFunction || !string.Equals(name, "RISING", StringComparison.OrdinalIgnoreCase);
         return NetworkScope.FromDeclarations(declaration,
             name => InProject(name) && Items.TryGetValue(name, out var d) ? d : null,
             () => Items.Where(kv => Kinds[kv.Key] == ItemKind.Kinds.Gvl).Select(kv => kv.Value),
@@ -141,22 +141,22 @@ public class NetworkScopeTests
 
     // ── a POU named like a construct (task 3.6) ─────────────────────────────────────────────────
 
-    /// <summary>The edge is the text's own function <c>R_EDGE(x)</c>: with a FUNCTION named <c>R_EDGE</c> in the
+    /// <summary>The edge is the text's own function <c>RISING(x)</c>: with a FUNCTION named <c>RISING</c> in the
     /// project, the text would mean two things, and the call is refused by name.</summary>
     [Fact]
-    public void A_project_function_named_R_EDGE_makes_the_edge_refused_by_name()
+    public void A_project_function_named_RISING_makes_the_edge_refused_by_name()
     {
         var scope = ScopeOf(SourceScopes.Scope(Method, Owner), withEdgeFunction: true);
-        var call = Gate(Src("out := R_EDGE(x);"), scope);
+        var call = Gate(Src("out := RISING(x);"), scope);
         Assert.False(call.Ok);
         Assert.Contains("names something declared in reach", call.Diagnostics[0].Message);
     }
 
     /// <summary>…and the same text is the edge flag when no POU takes the name.</summary>
     [Fact]
-    public void Without_such_a_POU_R_EDGE_is_the_edge()
+    public void Without_such_a_POU_RISING_is_the_edge()
     {
-        var r = Gate(Src("out := R_EDGE(x);"), InMethod);
+        var r = Gate(Src("out := RISING(x);"), InMethod);
 
         Assert.True(r.Ok);
         Assert.True(Assert.IsType<Leaf>(Assert.IsType<Assign>(r.Body!.Networks[0].Trees[0]).Value).Flags.Rising);
@@ -365,10 +365,10 @@ public class NetworkScopeTests
     public void A_POU_is_one_by_its_kind_not_its_header(string kind, bool callable)
     {
         var scope = NetworkScope.FromDeclarations("FUNCTION_BLOCK FB\nVAR\n    x : BOOL;\n    out : BOOL;\nEND_VAR",
-            n => n == "R_EDGE" ? "(* unreadable" : null, () => Array.Empty<string>(),
-            n => n == "R_EDGE" ? kind : null, Scopes.RefusedPouName, Scopes.NoLibrary);
+            n => n == "RISING" ? "(* unreadable" : null, () => Array.Empty<string>(),
+            n => n == "RISING" ? kind : null, Scopes.RefusedPouName, Scopes.NoLibrary);
 
-        Assert.Equal(callable, scope.IsCallable("R_EDGE"));
+        Assert.Equal(callable, scope.IsCallable("RISING"));
     }
 
     /// <summary>…so a call headed by such a variable is read as the LSP reads it — a call of that name, no instance —

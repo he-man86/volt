@@ -507,7 +507,7 @@ public static class CallKinds
 /// against the named booleans on <c>IFlags</c> rather than inferred from a bit pattern.
 ///
 /// <para><b><see cref="Jump"/> and <see cref="Return"/> are flags here, not statement kinds</b>, and that is a
-/// correction. It is tempting to promote them — network text spells them <c>JMP name;</c> and <c>RETURN;</c>,
+/// correction. It is tempting to promote them — network text spells them as targets, <c>JMP.name := v;</c> and <c>RETURN := v;</c>,
 /// so they LOOK like statements — but the IDEs model them as modifiers on an item, and the jump target is the
 /// destination network's <see cref="Network.Label"/>. Promoting them would be re-interpreting the vendor's
 /// model to suit a rendering.</para>

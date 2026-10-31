@@ -28,7 +28,7 @@ SMC_BitsToBytes(EN := w1).ENO;
 %NETWORK
 Status_ForceOutputs(EN := TRUE).ENO;
 %NETWORK
-LST_General.FirstCycle R= TRUE;
+LST_General.FirstCycle R= RAIL();
 %NETWORK
 Bugs.checkconnection := BLINK_0(ENABLE := TRUE, TIMELOW := T#1S, TIMEHIGH := T#1S);
 %NETWORK

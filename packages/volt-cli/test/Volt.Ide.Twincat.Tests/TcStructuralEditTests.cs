@@ -387,7 +387,7 @@ public class TcStructuralEditTests
     // -- the edge order (spec, "edges are R_EDGE and F_EDGE flags") --------------------------------------------------
 
     /// <summary>TWINCAT'S ORDER FOR A NEGATION AND AN EDGE ON ONE NODE IS UNMEASURED (task 1.14: no licensed runtime), so
-    /// a pulled body holding one goes to the marker by name — never written in CODESYS's order (<c>R_EDGE(NOT x)</c>,
+    /// a pulled body holding one goes to the marker by name — never written in CODESYS's order (<c>RISING(NOT x)</c>,
     /// DIALECT N17), which would state logic nobody measured TwinCAT to run.</summary>
     [Theory]
     [InlineData(TcArchive.FlagRtrig)]
@@ -426,7 +426,7 @@ public class TcStructuralEditTests
     public void A_negation_with_an_edge_is_refused_on_push()
     {
         var ex = Assert.Throws<UnsupportedException>(() =>
-            TcNetworkWriter.Apply(Ladder(), Pushed("xoutput := R_EDGE(NOT xtest) OR xtest2;"), Scope, NeverImported));
+            TcNetworkWriter.Apply(Ladder(), Pushed("xoutput := RISING(NOT xtest) OR xtest2;"), Scope, NeverImported));
         Assert.Contains("a negation with an edge", ex.Message);
         Assert.Contains("xtest", ex.Message);
     }

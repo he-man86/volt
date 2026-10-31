@@ -144,7 +144,7 @@ out := NOT(AND(a, b));
 
 END_FUNCTION_BLOCK
 `, `${doc}#elements`),
-  ng("ng_edge_modifiers", "FB_NG_edges", "the edge boxes `R_EDGE(x)` and `F_EDGE(x)` on an operand",
+  ng("ng_edge_modifiers", "FB_NG_edges", "the edge boxes `RISING(x)` and `FALLING(x)` on an operand",
     `FUNCTION_BLOCK FB_NG_edges
 VAR
 \tclk : BOOL;
@@ -154,13 +154,13 @@ END_VAR
 
 %LANGUAGE LD
 %NETWORK
-up := R_EDGE(clk);
+up := RISING(clk);
 %NETWORK
-down := F_EDGE(clk);
+down := FALLING(clk);
 
 END_FUNCTION_BLOCK
 `, `${doc}#elements`,
-    "The LSP reads `R_EDGE(x)` as the edge, not as a call of an undeclared name."),
+    "The LSP reads `RISING(x)` as the edge, not as a call of an undeclared name."),
   // ─── calls and their pins (§6) ─────────────────────────────────────────────
   ng("ng_fb_call_output_read", "FB_NG_fbcall", "an FB instance call and its output read back by name",
     `FUNCTION_BLOCK FB_NG_fbcall
@@ -249,7 +249,7 @@ END_VAR
 
 %LANGUAGE FBD
 %NETWORK
-EXECUTE(EN := bRun, CODE := 'IF bStart THEN
+EXECUTE(EN := bRun, 'IF bStart THEN
 	target := 40 + 2;
 END_IF');
 
@@ -267,7 +267,7 @@ END_VAR
 %LANGUAGE LD
 %NETWORK
 out := TRUE;
-JMP Onwards;
+JMP.Onwards := RAIL();
 %NETWORK
 Onwards:
 after := TRUE;
@@ -285,13 +285,13 @@ END_VAR
 
 %LANGUAGE LD
 %NETWORK
-JMP(Tail, cond);
+JMP.Tail := cond;
 %NETWORK
-RETURN(cond);
+RETURN := cond;
 %NETWORK
 Tail:
 done := TRUE;
-RETURN;
+RETURN := RAIL();
 %NETWORK
 later := TRUE;
 

@@ -55,7 +55,7 @@ public static class StNetworkOracle
         if (NetworkModelEquality.FirstDifference(want, got) is null) return new(source, index, Identical, "", Array.Empty<string>(), null, text);
 
         var members = new SortedSet<string>(StringComparer.Ordinal);
-        var spelled = new NetworkBody(language, body.Networks.Select(n => n with { Trees = n.Trees.SelectMany(t => SpelledItems(t, members, scope)).ToList() }).ToList());
+        var spelled = new NetworkBody(language, body.Networks.Select(n => n with { Trees = n.Trees.Select(t => Spelled(t, members, scope, root: true)).ToList() }).ToList());
         var d = NetworkModelEquality.FirstDifference(Canonical(NetworkTextFacts.Carried(spelled)), got);
         if (d is null) return new(source, index, Stored, "", members.ToList(), null, text);
         return new(source, index, Gap, "diff: " + Category(d), members.ToList(), d + "\n" + text, text);
@@ -114,23 +114,6 @@ public static class StNetworkOracle
 
     // ── the design's stored members, in their spelled form ──────────────────────────────────────────────────────
 
-    /// <summary>An item as the text spells it: one item, or (owner, 2026-10-28) a coil or jump sharing its value with a jump as
-    /// one item per target, the coils first.</summary>
-    static IEnumerable<Node> SpelledItems(Node t, ISet<string> fired, NetworkScope scope)
-    {
-        static bool Control(Operand x) => x.Flags is { Jump: true } or { Return: true };
-        if (t is Assign a && a.Targets.Count > 1 && a.Targets.Any(Control))
-        {
-            fired.Add("a coil or jump sharing its value with a jump as one item per target");
-            var coils = a.Targets.Where(x => !Control(x)).ToList();
-            if (coils.Count > 0) yield return Spelled(new Assign(a.Value, coils, Flags.None), fired, scope, root: true);
-            foreach (var c in a.Targets.Where(Control))
-                yield return Spelled(new Assign(a.Value, new[] { c }, c.Flags!.Jump ? Flags.None with { Jump = true } : Flags.None with { Return = true }), fired, scope, root: true);
-            yield break;
-        }
-        yield return Spelled(t, fired, scope, root: true);
-    }
-
     /// <summary>design.md "Stored members, not spelled": the tree as the text spells it. Each rule that changes the tree
     /// names itself in <paramref name="fired"/>.</summary>
     public static Node Spelled(Node n, ISet<string> fired, NetworkScope scope, bool root = false)
@@ -138,12 +121,6 @@ public static class StNetworkOracle
         Node S(Node x) => Spelled(x, fired, scope);
         switch (n)
         {
-            case Terminator { Flags.IsNone: true } when root:
-                fired.Add("an empty item stored as the rail as the empty operand");
-                return new Leaf(new Operand(""), Flags.None);
-            case Terminator t when !root:
-                fired.Add("rail (Terminator) as TRUE");
-                return new Leaf(new Operand("TRUE"), t.Flags);
             case Leaf { Operand.Text.Length: > 0 } l when !StNetworkReader.IsOperand(l.Operand.Text) && StNetworkReader.IsExpression(l.Operand.Text):
             {
                 fired.Add("an operand holding an ST expression as its boxes");
@@ -151,30 +128,7 @@ public static class StNetworkOracle
                 if (l.Flags.Negated) tree = Negate(tree);
                 return l.Flags.Rising || l.Flags.Falling ? EdgeOn(tree, l.Flags) : tree;
             }
-            case Assign a:
-            {
-                var control = a.Flags.Jump || a.Flags.Return || a.Targets.Any(x => x.Flags is { Jump: true } or { Return: true });
-                Node value;
-                if (control && a.Value is Leaf { Operand.Text.Length: 0, Flags.IsNone: true })
-                {
-                    fired.Add("an unconditional jump stored as an empty operand as the rail");
-                    value = new Terminator(Flags.None);
-                }
-                else value = control && a.Value is Terminator { Flags.IsNone: true } ? a.Value : S(a.Value);
-                var targets = a.Targets.ToList();
-                if (targets.Any(x => x.Flags is { Rising: true } or { Falling: true }))
-                {
-                    fired.Add("edge flag on a coil");
-                    targets = targets.Select(x => x.Flags is { } f ? x with { Flags = f with { Rising = false, Falling = false } } : x).ToList();
-                }
-                if (targets.Count == 1 && targets[0].Flags is { Negated: true, Reset: false } nf)
-                {
-                    fired.Add("negated coil");
-                    targets[0] = targets[0] with { Flags = nf with { Negated = false } };
-                    value = Negate(value);
-                }
-                return new Assign(value, targets, a.Flags);
-            }
+            case Assign a: return a with { Value = S(a.Value) };
             case Demux d: return d.Input is null ? d : new Demux(d.VarId, S(d.Input));
             case Parallel p:
                 return new Parallel(p.Input is null ? null : S(p.Input), p.Branches.Select(S).ToList(), p.Mode);
@@ -184,38 +138,8 @@ public static class StNetworkOracle
                 var kept = b.Inputs.Where(i => !(b.Instance is not null && i.Formal is not null && i.Flags.IsNone
                                                  && i.Value is Leaf { Operand.Text.Length: 0, Flags.IsNone: true })).ToList();
                 if (kept.Count != b.Inputs.Count) fired.Add("an unconnected FB input as the pin left out");
-                var inputs = kept.Select(i =>
-                {
-                    var v = S(i.Value);
-                    var f = i.Flags;
-                    if (f.Negated)
-                    {
-                        fired.Add("negated pin");
-                        v = Negate(v);
-                        f = f with { Negated = false };
-                    }
-                    if (f.Rising || f.Falling)
-                    {
-                        fired.Add("edge on a pin as the edge on its value");
-                        v = EdgeOn(v, f);
-                        f = f with { Rising = false, Falling = false };
-                    }
-                    return new Input(i.Formal, v, f);
-                }).ToList();
+                var inputs = kept.Select(i => i with { Value = S(i.Value) }).ToList();
                 var enable = b.Enable is null ? null : S(b.Enable);
-                var enableFlags = b.EnableFlags;
-                if (enable is not null && enableFlags.Negated)
-                {
-                    fired.Add("negated EN");
-                    enable = Negate(enable);
-                    enableFlags = enableFlags with { Negated = false };
-                }
-                if (enable is not null && (enableFlags.Rising || enableFlags.Falling))
-                {
-                    fired.Add("edge on EN as the edge on its value");
-                    enable = EdgeOn(enable, enableFlags);
-                    enableFlags = enableFlags with { Rising = false, Falling = false };
-                }
                 var outputs = b.Outputs.ToList();
                 if (outputs.RemoveAll(o => o.Formal is null && o.Value.Text == Box.UnnamedInstance) > 0)
                     fired.Add("extra output slot (???)");
@@ -236,13 +160,7 @@ public static class StNetworkOracle
                     fired.Add("an FB type spelled as its declaration");
                     type = declared;
                 }
-                Node box = b with { Type = type, Instance = instance, Inputs = inputs, Enable = enable, Outputs = outputs, EnableFlags = enableFlags };
-                if (b.Flags.Negated && !root)
-                {
-                    fired.Add("negated box output as a NOT box");
-                    box = StNetworkWriter.NotBox(((Box)box) with { Flags = Flags.None }) with { Flags = b.Flags with { Negated = false } };
-                }
-                return box;
+                return b with { Type = type, Instance = instance, Inputs = inputs, Enable = enable, Outputs = outputs };
             }
             default: return n;
         }
@@ -252,18 +170,18 @@ public static class StNetworkOracle
     // The writer applies the same rules to write them; sharing the code would make the oracle agree with the writer by
     // construction.
 
-    /// <summary>A negation as the text spells it: a plain leaf negated, anything else under a NOT box.</summary>
+    /// <summary>The negation of an operand's expression as the text spells it: the value mark on a plain leaf or on a box
+    /// read where it stands, a contact group (AND/OR, no call of its own) under a NOT box.</summary>
     static Node Negate(Node n) => n switch
     {
-        Terminator t => Negate(new Leaf(new Operand("TRUE"), t.Flags)),
         Leaf { Flags: { Negated: false, Rising: false, Falling: false } } l => l with { Flags = l.Flags with { Negated = true } },
+        Box { Flags.IsNone: true, StCode: null, Type: not ("AND" or "OR") } b => b with { Flags = Flags.None with { Negated = true } },
         _ => StNetworkWriter.NotBox(n),
     };
 
-    /// <summary>An edge as the text spells it: on the leaf or the box it is carried onto (the rail as a <c>TRUE</c> leaf).</summary>
+    /// <summary>An edge of an operand's expression as the text spells it: on the leaf or the box it is carried onto.</summary>
     static Node EdgeOn(Node n, Flags f) => n switch
     {
-        Terminator t => EdgeOn(new Leaf(new Operand("TRUE"), t.Flags), f),
         Leaf l => l with { Flags = l.Flags with { Rising = f.Rising, Falling = f.Falling } },
         Box b => b with { Flags = b.Flags with { Rising = f.Rising, Falling = f.Falling } },
         _ => n,

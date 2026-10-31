@@ -46,11 +46,22 @@ export abstract class BoxTwinner {
     return box.call.callee.kind === "ident_expr" ? box.call.callee.name : this.text(box.call.callee)
   }
 
+  /** A pin's (or EN's) value as the box reads it: its own `NOT` applied; an edge mark on a pin, and a mark on an output,
+   *  has no measured run and is refused by name. */
+  protected pin(a: CallArg, pre: string[]): string {
+    const marks = a.marks ?? []
+    const where = a.param?.name ?? "pin"
+    if (a.output && marks.length > 0) throw new TwinRefusal(`the mark on the output ${where}: how a marked output runs is unmeasured`)
+    if (marks.some((m) => m !== "NOT")) throw new TwinRefusal(`the edge mark on the pin ${where}: how an edge on a pin runs is unmeasured`)
+    const v = this.expr(a.value!, pre)
+    return marks.includes("NOT") ? `(NOT ${v})` : v
+  }
+
   /** `X(pins…)` as the value a function box hands back: an operator infix, MOVE the value it moves (which then takes its
    *  target's type, as the box's output does: `x := 0`, not a SINT). */
   protected boxValue(box: NetworkBox, args: readonly CallArg[], pre: string[]): string {
     const base = this.name(box)
-    if (base.toUpperCase() === "MOVE" && args.length === 1 && args[0]!.param === undefined) return this.expr(args[0]!.value!, pre)
+    if (base.toUpperCase() === "MOVE" && args.length === 1 && args[0]!.param === undefined) return this.pin(args[0]!, pre)
     if (INFIX[base.toUpperCase()] !== undefined || base.toUpperCase() === "NOT") return this.operator(base, args.filter((a) => !a.output), pre)
     return this.callText(box.st, args, pre)
   }
@@ -60,7 +71,7 @@ export abstract class BoxTwinner {
   protected enOnlyRead(box: NetworkBox, pre: string[]): string {
     const base = this.name(box)
     if (!COMPARISON.has(base.toUpperCase())) throw new TwinRefusal(`the enabled ${base} box is read by its value other than as an assignment's whole value`)
-    const cond = this.expr(box.enable!.value!, pre)
+    const cond = this.pin(box.enable!, pre)
     const value = this.boxValue(box, box.pins.filter((a) => !a.output), pre)
     const t = this.temp()
     pre.push(`IF ${cond} THEN\n\t${t} := ${value};\nELSE\n\t${t} := FALSE;\nEND_IF;`)
@@ -71,7 +82,7 @@ export abstract class BoxTwinner {
    *  Returns the ENO's temp where `read`. */
   protected enabled(box: NetworkBox, pre: string[], read: boolean): string {
     const base = this.name(box)
-    const cond = this.expr(box.enable!.value!, pre)
+    const cond = this.pin(box.enable!, pre)
     const eno = read ? this.temp() : undefined
     const inner: string[] = []
     const elseLines: string[] = []
@@ -134,7 +145,7 @@ export abstract class BoxTwinner {
     const pins = box.pins.filter((a) => a !== enoOut)
     let value = ""
     if (box.enable !== undefined) {
-      const cond = this.expr(box.enable.value!, pre)
+      const cond = this.pin(box.enable, pre)
       const inner: string[] = []
       inner.push(this.callText({ ...box.st, callee: inst }, pins, pre) + ";")
       const elseLines: string[] = []
@@ -171,7 +182,7 @@ export abstract class BoxTwinner {
   }
 
   protected operator(name: string, args: readonly CallArg[], pre: string[]): string {
-    const values = args.map((a) => this.expr(a.value!, pre))
+    const values = args.map((a) => this.pin(a, pre))
     if (name.toUpperCase() === "NOT") return `(NOT ${values[0]})`
     return `(${values.join(` ${INFIX[name.toUpperCase()]} `)})`
   }
@@ -179,8 +190,8 @@ export abstract class BoxTwinner {
   protected callText(call: CallExpr, args: readonly CallArg[], pre: string[]): string {
     const head = this.expr(call.callee, pre)
     const parts = args.map((a) => {
-      if (a.param === undefined) return this.expr(a.value!, pre)
-      return `${a.param.name} ${a.output ? "=>" : ":="} ${a.value === undefined ? "" : this.expr(a.value, pre)}`
+      if (a.param === undefined) return this.pin(a, pre)
+      return `${a.param.name} ${a.output ? "=>" : ":="} ${a.value === undefined ? "" : this.pin(a, pre)}`
     })
     return `${head}(${parts.join(", ")})`
   }

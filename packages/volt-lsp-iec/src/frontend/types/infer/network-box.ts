@@ -87,7 +87,7 @@ function instanceOf(call: CallExpr, scope: Scope, project: Scope): Expr | undefi
 }
 
 /** The box `call` is, in a network body; undefined outside one and for the text's own elements and controls (`BRANCH`,
- *  `R_EDGE`, `JMP`, …) and the Execute box. */
+ *  `RISING`, `RAIL`, `JMP`, …) and the Execute box. */
 export function networkBox(call: CallExpr, scope: Scope, project: Scope): NetworkBox | undefined {
   if (!inNetwork(scope)) return undefined
   const head = call.callee.kind === "ident_expr" ? call.callee.name.toUpperCase() : undefined

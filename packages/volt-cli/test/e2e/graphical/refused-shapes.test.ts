@@ -76,7 +76,7 @@ END_VAR
 %LANGUAGE LD
 %NETWORK
 out := TRUE;
-JMP Onwards;
+JMP.Onwards := RAIL();
 %NETWORK
 Onwards:
 after := TRUE;
@@ -100,13 +100,13 @@ VAR
 END_VAR
 %LANGUAGE LD
 %NETWORK
-JMP(Tail, cond);
+JMP.Tail := cond;
 %NETWORK
-RETURN(cond);
+RETURN := cond;
 %NETWORK
 Tail:
 done := TRUE;
-RETURN;
+RETURN := RAIL();
 %NETWORK
 later := TRUE;
 
@@ -131,7 +131,7 @@ VAR
 END_VAR
 %LANGUAGE FBD
 %NETWORK
-EXECUTE(EN := bRun, CODE := 'IF bStart THEN
+EXECUTE(EN := bRun, 'IF bStart THEN
 \ttarget := 40 + 2;
 END_IF');
 
@@ -284,17 +284,17 @@ describe(`graphical / editing a body INTO a refused shape (${BASE})`, () => {
 			// Editing a conditional jump into an unconditional one is the swap DIRECTLY — no import at all,
 			// because only the RValue element changes. This is what was measured first.
 			vars: BOOLS,
-			nets: ["%NETWORK", "JMP(Done, a);", "%NETWORK", "Done:", "out := a;"],
-			from: "JMP(Done, a);",
-			to: "JMP Done;",
+			nets: ["%NETWORK", "JMP.Done := a;", "%NETWORK", "Done:", "out := a;"],
+			from: "JMP.Done := a;",
+			to: "JMP.Done := RAIL();",
 		},
 		{
 			key: "eret",
 			what: "an unconditional RETURN",
 			vars: BOOLS,
-			nets: ["%NETWORK", "RETURN(a);", "%NETWORK", "out := a;"],
-			from: "RETURN(a);",
-			to: "RETURN;",
+			nets: ["%NETWORK", "RETURN := a;", "%NETWORK", "out := a;"],
+			from: "RETURN := a;",
+			to: "RETURN := RAIL();",
 		},
 		{
 			key: "earrow",
@@ -310,7 +310,7 @@ describe(`graphical / editing a body INTO a refused shape (${BASE})`, () => {
 			vars: BOOLS,
 			nets: ["%NETWORK", "out := a;"],
 			from: "out := a;",
-			to: "EXECUTE(CODE := 'out := a;');",
+			to: "EXECUTE('out := a;');",
 		},
 	]
 
@@ -383,7 +383,7 @@ END_FUNCTION_BLOCK
 METHOD Step : BOOL
 %LANGUAGE FBD
 %NETWORK
-EXECUTE(EN := bRun, CODE := 'target := 40 + 2;');
+EXECUTE(EN := bRun, 'target := 40 + 2;');
 
 
 END_METHOD
@@ -405,7 +405,7 @@ END_METHOD
 			}
 			// Accepted on both vendors (TwinCAT refused it while its PLCopen import was the create door): the member
 			// is written with its box and its ST.
-			expect((await fetchItem(owner)).sourceText, "the new member was accepted but its Execute box is not there").toContain("CODE := 'target := 40 + 2;'")
+			expect((await fetchItem(owner)).sourceText, "the new member was accepted but its Execute box is not there").toContain("'target := 40 + 2;'")
 		} finally {
 			await removeItem(first).catch(() => {})
 			await removeItem(owner).catch(() => {})

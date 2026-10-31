@@ -38,23 +38,132 @@ IF a THEN x := b; END_IF;
 === refused
 network-plain-st holds no IF
 
-#### if-around-a-jump — a jump on a value is JMP(label, value)
+#### if-around-a-jump — a jump on a value is JMP.label := value
 === text
 %LANGUAGE LD
 %NETWORK
 l:
 IF a THEN JMP l; END_IF;
 === refused
-network-plain-st a jump on a value is JMP(label, value)
+network-plain-st a jump on a value is JMP.label := value
 
-#### jump-label-not-first — JMP(label, value) takes the label first
+#### jump-as-a-call — a jump is a target, JMP.label := value
 === text
 %LANGUAGE LD
 %NETWORK
 l:
-JMP(c AND d, l);
+JMP(l, c AND d);
 === refused
-network-plain-st JMP(label, value)
+network-plain-st a jump or a return is a target: JMP.label := value
+
+#### jump-statement — a jump is a target, also on the rail
+=== text
+%LANGUAGE LD
+%NETWORK
+l:
+JMP l;
+=== refused
+network-plain-st a jump or a return is a target: JMP.label := value
+
+#### return-statement — the return is a target, also on the rail
+=== text
+%LANGUAGE LD
+%NETWORK
+RETURN;
+=== refused
+network-plain-st a jump or a return is a target: JMP.label := value
+
+#### jump-in-a-tree-as-a-call — a jump in a tree is a nested target, (JMP.label := value)
+=== text
+%LANGUAGE LD
+%NETWORK
+l:
+y := JMP(l, c);
+=== refused
+network-plain-st a jump or a return is a target: JMP.label := value
+
+#### mark-on-a-jump — a jump or a return carries no mark
+=== text
+%LANGUAGE LD
+%NETWORK
+l:
+NOT JMP.l := c;
+=== refused
+network-plain-st a mark on the target JMP.l: a jump or a return carries none
+
+#### set-jump — a jump or a return takes :=
+=== text
+%LANGUAGE LD
+%NETWORK
+RETURN S= c;
+=== refused
+network-plain-st RETURN S=: a jump or a return takes :=
+
+#### negated-set-coil — NOT on a set or reset coil names no coil of its own
+=== text
+%LANGUAGE LD
+%NETWORK
+NOT y S= a;
+=== refused
+network-plain-st a negated set or reset coil is no coil of its own
+
+#### marks-in-reverse-order — stacked, the edge stands outside the negation
+=== text
+%LANGUAGE LD
+%NETWORK
+NOT RISING y := a;
+=== refused
+network-plain-st the IDE negates first, so the edge is written outside the negation
+
+#### not-before-an-edge — stacked on a value, the edge stands outside the negation
+=== text
+%LANGUAGE LD
+%NETWORK
+x := NOT RISING(a);
+=== refused
+network-plain-st NOT before an edge: the IDE negates first
+
+#### edge-word-on-a-value — a value's edge is the call RISING(…)
+=== text
+%LANGUAGE LD
+%NETWORK
+x := RISING a;
+=== refused
+network-plain-st a value's edge is the call RISING(…) / FALLING(…)
+
+#### marked-coil-inside-a-chain — a marked coil leads its chain
+=== text
+%LANGUAGE LD
+%NETWORK
+y := NOT x := a;
+=== refused
+network-plain-st a marked coil inside a chain
+
+#### rail-standing-alone — the rail is a value in a tree
+=== text
+%LANGUAGE LD
+%NETWORK
+RAIL();
+=== refused
+network-plain-st a branch, an edge or the rail is a value in a tree
+
+#### rail-with-a-value — the rail takes no value
+=== text
+%LANGUAGE LD
+%NETWORK
+x := RAIL(a);
+=== refused
+network-plain-st the rail RAIL() takes no value
+
+#### mark-on-a-wire — a wire holds no mark
+=== text
+%LANGUAGE LD
+%NETWORK
+VAR_TEMP w1 : ANY; END_VAR
+NOT w1 := a;
+x := w1;
+=== refused
+network-plain-st a mark on the wire w1
 
 #### infix-comparison — every box is a call
 === text
@@ -80,13 +189,16 @@ x := a XOR b;
 === refused
 network-plain-st every box is a call
 
-#### not-before-a-call — the NOT box is NOT(…)
+#### not-before-a-wire — NOT marks a contact or a box read where it stands
 === text
 %LANGUAGE LD
 %NETWORK
-x := NOT f(a);
+VAR_TEMP w1 : ANY; END_VAR
+w1 := AND(a, b);
+x := NOT w1;
+y := w1;
 === refused
-network-plain-st the NOT box is NOT(
+network-plain-st NOT marks a contact or a box read where it stands
 
 #### block-comment — a network's comment is its // lines
 === text
@@ -304,13 +416,21 @@ x := a;
 === refused
 network-plain-st a network title is one
 
-#### execute-without-code — the Execute box takes EN := where it shows EN, then CODE := '<ST>', and nothing else
+#### execute-without-code — the Execute box takes EN := where it shows EN, then its ST, and nothing else
 === text
 %LANGUAGE LD
 %NETWORK
 EXECUTE(EN := a);
 === refused
-network-plain-st the Execute box takes EN := first where it shows EN, then CODE := '<ST>'
+network-plain-st the Execute box takes EN := first where it shows EN, then its ST as one string '<ST>'
+
+#### execute-code-pin — the Execute box's ST is one positional string, not a pin
+=== text
+%LANGUAGE LD
+%NETWORK
+EXECUTE(EN := a, CODE := 'k := 1;');
+=== refused
+network-plain-st the Execute box takes EN := first where it shows EN, then its ST as one string '<ST>'
 
 #### execute-declared-in-reach — EXECUTE is the text's Execute box: a POU of that name in reach would give it two meanings
 === scope
@@ -318,7 +438,7 @@ pou EXECUTE
 === text
 %LANGUAGE LD
 %NETWORK
-EXECUTE(EN := a, CODE := 'k := 1;');
+EXECUTE(EN := a, 'k := 1;');
 === refused
 network-plain-st which the text reads as its Execute box
 
@@ -326,11 +446,11 @@ network-plain-st which the text reads as its Execute box
 === text
 %LANGUAGE LD
 %NETWORK
-EXECUTE(CODE := 's := $Nb;');
+EXECUTE('s := $Nb;');
 === refused
-network-plain-st the escape '$N' in the Execute box's CODE
+network-plain-st the escape '$N' in the Execute box's ST
 
-#### string-across-a-line — only the Execute box's CODE spans lines
+#### string-across-a-line — only the Execute box's ST spans lines
 === text
 %LANGUAGE LD
 %NETWORK
@@ -345,53 +465,53 @@ name Execute
 === text
 %LANGUAGE LD
 %NETWORK
-EXECUTE(EN := a, CODE := 'k := 1;');
+EXECUTE(EN := a, 'k := 1;');
 === refused
 network-plain-st which the text reads as its Execute box
 
-#### execute-code-unclosed — the Execute box's CODE not closed runs to the body's end and is refused there
+#### execute-code-unclosed — the Execute box's ST not closed runs to the body's end and is refused there
 === text
 %LANGUAGE LD
 %NETWORK
-EXECUTE(EN := a, CODE := 'k := 1;
+EXECUTE(EN := a, 'k := 1;
 x := a;
 === refused
 network-plain-st an unclosed string
 
-#### execute-code-not-last — CODE := '<ST>' is the Execute box's last pin
+#### execute-code-not-last — the Execute box's ST is its last pin
 === text
 %LANGUAGE LD
 %NETWORK
-EXECUTE(CODE := 'k := 1;', EN := a);
+EXECUTE('k := 1;', EN := a);
 === refused
-network-plain-st the Execute box takes EN := first where it shows EN, then CODE := '<ST>'
+network-plain-st the Execute box takes EN := first where it shows EN, then its ST as one string '<ST>'
 
 #### execute-eno-pin — the Execute box's ENO is its one output, read where it stands: no ENO => v pin
 === text
 %LANGUAGE LD
 %NETWORK
-EXECUTE(EN := a, CODE := 'k := 1;', ENO => v);
+EXECUTE(EN := a, 'k := 1;', ENO => v);
 === refused
-network-plain-st the Execute box takes EN := first where it shows EN, then CODE := '<ST>'
+network-plain-st the Execute box takes EN := first where it shows EN, then its ST as one string '<ST>'
 
-#### execute-code-wstring — the Execute box's CODE is a '…' string, never a "…" one
+#### execute-code-wstring — the Execute box's ST is a '…' string, never a "…" one
 === text
 %LANGUAGE LD
 %NETWORK
-EXECUTE(EN := a, CODE := "k := 1;");
+EXECUTE(EN := a, "k := 1;");
 === refused
-network-plain-st the Execute box takes EN := first where it shows EN, then CODE := '<ST>'
+network-plain-st the Execute box takes EN := first where it shows EN, then its ST as one string '<ST>'
 
-#### execute-code-wstring-across-a-line — a "…" string spans no line, after CODE := either
+#### execute-code-wstring-across-a-line — a "…" string spans no line, in the Execute box either
 === text
 %LANGUAGE LD
 %NETWORK
-EXECUTE(EN := a, CODE := "k := 1;
+EXECUTE(EN := a, "k := 1;
 n := 2;");
 === refused
 network-plain-st a string across a line
 
-#### code-string-of-another-call — a CODE pin of a call other than the Execute box is an ordinary pin: its string spans no line
+#### code-string-of-another-call — a string pin of a call other than the Execute box spans no line
 === scope
 pou f
 === text
@@ -408,7 +528,7 @@ network-plain-st a string across a line
 %NETWORK
 x := Execute(IN := b);
 === refused
-network-plain-st the Execute box takes EN := first where it shows EN, then CODE := '<ST>'
+network-plain-st the Execute box takes EN := first where it shows EN, then its ST as one string '<ST>'
 
 #### enabled-value-as-a-jump-condition — an enabled box other than a comparison is read by its value only as a coil's value
 === text
@@ -416,7 +536,7 @@ network-plain-st the Execute box takes EN := first where it shows EN, then CODE 
 %NETWORK
 VAR_TEMP w1 : ANY; END_VAR
 l:
-JMP(l, AND(EN := c, a, b));
+JMP.l := AND(EN := c, a, b);
 === refused
 network-plain-st comparison operators only
 
@@ -461,7 +581,7 @@ network-plain-st holds no branch
 %NETWORK
 VAR_TEMP w1 : ANY; END_VAR
 w1 := AND(a, b);
-x := R_EDGE(w1);
+x := RISING(w1);
 y := w1;
 === refused
 network-plain-st an edge is on a contact or on a box read where it stands
@@ -470,7 +590,7 @@ network-plain-st an edge is on a contact or on a box read where it stands
 === text
 %LANGUAGE LD
 %NETWORK
-x := F_EDGE(a, b);
+x := FALLING(a, b);
 === refused
 network-plain-st takes one value, positional
 
@@ -478,9 +598,9 @@ network-plain-st takes one value, positional
 === text
 %LANGUAGE LD
 %NETWORK
-x := R_EDGE(a);
+x := RISING(a);
 === scope
-pou R_EDGE
+pou RISING
 === refused
 network-plain-st declared in reach
 
@@ -612,7 +732,7 @@ network-plain-st comparison operators only
 === text
 %LANGUAGE LD
 %NETWORK
-x := EXECUTE(EN := a, CODE := 'k := 1;').ENO;
+x := EXECUTE(EN := a, 'k := 1;').ENO;
 === refused
 network-plain-st its one output is its ENO
 
