@@ -14,7 +14,7 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     3459
+ *     confirmed     3461
  *     refused       2510
  *     not-lowered    407
  *     lsp-gap         94
@@ -22,22 +22,24 @@
  *     unaskable      317
  *
  *   tier                     lowered    clean
- *     decl                   1027     1027
- *     arith                  1765     1765
- *     control                 189      176
+ *     decl                   1031     1031
+ *     arith                  1788     1787
+ *     control                 197      184
  *     aggregate               176      176
- *     call                    431      431
- *     indirect                486      486
+ *     call                    452      452
+ *     indirect                493      492
  *
  *   surviving lints (a lint listed here is work, not policy — 12 allowed ones are named with their reasons)
  *     unreachable_patterns                       9
  *     clippy::match_overlapping_arm              8
- *     clippy::match_single_binding               2
+ *     clippy::match_single_binding               3
+ *     clippy::overly_complex_bool_expr           1
+ *     clippy::redundant_closure_call             1
  *     overlapping_range_endpoints                1
  *
  *   allowed, and how many fixtures each one still excuses — `support/transpile/lint-policy.ts` holds the reason
  *   each is Volt's own answer rather than a defect. A count could never reach zero: the generator refuses to write.
- *     clippy::missing_panics_doc               271
+ *     clippy::missing_panics_doc               272
  *     clippy::self_assignment                   42
  *     dead_code                                 42
  *     unused_assignments                        14
@@ -52,7 +54,7 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         3813
+ *     agree         3876
  *     disagree         0
  *     not-run        261
  *       not-run: no elementary variable to seed or compare      105
@@ -70,12 +72,12 @@
  *       agree,   5/6 unanswered (the interpreter's loop guard): tr_27_loop_cap_repeat_1000001
  *       agree,   5/6 unanswered (the interpreter's loop guard): tr_27_loop_cap_while_5000000
  *
- *   pedantic — 2288 clippy::pedantic + clippy::perf findings; the ten most frequent
- *     clippy::cast_possible_truncation          972
- *     clippy::cast_sign_loss                    732
- *     clippy::cast_possible_wrap                323
- *     clippy::pub_underscore_fields             110
- *     clippy::struct_excessive_bools             44
+ *   pedantic — 2347 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *     clippy::cast_possible_truncation          981
+ *     clippy::cast_sign_loss                    733
+ *     clippy::cast_possible_wrap                328
+ *     clippy::pub_underscore_fields             130
+ *     clippy::struct_excessive_bools             68
  *     clippy::cast_precision_loss                31
  *     clippy::float_cmp                          14
  *     clippy::no_effect_underscore_binding       13
@@ -94,8 +96,8 @@
  *     tr_a10_string_to_dint_underscore_sign_edges   10.8
  *     tr_a10_string_to_int_literal_forms            10.8
  *
- *   shape — 2036 distinct emission shapes over 4074 lowered fixtures, 2299 distinct constructs.
- *   20 constructs carry a review note (`NOTES`): 37 fixtures are improvable, 23 touch a construct with alternatives.
+ *   shape — 2090 distinct emission shapes over 4137 lowered fixtures, 2327 distinct constructs.
+ *   20 constructs carry a review note (`NOTES`): 39 fixtures are improvable, 24 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  *   Notes per owning task (openspec transpile-restructure; a merged note counts once under each owner of its items;
  *   `keep` = an item that says nothing needs to change):
@@ -3616,80 +3618,80 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   newdel_with_pragma: { evidence: "unaskable", diverges: { codesys: "known" } },
   newdel_with_pragma_has_method: { evidence: "unaskable", diverges: { codesys: "known" } },
   newdel_without_pragma: { evidence: "refused", diverges: { codesys: "known" } },
-  ng_box_output_arrow: { evidence: "unaskable" },
-  ng_coil_storage: { evidence: "unaskable" },
+  ng_box_output_arrow: { evidence: "unaskable", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 1.7, shape: "70255c824c" },
+  ng_coil_storage: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 2, edge: "agree", size: 2.4, shape: "b6a5d87b17" },
   ng_conditional_jump_and_return: { evidence: "unaskable" },
-  ng_edge_modifiers: { evidence: "unaskable" },
+  ng_edge_modifiers: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 2, edge: "agree", size: 5.1, shape: "0c58c6213f" },
   ng_en_eno_named_wire: { evidence: "unaskable", diverges: { codesys: "known" } },
   ng_en_eno_sink: { evidence: "unaskable", diverges: { codesys: "known" } },
-  ng_execute_box: { evidence: "unaskable" },
-  ng_fanout_let: { evidence: "unaskable" },
-  ng_fb_call_output_read: { evidence: "unaskable" },
-  ng_group_arithmetic: { evidence: "unaskable" },
-  ng_group_comparison: { evidence: "unaskable" },
-  ng_group_nary: { evidence: "unaskable" },
-  ng_group_nested: { evidence: "unaskable" },
+  ng_execute_box: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 0, edge: "agree", size: 2.3, shape: "f0fb184ce7" },
+  ng_fanout_let: { evidence: "unaskable", tier: "arith", rust: "compiles", pedantic: 2, edge: "agree", size: 2.3, shape: "2a5ddc53da" },
+  ng_fb_call_output_read: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 3, edge: "agree", size: 5.7, shape: "6867a94141" },
+  ng_group_arithmetic: { evidence: "unaskable", tier: "arith", rust: "compiles", pedantic: 1, edge: "agree", size: 2.2, shape: "ea5ddab60e", notes: ["756ba59393"] },
+  ng_group_comparison: { evidence: "unaskable", tier: "arith", rust: "compiles", pedantic: 0, edge: "agree", size: 2.2, shape: "e74b55884a" },
+  ng_group_nary: { evidence: "unaskable", tier: "arith", rust: "compiles", pedantic: 1, edge: "agree", size: 2.4, shape: "beee95abc4" },
+  ng_group_nested: { evidence: "unaskable", tier: "arith", rust: "compiles", pedantic: 1, edge: "agree", size: 2.4, shape: "bab6c6d40c" },
   ng_label_jmp_resolved: { evidence: "unaskable" },
-  ng_m_action_call: { evidence: "unaskable" },
-  ng_m_conversion: { evidence: "unaskable" },
-  ng_m_function_constant_in_out: { evidence: "unaskable" },
-  ng_m_function_enabled: { evidence: "unaskable" },
-  ng_m_function_in_out_first: { evidence: "unaskable" },
-  ng_m_function_named: { evidence: "unaskable" },
-  ng_m_function_output_unwired: { evidence: "unaskable" },
-  ng_m_function_positional: { evidence: "unaskable" },
-  ng_m_function_positional_then_named_same: { evidence: "unaskable" },
-  ng_m_function_too_few: { evidence: "unaskable" },
+  ng_m_action_call: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 0, edge: "agree", size: 2.3, shape: "b851ef9f4b" },
+  ng_m_conversion: { evidence: "unaskable", tier: "arith", rust: "compiles", pedantic: 1, edge: "agree", size: 2.4, shape: "9e97448740" },
+  ng_m_function_constant_in_out: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 0, edge: "agree", size: 1.8, shape: "5d912a6a58" },
+  ng_m_function_enabled: { evidence: "unaskable", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 1.8, shape: "40c61e7c3d" },
+  ng_m_function_in_out_first: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 0, edge: "agree", size: 1.7, shape: "33e08ad0e0", notes: ["410eafc2ba"] },
+  ng_m_function_named: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 0, edge: "agree", size: 2, shape: "c29adcf03d" },
+  ng_m_function_output_unwired: { evidence: "unaskable", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 1.7, shape: "c782406651" },
+  ng_m_function_positional: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 0, edge: "agree", size: 2, shape: "c29adcf03d" },
+  ng_m_function_positional_then_named_same: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 0, edge: "agree", size: 2, shape: "a6e534e382" },
+  ng_m_function_too_few: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 0, edge: "agree", size: 1.9, shape: "a7410c686a" },
   ng_m_function_too_many: { evidence: "unaskable" },
-  ng_m_function_two_inputs: { evidence: "unaskable" },
-  ng_m_interface_method: { evidence: "unaskable" },
-  ng_m_library_function: { evidence: "unaskable" },
-  ng_m_library_function_eno: { evidence: "unaskable" },
-  ng_m_library_function_named: { evidence: "unaskable" },
-  ng_m_library_function_qualified: { evidence: "unaskable" },
-  ng_m_library_function_qualified_eno: { evidence: "unaskable" },
-  ng_m_method_call: { evidence: "unaskable" },
-  ng_m_method_positional: { evidence: "unaskable" },
-  ng_m_own_method: { evidence: "unaskable" },
-  ng_m_program_call: { evidence: "unaskable" },
-  ng_negation_sink: { evidence: "unaskable" },
-  ng_network_disabled: { evidence: "unaskable" },
-  ng_network_title_and_comment: { evidence: "unaskable" },
-  ng_opaque_leaf_negation: { evidence: "unaskable" },
-  ng_r1_div_three_inputs: { evidence: "unaskable" },
+  ng_m_function_two_inputs: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 0, edge: "agree", size: 1.9, shape: "fa5c79fec2" },
+  ng_m_interface_method: { evidence: "unaskable", tier: "indirect", rust: "compiles", lints: ["clippy::match_single_binding", "clippy::redundant_closure_call"], pedantic: 0, edge: "agree", size: 1.7, shape: "41cd155181" },
+  ng_m_library_function: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 1, edge: "agree", size: 2.6, shape: "8ebb7e9a16" },
+  ng_m_library_function_eno: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 1, edge: "agree", size: 2.6, shape: "7178f7d17e" },
+  ng_m_library_function_named: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 1, edge: "agree", size: 2.6, shape: "8ebb7e9a16" },
+  ng_m_library_function_qualified: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 1, edge: "agree", size: 2.6, shape: "8ebb7e9a16" },
+  ng_m_library_function_qualified_eno: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 1, edge: "agree", size: 2.6, shape: "7178f7d17e" },
+  ng_m_method_call: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 0, edge: "agree", size: 2.1, shape: "5374978f7a" },
+  ng_m_method_positional: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 0, edge: "agree", size: 2.1, shape: "5374978f7a" },
+  ng_m_own_method: { evidence: "unaskable", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 1.9, shape: "2a45ed3886" },
+  ng_m_program_call: { evidence: "unaskable", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2.9, shape: "97b16f09c3" },
+  ng_negation_sink: { evidence: "unaskable", tier: "arith", rust: "compiles", pedantic: 0, edge: "agree", size: 2.4, shape: "b89644cb28" },
+  ng_network_disabled: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.1, shape: "ce731566ed" },
+  ng_network_title_and_comment: { evidence: "unaskable", tier: "arith", rust: "compiles", pedantic: 0, edge: "agree", size: 2.4, shape: "40bbcec5aa" },
+  ng_opaque_leaf_negation: { evidence: "unaskable", tier: "arith", rust: "compiles", pedantic: 0, edge: "agree", size: 2.4, shape: "f3e6fd3115" },
+  ng_r1_div_three_inputs: { evidence: "unaskable", tier: "arith", rust: "compiles", pedantic: 1, edge: "agree", size: 2.4, shape: "2a63a26adb" },
   ng_r1_eq_three_inputs: { evidence: "unaskable" },
   ng_r1_ge_three_inputs: { evidence: "unaskable" },
   ng_r1_gt_three_inputs: { evidence: "unaskable" },
   ng_r1_le_three_inputs: { evidence: "unaskable" },
   ng_r1_lt_three_inputs: { evidence: "unaskable" },
-  ng_r1_mod_three_inputs: { evidence: "unaskable" },
+  ng_r1_mod_three_inputs: { evidence: "unaskable", tier: "arith", rust: "compiles", pedantic: 1, edge: "agree", size: 2.4, shape: "47f7af181b" },
   ng_r1_ne_three_inputs: { evidence: "unaskable" },
-  ng_r1_sub_three_inputs: { evidence: "unaskable" },
-  ng_r5_array_instance: { evidence: "unaskable" },
+  ng_r1_sub_three_inputs: { evidence: "unaskable", tier: "arith", rust: "compiles", pedantic: 0, edge: "agree", size: 2.4, shape: "2de5c3c39b" },
+  ng_r5_array_instance: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 2, edge: "agree", size: 3.6, shape: "61bc041227" },
   ng_r5_coil_and_jump: { evidence: "unaskable" },
-  ng_r5_coil_and_return: { evidence: "unaskable" },
-  ng_r5_comparison_eno: { evidence: "unaskable" },
-  ng_r5_edge_pin: { evidence: "unaskable" },
-  ng_r5_empty_branch: { evidence: "unaskable" },
-  ng_r5_enabled_comparison_value: { evidence: "unaskable" },
-  ng_r5_named_eno: { evidence: "unaskable" },
-  ng_r5_negated_en: { evidence: "unaskable" },
+  ng_r5_coil_and_return: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 1, edge: "agree", size: 2.2, shape: "fe38dab273" },
+  ng_r5_comparison_eno: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 2, edge: "agree", size: 2.6, shape: "e2c890d05e" },
+  ng_r5_edge_pin: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 2, edge: "agree", size: 3.3, shape: "f848daf4e9" },
+  ng_r5_empty_branch: { evidence: "unaskable", tier: "arith", rust: "compiles", lints: ["clippy::overly_complex_bool_expr"], pedantic: 1, edge: "agree", size: 2.1, shape: "ba6a952769" },
+  ng_r5_enabled_comparison_value: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 2, edge: "agree", size: 2.6, shape: "7db85de24e" },
+  ng_r5_named_eno: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 1, edge: "agree", size: 2.5, shape: "f81cacae4d" },
+  ng_r5_negated_en: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 1, edge: "agree", size: 2.4, shape: "b40fd8e742" },
   ng_r5_nested_jump: { evidence: "unaskable" },
-  ng_r5_one_input_add: { evidence: "unaskable" },
-  ng_r5_one_input_and: { evidence: "unaskable" },
-  ng_r5_split_before_definition: { evidence: "unaskable" },
+  ng_r5_one_input_add: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 1, edge: "agree", size: 2.3, shape: "a4a1e4a379" },
+  ng_r5_one_input_and: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 1, edge: "agree", size: 2.3, shape: "a4a1e4a379" },
+  ng_r5_split_before_definition: { evidence: "unaskable", tier: "arith", rust: "compiles", pedantic: 2, edge: "agree", size: 2.2, shape: "69de8d1d3b" },
   ng_r5_split_nested: { evidence: "unaskable" },
-  ng_r5_two_eno: { evidence: "unaskable" },
+  ng_r5_two_eno: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 3, edge: "agree", size: 2.9, shape: "fe32622187" },
   ng_r5_two_jumps: { evidence: "unaskable" },
   ng_s2_nested_assign: { evidence: "unaskable" },
   ng_s2_nested_set_reset: { evidence: "unaskable" },
-  ng_s3a_leaf_split_into_int: { evidence: "unaskable" },
-  ng_s3a_leaf_wire: { evidence: "unaskable" },
-  ng_s3b_rail_wire: { evidence: "unaskable" },
-  ng_s5_super_call: { evidence: "unaskable" },
-  ng_s6_negated_int_pin: { evidence: "unaskable" },
-  ng_s6_negated_pin: { evidence: "unaskable" },
-  ng_sink_type_mismatch: { evidence: "unaskable" },
+  ng_s3a_leaf_split_into_int: { evidence: "unaskable", tier: "arith", rust: "compiles", pedantic: 2, edge: "agree", size: 2.3, shape: "84d9b2880b" },
+  ng_s3a_leaf_wire: { evidence: "unaskable", tier: "arith", rust: "compiles", pedantic: 2, edge: "agree", size: 3.3, shape: "323773a9ac" },
+  ng_s3b_rail_wire: { evidence: "unaskable", tier: "arith", rust: "compiles", pedantic: 2, edge: "agree", size: 3.3, shape: "98b47d3d2c" },
+  ng_s5_super_call: { evidence: "unaskable", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 3.6, shape: "913c21fb8c" },
+  ng_s6_negated_int_pin: { evidence: "unaskable", tier: "arith", rust: "compiles", pedantic: 2, edge: "agree", size: 2.4, shape: "9a9b9d0cf6" },
+  ng_s6_negated_pin: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 4, edge: "agree", size: 4.9, shape: "f7fc44eae2" },
+  ng_sink_type_mismatch: { evidence: "unaskable", tier: "arith", rust: "compiles", pedantic: 0, edge: "agree", size: 2.4, shape: "b7e160df69" },
   no_assign: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.9, shape: "4b70673805" },
   no_check: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 1, edge: "agree", size: 2.6, shape: "d644083038" },
   no_copy: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.7, shape: "1219638616" },
@@ -3698,6 +3700,8 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   no_virtual_actions: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.9, shape: "4b70673805" },
   noinit: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.7, shape: "8729805295" },
   not_result_width: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 7, edge: "agree", size: 7.7, shape: "9962731fb0" },
+  nt_wire_read_before_definition_scan1: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 2.4, shape: "bd3b38db33" },
+  nt_wire_read_before_definition_scan2: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 2.4, shape: "bd3b38db33" },
   numeric_to_bool: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 5.8, shape: "42498f8a71" },
   obs_attribute_without_value: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "9906a0762e" },
   obs_fb_extended: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.8, shape: "5e6d366ccc" },
@@ -4918,13 +4922,13 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   rcc_implementation_variable: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "dd164fb363" },
   rcc_member_backtick_name: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.1, shape: "7f327e5fec" },
   rcc_member_name_not_identifier: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.1, shape: "7f327e5fec" },
-  rcc_network_eno_function_without_en: { evidence: "unaskable" },
+  rcc_network_eno_function_without_en: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 0, edge: "agree", size: 1.9, shape: "b11799dff6" },
   rcc_network_eno_function_without_en_root: { evidence: "unaskable" },
   rcc_network_eno_without_en: { evidence: "unaskable" },
-  rcc_network_located_wire_shape: { evidence: "unaskable" },
-  rcc_network_second_var_temp: { evidence: "unaskable" },
+  rcc_network_located_wire_shape: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.5, shape: "247ccdc804" },
+  rcc_network_second_var_temp: { evidence: "unaskable", tier: "arith", rust: "compiles", pedantic: 3, edge: "agree", size: 2.2, shape: "8fcc61149d" },
   rcc_network_undeclared_wire_shape: { evidence: "unaskable" },
-  rcc_network_var_temp_after_statement: { evidence: "unaskable" },
+  rcc_network_var_temp_after_statement: { evidence: "unaskable", tier: "arith", rust: "compiles", pedantic: 2, edge: "agree", size: 2.2, shape: "8b32134bbe" },
   rcc_property_empty_type: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
   rcc_property_no_type: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
   rcc_retired_comment_in_body: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2, shape: "c19bf2911c" },
