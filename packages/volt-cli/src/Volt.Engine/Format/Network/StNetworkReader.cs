@@ -1212,7 +1212,7 @@ public static class StNetworkReader
             {
                 case Leaf { Flags: { Rising: false, Falling: false } } l:
                     return l with { Flags = l.Flags with { Rising = rising, Falling = !rising } };
-                case Box { Flags: { Rising: false, Falling: false } } b when b.Enable is null || b.Instance is not null || NetworkSpelling.ConnectedByEno(b):
+                case Box { Flags: { Rising: false, Falling: false } } b:
                     return b with { Flags = b.Flags with { Rising = rising, Falling = !rising } };
                 default:
                     throw Error(c.Line, $"the edge {c.Head} over a wire, a branch, a coil, the rail or another edge: an edge is on a contact or on a box read where it stands");

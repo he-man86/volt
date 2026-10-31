@@ -427,6 +427,26 @@ public class StNetworkTextTests
         Assert.Equal(text, StNetworkWriter.Write(StNetworkReader.Read(text, NetworkScope.Empty), NetworkScope.Empty));
     }
 
+    /// <summary>An edge on an enabled box read by its value stands where the box may stand (a comparison anywhere, any
+    /// other as a coil's value): the writer spells it, so the reader reads it (Sim-Assist editor texts,
+    /// nwl-schema-completeness-gate 1.2).</summary>
+    [Theory]
+    [InlineData("y := a AND RISING(GT(EN := c, i, j));")]
+    [InlineData("y := FALLING(GT(EN := c, i, j));")]
+    public void An_edge_on_an_enabled_box_read_by_its_value_reads_and_writes_as_itself(string code)
+    {
+        var text = "%LANGUAGE LD\n%NETWORK\n" + code + "\n";
+        Assert.Equal(text, StNetworkWriter.Write(StNetworkReader.Read(text, NetworkScope.Empty), NetworkScope.Empty));
+    }
+
+    [Fact]
+    public void An_edge_on_an_enabled_box_is_still_no_coil_s_value_inside_a_chain()
+    {
+        var ex = Assert.Throws<StNetworkReadException>(() =>
+            StNetworkReader.Read("%LANGUAGE LD\n%NETWORK\ny := a AND RISING(MOVE(EN := c, b));\n", NetworkScope.Empty));
+        Assert.Contains("no coil's value", ex.Message);
+    }
+
     /// <summary>3.0: a Demux is a wire whatever its reads — once, or none (TwinCAT and the case set store both).</summary>
     [Fact]
     public void A_wire_read_once_or_never_is_a_Demux() =>
