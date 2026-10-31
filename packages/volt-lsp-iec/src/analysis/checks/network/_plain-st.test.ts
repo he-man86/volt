@@ -110,7 +110,7 @@ test("an UNSUPPORTED network keeps its label under its line: still the jump targ
 })
 
 test("an Execute box's EN is code, and its ST is ST where it stands in its CODE string: each name it reads resolves", () => {
-  const src = ld("\ta : BOOL;\n\tn : INT;", "%NETWORK\nok := EXECUTE(EN := nowhere, 'n := n + 1;\n  IF a THEN m := $'x$'; END_IF') AND a;\n")
+  const src = ld("\ta : BOOL;\n\tn : INT;", "%NETWORK\nok := EXECUTE(EN := nowhere, 'n := n + 1;\n  IF a THEN m := $'x$'; END_IF').ENO AND a;\n")
   const found = diagnose(src).map((d) => `${d.message} at '${src.slice(d.span.start, d.span.end)}' ${d.span.startLine}:${d.span.startCol}`)
   const line = src.split("\n").findIndex((l) => l.startsWith("  IF a")) + 1
   expect(found).toEqual([

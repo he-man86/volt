@@ -225,6 +225,10 @@ internal sealed class TcArchiveBuilder
         // a result slot beside the ENO (fbd.TcPOU: Names [ENO, ''], Types [BOOL, BOOL]), which the text has no position
         // for.
         var eno = NetworkText.HasEnoOutput(b, consumed);
+        // AN EXECUTE BOX HIDING ITS ENO (network-text-one-to-one F13) is a shape no TwinCAT archive was seen to hold: its member
+        // list is unmeasured, so it is refused by name rather than built from a guess.
+        if (b.StCode is not null && !eno)
+            throw new UnsupportedException("TwinCAT: an Execute box that shows no ENO has no measured archive form; write it with .ENO.");
         var (names, types) = NetworkMembers.Buildable(b, new BoxSite(consumed));
         // A FUNCTION's whole output list, as the editor draws it and CODESYS's writer builds it (2R.4): its result pin
         // '   ' (or the ENO echo) and every VAR_OUTPUT, wired or not.
@@ -293,7 +297,7 @@ internal sealed class TcArchiveBuilder
             Member("InputParam", "ParamList", Params(inNames, inTypes)),
             Member("OutputParam", "ParamList", Params(outNames, outTypes)),
             new XElement("v", new XAttribute("n", "CallType"), new XAttribute("t", "Operator"), callType),
-            // EN SHOWN ONLY WHERE THE BOX HAS AN EN PIN: an Execute box the text states without EN shows its ENO alone, as
+            // EN SHOWN ONLY WHERE THE BOX HAS AN EN PIN, the Execute box as every box (F13); an Execute box the text states without EN, as
             // CODESYS stores it; EN shown over an input list holding no EN reads back as no box at all.
             b.Enable is not null ? Raw("EN", "true") : Null("EN"),
             // ENO SHOWN ONLY WHERE THE BOX HAS ONE: an enabled comparison read as a value is built EN, no ENO, as
@@ -301,7 +305,7 @@ internal sealed class TcArchiveBuilder
             // it — measured live 2026-10-17, `x := a AND (v GT 40 EN c);` built "Identifier '__<POU>__ImpVar8' not
             // defined" (stored-shapes.test.ts). The flag is the box's own fact, not its EN's (N16): ENO without EN is shown
             // too (network-output-member 2.3).
-            eno || b.StCode is not null ? Raw("ENO", "true") : Null("ENO"),
+            eno ? Raw("ENO", "true") : Null("ENO"),
             b.StCode is { } st ? Member("STSnippet", "STSnippet", Snippet(st)) : Null("STSnippet"),
             Raw("ContainsExtensibleInputs", "false"),
             Raw("ProvidesSTSnippet", b.StCode is not null ? "true" : "false"),

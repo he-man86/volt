@@ -38,7 +38,7 @@ MOVE(EN := MOVE(EN := w4 AND (NOT Mach1_Data.Drives.SideCorrection_FreeLimit.Sta
 %NETWORK "DONE Network 5: Write side-correction values to the servo drive"
 EXECUTE(EN := RAIL(), 'tReal:=DB_Kantcorrectie.CopiedValueReal*DINT_TO_REAL(tCorrectionScale);
 Mach1_Data.Drives.SideCorrection.CAM.Y_Scale_Recipe:=REAL_TO_INT(tReal/(-1000));
-');
+').ENO;
 %NETWORK "DONE Network 6 : Manual adjustment of the sidecorrection"
 VAR w5 : ANY; END_VAR
 w5 := True;

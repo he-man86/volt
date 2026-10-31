@@ -100,7 +100,7 @@ public static class NetworkText
     /// <summary>Whether a box a driver BUILDS has an ENO output — the model's fact (<see cref="Box.HasEnoOutput"/>, stated by
     /// every reader). The one door a driver has to it.</summary>
     /// <param name="consumed">Whether something consumes the box — everything but a top-level item.</param>
-    public static bool HasEnoOutput(Box b, bool consumed) => b.HasEnoOutput || b.StCode is not null;
+    public static bool HasEnoOutput(Box b, bool consumed) => b.HasEnoOutput;
 
 
     /// <summary>Whether a refusal met in a network's trees can stand as that network's <c>UNSUPPORTED</c> line

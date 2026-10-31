@@ -49,7 +49,7 @@ END_VAR
 %NETWORK "DONE Network 1: Convert speed to cycle time"
 // tEmtyingCycle : (1/(MachineSpeed/60))*1000 gives time in [ms]
 EXECUTE(EN := RAIL(), 'tEmptyingCycleInterval:=(60*1000)/TO_DINT(iSpeedForEmptying);
-');
+').ENO;
 %NETWORK "DONE Network 2: Feed forward dryer"
 oFeedForward := stAuxFeedForward(SET := iStartFeedForward OR TMR_IntervalTimerEmptying(IN := (tConditionHeaterTimeOut := NOT(stReFeedForward(CLK := stAuxFeedForward.Q1))), PT := DINT_TO_TIME(tEmptyingCycleInterval)).Q AND iMachineStarted AND NOT stFaultDryerOpened.Q1 AND Mach1.GenFlags.DelayAfterSTO AND NOT iGenFlags.DriveIsRunning AND iPermissionDownstream, RESET1 := stReStopFeedForward(CLK := iStopFeedForward));
 %NETWORK "DONE Network 3: Enable heaters"
@@ -68,7 +68,7 @@ ADD(EN := w4 AND LST_General.Imp100ms, stActPowerHeater1, 10, OUT => stActPowerH
 MOVE(EN := GT(EN := w4, stActPowerHeater1, iSetPowerHeater1), iSetPowerHeater1, OUT => stActPowerHeater1).ENO;
 EXECUTE(EN := w3 AND NOT iPowerOrAnalog, 'oPowerHeater1:=INT_TO_WORD(stActPowerHeater1*27648/1000);
 
-');
+').ENO;
 MOVE(EN := w3 AND iPowerOrAnalog, INT_TO_WORD(stActPowerHeater1), OUT => oPowerHeater1).ENO;
 %NETWORK "DONE Network 5: Output power heater 2"
 VAR w5 : ANY; w6 : ANY; END_VAR
@@ -79,7 +79,7 @@ ADD(EN := w6 AND LST_General.Imp100ms, stActPowerHeater2, 10, OUT => stActPowerH
 MOVE(EN := GT(EN := w6, stActPowerHeater2, iSetPowerHeater2), iSetPowerHeater2, OUT => stActPowerHeater2).ENO;
 EXECUTE(EN := w5 AND NOT iPowerOrAnalog, 'oPowerHeater2:=INT_TO_WORD(stActPowerHeater2*27648/1000);
 
-');
+').ENO;
 MOVE(EN := w5 AND iPowerOrAnalog, INT_TO_WORD(stActPowerHeater2), OUT => oPowerHeater2).ENO;
 %NETWORK "DONE Network 6: Output power heater 3"
 VAR w7 : ANY; w8 : ANY; END_VAR
@@ -90,7 +90,7 @@ ADD(EN := w8 AND LST_General.Imp100ms, stActPowerHeater3, 10, OUT => stActPowerH
 MOVE(EN := GT(EN := w8, stActPowerHeater3, iSetPowerHeater3), iSetPowerHeater3, OUT => stActPowerHeater3).ENO;
 EXECUTE(EN := w7 AND NOT iPowerOrAnalog, 'oPowerHeater3:=INT_TO_WORD(stActPowerHeater3*27648/1000);
 
-');
+').ENO;
 MOVE(EN := w7 AND iPowerOrAnalog, INT_TO_WORD(stActPowerHeater3), OUT => oPowerHeater3).ENO;
 %NETWORK "DONE Network 37: Fault: dryer opened"
 oFaultDryerOpened := stFaultDryerOpened(SET1 := TMR_DryerOpened(IN := iMachineStarted AND iSwitchDryer AND NOT iDryerClosed AND NOT stFaultDryerOpened.Q1, PT := T#5S).Q, RESET := iGenFlags.StartFlag);

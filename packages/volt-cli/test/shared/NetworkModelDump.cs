@@ -97,6 +97,7 @@ public static class NetworkModelDump
             var e = new StringBuilder("(EXECUTE ").Append(Quote(st));
             if (b.Enable is { } en) e.Append(' ').Append(Pin(b.EnableFlags)).Append("en:").Append(Node(en));
             if (b.ConnectedSlot is { } c) e.Append(" conn:").Append(c.ToString(CultureInfo.InvariantCulture));
+            if (b.HasEnoOutput) e.Append(" eno:1");
             return e.Append(')').ToString();
         }
         var sb = new StringBuilder("(").Append(Operand(b.Type));

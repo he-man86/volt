@@ -10,7 +10,7 @@
  */
 import { addressShape, typedLiteralForm, type Expr, type Span } from "../../frontend/syntax/index.js"
 import { lookup, type Scope, scopeUri } from "../../frontend/symbols/index.js"
-import { inferExprType, isConversionName, resolveMemberChain, resolveNamedType } from "../../frontend/types/index.js"
+import { boxMember, inferExprType, isConversionName, resolveMemberChain, resolveNamedType } from "../../frontend/types/index.js"
 import type { DiagnosticItem } from "./diagnostic-item.js"
 
 /** The findings that mean the expression has NO TYPE. */
@@ -164,5 +164,7 @@ export function isHole(e: Expr, scope: Scope, project: Scope, seen: Reported): b
   // For a CALL only the CALLEE counts: the result is the callee's declared return type, which the compiler knows
   // however badly an ARGUMENT resolved (`f(undefinedName)` converts fine) — but a callee it refuses outright leaves
   // the call with no type (conformance `cc2_call_recursion`).
-  return within(seen.refused, e.kind === "call" ? e.callee.span : e.span)
+  // The member closing a network box's call (`<box>.ENO`) is the box read where it stands: its call's callee counts, as a call's.
+  const box = e.kind === "member" && e.base.kind === "call" && boxMember(e, scope, project) !== undefined ? e.base : undefined
+  return within(seen.refused, e.kind === "call" ? e.callee.span : box !== undefined ? box.callee.span : e.span)
 }

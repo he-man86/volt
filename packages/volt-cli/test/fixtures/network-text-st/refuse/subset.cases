@@ -797,11 +797,19 @@ x := MUL(g(EN := c, a).OUT, 2);
 === refused
 network-plain-st comparison operators only
 
-#### execute-closed-by-a-member — the Execute box has one output, its ENO: no member closes its call
+#### execute-read-by-no-eno — the Execute box's one output is its ENO: read, its call is closed by .ENO
 === text
 %LANGUAGE LD
 %NETWORK
-x := EXECUTE(EN := a, 'k := 1;').ENO;
+x := EXECUTE(EN := a, 'k := 1;');
+=== refused
+network-plain-st its one output is its ENO
+
+#### execute-closed-by-another-member — the Execute box has no output but its ENO
+=== text
+%LANGUAGE LD
+%NETWORK
+x := EXECUTE(EN := a, 'k := 1;').Q;
 === refused
 network-plain-st its one output is its ENO
 

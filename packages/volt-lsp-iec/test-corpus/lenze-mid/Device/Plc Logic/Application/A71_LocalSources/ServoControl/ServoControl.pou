@@ -75,14 +75,14 @@ oServoControl.ResetError := ioUDT_ServoDrive.Control.ResetError AND iFF100ms;
 oServoControl.SelectBypassCAM := ioUDT_ServoDrive.Control.SelectBypassCAM;
 %NETWORK "DONE Network 19: Output: X-offset"
 EXECUTE(EN := RAIL(), 'ioUDT_ServoDrive.CAM.X_Offset_ToSlave := ioUDT_ServoDrive.CAM.X_Offset_FromMaster + ioUDT_ServoDrive.CAM.X_Offset_Recipe;
-oServoControl.XOffset := INT_TO_WORD(ioUDT_ServoDrive.CAM.X_Offset_Base + ioUDT_ServoDrive.CAM.X_Offset_ToSlave);');
+oServoControl.XOffset := INT_TO_WORD(ioUDT_ServoDrive.CAM.X_Offset_Base + ioUDT_ServoDrive.CAM.X_Offset_ToSlave);').ENO;
 %NETWORK "DONE Network 20: Scaling of the Y value"
 VAR w3 : ANY; END_VAR
 w3 := True;
 MOVE(EN := GE(EN := w3, ioUDT_ServoDrive.CAM.CamType, ctCurveIs0ToMax), 1000, OUT => oServoControl.YScale).ENO;
 ADD(EN := OR(GE(EN := w3, ioUDT_ServoDrive.CAM.CamType, ctCurveIs0To0), GE(EN := RAIL(), ioUDT_ServoDrive.CAM.CamType, ctCurveIsSpeed)), ioUDT_ServoDrive.CAM.Y_Scale_Base, ioUDT_ServoDrive.CAM.Y_Scale_Recipe, OUT => oServoControl.YScale).ENO;
 %NETWORK "DONE Network 21: Y-offset"
-EXECUTE(EN := RAIL(), 'oServoControl.YOffset := INT_TO_WORD(ioUDT_ServoDrive.CAM.Y_Offset_Base + ioUDT_ServoDrive.CAM.Y_Offset_Recipe);');
+EXECUTE(EN := RAIL(), 'oServoControl.YOffset := INT_TO_WORD(ioUDT_ServoDrive.CAM.Y_Offset_Base + ioUDT_ServoDrive.CAM.Y_Offset_Recipe);').ENO;
 %NETWORK "TODO Network 22: Status inputs from drive"
 %NETWORK "TODO Network 23: SetOuput bits to drive"
 %NETWORK "DONE Network 24: Output to Program"

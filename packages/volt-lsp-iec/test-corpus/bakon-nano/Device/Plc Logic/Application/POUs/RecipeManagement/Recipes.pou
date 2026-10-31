@@ -85,7 +85,7 @@ EXECUTE(EN := TRUE, 'IF g_HMI_MachCommand.CMD.bNewRecipe THEN
 														(*        2 = Water only *)
 														
 	g_HMI_RCP_Parameters_Visu.bMirrorDiagonals := FALSE;
-END_IF');
+END_IF').ENO;
 %NETWORK
 L_RecipeManager1(xEnable := TRUE, sDatabaseName := 'Recipes', sSelectedRecipeName := sSelectedRecipeName, xRecipe_Load := g_HMI_MachCommand.CMD.bLoadRecipe, xRecipe_New := g_HMI_MachCommand.CMD.bNewRecipe, xRecipe_Edit := g_HMI_MachCommand.CMD.bEditRecipe, xRecipe_Save := g_HMI_MachCommand.CMD.bSaveRecipe, xRecipe_Copy := g_HMI_MachCommand.CMD.bCopyRecipe, xRecipe_Delete := g_HMI_MachCommand.CMD.bDeleteRecipe, xRecipe_Update := g_HMI_MachCommand.CMD.bUpdateRecipe, scRecipeVisu := g_HMI_RCP_Parameters_Visu, scRecipePLC := g_HMI_RCP_Parameters, sRecipeNames => sRecipeNames, dwReturnValue => dwReturnValue);
 %NETWORK
@@ -104,7 +104,7 @@ EXECUTE(EN := TRUE, 'IF g_HMI_MachCommand.CMD.bSaveMachPar AND GetDateAndTime.xD
 	sMachParName := sRecipeNamePar;
 	bSavePars := TRUE;
 	g_HMI_MachCommand.CMD.bSaveMachPar := FALSE;
-END_IF');
+END_IF').ENO;
 %NETWORK
 %NETWORK
 L_MachParManager1(xEnable := TRUE, sDatabaseName := 'MachPar', sRecipeName := sMachParName, xRecipe_Delete := g_HMI_MachCommand.CMD.bDeleteMachPar, xRecipe_Load := g_HMI_MachCommand.CMD.bLoadMachPar, xRecipe_Save := bSaveParAs, xRecipe_SaveAs := bSavePars, sActiveRecipe := sActiveMachPar, sRecipeNames => sMachParNames, dwReturnValue => dwMachParReturnValue);

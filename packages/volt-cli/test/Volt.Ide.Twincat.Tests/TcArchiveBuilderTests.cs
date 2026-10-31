@@ -150,8 +150,8 @@ public sealed class TcArchiveBuilderTests(Xunit.Abstractions.ITestOutputHelper o
         ("set_coil", "%NETWORK\nout S= a;\n"),
         ("reset_coil", "%NETWORK\nout R= a AND b;\n"),
         ("rising_edge", "%NETWORK\nout := RISING(a) AND b;\n"),
-        ("execute", "%NETWORK\nEXECUTE(EN := go, 'n := n + 1;');\n"),
-        ("execute_consumed", "%NETWORK\nout := EXECUTE(EN := go, 'n := 1;');\n"),
+        ("execute", "%NETWORK\nEXECUTE(EN := go, 'n := n + 1;').ENO;\n"),
+        ("execute_consumed", "%NETWORK\nout := EXECUTE(EN := go, 'n := 1;').ENO;\n"),
         ("multi_rung", "%NETWORK\nout1 := a AND b;\nout2 := c OR d;\nt1(IN := e, PT := pt);\n"),
         ("assign_below_top", "%NETWORK\nt1(IN := (out := go), PT := pt);\n"),
         ("jump_and_label", "%NETWORK\nJMP.L1 := a;\n%NETWORK\nL1:\nout := a OR b;\n"),
@@ -316,7 +316,7 @@ public sealed class TcArchiveBuilderTests(Xunit.Abstractions.ITestOutputHelper o
     public void An_Execute_box_without_EN_builds_without_EN_and_reads_back_the_same()
     {
         var scope = new NetworkScope(new[] { "out", "a" }, Array.Empty<string>(), new Dictionary<string, string>());
-        const string text = "%LANGUAGE FBD\n%NETWORK\nEXECUTE('out := a;');\n";
+        const string text = "%LANGUAGE FBD\n%NETWORK\nEXECUTE('out := a;').ENO;\n";
         var back = ReadBack(TcArchiveBuilder.Body(NetworkText.Validate(text, scope), scope));
         Assert.Equal(text, StNetworkWriter.Write(back, scope));
     }

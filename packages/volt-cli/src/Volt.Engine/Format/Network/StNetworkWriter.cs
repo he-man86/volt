@@ -756,7 +756,7 @@ public static class StNetworkWriter
             if (st.IndexOf('\r') >= 0) throw Unspellable("an Execute box's ST holding a lone carriage return", "a line of the Execute box's ST ends in a carriage return.");
             var args = Args(b);
             args.Add("'" + NetworkSpelling.EscapeCode(st) + "'");
-            return ExecuteHead + "(" + string.Join(", ", args) + ")";
+            return ExecuteHead + "(" + string.Join(", ", args) + ")" + (b.HasEnoOutput ? "." + Box.EnoPin : "");
         }
 
         /// <summary>THE HEAD OF A BOX'S CALL (owner, 2026-10-28, design "FB boxes: the instance is the call head"): an FB box's

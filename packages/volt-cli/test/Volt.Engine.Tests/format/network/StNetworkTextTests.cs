@@ -276,13 +276,13 @@ public class StNetworkTextTests
     [Fact]
     public void An_Execute_box_is_a_call_its_ST_the_string_CODE_with_its_line_breaks_as_they_stand() =>
         RoundTrips(Ld1(Exec("IF go THEN\r\n\to := o + 'i$';\r\nEND_IF", en: L("en"))),
-            "%LANGUAGE LD\n%NETWORK\nEXECUTE(EN := en, 'IF go THEN\n\to := o + $'i$$$';\nEND_IF');\n");
+            "%LANGUAGE LD\n%NETWORK\nEXECUTE(EN := en, 'IF go THEN\n\to := o + $'i$$$';\nEND_IF').ENO;\n");
 
     [Fact]
     public void An_Execute_box_read_twice_defines_a_wire_like_any_box() =>
         RoundTrips(Ld1(new Demux(1, Exec("k := 1;", en: L("go"), connected: 0)), Set(new Demux(1, null), T("x")),
                 Set(new Demux(1, null), T("y"))),
-            "%LANGUAGE LD\n%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := EXECUTE(EN := go, 'k := 1;');\nx := w1;\ny := w1;\n");
+            "%LANGUAGE LD\n%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := EXECUTE(EN := go, 'k := 1;').ENO;\nx := w1;\ny := w1;\n");
 
     /// <summary>The Execute box's spellings the writer refuses (2.6 review), each by its reason: EXECUTE declared in reach
     /// (anything of that name, a variable too: the text's own word), a lone CR in its ST, a consumer reading it by another

@@ -351,7 +351,7 @@ function checkExprs(stmt: Statement, scope: Scope | undefined, boxes: Scope | un
       if (x.kind === "assign_expr" && x.marks !== undefined) checkMarkOrder(x.marks, x.span, out)
       if (x.kind === "call") for (const a of x.args) if (a.marks !== undefined) checkPinMarks(x, a, out)
       if (x.kind === "call") checkCall(x, scope, wires, out)
-      if (x.kind === "call" && calleeText(x).toUpperCase() === EXECUTE) return checkExecute(x, closer.get(x), scope, executes, out)
+      if (x.kind === "call" && calleeText(x).toUpperCase() === EXECUTE) return checkExecute(x, closer.get(x), x !== root, scope, executes, out)
       if (x.kind === "call" && boxes !== undefined) checkBox(x, closer.get(x), x !== root, boxes, project, out)
     })
 }
@@ -438,15 +438,18 @@ function checkCall(call: CallExpr, scope: Scope | undefined, wires: ReadonlySet<
 /** THE EXECUTE BOX, `EXECUTE(EN := e, '<ST>')` (its `'…'` trivia to the ST parser, `plain-st.ts`): EN first
  *  where it shows EN, then its ST, nothing else; no member closes its call, its one output its ENO; and nothing declared in
  *  reach is named EXECUTE — the bridge's reader refuses each in the same words (`StNetworkReader.ExecuteBox`). */
-function checkExecute(call: CallExpr, member: string | undefined, scope: Scope | undefined, executes: readonly PlainStExecute[], out: DiagnosticItem[]): void {
+function checkExecute(call: CallExpr, member: string | undefined, consumed: boolean, scope: Scope | undefined, executes: readonly PlainStExecute[], out: DiagnosticItem[]): void {
   const name = calleeText(call)
   if (scope !== undefined && lookup(scope, name) !== undefined)
     return emit(out, call.callee.span, CODE, `the call ${name} names something declared in reach, which the text reads as its Execute box`)
-  if (member !== undefined) return emit(out, call.span, CODE, `the Execute box is closed by .${member}: its one output is its ENO, read where the box stands`)
+  // EN and ENO as on every box (network-text-one-to-one F13): `.ENO` shows the ENO, its one output, at a root too
+  const eno = member?.toUpperCase() === "ENO"
+  if (member !== undefined && !eno) return emit(out, call.span, CODE, `the Execute box is closed by .${member}: its one output is its ENO, read as .ENO`)
   const en = call.args[0] !== undefined && !call.args[0].output && call.args[0].param?.name.toUpperCase() === "EN"
   const code = executes.some((x) => x.call.start === call.span.start)
   if (!code || call.args.length > (en ? 1 : 0))
     emit(out, call.span, CODE, "the Execute box takes EN := first where it shows EN, then its ST as one string '<ST>', and nothing else")
+  else if (consumed && !eno) emit(out, call.span, CODE, "the Execute box is read and shows no ENO: its one output is its ENO, read as .ENO")
 }
 
 /** `BRANCH(FEED := f, b1, b2)`: the feed first if fed, then the branches, positional; at least one branch. */

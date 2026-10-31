@@ -40,7 +40,7 @@ cor_DenumDI:=Droger_Data.Cor_denumerator;
 HMI_Var.Mach1.ActualSpeedDryer:=(Mach_ActSpeed_Rpm01*cor_numDI)/cor_denumdi;
 Mach1_Data.Drives.FeedForwardADS.Control.AutoSpeed:=REAL_TO_INT(0.9*dint_to_real(HMI_Var.Mach1.ActualSpeedDryer)*6/10);
 
-');
+').ENO;
 %NETWORK "NETWORK 2: Deviation calculation of sync point, transport system trayfiller"
 VAR w5 : ANY; END_VAR
 // Principle: It's better to accelerate the drive then to decelerate, because otherwise cigars could be missed. 

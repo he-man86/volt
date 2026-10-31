@@ -1260,8 +1260,10 @@ public static class StNetworkReader
         {
             if (_net.InReach(c.Head))
                 throw Error(c.Line, $"the call {c.Head} names something declared in reach, which the text reads as its Execute box");
-            if (c.Member is { } member)
-                throw Error(c.Line, $"the Execute box is closed by .{member}: its one output is its ENO, read where the box stands");
+            // EN and ENO as on every box (network-text-one-to-one F13): `EN :=` shows EN, `.ENO` shows ENO, at a root too.
+            var eno = c.Member is { } m && Is(m, Box.EnoPin);
+            if (c.Member is { } member && !eno)
+                throw Error(c.Line, $"the Execute box is closed by .{member}: its one output is its ENO, read as .ENO");
             var at = 0;
             Node? enable = null;
             var enableFlags = Flags.None;
@@ -1274,9 +1276,11 @@ public static class StNetworkReader
             if (c.Args.Count != at + 1 || c.Args[at] is not { Out: false, Formal: null, Value: AOperand { Text: var literal } } ||
                 literal.Length < 2 || literal[0] != '\'' || literal[literal.Length - 1] != '\'')
                 throw Error(c.Line, $"the Execute box takes {Box.EnablePin} := first where it shows EN, then its ST as one string '<ST>', and nothing else");
+            if (consumed && !eno)
+                throw Error(c.Line, "the Execute box is read and shows no ENO: its one output is its ENO, read as .ENO");
             var st = NetworkSpelling.UnescapeCode(literal.Substring(1, literal.Length - 2), out var error) ?? throw Error(c.Line, error!);
             return new Box(NetworkSpelling.ExecuteType, null, NetworkSpelling.KindOf(NetworkSpelling.ExecuteType, false), Array.Empty<Input>(),
-                Array.Empty<Output>(), enable, st, Flags.None, ConnectedSlot: consumed ? 0 : null, HasEnoOutput: true) { EnableFlags = enableFlags };
+                Array.Empty<Output>(), enable, st, Flags.None, ConnectedSlot: consumed ? 0 : null, HasEnoOutput: eno) { EnableFlags = enableFlags };
         }
     }
 

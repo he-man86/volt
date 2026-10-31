@@ -16,7 +16,7 @@ END_VAR
 %LANGUAGE LD
 %NETWORK
 EXECUTE(EN := TRUE, 'iCount:=icount+1;
-');
+').ENO;
 %NETWORK
 output := t1(IN := in1, PT := e1).Q;
 %NETWORK

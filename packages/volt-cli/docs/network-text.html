@@ -100,11 +100,12 @@ y := w2 AND w1;</pre>
 <p>Wires are numbered <code>w1</code>, <code>w2</code>, … across the body, in the order the text first names them, past every name the body or its declarations use; the <code>VAR</code> line lists them in that order.</p>
 
 <h2 id="execute">Execute box</h2>
-<p>Its ST is its last pin, one string, line breaks as they stand, <code>'</code> written <code>$'</code> and <code>$</code> written <code>$$</code>. Its one output is its ENO.</p>
+<p>Its ST is its last pin, one string, line breaks as they stand, <code>'</code> written <code>$'</code> and <code>$</code> written <code>$$</code>. EN and ENO are shown as on every box (<code>EN :=</code>, <code>.ENO</code>); its one output is its ENO.</p>
 <pre>EXECUTE(EN := go, 'IF start THEN
     count := count + 1;
 END_IF');
-ok := EXECUTE(EN := go, 'msg := $'done$';');</pre>
+ok := EXECUTE(EN := go, 'msg := $'done$';').ENO;
+EXECUTE('n := 0;');</pre>
 
 <h2 id="subset">What a network holds</h2>
 <p>Assignments (a jump or the return among their targets) and calls (a box at a root closed by <code>.ENO</code> or by nothing). Any other ST stands only in an Execute box. <code>RISING</code>, <code>FALLING</code> and <code>RAIL</code> name nothing else in a network.</p>

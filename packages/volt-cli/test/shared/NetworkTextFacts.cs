@@ -79,8 +79,8 @@ public static class NetworkTextFacts
         int? connected = !consumed || byName is not null ? null
             : !byEno && NetworkSpelling.MainSlotOfCall(b.Type) is null ? null
             : b.ConnectedSlot;
-        // `.ENO` carries whether a box shows ENO, an Execute box has its ENO by type
-        var hasEno = isExecute || b.HasEnoOutput;
+        // `.ENO` carries whether a box shows ENO, the Execute box as every box (network-text-one-to-one F13)
+        var hasEno = b.HasEnoOutput;
         return new Box(
             b.Type,
             // The instance's text and its flags: the text has no position for a flag on the instance operand, so the writer
