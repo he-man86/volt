@@ -19,7 +19,7 @@ namespace Volt.Engine.Format.Network;
 /// ENO, where the callee declares no <c>EN</c>/<c>ENO</c> of its own; any other <c>.NAME</c> names the output a consumer
 /// reads, required where the callee declares more than one data output and refused where it declares one
 /// (<see cref="NetworkSpelling.SignatureOf(string, bool, NetworkScope)"/>). A statement is an assignment, a call, a call
-/// closed by <c>.ENO</c>, a jump or a return, a label. A name its network declares <c>VAR_TEMP w1 : ANY; END_VAR</c> is a wire: a Demux over its
+/// closed by <c>.ENO</c>, a jump or a return, a label. A name its network declares <c>VAR w1 : ANY; END_VAR</c> is a wire: a Demux over its
 /// definition, read by its name any number of times. <c>BRANCH</c>, <c>BRANCH_SHORTCIRCUIT</c>, <c>RISING</c>, <c>RAIL</c> and
 /// <c>FALLING</c> are the text's own elements (<see cref="StNetworkWriter.ElementHeads"/>), and <c>EXECUTE(EN := e,
 /// '&lt;ST&gt;')</c> the Execute box, its ST the one string that spans lines.</para>
@@ -85,16 +85,19 @@ public static class StNetworkReader
         }
     }
 
-    /// <summary>Whether <paramref name="line"/> declares wires: its first word <c>VAR_TEMP</c>, in any case.</summary>
-    private static bool IsWiresLine(string line)
+    /// <summary>Whether <paramref name="line"/> declares wires: its first word <c>VAR</c>, in any case.</summary>
+    private static bool IsWiresLine(string line) =>
+        string.Equals(FirstWord(line), StNetworkWriter.WiresOpen, StringComparison.OrdinalIgnoreCase);
+
+    private static string FirstWord(string line)
     {
         var t = line.TrimStart();
         var k = 0;
         while (k < t.Length && (char.IsLetterOrDigit(t[k]) || t[k] == '_')) k++;
-        return string.Equals(t.Substring(0, k), StNetworkWriter.WiresOpen, StringComparison.OrdinalIgnoreCase);
+        return t.Substring(0, k);
     }
 
-    /// <summary>THE WIRES A NETWORK DECLARES (owner, 2026-10-28): one line <c>VAR_TEMP w1 : ANY; w2 : ANY; END_VAR</c>, each
+    /// <summary>THE WIRES A NETWORK DECLARES (owner, 2026-10-28): one line <c>VAR w1 : ANY; w2 : ANY; END_VAR</c>, each
     /// <c>: ANY</c> — the type is its definition's, which the text does not state.</summary>
     private static IReadOnlyList<string> WireDeclaration(string line, int lineNo)
     {
@@ -303,6 +306,8 @@ public static class StNetworkReader
                             : $"'{line}': a network holds no such line");
                     if (IsWiresLine(line))
                         throw Error(i, $"{StNetworkWriter.WiresOpen} after the network's comment or code: its wires are declared after its % lines, before its comment");
+                    if (FirstWord(line) is { } w && string.Equals(w, "VAR_TEMP", StringComparison.OrdinalIgnoreCase))
+                        throw Error(i, $"VAR_TEMP: a network's wires keep their value across scans, as ST's VAR does, and are declared {StNetworkWriter.WiresOpen} w1 : {StNetworkWriter.WireType}; {StNetworkWriter.WiresClose}");
                     if (line.TrimStart().StartsWith("//", StringComparison.Ordinal))
                         throw Error(i, "a comment after the code starts: a network's comment is its // lines before the code");
                 }

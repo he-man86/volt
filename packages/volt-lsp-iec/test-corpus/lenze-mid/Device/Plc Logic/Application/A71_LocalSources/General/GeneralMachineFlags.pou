@@ -79,35 +79,35 @@ GenFlags.DelayAfterEmergStop := OnDelayAfterEmergencyStop(IN := NOT iFirstCycle 
 %NETWORK "NETWORK 3: Startup delay after STO has been enabled"
 GenFlags.DelayAfterSTO := OnDelayAfterSTOEnabled(IN := GenFlags.DelayAfterEmergStop AND iSTO_Enabled, PT := iPreDelayAfterSTOEnabled).Q;
 %NETWORK "NETWORK 4: Stop delay auxiliary drives"
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := GenFlags.EnableAuxDrive AND NOT GenFlags.StartFlag AND DnStartDelayAuxDrives AND NOT GenFlags.DriveIsRunning AND NOT GenFlags.Rotflag;
 DnStopDelayAuxDrives := OnDelayStopAuxDrives(IN := w1, PT := iPreStopDelayAuxDrives).Q;
 DnStopDelayAuxDrives := BRANCH_SHORTCIRCUIT(FEED := w1, EQ(EN := RAIL(), iPreStopDelayAuxDrives, T#0MS), DnStopDelayAuxDrives);
 %NETWORK "NETWORK 5: Manual stop auxiliary drives"
 DnManualStopAuxDrives := OnDelayManStopAuxDrives(IN := GenFlags.EnableAuxDrive AND (NOT iStop1 OR NOT iStop2 OR NOT iStop3), PT := T#2S).Q;
 %NETWORK "NETWORK 6: Startup delay auxiliary drives"
-VAR_TEMP w2 : ANY; w3 : ANY; END_VAR
+VAR w2 : ANY; w3 : ANY; END_VAR
 w2 := True;
 w3 := w2 AND GenFlags.EnableAuxDrive AND NOT GenFlags.AuxDrivesStarted;
 DnStartDelayAuxDrives := OnDelayStartAuxDrives(IN := w3, PT := iPreStartDelayAuxDrives).Q;
 DnStartDelayAuxDrives := BRANCH_SHORTCIRCUIT(FEED := w3, EQ(EN := RAIL(), iPreStartDelayAuxDrives, T#0MS), DnStartDelayAuxDrives);
 GenFlags.AuxDrivesStarted R= w2;
 %NETWORK "NETWORK 7: Enable markers"
-VAR_TEMP w4 : ANY; w5 : ANY; END_VAR
+VAR w4 : ANY; w5 : ANY; END_VAR
 w4 := GenFlags.DelayAfterEmergStop AND NOT GenFlags.MajorAlarm;
 w5 := w4 AND iDoorUnitOK;
 GenFlags.EnableControl := w5 AND NOT GenFlags.DisableControl;
 GenFlags.EnableMainDrive := w5 AND GenFlags.EnableAuxDrive AND NOT GenFlags.AuxDrivesStarted AND DnStartDelayAuxDrives;
 GenFlags.EnableAuxDrive := w4 AND (GenFlags.StartFlag OR GenFlags.RunAuto AND GenFlags.RestartAuxDrives OR GenFlags.EnableAuxDrive AND NOT DnStopDelayAuxDrives AND NOT DnManualStopAuxDrives);
 %NETWORK "NETWORK 8: Pneumatic markers"
-VAR_TEMP w6 : ANY; w7 : ANY; END_VAR
+VAR w6 : ANY; w7 : ANY; END_VAR
 w6 := iEmergencyUnitOK;
 GenFlags.EnablePneumEStop := OffDelayPneumEStop(IN := w6, PT := T#1S).Q;
 w7 := w6 AND (iSTO_Enabled OR NOT iAirPressureDoorsSeparate);
 GenFlags.EnablePneumSafetyGuard := OffDelayPneumSafetyGuard(IN := w7, PT := T#1S).Q;
 GenFlags.EnablePneumPressurised := OffDelayPneumPressurised(IN := w7 AND iAirPressureOK, PT := T#1S).Q;
 %NETWORK "NETWORK 9: Active control panel"
-VAR_TEMP w8 : ANY; w9 : ANY; w10 : ANY; w11 : ANY; END_VAR
+VAR w8 : ANY; w9 : ANY; w10 : ANY; w11 : ANY; END_VAR
 w8 := True;
 GenFlags.ControlService := w8 AND iSwitchService;
 w9 := w8 AND NOT iSwitchService;
@@ -138,19 +138,19 @@ oCrossingDoorCircuit2 := GenFlags.ControlMan2;
 %NETWORK "DONE NETWORK 19: Crossing doorcircuit control panel 3"
 oCrossingDoorCircuit3 := GenFlags.ControlMan3;
 %NETWORK "DONE NETWORK 20: Signal lamps control panel 1 "
-VAR_TEMP w12 : ANY; END_VAR
+VAR w12 : ANY; END_VAR
 w12 := True;
 oStart1 := w12 AND (GenFlags.ControlMan1 OR GenFlags.ControlAuto) AND ((GenFlags.RunMan OR GenFlags.RunAuto) AND NOT GenFlags.MinorAlarm AND NOT GenFlags.MajorAlarm OR (GenFlags.EnableControl OR NOT iStartResetSeparate AND (GenFlags.MinorAlarm OR GenFlags.MajorAlarm)) AND iSignalPulse AND (NOT GenFlags.MinorAlarm AND NOT GenFlags.MajorAlarm OR NOT iStartResetSeparate));
 oStop1 := w12 AND iEmergencyUnitOK AND (NOT GenFlags.RunMan OR NOT GenFlags.ControlMan1) AND NOT GenFlags.RunAuto;
 oReset1 := w12 AND (GenFlags.ControlMan1 OR GenFlags.ControlMan2 OR GenFlags.ControlMan3 OR GenFlags.ControlAuto OR GenFlags.ControlService) AND (GenFlags.MinorAlarm OR GenFlags.MajorAlarm OR NOT iDoorUnitOK) AND iSignalPulse;
 %NETWORK "DONE NETWORK 21: Signal lamps control panel 2"
-VAR_TEMP w13 : ANY; END_VAR
+VAR w13 : ANY; END_VAR
 w13 := True;
 oStart2 := w13 AND (GenFlags.ControlMan2 OR GenFlags.ControlAuto) AND ((GenFlags.RunMan OR GenFlags.RunAuto) AND NOT GenFlags.MinorAlarm AND NOT GenFlags.MajorAlarm OR (GenFlags.EnableControl OR NOT iStartResetSeparate AND (GenFlags.MinorAlarm OR GenFlags.MajorAlarm)) AND iSignalPulse AND (NOT GenFlags.MinorAlarm AND NOT GenFlags.MajorAlarm OR NOT iStartResetSeparate));
 oStop2 := w13 AND iEmergencyUnitOK AND (NOT GenFlags.RunMan OR NOT GenFlags.ControlMan1) AND NOT GenFlags.RunAuto;
 oReset2 := w13 AND (GenFlags.ControlMan1 OR GenFlags.ControlMan2 OR GenFlags.ControlMan3 OR GenFlags.ControlAuto OR GenFlags.ControlService) AND (GenFlags.MinorAlarm OR GenFlags.MajorAlarm OR NOT iDoorUnitOK) AND iSignalPulse;
 %NETWORK "DONE NETWORK 22: Signal lamps control panel 3"
-VAR_TEMP w14 : ANY; END_VAR
+VAR w14 : ANY; END_VAR
 w14 := True;
 oStart3 := w14 AND (GenFlags.ControlMan3 OR GenFlags.ControlAuto) AND ((GenFlags.RunMan OR GenFlags.RunAuto) AND NOT GenFlags.MinorAlarm AND NOT GenFlags.MajorAlarm OR (GenFlags.EnableControl OR NOT iStartResetSeparate AND (GenFlags.MinorAlarm OR GenFlags.MajorAlarm)) AND iSignalPulse AND (NOT GenFlags.MinorAlarm AND NOT GenFlags.MajorAlarm OR NOT iStartResetSeparate));
 oStop3 := w14 AND iEmergencyUnitOK AND (NOT GenFlags.RunMan OR NOT GenFlags.ControlMan1) AND NOT GenFlags.RunAuto;
@@ -158,7 +158,7 @@ oReset3 := w14 AND (GenFlags.ControlMan1 OR GenFlags.ControlMan2 OR GenFlags.Con
 %NETWORK "TODO NETWORK 23: Signal lamp alarm"
 oAlarm := (GenFlags.Warning OR GenFlags.MinorAlarm OR GenFlags.MajorAlarm) AND iSignalPulse;
 %NETWORK "DONE NETWORK 24: Only when during a complete CPU cycle there is no alarm, the $"Active$"-alarm signals are reset"
-VAR_TEMP w15 : ANY; END_VAR
+VAR w15 : ANY; END_VAR
 w15 := True;
 GenFlags.WarningActive := w15 AND GenFlags.Warning;
 GenFlags.MinorAlarmActive := w15 AND GenFlags.MinorAlarm;

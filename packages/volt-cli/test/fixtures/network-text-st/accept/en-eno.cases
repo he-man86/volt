@@ -149,7 +149,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 y := MOVE(EN := (w1 := a AND b), w1, OUT => t).ENO;
 === model
 NETWORK
@@ -159,7 +159,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := MOVE(EN := go, 860, OUT => speed).ENO;
 a := w1;
 b := w1;

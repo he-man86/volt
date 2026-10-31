@@ -48,7 +48,7 @@ describe(`graphical / fan-out (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;\nEND_VAR\n` +
-			`%LANGUAGE FBD\n%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := AND(a, b);\nout1 := w1;\nout2 := w1;\n\nEND_PROGRAM\n`
+			`%LANGUAGE FBD\n%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := AND(a, b);\nout1 := w1;\nout2 := w1;\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: wire, sourceText: src, ifVersion: null }])
 		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
@@ -56,9 +56,9 @@ describe(`graphical / fan-out (${BASE})`, () => {
 		const v1 = (await bridge.fetch({ knownItems: {}, onlyItems: [wire] })).changed.find((i: any) => i.name === wire)
 		expect(v1).toBeDefined()
 
-		// THE VALUE, BOTH CONSUMERS AND THE WIRE ARE THERE ON BOTH VENDORS. A wire (`VAR_TEMP w1 : ANY; END_VAR`) is a real fan-out (a
+		// THE VALUE, BOTH CONSUMERS AND THE WIRE ARE THERE ON BOTH VENDORS. A wire (`VAR w1 : ANY; END_VAR`) is a real fan-out (a
 		// `BoxTreeDemux` the editor draws); the native writer builds the Demux the text states, as CODESYS does.
-		const shape = "VAR_TEMP w1 : ANY; END_VAR\nw1 := AND(a, b);\nout1 := w1;\nout2 := w1;\n"
+		const shape = "VAR w1 : ANY; END_VAR\nw1 := AND(a, b);\nout1 := w1;\nout2 := w1;\n"
 		expect(v1.sourceText).toContain(shape)
 		// …and the erasure signatures are absent: an empty operand, or a bare statement.
 		expect(v1.sourceText).not.toContain("( AND")
@@ -99,13 +99,13 @@ describe(`graphical / fan-out (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : INT;\n\tb : INT;\n\tn : INT;\n\tsv : INT;\nEND_VAR\n` +
-			`%LANGUAGE FBD\n%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := ADD(a, b);\nn := w1;\nsv := w1;\n\nEND_PROGRAM\n`
+			`%LANGUAGE FBD\n%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := ADD(a, b);\nn := w1;\nsv := w1;\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: wire, sourceText: src, ifVersion: null }])
 		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
 
 		const v1 = (await bridge.fetch({ knownItems: {}, onlyItems: [wire] })).changed.find((i: any) => i.name === wire)
-		const shape = "VAR_TEMP w1 : ANY; END_VAR\nw1 := ADD(a, b);\nn := w1;\nsv := w1;\n"
+		const shape = "VAR w1 : ANY; END_VAR\nw1 := ADD(a, b);\nn := w1;\nsv := w1;\n"
 		expect(v1.sourceText).toContain(shape)
 
 		const refs = await bridge.refs()
@@ -133,7 +133,7 @@ describe(`graphical / fan-out (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\tout1 : BOOL;\n\tout2 : BOOL;\nEND_VAR\n` +
-			`%LANGUAGE LD\n%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := TRUE;\nout1 := w1;\nout2 := w1;\n\nEND_PROGRAM\n`
+			`%LANGUAGE LD\n%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := TRUE;\nout1 := w1;\nout2 := w1;\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: wire, sourceText: src, ifVersion: null }])
 		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)

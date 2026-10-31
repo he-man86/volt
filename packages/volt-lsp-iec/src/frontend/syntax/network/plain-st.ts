@@ -6,7 +6,7 @@
  * ```
  * %LANGUAGE LD
  * %NETWORK "Start the motor"
- * VAR_TEMP w1 : ANY; END_VAR
+ * VAR w1 : ANY; END_VAR
  * // runs while auto is on
  * w1 := start AND NOT stop;
  * lamp := w1;
@@ -16,7 +16,7 @@
  *
  * THE STATEMENT TOKENS are the body's own tokens, with these readings applied:
  *  - a `%` line (`%NETWORK`, `%DISABLED`, `%UNSUPPORTED`) is trivia: it is no code;
- *  - a network's wires, `VAR_TEMP w1 : ANY; w2 : ANY; END_VAR` on one line after its `%` lines, are trivia: each name a
+ *  - a network's wires, `VAR w1 : ANY; w2 : ANY; END_VAR` on one line after its `%` lines, are trivia: each name a
  *    wire of the network (`symbols` `network-scope.ts`), its type its definition's;
  *  - the Execute box `EXECUTE(EN := c, '<ST>')` is the call `EXECUTE(EN := c)`, its `'…'` trivia, and its
  *    ST — the string decoded (`$'` a quote, `$$` a dollar), lexed, each token where it stands in the string — follows the
@@ -88,9 +88,9 @@ export interface PlainStNetwork {
   /** The `%` lines of the network, in order, the `%NETWORK` line first. */
   lines: readonly PlainStLine[]
   disabled: boolean
-  /** The wires its `VAR_TEMP … END_VAR` line declares. */
+  /** The wires its `VAR … END_VAR` line declares. */
   wires: readonly PlainStWire[]
-  /** Its `VAR_TEMP … END_VAR` line, where it has one. */
+  /** Its `VAR … END_VAR` line, where it has one. */
   declaration?: Span
   unsupported: boolean
   /** Each Execute box whose ST stands as its last pin, `'…'`: its call, from `EXECUTE` to its `)`, and its ST, the
@@ -264,8 +264,10 @@ function read(lexed: readonly Token[], dialect: Dialect, unicodeIdentifiers: boo
       before = true
       stray.push({ message: `'${t.text}' before the first %NETWORK line: a network body opens with %NETWORK`, span: t.span })
     }
-    // THE NETWORK'S WIRES, `VAR_TEMP w1 : ANY; … END_VAR` on one line after its % lines: trivia, each name a wire
-    if (cur !== undefined && calls.length === 0 && isWord(t, "VAR_TEMP")) {
+    // THE NETWORK'S WIRES, `VAR w1 : ANY; … END_VAR` on one line after its % lines: trivia, each name a wire
+    if (cur !== undefined && calls.length === 0 && isWord(t, "VAR_TEMP"))
+      stray.push({ message: `VAR_TEMP: a network's wires keep their value across scans, as ST's VAR does, and are declared VAR w1 : ANY; END_VAR`, span: t.span })
+    if (cur !== undefined && calls.length === 0 && (isWord(t, "VAR") || isWord(t, "VAR_TEMP"))) {
       i = takeWires(tokens, i, cur, out, stray)
       continue
     }
@@ -466,15 +468,15 @@ function networkOf(cur: NetworkState, index: number): PlainStNetwork {
   }
 }
 
-const WIRES_FORM = "a network's wires are declared on one line, VAR_TEMP w1 : ANY; w2 : ANY; END_VAR"
+const WIRES_FORM = "a network's wires are declared on one line, VAR w1 : ANY; w2 : ANY; END_VAR"
 
 const isWord = (t: Token | undefined, w: string): boolean => t !== undefined && (t.kind === "keyword" || t.kind === "identifier") && t.text.toUpperCase() === w
 
-/** A network's `VAR_TEMP … END_VAR` at `at`: its wires to `cur`, its tokens trivia in `out`; the index of its last token. */
+/** A network's `VAR … END_VAR` at `at`: its wires to `cur`, its tokens trivia in `out`; the index of its last token. */
 function takeWires(tokens: readonly Token[], at: number, cur: NetworkState, out: Token[], stray: { message: string; span: Span }[]): number {
   const end = wiresEnd(tokens, at)
   const misplaced = cur.declaration !== undefined || cur.comment || cur.code
-  if (misplaced) stray.push({ message: "VAR_TEMP after the network's comment or code: its wires are declared after its % lines, before its comment", span: tokens[at]!.span })
+  if (misplaced) stray.push({ message: "VAR after the network's comment or code: its wires are declared after its % lines, before its comment", span: tokens[at]!.span })
   const declared = wiresOf(tokens, at, end)
   if (declared.error !== undefined) stray.push(declared.error)
   if (!misplaced) cur.wires.push(...declared.wires)
@@ -484,13 +486,13 @@ function takeWires(tokens: readonly Token[], at: number, cur: NetworkState, out:
   return end
 }
 
-/** The index of the `END_VAR` closing the `VAR_TEMP` at `at`, else of the last token of its line. */
+/** The index of the `END_VAR` closing the `VAR` at `at`, else of the last token of its line. */
 function wiresEnd(tokens: readonly Token[], at: number): number {
   for (let k = at + 1; k < tokens.length && tokens[k]!.kind !== "eof"; k++) if (isWord(tokens[k], "END_VAR")) return k
   return Math.max(at, lineEnd(tokens, at) - 1)
 }
 
-/** The wires `VAR_TEMP … END_VAR` (tokens `at`..`end`) declares, each `w : ANY;` on the one line — as the bridge's reader
+/** The wires `VAR … END_VAR` (tokens `at`..`end`) declares, each `w : ANY;` on the one line — as the bridge's reader
  *  reads them (`StNetworkReader.WireDeclaration`), refused in its words. */
 function wiresOf(tokens: readonly Token[], at: number, end: number): { wires: PlainStWire[]; error?: { message: string; span: Span } } {
   const all = joinSpans(tokens[at]!.span, tokens[end]!.span)

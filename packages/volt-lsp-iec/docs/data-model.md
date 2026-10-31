@@ -488,7 +488,7 @@ interface PlainStNetwork {
   header: PlainStLine                       // %NETWORK "title"
   lines: readonly PlainStLine[]             // the network's % lines, %NETWORK first
   disabled: boolean                         // %DISABLED
-  wires: readonly PlainStWire[]             // VAR_TEMP w1 : ANY; END_VAR — declared in the body's scope (symbols/network-scope.ts)
+  wires: readonly PlainStWire[]             // VAR w1 : ANY; END_VAR — declared in the body's scope (symbols/network-scope.ts)
   unsupported: boolean                      // %UNSUPPORTED "<shape>" #<hash>
   executes: readonly PlainStExecute[]       // EXECUTE(…, CODE := '<ST>'): its call, its ST's span, the ST decoded
 }
@@ -538,6 +538,6 @@ The deltas the clean design makes to the shapes above (facts-first, structured-n
 - **Network-text operands are ST `Expr`, not a `NetworkOperand`/`NetworkGroup` tree** — Network-text operands are fully-parenthesised ST
   expressions, so they parse into the ST `Expr` tree and reuse the ONE type engine / `resolveMemberChain` /
   nav / hover. There is no network-text-specific operand tree or infer/resolve stack; operator info is the `Expr`
-  binary node's. A network's wires (its `VAR_TEMP w1 : ANY`) become per-network symbols typed by their definition
+  binary node's. A network's wires (its `VAR w1 : ANY`) become per-network symbols typed by their definition
   (`NetworkTextAnalysis.networkScopes`), and `EXECUTE` boxes hold ordinary ST parsed into a `StatementList`. Supersedes
   the earlier "operator info as a fact on `NetworkGroup`" refinement (there is no `NetworkGroup`).

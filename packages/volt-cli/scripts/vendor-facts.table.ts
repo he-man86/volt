@@ -800,7 +800,7 @@ const NWL_EDITOR = nwlProgram(
   [
     "k := VltF_RFn(x := i);",
     "t1(IN := a, PT := T#1S);",
-    { lines: ["VAR_TEMP w1 : ANY; END_VAR", "t2(IN := b, PT := T#2S, Q => w1);", "o1 := w1;"] },
+    { lines: ["VAR w1 : ANY; END_VAR", "t2(IN := b, PT := T#2S, Q => w1);", "o1 := w1;"] },
     "o2 := a AND b;",
     "j := ADD(i, 1);",
     "o3 := GT(i, j);",
@@ -846,10 +846,10 @@ const NWL_R_PAR = nwlProgram("VltF_RP", ["a : BOOL", "b : BOOL", "c : BOOL", "o1
 /** S3b (`nwl-rail-fed-wire`): a wire fed by the left rail, `w1 := TRUE` — the text a pull writes for a wire the IDE stores
  *  fed by the empty terminator — and, its own subject so a refusal of one leaves the other measured, the same wire again. */
 const NWL_RAIL = nwlProgram("VltF_Rail", ["a : BOOL", "b : BOOL", "o1 : BOOL", "o2 : BOOL"], "LD", [
-  { lines: ["VAR_TEMP w1 : ANY; END_VAR", "w1 := TRUE;", "o1 := w1 AND a;", "o2 := w1 AND b;"] },
+  { lines: ["VAR w1 : ANY; END_VAR", "w1 := TRUE;", "o1 := w1 AND a;", "o2 := w1 AND b;"] },
 ])
 const NWL_RAIL_TRUE = nwlProgram("VltF_RailT", ["a : BOOL", "b : BOOL", "o1 : BOOL", "o2 : BOOL"], "LD", [
-  { lines: ["VAR_TEMP w1 : ANY; END_VAR", "w1 := TRUE;", "o1 := w1 AND a;", "o2 := w1 AND b;"] },
+  { lines: ["VAR w1 : ANY; END_VAR", "w1 := TRUE;", "o1 := w1 AND a;", "o2 := w1 AND b;"] },
 ])
 /** S3a (`nwl-leaf-wire-type`, owner amendment a): a wire fed by a LEAF — an INT leaf into DINT pins, a leaf of an alias
  *  type, and the census's own WSM shape (a BOOL leaf into an FB's BOOL pins, `R_TRIG.CLK` and `TON.IN`). */
@@ -858,9 +858,9 @@ const NWL_LEAF_WIRE = nwlProgram(
   ["a : BOOL", "i : INT", "al : VltF_LwAl", "d : DINT", "e : DINT", "f : DINT", "k : INT", "t1 : TON", "r1 : R_TRIG"],
   "LD",
   [
-    { lines: ["VAR_TEMP w1 : ANY; END_VAR", "w1 := i;", "d := VltF_LwFn(x := w1);", "e := VltF_LwFn(x := w1);"] },
-    { lines: ["VAR_TEMP w2 : ANY; END_VAR", "w2 := al;", "f := VltF_LwFn(x := w2);", "k := MOVE(w2);"] },
-    { lines: ["VAR_TEMP w3 : ANY; END_VAR", "w3 := a;", "t1(IN := w3, PT := T#1S);", "r1(CLK := w3);"] },
+    { lines: ["VAR w1 : ANY; END_VAR", "w1 := i;", "d := VltF_LwFn(x := w1);", "e := VltF_LwFn(x := w1);"] },
+    { lines: ["VAR w2 : ANY; END_VAR", "w2 := al;", "f := VltF_LwFn(x := w2);", "k := MOVE(w2);"] },
+    { lines: ["VAR w3 : ANY; END_VAR", "w3 := a;", "t1(IN := w3, PT := T#1S);", "r1(CLK := w3);"] },
   ],
 )
 /** S1 (`nwl-bitop-stored-slot`): SetAlarm's network 0 in the plain form a push builds today — bit operator boxes

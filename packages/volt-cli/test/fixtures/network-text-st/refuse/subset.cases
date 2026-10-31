@@ -1,3 +1,14 @@
+#### wires-var-temp — a wire keeps its value across scans, as ST's VAR does
+=== text
+%LANGUAGE LD
+%NETWORK
+VAR_TEMP w1 : ANY; END_VAR
+w1 := a AND b;
+x := w1;
+y := w1;
+=== refused
+network-plain-st are declared VAR w1 : ANY; END_VAR
+
 #### for-loop — a network holds no loop
 === text
 %LANGUAGE LD
@@ -159,7 +170,7 @@ network-plain-st the rail RAIL() takes no value
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 NOT w1 := a;
 x := w1;
 === refused
@@ -193,7 +204,7 @@ network-plain-st every box is a call
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := AND(a, b);
 x := NOT w1;
 y := w1;
@@ -239,7 +250,7 @@ network-plain-st stands first
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 MOVE(EN := c, 1, OUT => w1).ENO;
 y := w1;
 === refused
@@ -262,7 +273,7 @@ name w1
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := a AND b;
 x := w1;
 y := w1;
@@ -273,7 +284,7 @@ network-plain-st declared in reach
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; w1 : ANY; END_VAR
+VAR w1 : ANY; w1 : ANY; END_VAR
 w1 := a AND b;
 x := w1;
 y := w1;
@@ -284,12 +295,12 @@ network-plain-st is named twice
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := a AND b;
 x := w1;
 y := w1;
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := c;
 u := w1;
 v := w1;
@@ -300,7 +311,7 @@ network-plain-st named on an earlier network too
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP split1 : ANY; END_VAR
+VAR split1 : ANY; END_VAR
 split1 := a AND b;
 x := split1;
 y := split1;
@@ -311,7 +322,7 @@ network-plain-st a wire is w<n>
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := a;
 w1 := b;
 x := w1;
@@ -323,7 +334,7 @@ network-plain-st is defined twice
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 x := w1 := a;
 y := w1;
 z := w1;
@@ -334,7 +345,7 @@ network-plain-st a wire is defined alone
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 x := a;
 === refused
 network-plain-st is named and never defined
@@ -343,7 +354,7 @@ network-plain-st is named and never defined
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := a AND b;
 x := w1;
 y := w1;
@@ -374,7 +385,7 @@ network-plain-st an assignment, a call, a jump or a return
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 %DISABLED
 w1 := a AND b;
 x := w1;
@@ -592,7 +603,7 @@ network-plain-st the Execute box takes EN := first where it shows EN, then its S
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 l:
 JMP.l := AND(EN := c, a, b);
 === refused
@@ -602,7 +613,7 @@ network-plain-st comparison operators only
 === text
 %LANGUAGE FBD
 %NETWORK
-VAR_TEMP w2 : ANY; END_VAR
+VAR w2 : ANY; END_VAR
 y := MUL((w2 := ADD(EN := c, i, j)), 2);
 z := w2;
 v := w2;
@@ -637,7 +648,7 @@ network-plain-st holds no branch
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := AND(a, b);
 x := RISING(w1);
 y := w1;
@@ -685,7 +696,7 @@ network-plain-st ENO => v is a target of the shown ENO
 === text
 %LANGUAGE FBD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 GT(EN := c, i, 3, OUT => w1);
 x := w1;
 === refused
@@ -703,7 +714,7 @@ network-plain-st comparison operators only
 === text
 %LANGUAGE FBD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := ADD(EN := c, i, j);
 x := MUL(w1, 2);
 y := w1;
@@ -808,7 +819,7 @@ network-plain-st names no output: p has 2
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : BOOL; END_VAR
+VAR w1 : BOOL; END_VAR
 w1 := a AND b;
 x := w1;
 y := w1;
@@ -820,7 +831,7 @@ network-plain-st a wire is declared : ANY
 %LANGUAGE LD
 %NETWORK
 // start
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := a AND b;
 x := w1;
 y := w1;
@@ -831,7 +842,7 @@ network-plain-st its wires are declared after its % lines, before its comment
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP
+VAR
 w1 : ANY;
 END_VAR
 w1 := a AND b;
@@ -844,7 +855,7 @@ network-plain-st a network's wires are declared on one line
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1, w2 : ANY; END_VAR
+VAR w1, w2 : ANY; END_VAR
 w1 := a AND b;
 w2 := a OR b;
 x := w1 AND w2;
@@ -875,12 +886,12 @@ network-plain-st an empty pin name with no mark
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := a AND b;
 x := w1;
 y := w1;
 %NETWORK
-VAR_TEMP w3 : ANY; END_VAR
+VAR w3 : ANY; END_VAR
 w3 := a OR b;
 x := w3;
 y := w3;
@@ -891,7 +902,7 @@ network-plain-st the wire w3 is the body's w2
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w2 : ANY; END_VAR
+VAR w2 : ANY; END_VAR
 w2 := a AND b;
 x := w2;
 y := w2;
@@ -902,7 +913,7 @@ network-plain-st the wire w2 is the body's w1
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; w2 : ANY; END_VAR
+VAR w1 : ANY; w2 : ANY; END_VAR
 w2 := a OR b;
 w1 := a AND b;
 x := w1 AND w2;

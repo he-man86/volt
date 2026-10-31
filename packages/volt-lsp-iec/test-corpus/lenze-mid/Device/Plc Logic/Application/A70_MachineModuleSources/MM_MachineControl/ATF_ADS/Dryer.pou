@@ -53,14 +53,14 @@ EXECUTE(EN := RAIL(), 'tEmptyingCycleInterval:=(60*1000)/TO_DINT(iSpeedForEmptyi
 %NETWORK "DONE Network 2: Feed forward dryer"
 oFeedForward := stAuxFeedForward(SET := iStartFeedForward OR TMR_IntervalTimerEmptying(IN := (tConditionHeaterTimeOut := NOT(stReFeedForward(CLK := stAuxFeedForward.Q1))), PT := DINT_TO_TIME(tEmptyingCycleInterval)).Q AND iMachineStarted AND NOT stFaultDryerOpened.Q1 AND Mach1.GenFlags.DelayAfterSTO AND NOT iGenFlags.DriveIsRunning AND iPermissionDownstream, RESET1 := stReStopFeedForward(CLK := iStopFeedForward));
 %NETWORK "DONE Network 3: Enable heaters"
-VAR_TEMP w1 : ANY; w2 : ANY; END_VAR
+VAR w1 : ANY; w2 : ANY; END_VAR
 w1 := TRUE;
 TMR_HeaterTimeOut(IN := w1 AND NOT LST_InputsOutputs.I133_1_PROX_zero_position_transport_ADS, PT := T#7S);
 w2 := w1 AND iGenFlags.EnableAuxDrive AND iPermissionDownstream AND NOT TMR_HeaterTimeOut.Q AND iSwitchDryer;
 oEnableHeaters := w2;
 tEnableHeaters := w2;
 %NETWORK "DONE Network 4: Output power heater 1"
-VAR_TEMP w3 : ANY; w4 : ANY; END_VAR
+VAR w3 : ANY; w4 : ANY; END_VAR
 w3 := True;
 MOVE(EN := w3 AND NOT tEnableHeaters, 0, OUT => stActPowerHeater1).ENO;
 w4 := w3 AND tEnableHeaters;
@@ -71,7 +71,7 @@ EXECUTE(EN := w3 AND NOT iPowerOrAnalog, 'oPowerHeater1:=INT_TO_WORD(stActPowerH
 ');
 MOVE(EN := w3 AND iPowerOrAnalog, INT_TO_WORD(stActPowerHeater1), OUT => oPowerHeater1).ENO;
 %NETWORK "DONE Network 5: Output power heater 2"
-VAR_TEMP w5 : ANY; w6 : ANY; END_VAR
+VAR w5 : ANY; w6 : ANY; END_VAR
 w5 := True;
 MOVE(EN := w5 AND NOT tEnableHeaters, 0, OUT => stActPowerHeater2).ENO;
 w6 := w5 AND tEnableHeaters;
@@ -82,7 +82,7 @@ EXECUTE(EN := w5 AND NOT iPowerOrAnalog, 'oPowerHeater2:=INT_TO_WORD(stActPowerH
 ');
 MOVE(EN := w5 AND iPowerOrAnalog, INT_TO_WORD(stActPowerHeater2), OUT => oPowerHeater2).ENO;
 %NETWORK "DONE Network 6: Output power heater 3"
-VAR_TEMP w7 : ANY; w8 : ANY; END_VAR
+VAR w7 : ANY; w8 : ANY; END_VAR
 w7 := True;
 MOVE(EN := w7 AND NOT tEnableHeaters, 0, OUT => stActPowerHeater3).ENO;
 w8 := w7 AND tEnableHeaters;

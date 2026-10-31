@@ -388,7 +388,7 @@ public sealed record Terminator(Flags Flags) : Node(Flags)
 /// <see cref="VarId"/>. With <see cref="Input"/> non-null it DEFINES the wire; with <see cref="Input"/> null it
 /// REFERENCES the definition carrying the same id, and the same id may be referenced any number of times.
 ///
-/// <para><b>This is what network text spells as a wire: <c>VAR_TEMP w1 : ANY; END_VAR</c>, <c>w1 := …;</c> and its reads</b>, and it
+/// <para><b>This is what network text spells as a wire: <c>VAR w1 : ANY; END_VAR</c>, <c>w1 := …;</c> and its reads</b>, and it
 /// is the mechanism `split points` were wrongly assumed to be. Measured in a real ladder project: 573
 /// occurrences — the fourth most common item of any kind — against ZERO split points across 356 networks. The
 /// shape is unmistakable:</para>

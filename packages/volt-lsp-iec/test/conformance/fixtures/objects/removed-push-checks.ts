@@ -229,14 +229,14 @@ END_FUNCTION_BLOCK
     "FB_LANG_rcc_nw_late",
     "a wire defined after the network's first statement (2.7)",
     "\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\n\tlamp1 : BOOL;\n\tlamp2 : BOOL;",
-    "VAR_TEMP w1 : ANY; END_VAR\nout := a;\nw1 := OR(a, b);\nlamp1 := w1;\nlamp2 := w1;",
+    "VAR w1 : ANY; END_VAR\nout := a;\nw1 := OR(a, b);\nlamp1 := w1;\nlamp2 := w1;",
   ),
   network(
     "rcc_network_second_var_temp",
     "FB_LANG_rcc_nw_two_blocks",
     "two wires in one network, the second defined after the first's uses (2.7)",
     "\ta : BOOL;\n\tb : BOOL;\n\tc : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;\n\tout3 : BOOL;\n\tout4 : BOOL;",
-    "VAR_TEMP w1 : ANY; w2 : ANY; END_VAR\nw1 := AND(a, b);\nout1 := w1;\nout2 := w1;\nw2 := OR(b, c);\nout3 := w2;\nout4 := w2;",
+    "VAR w1 : ANY; w2 : ANY; END_VAR\nw1 := AND(a, b);\nout1 := w1;\nout2 := w1;\nw2 := OR(b, c);\nout3 := w2;\nout4 := w2;",
   ),
 
   // ─── 2.1 — a retired `(* @volt-… *)` comment in a current-format POU ───

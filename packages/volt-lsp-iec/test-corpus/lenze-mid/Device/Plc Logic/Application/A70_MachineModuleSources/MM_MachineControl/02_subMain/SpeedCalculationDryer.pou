@@ -20,7 +20,7 @@ END_VAR
 
 %LANGUAGE LD
 %NETWORK "NETWORK 1 : Speed control transport system dryer"
-VAR_TEMP w1 : ANY; w2 : ANY; w3 : ANY; w4 : ANY; END_VAR
+VAR w1 : ANY; w2 : ANY; w3 : ANY; w4 : ANY; END_VAR
 w1 := True;
 MOVE(EN := w1, 0, OUT => TempI).ENO;
 MUL(EN := w1, Mach1_Data.AUTOSPEED, 10, OUT => MainDrive_AutoSpeed01rpm).ENO;
@@ -42,7 +42,7 @@ Mach1_Data.Drives.FeedForwardADS.Control.AutoSpeed:=REAL_TO_INT(0.9*dint_to_real
 
 ');
 %NETWORK "NETWORK 2: Deviation calculation of sync point, transport system trayfiller"
-VAR_TEMP w5 : ANY; END_VAR
+VAR w5 : ANY; END_VAR
 // Principle: It's better to accelerate the drive then to decelerate, because otherwise cigars could be missed. 
 // So that is why the deceleration should be kept short, by trial and error the optimum point is 60degrees (difference between setpoint and actual point).
 // dev: [0-60]: dec.
@@ -67,7 +67,7 @@ w5 := ADD(EN := SUB(EN := SUB(EN := Mach1.GenFlags.DriveIsRunning, Droger_Data.A
 ADD(EN := LT(EN := w5, devAngle, -60), Droger_Data.Cor_numerator, 360, OUT => Droger_Data.Cor_numerator).ENO;
 SUB(EN := GT(EN := w5, devAngle, 300), Droger_Data.Cor_numerator, 360, OUT => Droger_Data.Cor_numerator).ENO;
 %NETWORK
-VAR_TEMP w6 : ANY; END_VAR
+VAR w6 : ANY; END_VAR
 w6 := R_TRIG_0(CLK := LST_InputsOutputs.I133_1_PROX_zero_position_transport_ADS);
 MOVE(EN := w6, HMI_Var.Mach1.Position, OUT => Droger_Data.Act_sync_pos).ENO;
 MOVE(EN := w6, Mach1_Data.CamControls.FeedforwardDryer_CP.Start, OUT => Droger_Data.set_sync_pos).ENO;

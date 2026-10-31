@@ -78,7 +78,7 @@ const ld = (decls: string, body: string) =>
 test("a plain-ST network body is ST: its boxes and wires resolve and type, a wrong type is the ST error", () => {
   const src = ld(
     "\ta, b, c, x, y, lamp, hot : BOOL;\n\ti, n : INT;\n\tt1 : FB_T;",
-    "%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := a AND NOT b;\nx := w1;\ny := w1 OR c;\nlamp := t1(IN := w1);\n" +
+    "%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := a AND NOT b;\nx := w1;\ny := w1 OR c;\nlamp := t1(IN := w1);\n" +
       "hot := GT(i, 3);\nn := ADD(i, 1, 2);\nx := MOVE(EN := GT(EN := a, i, n), 1, OUT => n).ENO;\n",
   )
   expect([...diagnose(src), ...networkDiags(src)].map((d) => d.message)).toEqual([])

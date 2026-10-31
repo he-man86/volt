@@ -14,7 +14,7 @@
  *   marks           `NOT`, `RISING`, `FALLING` before a receiver (a coil, a pin, EN, an output) are its own, the edge
  *                   outside the negation; none on a jump or the return, on a wire or a branch's feed, `NOT` on no `S=` /
  *                   `R=` coil, and a marked coil only first in its chain (every target receives the power flow);
- *   wires           a name its network declares, `VAR_TEMP w1 : ANY; END_VAR` on one line: declared in reach by nothing, named by one network, defined
+ *   wires           a name its network declares, `VAR w1 : ANY; END_VAR` on one line: declared in reach by nothing, named by one network, defined
  *                   once (`w := <box>`) and read by its name any number of times, before its definition too; a box's
  *                   output reaches no wire; an enabled box other than a comparison is read by its
  *                   value only as a coil's value, however often its wire is read (CODESYS: "A box with EN can be used for

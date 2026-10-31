@@ -20,7 +20,7 @@
 </p>
 <pre>%LANGUAGE LD
 %NETWORK "Start the motor"
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 // runs while auto is on
 w1 := start AND NOT stop;
 motor := w1;
@@ -91,13 +91,13 @@ MOVE(EN := c, 7, ENO => lamp, OUT => x).ENO;</pre>
 
 <h2 id="wires">Wires</h2>
 <pre>%NETWORK
-VAR_TEMP w1 : ANY; w2 : ANY; END_VAR
+VAR w1 : ANY; w2 : ANY; END_VAR
 w1 := a AND b;
 w2 := t1(IN := w1).Q;
 x := w2;
 y := w2 AND w1;</pre>
-<p>A value read twice is a wire, declared <code>: ANY</code> on the network's one <code>VAR_TEMP</code> line (its type is its definition's) and defined once (<code>w1 := …</code>). A box read once stands where it is read.</p>
-<p>Wires are numbered <code>w1</code>, <code>w2</code>, … across the body, in the order the text first names them, past every name the body or its declarations use; the <code>VAR_TEMP</code> line lists them in that order.</p>
+<p>A value read twice is a wire, declared <code>: ANY</code> on the network's one <code>VAR</code> line (its type is its definition's; like ST's <code>VAR</code>, it keeps its value from one scan to the next) and defined once (<code>w1 := …</code>). A box read once stands where it is read.</p>
+<p>Wires are numbered <code>w1</code>, <code>w2</code>, … across the body, in the order the text first names them, past every name the body or its declarations use; the <code>VAR</code> line lists them in that order.</p>
 
 <h2 id="execute">Execute box</h2>
 <p>Its ST is its last pin, one string, line breaks as they stand, <code>'</code> written <code>$'</code> and <code>$</code> written <code>$$</code>. Its one output is its ENO.</p>

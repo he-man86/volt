@@ -28,7 +28,7 @@ test("server: didOpen → hover returns the declaration", async () => {
 
 test("server: hover inside a network-text body resolves a wire", async () => {
   const client = connect()
-  const vg = `FUNCTION_BLOCK F\nVAR a : BOOL; b : BOOL; out : BOOL;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := a AND b;\nout := w1;\nEND_FUNCTION_BLOCK`
+  const vg = `FUNCTION_BLOCK F\nVAR a : BOOL; b : BOOL; out : BOOL;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := a AND b;\nout := w1;\nEND_FUNCTION_BLOCK`
   await client.sendRequest(InitializeRequest.type, { processId: null, rootUri: null, capabilities: {} })
   await client.sendNotification(DidOpenTextDocumentNotification.type, {
     textDocument: { uri: URI, languageId: "iecst", version: 1, text: vg },

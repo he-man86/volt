@@ -194,7 +194,7 @@ export const CASES_F: readonly ExecCase[] = [
     name: `nt_wire_read_before_definition_scan${cycles}`,
     language: "FBD" as const,
     vars: "i : INT := 7; y : INT; z : INT;",
-    body: "%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\ny := w1;\nw1 := ADD(i, 5);\nz := w1;",
+    body: "%NETWORK\nVAR w1 : ANY; END_VAR\ny := w1;\nw1 := ADD(i, 5);\nz := w1;",
     cycles,
   })),
 ]

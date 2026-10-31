@@ -15,7 +15,7 @@ VAR
 END_VAR
 %LANGUAGE LD
 %NETWORK "Network 1: Detection of wrapper (set and reset)"
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := True;
 Mach1_AuxData.MemWrapperPassedUnderTheSensor S= w1 AND LST_InputsOutputs.I101_0_Wrapper_present;
 Mach1_AuxData.MemWrapperPresentForLeafCarrier S= Mach1_AuxData.MemWrapperDetected_ResetLimitedSpeed S= w1 AND NOT LST_InputsOutputs.I101_0_Wrapper_present AND Mach1_AuxData.MemWrapperPassedUnderTheSensor;
@@ -28,7 +28,7 @@ PneumValveTerminalSMC.Pos1B := IDB_WSM(EN := RAIL(), iGenflags := Mach1.GenFlags
 Mach1.GenFlags.StopDriveDirect S= Alarms_V5_1_100(AlarmDB := Mach1_Alarms, iCond := Mach1.GenFlags.DelayAfterEmergStop AND HMI_Var.Test_Prod AND NOT HMI_Var.Btn_Cleaning AND tFaultWaitingForWrapper AND Mach1_AuxData.AllDrivesHomed, iReset := True, iAlm := Mach1_Alarms.Alm076, ioAction := Mach1.GenFlags.Warning) OR Alarms_V5_1_100(AlarmDB := Mach1_Alarms, iCond := Mach1.GenFlags.DelayAfterEmergStop AND HMI_Var.Test_Prod AND NOT HMI_Var.Btn_Cleaning AND tFaultNoWrapper AND Mach1_AuxData.AllDrivesHomed, iReset := Mach1.GenFlags.StartFlag, iAlm := Mach1_Alarms.Alm043, ioAction := Mach1.GenFlags.MinorAlarm) OR Alarms_V5_1_100(AlarmDB := Mach1_Alarms, iCond := Mach1.GenFlags.DelayAfterEmergStop AND HMI_Var.Test_Prod AND NOT HMI_Var.Btn_Cleaning AND NOT Mach1_Alarms.Alm045 AND tFaultPhotocellWrapper AND Mach1_AuxData.AllDrivesHomed, iReset := Mach1.GenFlags.StartFlag, iAlm := Mach1_Alarms.Alm045, ioAction := Mach1.GenFlags.MinorAlarm);
 %NETWORK
 %NETWORK "TODO Network 4: "
-VAR_TEMP w2 : ANY; w3 : ANY; w4 : ANY; END_VAR
+VAR w2 : ANY; w3 : ANY; w4 : ANY; END_VAR
 w2 := True;
 w3 := w2 AND True;
 MOVE(EN := MOVE(EN := MOVE(EN := MOVE(EN := w3 AND TRUE, 175, OUT => Data_Exchange_Motion.FeedForwardWrapper.Control.VelUnit).ENO, 2000, OUT => Data_Exchange_Motion.FeedForwardWrapper.Control.DecUnit).ENO, 750, OUT => Data_Exchange_Motion.FeedForwardWrapper.Control.AccUnit).ENO, 100, OUT => Data_Exchange_Motion.FeedForwardWrapper.Control.TorqueLimit).ENO;

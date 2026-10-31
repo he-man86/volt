@@ -13,7 +13,7 @@ VAR
 END_VAR
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; w2 : ANY; END_VAR
+VAR w1 : ANY; w2 : ANY; END_VAR
 w1 := a AND b;
 x := w1;
 y := w1;
@@ -34,7 +34,7 @@ test("a network body's scope holds its wires over the unit's, each with its defi
   expect(b!.scope.network).toBe(true)
   const w1 = lookupLocal(b!.scope, "w1")[0]!
   const w2 = lookupLocal(b!.scope, "W2")[0]!
-  expect([w1.kind, w1.varSection, w1.wire?.kind]).toEqual(["var", "VAR_TEMP", "value"])
+  expect([w1.kind, w1.varSection, w1.wire?.kind]).toEqual(["var", "VAR", "value"])
   expect(w2.wire?.kind === "output" ? w2.wire.param : undefined).toBe("Q")
   expect(lookupLocal(b!.scope, "a")).toEqual([])
   expect(b!.scope.parent?.name).toBe("P")

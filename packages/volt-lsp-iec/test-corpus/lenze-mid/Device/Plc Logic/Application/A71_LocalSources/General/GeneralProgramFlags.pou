@@ -35,22 +35,22 @@ FirstCycle R= AlwaysOn AND OSfirstflagcycle;
 %NETWORK
 MOVE(EN := AlwaysOn, 0, OUT => dummyWord).ENO;
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := RAIL();
 FF50ms := tmr_FF50ms(IN := w1 AND NOT tmr_FF50ms_not.Q, PT := T#100MS).Q;
 LST_General.Imp100ms := tmr_FF50ms_not(IN := w1 AND FF50ms, PT := T#100MS).Q;
 %NETWORK
-VAR_TEMP w2 : ANY; END_VAR
+VAR w2 : ANY; END_VAR
 w2 := RAIL();
 FF100ms := tmr_FF100ms(IN := w2 AND NOT tmr_FF100ms_not.Q, PT := T#500MS).Q;
 LST_General.Imp200ms := tmr_FF100ms_not(IN := w2 AND FF100ms, PT := T#500MS).Q;
 %NETWORK
-VAR_TEMP w3 : ANY; END_VAR
+VAR w3 : ANY; END_VAR
 w3 := RAIL();
 FF500ms := tmr_FF500ms(IN := w3 AND NOT tmr_FF500ms_not.Q, PT := T#500MS).Q;
 LST_General.Imp1s := tmr_FF500ms_not(IN := w3 AND FF500ms, PT := T#500MS).Q;
 %NETWORK
-VAR_TEMP w4 : ANY; END_VAR
+VAR w4 : ANY; END_VAR
 w4 := RAIL();
 FF1s := tmr_FF1s(IN := w4 AND NOT tmr_FF1s_not.Q, PT := T#1S).Q;
 tmr_FF1s_not(IN := w4 AND FF1s, PT := T#1S);

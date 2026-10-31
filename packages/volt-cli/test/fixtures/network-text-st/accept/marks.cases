@@ -15,7 +15,7 @@ instance t1 TON
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := RAIL();
 y := t1(IN := RAIL(), PT := T#1S).Q;
 x := MOVE(EN := RAIL(), w1, OUT => n).ENO;

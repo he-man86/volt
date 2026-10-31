@@ -32,7 +32,7 @@ END_VAR
 %LANGUAGE LD
 %NETWORK "A title"
 %DISABLED
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := a AND g2;
 out := w1 OR a;
 n := SEL(w1, 0, 1);

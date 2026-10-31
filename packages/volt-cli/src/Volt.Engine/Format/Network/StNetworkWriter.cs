@@ -17,7 +17,7 @@ namespace Volt.Engine.Format.Network;
 /// <code>
 /// %LANGUAGE LD
 /// %NETWORK "Start the motor"
-/// VAR_TEMP w3 : ANY; END_VAR
+/// VAR w3 : ANY; END_VAR
 /// // runs while auto is on
 /// l1:
 /// w3 := start AND NOT stop;
@@ -41,7 +41,7 @@ namespace Volt.Engine.Format.Network;
 /// callee no declaration in reach states is written as its model says (<see cref="NetworkScope.Signature"/>).</para>
 ///
 /// <para><b>Wires.</b> A Demux is a wire <c>w&lt;n&gt;</c>, defined once and read by its name any number of times, before its
-/// definition too (the value it held). Every wire is declared at its network's start, <c>VAR_TEMP w1 : ANY; END_VAR</c> (its
+/// definition too (the value it held). Every wire is declared at its network's start, <c>VAR w1 : ANY; END_VAR</c> (its
 /// type its definition's), so the text alone says what is a wire.</para>
 ///
 /// <para><b>The other elements</b>: the parallel branch <c>BRANCH(FEED := f, b1, b2)</c> / <c>BRANCH_SHORTCIRCUIT(…)</c>; the
@@ -135,9 +135,9 @@ public static class StNetworkWriter
 
     internal const string NetworkLine = "%NETWORK";
     internal const string DisabledLine = "%DISABLED";
-    /// <summary>A network's wires, declared on one line at its start (owner, 2026-10-28): <c>VAR_TEMP w1 : ANY; w2 : ANY;
+    /// <summary>A network's wires, declared on one line at its start (owner, 2026-10-28): <c>VAR w1 : ANY; w2 : ANY;
     /// END_VAR</c>, after its <c>%</c> lines and before its comment — each <c>: ANY</c>, the type its definition's.</summary>
-    internal const string WiresOpen = "VAR_TEMP";
+    internal const string WiresOpen = "VAR";
 
     internal const string WiresClose = "END_VAR";
 

@@ -1,6 +1,6 @@
 %LANGUAGE FBD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := ADD(i1, i2);
 n := w1;
 sv := w1;

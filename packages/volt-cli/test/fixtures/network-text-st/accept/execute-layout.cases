@@ -50,7 +50,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := EXECUTE(EN := go, 'i := 1;');
 x := w1;
 y := w1 AND d;
@@ -93,7 +93,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; w2 : ANY; END_VAR
+VAR w1 : ANY; w2 : ANY; END_VAR
 w1 := TRUE;
 w2 := w1 AND enable AND ready AND NOT stop;
 x := f(IN1 := a, IN2 := b);

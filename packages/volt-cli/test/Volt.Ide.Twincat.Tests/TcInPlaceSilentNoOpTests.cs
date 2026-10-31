@@ -54,7 +54,7 @@ public class TcInPlaceSilentNoOpTests
     {
         var (before, model) = Edited("MultiOutput.derived.TcPOU", BodyLanguage.Ld,
             "%NETWORK\nxoutput := xoutput2 := xtest OR xtest2;",
-            "%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := xtest OR xtest2;\nxoutput := w1;\nxoutput2 := w1;");
+            "%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := xtest OR xtest2;\nxoutput := w1;\nxoutput2 := w1;");
 
         Assert.Throws<UnsupportedException>(() => TcText.Apply(before, model));
     }

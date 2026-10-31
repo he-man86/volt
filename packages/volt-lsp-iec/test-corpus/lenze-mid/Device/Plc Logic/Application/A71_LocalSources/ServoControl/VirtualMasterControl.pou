@@ -16,12 +16,12 @@ END_VAR
 
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := TRUE;
 ioVirtualMasterCom.Control.Enable := w1 AND ioVirtualMaster.Control.SetDriveEnable;
 ioVirtualMasterCom.Control.ResetError := w1 AND ioVirtualMaster.Control.ResetError;
 %NETWORK
-VAR_TEMP w2 : ANY; END_VAR
+VAR w2 : ANY; END_VAR
 w2 := ioVirtualMaster.Control.StartMovement;
 ioVirtualMasterCom.Control.StartMovement := w2;
 MOVE(EN := w2, Mach1_Data.Drives.MainDrive_VM.Control.DriveMasterSpeed, OUT => ioVirtualMasterCom.Control.VelUnit).ENO;

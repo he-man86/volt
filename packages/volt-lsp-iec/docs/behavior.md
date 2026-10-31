@@ -665,7 +665,7 @@ detection, hover, completion, navigation — and SHOULD mirror the structural co
 before it is pushed.
 
 #### Scenario: A wire is typed by its definition
-- **WHEN** a network declares `VAR_TEMP w1 : ANY; END_VAR` and defines `w1 := a AND b;`
+- **WHEN** a network declares `VAR w1 : ANY; END_VAR` and defines `w1 := a AND b;`
 - **THEN** every read of `w1` in that network has the type of `a AND b`
 
 ### Requirement: FBD/LD are editable; CFC/SFC/IL are UNSUPPORTED

@@ -1,6 +1,6 @@
 /**
  * THE SCOPE OF A PLAIN-ST NETWORK BODY (openspec network-text-st 2.3; `syntax/network/plain-st.ts`): the unit's scope,
- * with the body's WIRES declared over it — each name its network's `VAR_TEMP … : ANY` line declares, declared by nobody
+ * with the body's WIRES declared over it — each name its network's `VAR … : ANY` line declares, declared by nobody
  * else, its definition recorded for the type engine (`Symbol.wire`) — and marked as a network's (`Scope.network`), where the network's own box names
  * mean something (`types/names.ts`).
  *
@@ -49,7 +49,7 @@ export function networkScope(parent: Scope, body: BodySpan): Scope {
         declarationSpan: wire.span,
         owner: scope,
         uri,
-        varSection: "VAR_TEMP",
+        varSection: "VAR",
         wire: definitions.get(wire.name.toLowerCase()) ?? { kind: "none" },
         ast: WIRE_AST,
       })
@@ -66,7 +66,7 @@ export function networkScope(parent: Scope, body: BodySpan): Scope {
       declarationSpan: body.span,
       owner: scope,
       uri,
-      varSection: "VAR_TEMP",
+      varSection: "VAR",
       wire: unnamed,
       ast: WIRE_AST,
     })

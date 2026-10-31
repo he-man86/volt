@@ -4,7 +4,7 @@ END_VAR
 
 %LANGUAGE LD
 %NETWORK "DONE NETWORK 49: State of the machine"
-VAR_TEMP w1 : ANY; w2 : ANY; END_VAR
+VAR w1 : ANY; w2 : ANY; END_VAR
 w1 := TRUE;
 MOVE(EN := w1 AND (Mach1.GenFlags.MajorAlarm OR Mach1.GenFlags.MinorAlarm), eStates.Aborted, OUT => GVL_OEE_Var.eStatus_States).ENO;
 w2 := w1 AND NOT Mach1.GenFlags.MajorAlarm AND NOT Mach1.GenFlags.MinorAlarm;
