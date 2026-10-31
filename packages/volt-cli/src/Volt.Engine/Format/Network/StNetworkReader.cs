@@ -331,7 +331,7 @@ public static class StNetworkReader
 
     // ── the AST ──────────────────────────────────────────────────────────────────────────────────────────────────
 
-    private abstract class AExpr { public int Line; }
+    private abstract class AExpr { public int Line; public bool Bracketed; }
     private sealed class AOperand : AExpr { public string Text = ""; }
     private sealed class AWire : AExpr { public string Name = ""; }
     private sealed class ANot : AExpr { public AExpr Inner = null!; }
@@ -735,7 +735,19 @@ public static class StNetworkReader
         /// <summary>The extensible operators: one unbracketed chain of one of them is ONE box.</summary>
         private static readonly HashSet<string> Extensible = new(StringComparer.Ordinal) { "AND", "OR", "XOR", "ADD", "MUL" };
 
-        public AExpr Expr() => Level(0);
+        /// <summary>A bracket groups a chain inside a tighter chain or the same one (a second box), and nothing else: the
+        /// writer brackets exactly these, so any other bracket would be a second spelling of one network.</summary>
+        private const string NeedlessBracket = "a bracket that groups nothing: a bracket holds an AND / OR chain inside a tighter chain or the same one";
+
+        private static int LevelOf(string type) => Array.FindIndex(Levels, l => l.Any(o => o.Type == type));
+
+        public AExpr Expr()
+        {
+            var at = _i;
+            var e = Level(0);
+            if (Network && e.Bracketed) { _i = at; throw Error(NeedlessBracket); }
+            return e;
+        }
 
         private AExpr Level(int k)
         {
@@ -756,6 +768,9 @@ public static class StNetworkReader
                 if (cur is not null && cur.Type == op.Type && Extensible.Contains(op.Type)) cur.Operands.Add(right);
                 else cur = new ABin { Type = op.Type, Operands = { cur ?? left, right }, Line = line };
             }
+            if (Network && cur is not null)
+                foreach (var o in cur.Operands)
+                    if (o.Bracketed && !(o is ABin b && LevelOf(b.Type) <= k)) throw new StNetworkReadException(o.Line, NeedlessBracket);
             return cur ?? left;
         }
 
@@ -800,8 +815,10 @@ public static class StNetworkReader
                     return a;
                 }
                 _i = save + 1;
-                var e = Expr();
+                var e = Level(0);
                 Expect(")");
+                if (Network && e.Bracketed) throw new StNetworkReadException(e.Line, NeedlessBracket);
+                e.Bracketed = true;
                 return e;
             }
             var span = TryOperandSpan(_i, allowCall: true) ?? throw Error("an operand");
@@ -1195,7 +1212,7 @@ public static class StNetworkReader
             {
                 case Leaf { Flags: { Rising: false, Falling: false } } l:
                     return l with { Flags = l.Flags with { Rising = rising, Falling = !rising } };
-                case Box { Flags: { Rising: false, Falling: false } } b when b.Enable is null || b.Instance is not null || NetworkSpelling.ConnectedByEno(b):
+                case Box { Flags: { Rising: false, Falling: false } } b:
                     return b with { Flags = b.Flags with { Rising = rising, Falling = !rising } };
                 default:
                     throw Error(c.Line, $"the edge {c.Head} over a wire, a branch, a coil, the rail or another edge: an edge is on a contact or on a box read where it stands");

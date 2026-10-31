@@ -278,6 +278,7 @@ function checkExprs(stmt: Statement, scope: Scope | undefined, boxes: Scope | un
   // (the box a value standing alone is, its marks around it: `rootBox`)
   const root = stmt.kind === "call_stmt" ? (rootBox(stmt.call)?.call ?? stmt.call) : stmt.kind === "expr_stmt" ? rootBox(stmt.expr)?.call : undefined
   for (const e of stmtExprs(stmt)) walkExpr(e, (x) => { if (x.kind === "member" && x.base.kind === "call") closer.set(x.base, x.member.name) })
+  checkBrackets(stmt, network, out)
   for (const e of stmtExprs(stmt))
     walkExpr(e, (x) => {
       // an OPERAND's text is the operand's own ST (`operand-text.ts`): no box, no subset
@@ -292,6 +293,34 @@ function checkExprs(stmt: Statement, scope: Scope | undefined, boxes: Scope | un
       if (x.kind === "call") checkCall(x, scope, wires, out)
       if (x.kind === "call" && calleeText(x).toUpperCase() === EXECUTE) return checkExecute(x, closer.get(x), x !== root, scope, network.executes, out)
       if (x.kind === "call" && boxes !== undefined) checkBox(x, closer.get(x), x !== root, boxes, project, out)
+    })
+}
+
+/** The binding of each infix operator, loosest first (`StNetworkReader.Levels`). */
+const INFIX_LEVEL: Readonly<Record<string, number>> = { OR: 0, XOR: 1, AND: 2, "&": 2, "=": 3, "<>": 3, "<": 4, ">": 4, "<=": 4, ">=": 4, "+": 5, "-": 5, "*": 6, "/": 6, MOD: 6 }
+
+/** A bracket groups a chain inside a tighter chain or the same one (a second box), and nothing else: the writer brackets
+ *  exactly these, so any other bracket is a second spelling — the bridge's reader refuses it in the same words. A
+ *  bracketed assignment (`(JMP.l := c)`) and the bracket of `NOT(…)` are no grouping bracket. */
+function checkBrackets(stmt: Statement, network: PlainStNetwork, out: DiagnosticItem[]): void {
+  const grouping = new Set<Expr>()
+  const level = (op: string) => INFIX_LEVEL[op.toUpperCase()] ?? Infinity
+  for (const e of stmtExprs(stmt))
+    walkExpr(e, (x) => {
+      if (x.kind === "unary" && x.operand.kind === "paren") grouping.add(x.operand)
+      if (x.kind !== "binary") return
+      for (const side of [x.left, x.right])
+        if (side.kind === "paren" && side.inner.kind === "binary" && level(side.inner.op) <= level(x.op)) grouping.add(side)
+    })
+  for (const e of stmtExprs(stmt))
+    walkExpr(e, (x) => {
+      if (x.kind !== "paren" || grouping.has(x) || x.inner.kind === "assign_expr") return
+      // a jump or the return in a tree, `(JMP.l := c)`, read as its call (`network/plain-st.ts`)
+      if (x.inner.kind === "call" && ["JMP", "RETURN"].includes(calleeText(x.inner).toUpperCase())) return
+      // an OPERAND's text, the operand's own ST (`operand-text.ts`)
+      const inner = x.inner.span
+      if (network.operands.some((o) => inner.start >= o.start && inner.end <= o.end)) return
+      emit(out, x.span, CODE, "a bracket that groups nothing: a bracket holds an AND / OR chain inside a tighter chain or the same one")
     })
 }
 
