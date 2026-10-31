@@ -84,7 +84,7 @@ interface PlainStText {
 }
 
 /** The item marks standing between `after` (the end of an assignment's last target) and `before` (its value's start). */
-export function itemMarksBetween(items: readonly ItemMarks[], after: number, before: number): ItemMarks | undefined {
+function itemMarksBetween(items: readonly ItemMarks[], after: number, before: number): ItemMarks | undefined {
   return items.find((m) => m.at >= after && m.at < before)
 }
 
@@ -242,26 +242,8 @@ function read(lexed: readonly Token[], dialect: Dialect, unicodeIdentifiers: boo
     }
     // a network runs to its last token that is not whitespace — a comment after its code is in it
     if (cur !== undefined && t.kind !== "whitespace" && t.kind !== "eof") reached(cur, t)
-    if (cur !== undefined && isUnnamed(tokens, i)) {
-      out.push({ kind: "identifier", text: UNNAMED, span: joinSpans(t.span, tokens[i + 2]!.span) })
-      cur.last = tokens[i + 2]!.span
-      i += 2
-      continue
-    }
-    // an operand comment, `COMMENT(a, 'why')`: read as the operand it wraps (`comment-text.ts`)
-    if (cur !== undefined && blank.has(i)) {
-      out.push({ ...t, kind: "whitespace", keyword: undefined })
-      continue
-    }
-    if (cur !== undefined && isCommentHead(tokens, i)) {
-      const taken = takeComment(tokens, i, cur.wires, { out, stray, blank, comments: cur.comments })
-      if (taken !== undefined) {
-        i = taken
-        continue
-      }
-    }
     if (cur !== undefined) {
-      const taken = takeCallToken(tokens, i, cur, calls, { dialect, unicodeIdentifiers, out, pending, stray })
+      const taken = takeOperandToken(tokens, i, cur, calls, blank, { dialect, unicodeIdentifiers, out, pending, stray })
       if (taken !== undefined) {
         i = taken
         continue
@@ -274,6 +256,34 @@ function read(lexed: readonly Token[], dialect: Dialect, unicodeIdentifiers: boo
   }
   close()
   return { tokens, networks, statementTokens: compiled(out, networks), sourceTokens: out, stray, marks, itemMarks }
+}
+
+/** An unnamed operand `???`, a token of an operand comment, or a token of a call — the index of the last token taken, or
+ *  undefined when token `i` is none of them. */
+function takeOperandToken(
+  tokens: readonly Token[],
+  i: number,
+  cur: NetworkState,
+  calls: OpenCall[],
+  blank: Set<number>,
+  ctx: { dialect: Dialect; unicodeIdentifiers: boolean; out: Token[]; pending: Token[]; stray: { message: string; span: Span }[] },
+): number | undefined {
+  const t = tokens[i]!
+  if (isUnnamed(tokens, i)) {
+    ctx.out.push({ kind: "identifier", text: UNNAMED, span: joinSpans(t.span, tokens[i + 2]!.span) })
+    cur.last = tokens[i + 2]!.span
+    return i + 2
+  }
+  // an operand comment, `COMMENT(a, 'why')`: read as the operand it wraps (`comment-text.ts`)
+  if (blank.has(i)) {
+    ctx.out.push({ ...t, kind: "whitespace", keyword: undefined })
+    return i
+  }
+  if (isCommentHead(tokens, i)) {
+    const taken = takeComment(tokens, i, cur.wires, { out: ctx.out, stray: ctx.stray, blank, comments: cur.comments })
+    if (taken !== undefined) return taken
+  }
+  return takeCallToken(tokens, i, cur, calls, ctx)
 }
 
 /** The calls open around the cursor, each its head token and, for an Execute box, its ST once read. */

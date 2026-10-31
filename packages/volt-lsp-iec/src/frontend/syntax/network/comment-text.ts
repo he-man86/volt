@@ -74,7 +74,7 @@ function isOperand(tokens: readonly Token[], ks: readonly number[]): boolean {
 }
 
 /** The comment a `'…'` string states, in IEC's escape — or the refusal, in the bridge's words (`NetworkSpelling.Unescape`). */
-export function commentText(string: string): { text: string } | { error: string } {
+function commentText(string: string): { text: string } | { error: string } {
   const raw = string.slice(1, -1)
   let text = ""
   for (let i = 0; i < raw.length; i++) {

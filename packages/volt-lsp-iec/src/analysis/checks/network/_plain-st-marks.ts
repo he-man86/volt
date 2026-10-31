@@ -14,7 +14,7 @@ function isOperand(e: Expr): boolean {
 }
 
 /** The head of a call that is the text's own (an element, the Execute box, a jump or the return), else undefined. */
-export function ownHead(e: Expr): string | undefined {
+function ownHead(e: Expr): string | undefined {
   if (e.kind !== "call" || e.callee.kind !== "ident_expr") return undefined
   const upper = e.callee.name.toUpperCase()
   return NETWORK_ELEMENTS.has(upper) || upper === EXECUTE || upper === "JMP" || upper === "RETURN" ? upper : undefined
@@ -35,7 +35,7 @@ export function checkValueNot(operand: Expr, span: Span, wires: ReadonlySet<stri
 
 /** The assignment item's marks stand last in its chain, after its targets and right before its value — the bridge's
  *  reader's words. Item marks no assignment holds (`networkStatements`) stand anywhere else. */
-export const ITEM_MARKS_PLACE = "the assignment item's marks stand last in its chain, after its targets and right before its value (y := NOT := a)"
+const ITEM_MARKS_PLACE = "the assignment item's marks stand last in its chain, after its targets and right before its value (y := NOT := a)"
 
 /** THE ASSIGNMENT ITEMS' MARKS (`y := NOT := a`): each where an assignment holds it, in order, on no wire's definition. */
 export function checkItemMarks(statements: Statement[], items: readonly { words: readonly string[]; span: Span }[], wires: ReadonlySet<string>, out: DiagnosticItem[]): void {

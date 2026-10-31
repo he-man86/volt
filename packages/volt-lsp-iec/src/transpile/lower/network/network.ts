@@ -195,22 +195,8 @@ class Networker extends BoxLowerer {
       case "empty":
         return []
       case "jmp":
-      case "return": {
-        const jump: Statement = s.kind === "jmp" ? { kind: "jmp", target: s.target, span: s.span } : { kind: "return", span: s.span }
-        // beside coils: on the value they were written from, held once
-        if (s.sharesValue === true) {
-          if (this.shared === undefined) throw new NetworkRefusal(`the jump ${this.text(s.span)} shares a value no item before it holds`)
-          return [ifThen(this.jumpCond(s.marks, this.shared, s.span), [jump], [], s.span)]
-        }
-        if (s.value === undefined) return [s]
-        let cond = this.marked(s.itemMarks, this.expr(s.value, pre), s.span, pre)
-        if (this.sharing.has(s)) {
-          const t = this.temp(s.span)
-          pre.push(assign(t, cond, s.span))
-          cond = this.shared = t
-        }
-        return [...pre, ifThen(this.jumpCond(s.marks, cond, s.span), [jump], [], s.span)]
-      }
+      case "return":
+        return this.jumpStatement(s, pre)
       case "label":
         return [s]
       case "if": {
@@ -220,6 +206,24 @@ class Networker extends BoxLowerer {
       default:
         throw new NetworkRefusal(`a ${s.kind} statement in a network`)
     }
+  }
+
+  /** A jump or the return: run when its value holds — its own, or beside coils the value they were written from. */
+  private jumpStatement(s: Extract<Statement, { kind: "jmp" | "return" }>, pre: Statement[]): Statement[] {
+    const jump: Statement = s.kind === "jmp" ? { kind: "jmp", target: s.target, span: s.span } : { kind: "return", span: s.span }
+    // beside coils: on the value they were written from, held once
+    if (s.sharesValue === true) {
+      if (this.shared === undefined) throw new NetworkRefusal(`the jump ${this.text(s.span)} shares a value no item before it holds`)
+      return [ifThen(this.jumpCond(s.marks, this.shared, s.span), [jump], [], s.span)]
+    }
+    if (s.value === undefined) return [s]
+    let cond = this.marked(s.itemMarks, this.expr(s.value, pre), s.span, pre)
+    if (this.sharing.has(s)) {
+      const t = this.temp(s.span)
+      pre.push(assign(t, cond, s.span))
+      cond = this.shared = t
+    }
+    return [...pre, ifThen(this.jumpCond(s.marks, cond, s.span), [jump], [], s.span)]
   }
 
   /** `targets := value;`, the targets as the assignment spells them. */
