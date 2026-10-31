@@ -10,4 +10,9 @@ can store gets a spelling (also 2026-10-16, "support all LD/FBD").
 
 - A spelling for a coil on the bare rail and one for a pin negated on the box, designed against the stored model, in
   plain ST (every box is a call; no new `%` line, no edge case).
+- Folded in 2026-10-31 (Sim-Assist drafts, archived): a **negated coil** `-(/)-` and the **edge coils** (pulled today as
+  `y := NOT a;` / `y := a;`, so a rebuild stores a negated contact or loses the edge), and a **coil sharing its value with a
+  jump or return** when the value may not be written twice (a box, an edge, or a read of the rung's own coil): refused
+  today by name (`Unspellable`). Candidate for the latter: the wire the language already has
+  (`w1 := v; y := w1; JMP(skip, w1);`); `JMP(skip, y)` was rejected (wrong for `S=`/`R=` coils).
 - Writer, both readers (C# and LSP), the exec twin and `network-text.html`; round-trip tests from the drawn samples.

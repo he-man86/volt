@@ -1,3 +1,5 @@
+> CLOSED 2026-10-31, unbuilt (Volt triage): A real gap (a stored shape with no spelling). Moved into `network-rail-and-pin-negation`, which designs every missing coil/pin spelling together (owner 2026-10-30: own spellings, after the release).
+
 > FOR REVIEW (language question), DRAFT, written from Sim-Assist (change `network-editor`, review round 2, 2026-10-31). A question about network text, not a measured volt bug. Measured on Sim-Assist's bundle of volt dev `10ca557975`. Volt triages bug vs usage first; nothing is built until the owner answers. Volt source is untouched.
 
 ## Why

@@ -1,3 +1,5 @@
+> CLOSED 2026-10-31, unbuilt (Volt triage): Volt's writer does not write the wire form this draft measured (that is Sim-Assist's editor); it refuses the shape by name. `JMP(skip, y)` is wrong for `S=`/`R=` coils. The missing spelling moves into `network-rail-and-pin-negation`.
+
 > FOR REVIEW (simplification), written from Sim-Assist (change `network-editor`, 2026-10-30). DRAFT: a proposal to simplify network text, not a measured bug. Nothing is built until the owner answers. Measured on Sim-Assist's bundle of volt dev `abb1b41f53`.
 
 ## Why
