@@ -4,6 +4,7 @@
 
 ## 2. Measure (live CODESYS; TwinCAT offline only)
 
+- [ ] 2.0 XAE probe (one LD TON, IN and EN drawn on the left rail): does TwinCAT store the rail as an empty operand? If so the empty EN refused by 9589814a13 is the rail there, not "unconnected" — then read it as RAIL() (TwinCAT dialect), not refused
 - [ ] 2.1 Captures for findings 3, 6, 7, 8, 10, 11, 13, 15 and the census for 2; results in design.md
 - [ ] 2.2 Volt + Sim-Assist settle each rule; the owner sees the joint list
 
