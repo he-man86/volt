@@ -57,3 +57,35 @@ test("what the form cannot hold is named: code before the first network, an unkn
   expect(plainStText(body("%NETWORK\nEXECUTE('x := $N;');\n")).stray.map((s) => s.message))
     .toEqual(["the escape '$N' in the Execute box's ST: its code spells a ' as $' and a $ as $$, and everything else as it stands"])
 })
+
+test("an assignment item's marks and their := are trivia, recorded at that :=; a jump's marks are its own", () => {
+  const src = "%NETWORK\ny := x := RISING NOT := a;\n"
+  const t = plainStText(body(src))
+  expect(code(t.sourceTokens)).toBe("y := x := a ;")
+  expect(t.itemMarks.map((m) => [m.words, src.slice(m.at, m.at + 2), src.slice(m.span.start, m.span.end)])).toEqual([[["RISING", "NOT"], ":=", "RISING NOT"]])
+  const j = plainStText(body("%NETWORK\nNOT JMP.l := c;\nNOT RETURN := a;\n"))
+  expect([code(j.sourceTokens), j.stray]).toEqual(["JMP . l := c ; RETURN := a ;", []])
+  expect([...j.marks.values()].map((m) => m.words)).toEqual([["NOT"], ["NOT"]])
+})
+
+test("an operand comment reads as the operand it wraps: a value, a coil, a pin, an output — the comment recorded", () => {
+  const src = "%NETWORK\ny := COMMENT(a, 'why');\nNOT COMMENT(s.x, 'it$'s $$1$L') := c;\nt1(IN := COMMENT(???, 'u'), Q => COMMENT(q, 'v'));\n"
+  const t = plainStText(body(src))
+  expect(code(t.sourceTokens)).toBe("y := a ; s . x := c ; t1 ( IN := ??? , Q => q ) ;")
+  expect(t.networks[0]!.comments.map((c) => [src.slice(c.operand.start, c.operand.end), c.text])).toEqual([["a", "why"], ["s.x", "it's $1\n"], ["???", "u"], ["q", "v"]])
+  // the mark before a commented coil marks the operand it wraps
+  expect([...t.marks.entries()].map(([at, m]) => [src.slice(at, at + 1), m.words])).toEqual([["s", ["NOT"]]])
+  expect(t.stray).toEqual([])
+})
+
+test("an operand comment not in its form is named in the bridge's words, and left as it stands", () => {
+  const stray = (s: string) => plainStText(body(`%NETWORK\n${s}\n`)).stray.map((x) => x.message)
+  expect(stray("y := COMMENT(a, '');")).toEqual(["COMMENT(a, ''): an empty comment is the plain operand a"])
+  expect(stray("y := COMMENT(NOT a, 'why');")[0]).toContain("the marks stand outside it")
+  expect(stray("y := COMMENT(a, b);")[0]).toContain("takes an operand and one string")
+  expect(stray("y := COMMENT(a, 'x', 'y');")[0]).toContain("takes an operand and one string")
+  expect(stray("y := COMMENT(a, 'x').Q;")[0]).toContain("takes an operand and one string")
+  expect(stray("y := COMMENT(a, 'x$N');")).toEqual(["the escape '$N': an operand comment spells $$ $' $L $R, every other character as it stands."])
+  expect(stray("VAR w1 : ANY; END_VAR\nCOMMENT(w1, 'x') := AND(a, b);\ny := COMMENT(w1, 'x');"))
+    .toEqual(["a comment on the wire w1: a wire is no operand", "COMMENT wraps an operand, and the marks stand outside it: NOT COMMENT(a, 'why'), RISING(COMMENT(a, 'why'))"])
+})

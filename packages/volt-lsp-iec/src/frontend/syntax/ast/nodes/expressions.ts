@@ -171,6 +171,10 @@ export interface CallExpr {
   kind: "call"
   callee: Expr
   args: CallArg[]
+  /** In a plain-ST network body, a jump or the return in a tree (`(NOT JMP.l := NOT := c)`, read as the call `JMP(l, c)`):
+   *  its own marks and its item's. */
+  marks?: readonly string[]
+  itemMarks?: readonly string[]
   span: Span
 }
 export interface CallArg {
@@ -197,6 +201,8 @@ export interface AssignExpr {
   op?: "S=" | "R="
   /** In a plain-ST network body, the coil's own marks (`(NOT x := a)`), outermost first. */
   marks?: readonly string[]
+  /** In a plain-ST network body, the assignment item's own marks (`(y := NOT := a)`), outermost first. */
+  itemMarks?: readonly string[]
   span: Span
 }
 

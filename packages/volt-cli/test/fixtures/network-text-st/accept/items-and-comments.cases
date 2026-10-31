@@ -1,0 +1,149 @@
+#### value-item — a value standing alone is an item (#1): an operand, its marks as on any value
+=== text
+%LANGUAGE LD
+%NETWORK
+a;
+NOT b;
+RISING(c);
+=== model
+NETWORK
+  a
+  not:b
+  rise:c
+
+#### negated-box-item — a box standing alone, its output negated (#2)
+=== text
+%LANGUAGE FBD
+%NETWORK
+NOT AND(a, b);
+=== model
+NETWORK
+  not:(AND a b)
+
+#### contact-item — contacts standing alone are a value like any other
+=== text
+%LANGUAGE LD
+%NETWORK
+a AND b;
+=== model
+NETWORK
+  (AND a b)
+
+#### branch-item — a branch standing alone (#11)
+=== text
+%LANGUAGE LD
+%NETWORK
+BRANCH(FEED := start, a, b);
+=== model
+NETWORK
+  (par seq start a b)
+
+#### rail-item — the rail standing alone, an empty rung (#12)
+=== text
+%LANGUAGE LD
+%NETWORK
+RAIL();
+=== model
+NETWORK
+  _
+
+#### rail-fed-branch — a branch fed by the rail is its own model, not the unfed BRANCH(a, b) (#18)
+=== text
+%LANGUAGE LD
+%NETWORK
+y := BRANCH(FEED := RAIL(), a, b);
+z := BRANCH(a, b);
+=== model
+NETWORK
+  (:= y (par seq _ a b))
+  (:= z (par seq - a b))
+
+#### item-marks — the assignment item's own marks, last in its chain before the value (#7a)
+=== text
+%LANGUAGE LD
+%NETWORK
+y := NOT := a;
+%NETWORK
+y := x := NOT := a;
+%NETWORK
+y := RISING NOT := a;
+=== model
+NETWORK
+  (:= y item:! a)
+NETWORK
+  (:= y x item:! a)
+NETWORK
+  (:= y item:/! a)
+
+#### three-negations — a leaf, a target and the item are three models
+=== text
+%LANGUAGE LD
+%NETWORK
+y := NOT a;
+NOT y := a;
+y := NOT := a;
+=== model
+NETWORK
+  (:= y not:a)
+  (:= not:y a)
+  (:= y item:! a)
+
+#### jump-marks — a jump and the return take a receiver's marks (#8)
+=== text
+%LANGUAGE LD
+%NETWORK
+l:
+NOT JMP.l := c;
+NOT RETURN := a;
+=== model
+NETWORK label:l
+  (:= not:jmp:l c)
+  (:= not:ret a)
+
+#### negated-execute — the Execute box's ENO negated where it is read (#16)
+=== text
+%LANGUAGE LD
+%NETWORK
+y := NOT EXECUTE(EN := go, 'n := TRUE;').ENO;
+=== model
+NETWORK
+  (:= y not:(EXECUTE "n := TRUE;" en:go conn:0 eno:1))
+
+#### comment-everywhere — COMMENT wherever an operand stands: a value, a coil, a pin, an output
+=== scope
+instance t1 TON
+=== text
+%LANGUAGE FBD
+%NETWORK
+y := COMMENT(a, 'why');
+COMMENT(y, 'why') := a;
+y := t1(IN := COMMENT(a, 'why'), PT := T#1S, Q => COMMENT(x, 'why')).ET;
+=== model
+NETWORK
+  (:= y (comment a "why"))
+  (:= (comment y "why") a)
+  (:= y (TON@t1 IN=(comment a "why") PT=T#1S =>Q:(comment x "why") name:ET))
+
+#### comment-marks-outside — the marks stand outside COMMENT
+=== text
+%LANGUAGE LD
+%NETWORK
+y := NOT COMMENT(a, 'why');
+z := RISING(COMMENT(b, 'why'));
+NOT COMMENT(x, 'why') := c;
+COMMENT(q, 'why') S= c;
+=== model
+NETWORK
+  (:= y not:(comment a "why"))
+  (:= z rise:(comment b "why"))
+  (:= not:(comment x "why") c)
+  (:= S=(comment q "why") c)
+
+#### comment-escape — the comment is a string in IEC's escape: $$, $', $L, $R
+=== text
+%LANGUAGE LD
+%NETWORK
+y := COMMENT(a, 'it$'s 5 $$$Lsecond line');
+=== model
+NETWORK
+  (:= y (comment a "it's 5 $\nsecond line"))

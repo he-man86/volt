@@ -12,7 +12,7 @@
 import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 
-/** The plain-ST case set's folder, or the NWL schema gate's (`shapes.v1.jsonl`, openspec nwl-schema-completeness-gate 2.3). */
+/** The plain-ST case set's folder, or the NWL schema gate's (`shapes.v2.jsonl`, openspec nwl-schema-completeness-gate 2.3). */
 export function caseRoot(set: "network-text-st" | "nwl-schema"): string {
   return join(import.meta.dir, "..", "..", "..", "volt-cli", "test", "fixtures", set)
 }

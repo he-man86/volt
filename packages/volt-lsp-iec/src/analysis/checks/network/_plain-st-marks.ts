@@ -3,7 +3,7 @@
  * rest): the value mark NOT, and the marks before a receiver — a coil, a pin, EN, an output — each in the IDE's order, on
  * nothing that holds none. Refused by name, as the bridge's reader refuses each (`StNetworkReader`).
  */
-import { type CallArg, type CallExpr, type Expr, type Span, type Statement, EXECUTE } from "../../../frontend/syntax/index.js"
+import { type CallArg, type CallExpr, type Expr, type Span, type Statement, EXECUTE, stmtExprs, walkExpr, walkStatements } from "../../../frontend/syntax/index.js"
 import { NETWORK_ELEMENTS } from "../../../frontend/types/index.js"
 import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import { calleeText } from "./_plain-st-box.js"
@@ -28,9 +28,41 @@ export function checkValueNot(operand: Expr, span: Span, wires: ReadonlySet<stri
   const head = box === undefined ? undefined : ownHead(box)
   if (head === "RISING" || head === "FALLING")
     return emit(out, span, CODE, "NOT before an edge: the IDE negates first, so the edge is written outside the negation, RISING(NOT a)")
-  if (box !== undefined && head === undefined) return
+  if (box !== undefined && (head === undefined || head === EXECUTE)) return
   if (box === undefined && isOperand(operand) && !(operand.kind === "ident_expr" && wires.has(operand.name.toLowerCase()))) return
-  emit(out, span, CODE, "NOT before a wire, a branch, a coil, the rail, an Execute box or another NOT: NOT marks a contact or a box read where it stands, and the NOT box is NOT(…)")
+  emit(out, span, CODE, "NOT before a wire, a branch, a coil, the rail or another NOT: NOT marks a contact or a box read where it stands, and the NOT box is NOT(…)")
+}
+
+/** The assignment item's marks stand last in its chain, after its targets and right before its value — the bridge's
+ *  reader's words. Item marks no assignment holds (`networkStatements`) stand anywhere else. */
+export const ITEM_MARKS_PLACE = "the assignment item's marks stand last in its chain, after its targets and right before its value (y := NOT := a)"
+
+/** THE ASSIGNMENT ITEMS' MARKS (`y := NOT := a`): each where an assignment holds it, in order, on no wire's definition. */
+export function checkItemMarks(statements: Statement[], items: readonly { words: readonly string[]; span: Span }[], wires: ReadonlySet<string>, out: DiagnosticItem[]): void {
+  const held = new Set<readonly string[]>()
+  walkStatements(statements, (s) => {
+    if ((s.kind === "assign" || s.kind === "jmp" || s.kind === "return") && s.itemMarks !== undefined) {
+      held.add(s.itemMarks)
+      if (s.kind === "assign" && s.target.kind === "ident_expr" && wires.has(s.target.name.toLowerCase()))
+        emit(out, s.target.span, CODE, `a mark on the wire ${s.target.name}: a wire holds none, its producer or a consumer does`)
+    }
+    for (const e of stmtExprs(s)) walkExpr(e, (x) => {
+      if ((x.kind === "assign_expr" || x.kind === "call") && x.itemMarks !== undefined) held.add(x.itemMarks)
+    })
+  })
+  for (const m of items) {
+    if (!held.has(m.words)) emit(out, m.span, CODE, ITEM_MARKS_PLACE)
+    else checkMarkOrder(m.words, m.span, out)
+  }
+}
+
+/** A jump's or the return's own marks: in order, and first in its chain, as a coil's (`y := NOT JMP.l := a` hands the
+ *  marked value on). */
+export function checkControlMarks(s: Extract<Statement, { kind: "jmp" | "return" }>, out: DiagnosticItem[]): void {
+  if (s.marks === undefined) return
+  checkMarkOrder(s.marks, s.span, out)
+  if (s.sharesValue === true)
+    emit(out, s.span, CODE, "a marked coil inside a chain: every target receives the rung's power flow, and a chained assignment would hand the marked value on")
 }
 
 /** THE MARKS BEFORE ONE RECEIVER, outermost first: the edge outside the negation (the IDE negates first, N17), each once. */

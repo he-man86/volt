@@ -286,6 +286,30 @@ public class CodesysModelRoundTripOracleTests
         Fbd("Reader.An_execute_box_with_empty_ST_reads_as_empty_not_missing", Execute(""));
         Fbd("Reader.An_execute_box_reads_its_ST", Execute("n := n + 1;"));
 
+        // nwl-schema-completeness-gate: the rail-fed branch (#18), the item's marks (#7a), the operand comment.
+        {
+            var par = new Nwl.BoxTreeParallel { Input = new Nwl.BoxTreeTerminator() };
+            par.Trees.Add(Nwl.Leaf("a"));
+            par.Trees.Add(Nwl.Leaf("b"));
+            Ld("Reader.A_Parallel_fed_by_the_empty_terminator_reads_as_the_rail_fed_branch", Coil(par, Target("out")));
+        }
+        foreach (var (name, flags) in new[] { ("neg", new Nwl.Flags { Negation = true }), ("rise", new Nwl.Flags { Rtrig = true }), ("fall", new Nwl.Flags { Ftrig = true }) })
+        {
+            var assign = Coil(Nwl.Leaf("a"), Target("out"));
+            assign.Flags = flags;
+            Ld("Reader.A_negation_or_edge_on_an_Assign_item_reads_as_the_item_s_marks/" + name, assign);
+        }
+        {
+            var assign = Coil(new Nwl.BoxTreeDemux { VarId = 1 }, Target("out"));
+            assign.Flags = new Nwl.Flags { Negation = true };
+            Ld("Reader.A_negation_or_edge_on_an_Assign_item_reads_as_the_item_s_marks/wire", new Nwl.BoxTreeDemux { VarId = 1, Input = Nwl.Leaf("a") }, assign);
+        }
+        {
+            var assign = new Nwl.BoxTreeAssign { RValue = new Nwl.BoxTreeOperand { Operand = new Nwl.Operand { OperandExpr = "a", Comment = "why" } } };
+            assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out", IsLValue = true, Comment = " it's\r\n" });
+            Ld("Reader.The_operand_comment_is_read_on_a_value_and_a_coil", assign);
+        }
+
         // CodesysNetworkWriterGateTests: the live network every change-gate test reads before pushing it back.
         Net("WriterGate.LiveAndRung", new Nwl.Network().With(Coil(
             new Nwl.BoxTreeBox { BoxType = "AND", InputItemList = new object[] { Nwl.Leaf("a"), Nwl.Leaf("b") } }, Target("out"))));
@@ -321,7 +345,6 @@ public class CodesysModelRoundTripOracleTests
         ["A_network_missing_its_item_count_throws_rather_than_reading_as_empty"] = "refused by the reader",
         ["A_terminator_with_an_input_is_refused_by_name"] = "refused by the reader",
         ["An_assignment_holding_no_value_is_refused_by_name"] = "refused by the reader",
-        ["A_Parallel_fed_by_the_empty_terminator_is_refused_by_name"] = "refused by the reader",
         ["A_flag_on_a_Parallel_is_refused_by_name"] = "refused by the reader",
         ["A_flag_on_a_wire_is_refused_by_name"] = "refused by the reader",
         ["A_Parallel_with_an_unmeasured_mode_is_refused_by_name"] = "refused by the reader",
@@ -329,7 +352,6 @@ public class CodesysModelRoundTripOracleTests
         ["Pin_flags_that_do_not_align_with_the_pins_are_refused_by_name"] = "refused by the reader: a pin flag list that does not align with the pins",
         ["A_box_with_no_pin_flag_list_is_refused_by_name_not_read_as_unflagged"] = "refused by the reader: a box with no pin flag list",
 
-        ["A_negation_or_edge_on_an_Assign_item_is_refused_by_name"] = "refused by the reader",
         ["A_return_coil_renders_as_a_conditional_RETURN"] = "the double of A_return_coil_reads_as_control_flow_not_as_an_assignment_to_the_marker",
         ["A_network_carrying_a_vendor_split_point_is_refused_by_name"] = "refused by the reader",
         ["An_execute_box_whose_snippet_has_no_document_throws"] = "refused by the reader",
@@ -361,7 +383,7 @@ public class CodesysModelRoundTripOracleTests
     [Fact]
     public void Reader_double_tally() =>
         StNetworkOracle.AssertTally(Read.Value.SelectMany(kv => StNetworkOracle.CheckBody(kv.Key, kv.Value)).ToList(), "CODESYS reader doubles",
-            identical: 42, stored: 0, new Dictionary<string, int>(StringComparer.Ordinal)
+            identical: 48, stored: 0, new Dictionary<string, int>(StringComparer.Ordinal)
             {
                 // a box showing EN or ENO whose callee no declaration in the double's scope states (network-text-one-to-one F9)
                 ["a box flag on a callee no declaration in reach states"] = 1,

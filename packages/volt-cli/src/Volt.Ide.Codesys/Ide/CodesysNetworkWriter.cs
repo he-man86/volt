@@ -847,6 +847,7 @@ namespace Volt.Ide.Codesys
                 // ld-fbd-coverage 2.3) — the IDE-drawn leaf holds its declared type and a pushed one held none, so the pull
                 // read the wire back "of unknown type" (vendor-facts nwl-leaf-wire-type, DIALECT N32).
                 if (!string.IsNullOrEmpty(o.Type)) NwlInterop.Set(op, "Type", o.Type);
+                if (o.Comment is { } comment) NwlInterop.Set(op, "Comment", comment);
                 ApplyFlags(op, o.Flags);
                 if (!extra.IsNone) ApplyFlags(op, extra);
                 return op;

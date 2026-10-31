@@ -56,7 +56,7 @@ public static class NetworkModelDump
 
     private static string Node(Node n) => n switch
     {
-        Leaf l => Flagged(Operand(l.Operand.Text), l.Flags),
+        Leaf l => Flagged(Commented(Operand(l.Operand.Text), l.Operand.Comment), l.Flags),
         Terminator t => Flagged("_", t.Flags),
         Demux { Input: { } input } d => "(split " + d.VarId.ToString(CultureInfo.InvariantCulture) + " " + Node(input) + ")",
         Demux d => "#" + d.VarId.ToString(CultureInfo.InvariantCulture),
@@ -76,15 +76,20 @@ public static class NetworkModelDump
         if (targets.Length == 0 && a.Flags.Return) return "(ret " + Node(a.Value) + ")";
         // A lone plain jump or return keeps its own form.
         if (targets.Length == 1 && targets[0].Flags is { } lone && (lone.Jump || lone.Return) &&
-            (lone with { Jump = false, Return = false }).IsNone)
+            (lone with { Jump = false, Return = false }).IsNone && (a.Flags with { Jump = false, Return = false }).IsNone)
             return lone.Jump ? "(jmp " + targets[0].Text + " " + Node(a.Value) + ")" : "(ret " + Node(a.Value) + ")";
-        return "(:= " + string.Join(" ", targets.Select(Target)) + " " + Node(a.Value) + ")";
+        var item = a.Flags with { Jump = false, Return = false };
+        return "(:= " + string.Join(" ", targets.Select(Target)) + (item.IsNone ? "" : " item:" + Pin(item)) + " " + Node(a.Value) + ")";
     }
+
+    /// <summary>An operand holding a comment: <c>(comment a "why")</c>.</summary>
+    private static string Commented(string operand, string? comment) =>
+        comment is null ? operand : "(comment " + operand + " " + Quote(comment) + ")";
 
     private static string Target(Operand t)
     {
         var f = t.Flags ?? Flags.None;
-        var name = f.Jump ? "jmp:" + t.Text : f.Return ? "ret" : Operand(t.Text);
+        var name = f.Jump ? "jmp:" + t.Text : f.Return ? "ret" : Commented(Operand(t.Text), t.Comment);
         return (f.Set ? "S=" : f.Reset ? "R=" : "") + Flagged(name, f with { Set = false, Reset = false, Jump = false, Return = false });
     }
 
@@ -101,7 +106,7 @@ public static class NetworkModelDump
             return e.Append(')').ToString();
         }
         var sb = new StringBuilder("(").Append(Operand(b.Type));
-        if (b.Instance is { } inst) sb.Append('@').Append(Operand(inst.Text));
+        if (b.Instance is { } inst) sb.Append('@').Append(Commented(Operand(inst.Text), inst.Comment));
         foreach (var p in b.Inputs)
         {
             sb.Append(' ').Append(Pin(p.Flags));
@@ -110,7 +115,7 @@ public static class NetworkModelDump
         }
         foreach (var o in b.Outputs)
             sb.Append(" =>").Append(o.Formal ?? o.Slot?.ToString(CultureInfo.InvariantCulture) ?? "?").Append(':')
-              .Append(Flagged(Operand(o.Value.Text), o.Value.Flags ?? Flags.None));
+              .Append(Flagged(Commented(Operand(o.Value.Text), o.Value.Comment), o.Value.Flags ?? Flags.None));
         if (b.Enable is { } enable) sb.Append(' ').Append(Pin(b.EnableFlags)).Append("en:").Append(Node(enable));
         if (b.ConnectedSlot is { } conn) sb.Append(" conn:").Append(conn.ToString(CultureInfo.InvariantCulture));
         if (b.HasEnoOutput) sb.Append(" eno:1");

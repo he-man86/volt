@@ -18,3 +18,27 @@ test("a mark stands before its receiver, an unnamed pin's before the empty name,
 test("a marked coil stands first in its chain", () => {
   expect(findings("%NETWORK\ny := NOT x := a;\n")[0]).toContain("a marked coil inside a chain")
 })
+
+test("the assignment item's marks stand last in its chain, right before the value: anywhere else they are refused", () => {
+  expect(findings("%NETWORK\ny := NOT := a;\n%NETWORK\ny := x := RISING NOT := a;\n%NETWORK\ny := (x := NOT := a) AND b;\n")).toEqual([])
+  const place = "the assignment item's marks stand last in its chain"
+  expect(findings("%NETWORK\nNOT := y := a;\n")[0]).toContain(place)
+  expect(findings("%NETWORK\ny := NOT := x := a;\n")[0]).toContain(place)
+  expect(findings("%NETWORK\ny := AND(a, IN := NOT := b);\n")[0]).toContain(place)
+  expect(findings("%NETWORK\ny := NOT RISING := a;\n")[0]).toContain("NOT RISING: the IDE negates first")
+  expect(findings("%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := NOT := AND(a, b);\ny := w1;\n")[0]).toContain("a mark on the wire w1")
+})
+
+test("a jump and the return take a receiver's marks, first in their chain as a coil's", () => {
+  expect(findings("%NETWORK\nl:\nNOT JMP.l := c;\nRISING RETURN := a;\nJMP.l := NOT := b;\n")).toEqual([])
+  expect(findings("%NETWORK\nl:\ny := NOT JMP.l := c;\n")[0]).toContain("a marked coil inside a chain")
+})
+
+test("NOT and the edges read an Execute box where it stands, by its ENO", () => {
+  expect(findings("%NETWORK\ny := NOT EXECUTE(EN := a, 'x := TRUE;').ENO;\nz := RISING(EXECUTE(EN := b, 'x := FALSE;').ENO);\n")).toEqual([])
+})
+
+test("a value standing alone is an item, a box at its root consumed by nothing; a bracketed assignment is no value", () => {
+  expect(findings("%NETWORK\na;\nNOT b;\nRISING(c);\na AND b;\nBRANCH(FEED := a, b, c);\nRAIL();\nNOT AND(a, b);\nTRUE;\n")).toEqual([])
+  expect(findings("%NETWORK\n(y := a);\n")[0]).toContain("an assignment in brackets standing alone")
+})

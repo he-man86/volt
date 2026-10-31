@@ -19,7 +19,7 @@ namespace Volt.Tests.Shared;
 /// <item>B7: a box's stored output names and types (<see cref="Box.Members"/>, <see cref="Box.OutputTypes"/>) — lost on
 /// rebuild, named by <see cref="RebuildLoss"/>.</item>
 /// <item>Network <c>Order</c> → its position; a <c>Title</c>/<c>Comment</c> stored <c>""</c> → none (one text).</item>
-/// <item>An operand's <c>Type</c>, <c>Comment</c>, its copy of its item's flags; <c>IsInstance</c> / <c>IsLValue</c> are what
+/// <item>An operand's <c>Type</c>, <c>SymbolComment</c>, its copy of its item's flags; <c>IsInstance</c> / <c>IsLValue</c> are what
 /// the position says.</item>
 /// <item><c>Box.Kind</c> → <see cref="NetworkSpelling.KindOf"/> (derived on push from the declarations).</item>
 /// <item><c>ConnectedSlot</c> where the text states no slot: a top-level box (none), a bit operator read by its value (the
@@ -46,7 +46,7 @@ public static class NetworkTextFacts
 
     private static Node Node(Node n, bool consumed) => n switch
     {
-        Leaf l => new Leaf(new Operand(l.Operand.Text), l.Flags),
+        Leaf l => new Leaf(new Operand(l.Operand.Text, Comment: l.Operand.Comment), l.Flags),
         Assign a => AssignOf(a),
         Box b => BoxOf(b, consumed),
         Demux d => new Demux(d.VarId, NodeOrNull(d.Input)),
@@ -68,7 +68,7 @@ public static class NetworkTextFacts
         return new Assign(Node(a.Value, consumed: true), carried, item.WithControlFlowFrom(carried));
     }
 
-    private static Operand Target(Operand t) => new(t.Text, IsLValue: true, Flags: t.Flags is { IsNone: false } f ? f : null);
+    private static Operand Target(Operand t) => new(t.Text, IsLValue: true, Flags: t.Flags is { IsNone: false } f ? f : null, Comment: t.Comment);
 
     private static Box BoxOf(Box b, bool consumed)
     {
@@ -86,7 +86,7 @@ public static class NetworkTextFacts
             // The instance's text and its flags: the text has no position for a flag on the instance operand, so the writer
             // refuses one — which only holds if the oracle compares it.
             b.Instance is null ? null : new Operand(b.Instance.Text, IsInstance: true,
-                Flags: b.Instance.Flags is { IsNone: false } f ? f : null),
+                Flags: b.Instance.Flags is { IsNone: false } f ? f : null, Comment: b.Instance.Comment),
             NetworkSpelling.KindOf(b.Type, isFb),
             b.Inputs.Select((p, i) => new Input(p.Formal,
                 Node(p.Value, consumed: true), p.Flags)).ToList(),

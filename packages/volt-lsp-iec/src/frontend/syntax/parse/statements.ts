@@ -61,9 +61,15 @@ export interface BodyParse {
 
 /** A body's statement tokens parsed as a statement list — uncached; `body-parse.ts` is where a body is parsed once. Its
  *  conditional pragmas are applied against `world` (`pragmas/conditional.ts`). */
-export function parseStatementTokens(toks: readonly Token[], dialect: Dialect, world: ConditionWorld = {}): BodyParse {
-  return parseTokens(toks, dialect, { world, defines: new Map(), uncertain: new Set(), messages: [], applied: new Set(), silent: [], textErrors: [] })
+export function parseStatementTokens(toks: readonly Token[], dialect: Dialect, world: ConditionWorld = {}, valueItems?: ValueItems): BodyParse {
+  return parseTokens(toks, dialect, { world, defines: new Map(), uncertain: new Set(), messages: [], applied: new Set(), silent: [], textErrors: [] }, valueItems)
 }
+
+/** Where a VALUE STANDS ALONE AS AN ITEM — a plain-ST network's code (`network/plain-st.ts`), never an Execute box's ST:
+ *  there a statement may start as a value does, `NOT b;`, `TRUE;`, `(a OR b) AND c;` (the bridge's `StNetworkReader`). */
+export type ValueItems = (at: Span) => boolean
+
+const VALUE_ITEMS = new WeakMap<Cursor, ValueItems>()
 
 /**
  * A body's statement tokens as WRITTEN — every branch of every chain is in the tree, in source order. Not what any vendor
@@ -75,17 +81,18 @@ export function parseStatementTokens(toks: readonly Token[], dialect: Dialect, w
  * every chain, or a chain's orphan/unterminated structure, still does. Its errors and messages are that reading's; no
  * check reads them.
  */
-export function parseSourceStatementTokens(toks: readonly Token[], dialect: Dialect): BodyParse {
-  return parseTokens(toks, dialect, { world: {}, defines: new Map(), uncertain: new Set(), messages: [], applied: new Set(), silent: [], source: true, textErrors: [] })
+export function parseSourceStatementTokens(toks: readonly Token[], dialect: Dialect, valueItems?: ValueItems): BodyParse {
+  return parseTokens(toks, dialect, { world: {}, defines: new Map(), uncertain: new Set(), messages: [], applied: new Set(), silent: [], source: true, textErrors: [] }, valueItems)
 }
 
-function parseTokens(toks: readonly Token[], dialect: Dialect, state: PragmaState | undefined): BodyParse {
+function parseTokens(toks: readonly Token[], dialect: Dialect, state: PragmaState | undefined, valueItems?: ValueItems): BodyParse {
   // The tokens are a slice with no EOF sentinel; append one so the cursor's peek()/atEof() terminate correctly at the
   // body's end.
   const last = toks[toks.length - 1]
   const end: Span = last ? eofSpan(last.span) : zeroSpan()
   const cur = new Cursor([...toks, { kind: "eof", text: "", span: end }], dialect, true)
   if (state !== undefined) PRAGMAS.set(cur, state)
+  if (valueItems !== undefined) VALUE_ITEMS.set(cur, valueItems)
   const statements = parseStatementList(cur, parseStatement, () => false, false)
   const errors = state === undefined || state.textErrors.length === 0 ? cur.getErrors() : [...cur.getErrors(), ...state.textErrors].sort((a, b) => a.span.start - b.span.start)
   const refused = state?.refused
@@ -185,6 +192,10 @@ function parseStatement(cur: Cursor): Statement | typeof RESYNCED | undefined {
  */
 function refusedAtStatementStart(cur: Cursor): boolean {
   const t = cur.peek()
+  // a network's value standing alone starts as a value does: a literal, NOT, a bracket
+  if (VALUE_ITEMS.get(cur)?.(t.span) === true &&
+      (LITERAL_KINDS.has(t.kind) || (t.kind === "punct" && t.text === "(") || (t.kind === "keyword" && (t.keyword === "TRUE" || t.keyword === "FALSE" || t.keyword === "NOT"))))
+    return false
   // …and an address with a size and NO POSITION assigned to: `%MW := 1;` is refused on the address as a reserved word
   // is (`lit_address_no_position_as_target`, CODESYS 2026-10-01). Only the assignment is measured.
   if (t.kind === "address_lit") return addressShape(t.text).kind === "no-position" && assignOpOf(cur.peek(1)) !== null

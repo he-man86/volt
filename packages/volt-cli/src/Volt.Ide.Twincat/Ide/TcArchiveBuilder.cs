@@ -127,7 +127,6 @@ internal sealed class TcArchiveBuilder
 
             case Assign a:
             {
-                UnheldFlags.RefuseOnAssignItem(BeckhoffDriver.Row.Display, a.Flags);
                 var value = Node(a.Value, consumed: true);
                 // Coil storage is the TARGET's (Flags.VendorCoilBits); a jump or return bit rides the target AND the item,
                 // as TwinCAT's own importer writes them (corpus Vn_jump_*, Vn_return_*).
@@ -427,8 +426,8 @@ internal sealed class TcArchiveBuilder
             // are a stored value a rebuild resets, named by RebuildLoss's Operand.Type); a null symbol comment the "" every
             // vendor operand holds (916 of 916, TcArchiveBuilderTests).
             Str("Type", o?.Type ?? ""),
-            Str("Comment", ""),
-            Str("SymbolComment", o?.Comment ?? ""),
+            Str("Comment", o?.Comment ?? ""),
+            Str("SymbolComment", o?.SymbolComment ?? ""),
             Str("Address", ""),
             FlagsMember(bits, fixedFlags),
             Raw("LValue", o?.IsLValue == true ? "true" : "false"),

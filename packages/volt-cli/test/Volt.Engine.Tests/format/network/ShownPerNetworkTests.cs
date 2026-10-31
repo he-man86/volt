@@ -190,7 +190,7 @@ public class ShownPerNetworkTests
 
     /// <summary>A symbol comment rides on the operand, never in the text (the 1b-1 refusal).</summary>
     static Assign Commented(string source, string target) =>
-        Set(new Leaf(new Operand(source, Comment: "c"), Flags.None), T(target));
+        Set(new Leaf(new Operand(source, SymbolComment: "c"), Flags.None), T(target));
 
     static NetworkTextException? Loss(IReadOnlyList<Network> live, IReadOnlyList<Network> pushed)
     {

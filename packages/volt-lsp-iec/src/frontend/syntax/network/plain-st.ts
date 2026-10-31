@@ -26,8 +26,15 @@
  *    `NOT y := a;`, a pin `t1(NOT IN := a)`, an output `NOT Q => x`) — are trivia, each recorded on its receiver (`marks`,
  *    keyed by the receiver's first offset; `networkStatements` puts them on the AST); a mark word before anything else is
  *    the value's (`NOT a`), and one followed by `(` a call (`RISING(a)`, `NOT(a)`);
- *  - a jump or the return as a TARGET (`JMP.l := v;`, `RETURN := v;`) reads its keyword as a name, so the ST parser reads
- *    an assignment; `networkStatements` reads it back as the jump or the return it is;
+ *  - the ASSIGNMENT ITEM'S MARKS — mark words before an empty receiver, `y := NOT := a` — are trivia with their `:=`, recorded
+ *    at that `:=` (`itemMarks`); `networkStatements` puts them on the assignment whose last target and value they stand
+ *    between, and the network check refuses any standing elsewhere;
+ *  - an OPERAND COMMENT, `COMMENT(a, 'why')`, reads as the operand it wraps (`comment-text.ts`);
+ *  - a jump or the return as a TARGET (`JMP.l := v;`, `RETURN := v;`, marked as any receiver, `NOT JMP.l := v;`) reads its
+ *    keyword as a name, so the ST parser reads an assignment; `networkStatements` reads it back as the jump or the return
+ *    it is;
+ *  - a VALUE STANDING ALONE is an item (`a;`, `NOT b;`, `NOT AND(a, b);`, `RAIL();`): the statement parser takes one where a
+ *    statement starts (`valueItemsOf`);
  *  - an operator box word heading a call (`GT(`, `ADD(`, `AND(`, `NOT(`, …: the ST lexer reads each as a keyword) where an operand starts is the call of
  *    that box — every box is a call — and after an operand it is the contact (`a AND b`). The same rule the bridge's
  *    reader keeps (`StNetworkReader`): position, never spacing.
@@ -41,7 +48,9 @@ import { isPlainStNetworkBody } from "../format/bodies.js"
 import { codeAt, joinCodeStrings, takeCode } from "./execute-code.js"
 import { isOperandHead, takeOperand } from "./operand-text.js"
 import { addLine, isWord, networkOf, percentKeyAt, percentLine, reached, takeWires, type NetworkState, type PlainStMarks, type PlainStNetwork } from "./network-lines.js"
-import { takeReceiverToken } from "./receivers.js"
+import { type ItemMarks, takeReceiverToken } from "./receivers.js"
+import { isCommentHead, takeComment } from "./comment-text.js"
+import type { ValueItems } from "../parse/statements.js"
 
 export { closedString, EXECUTE } from "./execute-code.js"
 export type { PlainStExecute, PlainStNetwork } from "./network-lines.js"
@@ -70,6 +79,21 @@ interface PlainStText {
   stray: readonly { message: string; span: Span }[]
   /** Each receiver's marks (a coil, a pin, EN, an output), by the receiver's first offset. */
   marks: ReadonlyMap<number, PlainStMarks>
+  /** Each assignment item's marks (`y := NOT := a`), at the offset of their `:=` (`receivers.ts`). */
+  itemMarks: readonly ItemMarks[]
+}
+
+/** The item marks standing between `after` (the end of an assignment's last target) and `before` (its value's start). */
+export function itemMarksBetween(items: readonly ItemMarks[], after: number, before: number): ItemMarks | undefined {
+  return items.find((m) => m.at >= after && m.at < before)
+}
+
+/** Where a value may stand alone as an item in `body`: a plain-ST network body's code, outside its Execute boxes' ST
+ *  (`parse/statements.ts`); undefined for any other body. */
+export function valueItemsOf(body: BodySpan): ValueItems | undefined {
+  if (!isPlainStNetworkBody(body)) return undefined
+  const executes = plainStText(body).networks.flatMap((n) => n.executes)
+  return (at) => !executes.some((x) => at.start >= x.code.start && at.start < x.code.end)
 }
 
 const cache = new WeakMap<BodySpan, PlainStText>()
@@ -88,21 +112,25 @@ function controlTarget(e: Expr): { jump: true; label: IdentExpr } | { jump: fals
  * assignment followed by the jump on the SAME value (`sharesValue`, the value written once), and one in a tree
  * (`(JMP.l := c)`) the jump on its value handing it on (the call `JMP(l, c)` / `RETURN(c)` the types and the lowering read).
  */
-export function networkStatements(list: StatementList, marks: ReadonlyMap<number, PlainStMarks>): StatementList {
-  const markOf = (e: Expr | undefined) => (e === undefined ? undefined : marks.get(e.span.start)?.words)
+export function networkStatements(list: StatementList, text: Pick<PlainStText, "marks" | "itemMarks">): StatementList {
+  const markOf = (e: Expr | undefined) => (e === undefined ? undefined : text.marks.get(e.span.start)?.words)
+  const itemOf = (lastTarget: Expr, value: Expr) => itemMarksBetween(text.itemMarks, lastTarget.span.end, value.span.start)?.words
   // in place: the parse is this body's own, made here
   const tree = (e: Expr): void => walkExpr(e, (x) => {
     if (x.kind === "call") for (const a of x.args) setMarks(a, markOf(a.param ?? (a.output ? undefined : a.value)))
     if (x.kind !== "assign_expr") return
     setMarks(x, markOf(x.target))
+    const item = itemOf(x.target, x.value)
+    if (item !== undefined) x.itemMarks = item
     const control = controlTarget(x.target)
     if (control === undefined) return
     const callee: Expr = { kind: "ident_expr", name: control.jump ? "JMP" : "RETURN", span: x.target.span }
     const args: CallArg[] = control.jump ? [{ kind: "call_arg", output: false, value: control.label, span: control.label.span }] : []
     args.push({ kind: "call_arg", output: false, value: x.value, span: x.value.span })
+    const marks = x.marks
     const node = x as unknown as Record<string, unknown>
     for (const k of Object.keys(node)) if (k !== "span") delete node[k]
-    Object.assign(node, { kind: "call", callee, args })
+    Object.assign(node, { kind: "call", callee, args, ...(marks !== undefined ? { marks } : {}), ...(item !== undefined ? { itemMarks: item } : {}) })
   })
   return list.flatMap((s): Statement[] => {
     for (const e of stmtExprs(s)) tree(e)
@@ -110,10 +138,12 @@ export function networkStatements(list: StatementList, marks: ReadonlyMap<number
     const targets = [s.target, ...(s.chained ?? [])]
     const ops = [s.op, ...(s.chainOps ?? [])]
     const targetMarks = targets.map(markOf)
+    const item = itemOf(targets.at(-1)!, s.value)
+    const itemMarks = item !== undefined ? { itemMarks: item } : {}
     const coils = targets.map((t, i) => ({ t, op: ops[i], m: targetMarks[i] })).filter((x) => controlTarget(x.t) === undefined)
-    const controls = targets.filter((t) => controlTarget(t) !== undefined)
+    const controls = targets.map((t, i) => ({ t, m: targetMarks[i] })).filter((x) => controlTarget(x.t) !== undefined)
     const marked = (xs: readonly (readonly string[] | undefined)[]) => (xs.some((m) => m !== undefined) ? { marks: xs } : {})
-    if (controls.length === 0) return [{ ...s, ...marked(targetMarks) }]
+    if (controls.length === 0) return [{ ...s, ...marked(targetMarks), ...itemMarks }]
     const out: Statement[] = []
     if (coils.length > 0) {
       const [first, ...rest] = coils
@@ -122,13 +152,16 @@ export function networkStatements(list: StatementList, marks: ReadonlyMap<number
         ...(first!.op !== undefined ? { op: first!.op } : {}),
         ...(rest.length > 0 ? { chained: rest.map((c) => c.t), chainOps: rest.map((c) => c.op) } : {}),
         ...marked(coils.map((c) => c.m)),
+        ...itemMarks,
       })
     }
-    controls.forEach((t, i) => {
+    // the item's marks stand on the statement that holds the value: the coils', else the first jump's
+    controls.forEach(({ t, m }, i) => {
       const c = controlTarget(t)!
       const shares = out.length > 0 || i > 0
-      const value = shares ? { sharesValue: true as const } : { value: s.value }
-      out.push(c.jump ? { kind: "jmp", target: c.label, ...value, span: t.span } : { kind: "return", ...value, span: t.span })
+      const value = shares ? { sharesValue: true as const } : { value: s.value, ...itemMarks }
+      const own = m !== undefined ? { marks: m } : {}
+      out.push(c.jump ? { kind: "jmp", target: c.label, ...value, ...own, span: t.span } : { kind: "return", ...value, ...own, span: t.span })
     })
     return out
   })
@@ -157,6 +190,9 @@ function read(lexed: readonly Token[], dialect: Dialect, unicodeIdentifiers: boo
   const { tokens, unclosed } = joinCodeStrings(lexed, dialect, unicodeIdentifiers)
   const out: Token[] = []
   const marks = new Map<number, { words: string[]; span: Span }>()
+  const itemMarks: ItemMarks[] = []
+  // the `,`, string and `)` of each operand comment, trivia when reached (`comment-text.ts`)
+  const blank = new Set<number>()
   const networks: PlainStNetwork[] = []
   const stray: { message: string; span: Span }[] = unclosed.map((span) => ({ message: "an unclosed string", span }))
   let before = false
@@ -183,7 +219,7 @@ function read(lexed: readonly Token[], dialect: Dialect, unicodeIdentifiers: boo
       const { line, end } = percentLine(tokens, i, key, stray)
       if (key === "NETWORK") {
         close()
-        cur = { header: line, lines: [line], executes: [], operands: [], last: line.span, wires: [], comment: false, code: false }
+        cur = { header: line, lines: [line], executes: [], operands: [], comments: [], last: line.span, wires: [], comment: false, code: false }
       } else if (cur === undefined) stray.push({ message: `'%${key}' before the first %NETWORK line`, span: line.span })
       else {
         flush()
@@ -212,6 +248,18 @@ function read(lexed: readonly Token[], dialect: Dialect, unicodeIdentifiers: boo
       i += 2
       continue
     }
+    // an operand comment, `COMMENT(a, 'why')`: read as the operand it wraps (`comment-text.ts`)
+    if (cur !== undefined && blank.has(i)) {
+      out.push({ ...t, kind: "whitespace", keyword: undefined })
+      continue
+    }
+    if (cur !== undefined && isCommentHead(tokens, i)) {
+      const taken = takeComment(tokens, i, cur.wires, { out, stray, blank, comments: cur.comments })
+      if (taken !== undefined) {
+        i = taken
+        continue
+      }
+    }
     if (cur !== undefined) {
       const taken = takeCallToken(tokens, i, cur, calls, { dialect, unicodeIdentifiers, out, pending, stray })
       if (taken !== undefined) {
@@ -219,13 +267,13 @@ function read(lexed: readonly Token[], dialect: Dialect, unicodeIdentifiers: boo
         continue
       }
     }
-    // a receiver's mark, an empty receiver name, a jump or the return as a target (`receivers.ts`)
-    if (cur !== undefined && takeReceiverToken(tokens, i, marks, stray, out)) continue
+    // a receiver's mark, the item's marks, an empty receiver name, a jump or the return as a target (`receivers.ts`)
+    if (cur !== undefined && takeReceiverToken(tokens, i, marks, itemMarks, stray, out)) continue
     out.push(isKeywordCallHead(tokens, i, out) ? { ...t, kind: "identifier", keyword: undefined } : t)
     if (t.kind === "punct" && t.text === ";" && calls.length === 0) flush()
   }
   close()
-  return { tokens, networks, statementTokens: compiled(out, networks), sourceTokens: out, stray, marks }
+  return { tokens, networks, statementTokens: compiled(out, networks), sourceTokens: out, stray, marks, itemMarks }
 }
 
 /** The calls open around the cursor, each its head token and, for an Execute box, its ST once read. */

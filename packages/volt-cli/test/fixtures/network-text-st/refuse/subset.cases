@@ -133,15 +133,6 @@ y := JMP(l, c);
 === refused
 network-plain-st a jump or a return is a target: JMP.label := value
 
-#### mark-on-a-jump — a jump or a return carries no mark
-=== text
-%LANGUAGE LD
-%NETWORK
-l:
-NOT JMP.l := c;
-=== refused
-network-plain-st a mark on the target JMP.l: a jump or a return carries none
-
 #### set-jump — a jump or a return takes :=
 === text
 %LANGUAGE LD
@@ -189,14 +180,6 @@ network-plain-st a value's edge is the call RISING(…) / FALLING(…)
 y := NOT x := a;
 === refused
 network-plain-st a marked coil inside a chain
-
-#### rail-standing-alone — the rail is a value in a tree
-=== text
-%LANGUAGE LD
-%NETWORK
-RAIL();
-=== refused
-network-plain-st a branch, an edge or the rail is a value in a tree
 
 #### rail-with-a-value — the rail takes no value
 === text
@@ -412,14 +395,6 @@ l2:
 y := b;
 === refused
 network-plain-st a label stands first in its network
-
-#### expression-statement — a network holds assignments, calls, jumps and returns
-=== text
-%LANGUAGE LD
-%NETWORK
-a;
-=== refused
-network-plain-st an assignment, a call, a jump or a return
 
 #### disabled-after-wires — the % lines stand first
 === text
@@ -667,14 +642,6 @@ network-plain-st comparison operators only
 x := BRANCH(FEED := a, b, IN := c);
 === refused
 network-plain-st then its branches, positional
-
-#### branch-standing-alone — a branch is a value in a tree
-=== text
-%LANGUAGE LD
-%NETWORK
-BRANCH(FEED := a, b, c);
-=== refused
-network-plain-st is a value in a tree
 
 #### branch-without-branches — a branch holds a branch
 === text
@@ -1000,3 +967,51 @@ network-plain-st no declaration in reach states
 h(a, OUT => y);
 === refused
 network-plain-st no declaration in reach states
+
+#### item-marks-first — the assignment item's marks stand last in its chain
+=== text
+%LANGUAGE LD
+%NETWORK
+NOT := y := a;
+=== refused
+network-plain-st the assignment item's marks stand last in its chain
+
+#### item-marks-inside — the assignment item's marks stand right before the value
+=== text
+%LANGUAGE LD
+%NETWORK
+y := NOT := x := a;
+=== refused
+network-plain-st the assignment item's marks stand last in its chain
+
+#### comment-empty — no comment is the plain operand
+=== text
+%LANGUAGE LD
+%NETWORK
+y := COMMENT(a, '');
+=== refused
+network-plain-st an empty comment is the plain operand
+
+#### comment-marks-inside — the marks stand outside COMMENT
+=== text
+%LANGUAGE LD
+%NETWORK
+y := COMMENT(NOT a, 'why');
+=== refused
+network-plain-st the marks stand outside it
+
+#### comment-no-string — COMMENT takes an operand and one string
+=== text
+%LANGUAGE LD
+%NETWORK
+y := COMMENT(a, b);
+=== refused
+network-plain-st takes an operand and one string
+
+#### comment-escape — a comment spells $$ $' $L $R, everything else as it stands
+=== text
+%LANGUAGE LD
+%NETWORK
+y := COMMENT(a, 'x$N');
+=== refused
+network-plain-st the escape '$N'

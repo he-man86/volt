@@ -1,8 +1,9 @@
 /**
  * THE NETWORK WORDS — what a plain-ST network body holds beyond ST, each with its class and what it runs as: the words of
  * its `%` lines (`%LANGUAGE`, `%NETWORK`, `%DISABLED`, `%UNSUPPORTED`), a receiver's marks (`NOT y :=`, `t1(RISING IN :=`,
- * `NOT Q =>`), `RAIL()` and the network's own boxes (`BRANCH`, `BRANCH_SHORTCIRCUIT`, `EXECUTE`, `OPERAND`, a value's edge
- * `RISING(a)`), the jump and the return as targets (`JMP.l :=`, `RETURN :=`) and the network's labels (`l:`).
+ * `NOT Q =>`, `NOT JMP.l :=`) and the assignment item's (`y := NOT := a`), `RAIL()` and the network's own boxes (`BRANCH`,
+ * `BRANCH_SHORTCIRCUIT`, `EXECUTE`, `OPERAND`, `COMMENT`, a value's edge `RISING(a)`), the jump and the return as targets
+ * (`JMP.l :=`, `RETURN :=`) and the network's labels (`l:`).
  *
  * Read off what the network-text front-end already produces (`plainStText`: its `%` lines and each receiver's marks;
  * `sourceStatements`: its labels) and the body's own tokens, so only a body the reader took as network text answers —
@@ -36,7 +37,7 @@ interface NetworkWord {
 }
 
 /** The boxes a network has that no declaration names: a word, then `(`. */
-const NETWORK_CALLS: readonly NetworkForm[] = ["RAIL", "BRANCH", "BRANCH_SHORTCIRCUIT", "EXECUTE", "OPERAND", "RISING", "FALLING"]
+const NETWORK_CALLS: readonly NetworkForm[] = ["RAIL", "BRANCH", "BRANCH_SHORTCIRCUIT", "EXECUTE", "OPERAND", "COMMENT", "RISING", "FALLING"]
 
 /** The `%` lines of a network. */
 const PERCENT_LINES: readonly NetworkForm[] = ["NETWORK", "DISABLED", "UNSUPPORTED"]
@@ -114,7 +115,9 @@ function readWords(body: BodySpan): NetworkWord[] {
     else if (t.kind === "punct" && t.text === ";") parens.length = 0
     const call = isWordToken(t) && isPunct(next, "(") ? formIn(NETWORK_CALLS, word) : undefined
     const mark = marked.find(([, m]) => m.span.start <= t.span.start && t.span.end <= m.span.end)
-    if (mark !== undefined && isWordToken(t)) add(t.span, "keyword", markMeaning(word, receiverOf(tokens, i, mark[0], parens)))
+    const item = text.itemMarks.find((m) => m.span.start <= t.span.start && t.span.end <= m.span.end)
+    if (item !== undefined && isWordToken(t)) add(t.span, "keyword", markMeaning(word, { kind: "item" }))
+    else if (mark !== undefined && isWordToken(t)) add(t.span, "keyword", markMeaning(word, receiverOf(tokens, i, mark[0], parens)))
     else if (call !== undefined) form(t.span, "function", call)
     else if (t.kind === "keyword" && word === "JMP" && isPunct(next, ".")) {
       form(t.span, "keyword", "JMP")
@@ -132,6 +135,8 @@ function receiverOf(tokens: readonly Token[], at: number, receiverStart: number,
   let r = at
   while (tokens[r]!.span.start !== receiverStart) r++
   const name = tokens[r]!.text
+  if (name.toUpperCase() === "RETURN") return { kind: "return" }
+  if (name.toUpperCase() === "JMP" && isPunct(tokens[r + 1], ".")) return { kind: "jump", name: tokens[r + 2]!.text }
   let op = r + 1
   while (op < tokens.length && !RECEIVER_OPERATORS.some((p) => isPunct(tokens[op], p))) op++
   if (isPunct(tokens[op], "=>")) return { kind: "output", name }

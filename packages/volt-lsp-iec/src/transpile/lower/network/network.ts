@@ -11,7 +11,10 @@
  *   `NOT y := x := a`                         every target receives the power flow, the first its mark applied:
  *                                             `x := a; y := NOT a` (`RISING y`, `FALLING y`: a coil's edge runs as a
  *                                             plain coil, measured, network-text-st 1.3);
- *   `JMP.l := v`, `RETURN := v`               `IF v THEN JMP l; END_IF` / `IF v THEN RETURN; END_IF`; beside coils
+ *   `y := x := RISING NOT := a`               the item's marks mark the value every target receives, negation first;
+ *   `a;`, `NOT t1(…);`, `RAIL();`             a value standing alone: a box runs, its marks of no effect; else nothing;
+ *   `COMMENT(a, 'why')`                       `a` (the front-end reads the operand it wraps);
+ *   `JMP.l := v`, `RETURN := v`               `IF v THEN JMP l; END_IF` / `IF v THEN RETURN; END_IF` (`NOT JMP.l`: on NOT v); beside coils
  *                                             (`y := JMP.l := v`) the value held in a temp, the coils written, then the
  *                                             jump; in a tree its value held in a temp, the jump taken where the tree is
  *                                             evaluated;
@@ -27,7 +30,7 @@
  */
 import { type BodySpan, type CallExpr, type Expr, plainStText, type PlainStNetwork, type Span, type Statement, stmtExprs, walkExpr } from "../../../frontend/syntax/index.js"
 import { lookup, type Scope } from "../../../frontend/symbols/index.js"
-import { boxMember, elementaryRef, inferExprType, type Type } from "../../../frontend/types/index.js"
+import { boxMember, elementaryRef, inferExprType, rootBox, type Type } from "../../../frontend/types/index.js"
 import { assign, binary, bool, call, ident, ifThen, member, NetworkRefusal, NOT_COMPILED, not } from "./ast.js"
 import { BoxLowerer, COMPARISON, isInfix } from "./boxes.js"
 import { guardedCalls, guardedReadBy } from "./guarded.js"
@@ -145,13 +148,14 @@ class Networker extends BoxLowerer {
         const box = s.value.kind === "call" ? this.box(s.value) : undefined
         const first = s.marks?.[0]
         if (box !== undefined && box.instance === undefined && box.enable !== undefined && !COMPARISON.has(this.name(box).toUpperCase())) {
-          if (first !== undefined || this.sharing.has(s))
+          if (first !== undefined || s.itemMarks !== undefined || this.sharing.has(s))
             throw new NetworkRefusal(`the enabled ${this.name(box)} box's value with a marked coil or a jump on it`)
           const cond = this.pin(box.enable, pre)
           const value = this.boxValue(box, box.pins.filter((a) => !a.output), pre)
           return [...pre, ifThen(cond, [this.assign(s, value, pre)], [], s.span)]
         }
-        let value = this.expr(s.value, pre)
+        // the item's marks mark the value every target receives (`y := x := NOT := a`)
+        let value = this.marked(s.itemMarks, this.expr(s.value, pre), s.span, pre)
         if (first !== undefined || this.sharing.has(s)) {
           const t = this.temp(s.span)
           pre.push(assign(t, value, s.span))
@@ -174,12 +178,20 @@ class Networker extends BoxLowerer {
         return [...pre, ...others, marked]
       }
       case "call_stmt":
-        return this.callStatement(s.call, false, pre)
-      case "expr_stmt":
-        // a box at a root closed by `.ENO`: the call statement, its ENO read by nobody
-        if (s.expr.kind === "member" && s.expr.base.kind === "call" && boxMember(s.expr, this.scope, this.project)?.eno === true)
-          return this.callStatement(s.expr.base, true, pre)
-        throw new NetworkRefusal(`the statement ${this.text(s.span)} in a network`)
+      case "expr_stmt": {
+        // a value standing alone: a box consumed by nothing runs, its ENO read by nobody, the marks around it of no effect;
+        // any other value — an operand, contacts, a branch, the rail — is evaluated, what it runs kept, its value unread
+        const value = s.kind === "call_stmt" ? s.call : s.expr
+        const root = rootBox(value)
+        if (root === undefined) {
+          this.expr(value, pre)
+          return pre
+        }
+        // a root's call is closed by its shown ENO (an Execute box's is its one output) or by nothing
+        if (root.member !== undefined && this.text(root.call.callee.span).toUpperCase() !== "EXECUTE" && boxMember(root.member, this.scope, this.project)?.eno !== true)
+          throw new NetworkRefusal(`the statement ${this.text(s.span)} in a network`)
+        return this.callStatement(root.call, root.member !== undefined, pre)
+      }
       case "empty":
         return []
       case "jmp":
@@ -188,16 +200,16 @@ class Networker extends BoxLowerer {
         // beside coils: on the value they were written from, held once
         if (s.sharesValue === true) {
           if (this.shared === undefined) throw new NetworkRefusal(`the jump ${this.text(s.span)} shares a value no item before it holds`)
-          return [ifThen(this.shared, [jump], [], s.span)]
+          return [ifThen(this.jumpCond(s.marks, this.shared, s.span), [jump], [], s.span)]
         }
         if (s.value === undefined) return [s]
-        let cond = this.expr(s.value, pre)
+        let cond = this.marked(s.itemMarks, this.expr(s.value, pre), s.span, pre)
         if (this.sharing.has(s)) {
           const t = this.temp(s.span)
           pre.push(assign(t, cond, s.span))
           cond = this.shared = t
         }
-        return [...pre, ifThen(cond, [jump], [], s.span)]
+        return [...pre, ifThen(this.jumpCond(s.marks, cond, s.span), [jump], [], s.span)]
       }
       case "label":
         return [s]
@@ -293,6 +305,8 @@ class Networker extends BoxLowerer {
   /** `(JMP.l := v)` / `(RETURN := v)` in a tree (read as the call `JMP(l, v)` / `RETURN(v)`): the value in a temp, the
    *  jump taken on it, the temp handed on. */
   private control(c: CallExpr, upper: string, pre: Statement[]): Expr {
+    if (c.marks !== undefined || c.itemMarks !== undefined)
+      throw new NetworkRefusal(`the marked jump ${this.text(c.span)} in a tree: what a marked jump hands on is unmeasured`)
     const t = this.temp(c.span)
     const value = this.expr(c.args.at(-1)!.value!, pre)
     pre.push(assign(t, value, c.span))
@@ -303,12 +317,30 @@ class Networker extends BoxLowerer {
 
   /** `RISING(x)` / `FALLING(x)`: an edge detector called with x where its tree is evaluated, read by its Q (1.3). */
   private edge(c: CallExpr, pre: Statement[]): Expr {
-    const rising = (c.callee as { name: string }).name.toUpperCase() === "RISING"
+    return this.edgeOf((c.callee as { name: string }).name.toUpperCase() === "RISING", this.expr(c.args[0]!.value!, pre), c.span, pre)
+  }
+
+  private edgeOf(rising: boolean, clk: Expr, span: Span, pre: Statement[]): Expr {
     const name = `${this.at(this.network!)}trig${++this.count().trig}`
-    this.temps.push({ name, span: c.span, fb: rising ? "R_TRIG" : "F_TRIG" })
-    const clk = this.expr(c.args[0]!.value!, pre)
-    pre.push({ kind: "call_stmt", call: call(ident(name, c.span), [{ kind: "call_arg", param: { kind: "ident_expr", name: "CLK", span: c.span }, output: false, value: clk, span: c.span }], c.span), span: c.span })
-    return member(ident(name, c.span), "Q", c.span)
+    this.temps.push({ name, span, fb: rising ? "R_TRIG" : "F_TRIG" })
+    pre.push({ kind: "call_stmt", call: call(ident(name, span), [{ kind: "call_arg", param: { kind: "ident_expr", name: "CLK", span }, output: false, value: clk, span }], span), span })
+    return member(ident(name, span), "Q", span)
+  }
+
+  /** A value under the assignment item's marks (`y := RISING NOT := a`): negated first, then its edge, as everywhere. */
+  private marked(marks: readonly string[] | undefined, value: Expr, span: Span, pre: Statement[]): Expr {
+    if (marks === undefined) return value
+    const negated = marks.includes("NOT") ? not(value, span) : value
+    const edge = marks.find((m) => m === "RISING" || m === "FALLING")
+    return edge === undefined ? negated : this.edgeOf(edge === "RISING", negated, span, pre)
+  }
+
+  /** A jump's or the return's condition under its own marks: `NOT JMP.l := a` jumps when NOT a; an edge on a jump has no
+   *  measured run. */
+  private jumpCond(marks: readonly string[] | undefined, cond: Expr, span: Span): Expr {
+    if (marks === undefined) return cond
+    if (marks.some((m) => m !== "NOT")) throw new NetworkRefusal(`the edge mark on the jump ${this.text(span)}: how a jump's edge runs is unmeasured`)
+    return not(cond, span)
   }
 
   override expr(e: Expr, pre: Statement[]): Expr {
@@ -348,6 +380,8 @@ class Networker extends BoxLowerer {
       case "paren":
         return { ...e, inner: this.expr(e.inner, pre) }
       case "assign_expr":
+        if (e.itemMarks !== undefined)
+          throw new NetworkRefusal(`the marked assignment ${this.text(e.span)} in a tree: what it hands on is unmeasured`)
         return { ...e, target: this.expr(e.target, pre), value: this.expr(e.value, pre) }
       case "index":
         return { ...e, base: this.expr(e.base, pre), indices: e.indices.map((i) => this.expr(i, pre)) }

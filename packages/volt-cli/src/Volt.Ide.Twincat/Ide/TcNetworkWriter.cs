@@ -492,6 +492,9 @@ internal static class TcNetworkWriter
                 // its targets written like any coil's — the return's own target is the vendor's `???`. Its BITS are
                 // written either way (gate 2R.5): skipped, `RETURN S= ;` reported a push and wrote a plain return.
                 var loneReturn = a.Flags.Return && a.Targets.Count <= 1;
+                // The item's own marks (`y := NOT := a`) are kept as the archive holds them; a change is unmeasured on TwinCAT.
+                if (TcUnmeasured.ItemMarks(a) != TcUnmeasured.ItemMarks(new Assign(a.Value, a.Targets, TcNetworkReader.ReadFlags(TcArchive.RequireFlagBits(e, "an assignment")))))
+                    throw TcUnmeasured.InPlace(TcUnmeasured.ItemMarkShape);
                 return changed
                      | WriteChild(e, "RValue", RailJumpValue(e, a))
                      | (loneReturn ? false : WriteOutputs(e, a.Targets))
@@ -707,7 +710,11 @@ internal static class TcNetworkWriter
     /// back <c>new Operand(name)</c> with no flags, and writing that would erase the vendor's own value (measured on a SET
     /// coil: <c>Flags: 2 -> 0</c> from a push that changed nothing — the coil stops latching, the push reports success).
     /// A target's bits are <see cref="WriteTargetBits"/>'s, set bit-precisely on the item's slot.</para></summary>
-    private static bool WriteOutputOperand(XElement o, Operand op) => SetString(o, "Operand", op.Text);
+    private static bool WriteOutputOperand(XElement o, Operand op) => SetString(o, "Operand", op.Text) | WriteComment(o, op);
+
+    /// <summary>The operand comment the text states (<c>COMMENT(a, 'why')</c>, the archive's <c>Comment</c>): "" where it
+    /// states none.</summary>
+    private static bool WriteComment(XElement o, Operand op) => SetString(o, "Comment", op.Comment ?? "");
 
     /// <summary>A box's OUTPUT PINS, written into the slots they belong to.
     ///
@@ -991,6 +998,7 @@ internal static class TcNetworkWriter
     /// while it holds one (<c>NetworkText.RefuseSymbolCommentLoss</c>, in <c>Apply</c>).</para></summary>
     private static bool WriteOperandInto(XElement o, Operand op) =>
         SetString(o, "Operand", op.Text)
+      | WriteComment(o, op)
       | WriteFlags(o, op.Flags)
       // The type the TEXT states — a leaf feeding a wire, declared with the wire's type (S3a, ld-fbd-coverage 2.3); every
       // other operand's is the IDE's and is left as it holds it.

@@ -16,7 +16,7 @@ import type { BodySpan } from "../ast/nodes/index.js"
 import { isConditionalDirective } from "../pragmas/conditional.js"
 import type { ConditionWorld } from "../pragmas/condition-eval.js"
 import { type BodyParse, parseSourceStatementTokens, parseStatementTokens } from "./statements.js"
-import { networkStatements, plainStText, statementTokensOf } from "../network/plain-st.js"
+import { networkStatements, plainStText, statementTokensOf, valueItemsOf } from "../network/plain-st.js"
 import { isPlainStNetworkBody } from "../format/bodies.js"
 
 /** The world of a caller that holds none: every condition beyond the body's own defines is refused by name. */
@@ -40,15 +40,15 @@ export function bodyStatements(body: BodySpan, world: ConditionWorld = NO_WORLD)
   if (!isConditional(body)) return (e.plain ??= parsePlain(body))
   const byWorld = (e.byWorld ??= new WeakMap())
   let parsed = byWorld.get(world)
-  if (parsed === undefined) byWorld.set(world, (parsed = parseStatementTokens(statementTokensOf(body), body.dialect, world)))
+  if (parsed === undefined) byWorld.set(world, (parsed = parseStatementTokens(statementTokensOf(body), body.dialect, world, valueItemsOf(body))))
   return parsed
 }
 
-/** A body with no conditional directive, parsed — a plain-ST network body's jump and return statements read as such
- *  (`networkStatements`). */
+/** A body with no conditional directive, parsed — a plain-ST network body's values standing alone, marks, jump and return
+ *  statements read as such (`networkStatements`). */
 function parsePlain(body: BodySpan, asWritten = false): BodyParse {
-  const parsed = parseStatementTokens(statementTokensOf(body, asWritten), body.dialect)
-  return isPlainStNetworkBody(body) ? { ...parsed, statements: networkStatements(parsed.statements, plainStText(body).marks) } : parsed
+  const parsed = parseStatementTokens(statementTokensOf(body, asWritten), body.dialect, {}, valueItemsOf(body))
+  return isPlainStNetworkBody(body) ? { ...parsed, statements: networkStatements(parsed.statements, plainStText(body)) } : parsed
 }
 
 /** A body's statements AS WRITTEN: every branch of every conditional chain, in source order (every pragma trivia). For
@@ -58,5 +58,5 @@ export function sourceStatements(body: BodySpan): BodyParse {
   // a plain-ST network body as written holds its disabled networks' code, which it does not compile
   if (statementTokensOf(body, true) !== statementTokensOf(body)) return (e.source ??= parsePlain(body, true))
   if (!isConditional(body)) return (e.plain ??= parsePlain(body))
-  return (e.source ??= parseSourceStatementTokens(statementTokensOf(body, true), body.dialect))
+  return (e.source ??= parseSourceStatementTokens(statementTokensOf(body, true), body.dialect, valueItemsOf(body)))
 }

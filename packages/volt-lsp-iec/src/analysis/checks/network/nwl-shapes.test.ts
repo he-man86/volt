@@ -1,6 +1,6 @@
 /**
  * THE NWL SCHEMA GATE'S SHAPES, ON THE EDITOR'S SIDE (openspec nwl-schema-completeness-gate 2.2): every text the bridge's
- * writer spells for a generated NWL shape (`packages/volt-cli/test/fixtures/nwl-schema/shapes.v1.jsonl`, the export
+ * writer spells for a generated NWL shape (`packages/volt-cli/test/fixtures/nwl-schema/shapes.v2.jsonl`, the export
  * `NwlSchemaGateTests` writes) is read by the ST parser as a network body and draws nothing from the network check — the
  * LSP accepts while typing every text a pull writes.
  */
@@ -22,13 +22,13 @@ interface Shape {
   reason?: string
 }
 
-const lines = readFileSync(join(caseRoot("nwl-schema"), "shapes.v1.jsonl"), "utf8").replace(/\r\n/g, "\n").trim().split("\n")
+const lines = readFileSync(join(caseRoot("nwl-schema"), "shapes.v2.jsonl"), "utf8").replace(/\r\n/g, "\n").trim().split("\n")
 const header: { version: string; scope: string[] } = JSON.parse(lines[0] ?? "{}")
 const shapes = lines.slice(1).map((l): Shape => JSON.parse(l))
 const texts = [...new Map(shapes.filter((s) => s.outcome === "spelled").map((s) => [s.text!, s])).values()]
 
-test("the export is there: v1, every shape with an outcome", () => {
-  expect(header.version).toBe("v1")
+test("the export is there: v2, every shape with an outcome", () => {
+  expect(header.version).toBe("v2")
   expect(texts.length).toBeGreaterThan(1000)
   expect(shapes.every((s) => (s.outcome === "spelled") === (s.text !== undefined))).toBe(true)
 })

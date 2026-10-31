@@ -255,7 +255,7 @@ public class StNetworkTextTests
     }
 
     /// <summary>A mark the model cannot hold where it stands is refused by name: a mark on a coil inside a chain (every target
-    /// receives the power flow, measured), a negated set coil, a mark on a jump, the rail alone.</summary>
+    /// receives the power flow, measured), a negated set coil, a set jump, a marked rail.</summary>
     [Fact]
     public void A_mark_the_text_cannot_hold_is_refused_by_name()
     {
@@ -263,8 +263,7 @@ public class StNetworkTextTests
             Assert.Equal(reason, Assert.Throws<StNetworkUnspellableException>(() => StNetworkWriter.Write(body, Scope(body))).Reason);
         Refused(Ld1(new Assign(L("a"), new[] { T("y"), T("x", Neg) }, Flags.None)), StNetworkWriter.ChainMarkReason);
         Refused(Ld1(Set(L("a"), T("y", SetBit with { Negated = true }))), "a negated set or reset coil");
-        Refused(Ld1(new Assign(L("a"), new[] { T("done", JumpBit with { Negated = true }) }, JumpBit)), "a mark on a jump or a return");
-        Refused(Ld1(Empty), "a rail-only item");
+        Refused(Ld1(new Assign(L("a"), new[] { T("done", JumpBit with { Set = true }) }, JumpBit)), "a coil flag on a jump or a return");
         Refused(Ld1(Set(new Terminator(Neg), T("y"))), "a modifier on the rail");
     }
 
@@ -286,7 +285,7 @@ public class StNetworkTextTests
 
     /// <summary>The Execute box's spellings the writer refuses (2.6 review), each by its reason: EXECUTE declared in reach
     /// (anything of that name, a variable too: the text's own word), a lone CR in its ST, a consumer reading it by another
-    /// output than its ENO, a modifier on it, and a box of type EXECUTE that is no Execute box.</summary>
+    /// output than its ENO, a coil flag on it, and a box of type EXECUTE that is no Execute box.</summary>
     [Fact]
     public void An_Execute_box_the_text_cannot_spell_is_refused_by_its_reason()
     {
@@ -296,8 +295,8 @@ public class StNetworkTextTests
         Refused(Ld1(Exec("k := 1;\rn := 2;", en: L("go"))), "an Execute box's ST holding a lone carriage return");
         Refused(Ld1(Set(Op("AND", Exec("k := 1;", en: L("go"), connected: 0) with { HasEnoOutput = false }, L("a")), T("x"))),
             "a consumed box with no named connection");
-        Refused(Ld1(Set(Op("AND", Exec("k := 1;", en: L("go"), connected: 0) with { Flags = Neg }, L("a")), T("x"))),
-            "a modifier on an Execute box output");
+        Refused(Ld1(Set(Op("AND", Exec("k := 1;", en: L("go"), connected: 0) with { Flags = SetBit }, L("a")), T("x"))),
+            "a coil flag on a box");
         Refused(Fbd1(Set(Call("Execute", new[] { In(L("b"), "IN") }, connected: 0), T("x"))), "a box named like an element of the text");
     }
 
@@ -311,9 +310,9 @@ public class StNetworkTextTests
         var plain = new Volt.Engine.Format.Network.Network(1, null, null, null, false, new Node[] { Set(L("a"), T("y")) });
         var body = new NetworkBody(BodyLanguage.Ld, new[] { jump, plain });
         var text = StNetworkWriter.WritePulled(body, Scope(body));
-        Assert.Equal($"%LANGUAGE LD\n%NETWORK \"jump\"\n%UNSUPPORTED \"a mark on a jump or a return\" #{NetworkHash.Of(jump)}\n%NETWORK\ny := a;\n", text);
+        Assert.Equal($"%LANGUAGE LD\n%NETWORK \"jump\"\n%UNSUPPORTED \"a coil flag on a jump or a return\" #{NetworkHash.Of(jump)}\n%NETWORK\ny := a;\n", text);
         var back = StNetworkReader.Read(text, Scope(body));
-        Assert.Equal("a mark on a jump or a return", back.Networks[0].Unsupported);
+        Assert.Equal("a coil flag on a jump or a return", back.Networks[0].Unsupported);
         Assert.Throws<StNetworkUnspellableException>(() => StNetworkWriter.Write(body, Scope(body)));
     }
 

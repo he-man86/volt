@@ -312,7 +312,7 @@ public class CodesysNetworkReaderTests
 
         var read = CodesysNetworkReader.ReadNetwork(new Nwl.Network().With(assign), 0);
 
-        Assert.Equal(" Alarm is active.", Assert.IsType<Assign>(read.Trees.Single()).Targets.Single().Comment);
+        Assert.Equal(" Alarm is active.", Assert.IsType<Assign>(read.Trees.Single()).Targets.Single().SymbolComment);
     }
 
     /// <summary>AN ARCHIVE ANSWER THAT IS NOT A STRING IS REFUSED BY NAME, never read as "no comment" (gate 1b-3): a
@@ -358,7 +358,7 @@ public class CodesysNetworkReaderTests
         var read = CodesysNetworkReader.ReadNetwork(new Nwl.Network().With(assign), 0);
 
         var target = Assert.IsType<Assign>(read.Trees.Single()).Targets.Single();
-        Assert.Equal(comment, target.Comment);
+        Assert.Equal(comment, target.SymbolComment);
     }
 
     /// <summary>A placeholder for a member nobody has measured yet still goes — it is the SHAPE that is
@@ -526,11 +526,10 @@ public class CodesysNetworkReaderTests
         Assert.Equal("an assignment with no value", ex.Reason);
     }
 
-    /// <summary>CENSUS 1.2, the Parallel half: an unfed Parallel has ONE representation, the null feed (5 of 17 in
-    /// Lenze; a feed that is the empty terminator: 0 in five projects, <c>nwl-census-v2.log</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/nwl-census-v2.log</c>)). The reader
-    /// refuses the unmeasured one by name, so it reaches the marker instead of a second spelling of "no feed".</summary>
+    /// <summary>A Parallel fed by the empty terminator is its own drawn model (nwl-schema-completeness-gate #18: LD a stub from
+    /// the rail, FBD a TRUE source), not the unfed one (the null feed): read as stored, its feed the rail.</summary>
     [Fact]
-    public void A_Parallel_fed_by_the_empty_terminator_is_refused_by_name()
+    public void A_Parallel_fed_by_the_empty_terminator_reads_as_the_rail_fed_branch()
     {
         var par = new Nwl.BoxTreeParallel { Input = new Nwl.BoxTreeTerminator() };
         par.Trees.Add(Nwl.Leaf("a"));
@@ -538,8 +537,9 @@ public class CodesysNetworkReaderTests
         var assign = new Nwl.BoxTreeAssign { RValue = par };
         assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out", IsLValue = true });
 
-        var ex = Assert.Throws<UnrepresentableBodyException>(() => CodesysNetworkReader.Read(Nwl.Body(assign), BodyLanguage.Ld));
-        Assert.Equal("a Parallel fed by the empty terminator", ex.Reason);
+        var read = CodesysNetworkReader.Read(Nwl.Body(assign), BodyLanguage.Ld);
+        var parallel = Assert.IsType<Volt.Engine.Format.Network.Parallel>(Assert.IsType<Assign>(read.Networks[0].Trees.Single()).Value);
+        Assert.IsType<Terminator>(parallel.Input);
     }
 
     /// <summary>And the one representation of an unfed Parallel reads, with no feed.</summary>
@@ -632,15 +632,15 @@ public class CodesysNetworkReaderTests
         }
     }
 
-    /// <summary>Census 1.1: no Assign ITEM carries a negation or an edge — only operands do — and the model's
-    /// <c>Assign.Flags</c> is where Jump/Return ride. A bit found there has no position in the text: v1 printed it on
-    /// the VALUE (<c>out := NOT g1;</c>, which its own push refuses since N20), so it is refused by name at the read.</summary>
+    /// <summary>A negation or an edge on the Assign ITEM is its own model (nwl-schema-completeness-gate #7a: the IDE negates
+    /// the value every coil receives), read onto <c>Assign.Flags</c> beside the targets' Jump/Return — over a wire reference
+    /// too, <c>out := NOT := w1;</c>.</summary>
     [Theory]
     [InlineData(true, false, false, false)]
     [InlineData(false, true, false, false)]
     [InlineData(false, false, true, false)]
     [InlineData(true, false, false, true)]   // the value a wire reference: pulled text its own push would refuse
-    public void A_negation_or_edge_on_an_Assign_item_is_refused_by_name(bool negation, bool rtrig, bool ftrig, bool wire)
+    public void A_negation_or_edge_on_an_Assign_item_reads_as_the_item_s_marks(bool negation, bool rtrig, bool ftrig, bool wire)
     {
         var trees = new System.Collections.Generic.List<object>();
         if (wire) trees.Add(new Nwl.BoxTreeDemux { VarId = 1, Input = Nwl.Leaf("a") });
@@ -652,8 +652,23 @@ public class CodesysNetworkReaderTests
         assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out", IsLValue = true });
         trees.Add(assign);
 
-        var ex = Assert.Throws<UnrepresentableBodyException>(() => CodesysNetworkReader.Read(Nwl.Body(trees.ToArray()), BodyLanguage.Ld));
-        Assert.Equal("a flag on an Assign item", ex.Reason);
+        var read = CodesysNetworkReader.Read(Nwl.Body(trees.ToArray()), BodyLanguage.Ld);
+        Assert.Equal(Flags.None with { Negated = negation, Rising = rtrig, Falling = ftrig }, Assert.IsType<Assign>(read.Networks[0].Trees.Last()).Flags);
+    }
+
+    /// <summary>THE OPERAND COMMENT (<c>Operand.Comment</c>) is read on every operand, exactly as stored — the network text's
+    /// <c>COMMENT(a, 'why')</c>. Before it had a spelling the reader dropped it (nwl-schema-completeness-gate, Task B: set
+    /// live on a leaf, the pull showed the network without it).</summary>
+    [Fact]
+    public void The_operand_comment_is_read_on_a_value_and_a_coil()
+    {
+        var assign = new Nwl.BoxTreeAssign { RValue = new Nwl.BoxTreeOperand { Operand = new Nwl.Operand { OperandExpr = "a", Comment = "why" } } };
+        assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out", IsLValue = true, Comment = " it's\r\n" });
+
+        var read = Assert.IsType<Assign>(CodesysNetworkReader.ReadNetwork(new Nwl.Network().With(assign), 0).Trees.Single());
+
+        Assert.Equal("why", Assert.IsType<Leaf>(read.Value).Operand.Comment);
+        Assert.Equal(" it's\r\n", read.Targets.Single().Comment);
     }
 
     /// <summary>The one representation of "unconnected" still reads.</summary>

@@ -22,13 +22,13 @@ namespace Volt.Engine.Tests.Format.Network.Schema;
 /// <item>text → model → text over every spelled text and every production the reference shows
 /// (<c>docs/network-text.html</c>) finds no second spelling: a text that reads writes back as itself.</item>
 /// </list>
-/// The shapes are exported (2.3) to <c>test/fixtures/nwl-schema/shapes.v1.jsonl</c> with their class, slot, holder and flags,
-/// with the coverage and cuts in <c>shapes.v1.coverage.txt</c>; <c>VOLT_WRITE_NWL_SHAPES=1</c> rewrites both, otherwise a
+/// The shapes are exported (2.3) to <c>test/fixtures/nwl-schema/shapes.v2.jsonl</c> with their class, slot, holder and flags,
+/// with the coverage and cuts in <c>shapes.v2.coverage.txt</c>; <c>VOLT_WRITE_NWL_SHAPES=1</c> rewrites both, otherwise a
 /// difference fails.
 /// </summary>
 public class NwlSchemaGateTests
 {
-    public const string ExportVersion = "v1";
+    public const string ExportVersion = "v2";
 
     static string Dir => Path.GetDirectoryName(NwlSchemaCensus.FixturePath)!;
     public static string ExportPath => Path.Combine(Dir, $"shapes.{ExportVersion}.jsonl");
@@ -97,7 +97,7 @@ public class NwlSchemaGateTests
         }
         // every flag value of the census on every holder
         foreach (var bit in census["flagBits"]!.AsArray().Select(b => b!["value"]!.GetValue<int>()))
-            foreach (var holder in shapes.Select(s => s.Holder).Where(h => h.Length > 0).Distinct())
+            foreach (var holder in shapes.Select(s => s.Holder).Where(h => h.Length > 0 && !NwlShapes.IsComment(h)).Distinct())
                 Assert.True(shapes.Any(s => s.Holder == holder && s.Bits == bit), $"no shape sets {NwlShapes.BitsName(bit)} on {holder}");
         // the IL view the census's NWLDisplayMode holds is the one refused language
         Assert.Contains("IL=2", census["enums"]!["NWLDisplayMode"]!.AsArray().Select(v => v!.GetValue<string>()));
@@ -109,7 +109,7 @@ public class NwlSchemaGateTests
     {
         var reader = File.ReadAllText(Path.Combine(CorpusProjects.CliRoot().FullName, "src", "Volt.Ide.Codesys", "Ide", "CodesysNetworkReader.cs"));
         foreach (var marker in Outcomes.Value.Where(o => o.Kind == VendorRefused).Select(o => o.Reason!).Distinct())
-            Assert.True(reader.Contains("\"" + marker + "\"", StringComparison.Ordinal) || marker == UnheldFlags.AssignItemMarker,
+            Assert.True(reader.Contains("\"" + marker + "\"", StringComparison.Ordinal),
                 $"the CODESYS reader raises no refusal named '{marker}'");
     }
 
