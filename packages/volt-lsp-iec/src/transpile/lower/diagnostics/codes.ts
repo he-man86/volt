@@ -145,6 +145,13 @@ export const LOWER_CODES: Readonly<Record<string, LowerCodeKind>> = {
   "for-limit-type": "invalid",
   "for-step-type": "invalid",
   "graphical-body": "not-modelled",
+  // a network body (`network/`): a box the lowering has no rule for; one CODESYS does not compile (a box showing ENO
+  // without EN at a root or on an FB, network-output-member 2.3); a wire of a type the lowering does not declare; an
+  // ACTION or base body whose frame is not laid out
+  "network-box": "not-modelled",
+  "network-invalid": "invalid",
+  "network-wire-type": "not-modelled",
+  "network-frame": "not-modelled",
   // An initial value that READS an FB instance. A sibling instance's FB_Init runs in the same step, at its own
   // declaration's position, and these go in as one block — so only the instance-declared-first case would be right.
   "init-reads-instance": "not-measured",

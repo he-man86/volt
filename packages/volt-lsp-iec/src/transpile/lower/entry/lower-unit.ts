@@ -9,7 +9,7 @@
  */
 
 import { pouContext, routineContext } from "../core/keys.js"
-import { isPlainStNetworkBody, isStBody, type TopLevel } from "../../../frontend/syntax/index.js"
+import { isStBody, type TopLevel } from "../../../frontend/syntax/index.js"
 import { type Scope, scopeUri } from "../../../frontend/symbols/index.js"
 import type { LoweringProject } from "../project/prepare.js"
 import { lowerDiagnostic, type LoweredPou } from "../diagnostics/diagnostic.js"
@@ -38,6 +38,7 @@ import { storageOf } from "../storage/layout.js"
 import { resolveNamedType } from "../../../frontend/types/index.js"
 import { calledLayout } from "../calls/routines.js"
 import { type BodyRefusal, bodyOf } from "../calls/body.js"
+import { declareNetworkState } from "../network/state.js"
 import { withoutReplacedGenerics } from "../calls/specialize.js"
 
 /** How many lowerings the escape pass may take to reach its fixed point (`pointers/escape.ts`): the first finds what is
@@ -90,10 +91,10 @@ function stillGrowing(unit: TopLevel, uri: string | undefined, grown: ReadonlyMa
 /** One lowering of the unit, on the escape answer `shared` carries (none on the first). */
 function lowerOnce(unit: Extract<TopLevel, { kind: "program" | "function_block" }>, scope: Scope, project: Scope, shared: Shared, fold: boolean): LoweredPou {
   const lowering = new Lowering(scope, project, shared)
-  // A body the ST parser does not read — network text, or a read-only CFC/SFC/IL body, which is empty — would lower to
-  // a POU that "succeeds" and does nothing. Refuse it explicitly, before anything is declared; FBD/LD reach the backend
-  // through network text, not through here.
-  if (!isStBody(unit.body) || isPlainStNetworkBody(unit.body))
+  // A body the ST parser does not read — a read-only CFC/SFC/IL body, which is empty — would lower to a POU that
+  // "succeeds" and does nothing. Refuse it explicitly, before anything is declared; FBD/LD reach the backend as plain-ST
+  // network text, which `bodyOf` lowers.
+  if (!isStBody(unit.body))
     return refusedBody(lowering, unit, bodyOf(lowering, unit, unit.body, undefined, { library: false }) as BodyRefusal)
   // every list's VAR_GLOBAL is the application's storage, reached by the body or not (`places/globals.ts`)
   declareLists(lowering)
@@ -205,6 +206,7 @@ function programBody(lowering: Lowering, unit: Extract<TopLevel, { kind: "functi
   if (buildInitSequence(lowering) === undefined) return { diagnostics: lowering.diagnostics }
   const parsed = bodyOf(lowering, unit, unit.body, undefined, { library: false })
   if ("code" in parsed) return refusedBody(lowering, unit, parsed)
+  declareNetworkState(lowering, parsed.hidden ?? [])
   // its VAR_TEMP: the scan's locals, started over on every scan (conformance `life_program_var_temp_runs`; 7.6.4)
   return [...(localInits(lowering) ?? []), ...lowerBlock(lowering, parsed.statements)]
 }

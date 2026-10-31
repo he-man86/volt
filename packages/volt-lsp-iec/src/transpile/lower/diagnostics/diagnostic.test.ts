@@ -23,21 +23,23 @@ function where(diagnostics: readonly LowerDiagnostic[], files: readonly File[], 
 }
 const lowered = (main: string, files: File[]) => where(lowerSource(main, "Main", files, MAIN).diagnostics, files, main)
 
+/** An FBD body the lowering refuses: an enabled ADD read inside a tree (`network/boxes.ts`). */
 const FB_L: File = {
   uri: "FB_L.pou",
-  source: "FUNCTION_BLOCK FB_L\nVAR_INPUT\n\ti : BOOL;\nEND_VAR\nVAR_OUTPUT\n\to : BOOL;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\no := i;\nEND_FUNCTION_BLOCK\n",
+  source:
+    "FUNCTION_BLOCK FB_L\nVAR_INPUT\n\ti : BOOL;\n\tn : INT;\nEND_VAR\nVAR_OUTPUT\n\to : BOOL;\nEND_VAR\n%LANGUAGE FBD\n%NETWORK\no := EQ(ADD(EN := i, n, 1), 2);\nEND_FUNCTION_BLOCK\n",
 }
 
-describe("the draft's repro: a reached LD/FBD POU", () => {
+describe("the draft's repro: a reached LD/FBD POU whose body is refused", () => {
   test("one diagnostic, in FB_L.pou, at FB_L", () => {
     expect(lowered("PROGRAM Main\nVAR\n\tf : FB_L;\nEND_VAR\nf(i := TRUE);\nEND_PROGRAM\n", [FB_L])).toEqual([
-      ["graphical-body", "FB_L.pou", 1, "FB_L"],
+      ["network-box", "FB_L.pou", 1, "FB_L"],
     ])
   })
 
   test("two instances, both called: still the one diagnostic — no `call-body` for the same cause", () => {
     const { diagnostics } = lowerSource("PROGRAM Main\nVAR\n\tf, g : FB_L;\nEND_VAR\nf(i := TRUE);\ng(i := FALSE);\nEND_PROGRAM\n", "Main", [FB_L], MAIN)
-    expect(diagnostics.map((d) => [d.code, d.uri, d.message])).toEqual([["graphical-body", "FB_L.pou", "FB_L is plain-ST network text, which is not lowered yet"]])
+    expect(diagnostics.map((d) => [d.code, d.uri, d.message])).toEqual([["network-box", "FB_L.pou", "the enabled ADD box is read by its value other than as an assignment's whole value"]])
   })
 })
 
