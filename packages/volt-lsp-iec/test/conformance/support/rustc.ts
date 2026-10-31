@@ -98,12 +98,13 @@ export function skipRustSuite(): boolean {
 
 /** A fresh build dir for one pass's `.rs`/`.exe` files, `run` inside it, the dir removed after — also when `run`
  *  throws. A run that is KILLED cannot clean up (each such dir held 0.4–3.5 GB), so a dir of the same prefix untouched
- *  for six hours is removed first: no live pass leaves its dir unwritten that long. */
+ *  for an hour is removed first: a live pass adds a file every few seconds, and a killed run left 2.6–2.9 GB unswept
+ *  under the six hours this used to wait (2026-10-31). */
 export async function inRustBuildDir<T>(prefix: string, run: (dir: string) => Promise<T>): Promise<T> {
   const { mkdtemp, readdir, rm, stat } = await import("node:fs/promises")
   const { tmpdir } = await import("node:os")
   const { join } = await import("node:path")
-  const stale = Date.now() - 6 * 3600_000
+  const stale = Date.now() - 3600_000
   for (const name of await readdir(tmpdir())) {
     if (!name.startsWith(prefix)) continue
     const path = join(tmpdir(), name)
