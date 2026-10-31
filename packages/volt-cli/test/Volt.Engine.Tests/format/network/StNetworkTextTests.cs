@@ -214,6 +214,20 @@ public class StNetworkTextTests
         RoundTrips(Ld1(Set(Op("AND", new Assign(L("c"), new[] { T("done", JumpBit) }, JumpBit), L("d")), T("y"))),
             "%LANGUAGE LD\n%NETWORK\ny := JMP(done, c) AND d;\n");
 
+    /// <summary>A shared value that reads a variable one of the rung's own coils writes is not repeated: the repeated
+    /// statement would read the written variable, while the stored rung evaluates its value once.</summary>
+    [Fact]
+    public void A_jump_sharing_a_value_that_reads_its_own_coil_is_refused()
+    {
+        const string reason = "a jump sharing a value that reads a variable its own coil writes";
+        var toggle = Ld1(new Assign(Op("NOT", L("a")), new[] { T("a"), T("skip", JumpBit) }, JumpBit));
+        Assert.Equal(reason, Assert.Throws<StNetworkUnspellableException>(() => StNetworkWriter.Write(toggle, Scope(toggle))).Reason);
+        var sealIn = Ld1(new Assign(Op("AND", L("start"), L("S.x[1]")), new[] { T("s"), T("???", ReturnBit) }, ReturnBit));
+        Assert.Equal(reason, Assert.Throws<StNetworkUnspellableException>(() => StNetworkWriter.Write(sealIn, Scope(sealIn))).Reason);
+        var setCoil = Ld1(new Assign(Op("AND", L("a"), L("x")), new[] { T("x", SetBit), T("skip", JumpBit) }, JumpBit));
+        Assert.Equal(reason, Assert.Throws<StNetworkUnspellableException>(() => StNetworkWriter.Write(setCoil, Scope(setCoil))).Reason);
+    }
+
     /// <summary>A coil and a jump on one value (one stored item) are one item per target, each on the value, the coils first
     /// (owner, 2026-10-28: <c>lamp := c; JMP(done, c);</c>), the coils first — a stored member; a value holding a box is not
     /// repeated.</summary>

@@ -452,6 +452,11 @@ public static class StNetworkWriter
             var controls = a.Targets.Where(IsControl).ToList();
             if (!Repeatable(a.Value))
                 throw Unspellable("a jump sharing a value that holds a box", "a jump shares its value with other targets, and the value holds a box, a wire or an edge, which the text cannot repeat.");
+            // The stored rung evaluates its value once; a repeated value reading a variable a coil of the rung writes would
+            // read the written variable instead (`a := NOT a; JMP(skip, NOT a);` jumps on the inverse).
+            var written = new HashSet<string>(coils.Select(t => BaseName(t.Text)), StringComparer.OrdinalIgnoreCase);
+            if (Reads(a.Value, written))
+                throw Unspellable("a jump sharing a value that reads a variable its own coil writes", "a jump shares its value with a coil, and the value reads a variable that coil writes, which the repeated value would read after the write.");
             var items = new List<string>();
             if (coils.Count > 0) items.Add(AssignText(a with { Targets = coils }) + ";");
             foreach (var t in controls)
@@ -461,6 +466,16 @@ public static class StNetworkWriter
                 items.Add(value is null ? (jump ? "JMP " + Label(t) + ";" : ReturnTarget(t) + "RETURN;") : Control(jump, t, value) + ";");
             }
             return string.Join("\n", items);
+        }
+
+        /// <summary>Whether <paramref name="n"/> reads one of <paramref name="vars"/>, compared by base name (<c>s.x[i]</c> is <c>s</c>).</summary>
+        private static bool Reads(Node n, HashSet<string> vars) =>
+            n is Leaf l ? vars.Contains(BaseName(l.Operand.Text)) : n.Children().Any(c => Reads(c, vars));
+
+        private static string BaseName(string text)
+        {
+            var end = text.IndexOfAny(new[] { '.', '[' });
+            return (end < 0 ? text : text.Substring(0, end)).Trim();
         }
 
         private static bool IsControl(Operand t) => t.Flags is { Jump: true } or { Return: true };
