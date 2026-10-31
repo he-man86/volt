@@ -198,6 +198,9 @@ public static class StNetworkWriter
 
     public const string ChainMarkReason = "a marked coil inside a chain";
 
+    /// <summary>A box whose text would need EN, ENO, OUT or its type's call against a callee no declaration states (F9).</summary>
+    public const string UnstatedCalleeReason = "a box flag on a callee no declaration in reach states";
+
     /// <summary>The NOT box over <paramref name="n"/>.</summary>
     public static Box NotBox(Node n) =>
         new(NetworkSpelling.NotBox, null, CallKind.Operator, new[] { new Input(null, n, Flags.None) }, Array.Empty<Output>(), null, null, Flags.None);
@@ -611,6 +614,16 @@ public static class StNetworkWriter
             // Its own pin EN first, or a read through its own output ENO, would read back as another box.
             if (signature is null && b.StCode is null)
             {
+                // EN :=, .ENO, ENO => and OUT => read as a box flag or the callee's own pin, and the call of a type as the
+                // unnamed instance or a function: which, only a declaration says (network-text-one-to-one F9).
+                var what = b.Instance is { Text: Box.UnnamedInstance } && _scope.IsBlockType(b.Type) ? "the call of its FB type"
+                    : b.Enable is not null ? "EN :="
+                    : b.HasEnoOutput ? ".ENO"
+                    : b.Outputs.FirstOrDefault(o => o.Formal is null || string.Equals(o.Formal, Box.EnoPin, StringComparison.OrdinalIgnoreCase)) is { } o
+                        ? (o.Formal ?? ResultPin) + " =>"
+                    : null;
+                if (what is not null)
+                    throw Unspellable(UnstatedCalleeReason, $"the '{b.Type}' box needs {what}, which reads as a box flag or the callee's own pin: no declaration in reach states '{b.Type}'.");
                 if (b.Enable is null && b.Inputs.Count > 0 && string.Equals(b.Inputs[0].Formal, Box.EnablePin, StringComparison.OrdinalIgnoreCase))
                     throw Unspellable("a first pin named EN on a box whose callee no declaration states", $"the '{b.Type}' box's first pin is named EN, which reads back as its shown EN: no declaration in reach states '{b.Type}'.");
                 if (!b.HasEnoOutput && string.Equals(b.MainOutputName, Box.EnoPin, StringComparison.OrdinalIgnoreCase))

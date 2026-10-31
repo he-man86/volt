@@ -342,7 +342,7 @@ public class StNetworkTextTests
     public void An_FB_box_with_no_declared_instance_is_the_call_of_its_type()
     {
         var none = new System.Collections.Generic.Dictionary<string, string>();
-        var scope = new NetworkScope(new[] { "go" }, Array.Empty<string>(), none, new[] { "Axis" });
+        var scope = new NetworkScope(new[] { "go" }, Array.Empty<string>(), none, new[] { "Axis" }, AxisSignature);
         var undeclared = Fbd1(Fb("ax9", new[] { In(L("go"), "xEnable") }, type: "Axis"));
         Assert.Equal("%LANGUAGE FBD\n%NETWORK\nAxis(xEnable := go);\n", StNetworkWriter.Write(undeclared, scope));
         var back = Assert.IsType<Box>(StNetworkReader.Read(StNetworkWriter.Write(undeclared, scope), scope).Networks[0].Trees[0]);
@@ -353,13 +353,17 @@ public class StNetworkTextTests
         Assert.Equal("an FB box with no instance whose type is no FB type in reach", e.Reason);
     }
 
+    private static readonly System.Collections.Generic.Dictionary<string, CalleeSignature> AxisSignature =
+        new() { ["Axis"] = new(CalleeShape.Block, new[] { "xEnable" }, Array.Empty<string>()) };
+
     /// <summary>3.0: the vendor's unnamed instance (<c>???</c>) is the call of its type; a box showing ENO and no EN is its call
     /// closed by <c>.ENO</c>; the empty item is <c>;</c>.</summary>
     [Fact]
     public void The_unnamed_instance_the_ENO_only_box_and_the_empty_item_are_spelled()
     {
         var none = new System.Collections.Generic.Dictionary<string, string>();
-        var scope = new NetworkScope(new[] { "go", "x", "a" }, new[] { "f" }, none, new[] { "Axis" });
+        var scope = new NetworkScope(new[] { "go", "x", "a" }, new[] { "f" }, none, new[] { "Axis" },
+            new System.Collections.Generic.Dictionary<string, CalleeSignature>(AxisSignature) { ["f"] = new(CalleeShape.Function, new[] { "IN" }, Array.Empty<string>()) });
         RoundTrips(Fbd1(Fb("???", new[] { In(L("go"), "xEnable") }, type: "Axis"),
                         Set(Call("f", new[] { In(L("a"), "IN") }, connected: 0, eno: true), T("x")),
                         new Leaf(new Operand(""), Flags.None)),

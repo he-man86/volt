@@ -99,7 +99,7 @@ NETWORK
 
 #### unnamed-instance
 === scope
-fb Axis
+fb Axis xEnable =>
 === text
 %LANGUAGE FBD
 %NETWORK
@@ -110,7 +110,7 @@ NETWORK
 
 #### undeclared-instance — an instance the declarations do not name: the call names its type, which the build judges
 === scope
-fb TON
+fb TON IN PT => Q ET
 === text
 %LANGUAGE FBD
 %NETWORK

@@ -909,3 +909,35 @@ x := w1 AND w2;
 y := w1 OR w2;
 === refused
 network-plain-st the wire w2 is the body's w1
+
+#### unstated-en — EN := on a callee no declaration states is the shown EN or its own pin EN
+=== text
+%LANGUAGE FBD
+%NETWORK
+y := h(EN := c, a);
+=== refused
+network-plain-st no declaration in reach states
+
+#### unstated-eno — .ENO on a callee no declaration states is the shown ENO or its own output ENO
+=== text
+%LANGUAGE FBD
+%NETWORK
+y := h(a).ENO;
+=== refused
+network-plain-st no declaration in reach states
+
+#### unstated-eno-target — ENO => on a callee no declaration states
+=== text
+%LANGUAGE FBD
+%NETWORK
+h(a, ENO => y);
+=== refused
+network-plain-st no declaration in reach states
+
+#### unstated-out-target — OUT => on a callee no declaration states is its value or its own output OUT
+=== text
+%LANGUAGE FBD
+%NETWORK
+h(a, OUT => y);
+=== refused
+network-plain-st no declaration in reach states

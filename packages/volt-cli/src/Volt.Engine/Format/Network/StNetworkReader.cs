@@ -1152,6 +1152,18 @@ public static class StNetworkReader
                 throw Error(c.Line, $"{type} declares VAR_OUTPUT OUT, which also names its value: the text cannot tell the two apart");
             var declaresEn = signature is { DeclaresEn: true };
             var declaresEno = signature is { DeclaresEno: true };
+            if (signature is null)
+            {
+                // A CALLEE NO DECLARATION IN REACH STATES: each of these means a box flag or the callee's own pin, chosen by a
+                // declaration the text cannot see, so the reader refuses it as the writer does (StNetworkUnspellableException).
+                string? what = instance is { Text: Box.UnnamedInstance } ? $"the call of the FB type {type}"
+                    : c.Args.FirstOrDefault() is { Out: false } f && Is(f.Formal, Box.EnablePin) ? "EN :="
+                    : c.Member is { } m && Is(m, Box.EnoPin) ? ".ENO"
+                    : c.Args.FirstOrDefault(a => a.Out && (Is(a.Formal, Box.EnoPin) || Is(a.Formal, StNetworkWriter.ResultPin))) is { } o ? o.Formal + " =>"
+                    : null;
+                if (what is not null)
+                    throw Error(c.Line, $"{what} on the call {c.Head}, whose callee no declaration in reach states: it is a box flag or the callee's own pin, which only the declaration tells");
+            }
 
             Node? enable = null;
             var enableFlags = Flags.None;

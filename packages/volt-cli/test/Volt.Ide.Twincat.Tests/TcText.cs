@@ -27,6 +27,10 @@ internal static class TcText
     /// <summary>The pull: a vendor-read model as the text an engineer sees in git.</summary>
     public static string Write(NetworkBody pulled) => StNetworkWriter.WritePulled(pulled, ScopeOf(pulled));
 
+    /// <summary>The pull with the callees a test states.</summary>
+    public static string Write(NetworkBody pulled, IReadOnlyDictionary<string, CalleeSignature> signatures) =>
+        StNetworkWriter.WritePulled(pulled, ScopeOf(pulled, signatures));
+
     /// <summary>The push's gate, against the scope the text was pulled with: the model, or
     /// <see cref="NetworkTextException"/>.</summary>
     public static NetworkBody Validate(string text, NetworkScope scope) => NetworkText.Validate(text, scope);

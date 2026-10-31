@@ -30,6 +30,16 @@ export function checkBox(call: CallExpr, member: string | undefined, consumed: b
   const type = fb?.kind === "function_block" ? fb.name : head
   const at = call.callee.span
   const signature = box.signature
+  if (signature === undefined && (box.instance !== undefined || call.callee.kind === "ident_expr")) {
+    // a callee no declaration in reach states: each of these reads as a box flag or the callee's own pin, which only the
+    // declaration tells (the bridge's reader, network-text-one-to-one F9)
+    // (a callee named through a namespace, `Standard.LEN`, has no signature this side reads: it is not judged here)
+    const output = box.pins.find((a) => a.output && ["ENO", "OUT"].includes(a.param?.name.toUpperCase() ?? ""))
+    const what = box.enable !== undefined ? "EN :=" : member?.toUpperCase() === "ENO" ? ".ENO" : output !== undefined ? `${output.param!.name} =>` : undefined
+    if (what !== undefined)
+      emit(out, at, CODE, `${what} on the call ${head}, whose callee no declaration in reach states: it is a box flag or the callee's own pin, which only the declaration tells`)
+    return
+  }
   if (declaresOut(signature)) emit(out, at, CODE, `${type} declares VAR_OUTPUT OUT, which also names its value: the text cannot tell the two apart`)
   if (signature !== undefined && !declaresEn(signature)) {
     const enAgain = box.pins.find((a) => !a.output && a.param?.name.toUpperCase() === "EN")
