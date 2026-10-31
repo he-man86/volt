@@ -416,6 +416,64 @@ x := a;
 === refused
 network-plain-st a network title is one
 
+#### title-empty — a network with no title has no "" after %NETWORK
+=== text
+%LANGUAGE LD
+%NETWORK ""
+x := a;
+=== refused
+network-plain-st an empty title
+
+#### title-escape-n — a title's line break is $R$L, as the writer writes it
+=== text
+%LANGUAGE LD
+%NETWORK "a$Nb"
+x := a;
+=== refused
+network-plain-st the escape '$N'
+
+#### title-escape-quote — a ' in a title stands as it is
+=== text
+%LANGUAGE LD
+%NETWORK "a$'b"
+x := a;
+=== refused
+network-plain-st the escape '$''
+
+#### title-escape-lowercase — an escape letter is upper case
+=== text
+%LANGUAGE LD
+%NETWORK "a$lb"
+x := a;
+=== refused
+network-plain-st the escape '$l'
+
+#### title-escape-tab — a tab in a title stands as it is
+=== text
+%LANGUAGE LD
+%NETWORK "a$Tb"
+x := a;
+=== refused
+network-plain-st the escape '$T'
+
+#### comment-escape-n — a comment's line break is a new // line
+=== text
+%LANGUAGE LD
+%NETWORK
+// a$Nb
+x := a;
+=== refused
+network-plain-st the escape '$N'
+
+#### comment-escape-dquote — a " in a comment stands as it is
+=== text
+%LANGUAGE LD
+%NETWORK
+// a$"b
+x := a;
+=== refused
+network-plain-st the escape '$"'
+
 #### execute-without-code — the Execute box takes EN := where it shows EN, then its ST, and nothing else
 === text
 %LANGUAGE LD

@@ -241,6 +241,9 @@ function checkLines(n: PlainStNetwork, body: BodySpan, out: DiagnosticItem[]): v
   const title = n.header.args
   if (title.length > 1 || (title.length === 1 && !/^".*"$/s.test(title[0]!.text)))
     emit(out, n.header.span, CODE, "a network title is one \"…\" after %NETWORK and one space")
+  else if (title.length === 1 && title[0]!.text === '""')
+    emit(out, n.header.span, CODE, "an empty title \"\": a network with no title is the line %NETWORK alone")
+  else if (title.length === 1) checkEscapes(title[0]!.text.slice(1, -1), '"', n.header.span, out)
   if (n.unsupported) {
     const u = n.lines.find((l) => l.key === "UNSUPPORTED")!
     const words = u.args.map((t) => t.text).join("")
@@ -428,6 +431,22 @@ function checkEdge(call: CallExpr, name: string, wires: ReadonlySet<string>, out
     emit(out, call.span, CODE, `the edge ${name} over a wire, a branch, a coil, the rail, an Execute box or another edge: an edge is on a contact or on a box read where it stands`)
 }
 
+/** A title's or a comment line's escapes, as the bridge's writer writes them and its reader reads them
+ *  (`NetworkSpelling.Unescape`): `$$`, `$L`, `$R`, and `$"` in a title; every other character as it stands. */
+function checkEscapes(text: string, quote: '"' | undefined, span: Span, out: DiagnosticItem[]): void {
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] !== "$") continue
+    const e = text[i + 1]
+    if (e === "$" || e === "L" || e === "R" || (e === '"' && quote === '"')) {
+      i++
+      continue
+    }
+    return emit(out, span, CODE, e === undefined
+      ? "a `$` at the end of delimited text: a `$` is written `$$`."
+      : `the escape '$${e}': ${quote === '"' ? 'a title spells $$ $" $L $R' : "a comment line spells $$ $L $R"}, every other character as it stands (a comment's line break is a new // line).`)
+  }
+}
+
 /** A `//` comment stands before its network's code; a block comment or a pragma nowhere (an Execute box's ST is its
  *  string's content, no token of the network). */
 function checkComments(body: BodySpan, networks: readonly PlainStNetwork[], out: DiagnosticItem[]): void {
@@ -439,6 +458,7 @@ function checkComments(body: BodySpan, networks: readonly PlainStNetwork[], out:
         emit(out, t.span, CODE, t.kind === "pragma" ? "a pragma {…} in a network: a network holds none" : "a (* comment in a network: a network's comment is its // lines before the code")
       else if (t.kind === "line_comment" && code)
         emit(out, t.span, CODE, "a // comment after the code starts: a network's comment is its // lines before the code")
+      else if (t.kind === "line_comment") checkEscapes(t.text.slice(2), undefined, t.span, out)
       else if (t.kind !== "whitespace" && t.kind !== "line_comment" && t.kind !== "eof" && !n.lines.some((l) => HEADER_LINES.has(l.key) && t.span.start >= l.span.start && t.span.start <= l.span.end) &&
                !(n.declaration !== undefined && t.span.start >= n.declaration.start && t.span.start < n.declaration.end))
         code = true

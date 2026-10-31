@@ -221,7 +221,8 @@ public static class StNetworkReader
                 var h = head.Substring(1);
                 if (h.Length < 2 || h[0] != '"' || h[h.Length - 1] != '"')
                     throw Error(0, $"a network title is one \"…\" after {StNetworkWriter.NetworkLine} and one space, not '{h}'");
-                title = NetworkSpelling.Unescape(h.Substring(1, h.Length - 2), out var err) ?? throw Error(0, err!);
+                if (h.Length == 2) throw Error(0, $"an empty title \"\": a network with no title is the line {StNetworkWriter.NetworkLine} alone");
+                title = NetworkSpelling.Unescape(h.Substring(1, h.Length - 2), '"', out var err) ?? throw Error(0, err!);
             }
             var i = 1;
             var disabled = false;
@@ -243,7 +244,7 @@ public static class StNetworkReader
             while (i < _lines.Count && _lines[i].StartsWith("//", StringComparison.Ordinal))
             {
                 var c = _lines[i++].Substring(2);
-                comment.Add(NetworkSpelling.Unescape(c.StartsWith(" ", StringComparison.Ordinal) ? c.Substring(1) : c, out var err)
+                comment.Add(NetworkSpelling.Unescape(c.StartsWith(" ", StringComparison.Ordinal) ? c.Substring(1) : c, null, out var err)
                             ?? throw Error(i - 1, "the comment line: " + err));
             }
             if (i < _lines.Count && _lines[i].StartsWith(StNetworkWriter.UnsupportedLine + " ", StringComparison.Ordinal))

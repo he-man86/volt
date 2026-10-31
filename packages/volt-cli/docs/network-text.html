@@ -45,9 +45,9 @@ lamp := MOVE(EN := w1, 100, OUT => speed).ENO;</pre>
 <table>
   <tr><th>line</th><th>says</th></tr>
   <tr><td class="name"><code>%LANGUAGE LD</code></td><td>the body's language, <code>LD</code> or <code>FBD</code>; first line of the body</td></tr>
-  <tr><td class="name"><code>%NETWORK "title"</code></td><td>a network starts; the title is optional</td></tr>
+  <tr><td class="name"><code>%NETWORK "title"</code></td><td>a network starts; a network with no title is <code>%NETWORK</code> alone; the title spells <code>$$</code> <code>$"</code> <code>$L</code> <code>$R</code></td></tr>
   <tr><td class="name"><code>%DISABLED</code></td><td>the network is not compiled</td></tr>
-  <tr><td class="name"><code>// text</code></td><td>the network's comment</td></tr>
+  <tr><td class="name"><code>// text</code></td><td>one line of the network's comment; it spells <code>$$</code> <code>$L</code> <code>$R</code></td></tr>
   <tr><td class="name"><code>l:</code></td><td>the network's label, its first code line</td></tr>
   <tr><td class="name"><code>%UNSUPPORTED "shape" #hash</code></td><td>a network the text cannot spell (<a href="#unsupported">below</a>)</td></tr>
 </table>

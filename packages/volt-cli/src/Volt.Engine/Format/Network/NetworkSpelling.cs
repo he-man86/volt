@@ -142,9 +142,10 @@ internal static class NetworkSpelling
         return sb.ToString();
     }
 
-    /// <summary>The inverse of <see cref="Escape"/>: <c>$$ $' $" $L $N $R $T</c> (case-insensitive letters; <c>$N</c> is the
-    /// IDE's line end, CR LF). Null and <paramref name="error"/> for any other escape or a <c>$</c> at the end.</summary>
-    public static string? Unescape(string text, out string? error)
+    /// <summary>The inverse of <see cref="Escape"/>, and only of it (one spelling per text): <c>$$</c>, <c>$L</c>, <c>$R</c>,
+    /// and <c>$"</c> where <paramref name="quote"/> is <c>"</c>. Null and <paramref name="error"/> for any other escape or a
+    /// <c>$</c> at the end.</summary>
+    public static string? Unescape(string text, char? quote, out string? error)
     {
         error = null;
         var sb = new StringBuilder(text.Length);
@@ -155,14 +156,14 @@ internal static class NetworkSpelling
             var e = i + 1 < text.Length ? text[i + 1] : '\0';
             string? v = e switch
             {
-                '$' => "$", '\'' => "'", '"' => "\"", 'L' or 'l' => "\n", 'N' or 'n' => "\r\n", 'R' or 'r' => "\r",
-                'T' or 't' => "\t", _ => null,
+                '$' => "$", 'L' => "\n", 'R' => "\r", '"' when quote == '"' => "\"", _ => null,
             };
             if (v is null)
             {
                 error = e == '\0'
                     ? "a `$` at the end of delimited text: a `$` is written `$$`."
-                    : $"the escape '${e}': delimited text spells $$ $' $\" $L $N $R $T (IEC's escapes), and a `$` is written `$$`.";
+                    : $"the escape '${e}': " + (quote == '"' ? "a title spells $$ $\" $L $R" : "a comment line spells $$ $L $R") +
+                      ", every other character as it stands (a comment's line break is a new // line).";
                 return null;
             }
             sb.Append(v);
