@@ -170,3 +170,248 @@ NOT box), and TwinCAT's empty-operand unconditional jump.
    question goes to Sim-Assist (an editor consumer) for review.
 3. **Negation and edges.** On pins they are functions: `NEGATED(a)`, `RISING(a)`, `FALLING(a)`. On coils the coil kind
    is the assignment operator, as `S=` and `R=` already are: `y /= a;`, `y P= a;`, `y N= a;`.
+
+## Measured 2026-10-31 (joint review with Sim-Assist)
+
+Live CODESYS 3.5.21.40 64-bit (`ide.ps1 -Run nrpm`, CodesysTestProject fixture copy). A throwaway e2e probe pushed
+each text into a new FB, pulled it, built it (instantiated from PLC_PRG, so the build compiles it), exported the IDE's
+own native archive, and took the editor's picture (`DrawToBitmap` of the opened view). A shape the text cannot spell
+was made by editing the pushed network in-proc (object manager checkout, `BoxTreeBox.SetInputTree`, `SetInputFlag`,
+the target's `Flags.Negation`), then committed, and the pull/rebuild repeated on it. Corpus counts are the five
+CODESYS archives (`test/fixtures/nwl-corpus/*.nwl.xml`, 388 networks).
+
+**Probe fault, found and fixed (owner report).** The first in-proc edits raised a MODAL dialog on the commit:
+`Internal error while object 'VltE2E_np_q1_fbd_rail' is providing language model information: Object reference not
+set to an instance of an object.` (read by UI Automation; reproduced on `VltE2E_np_q1_ld_rail`). Cause: a node created
+and set into an attached tree keeps `Id = -1` (the IDE numbers what its editor or a fresh network adds; re-appending
+the tree does not renumber it), and CODESYS cannot build the language model of a body holding an Id of -1. It is a
+probe fault, not a model CODESYS refuses: given a unique Id, the same models commit, build clean and draw, with no
+dialog (a UI Automation watcher on the IDE saw none in the re-run). Every result below is from the re-run; the
+first run's results were discarded.
+
+### 1. The rail versus an unconnected input — DISTINCT stored models
+
+| text pushed / shape made | stored at the pin | picture | build | pulls as |
+|---|---|---|---|---|
+| `y := t1(PT := T#1S).Q;` (IN omitted) | `BoxTreeOperand`, operand text `""` | an empty box at IN (`???`) | clean | `t1(PT := T#1S)` (stable) |
+| TON IN set to the rail (LD) | `BoxTreeTerminator` (`Input` null) | IN wired to the left rail | clean | `t1(IN := TRUE, …)` |
+| `y := t1(IN := TRUE, …).Q;` | `BoxTreeOperand` `TRUE` | a contact-less `TRUE` operand | clean | as pushed |
+| EN set to the rail (LD, `MOVE`) | `BoxTreeTerminator` | EN on the rail | clean | `MOVE(EN := TRUE, …)` |
+| EN set to an empty operand (LD and FBD) | `BoxTreeOperand` `""` | empty EN | **refused**: `Cannot convert type 'Unknown type: ''' to type 'BOOL'`, `Identifier '' not defined` | `%UNSUPPORTED "an empty operand"` |
+
+- On a named pin, the rail and the unconnected input are two classes, drawn differently. They also run differently:
+  the rail feeds TRUE every scan, the unconnected FB input keeps its value (measured 2026-10-27, `StNetworkWriter`).
+- On EN there is no valid unconnected form: an empty EN operand does not build. The rail is the only drawn
+  "nothing wired" on EN (36 in the corpus).
+- Sim-Assist's spellings, pushed today: `y := t1(IN := , PT := T#1S).Q;`, `y := ;` and
+  `x := MOVE(EN := , 5, OUT => n).ENO;` are each refused `NETWORK_PARSE` ("an operand at …").
+- **Recommendation: not safe as THE rail spelling on a named pin.** `IN := ,` already is ST. CODESYS builds
+  `t1(IN := , PT := T#1S);` in a plain ST POU (measured, clean). The LSP parses it as an input "routed from nowhere"
+  (`parse/postfix.ts`), which is the unconnected input, not the rail. Spelled as the rail, one text would mean TRUE
+  in a network and "not passed" in ST, which the LSP and the exec twin read as ST.
+  - A forgotten operand: today it is a `NETWORK_PARSE` refusal. Under the empty value it becomes the rail, an input
+    or EN that is always TRUE, with no diagnostic.
+
+### 2. The corpus's rail-fed pins and wires pull LOSSILY — today's writer spells the rail `TRUE`
+
+The rail-fed pins are 43, not 52: 36 EN plus 7 data pins. The 7 are all named first inputs: an FB's `IN`, `WSM`'s
+first pin, and five functions' first pins. No positional operator pin is fed by the rail. All 4 wires and all 3
+coils hold the rail too, so 50 Terminators in all.
+
+Measured round trips (each is pull, recreate from the pulled text, export):
+
+| rail at | pulled | rebuilt model |
+|---|---|---|
+| FB pin (LD, FBD) | `t1(IN := TRUE, …)` | `BoxTreeOperand TRUE` |
+| EN | `MOVE(EN := TRUE, …)` | `BoxTreeOperand TRUE` |
+| operator pin | `AND(a, TRUE)` | `BoxTreeOperand TRUE` |
+| wire | `w1 := TRUE;` | `Demux ← BoxTreeOperand TRUE` |
+| coil | `y := TRUE;` | `Assign ← BoxTreeOperand TRUE` |
+
+Every build was clean, before and after. **Lossy**: the Terminator becomes an operand `TRUE` (another class, another
+picture: an operand box instead of a wire to the rail). It runs the same. The pull, push, pull loop is a fixed
+point on the wrong model.
+
+**Recommendation:** every one of these needs a rail spelling that is not `TRUE`.
+
+### Scope (a): where a Terminator sits in the corpus model
+
+| position | Terminators | named / positional |
+|---|---|---|
+| `Assign.RValue`, a coil | 3 | (no slot) |
+| `Assign.RValue`, a jump or return | 0 (the 1 return holds an operand) | (no slot) |
+| `Box` EN (input slot 0 with `EN` shown) | 36 | named (`EN :=`) |
+| `Box` data pin, FB | 2 | named (`IN`, `WSM` slot 0) |
+| `Box` data pin, function | 5 | named (slot 0, `iEN` / `i_xEnable`) |
+| `Box` pin of an operator (`AND`, `ADD`, …) | 0 | (positional) |
+| `Demux.Input`, a wire definition | 4 | (no slot) |
+| `Parallel.Input` (feed) · a `Parallel` branch arm | 0 · 0 | (positional) |
+| a root item · a box output · `Terminator.Input` | 0 · 0 (schema: `OutputItems` holds `Operand` or null) · 0 | none |
+
+### Scope (b): positional empties
+
+- `x := AND(a, );` and `n := ADD(n, , 1);` are refused today (`NETWORK_PARSE`). They are not ST either: the
+  LSP's ST parser (`parse/postfix.ts`) refuses a positional empty with "Expression expected", as CODESYS does.
+- A Terminator set at `AND` slot 1 (made in-proc, LD and FBD) **stores** as `BoxTreeTerminator`, builds clean, and
+  pulls as `AND(a, TRUE)`, which is lossy as in 2. So `AND(a, )` would be a distinct model, not one in the corpus
+  (0).
+- `x := BRANCH(FEED := c, a, );` is refused today (`NETWORK_PARSE`). A branch arm that is only the rail is in no
+  corpus body (0). It was not built live: the `Parallel` has no in-place arm setter the probe found.
+- **Recommendation:** the empty value is non-ST in every positional slot, so a forgotten operand there is
+  indistinguishable from an intended rail.
+
+### Scope (c): an empty `=>`
+
+No Terminator sits on an output: the schema's `OutputItems` holds an `Operand` or null. An unwired output is
+spelled by leaving the `=>` out (null 485, empty operand 279). In ST, `out => ,` is the same "not connected" (LSP
+`parse/postfix.ts`). So an empty `=>` would be a second spelling of an omission. **Refusing it by name is consistent;
+confirmed.**
+
+### 3. FBD negations — four distinct stored models, four pictures
+
+| text | stored | picture |
+|---|---|---|
+| `x := NOT a;` | `Assign ← BoxTreeOperand a`, the operand's `Flags.Negation` | `a ○── x`: circle on the source side |
+| `x := NOT(a);` | `Assign ← BoxTreeBox NOT` | a NOT box |
+| `x := AND(NOT a, b);` | the operand `a` negated, `InputFlags` null | circle next to `a`, apart from the box |
+| pin negation (made in-proc) | `InputFlags[0].Negation`, operand plain | circle ON the box's pin edge |
+| `x := AND(NOT(a), b);` | a NOT box feeding the pin | two boxes |
+| target negation (made in-proc) | the target `x`'s `Flags.Negation` | `a ──○ x`: circle on the target side |
+| LD `x := AND(NOT a, b);` | a negated contact (operand flag) | `-|/|-` |
+
+- `x := NOT a` builds an **operand negation**, which is neither a NOT box nor a target negation. Its circle sits
+  after `a`, at the assignment's input. So Sim-Assist's FBD drawing of `x := NOT a` (a mark on the assignment
+  input) is right. The target negation's mark sits at `x`.
+- **Today both flags written on a receiver are lossy**, and each build is clean:
+  - The target negation pulls as `x := NOT a;` and rebuilds as an operand negation; the diff of the two archives
+    moves `Flags=1` from `x` to `a`.
+  - The pin negation pulls as `AND(NOT a, b)` and rebuilds with `InputFlags` null and the operand negated.
+- **Recommendation:** the decided spellings hold. `x /= a` is the target negation, `NEGATED(a)` the pin flag, and
+  `NOT a` stays the operand. In FBD, the pin flag and the operand flag look nearly alike (a circle on the pin
+  versus a circle beside the operand). An editor should draw them apart.
+
+### 4. Plain CODESYS ST (a small FB per text, built alone)
+
+| text | build |
+|---|---|
+| `x S= a;` · `x R= a;` · `JMP skip; … skip: y := b;` | clean |
+| `t1(IN := , PT := T#1S);` | clean |
+| `x /= a;` | `'((x / !!!'ERROR'!!!) = a);' is no valid statement`, `Expression expected instead of '='` |
+| `JMP.skip := a;` | `Invalid destination . for JMP`, `';' expected instead of 'skip'`, `No such label 'INVALID: .'` |
+| `y := ;` | `Expression expected instead of ';'` |
+| `IF s=0 THEN …` / `y := p=0;` / `b := n=0;` (`s`, `p` INT) | `s` fails as a name, already at its declaration (`Unexpected token 's'`, …), and `Expression expected instead of 's='`. `p=0` and `n=0` build. |
+
+- CODESYS lexes `S=` and `R=` with no context: a variable `s` is unusable, and `s=0` is the set operator. `P` and
+  `N` are ordinary names: `n=0` is a comparison.
+- **Recommendation:**
+  - The coil operators `/=` `P=` `N=` and the targets `JMP.l :=` / `RETURN :=` are network-text grammar, not ST.
+  - So are the empty values `y := ;` and `AND(a, )`.
+  - An unconnected named pin, `IN := ,`, is ST and builds.
+
+### 5. LSP lexer and parser (`packages/volt-lsp-iec/src/frontend/syntax`, read only)
+
+- **`/=`.** It is not in `MULTI_CHAR_PUNCT` (`lex/prefixes.ts`), so it lexes as `/` then `=`. No valid ST holds
+  `/=`, so a new two-character token collides with nothing. `assignOpOf` (`parse/statements.ts`) and
+  `parseBracketed` (`parse/expression.ts`) need to accept it.
+- **`P=` / `N=`: collision.** `S=` / `R=` / `REF=` are made in the LEXER, context-free: a word that is exactly the
+  stem, then `=` (`lex/words.ts`). The same rule for `P` / `N` would turn valid ST such as `b := n=0;` into an
+  assignment operator. CODESYS reads that line as a comparison (measured above). The operator has to be recognized
+  in the PARSER, only where an assignment operator stands: after a complete target, the word `P` / `N` followed by
+  `=`. Not in the lexer.
+- **`JMP.skip :=`.** `JMP` is a keyword. `parseJmp` takes `.` as the start of its destination expression, which is a
+  parse error today, so the form needs a new branch there.
+- **`RETURN := v`.** The `RETURN` case calls `endStatement` and wants `;` next.
+- **No lexer collision for either form**, because neither is valid ST today (measured).
+- **The empty value.**
+  - `y := ;` and `F(a, )` are parse errors in the ST front-end, as in CODESYS.
+  - `IN := ,` already parses, as an unconnected input. Giving it the rail meaning is the one place where the
+    network text would change what a valid ST text means.
+
+### The rail verdict
+
+**No: the empty value is not safe as THE rail spelling.** The models are distinct (1), but the empty value
+collides on a named pin:
+
+- **`IN := ,`.** It is already ST for an unconnected input: CODESYS builds it, and the LSP reads it so.
+  Network text spells the unconnected pin by omission, so the rail would give that text a second meaning.
+- **Elsewhere** (coil, wire, EN, positional pin, branch arm, jump/return) the empty value is not ST, so it
+  collides with nothing. It is one more non-ST form, beside `/=` and `JMP.l :=`.
+- **Everywhere**, a forgotten operand stops being a parse refusal and becomes a TRUE rail with no diagnostic.
+
+With `RAIL()` dropped, the remaining choice is the owner's (see the leftovers below).
+
+## The model table (one spelling per stored node or flag)
+
+The table is built from the model (`Format/Network/NetworkModel`, the NWL archive members), not from the text. Counts
+are from the CODESYS corpus, 388 networks. Spellings are the decided ones. "∅" is the empty value proposed for the
+Terminator.
+
+| stored node / flag | where it occurs (parent · slot) | corpus | spelling |
+|---|---|---|---|
+| `Network.Title` | network | 260 | `%NETWORK "title"` |
+| `Network.Comment` | network | 20 | `// …` lines |
+| `Network.Label` | network | 0 | `l:` first statement |
+| `Network.OutCommented` | network | 3 | `%DISABLED` |
+| `Assign` | root 478 · EN 1 · FB pin 3 · operator pin 2 | 484 | `t := v;` at a root, `(t := v)` nested |
+| `Assign`, several targets | root | 40 | the chain `a := b := v` (stored order) |
+| target Flags none | `Assign.OutputItems` | 328 | `:=` |
+| target `Set` | `Assign.OutputItems` | 118 | `S=` |
+| target `Negation+Set` (reset) | `Assign.OutputItems` | 128 | `R=` |
+| target `Negation` | `Assign.OutputItems` | 0 (TwinCAT 2, Sim-Assist 3) | `/=` |
+| target `Rtrig` · `Ftrig` | `Assign.OutputItems` | 0 · 0 (TwinCAT 3 edge coils, both kinds together) | `P=` · `N=` |
+| target `Jump` | `Assign.OutputItems` | 0 | `JMP.l :=` |
+| target `Return` (text `???`) | `Assign.OutputItems` | 1 | `RETURN :=` |
+| `Leaf` (`BoxTreeOperand`) | every value slot | 2918 | the operand text |
+| `Leaf` with text `""` | named FB pin 187 | 187 | the pin left out |
+| `Leaf` with text `""` | root | 1 | the empty item `;` |
+| `Leaf.Flags` `Negation` | AND/OR pin 343 · function pin 5 · FB pin 4 · wire 4 · EN 1 · coil 1 · arm 1 | 359 | `NOT a` |
+| `Leaf.Flags` `Rtrig` · `Ftrig` | EN | 1 · 0 | `R_EDGE(a)` · `F_EDGE(a)` |
+| `Box`, FB with an instance | every value slot | (in 1300) | `inst(…)` |
+| `Box`, FB with no instance (`???`) | | 4 | `T(…)` (its type) |
+| `Box`, function · operator | | (in 1300) | `F(…)` · `AND(…)` |
+| `Box.STSnippet` (Execute) | | 11 | `EXECUTE(EN := e, CODE := '…')` |
+| `Box.En` (EN shown), slot 0 | | 224 | `EN :=` first |
+| `Box.Eno` (ENO shown) | | 184 | `.ENO` |
+| `Box` output with a variable | `OutputItems` | 221 | `NAME => v` |
+| `Box` output null or `""` | `OutputItems` | 485 · 279 | no `=>` |
+| `Input.Flags` `Negation` | box pin | 6 | `NEGATED(a)` |
+| `Input.Flags` `Rtrig` · `Ftrig` | box pin | 0 · 0 | `RISING(a)` · `FALLING(a)` |
+| `Box.EnableFlags` `Negation` · `Rtrig` · `Ftrig` | EN slot | 0 · 0 · 0 | `EN := NEGATED(c)` · `RISING(c)` · `FALLING(c)` |
+| `Demux` definition · reference | wire | 139 · 434 | `w := v` · `w` |
+| `Parallel` `BoxShortCircuit` · `Sequential` | | 16 · 1 | `BRANCH_SHORTCIRCUIT(…)` · `BRANCH(…)` |
+| `Parallel.Input` (feed) | | 12 (5 without) | `FEED :=` first |
+| `Terminator` | coil 3 · EN 36 · named pin 7 · wire 4 (none elsewhere, see (a)) | 50 | ∅: `y := ;` `IN := ,` `EN := ,` `w := ;` |
+
+**Both ways.** Every node class and every flag value in the corpus has a row. The node classes are `BoxTreeAssign`,
+`BoxTreeBox`, `BoxTreeDemux`, `BoxTreeOperand`, `BoxTreeParallel` and `BoxTreeTerminator`. The nonzero flags are
+target none / Set / Negation+Set / Return, `Leaf` Negation / Rtrig, and `InputFlags` Negation. No `Assign.Flags`,
+`Box.Flags`, box output flag or `Terminator.Flags` is nonzero in the corpus.
+
+Two rows share a spelling:
+
+- **`;`**: the empty item, a root `Leaf ""` (1). A root `Terminator` (0) is written `;` too (`StNetworkWriter`), so
+  there are two models for one text.
+- **`IN := ,` versus the pin left out**: an unconnected named FB pin is ST's `IN := ,` (verdict above). If ∅ is the
+  rail, two texts name different models, and ST's own meaning is the third.
+
+**Leftovers, for the owner** (no spelling, or a defect of the row):
+
+1. **The rail on a named pin**: ∅ collides with ST's `IN := ,`. No collision-free non-function spelling has been
+   found.
+2. **The root `;`**: an empty-operand item versus a rail-only item. One of them needs another text, or one is
+   refused by name.
+3. **`Box.Flags.Negated`, a negated box OUTPUT**: 0 in the corpus. Today it is written as a NOT box, which is lossy.
+4. **A box output operand's flags**: 0. No spelling.
+5. **`Terminator.Flags`**: 0 in the corpus, but N41 measured `x := NOT ;` storing and writing TRUE. No spelling under
+   ∅ (`NOT` before nothing).
+6. **`Assign.Flags`** (the item's Jump/Return cache, C13): 0 nonzero. Derived from the target, so it needs no
+   spelling. Confirm that it is not a member.
+7. **TwinCAT's empty-operand unconditional jump**: an `Assign ← Leaf ""` with a Jump target, where CODESYS stores a
+   Terminator. Under `JMP.l := ;` the two vendors' models share one text.
+8. **Target flag combinations**: `Set+Rtrig`, `Negation+Rtrig` and others. One operator per target spells one
+   value; a combination has no row.
+9. **An unconnected EN (`""`)**: it does not build (measured), so it needs no spelling. It is refused by name today
+   (`%UNSUPPORTED "an empty operand"`).
+10. **An empty operand on a function pin**: 0 in the corpus, refused today. Unmeasured.
+11. **An empty `Parallel` arm**: N41 found that it stores. Its stored form (Terminator, `Leaf ""` or none) was not
+    re-measured here.
