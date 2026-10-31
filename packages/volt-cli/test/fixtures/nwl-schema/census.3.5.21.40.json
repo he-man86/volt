@@ -1,0 +1,1175 @@
+{
+  "codesys": "3.5.21.40",
+  "assembly": "NWLObject.plugin.dll 4.6.0.0",
+  "regenerate": "VOLT_WRITE_NWL_SCHEMA=1 dotnet test test/Volt.Engine.Tests --filter NwlSchemaCensusTests (needs CODESYS 3.5.21.40)",
+  "classes": [
+    {
+      "class": "BoxTreeAssign",
+      "typeGuid": "{9873C309-1F09-4ebf-9078-42D8057EF11B}",
+      "implements": [
+        "IBoxTree",
+        "IBoxTreeAssign",
+        "IModification",
+        "IModification2",
+        "INWLItem",
+        "ISafetyNWLItem"
+      ],
+      "members": [
+        {
+          "member": "Id",
+          "field": "_id",
+          "type": "Int64"
+        },
+        {
+          "member": "OutputItems",
+          "field": "_outputItemList",
+          "type": "OutputItemList"
+        },
+        {
+          "member": "Flags",
+          "field": "_flags",
+          "type": "Flags"
+        },
+        {
+          "member": "RValue",
+          "field": "_ibtRValue",
+          "type": "IBoxTree"
+        }
+      ]
+    },
+    {
+      "class": "BoxTreeBox",
+      "typeGuid": "{ACFC6F68-8E3A-4af5-BF81-3DD512095A46}",
+      "implements": [
+        "IBoxTree",
+        "IBoxTree2",
+        "IBoxTreeBox",
+        "IBoxTreeBox2",
+        "IBoxTreeBox3",
+        "IBoxTreeBox4",
+        "IBoxTreeBox5",
+        "IBoxTreeBox6",
+        "IBoxTreeBox7",
+        "IBoxTreeBox8",
+        "IModification",
+        "IModification2",
+        "INWLItem",
+        "ISafetyNWLItem"
+      ],
+      "members": [
+        {
+          "member": "Id",
+          "field": "_id",
+          "type": "Int64"
+        },
+        {
+          "member": "BoxType",
+          "field": "_stBoxType",
+          "type": "String"
+        },
+        {
+          "member": "Instance",
+          "field": "_opInstance",
+          "type": "Operand"
+        },
+        {
+          "member": "OutputItems",
+          "field": "_outputItemList",
+          "type": "OutputItemList"
+        },
+        {
+          "member": "Flags",
+          "field": "_flags",
+          "type": "Flags"
+        },
+        {
+          "member": "InputFlags",
+          "field": "_inputFlags",
+          "type": "LList\u003CIFlags3\u003E"
+        },
+        {
+          "member": "InputItems",
+          "field": "_inputItems",
+          "type": "LList\u003CIBoxTree\u003E"
+        },
+        {
+          "member": "InputParam",
+          "field": "_plInputParams",
+          "type": "ParamList"
+        },
+        {
+          "member": "OutputParam",
+          "field": "_plOutputParams",
+          "type": "ParamList"
+        },
+        {
+          "member": "CallType",
+          "field": "_opCallType",
+          "type": "Operator"
+        },
+        {
+          "member": "EN",
+          "field": "_bEn",
+          "type": "Boolean?"
+        },
+        {
+          "member": "ENO",
+          "field": "_bEno",
+          "type": "Boolean?"
+        },
+        {
+          "member": "STSnippet",
+          "field": "_stSnippet",
+          "type": "ISTSnippet"
+        },
+        {
+          "member": "ContainsExtensibleInputs",
+          "field": "_bContainsExtensibleInputs",
+          "type": "Boolean"
+        },
+        {
+          "member": "ProvidesSTSnippet",
+          "field": "_bProvidesSTSnippet",
+          "type": "Boolean"
+        }
+      ]
+    },
+    {
+      "class": "BoxTreeDemux",
+      "typeGuid": "{B1D55618-017C-4bC5-990A-55C2F27D9D3A}",
+      "implements": [
+        "IBoxTree",
+        "IBoxTreeDemux",
+        "IModification",
+        "IModification2",
+        "INWLItem",
+        "ISafetyNWLItem"
+      ],
+      "members": [
+        {
+          "member": "Id",
+          "field": "_id",
+          "type": "Int64"
+        },
+        {
+          "member": "VarId",
+          "field": "_varId",
+          "type": "Int32"
+        },
+        {
+          "member": "Input",
+          "field": "_ibtInput",
+          "type": "IBoxTree"
+        }
+      ]
+    },
+    {
+      "class": "BoxTreeMux",
+      "typeGuid": "{B8388F1E-AD41-4a8e-B259-44C35321E2E5}",
+      "implements": [
+        "IBoxTree",
+        "IBoxTreeMux",
+        "IModification",
+        "IModification2",
+        "INWLItem",
+        "ISafetyNWLItem"
+      ],
+      "members": [
+        {
+          "member": "Id",
+          "field": "_id",
+          "type": "Int64"
+        },
+        {
+          "member": "VarId",
+          "field": "_varId",
+          "type": "Int32"
+        },
+        {
+          "member": "InputIndex",
+          "field": "_iInputIndex",
+          "type": "Int32"
+        },
+        {
+          "member": "Merger",
+          "field": "_ibtbMerger",
+          "type": "IBoxTreeBox"
+        }
+      ]
+    },
+    {
+      "class": "BoxTreeOperand",
+      "typeGuid": "{9DE7F100-1B87-424c-A62E-45B0CFC85ED2}",
+      "implements": [
+        "IBoxTree",
+        "IBoxTreeOperand",
+        "IModification",
+        "IModification2",
+        "INWLItem",
+        "ISafetyNWLItem"
+      ],
+      "members": [
+        {
+          "member": "Id",
+          "field": "_id",
+          "type": "Int64"
+        },
+        {
+          "member": "Operand",
+          "field": "_operand",
+          "type": "Operand"
+        }
+      ]
+    },
+    {
+      "class": "BoxTreeParallel",
+      "typeGuid": "{827B9EC2-2032-40DA-9F4E-7670CA2D55A8}",
+      "implements": [
+        "IBoxTree",
+        "IBoxTreeParallel",
+        "IModification",
+        "IModification2",
+        "INWLItem",
+        "ISafetyNWLItem"
+      ],
+      "members": [
+        {
+          "member": "Id",
+          "field": "_id",
+          "type": "Int64"
+        },
+        {
+          "member": "Trees",
+          "field": "_ibtTrees",
+          "type": "LList\u003CIBoxTree\u003E"
+        },
+        {
+          "member": "Input",
+          "field": "_ibtInput",
+          "type": "IBoxTree"
+        },
+        {
+          "member": "Mode",
+          "field": "_mode",
+          "type": "OperationMode"
+        }
+      ]
+    },
+    {
+      "class": "BoxTreeTerminator",
+      "typeGuid": "{5F9848D3-568D-4CC5-9E31-8E28E9607FF1}",
+      "implements": [
+        "IBoxTree",
+        "IBoxTreeTerminator",
+        "IModification",
+        "IModification2",
+        "INWLItem",
+        "ISafetyNWLItem"
+      ],
+      "members": [
+        {
+          "member": "Id",
+          "field": "_id",
+          "type": "Int64"
+        },
+        {
+          "member": "Input",
+          "field": "_ibtInput",
+          "type": "IBoxTree"
+        },
+        {
+          "member": "Flags",
+          "field": "_flags",
+          "type": "Flags"
+        }
+      ]
+    },
+    {
+      "class": "Flags",
+      "typeGuid": "{668066F2-6069-46b3-8962-8DB8D13D7DB2}",
+      "implements": [
+        "IFlags",
+        "IFlags2",
+        "IFlags3"
+      ],
+      "members": [
+        {
+          "member": "Flags",
+          "field": "_iFlags",
+          "type": "Int32"
+        },
+        {
+          "member": "Fixed",
+          "field": "_bFixed",
+          "type": "Boolean"
+        },
+        {
+          "member": "Extensible",
+          "field": "_bExtensible",
+          "type": "Boolean"
+        }
+      ]
+    },
+    {
+      "class": "ILStatement",
+      "typeGuid": "{6A53A656-0ED2-439d-9798-F11DA86E9F5E}",
+      "implements": [
+        "IILStatement",
+        "IModification",
+        "IModification2",
+        "INWLItem",
+        "ISafetyNWLItem"
+      ],
+      "members": [
+        {
+          "member": "Id",
+          "field": "_id",
+          "type": "Int64"
+        },
+        {
+          "member": "Operator",
+          "field": "_stOperator",
+          "type": "String"
+        },
+        {
+          "member": "Prefix",
+          "field": "_stPreFix",
+          "type": "String"
+        },
+        {
+          "member": "Operand",
+          "field": "_operand",
+          "type": "IOperand"
+        },
+        {
+          "member": "Postfix",
+          "field": "_stPostFix",
+          "type": "String"
+        }
+      ]
+    },
+    {
+      "class": "NWLImplementationObject",
+      "typeGuid": "{25E509DE-33D4-4447-93F8-C9E4EA381C8B}",
+      "implements": [
+        "IConsistent",
+        "INWLImplementationObject",
+        "INWLImplementationObject2"
+      ],
+      "members": [
+        {
+          "member": "NetworkListComment",
+          "field": "_stNWLComment",
+          "type": "String"
+        },
+        {
+          "member": "DefaultViewMode",
+          "field": "_stDefaultViewMode",
+          "type": "String"
+        },
+        {
+          "member": "NetworkList",
+          "field": "_networkList",
+          "type": "LList\u003CINetwork\u003E"
+        },
+        {
+          "member": "BranchCounter",
+          "field": "_nBranchCounter",
+          "type": "Int32"
+        },
+        {
+          "member": "ValidIds",
+          "field": "_bValidIds",
+          "type": "Boolean"
+        }
+      ]
+    },
+    {
+      "class": "Network",
+      "typeGuid": "{D9A99D73-B633-47db-B876-A752ACB25871}",
+      "implements": [
+        "IModification",
+        "IModification2",
+        "INWLItem",
+        "INetwork",
+        "INetwork2",
+        "INetwork3",
+        "INetwork4",
+        "INetworkWithIL",
+        "ISafetyNWLItem"
+      ],
+      "members": [
+        {
+          "member": "Id",
+          "field": "_id",
+          "type": "Int64"
+        },
+        {
+          "member": "ILActive",
+          "field": "_bILActive",
+          "type": "Boolean"
+        },
+        {
+          "member": "FBDValid",
+          "field": "_bFBDValid",
+          "type": "Boolean"
+        },
+        {
+          "member": "ILValid",
+          "field": "_bILValid",
+          "type": "Boolean"
+        },
+        {
+          "member": "ILLines",
+          "field": "_ilLines",
+          "type": "LList\u003CIILStatement\u003E"
+        },
+        {
+          "member": "Comment",
+          "field": "_stComment",
+          "type": "String"
+        },
+        {
+          "member": "Title",
+          "field": "_stTitle",
+          "type": "String"
+        },
+        {
+          "member": "Label",
+          "field": "_stLabel",
+          "type": "String"
+        },
+        {
+          "member": "OutCommented",
+          "field": "_bOutCommented",
+          "type": "Boolean"
+        },
+        {
+          "member": "NetworkItems",
+          "field": "_networkItems",
+          "type": "LList\u003CObject\u003E"
+        },
+        {
+          "member": "Connectors",
+          "field": "_connectors",
+          "type": "LList\u003CIOperand\u003E"
+        }
+      ]
+    },
+    {
+      "class": "Operand",
+      "typeGuid": "{C9B2F165-48A2-4a45-8326-3952D8A3D708}",
+      "implements": [
+        "IModification",
+        "IModification2",
+        "INWLItem",
+        "IOperand",
+        "IOperand2",
+        "IOperand3",
+        "IOperand4",
+        "IOperand5",
+        "ISafetyNWLItem"
+      ],
+      "members": [
+        {
+          "member": "Id",
+          "field": "_id",
+          "type": "Int64"
+        },
+        {
+          "member": "Operand",
+          "field": "_stOperand",
+          "type": "String"
+        },
+        {
+          "member": "Type",
+          "field": "_stType",
+          "type": "String"
+        },
+        {
+          "member": "Comment",
+          "field": "_stComment",
+          "type": "String"
+        },
+        {
+          "member": "SymbolComment",
+          "field": "_stSymbolComment",
+          "type": "String"
+        },
+        {
+          "member": "Address",
+          "field": "_stAddress",
+          "type": "String"
+        },
+        {
+          "member": "Flags",
+          "field": "_flags",
+          "type": "Flags"
+        },
+        {
+          "member": "LValue",
+          "field": "_bIsLValue",
+          "type": "Boolean"
+        },
+        {
+          "member": "Boolean",
+          "field": "_bBoolean",
+          "type": "Boolean"
+        },
+        {
+          "member": "IsInstance",
+          "field": "_bIsInstance",
+          "type": "Boolean"
+        }
+      ]
+    },
+    {
+      "class": "OutputItemList",
+      "typeGuid": "{F40D3E09-C02C-4522-A88C-DAC23558CFC4}",
+      "implements": [
+        "IOutputItemList"
+      ],
+      "members": [
+        {
+          "member": "OutputItems",
+          "field": "_outputItems",
+          "type": "LList\u003CIOperand\u003E"
+        }
+      ]
+    },
+    {
+      "class": "ParamList",
+      "typeGuid": "{71496971-9E0C-4677-A832-B9583B571130}",
+      "implements": [
+        "IParamList"
+      ],
+      "members": [
+        {
+          "member": "Names",
+          "field": "_names",
+          "type": "LList\u003CString\u003E"
+        },
+        {
+          "member": "Types",
+          "field": "_types",
+          "type": "LList\u003CString\u003E"
+        }
+      ]
+    },
+    {
+      "class": "STSnippet",
+      "typeGuid": "{B2131366-6917-4304-87A9-64C0585560A8}",
+      "implements": [
+        "IModification",
+        "IModification2",
+        "INWLItem",
+        "ISTSnippet",
+        "ISafetyNWLItem"
+      ],
+      "members": [
+        {
+          "member": "Id",
+          "field": "_id",
+          "type": "Int64"
+        },
+        {
+          "member": "STSnippet",
+          "field": "_stSnippet",
+          "type": "ISTImplementationObject"
+        }
+      ]
+    }
+  ],
+  "flagBits": [
+    {
+      "name": "Negation",
+      "value": 1
+    },
+    {
+      "name": "Set",
+      "value": 2
+    },
+    {
+      "name": "Reset",
+      "value": 3
+    },
+    {
+      "name": "Jump",
+      "value": 4
+    },
+    {
+      "name": "Return",
+      "value": 8
+    },
+    {
+      "name": "Rtrig",
+      "value": 16
+    },
+    {
+      "name": "Ftrig",
+      "value": 32
+    }
+  ],
+  "enums": {
+    "Edge": [
+      "None=0",
+      "Rising=1",
+      "Falling=2"
+    ],
+    "FlagsModifier": [
+      "None=0",
+      "Negation=1",
+      "Set=2",
+      "Reset=3"
+    ],
+    "NWLDisplayMode": [
+      "LD=0",
+      "FBD=1",
+      "IL=2"
+    ],
+    "OperationMode": [
+      "Sequential=0",
+      "BoxShortCircuit=1"
+    ],
+    "Operator": [
+      "None=0",
+      "__Reloc=1",
+      "__Copy=2",
+      "__Lazy=3",
+      "Any=4",
+      "AnyBit=5",
+      "AnyDate=6",
+      "AnyInt=7",
+      "AnyNum=8",
+      "AnyReal=9",
+      "Bit=10",
+      "Bool=11",
+      "Byte=12",
+      "Word=13",
+      "DWord=14",
+      "LWord=15",
+      "SInt=16",
+      "Int=17",
+      "DInt=18",
+      "LInt=19",
+      "USInt=20",
+      "UInt=21",
+      "UDInt=22",
+      "ULInt=23",
+      "Real=24",
+      "LReal=25",
+      "String=26",
+      "WString=27",
+      "Time=28",
+      "LTime=29",
+      "Date=30",
+      "DateAndTime=31",
+      "TimeOfDay=32",
+      "Adr=33",
+      "BitAdr=34",
+      "IndexOf=35",
+      "SizeOf=36",
+      "Ini=37",
+      "Abs=38",
+      "Limit=39",
+      "Min=40",
+      "Max=41",
+      "Trunc=42",
+      "Mux=43",
+      "Sel=44",
+      "Rol=45",
+      "Ror=46",
+      "Shl=47",
+      "Shr=48",
+      "Exp=49",
+      "Expt=50",
+      "Sqrt=51",
+      "Ln=52",
+      "Log=53",
+      "Sin=54",
+      "Cos=55",
+      "Tan=56",
+      "ASin=57",
+      "ACos=58",
+      "ATan=59",
+      "Action=60",
+      "Array=61",
+      "Params=62",
+      "At=63",
+      "By=64",
+      "Case=65",
+      "Constant=66",
+      "Do=67",
+      "Else=68",
+      "Elsif=69",
+      "EndAction=70",
+      "EndCase=71",
+      "EndFor=72",
+      "EndFunction=73",
+      "EndFunctionBlock=74",
+      "EndIf=75",
+      "EndProgram=76",
+      "EndRepeat=77",
+      "EndStruct=78",
+      "EndUnion=79",
+      "EndType=80",
+      "EndVar=81",
+      "EndWhile=82",
+      "Exit=83",
+      "Continue=84",
+      "For=85",
+      "From=86",
+      "Function=87",
+      "FunctionBlock=88",
+      "If=89",
+      "Of=90",
+      "Persistent=91",
+      "Pointer=92",
+      "Program=93",
+      "ReadOnly=94",
+      "ReadWrite=95",
+      "Repeat=96",
+      "Retain=97",
+      "Return=98",
+      "Struct=99",
+      "Union=100",
+      "Then=101",
+      "To=102",
+      "Type=103",
+      "Until=104",
+      "Var=105",
+      "VarAccess=106",
+      "VarConfig=107",
+      "VarExternal=108",
+      "VarGlobal=109",
+      "VarInput=110",
+      "VarInOut=111",
+      "VarOutput=112",
+      "VarTemp=113",
+      "VarStat=114",
+      "While=115",
+      "Extends=116",
+      "Implements=117",
+      "Method=118",
+      "Interface=119",
+      "This=120",
+      "Super=121",
+      "Add=122",
+      "Sub=123",
+      "Mul=124",
+      "Div=125",
+      "Mod=126",
+      "And=127",
+      "AndN=128",
+      "Or=129",
+      "OrN=130",
+      "Xor=131",
+      "XorN=132",
+      "Not=133",
+      "Eq=134",
+      "Ne=135",
+      "Ge=136",
+      "Gt=137",
+      "Le=138",
+      "Lt=139",
+      "Cal=140",
+      "CalC=141",
+      "CalCN=142",
+      "Jmp=143",
+      "JmpC=144",
+      "JmpCN=145",
+      "Ret=146",
+      "RetC=147",
+      "RetCN=148",
+      "Ld=149",
+      "LdN=150",
+      "St=151",
+      "StN=152",
+      "Move=153",
+      "TestAndSet=154",
+      "R=155",
+      "S=156",
+      "Plus=157",
+      "Minus=158",
+      "Times=159",
+      "Power=160",
+      "Divide=161",
+      "Period=162",
+      "Colon=163",
+      "Assign=164",
+      "SetAssign=165",
+      "ResetAssign=166",
+      "LeftParenthesis=167",
+      "RightParenthesis=168",
+      "LeftBracket=169",
+      "RightBracket=170",
+      "Comma=171",
+      "Semicolon=172",
+      "Range=173",
+      "AssignOut=174",
+      "Less=175",
+      "Greater=176",
+      "LessEqual=177",
+      "GreaterEqual=178",
+      "Equal=179",
+      "NotEqual=180",
+      "Ampersand=181",
+      "VerticalLine=182",
+      "DeRef=183",
+      "Conversion=184",
+      "RefAssign=185",
+      "Reference=186",
+      "Property=187",
+      "TruncInt=188",
+      "FupAssign=189",
+      "__LocalOffset=190",
+      "__VarInfo=191",
+      "__SystemScope=192",
+      "__TypeOf=193",
+      "__CRC=194",
+      "__MaxOffset=195",
+      "__Init=196",
+      "__IsValidRef=197",
+      "__QueryInterface=198",
+      "__QueryPointer=199",
+      "__New=200",
+      "__Delete=201",
+      "__Cast=202",
+      "__AdrInst=203",
+      "__RefAdr=204",
+      "__Wait=205",
+      "SafeBool=206",
+      "SafeByte=207",
+      "SafeUSInt=208",
+      "SafeSInt=209",
+      "SafeWord=210",
+      "SafeUInt=211",
+      "SafeInt=212",
+      "SafeDWord=213",
+      "SafeUDInt=214",
+      "SafeTime=215",
+      "SafeDInt=216",
+      "SafeLWord=217",
+      "SafeULInt=218",
+      "SafeLInt=219",
+      "__BitOffset=220",
+      "__FCall=221",
+      "__PropertyInfo=222",
+      "Class=223",
+      "Abstract=224",
+      "Override=225",
+      "Public=226",
+      "Private=227",
+      "Protected=228",
+      "Internal=229",
+      "Final=230",
+      "__XWord=231",
+      "__UXInt=232",
+      "__MemorySet=233",
+      "And_Then=234",
+      "Or_Else=235",
+      "__GetLTick=236",
+      "__XInt=237",
+      "__Try=238",
+      "__EndTry=239",
+      "__Catch=240",
+      "__Finally=241",
+      "__Throw=242",
+      "__XString=243",
+      "VarInst=244",
+      "__CheckLicense=245",
+      "__CallInitFunction=246",
+      "__LateCompiledExpr=247",
+      "LowerBound=248",
+      "UpperBound=249",
+      "AnyString=250",
+      "__PoolScope=251",
+      "__CheckLicenseBit=252",
+      "__XAdd=253",
+      "__MemoryBarrier=254",
+      "__CurrentTask=255",
+      "__CompareAndSwap=256",
+      "__Vector=257",
+      "__vcAdd=258",
+      "__vcSub=259",
+      "__vcMul=260",
+      "__vcDiv=261",
+      "__vcDot=262",
+      "__vcSqrt=263",
+      "__vcMin=264",
+      "__vcMax=265",
+      "__vcSetReal=266",
+      "__vcSetLReal=267",
+      "__vcLoadReal=268",
+      "__vcLoadLReal=269",
+      "__vcStore=270",
+      "Hash=271",
+      "SafeReal=272",
+      "SafeLReal=273",
+      "LDate=274",
+      "LDateAndTime=275",
+      "LTimeOfDay=276",
+      "XSizeOf=277",
+      "__PouName=278",
+      "__Position=279",
+      "VarGeneric=280",
+      "EndMethod=281",
+      "EndProperty=282",
+      "EndInterface=283",
+      "PropertySet=284",
+      "PropertyGet=285"
+    ]
+  },
+  "slots": [
+    {
+      "slot": "BoxTreeAssign.OutputItems",
+      "accepts": "OutputItemList",
+      "list": false,
+      "classes": [
+        "OutputItemList"
+      ]
+    },
+    {
+      "slot": "BoxTreeAssign.Flags",
+      "accepts": "Flags",
+      "list": false,
+      "classes": [
+        "Flags"
+      ]
+    },
+    {
+      "slot": "BoxTreeAssign.RValue",
+      "accepts": "IBoxTree",
+      "list": false,
+      "classes": [
+        "BoxTreeAssign",
+        "BoxTreeBox",
+        "BoxTreeDemux",
+        "BoxTreeMux",
+        "BoxTreeOperand",
+        "BoxTreeParallel",
+        "BoxTreeTerminator"
+      ]
+    },
+    {
+      "slot": "BoxTreeBox.Instance",
+      "accepts": "Operand",
+      "list": false,
+      "classes": [
+        "Operand"
+      ]
+    },
+    {
+      "slot": "BoxTreeBox.OutputItems",
+      "accepts": "OutputItemList",
+      "list": false,
+      "classes": [
+        "OutputItemList"
+      ]
+    },
+    {
+      "slot": "BoxTreeBox.Flags",
+      "accepts": "Flags",
+      "list": false,
+      "classes": [
+        "Flags"
+      ]
+    },
+    {
+      "slot": "BoxTreeBox.InputFlags",
+      "accepts": "IFlags3",
+      "list": true,
+      "classes": [
+        "Flags"
+      ]
+    },
+    {
+      "slot": "BoxTreeBox.InputItems",
+      "accepts": "IBoxTree",
+      "list": true,
+      "classes": [
+        "BoxTreeAssign",
+        "BoxTreeBox",
+        "BoxTreeDemux",
+        "BoxTreeMux",
+        "BoxTreeOperand",
+        "BoxTreeParallel",
+        "BoxTreeTerminator"
+      ]
+    },
+    {
+      "slot": "BoxTreeBox.InputParam",
+      "accepts": "ParamList",
+      "list": false,
+      "classes": [
+        "ParamList"
+      ]
+    },
+    {
+      "slot": "BoxTreeBox.OutputParam",
+      "accepts": "ParamList",
+      "list": false,
+      "classes": [
+        "ParamList"
+      ]
+    },
+    {
+      "slot": "BoxTreeBox.STSnippet",
+      "accepts": "ISTSnippet",
+      "list": false,
+      "classes": [
+        "STSnippet"
+      ]
+    },
+    {
+      "slot": "BoxTreeDemux.Input",
+      "accepts": "IBoxTree",
+      "list": false,
+      "classes": [
+        "BoxTreeAssign",
+        "BoxTreeBox",
+        "BoxTreeDemux",
+        "BoxTreeMux",
+        "BoxTreeOperand",
+        "BoxTreeParallel",
+        "BoxTreeTerminator"
+      ]
+    },
+    {
+      "slot": "BoxTreeMux.Merger",
+      "accepts": "IBoxTreeBox",
+      "list": false,
+      "classes": [
+        "BoxTreeBox"
+      ]
+    },
+    {
+      "slot": "BoxTreeOperand.Operand",
+      "accepts": "Operand",
+      "list": false,
+      "classes": [
+        "Operand"
+      ]
+    },
+    {
+      "slot": "BoxTreeParallel.Trees",
+      "accepts": "IBoxTree",
+      "list": true,
+      "classes": [
+        "BoxTreeAssign",
+        "BoxTreeBox",
+        "BoxTreeDemux",
+        "BoxTreeMux",
+        "BoxTreeOperand",
+        "BoxTreeParallel",
+        "BoxTreeTerminator"
+      ]
+    },
+    {
+      "slot": "BoxTreeParallel.Input",
+      "accepts": "IBoxTree",
+      "list": false,
+      "classes": [
+        "BoxTreeAssign",
+        "BoxTreeBox",
+        "BoxTreeDemux",
+        "BoxTreeMux",
+        "BoxTreeOperand",
+        "BoxTreeParallel",
+        "BoxTreeTerminator"
+      ]
+    },
+    {
+      "slot": "BoxTreeTerminator.Input",
+      "accepts": "IBoxTree",
+      "list": false,
+      "classes": [
+        "BoxTreeAssign",
+        "BoxTreeBox",
+        "BoxTreeDemux",
+        "BoxTreeMux",
+        "BoxTreeOperand",
+        "BoxTreeParallel",
+        "BoxTreeTerminator"
+      ]
+    },
+    {
+      "slot": "BoxTreeTerminator.Flags",
+      "accepts": "Flags",
+      "list": false,
+      "classes": [
+        "Flags"
+      ]
+    },
+    {
+      "slot": "ILStatement.Operand",
+      "accepts": "IOperand",
+      "list": false,
+      "classes": [
+        "Operand"
+      ]
+    },
+    {
+      "slot": "NWLImplementationObject.NetworkList",
+      "accepts": "INetwork",
+      "list": true,
+      "classes": [
+        "Network"
+      ]
+    },
+    {
+      "slot": "Network.ILLines",
+      "accepts": "IILStatement",
+      "list": true,
+      "classes": [
+        "ILStatement"
+      ]
+    },
+    {
+      "slot": "Network.NetworkItems",
+      "accepts": "Object",
+      "list": true,
+      "classes": [
+        "BoxTreeAssign",
+        "BoxTreeBox",
+        "BoxTreeDemux",
+        "BoxTreeMux",
+        "BoxTreeOperand",
+        "BoxTreeParallel",
+        "BoxTreeTerminator",
+        "Flags",
+        "ILStatement",
+        "NWLImplementationObject",
+        "Network",
+        "Operand",
+        "OutputItemList",
+        "ParamList",
+        "STSnippet"
+      ]
+    },
+    {
+      "slot": "Network.Connectors",
+      "accepts": "IOperand",
+      "list": true,
+      "classes": [
+        "Operand"
+      ]
+    },
+    {
+      "slot": "Operand.Flags",
+      "accepts": "Flags",
+      "list": false,
+      "classes": [
+        "Flags"
+      ]
+    },
+    {
+      "slot": "OutputItemList.OutputItems",
+      "accepts": "IOperand",
+      "list": true,
+      "classes": [
+        "Operand"
+      ]
+    }
+  ]
+}

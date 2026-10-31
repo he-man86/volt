@@ -32,6 +32,10 @@
          target VoltBundle). Nothing of it ships. -->
     <PackageVersion Include="ILRepack" Version="2.0.48" />
 
+    <!-- Test-only: the NWL schema census (Volt.Engine.Tests, openspec nwl-schema-completeness-gate 1.1) reads the CODESYS
+         NWL assembly's metadata without loading it (DIALECT N12: ReflectionOnlyLoadFrom drops types silently). -->
+    <PackageVersion Include="System.Reflection.MetadataLoadContext" Version="9.0.0" />
+
     <!-- Test tooling — one version across all three test projects. -->
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.0" />
