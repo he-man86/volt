@@ -432,3 +432,206 @@ Two rows share a spelling:
   - combined target flags (8).
 - **One text, one stored form per vendor:** TwinCAT's empty-operand jump and CODESYS's Terminator jump (7).
 - **Docs:** a contact / pin / coil × plain / negated / rising / falling table at the top of `network-text.html`.
+
+## Measured 2026-10-31 (mark family)
+
+The method was the same as the joint review's: live CODESYS 3.5.21.40 64-bit (`ide.ps1 -Run mfam`, a fixture copy).
+
+- A throwaway e2e probe pushed each text into a new FB and read the stored tree in-proc through the object manager.
+- It built the FB, instantiated from PLC_PRG, and pulled it.
+- It drew the editor (`IFrame.OpenEditorView`, then `DrawToBitmap`).
+
+A shape the text cannot spell was made by setting a flag on a node that a push had already built:
+
+- a pin or EN: `SetInputFlag`;
+- a coil or output operand: its `Flags`;
+- a box: `Box.Flags`.
+
+The probe created no node, so no Id was minted. A UI Automation watcher on the IDE saw no dialog. "Builds" means a clean build. Running these shapes was not measured.
+
+### 1. `NOT a` and `NOT(a)` are two stored models, in LD and in FBD
+
+| text (LD and FBD alike) | stored | pulls as today |
+|---|---|---|
+| `x := NOT a;` (coil value) | `Assign ← Op a[Negation]` | as pushed |
+| `x := NOT(a);` · `x := NOT (a);` | `Assign ← Box NOT(Op a)` (`CallType Not`) | `x := NOT(a);` |
+| `x := NOT (a OR b);` | `Box NOT(Box OR(a, b))` | `x := NOT(a OR b);` |
+| `x := AND(NOT a, b);` (operator pin value) | `Op a[Negation]` at the pin, pin flags 0 | as pushed |
+| `x := AND(NOT(a), b);` | a NOT box at the pin | as pushed |
+| `y := t1(IN := NOT a, …).Q;` (FB pin value) | `Op a[Negation]`, pin flags 0 | as pushed |
+| `y := t1(IN := NOT(a), …).Q;` | a NOT box at the pin | as pushed |
+| LD `x := NOT a AND b;` | contact `a[Negation]` | as pushed |
+
+- Both forms build. They are distinct models with distinct pictures (section 3 of the joint review: a circle against a box).
+- At run time they compute the same value. The model is all that differs: a flag on the leaf against a node of its own.
+- The writer spells each model with one text today. A leaf negation is `NOT a`. A NOT box is `NOT(…)`.
+- **Spacing does not matter.** Both readers read a word followed by a `(` token as a call: C# `KeywordCallHead`/`Unary` (`StNetworkReader.cs:686-704`), the LSP `isKeywordCallHead` (`plain-st.ts:362-371`). So `NOT (a)` and `NOT (a OR b)` are the NOT box, and pull back as `NOT(…)`.
+- **Corpus.**
+  - Leaf `Negation`: 359.
+  - NOT box (`BoxType NOT`, `CallType Not`): 3, all in lenze-mid.
+  - Every NOT box negates a node that has no negation flag of its own: two `R_TRIG` outputs and one wire. A Demux carries no flags.
+  - `Box.Flags.Negated` occurs 0 times. So the NOT box is the only spelling those 3 networks have.
+
+**The owner's question: should the mark always be written `NOT(a)`?**
+
+- **(A) `NOT a` is the mark and `NOT(a)` is the box.** This is today's form. Each model keeps its own text, and both texts are ST.
+- **(B) `NOT(a)` is the mark.** The box then needs a name other than its stored `BoxType` `NOT`. That breaks "every box is a call of its type". It also gives `NOT(a)` a meaning that ST does not have, since in ST `NOT(a)` and `NOT a` are one expression.
+- **(C) Interchangeable?** Only at run time. The drawings differ, and so do the node classes, so a 1:1 text must tell them apart.
+
+**Recommendation: (A).**
+
+- Counter-case: `NOT a` and `NOT(a)` differ only by brackets.
+  - An ST habit of writing `NOT(a)` gets a NOT box. It runs the same and draws as a box.
+  - The value mark `NOT a` is a prefix while `RISING(a)` is a function. NOT is the one mark that ST already owns as an operator.
+
+### 2. Every row of the family stores, builds, and draws its own mark
+
+The table shows the flag set on a pushed plain shape, then what is stored, how CODESYS draws it, and the text the writer gives today. Every row builds clean in LD and in FBD.
+
+| family text | stored | drawn | today's pull |
+|---|---|---|---|
+| `x := RISING(a);` · `FALLING(a)` (value; today `R_EDGE`/`F_EDGE`) | `Op a[Rtrig]` · `[Ftrig]` | an LD P/N contact | `R_EDGE(a)` (lossless) |
+| `t1(NOT IN := a, …)` | `InputFlags[IN] = Negation`, operand plain | a circle ON the IN pin (FBD) | `IN := NOT a` (**lossy**) |
+| `t1(RISING IN := a, …)` · `FALLING` | `InputFlags[IN] = Rtrig` · `Ftrig` | an edge triangle on the IN pin (LD, FBD) | `IN := R_EDGE(a)` (**lossy**) |
+| `MOVE(NOT EN := c, …)` · `RISING EN` · `FALLING EN` | `InputFlags[0]` (EN) Negation · Rtrig · Ftrig | a circle or triangle on EN | `EN := NOT c` · `R_EDGE(c)` (**lossy**) |
+| `NOT y := a;` | the target `y[Negation]` | FBD `a ──○ y`, LD `(/)` | `y := NOT a;` (**lossy**) |
+| `RISING y := a;` · `FALLING y := a;` | `y[Rtrig]` · `y[Ftrig]` | an LD `(P)` · `(N)` coil | `y := a;` (**lossy: the edge is dropped**) |
+| `NOT y := RISING x := a;` (chain) | `Assign ← a → y[Negation], x[Rtrig]` | | `%UNSUPPORTED "a negated coil among several"` |
+| `t1(…, NOT Q => x)` | output operand `x[Negation]` | a circle on Q, with x on it | `%UNSUPPORTED "a modifier on an output pin"` |
+| `t1(…, RISING Q => x)` · `FALLING` | output operand `x[Rtrig]` · `[Ftrig]` | | `%UNSUPPORTED` (same) |
+| a negated box output, read: `y := NOT t1(…).Q;` (proposed below) | `Box.Flags.Negated` on the TON, `y` plain | a circle on Q, wired on to y | `NOT(t1(…).Q)` (**lossy**: rebuilds as a NOT box) |
+| the same on an AND box (FBD) | `Box AND[Negation]` | | `NOT(AND(a, b))` (**lossy**) |
+| combined `NOT RISING y := a` (refused by name) | `y[Negation+Rtrig]` | | `y := NOT a;` (**lossy**) |
+| combined `RISING y S= a` (refused by name) | `y[Set+Rtrig]` | | `y S= a;` (**lossy**) |
+
+- **The negated output pin and the negated box output are two models.**
+  - The output pin's flag sits on the output operand: `NOT Q => x`.
+  - The box output's flag sits in `Box.Flags`, on the value the tree consumes.
+  - They are drawn alike: a circle on Q.
+- **A combined mark stores and builds** (`Negation+Rtrig`, `Set+Rtrig`). Refusing it by name is the owner's choice (joint proposal), not a CODESYS limit.
+- **An edge mark on an output stores and builds** (`x[Rtrig]`, `x[Ftrig]`). Refusing it is likewise a choice. The receiver rule spells it with no new word: `RISING Q => x`.
+- **`NOT y S= a` must be refused.** `Negation+Set` is the stored reset coil, which `y R= a` already spells.
+- **CODESYS ST is not the reference for the receiver marks.** A plain ST FB built alone refuses both:
+  - `t1(…, NOT Q => x);`: `',' or ')' expected instead of '=>'`.
+  - `t1(NOT IN := a, …);`: `'NOT(IN)' is no valid assignment target`.
+
+  IEC 61131-3 has `NOT Q => x`, but CODESYS ST does not. Both receiver marks are network-only syntax, as `/=` was.
+
+### 3. Parser feasibility (code read, nothing changed)
+
+**A pin mark: `NOT IN := a`, `RISING IN := a`, `NOT Q => x`.**
+
+- A fixed lookahead of three tokens is enough: the mark word, a name, then `:=` or `=>`.
+- C# `Args` checks only "an Ident, then `:=` or `=>`" (`StNetworkReader.cs:758`, `:766`). Today it reads `NOT IN` as a value and then fails at `Expect(")")`.
+- The LSP `parseCallArg` needs `atNameStart` (`postfix.ts:194-196`), so the argument falls through to the expression path.
+- No pin can be named NOT, because NOT is a keyword in both readers.
+
+**A coil mark: `NOT y := a;`, `RISING y := a;`.**
+
+- Neither is ST, so neither collides with a valid statement. The LSP refuses `NOT x;` at the start of a statement (`statements.ts:197`, recording `stmt_bare_not`).
+- The target can be a full `s.x[i]`, so it must be parsed whole before the operator is examined. One token of lookahead is not enough.
+  - C#: `TryOperandSpan` (`:788-823`) looks ahead without consuming, so a new branch at the head of `Statement`, and in the target loop of `AssignTail` (`:607-622`), is enough.
+  - The LSP: `parseExprOrAssign` parses an expression and then looks for `:=` (`:253-257`). With the line-197 refusal lifted in a network body, `NOT y := a` already parses as an assignment to `unary(NOT, y)`. The chain loop (`:268-274`) already accepts `y := NOT x := a`.
+  - The LSP's `unaryOp` knows `-`, `+` and NOT (`precedence.ts:48-49`). `RISING`/`FALLING` need a network-only prefix, or a token rewrite in `plain-st.ts` like the one for `JMP(`.
+- **Value or receiver?** After the mark and a whole operand:
+  - an assignment operator (`:=` `S=` `R=` `=>`) makes it a receiver mark;
+  - anything else makes it the value mark: `NOT y` gives a leaf flag, and `NOT t1(…).Q` gives `Box.Flags`.
+  - A `(` straight after the word makes it a call: the NOT box, or the value function `RISING(…)`.
+  - No receiver starts with `(`, so the three cases never overlap.
+- **A variable named RISING or FALLING.**
+  - `RISING := a` (a variable `RISING` as the target) is told apart from `RISING y := a` by the token after the word.
+  - A value read `y := RISING;` is not told apart. So RISING and FALLING become network-reserved, refused when declared in reach, like `R_EDGE`/`RAIL` today: C# `ElementHead`/`InReach` (`:949-955`), the LSP `NETWORK_ELEMENTS` (`types/names.ts:56`).
+
+**A named adjustment: the mid-rung NOT.**
+
+- `y := NOT (x := a)` is a NOT box whose argument list holds a named pin `x`, because a word followed by `(` is a call. Pushed today, it is refused: `NETWORK_UNSUPPORTED "a NOT box with pins"` (measured, LD and FBD).
+- The writer's form is `y := NOT((x := a));`, the nested assignment bracketed as a positional argument. It stores as `Box NOT(Assign(a → x))`, builds, and round-trips (measured).
+- So the scenario is `NOT((x := a))`, not `NOT (x := a)`.
+
+### Scenarios, as measured
+
+- The chain `y := NOT x := a`: the mark binds to its target `x` only. It stores `[y plain, x Negation]`, distinct from `y := NOT x` (a value).
+- The round trip `NOT y := RISING x := a`: it stores `y[Negation], x[Rtrig]` in text order and builds. Today it pulls as `%UNSUPPORTED`.
+- The mid-rung NOT: `y := NOT((x := a))` round-trips. The form `NOT (x := a)` is refused (above).
+- `NOT y S= a` is refused by name: `Negation+Set` is `R=`.
+- `RISING y S= a` is refused by name (combined marks). It stores `Set+Rtrig` and builds.
+- An edge mark on an output: the IDE stores it. Refusing it is a choice, and `RISING Q => x` would spell it.
+- RISING and FALLING are reserved in network bodies, like `RAIL` and `R_EDGE`.
+
+### Word census: the syntax list and the function list
+
+The owner's rule (2026-10-31): a network-only function name costs nothing, because its meaning is ours and stated in the "what it runs as" table. What should be minimal is syntax that is not a call and not ST. Corpus counts are for the 388 CODESYS networks.
+
+**Syntax** (forms that are not a call; the ones already in CODESYS ST are marked):
+
+| form | stored model | corpus |
+|---|---|---|
+| `NOT a` (ST), as a value mark on a leaf, or on a box read in place (`NOT t1(…).Q`) | `Leaf.Flags` / `Box.Flags` `Negation` | 359 / 0 |
+| a receiver mark, `NOT`, `RISING` or `FALLING` before a pin formal, an output formal or a coil target. One rule and three words, the same ones the value side uses | `Input.Flags`, `EnableFlags`, output-operand flags, target flags | 6 + 0 + 0 + 0 |
+| `S=` / `R=` (ST) | target Set / Negation+Set | 118 / 128 |
+| `JMP.l :=` / `RETURN :=` (decided, a target form) | target Jump / Return | 0 / 1 |
+| `VAR_TEMP w1 : ANY; END_VAR` | Demux (wire) | 139 defined, 434 read |
+| `.ENO`, `OUT =>` on a function | `Box.Eno`, an unnamed output slot | 184 / (uncounted) |
+| `%NETWORK` / `%DISABLED` / `%UNSUPPORTED` lines | network, `OutCommented`, refusal | 388 / 3 / (n/a) |
+
+**Functions** (network-only names, reserved in network bodies):
+
+| function | stored model | corpus |
+|---|---|---|
+| `NOT(…)` (ST's own box) | Box `NOT` | 3 |
+| `RISING(v)` · `FALLING(v)` (rename `R_EDGE`/`F_EDGE`) | `Leaf`/`Box` `Rtrig` · `Ftrig` | 1 · 0 |
+| `RAIL()` | Terminator | 50 |
+| `BRANCH(FEED := f, …)` · `BRANCH_SHORTCIRCUIT(…)` | Parallel, Mode Sequential · BoxShortCircuit | 1 · 16 |
+| `EXECUTE(EN := e, '…')` | `Box.STSnippet` | 11 |
+
+**The reduction candidates:**
+
+- **Drop `ANY`: no.**
+  - The Demux stores no type (`<o t="BoxTreeDemux" VarId= Id=>`), so a declared type would be a fact Volt infers, not one CODESYS stores.
+  - The archived ld-fbd-coverage census found 6 wires whose type cannot be inferred, among them the 4 rail-fed ones. That is the exec twin's refusal #1. They would be unspellable.
+  - `ANY` is the one honest declaration.
+  - **Separately, `VAR_TEMP` is misleading.** A wire read above its definition gives the previous scan's value. The twin declares wires `VAR` for that reason (`network-twin.ts:58`, measured 2.3), while ST's `VAR_TEMP` holds nothing across scans. This is a defect in the grammar, for the owner. `VAR` would say what the twin runs.
+- **Drop `FEED`: no.**
+  - An unfed Parallel (`Input` null, 5) and one fed by `RAIL()` (a Terminator: 0 in the corpus, refused by name today) are distinct models.
+  - A first positional slot cannot tell "no feed" from "the first arm".
+  - `FEED :=` is a named pin of a function, which is not syntax.
+- **`a OR b` against `BRANCH(a, b)`: two models, not two spellings.**
+  - Infix `OR` is an OR contact box: 182 in lenze-mid.
+  - `BRANCH` is a `BoxTreeParallel`: 17.
+  - Both stay.
+- **BRANCH and BRANCH_SHORTCIRCUIT** are one node with a `Mode` flag. They could become one function with a mode argument, but that adds a pin name and saves no syntax. Two function names cost nothing under the owner's rule. `OR_ELSE` is binary and has no feed, so it cannot carry the n-ary branch.
+- **Drop the `CODE` name: possible.**
+  - The Execute box takes no other pin or instance (`StNetworkWriter.cs:798-799`), so `EXECUTE(EN := e, '…')` with a positional string collides with nothing.
+  - The LSP's `codeAt`/`takeCode` (`plain-st.ts:217-219`) key on `CODE :=` and would change.
+- **`R_TRIG a` / `F_TRIG a` as the edge marks: no.**
+  - `R_TRIG` is a Standard FB type that is in reach in every project. Its unnamed box is spelled `R_TRIG(…)`: 18 R_TRIG and 4 F_TRIG boxes are in the corpus, 4 FB boxes have no instance.
+  - So the mark and an FB box with state would differ by a bracket, and the in-reach refusal would fire on every use.
+  - `RISING`/`FALLING` cost two reserved function names and no syntax.
+- **`JMP`, `RETURN`, `S=`, `R=`, `NOT`, `VAR_TEMP` stay**, all ST words. `RAIL()` is a function, not the bare literal, so it adds no syntax.
+
+### Verdict (mark family)
+
+**Possible, with two named adjustments.** Every row of the family is a distinct stored model, measured live in LD and FBD:
+
+- the value side: a leaf or box flag;
+- the receiver side: a pin's `InputFlags`, `EnableFlags`, an output operand's flags, a target's flags.
+
+Each stores, builds, and draws its own mark. Today's writer loses every receiver row: it pulls them as value marks, drops them, or writes `%UNSUPPORTED`. The family makes them lossless with no new word: NOT, RISING and FALLING are a function or prefix on the value and a prefix on the receiver.
+
+Both readers can parse it without ambiguity:
+
+- a `(` after the word is a call;
+- an assignment operator after the whole operand is a receiver mark;
+- anything else is a value mark.
+
+RISING and FALLING become network-reserved.
+
+The adjustments:
+
+1. **The mid-rung NOT is `NOT((x := a))`, not `NOT (x := a)`.** The second form is a NOT box with a named pin, refused today in both readers.
+2. **The value mark `NOT` also spells `Box.Flags.Negated`, as `NOT t1(…).Q`.** This is not an extra word. It replaces the joint proposal's refusal of a negated box output. The model is distinct from the NOT box and from `NOT Q => x`, and today it pulls lossily as a NOT box.
+
+For the owner:
+
+- Combined marks and edge marks on outputs store and build, so refusing them is a choice.
+- `VAR_TEMP` misstates the wires' cross-scan memory.
