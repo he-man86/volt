@@ -474,6 +474,10 @@ public static class StNetworkWriter
         private string AssignText(Assign a)
         {
             if (a.Targets.Count == 0) throw Unspellable("an assignment with no target", "an Assign item holding no target.");
+            // The item's own flags are its targets' jump and return (the reader's), and nothing else: a bit only the item holds
+            // has no position in the text (nwl-schema-completeness-gate 3.2).
+            if (a.Flags != Flags.None.WithControlFlowFrom(a.Targets))
+                throw Unspellable(UnheldFlags.AssignItemMarker, $"the assignment item carries {Describe(a.Flags)}, which its targets do not.");
             var value = a.Value;
             RequireChainMarks(a.Targets, reason => Unspellable(ChainMarkReason, reason));
             var sb = new StringBuilder();

@@ -8,6 +8,8 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
+    <!-- The NWL schema census reads the CODESYS NWL assembly's metadata (format/network/schema). -->
+    <PackageReference Include="System.Reflection.MetadataLoadContext" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Volt.Engine.Host\Volt.Engine.Host.csproj" />
@@ -29,6 +31,9 @@
     <Compile Include="..\shared\Scopes.cs" Link="Scopes.cs" />
     <!-- The LSP corpus as projects: the scope a corpus body is read against (shared with the NWL completeness oracle). -->
     <Compile Include="..\shared\CorpusProjects.cs" Link="CorpusProjects.cs" />
+    <!-- The archive oracle's member table, cross-checked against the NWL schema census (format/network/schema). -->
+    <Compile Include="..\shared\NwlArchive.cs" Link="NwlArchive.cs" />
+    <Compile Include="..\shared\NwlCompleteness.cs" Link="NwlCompleteness.cs" />
     <!-- The red-first mark (openspec bridge-one-to-one 2): a test that must fail until its task lands. -->
     <Compile Include="..\shared\ExpectRed.cs" Link="ExpectRed.cs" />
     <Using Include="Volt.Tests.Shared" />   <!-- so every file sees the shared double, as before -->
