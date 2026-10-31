@@ -15,7 +15,8 @@
  *   `T(pins…)`, T an FB type (`???`)         the call of its type, read or enabled refused;
  *   `g(pins…).OUT`                           a function's value: the call.
  *
- * What a box's pins evaluate runs on every scan, only the box under its EN.
+ * What a box's pins evaluate runs on every scan, only the box under its EN. A pin's or EN's own `NOT` (`t1(NOT IN := a)`)
+ * negates what it reads; an edge mark on a pin or EN, and any mark on an output, is unmeasured and refused by name.
  */
 import { type CallArg, type CallExpr, type Expr, type Statement, type BodySpan, type Span, UNNAMED } from "../../../frontend/syntax/index.js"
 import type { Scope } from "../../../frontend/symbols/index.js"
@@ -57,10 +58,21 @@ export abstract class BoxLowerer {
     return box.call.callee.kind === "ident_expr" ? box.call.callee.name : this.text(box.call.callee.span)
   }
 
+  /** A pin's (or EN's) value as the box reads it: its own `NOT` applied. An edge mark on a pin, and a mark on an output,
+   *  has no measured run and is refused by name. */
+  protected pin(a: CallArg, pre: Statement[]): Expr {
+    const marks = a.marks ?? []
+    const where = a.param?.name ?? "pin"
+    if (a.output && marks.length > 0) throw new NetworkRefusal(`the mark on the output ${where}: how a marked output runs is unmeasured`)
+    if (marks.some((m) => m !== "NOT")) throw new NetworkRefusal(`the edge mark on the pin ${where}: how an edge on a pin runs is unmeasured`)
+    const v = this.expr(a.value!, pre)
+    return marks.includes("NOT") ? not(v, a.span) : v
+  }
+
   /** `X(pins…)` as the value a function box hands back: an operator infix, MOVE the value it moves. */
   protected boxValue(box: NetworkBox, args: readonly CallArg[], pre: Statement[]): Expr {
     const base = this.name(box).toUpperCase()
-    if (base === "MOVE" && args.length === 1 && args[0]!.param === undefined) return this.expr(args[0]!.value!, pre)
+    if (base === "MOVE" && args.length === 1 && args[0]!.param === undefined) return this.pin(args[0]!, pre)
     if (isInfix(base) || base === "NOT") return this.operator(base, box.call.span, args.filter((a) => !a.output), pre)
     return this.callOf(box.st, args, pre)
   }
@@ -69,7 +81,7 @@ export abstract class BoxLowerer {
   protected enOnlyRead(box: NetworkBox, pre: Statement[]): Expr {
     const base = this.name(box)
     if (!COMPARISON.has(base.toUpperCase())) throw new NetworkRefusal(`the enabled ${base} box is read by its value other than as an assignment's whole value`)
-    const cond = this.expr(box.enable!.value!, pre)
+    const cond = this.pin(box.enable!, pre)
     const value = this.boxValue(box, box.pins.filter((a) => !a.output), pre)
     const t = this.temp(box.call.span)
     pre.push(ifThen(cond, [assign(t, value, box.call.span)], [assign(t, bool(false, box.call.span), box.call.span)], box.call.span))
@@ -79,7 +91,7 @@ export abstract class BoxLowerer {
   /** An enabled function box: it runs under its EN, its ENO is its EN. Returns the ENO's temp where `read`. */
   protected enabled(box: NetworkBox, pre: Statement[], read: boolean): Expr | undefined {
     const span = box.call.span
-    const cond = this.expr(box.enable!.value!, pre)
+    const cond = this.pin(box.enable!, pre)
     const eno = read ? this.temp(span) : undefined
     const outs = box.pins.filter((a) => a.output)
     const enoOut = outs.find((a) => named(a, "ENO"))
@@ -133,7 +145,7 @@ export abstract class BoxLowerer {
     const pins = box.pins.filter((a) => a !== enoOut)
     let value: Expr | undefined
     if (box.enable !== undefined) {
-      const cond = this.expr(box.enable.value!, pre)
+      const cond = this.pin(box.enable, pre)
       const then: Statement[] = [standing(this.callOf({ ...box.st, callee: inst }, pins, pre))]
       const otherwise: Statement[] = []
       const flags = enoOut === undefined ? [] : [this.expr(enoOut.value!, pre)]
@@ -168,7 +180,7 @@ export abstract class BoxLowerer {
 
   /** An operator box infix, left to right: `ADD(a, b, c)` is `(a + b) + c`. */
   private operator(name: string, span: Span, args: readonly CallArg[], pre: Statement[]): Expr {
-    const values = args.map((a) => this.expr(a.value!, pre))
+    const values = args.map((a) => this.pin(a, pre))
     if (name === "NOT") return not(values[0]!, span)
     return values.slice(1).reduce((left, right) => binary(INFIX[name]!, left, right, span), values[0]!)
   }
@@ -176,6 +188,6 @@ export abstract class BoxLowerer {
   /** `head(args…)`, every value as the network runs it. */
   protected callOf(c: CallExpr, args: readonly CallArg[], pre: Statement[]): CallExpr {
     const head = this.expr(c.callee, pre)
-    return call(head, args.map((a) => (a.value === undefined ? a : { ...a, value: this.expr(a.value, pre) })), c.span)
+    return call(head, args.map((a) => (a.value === undefined ? a : { ...a, value: this.pin(a, pre) })), c.span)
   }
 }

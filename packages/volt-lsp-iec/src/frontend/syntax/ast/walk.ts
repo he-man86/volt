@@ -84,7 +84,7 @@ export function stmtExprs(s: Statement): Expr[] {
       return s.catchVar ? [s.catchVar] : []
     // A JMP target is a label name, not a value expression — deliberately NOT walked (so identifier resolution
     // doesn't flag it as an undefined variable). The jump-labels check reads `s.target` directly. A network's jump and
-    // return are on a value (`JMP(label, value)`, `RETURN(value)`), which is.
+    // return are on a value (`JMP.label := value;`, `RETURN := value;`), which is.
     case "return":
     case "jmp":
       return s.value !== undefined ? [s.value] : []

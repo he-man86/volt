@@ -203,8 +203,8 @@ internal static class NetworkSpelling
             if (e != '$' && e != '\'')
             {
                 error = e == '\0'
-                    ? "a `$` at the end of the Execute box's CODE: a `$` is written `$$`"
-                    : $"the escape '${e}' in the Execute box's CODE: its code spells a ' as $' and a $ as $$, and everything else as it stands";
+                    ? "a `$` at the end of the Execute box's ST: a `$` is written `$$`"
+                    : $"the escape '${e}' in the Execute box's ST: its code spells a ' as $' and a $ as $$, and everything else as it stands";
                 return null;
             }
             sb.Append(e);

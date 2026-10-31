@@ -72,7 +72,7 @@ function collectBareRefs(root: Expr, emit: (ref: BareRef) => void, isStep: (acce
   collect(root)
 }
 
-/** The label of a network's jump in a tree, `JMP(label, value)` (only a plain-ST network body has a call named JMP: the ST
+/** The label of a network's jump in a tree, `(JMP.label := value)` read as the call `JMP(label, value)` (only a plain-ST network body has a call named JMP: the ST
  *  lexer reads the word as a keyword): a label, no value. */
 export function isJumpLabel(call: CallExpr, arg: Expr): boolean {
   return call.callee.kind === "ident_expr" && call.callee.name.toUpperCase() === "JMP" && call.args[0]?.value === arg && arg.kind === "ident_expr"

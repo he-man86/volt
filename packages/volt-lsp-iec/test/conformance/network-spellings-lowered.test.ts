@@ -40,11 +40,11 @@ y10 := c2(CU := a, PV := 5).CV;
 %NETWORK
 MOVE(EN := c, c3(CU := b, PV := 3).CV, OUT => y11).ENO;
 %NETWORK
-c4(EN := c, CU := R_EDGE(d), PV := 5, CV => y12).ENO;
+c4(EN := c, CU := RISING(d), PV := 5, CV => y12).ENO;
 %NETWORK
 lamp := b AND d;
 %NETWORK
-RETURN(d AND NOT a);
+RETURN := d AND NOT a;
 %NETWORK
 y6 := ADD(y6, 1);
 END_PROGRAM

@@ -418,7 +418,7 @@ public static class StNetworkReader
                 while (i < s.Length && s[i] != c)
                 {
                     if (s[i] == '$' && i + 1 < s.Length) i++;
-                    if (s[i] == '\n' && !code) throw new StNetworkReadException(Line(i), "a string across a line: only the Execute box's CODE spans lines");
+                    if (s[i] == '\n' && !code) throw new StNetworkReadException(Line(i), "a string across a line: only the Execute box's ST spans lines");
                     i++;
                 }
                 if (i >= s.Length) throw new StNetworkReadException(Line(start), "an unclosed string");
@@ -970,7 +970,7 @@ public static class StNetworkReader
             switch (e)
             {
                 case AOperand o:
-                    if (o.Text.IndexOf('\n') >= 0) throw Error(o.Line, "a string across a line: only the Execute box's CODE spans lines");
+                    if (o.Text.IndexOf('\n') >= 0) throw Error(o.Line, "a string across a line: only the Execute box's ST spans lines");
                     if (_net.IsForeignWire(o.Text)) throw Error(o.Line, $"the wire {o.Text} is read outside its network: a wire is its network's");
                     return new Leaf(new Operand(o.Text), Flags.None);
                 case AWire w:

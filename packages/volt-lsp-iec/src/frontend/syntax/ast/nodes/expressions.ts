@@ -178,6 +178,8 @@ export interface CallArg {
   param?: IdentExpr // `p := v` or `p => t`
   output: boolean // true for `=>`
   value?: Expr
+  /** In a plain-ST network body, the pin's own marks before its name (`NOT IN := a`, `NOT Q => x`), outermost first. */
+  marks?: readonly string[]
   span: Span
 }
 export interface ParenExpr {
@@ -193,6 +195,8 @@ export interface AssignExpr {
   value: Expr
   /** `S=` / `R=`; undefined for `:=`. */
   op?: "S=" | "R="
+  /** In a plain-ST network body, the coil's own marks (`(NOT x := a)`), outermost first. */
+  marks?: readonly string[]
   span: Span
 }
 

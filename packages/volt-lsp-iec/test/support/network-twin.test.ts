@@ -36,15 +36,15 @@ test("a box with EN and no ENO at the root runs under its EN", () => {
 })
 
 test("a jump and a return on a value are the IF that takes them; in a tree, on the value held", () => {
-  const t = twin("\tx, a, c, d : BOOL;", "%NETWORK\nJMP(l1, a);\nRETURN(c);\nx := JMP(l1, c) AND d;\n%NETWORK\nl1:\nx := a;\n")
+  const t = twin("\tx, a, c, d : BOOL;", "%NETWORK\nJMP.l1 := a;\nRETURN := c;\nx := (JMP.l1 := c) AND d;\n%NETWORK\nl1:\nx := a;\n")
   expect(t.refused).toEqual([])
   expect(code(t.source)).toBe(
-    "IF a THEN JMP l1; END_IF;\nIF c THEN RETURN; END_IF;\nvtw1_eno1 := c;\nIF vtw1_eno1 THEN JMP l1; END_IF;\nx := (vtw1_eno1 AND d);\nl1:\nx := a;",
+    "IF a THEN JMP l1; END_IF;\nIF c THEN RETURN; END_IF;\nvtw1_eno1 := c;\nIF vtw1_eno1 THEN JMP l1; END_IF;\nx := ((vtw1_eno1) AND d);\nl1:\nx := a;",
   )
 })
 
 test("an edge is an edge detector called on every scan, read by its Q (1.3: rt(CLK := a); out := en AND rt.Q)", () => {
-  const t = twin("\tx, en, a : BOOL;", "%NETWORK\nx := en AND R_EDGE(NOT a);\n")
+  const t = twin("\tx, en, a : BOOL;", "%NETWORK\nx := en AND RISING(NOT a);\n")
   expect(t.refused).toEqual([])
   expect(code(t.source)).toBe("vtw1_trig1(CLK := (NOT a));\nx := (en AND vtw1_trig1.Q);")
   expect(t.source).toContain("vtw1_trig1 : R_TRIG;")
@@ -104,13 +104,13 @@ test("an FB box in a pin of an enabled function box is called before the item, o
 })
 
 test("an edge in an enabled FB box's pin runs on every scan; the FB under its EN", () => {
-  const t = twin("\tc, a : BOOL;\n\tt1 : FB_T2;", "%NETWORK\nt1(EN := c, IN := R_EDGE(a)).ENO;\n", timer)
+  const t = twin("\tc, a : BOOL;\n\tt1 : FB_T2;", "%NETWORK\nt1(EN := c, IN := RISING(a)).ENO;\n", timer)
   expect(t.refused).toEqual([])
   expect(code(t.source)).toBe("vtw1_trig1(CLK := a);\nIF c THEN\n\tt1(IN := vtw1_trig1.Q);\nEND_IF;")
 })
 
 test("an edge in an enabled function box's pin runs on every scan; the box under its EN", () => {
-  const t = twin("\tc, a, x : BOOL;", "%NETWORK\nx := MOVE(EN := c, R_EDGE(a));\n")
+  const t = twin("\tc, a, x : BOOL;", "%NETWORK\nx := MOVE(EN := c, RISING(a));\n")
   expect(t.refused).toEqual([])
   expect(code(t.source)).toBe("vtw1_trig1(CLK := a);\nIF c THEN\n\tx := vtw1_trig1.Q;\nEND_IF;")
 })

@@ -16,7 +16,7 @@ import type { BodySpan } from "../ast/nodes/index.js"
 import { isConditionalDirective } from "../pragmas/conditional.js"
 import type { ConditionWorld } from "../pragmas/condition-eval.js"
 import { type BodyParse, parseSourceStatementTokens, parseStatementTokens } from "./statements.js"
-import { networkStatements, statementTokensOf } from "../network/plain-st.js"
+import { networkStatements, plainStText, statementTokensOf } from "../network/plain-st.js"
 import { isPlainStNetworkBody } from "../format/bodies.js"
 
 /** The world of a caller that holds none: every condition beyond the body's own defines is refused by name. */
@@ -48,7 +48,7 @@ export function bodyStatements(body: BodySpan, world: ConditionWorld = NO_WORLD)
  *  (`networkStatements`). */
 function parsePlain(body: BodySpan, asWritten = false): BodyParse {
   const parsed = parseStatementTokens(statementTokensOf(body, asWritten), body.dialect)
-  return isPlainStNetworkBody(body) ? { ...parsed, statements: networkStatements(parsed.statements) } : parsed
+  return isPlainStNetworkBody(body) ? { ...parsed, statements: networkStatements(parsed.statements, plainStText(body).marks) } : parsed
 }
 
 /** A body's statements AS WRITTEN: every branch of every conditional chain, in source order (every pragma trivia). For

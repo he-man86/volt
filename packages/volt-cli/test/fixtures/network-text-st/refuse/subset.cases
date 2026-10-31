@@ -448,7 +448,7 @@ network-plain-st which the text reads as its Execute box
 %NETWORK
 EXECUTE('s := $Nb;');
 === refused
-network-plain-st the escape '$N' in the Execute box's CODE
+network-plain-st the escape '$N' in the Execute box's ST
 
 #### string-across-a-line — only the Execute box's ST spans lines
 === text

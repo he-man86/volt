@@ -22,21 +22,27 @@
  *   `T(pins…)`, T an FB type                     the vendor's unnamed instance: the call of its type, which the build
  *                                                refuses as it refuses the box;
  *   `g(pins…).OUT`                               a function's value: the call;
- *   `EXECUTE(EN := e, CODE := '<ST>')`           `IF e THEN <its ST> END_IF;`, the string decoded; read where it stands,
+ *   `EXECUTE(EN := e, '<ST>')`                   `IF e THEN <its ST> END_IF;`, the string decoded; read where it stands,
  *                                                its ENO, which is its EN: `eno := e;` before it, `eno` in the tree;
  *   `BRANCH(FEED := f, b1, b2)`                  `(f AND (b1 OR b2))`: every branch runs;
  *   `BRANCH_SHORTCIRCUIT(FEED := f, b1, b2)`     a branch holding a box runs, with the calls it reads, unless the feed
  *                                                and a box-free branch are both TRUE (1.4): `IF NOT (f AND free) THEN …`;
- *   `R_EDGE(x)`, `F_EDGE(x)`                     an `R_TRIG` / `F_TRIG` called with x where its tree is evaluated, read
+ *   `RISING(x)`, `FALLING(x)`                    an `R_TRIG` / `F_TRIG` called with x where its tree is evaluated, read
  *                                                by its Q (1.3): every scan, in an enabled box's pin too (2.3);
- *   `JMP(l, v)`, `RETURN(v)`                     `IF v THEN JMP l; END_IF;` / `IF v THEN RETURN; END_IF;`; in a tree its
+ *   `RAIL()`                                     `TRUE`;
+ *   `t1(NOT IN := a)`, `NOT EN := c`             the pin reads `(NOT a)`; an edge mark on a pin, any mark on an output,
+ *                                                refused (unmeasured);
+ *   `NOT y := x := a`                            every target receives the power flow, the first its mark applied (a
+ *                                                coil's edge runs as a plain coil, 1.3): `t := a; x := t; y := (NOT t);`;
+ *   `JMP.l := v`, `RETURN := v`                  `IF v THEN JMP l; END_IF;` / `IF v THEN RETURN; END_IF;`; beside coils the
+ *                                                value held in a temp, the coils written, then the jump; in a tree its
  *                                                value held in a temp, the jump taken where the tree is evaluated;
  *   a wire                                       a VAR of its definition's type (`types` `network-call.ts`), kept across
  *                                                scans: read before its definition, the previous scan's value (2.3);
  *                                                renamed into the twin's own names (`vtw<k>_w1`), as is every ENO;
  *   a `%DISABLED` network                        nothing: CODESYS compiles none of it (1c).
  *
- * Everything else — contacts, coils, `S=`/`R=`, inline assignments, labels, `JMP`, `RETURN` — is ST as it stands. A twin
+ * Everything else — contacts, coils, `S=`/`R=`, inline assignments, labels — is ST as it stands. A twin
  * is ST and nothing else: a box the twin cannot write is refused by name (`TwinRefusal`).
  */
 import {
@@ -45,6 +51,7 @@ import {
   type Expr,
   plainStText,
   type Statement,
+  stmtExprs,
   walkExpr,
 } from "../../src/frontend/syntax/index.js"
 import { lookup, type Scope } from "../../src/frontend/symbols/index.js"
@@ -66,7 +73,20 @@ export interface BodyTwin {
 export function twinOf(body: BodySpan, statements: readonly Statement[], scope: Scope, project: Scope, source: string, k: number): BodyTwin {
   const skip = plainStText(body).networks.flatMap((n) => n.executes)
   const code = statements.filter((s) => skip.find((x) => s.span.start >= x.code.start && s.span.start < x.code.end) === undefined)
+  // a marked output has no measured run
+  for (const s of code)
+    for (const e of stmtExprs(s))
+      walkExpr(e, (x) => {
+        const marked = x.kind === "call" ? x.args.find((a) => a.output && a.marks !== undefined) : undefined
+        if (marked !== undefined) throw new TwinRefusal(`the mark on the output ${marked.param?.name ?? ""}: how a marked output runs is unmeasured`)
+      })
   const t = new Twinner(body, scope, project, source, `vtw${k}_`, guardedCalls(body, code, valueReads(body, code)))
+  // the items a jump or a return after them shares the value of (`y := JMP.l := v;`)
+  code.forEach((s, i) => {
+    const next = code[i + 1]
+    if ((next?.kind === "jmp" || next?.kind === "return") && next.sharesValue === true && !((s.kind === "jmp" || s.kind === "return") && s.sharesValue === true))
+      t.sharing.add(s)
+  })
   const lines: string[] = []
   for (const s of code) {
     if (t.guarded.has(s)) continue // written inside its short-circuit branch's guard
@@ -77,7 +97,10 @@ export function twinOf(body: BodySpan, statements: readonly Statement[], scope: 
 
 class Twinner extends BoxTwinner {
   private readonly wires = new Map<string, string>()
-  /** The edge detectors an `R_EDGE(x)` / `F_EDGE(x)` runs on: `name : R_TRIG;`, one per edge. */
+  /** The items whose value a jump or a return after them shares, and the temp the last one's value is held in. */
+  readonly sharing = new Set<Statement>()
+  private shared: string | undefined
+  /** The edge detectors a `RISING(x)` / `FALLING(x)` runs on: `name : R_TRIG;`, one per edge. */
   private readonly trigs: string[] = []
   /** The call statements written inside a short-circuit branch's guard (`guardedCalls`). */
   readonly guarded: Set<Statement>
@@ -120,14 +143,27 @@ class Twinner extends BoxTwinner {
         // an enabled box other than a comparison, the assignment's whole value: the assignment runs only when enabled, and
         // its targets hold when disabled (1.4)
         const box = s.value.kind === "call" ? this.box(s.value) : undefined
+        const first = s.marks?.[0]
         if (box !== undefined && this.enabledValue(box) && !COMPARISON.has(this.name(box).toUpperCase())) {
-          const cond = this.expr(box.enable!.value!, pre)
+          if (first !== undefined || this.sharing.has(s))
+            throw new TwinRefusal(`the enabled ${this.name(box)} box's value with a marked coil or a jump on it`)
+          const cond = this.pin(box.enable!, pre)
           const value = this.boxValue(box, box.pins.filter((a) => !a.output), pre)
           const text = this.assign(s, value, pre)
           return [...pre, `IF ${cond} THEN\n\t${text}\nEND_IF;`]
         }
-        const text = this.assign(s, this.expr(s.value, pre), pre)
-        return [...pre, text]
+        let value = this.expr(s.value, pre)
+        if (first !== undefined || this.sharing.has(s)) {
+          const t = this.temp()
+          pre.push(`${t} := ${value};`)
+          value = t
+          if (this.sharing.has(s)) this.shared = t
+        }
+        if (first === undefined) return [...pre, this.assign(s, value, pre)]
+        // every target receives the power flow, the first its own mark applied (a coil's edge runs as a plain coil)
+        const ops = [s.op ?? ":=", ...(s.chainOps ?? []).map((o) => o ?? ":=")]
+        const rest = (s.chained ?? []).map((x, i) => `${this.expr(x, pre)} ${ops[i + 1]} ${value};`)
+        return [...pre, ...rest, `${this.expr(s.target, pre)} ${ops[0]} ${first.includes("NOT") ? `(NOT ${value})` : value};`]
       }
       case "call_stmt":
         return [...pre, ...this.callStatement(s.call, false, pre)]
@@ -139,12 +175,21 @@ class Twinner extends BoxTwinner {
       case "empty":
         return []
       case "jmp":
-      case "return":
-        if (s.value !== undefined) {
-          const cond = this.expr(s.value, pre)
-          return [...pre, `IF ${cond} THEN ${s.kind === "jmp" ? `JMP ${this.text(s.target)}` : "RETURN"}; END_IF;`]
+      case "return": {
+        const jump = s.kind === "jmp" ? `JMP ${this.text(s.target)}` : "RETURN"
+        if (s.sharesValue === true) {
+          if (this.shared === undefined) throw new TwinRefusal(`the jump ${this.text(s)} shares a value no item before it holds`)
+          return [`IF ${this.shared} THEN ${jump}; END_IF;`]
         }
-        return [this.text(s) + (this.text(s).trimEnd().endsWith(";") ? "" : ";")]
+        if (s.value === undefined) throw new TwinRefusal(`the jump ${this.text(s)} on no value`)
+        let cond = this.expr(s.value, pre)
+        if (this.sharing.has(s)) {
+          const t = this.temp()
+          pre.push(`${t} := ${cond};`)
+          cond = this.shared = t
+        }
+        return [...pre, `IF ${cond} THEN ${jump}; END_IF;`]
+      }
       case "label":
         return [this.text(s)]
       case "if": {
@@ -214,7 +259,7 @@ class Twinner extends BoxTwinner {
     const box = plainStText(this.body).networks.flatMap((n) => n.executes).find((x) => x.call.start === call.span.start)
     if (box?.st === undefined) throw new TwinRefusal("an EXECUTE call that is no Execute box")
     const en = call.args.find((a) => a.param?.name.toUpperCase() === "EN")
-    return { cond: en === undefined ? "TRUE" : this.expr(en.value!, pre), st: box.st }
+    return { cond: en === undefined ? "TRUE" : this.pin(en, pre), st: box.st }
   }
 
   /** `BRANCH(FEED := f, b1, b2)` (every branch runs) and `BRANCH_SHORTCIRCUIT(…)`: a branch holding a box runs unless the
@@ -249,7 +294,8 @@ class Twinner extends BoxTwinner {
     return `(${f} AND (${[free, ...values].join(" OR ")}))`
   }
 
-  /** `JMP(l, v)` / `RETURN(v)` in a tree: the value in a temp, the jump taken on it, the temp handed on. */
+  /** `(JMP.l := v)` / `(RETURN := v)` in a tree (read as the call `JMP(l, v)` / `RETURN(v)`): the value in a temp, the
+   *  jump taken on it, the temp handed on. */
   private control(call: CallExpr, upper: string, pre: string[]): string {
     const t = this.temp()
     pre.push(`${t} := ${this.expr(call.args.at(-1)!.value!, pre)};`)
@@ -257,9 +303,9 @@ class Twinner extends BoxTwinner {
     return t
   }
 
-  /** `R_EDGE(x)` / `F_EDGE(x)`: an edge detector called with x where its tree is evaluated (`pre`), read by its Q (1.3). */
+  /** `RISING(x)` / `FALLING(x)`: an edge detector called with x where its tree is evaluated (`pre`), read by its Q (1.3). */
   private edge(call: CallExpr, pre: string[]): string {
-    const rising = (call.callee as { name: string }).name.toUpperCase() === "R_EDGE"
+    const rising = (call.callee as { name: string }).name.toUpperCase() === "RISING"
     const name = `${this.prefix}trig${this.trigs.length + 1}`
     this.trigs.push(`${name} : ${rising ? "R_TRIG" : "F_TRIG"};`)
     pre.push(`${name}(CLK := ${this.expr(call.args[0]!.value!, pre)});`)
@@ -279,7 +325,8 @@ class Twinner extends BoxTwinner {
         const head = e.callee.kind === "ident_expr" ? e.callee.name : undefined
         const upper = head?.toUpperCase()
         if ((upper === "BRANCH" || upper === "BRANCH_SHORTCIRCUIT") && lookup(this.scope, head!) === undefined) return this.branch(e, pre)
-        if ((upper === "R_EDGE" || upper === "F_EDGE") && lookup(this.scope, head!) === undefined) return this.edge(e, pre)
+        if ((upper === "RISING" || upper === "FALLING") && lookup(this.scope, head!) === undefined) return this.edge(e, pre)
+        if (upper === "RAIL" && lookup(this.scope, head!) === undefined) return "TRUE"
         if (upper === "JMP" || upper === "RETURN") return this.control(e, upper, pre)
         if (upper === "EXECUTE") return this.executeRead(e, pre)
         const box = this.box(e)

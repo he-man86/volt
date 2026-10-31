@@ -1,6 +1,5 @@
 /**
- * THE EXECUTE BOX'S CODE in network text (openspec network-output-member 2.6): `EXECUTE(EN := e, CODE := '<ST>')`, its ST
- * the string `CODE`, line breaks as they stand, `$'` a quote and `$$` a dollar (the bridge's `StNetworkReader` /
+ * THE EXECUTE BOX'S ST in network text: `EXECUTE(EN := e, '<ST>')`, its ST one string, its last pin, line breaks as they stand, `$'` a quote and `$$` a dollar (the bridge's `StNetworkReader` /
  * `NetworkSpelling.UnescapeCode`). `plain-st.ts` reads the network; this module is the string: rejoined across its lines,
  * found as the box's last pin, and read as the ST tokens it holds.
  */
@@ -9,15 +8,14 @@ import { isTrivia, type Token } from "../lex/tokens.js"
 import type { Dialect } from "../lex/vocabulary.js"
 import type { Span } from "../span.js"
 
-/** The Execute box's call head and its ST's pin: `EXECUTE(EN := c, CODE := '<ST>')`. */
+/** The Execute box's call head: `EXECUTE(EN := c, '<ST>')`. */
 export const EXECUTE = "EXECUTE"
-const CODE_PIN = "CODE"
 
 /**
- * THE ONE STRING THAT SPANS LINES: an Execute box holds its ST as `EXECUTE(EN := e, CODE := '<ST>')`, its line breaks as
- * they stand (openspec network-output-member 2.6; the bridge's `StNetworkReader.Lex`). The lexer ends every string at its
- * line — IEC's rule, and every ST body's — so the CODE string is rejoined HERE, in a network body only, where it opens the
- * pin `CODE :=` of an open `EXECUTE(` call: from the body's own tokens up to its closing quote (`$'` a quote, `$$` a
+ * THE ONE STRING THAT SPANS LINES: an Execute box holds its ST as `EXECUTE(EN := e, '<ST>')`, its line breaks as they
+ * stand (the bridge's `StNetworkReader.Lex`). The lexer ends every string at its line — IEC's rule, and every ST body's —
+ * so the ST string is rejoined HERE, in a network body only, where it stands as a positional pin of an open `EXECUTE(`
+ * call: from the body's own tokens up to its closing quote (`$'` a quote, `$$` a
  * dollar), the rest of the body lexed again after it. One not closed runs to the BODY's end, no further, and is "an
  * unclosed string", as the bridge's reader refuses it — the units after the body keep their own analysis.
  */
@@ -26,11 +24,10 @@ export function joinCodeStrings(tokens: readonly Token[], dialect: Dialect, unic
   const unclosed: Span[] = []
   const heads: (Token | undefined)[] = []
   let last: Token | undefined
-  let before: Token | undefined
   for (let i = 0; i < out.length; i++) {
     const t = out[i]!
     if (isTrivia(t.kind) || t.kind === "eof") continue
-    if (t.kind === "string_lit" && !closedString(t.text) && last?.text === ":=" && before?.text.toUpperCase() === CODE_PIN &&
+    if (t.kind === "string_lit" && !closedString(t.text) && (last?.text === "(" || last?.text === ",") &&
         heads.at(-1)?.text.toUpperCase() === EXECUTE) {
       const joined = rejoin(out, i, dialect, unicodeIdentifiers)
       out.splice(i, out.length - i, ...joined.tokens)
@@ -38,7 +35,6 @@ export function joinCodeStrings(tokens: readonly Token[], dialect: Dialect, unic
     }
     if (t.kind === "punct" && t.text === "(") heads.push(last !== undefined && (last.kind === "identifier" || last.kind === "keyword") ? last : undefined)
     if (t.kind === "punct" && t.text === ")") heads.pop()
-    before = last
     last = out[i]
   }
   return { tokens: out, unclosed }
@@ -99,21 +95,18 @@ export function closedString(text: string): boolean {
   return false
 }
 
-/** `CODE := '…'` at `tokens[at]`, the last pin of an open `EXECUTE(` call: the string's index; undefined for anything else
- *  (a CODE pin of another call, or not last, is an ordinary pin, which the network check refuses on an Execute box). */
+/** The string at `tokens[at]`, the last pin of an open `EXECUTE(` call, positional: its index; undefined for anything else
+ *  (a string pin of another call, or not last, is an ordinary pin, which the network check refuses on an Execute box). */
 export function codeAt(tokens: readonly Token[], at: number, calls: readonly { head: Token | undefined }[]): { string: number } | undefined {
   const t = tokens[at]!
-  if (t.kind !== "identifier" || t.text.toUpperCase() !== CODE_PIN) return undefined
+  if (t.kind !== "string_lit") return undefined
   if (calls.at(-1)?.head?.text.toUpperCase() !== EXECUTE) return undefined
-  const next = (k: number) => {
-    let n = k + 1
-    while (n < tokens.length && isTrivia(tokens[n]!.kind)) n++
-    return n
-  }
-  const assign = next(at)
-  const string = next(assign)
-  const after = next(string)
-  return tokens[assign]?.text === ":=" && tokens[string]?.kind === "string_lit" && tokens[after]?.text === ")" ? { string } : undefined
+  let before = at - 1
+  while (before >= 0 && isTrivia(tokens[before]!.kind)) before--
+  let after = at + 1
+  while (after < tokens.length && isTrivia(tokens[after]!.kind)) after++
+  const opens = tokens[before]?.text === "(" || tokens[before]?.text === ","
+  return opens && tokens[after]?.text === ")" ? { string: at } : undefined
 }
 
 /** The span of a string token's content, inside its quotes. */
@@ -143,8 +136,8 @@ function codeTokens(string: Token, dialect: Dialect, unicodeIdentifiers: boolean
     const e = raw[i + 1]
     if (e !== "$" && e !== "'")
       return e === undefined
-        ? "a `$` at the end of the Execute box's CODE: a `$` is written `$$`"
-        : `the escape '$${e}' in the Execute box's CODE: its code spells a ' as $' and a $ as $$, and everything else as it stands`
+        ? "a `$` at the end of the Execute box's ST: a `$` is written `$$`"
+        : `the escape '$${e}' in the Execute box's ST: its code spells a ' as $' and a $ as $$, and everything else as it stands`
     decoded += e
     i++
   }
@@ -174,7 +167,7 @@ function codeTokens(string: Token, dialect: Dialect, unicodeIdentifiers: boolean
   return { tokens, st: decoded }
 }
 
-/** The Execute box's `CODE := '…'` at `tokens[at..string]` taken: trivia in the statement tokens (its `,` before it too),
+/** The Execute box's `'…'` at `tokens[at..string]` taken: trivia in the statement tokens (its `,` before it too),
  *  its ST's tokens pending after its statement, a bad escape a finding, and the call's code and ST recorded. */
 export function takeCode(
   tokens: readonly Token[],
