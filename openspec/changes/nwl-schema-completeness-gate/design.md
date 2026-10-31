@@ -115,3 +115,10 @@ Evidence comes from three sources:
 
 - **Proposed spelling:** the property sits on the operand, so on a value it is a function and on a receiver a prefix word: `x := COMMENT(a, 'why') AND b;` and `COMMENT('why') y := a;`.
 - **Until it is spelled:** a pull must refuse a network whose operands hold one, by name, as `RefuseSymbolCommentLoss` does for symbol comments. Today it is lost silently.
+
+## Owner decision, 2026-10-31
+
+- **The boundary is whatever changes the program.** A shape gets a spelling when CODESYS stores it AND it changes the
+  picture or the generated code: #1, #2, #7a, #8, #10, #11, #12, #16, #18. The inert bits (#3, #5's falling bit, #7b,
+  #9, #14, #15, #17) stay refused by name, so a pull never loses them silently. #4, #6, #13 and #19 cannot be stored.
+- **The operand comment is spelled now**, not refused, designed with Sim-Assist together with the shapes above.
