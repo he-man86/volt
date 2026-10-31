@@ -27,6 +27,9 @@ public class TcWriteTakesModelTests
     {
         var xml = XDocument.Parse(Fixtures.Pou("importer-unwired.TcPOU"), LoadOptions.PreserveWhitespace)
             .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting);
+        // The MUL's unwired first pin wired to `m`: an empty operand on a function's pin has no spelling (refused by
+        // name, as on CODESYS), and this test is about another network.
+        xml = TcCommentLineEndTests.WireMul(xml);
         var scope = NetworkScope.FromDeclarations("PROGRAM VltProbe_Max\nVAR\n  n : INT;\n  m : INT;\n  t1 : TON;\nEND_VAR",
                                                   _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem,
                                                   BeckhoffDriver.RefusedPouName, Volt.Tests.Shared.Scopes.NoLibrary);

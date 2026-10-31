@@ -299,7 +299,7 @@ internal static class TcNetworkReader
     /// index-aligned with <c>InputParam/Names</c>, and <c>TcArchive.List</c> drops a <c>&lt;n /&gt;</c>: a null slot
     /// then moved every later pin onto its neighbour's name (the TON's <c>PT</c> read as <c>IN</c>) or a data pin onto
     /// the enable, and nothing caught it — this vendor's <c>InputFlags</c> is null, so there is no length to check.
-    /// An unwired pin is an empty operand here (<see cref="IsUnwiredPin"/>); a null slot is no measured shape.</summary>
+    /// An unwired pin is an empty operand here (<see cref="ReadPin"/>); a null slot is no measured shape.</summary>
     private static IReadOnlyList<XElement> InputSlots(XElement box)
     {
         var type = BoxType(box);
@@ -431,11 +431,10 @@ internal static class TcNetworkReader
         return items.Count == 0 ? throw Box.EnableWithoutItem(BeckhoffDriver.Row.Display, BoxType(e)) : ReadPin(items[0]);
     }
 
-    /// <summary>THE ONE READ OF A BOX INPUT SLOT — the enable (slot 0) and every data pin alike. The import builds an
-    /// unwired slot as an empty operand whichever slot it is (<see cref="IsUnwiredPin"/>), and a rule one slot had
-    /// that the other did not is how the enable came back <c>EN := ``</c>. One helper, so the two cannot drift.</summary>
-    private static Node ReadPin(XElement item) =>
-        IsUnwiredPin(item) ? new Terminator(Flags.None) : ReadNode(item, consumed: true);
+    /// <summary>THE ONE READ OF A BOX INPUT SLOT — the enable (slot 0) and every data pin alike. An unwired slot is the
+    /// empty operand TwinCAT's import writes (<c>importer-unwired.TcPOU</c>, <c>Vn_ton_unwired</c>), read as the operand it
+    /// is — <c>Leaf ""</c>, as CODESYS reads its own — never as the rail, which only a stored terminator is.</summary>
+    private static Node ReadPin(XElement item) => ReadNode(item, consumed: true);
 
     /// <summary>A box's inputs, WITH their pin names.
     ///
@@ -481,17 +480,6 @@ internal static class TcNetworkReader
             .Select((x, i) => new Input(Box.FormalAt(names, i + skip), ReadPin(x), Flags.None))
             .ToList();
     }
-
-    /// <summary>AN UNWIRED BOX INPUT, IN THIS ARCHIVE'S SPELLING: an operand holding no text. The PLCopen import builds
-    /// an unconnected pin that way — an empty <c>&lt;inVariable&gt;</c> becomes an empty operand, the spelling the vendor's
-    /// own export uses for a pin wired to nothing (<c>importer-unwired.TcPOU</c>, real XAE output of
-    /// <c>n := ( * m * 6);</c> and <c>t1(IN := , PT := );</c>) — where CODESYS keeps a <c>BoxTreeTerminator</c>. Read as
-    /// an operand it would come back as <c>``</c>, an empty backticked name; it is the one
-    /// "unconnected" the model has (census 1.2), and the in-place writer accepts it over the same operand unchanged.
-    /// An empty operand carrying a flag is not that shape and reads as the operand it is.</summary>
-    internal static bool IsUnwiredPin(XElement item) =>
-        TcArchive.TypeOf(item) == "BoxTreeOperand" && TcArchive.Obj(item, "Operand") is { } op
-        && TcArchive.RequireText(op, "Operand", "a box input pin").Length == 0 && TcArchive.RequireFlagBits(op, "a box input pin") == 0;
 
     /// <summary>An item's outputs. The archive nests them one level deeper than the live model does — an
     /// <c>OutputItems</c> object of type <c>OutputItemList</c>, itself holding an <c>OutputItems</c> list.</summary>

@@ -98,6 +98,9 @@ public class TcCommentLineEndTests
     {
         var xml = XDocument.Parse(Fixtures.Pou("importer-unwired.TcPOU"), LoadOptions.PreserveWhitespace)
             .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting);
+        // The MUL's unwired first pin wired to `m`: an empty operand on a function's pin has no spelling (refused by
+        // name, as on CODESYS), and this test is about another network.
+        xml = WireMul(xml);
         const string empty = "<v n=\"Comment\">\"\"</v>";
         var first = xml.IndexOf(empty, System.StringComparison.Ordinal);
         xml = xml.Substring(0, first) + "<v n=\"Comment\">" + firstComment + "</v>" + xml.Substring(first + empty.Length);
@@ -106,5 +109,12 @@ public class TcCommentLineEndTests
         var pulled = TcNetworkReader.Read(XElement.Parse(xml).DescendantsAndSelf("o").First(o => (string?)o.Attribute("t") == "NWLImplementationObject"), BodyLanguage.Ld);
         Assert.Equal("a\r\nb", pulled.Networks[0].Comment);
         return (xml, pulled with { Networks = new[] { pulled.Networks[0], pulled.Networks[1] with { Comment = "c" } } }, scope);
+    }
+
+    internal static string WireMul(string xml)
+    {
+        const string unwired = "<v n=\"Operand\">\"\"</v>";
+        var at = xml.IndexOf(unwired, System.StringComparison.Ordinal);
+        return xml.Substring(0, at) + "<v n=\"Operand\">\"m\"</v>" + xml.Substring(at + unwired.Length);
     }
 }

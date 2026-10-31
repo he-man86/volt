@@ -124,13 +124,29 @@ public class TcNetworkUnstatedValueTests
     }
 
     /// <summary>What the IDE writes is read exactly, the empty string included: the importer's unwired pin is an operand
-    /// holding <c>""</c> (Vn_ton_unwired), read as the empty terminator; a network with no title holds <c>""</c>.</summary>
+    /// holding <c>""</c> (Vn_ton_unwired), read as the empty operand CODESYS reads, never the rail; a network with no
+    /// title holds <c>""</c>.</summary>
     [Fact]
     public void The_empty_values_TwinCAT_writes_still_read()
     {
         var body = TcNetworkReader.Read(Impl("importer-unwired.TcPOU"), BodyLanguage.Fbd);
-        Assert.Contains(body.Networks.SelectMany(n => n.Trees).SelectMany(Descend), n => n is Terminator);
+        var nodes = body.Networks.SelectMany(n => n.Trees).SelectMany(Descend).ToList();
+        Assert.Contains(nodes, n => n is Leaf { Operand.Text.Length: 0 });
+        Assert.DoesNotContain(nodes, n => n is Terminator);
         Assert.All(body.Networks, n => Assert.Null(n.Title));
+    }
+
+    /// <summary>AN UNWIRED FB INPUT PULLS AS THE PIN LEFT OUT (network-text-one-to-one finding 1): it was read as the rail
+    /// and written <c>t1(IN := TRUE, PT := TRUE);</c> (TRUE on a TIME pin, which an edited push would write back).</summary>
+    [Fact]
+    public void An_unwired_FB_input_pulls_as_the_pin_left_out()
+    {
+        var nwl = XElement.Load(System.IO.Path.Combine(TcNativeCorpusTests.Dir, "import", "Vn_ton_unwired.nwl.xml"));
+        var impl = nwl.DescendantsAndSelf("o").First(o => (string?)o.Attribute("t") == "NWLImplementationObject");
+        var body = TcNetworkReader.Read(impl, BodyLanguage.Fbd);
+        var text = StNetworkWriter.WritePulled(body, Volt.Tests.Shared.StNetworkOracle.InstancesOf(body));
+        Assert.Contains("t1();", text);
+        Assert.DoesNotContain("TRUE", text);
     }
 
     private static System.Collections.Generic.IEnumerable<Node> Descend(Node n) => n.Children().SelectMany(Descend).Prepend(n);
