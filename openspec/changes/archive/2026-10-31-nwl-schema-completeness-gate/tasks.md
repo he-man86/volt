@@ -13,3 +13,5 @@
 
 - [x] 3.1 Store/build/draw each generated class/slot/flag on live CODESYS; recordings committed
 - [x] 3.2 Fix every gap the gate finds (spelling or named refusal, test-first)
+- [x] 3.3 Build the decided spellings (#1, #2, #7a, #8, #11, #12, #16, #18, COMMENT) in the bridge, the LSP, the lowering
+      and the docs; gate shapes.v2; one sample of each pushed, kept and built on live CODESYS 3.5.21.40
