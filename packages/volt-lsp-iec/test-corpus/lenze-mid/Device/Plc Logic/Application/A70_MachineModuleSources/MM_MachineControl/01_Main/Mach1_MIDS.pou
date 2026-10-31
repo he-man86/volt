@@ -123,7 +123,7 @@ tStopPositionCleaning := fc_CamC_CP_UDT(iEN := w6, iMachinePosition := HMI_Var.M
 %NETWORK "DONE NETWORK 10: Alarm Positioned stop cleaning "
 Mach1.GenFlags.StopDriveDirect S= Alarms_V5_1_100(AlarmDB := Mach1_Alarms, iCond := tStopPositionCleaning, iReset := NOT Mach1_AuxData.MemStopCleaning, iAlm := Mach1_Alarms.Alm037, ioAction := Mach1.GenFlags.MinorAlarm);
 %NETWORK "DONE NETWORK 11 (p1): Level bunch magazine alarms"
-Alarms_V5_1_100(EN := RAIL(), AlarmDB := Mach1_Alarms, iCond := Mach1_AuxData.IEC_TIMERS.TON_BunchLevelWarning(IN := Mach1_AuxData.MIDS_Active AND Mach1.GenFlags.DelayAfterEmergStop AND NOT LST_InputsOutputs.I101_4_Level_bunch_magazine AND HMI_Var.Test_Prod AND NOT HMI_Var.Btn_Cleaning AND HMI_Var.Mach1.MuteNoBunchAlarm AND Mach1_Alarms.Alm036, PT := T#5S).Q, iReset := LST_InputsOutputs.I101_4_Level_bunch_magazine OR HMI_Var.Test_Prod OR HMI_Var.Btn_Cleaning OR HMI_Var.Mach1.MuteNoBunchAlarm OR Mach1_Alarms.Alm036, iAlm := Mach1_Alarms.Alm073, ioAction := Mach1.GenFlags.Warning).ENO;
+Alarms_V5_1_100(EN := RAIL(), AlarmDB := Mach1_Alarms, iCond := Mach1_AuxData.IEC_TIMERS.TON_BunchLevelWarning(IN := Mach1_AuxData.MIDS_Active AND Mach1.GenFlags.DelayAfterEmergStop AND NOT LST_InputsOutputs.I101_4_Level_bunch_magazine AND HMI_Var.Test_Prod AND NOT HMI_Var.Btn_Cleaning AND HMI_Var.Mach1.MuteNoBunchAlarm AND Mach1_Alarms.Alm036, PT := T#5S).Q, iReset := LST_InputsOutputs.I101_4_Level_bunch_magazine OR HMI_Var.Test_Prod OR HMI_Var.Btn_Cleaning OR HMI_Var.Mach1.MuteNoBunchAlarm OR Mach1_Alarms.Alm036, iAlm := Mach1_Alarms.Alm073, ioAction := Mach1.GenFlags.Warning, OUT => ???).ENO;
 %NETWORK "DONE NETWORK 11 (p2): Level bunch magazine alarms"
 Mach1.GenFlags.StopDriveDirect S= Alarms_V5_1_100(AlarmDB := Mach1_Alarms, iCond := Mach1_AuxData.IEC_TIMERS.TON_BunchLevelAlarm(IN := Mach1_AuxData.MIDS_Active AND Mach1.GenFlags.DelayAfterEmergStop AND NOT Mach1_Alarms.Alm036 AND NOT LST_InputsOutputs.I101_4_Level_bunch_magazine AND HMI_Var.Test_Prod AND NOT HMI_Var.Btn_Cleaning AND NOT HMI_Var.Mach1.MuteNoBunchAlarm, PT := fc_dinttotime(Mach1_Data.Timers.BunchMagazineEmptyTime, 0)).Q, iReset := Mach1.GenFlags.StartFlag, iAlm := Mach1_Alarms.Alm036, ioAction := Mach1.GenFlags.MinorAlarm);
 %NETWORK "TODO NETWORK 12: SR Bunches (JL / rolling device / outfeed)"
@@ -264,9 +264,9 @@ db_CheckRegister.CheckRegisterError R= w24;
 %NETWORK "DONE NETWORK 38 (p4): Alarms dryer"
 Mach1.GenFlags.StopDriveDirect S= Alarms_V5_1_100(AlarmDB := Mach1_Alarms, iCond := Mach1_AuxData.IEC_TIMERS.TON_DryerSwitchedOff(IN := Mach1_AuxData.TrayfillerActive AND HMI_Var.Test_Prod AND NOT HMI_Var.Btn_DryerOn, PT := T#5S).Q, iReset := Mach1.GenFlags.StartFlag, iAlm := Mach1_Alarms.Alm058, ioAction := Mach1.GenFlags.MinorAlarm);
 %NETWORK "TODO NETWORK 39: Analog setpoint feedforward dryer"
-SpeedCalculationDryer(EN := RAIL()).ENO;
+SpeedCalculationDryer(EN := RAIL(), OUT => ???).ENO;
 %NETWORK "TODO NETWORK 40: Analog setpoint feedforward trayfiller"
-SpeedCalculationTrayfiller(EN := RAIL()).ENO;
+SpeedCalculationTrayfiller(EN := RAIL(), OUT => ???).ENO;
 %NETWORK "DONE NETWORK 41: Empty trayfiller"
 HMI_Var.Btn_Cleaning R= Mach1_AuxData.COUNTERS.EmptyingCycles(CD := HMI_Var.Btn_Cleaning AND LST_InputsOutputs.I133_1_PROX_zero_position_transport_ADS, LOAD := NOT HMI_Var.Btn_Cleaning, PV := 194).Q;
 %NETWORK "DONE NETWORK 42: Main block Trayfiller"

@@ -141,19 +141,10 @@ public static class StNetworkOracle
                 var inputs = kept.Select(i => i with { Value = S(i.Value) }).ToList();
                 var enable = b.Enable is null ? null : S(b.Enable);
                 var outputs = b.Outputs.ToList();
-                if (outputs.RemoveAll(o => o.Formal is null && o.Value.Text == Box.UnnamedInstance) > 0)
-                    fired.Add("extra output slot (???)");
-                // An FB box is the call of its instance (design "FB boxes: the instance is the call head"): an instance no
-                // declaration holds is the call of its type, as the unnamed instance is; a declared one carries its
-                // declaration's spelling of the type.
+                // An FB box is the call of its instance (design "FB boxes: the instance is the call head"); a declared one
+                // carries its declaration's spelling of the type.
                 var type = b.Type;
                 var instance = b.Instance;
-                if (b.Instance is { } undeclared && undeclared.Text != Box.UnnamedInstance && scope.InstanceType(undeclared.Text) is null
-                    && scope.IsBlockType(type))
-                {
-                    fired.Add("an FB instance no declaration holds as the unnamed instance");
-                    instance = undeclared with { Text = Box.UnnamedInstance };
-                }
                 if (b.Instance is { } inst && scope.InstanceType(inst.Text) is { } declared && declared != type
                     && Volt.Engine.Format.St.StDeclaration.SameType(declared, type))
                 {

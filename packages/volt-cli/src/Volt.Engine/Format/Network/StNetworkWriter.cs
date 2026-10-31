@@ -730,7 +730,6 @@ public static class StNetworkWriter
                     args.Add(marks + Name(f) + " => " + Target(o.Value.Text));
                     continue;
                 }
-                if (o.Value.Text == Box.UnnamedInstance && marks.Length == 0) continue;   // an extra slot past the names (stored member)
                 // Each `OUT =>` is the next unnamed output slot: ENO and the slot a consumer reads are skipped.
                 next = NetworkSpelling.NextFreeSlot(next, eno, connected);
                 if (o.Slot != next)
