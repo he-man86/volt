@@ -50,6 +50,8 @@ import {
   allUnits,
   closedString,
   EXECUTE,
+  isTrivia,
+  type Token,
   UNNAMED,
   walkStatements,
 } from "../../../frontend/syntax/index.js"
@@ -197,6 +199,7 @@ function checkBody(body: BodySpan, scope: Scope | undefined, project: Scope, out
         emit(out, w.span, CODE, `the wire '${w.name}' is also a name declared in reach: a wire is never a variable`)
     }
   }
+  checkNumbering(text, scope, out)
   const parsed = sourceStatements(body)
   const of = (span: Span) => text.networks.find((n) => span.start >= n.span.start && span.start < n.span.end)
   const inExecute = (span: Span) => text.networks.some((n) => n.executes.some((x) => span.start >= x.code.start && span.start < x.code.end))
@@ -212,6 +215,43 @@ function checkBody(body: BodySpan, scope: Scope | undefined, project: Scope, out
   checkComments(body, text.networks, out)
   checkWires(parsed.statements, text.networks, of, inExecute, boxes, project, out)
   checkStrings(body, out)
+}
+
+/** THE WIRE NAMES THE WRITER GIVES (the bridge's `StNetworkWriter.BodyWires`, its reader's `RequireWriterNumbering`): w1,
+ *  w2, … across the body, in the order the text first names them, past every name the code uses and every name in reach;
+ *  each network declares its wires in that order. */
+function checkNumbering(text: ReturnType<typeof plainStText>, scope: Scope | undefined, out: DiagnosticItem[]): void {
+  const wires = new Set(text.networks.flatMap((n) => n.wires.map((w) => w.name.toLowerCase())))
+  const taken = new Set<string>()
+  const code = text.networks.flatMap((n) => n.executes.map((x) => x.code))
+  for (const t of text.sourceTokens)
+    if (t.kind === "identifier" && !wires.has(t.text.toLowerCase()) && !code.some((c) => t.span.start >= c.start && t.span.start < c.end)) taken.add(t.text.toLowerCase())
+  let next = 1
+  const fresh = (): string => {
+    for (;;) {
+      const name = `w${next++}`
+      if (!taken.has(name) && (scope === undefined || lookup(scope, name) === undefined)) return name
+    }
+  }
+  for (const n of text.networks) {
+    if (n.wires.length === 0) continue
+    const own = new Set(n.wires.map((w) => w.name.toLowerCase()))
+    const first: string[] = []
+    let prev: Token | undefined
+    for (const t of text.sourceTokens) {
+      if (t.span.start < n.span.start || t.span.start >= n.span.end || isTrivia(t.kind)) continue
+      if (t.kind === "identifier" && own.has(t.text.toLowerCase()) && prev?.text !== "." && !first.some((f) => f.toLowerCase() === t.text.toLowerCase())) first.push(t.text)
+      prev = t
+    }
+    for (let k = 0; k < first.length; k++) {
+      const expected = fresh()
+      const at = n.declaration ?? n.header.span
+      if (first[k] !== expected)
+        return emit(out, at, CODE, `the wire ${first[k]} is the body's ${expected}: a body's wires are w1, w2, … across its networks, in the order the text first names them`)
+      if (n.wires[k]?.name !== first[k])
+        return emit(out, at, CODE, `the wire ${n.wires[k]?.name} is the body's ${first[k]}: a network declares its wires in the order the text first names them`)
+    }
+  }
 }
 
 /** A string spans lines only as the Execute box's ST (`network/execute-code.ts` rejoins only that one): any other one is refused as

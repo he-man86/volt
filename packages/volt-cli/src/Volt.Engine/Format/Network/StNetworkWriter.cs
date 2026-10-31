@@ -214,7 +214,7 @@ public static class StNetworkWriter
     /// across the body, skipping every name the body's operands, targets and instances use and every name in scope, so a
     /// name is one wire of one network and never a variable. The vendor's Demux VarId is not spelled: the reader numbers a
     /// network's Demux nodes in the order their definitions stand (<see cref="StNetworkReader"/>).</summary>
-    private sealed class BodyWires
+    internal sealed class BodyWires
     {
         private readonly HashSet<string> _taken = new(StringComparer.OrdinalIgnoreCase);
         private readonly NetworkScope _scope;

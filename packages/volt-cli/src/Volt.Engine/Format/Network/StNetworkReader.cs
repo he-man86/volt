@@ -47,6 +47,7 @@ public static class StNetworkReader
             open = OpenQuoteAfter(lines[k], open);
         }
         var i = 1;
+        var readers = new List<NetworkReader>();
         while (i < lines.Count)
         {
             if (!IsNetworkLine(lines[i]))
@@ -54,9 +55,34 @@ public static class StNetworkReader
             var start = i;
             open = OpenQuoteAfter(lines[i++], null);
             while (i < lines.Count && (open is not null || !IsNetworkLine(lines[i]))) open = OpenQuoteAfter(lines[i++], open);
-            nets.Add(new NetworkReader(lines.GetRange(start, Math.Min(i, lines.Count) - start), start + 1, nets.Count, scope, bodyWires, allWires).Read());
+            var reader = new NetworkReader(lines.GetRange(start, Math.Min(i, lines.Count) - start), start + 1, nets.Count, scope, bodyWires, allWires);
+            nets.Add(reader.Read());
+            readers.Add(reader);
         }
-        return new NetworkBody(lang, nets);
+        var body = new NetworkBody(lang, nets);
+        RequireWriterNumbering(body, scope, readers);
+        return body;
+    }
+
+    /// <summary>THE WIRE NAMES THE WRITER GIVES (<see cref="StNetworkWriter.BodyWires"/>): <c>w1</c>, <c>w2</c>, … across the
+    /// body, in the order the text first names them, past every name the body's operands use and every name in reach. Any
+    /// other numbering is a second text of one model, refused by name.</summary>
+    private static void RequireWriterNumbering(NetworkBody body, NetworkScope scope, IReadOnlyList<NetworkReader> readers)
+    {
+        var names = new StNetworkWriter.BodyWires(body, scope);
+        foreach (var r in readers)
+        {
+            var declared = r.Declared;
+            for (var k = 0; k < r.FirstNamed.Count; k++)
+            {
+                var expected = names.New();
+                var wire = r.FirstNamed[k];
+                if (!string.Equals(wire, expected, StringComparison.Ordinal))
+                    throw new StNetworkReadException(r.DeclarationLine, $"the wire {wire} is the body's {expected}: a body's wires are w1, w2, … across its networks, in the order the text first names them");
+                if (!string.Equals(declared[k], wire, StringComparison.Ordinal))
+                    throw new StNetworkReadException(r.DeclarationLine, $"the wire {declared[k]} is the body's {wire}: a network declares its wires in the order the text first names them");
+            }
+        }
     }
 
     /// <summary>Whether <paramref name="line"/> declares wires: its first word <c>VAR_TEMP</c>, in any case.</summary>
@@ -230,12 +256,14 @@ public static class StNetworkReader
             if (i < _lines.Count && _lines[i] == StNetworkWriter.DisabledLine) { disabled = true; i++; }
             if (i < _lines.Count && IsWiresLine(_lines[i]))
             {
+                DeclarationLine = _firstLine + i;
                 foreach (var w in WireDeclaration(_lines[i], _firstLine + i))
                 {
                     if (WireId(w) is null) throw Error(i, $"the wire '{w}': a wire is w<n>");
                     if (_scope.Contains(w) || _scope.InstanceType(w) is not null)
                         throw Error(i, $"the wire '{w}' is also a name declared in reach: a wire is never a variable");
                     if (!_wires.Add(w)) throw Error(i, $"the wire '{w}' is named twice");
+                    Declared.Add(w);
                     if (!_bodyWires.Add(w)) throw Error(i, $"the wire '{w}' is named on an earlier network too: a wire name is one network's in a body");
                 }
                 i++;
@@ -285,7 +313,12 @@ public static class StNetworkReader
 
             var src = code.ToString();
             Func<int, int> bodyLine = k => _firstLine + lineOf[Math.Min(k, lineOf.Count - 1)];
-            var parser = new Parser(src, Lex(src, bodyLine), w => _wires.Contains(w), _firstLine, bodyLine) { Network = true };
+            var toks = Lex(src, bodyLine);
+            for (var k = 0; k < toks.Count; k++)
+                if (toks[k].Kind == Tk.Ident && _wires.Contains(toks[k].Text) && !(k > 0 && toks[k - 1].Text == ".") &&
+                    !FirstNamed.Contains(toks[k].Text, StringComparer.OrdinalIgnoreCase))
+                    FirstNamed.Add(toks[k].Text);
+            var parser = new Parser(src, toks, w => _wires.Contains(w), _firstLine, bodyLine) { Network = true };
             var (label, stmts) = parser.Statements();
             if (unsupported is not null && stmts.Count > 0)
                 throw Error(0, $"a network shown {StNetworkWriter.UnsupportedLine} holds nothing else but its label");
@@ -293,6 +326,13 @@ public static class StNetworkReader
             return new Network(_order, title, label, comment.Count == 0 ? null : string.Join("\r\n", comment), disabled,
                 trees, unsupported, hash);
         }
+
+        /// <summary>The wires its declaration line names, in order, and the line it stands on.</summary>
+        public List<string> Declared { get; } = new();
+        public int DeclarationLine { get; private set; }
+
+        /// <summary>The wires in the order the code first names them.</summary>
+        public List<string> FirstNamed { get; } = new();
 
         public NetworkScope Scope => _scope;
         public string? InstanceType(string head) => _scope.InstanceType(head);

@@ -862,3 +862,42 @@ x := w1;
 y := w1;
 === refused
 network-plain-st a network holds no such line
+
+#### wire-numbered-per-network — a body's wires are numbered across its networks
+=== text
+%LANGUAGE LD
+%NETWORK
+VAR_TEMP w1 : ANY; END_VAR
+w1 := a AND b;
+x := w1;
+y := w1;
+%NETWORK
+VAR_TEMP w3 : ANY; END_VAR
+w3 := a OR b;
+x := w3;
+y := w3;
+=== refused
+network-plain-st the wire w3 is the body's w2
+
+#### wire-not-first — a body's first wire is w1
+=== text
+%LANGUAGE LD
+%NETWORK
+VAR_TEMP w2 : ANY; END_VAR
+w2 := a AND b;
+x := w2;
+y := w2;
+=== refused
+network-plain-st the wire w2 is the body's w1
+
+#### wire-declared-out-of-order — wires are numbered in the order the text first names them
+=== text
+%LANGUAGE LD
+%NETWORK
+VAR_TEMP w1 : ANY; w2 : ANY; END_VAR
+w2 := a OR b;
+w1 := a AND b;
+x := w1 AND w2;
+y := w1 OR w2;
+=== refused
+network-plain-st the wire w2 is the body's w1
