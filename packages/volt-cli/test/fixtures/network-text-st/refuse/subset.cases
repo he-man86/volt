@@ -984,6 +984,22 @@ y := NOT := x := a;
 === refused
 network-plain-st the assignment item's marks stand last in its chain
 
+#### item-marks-grouped — a grouping bracket is no call: an empty receiver name stands only in a call's arguments
+=== text
+%LANGUAGE LD
+%NETWORK
+x := (NOT := y := a) AND b;
+=== refused
+network-plain-st the assignment item's marks stand last in its chain
+
+#### item-marks-grouped-after-contact — after an operand an operator word is the contact, and its bracket groups
+=== text
+%LANGUAGE LD
+%NETWORK
+x := b AND (NOT := y := a);
+=== refused
+network-plain-st the assignment item's marks stand last in its chain
+
 #### comment-empty — no comment is the plain operand
 === text
 %LANGUAGE LD
