@@ -108,7 +108,8 @@ public static class NetworkModelDump
             sb.Append(Node(p.Value));
         }
         foreach (var o in b.Outputs)
-            sb.Append(" =>").Append(o.Formal ?? o.Slot?.ToString(CultureInfo.InvariantCulture) ?? "?").Append(':').Append(Operand(o.Value.Text));
+            sb.Append(" =>").Append(o.Formal ?? o.Slot?.ToString(CultureInfo.InvariantCulture) ?? "?").Append(':')
+              .Append(Flagged(Operand(o.Value.Text), o.Value.Flags ?? Flags.None));
         if (b.Enable is { } enable) sb.Append(' ').Append(Pin(b.EnableFlags)).Append("en:").Append(Node(enable));
         if (b.ConnectedSlot is { } conn) sb.Append(" conn:").Append(conn.ToString(CultureInfo.InvariantCulture));
         if (b.HasEnoOutput) sb.Append(" eno:1");

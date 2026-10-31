@@ -31,15 +31,15 @@ xMainDriveDoneOnce S= L_MC1P_ChangeMachineData_MainDrive(Axis := Axis_MainDrive,
 %NETWORK
 Data_Exchange_Motion.Servo_MainDrive.Control.Enable := Data_Exchange_Motion.Servo_MainDrive.Control.Enable AND xMainDriveDoneOnce;
 %NETWORK "Main drive motion"
-Maindrive(EN := TRUE, ioDataExchange := Data_Exchange_Motion.Servo_MainDrive, i_xOnlyPositiveDirectionSync := TRUE, i_lrWindowStandstill := 1, i_lrJogVel := 2, i_lrSyncVel := 10, i_CamCyclic := TRUE, i_MasterAbsolute := TRUE, i_SlaveAbsolute := TRUE, ioMasterAxis := LM_VirtualMaster, ioSlaveAxis := Axis_MainDrive).ENO;
+Maindrive(EN := RAIL(), ioDataExchange := Data_Exchange_Motion.Servo_MainDrive, i_xOnlyPositiveDirectionSync := TRUE, i_lrWindowStandstill := 1, i_lrJogVel := 2, i_lrSyncVel := 10, i_CamCyclic := TRUE, i_MasterAbsolute := TRUE, i_SlaveAbsolute := TRUE, ioMasterAxis := LM_VirtualMaster, ioSlaveAxis := Axis_MainDrive).ENO;
 %NETWORK
 xWrappingDeviceDoneOnce S= L_MC1P_ChangeMachineData_WrappingDevice(Axis := Axis_OverrollingDevice, xExecute := Axis_OverrollingDevice.xCommunicationOK AND NOT Axis_OverrollingDevice.xDriveEnabled, xSetOrientation := TRUE, xOrientation := NOT LST_InputsOutputs.I100_5_ConfigSelectionRightMachine).xDone;
 %NETWORK
 Data_Exchange_Motion.Servo_WrappingDevice.Control.Enable := Data_Exchange_Motion.Servo_WrappingDevice.Control.Enable AND xWrappingDeviceDoneOnce;
 %NETWORK "Wrapping device"
-WrappingDevice(EN := TRUE, ioDataExchange := Data_Exchange_Motion.Servo_WrappingDevice, i_xOnlyPositiveDirectionSync := FALSE, i_lrWindowStandstill := 5, i_lrJogVel := 10, i_lrSyncVel := 10, i_CamCyclic := TRUE, i_MasterAbsolute := TRUE, i_SlaveAbsolute := FALSE, ioMasterAxis := LM_VirtualMaster, ioSlaveAxis := Axis_OverrollingDevice).ENO;
+WrappingDevice(EN := RAIL(), ioDataExchange := Data_Exchange_Motion.Servo_WrappingDevice, i_xOnlyPositiveDirectionSync := FALSE, i_lrWindowStandstill := 5, i_lrJogVel := 10, i_lrSyncVel := 10, i_CamCyclic := TRUE, i_MasterAbsolute := TRUE, i_SlaveAbsolute := FALSE, ioMasterAxis := LM_VirtualMaster, ioSlaveAxis := Axis_OverrollingDevice).ENO;
 %NETWORK "Side correction"
-Sidecorrection(EN := TRUE, ioDataExchange := Data_Exchange_Motion.Servo_SideCorrection, i_xOnlyPositiveDirectionSync := FALSE, i_lrWindowStandstill := 5, i_lrJogVel := 100, i_lrSyncVel := 10, i_CamCyclic := TRUE, i_MasterAbsolute := TRUE, i_SlaveAbsolute := FALSE, ioMasterAxis := LM_VirtualMaster, ioSlaveAxis := Axis_SideCorrection).ENO;
+Sidecorrection(EN := RAIL(), ioDataExchange := Data_Exchange_Motion.Servo_SideCorrection, i_xOnlyPositiveDirectionSync := FALSE, i_lrWindowStandstill := 5, i_lrJogVel := 100, i_lrSyncVel := 10, i_CamCyclic := TRUE, i_MasterAbsolute := TRUE, i_SlaveAbsolute := FALSE, ioMasterAxis := LM_VirtualMaster, ioSlaveAxis := Axis_SideCorrection).ENO;
 %NETWORK
 xFeedforwardDoneOnce S= L_MC1P_ChangeMachineData_FeedforwardWrapper(Axis := Axis_FeedFowardWrapper, xExecute := Axis_FeedFowardWrapper.xCommunicationOK AND NOT Axis_FeedFowardWrapper.xDriveEnabled, xSetOrientation := TRUE, xOrientation := LST_InputsOutputs.I100_5_ConfigSelectionRightMachine).xDone;
 %NETWORK

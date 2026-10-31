@@ -1,6 +1,6 @@
 %LANGUAGE FBD
 %NETWORK
-JMP(L1, a);
+JMP.L1 := a;
 %NETWORK
 L1:
 out := OR(a, b);

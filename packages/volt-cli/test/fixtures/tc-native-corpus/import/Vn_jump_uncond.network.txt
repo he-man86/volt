@@ -1,6 +1,6 @@
 %LANGUAGE FBD
 %NETWORK
-JMP L1;
+JMP.L1 := RAIL();
 %NETWORK
 L1:
 out := AND(a, b);

@@ -13,11 +13,11 @@ namespace Volt.Ide.Twincat;
 /// </summary>
 internal static class TcUnmeasured
 {
-    /// <summary>The marker for a negation and an edge on one node (spec, "edges are R_EDGE and F_EDGE flags").</summary>
+    /// <summary>The marker for a negation and an edge on one node (spec, "edges are RISING and FALLING flags").</summary>
     public const string EdgeOrderMarker = "a negation with an edge";
 
     /// <summary>A node's flags state a negation AND an edge: the one combination whose evaluation ORDER is a vendor fact.
-    /// CODESYS negates first (<c>R_EDGE NOT x</c>, DIALECT N17, run in simulation); TwinCAT's order is not measured —
+    /// CODESYS negates first (<c>RISING(NOT x)</c>, DIALECT N17, run in simulation); TwinCAT's order is not measured —
     /// running a TwinCAT PLC needs a runtime licence the measuring machine does not have (task 1.14; re-checked for
     /// bridge-refusal-review 3.8: the user-mode runtime is installed, unlicensed, and the trial licence takes a CAPTCHA a probe
     /// may not type — DIALECT N17) — so the one
@@ -30,7 +30,7 @@ internal static class TcUnmeasured
             "measured (CODESYS negates first, DIALECT N17; no TwinCAT runtime was available to run it). Volt refuses to " +
             "materialize the body rather than spell it in an order nobody measured on this vendor.");
 
-    /// <summary>The push side of the same fact: a body spelling <c>R_EDGE NOT x</c> (or <c>F_EDGE</c>) is refused before
+    /// <summary>The push side of the same fact: a body spelling <c>RISING(NOT x)</c> (or <c>FALLING</c>) is refused before
     /// anything is written, naming the node.</summary>
     public static void RefuseEdgeOrder(NetworkBody body)
     {
@@ -38,8 +38,8 @@ internal static class TcUnmeasured
             foreach (var tree in network.Trees)
                 if (FirstNegatedEdge(tree) is { } node)
                     throw new UnsupportedException(
-                        $"TwinCAT: network {network.Order + 1} holds {EdgeOrderMarker} on {node} (`R_EDGE NOT x` / " +
-                        "`F_EDGE NOT x`). That is the order CODESYS evaluates them in (DIALECT N17); TwinCAT's is not " +
+                        $"TwinCAT: network {network.Order + 1} holds {EdgeOrderMarker} on {node} (`RISING(NOT x)` / " +
+                        "`FALLING(NOT x)`). That is the order CODESYS evaluates them in (DIALECT N17); TwinCAT's is not " +
                         "measured, so Volt will not write one to it. Draw it in the IDE if it is meant.");
     }
 

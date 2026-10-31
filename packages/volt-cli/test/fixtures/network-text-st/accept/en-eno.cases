@@ -171,7 +171,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-JMP(Done, MOVE(EN := c, 1, OUT => x).ENO);
+JMP.Done := MOVE(EN := c, 1, OUT => x).ENO;
 %NETWORK
 Done:
 ;
@@ -186,7 +186,7 @@ NETWORK label:Done
 %LANGUAGE LD
 %NETWORK
 lamp := NOT(MOVE(EN := c, 1, OUT => t).ENO);
-edge := R_EDGE(MOVE(EN := c, 2, OUT => u).ENO);
+edge := RISING(MOVE(EN := c, 2, OUT => u).ENO);
 === model
 NETWORK
   (:= lamp (NOT (MOVE 1 =>1:t en:c conn:0 eno:1)))

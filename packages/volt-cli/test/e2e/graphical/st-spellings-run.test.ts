@@ -14,9 +14,8 @@
  *                               EN — the edge is on `d`,
  *                               which rises outside the EN window (n = 8) and holds into it (n = 12): an edge run every
  *                               scan and one run only under the EN differ there, so `e_y12` tells the two orders apart;
- *   `JMP(l, v)`, `RETURN(v)`    the jump and the return on a value; a coil and a jump on one value written as one item per
- *                               target (the coil first);
- *   `y := JMP(l, c) AND d`      a jump inside a tree;
+ *   `JMP.l := v`, `RETURN := v` the jump and the return as targets on a value; a coil and a jump on one value one item;
+ *   `y := (JMP.l := c) AND d`      a jump inside a tree;
  *   a wire read before its definition  the value its definition held on the previous scan (network-output-member 2.3).
  *
  * CODESYS only (no TwinCAT runtime licence on the dev machine).
@@ -67,15 +66,15 @@ y10 := c2(CU := a, PV := 5).CV;
 %NETWORK
 MOVE(EN := c, c3(CU := b, PV := 3).CV, OUT => y11).ENO;
 %NETWORK
-c4(EN := c, CU := R_EDGE(d), PV := 5, CV => y12).ENO;
+c4(EN := c, CU := RISING(d), PV := 5, CV => y12).ENO;
 %NETWORK
 lamp := b AND d;
-JMP(skip1, b AND d);
+JMP.skip1 := b AND d;
 %NETWORK
 y4 := ADD(y4, 1);
 %NETWORK
 skip1:
-RETURN(d AND NOT a);
+RETURN := d AND NOT a;
 %NETWORK
 y6 := ADD(y6, 1);
 
@@ -119,7 +118,7 @@ END_PROGRAM
 const net2 = `PROGRAM ${NET2}
 ${inputs}${outputs2}%LANGUAGE LD
 %NETWORK
-x2 := JMP(skip2, c) AND d;
+x2 := (JMP.skip2 := c) AND d;
 %NETWORK
 y5 := ADD(y5, 1);
 %NETWORK
@@ -180,7 +179,7 @@ describe.skipIf(VENDOR !== "codesys")(`graphical / the spellings run as their tw
 		await requireHealthy()
 	})
 
-	it("EN without ENO, ENO without EN, an FB's moved pin, the FB evaluation order, JMP(label, value), RETURN(value), a coil and a jump on one value and a jump in a tree", async () => {
+	it("EN without ENO, ENO without EN, an FB's moved pin, the FB evaluation order, JMP.label := value, RETURN := value, a coil and a jump on one value and a jump in a tree", async () => {
 		try {
 			for (const item of ITEMS) await removeItem(item)
 			for (const [item, src] of [[fid("stfn"), fn], [fid("stnet1"), net1], [fid("sttwin1"), twin1], [fid("stnet2"), net2], [fid("sttwin2"), twin2], [fid("stdrv"), drv]] as const) {

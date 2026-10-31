@@ -23,7 +23,7 @@ METHOD PRIVATE Counters
 MeasureOnTime(In := output);
 %NETWORK
 // On a rising edge of the output, save the current date/time
-MOVE(EN := R_EDGE(output), TimeSettings.dtNow, OUT => TimeOfLastSwitch).ENO;
+MOVE(EN := RISING(output), TimeSettings.dtNow, OUT => TimeOfLastSwitch).ENO;
 END_METHOD
 
 // Maps the actuator to the physical output

@@ -31,7 +31,7 @@ public class StNetworkOracleTcTests
             Check("tc-native-corpus/" + Path.GetFileName(file), XElement.Load(file, LoadOptions.PreserveWhitespace), results);
         var report = StNetworkOracle.Report("TwinCAT archives", results);
         StNetworkOracle.Save("twincat", report, results);
-        StNetworkOracle.AssertTally(results, report, identical: 143, stored: 8, new Dictionary<string, int>(StringComparer.Ordinal)
+        StNetworkOracle.AssertTally(results, report, identical: 149, stored: 2, new Dictionary<string, int>(StringComparer.Ordinal)
         {
             // Vn_int_to_real's coil `r`: CODESYS ST takes `s` and `r` for no name (1.2), and the LSP reads ST as CODESYS does.
             // A name ST cannot write: niche, accepted loss (owner, 2026-10-28; 0 occurrences in the corpora).

@@ -20,7 +20,7 @@ VAR_IN_OUT
 END_VAR
 %LANGUAGE LD
 %NETWORK
-MOVE(EN := TRUE, UINT_TO_WORD(ioUDT.Control.AutoSpeed), OUT => oRefSpeed).ENO;
+MOVE(EN := RAIL(), UINT_TO_WORD(ioUDT.Control.AutoSpeed), OUT => oRefSpeed).ENO;
 %NETWORK
 VAR_TEMP w1 : ANY; END_VAR
 w1 := TRUE;

@@ -15,7 +15,7 @@ VAR
 END_VAR
 %LANGUAGE LD
 %NETWORK
-EXECUTE(EN := TRUE, CODE := 'iCount:=icount+1;
+EXECUTE(EN := TRUE, 'iCount:=icount+1;
 ');
 %NETWORK
 output := t1(IN := in1, PT := e1).Q;

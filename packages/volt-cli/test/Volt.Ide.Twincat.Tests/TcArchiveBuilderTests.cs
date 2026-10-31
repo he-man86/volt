@@ -149,13 +149,13 @@ public sealed class TcArchiveBuilderTests(Xunit.Abstractions.ITestOutputHelper o
         ("negated_input", "%NETWORK\nout := NOT a AND b;\n"),
         ("set_coil", "%NETWORK\nout S= a;\n"),
         ("reset_coil", "%NETWORK\nout R= a AND b;\n"),
-        ("rising_edge", "%NETWORK\nout := R_EDGE(a) AND b;\n"),
-        ("execute", "%NETWORK\nEXECUTE(EN := go, CODE := 'n := n + 1;');\n"),
-        ("execute_consumed", "%NETWORK\nout := EXECUTE(EN := go, CODE := 'n := 1;');\n"),
+        ("rising_edge", "%NETWORK\nout := RISING(a) AND b;\n"),
+        ("execute", "%NETWORK\nEXECUTE(EN := go, 'n := n + 1;');\n"),
+        ("execute_consumed", "%NETWORK\nout := EXECUTE(EN := go, 'n := 1;');\n"),
         ("multi_rung", "%NETWORK\nout1 := a AND b;\nout2 := c OR d;\nt1(IN := e, PT := pt);\n"),
         ("assign_below_top", "%NETWORK\nt1(IN := (out := go), PT := pt);\n"),
-        ("jump_and_label", "%NETWORK\nJMP(L1, a);\n%NETWORK\nL1:\nout := a OR b;\n"),
-        ("return_uncond", "%NETWORK\nout := a AND b;\n%NETWORK\nRETURN;\n"),
+        ("jump_and_label", "%NETWORK\nJMP.L1 := a;\n%NETWORK\nL1:\nout := a OR b;\n"),
+        ("return_uncond", "%NETWORK\nout := a AND b;\n%NETWORK\nRETURN := RAIL();\n"),
         ("unconnected_coil", "%NETWORK\nout := TRUE;\n"),
         ("empty_network", "%NETWORK\nout := a AND b;\n%NETWORK\n"),
         ("header", "%NETWORK \"a rung\"\n%DISABLED\n// two lines\n// of comment\nHere:\nout := a AND b;\n"),
@@ -316,7 +316,7 @@ public sealed class TcArchiveBuilderTests(Xunit.Abstractions.ITestOutputHelper o
     public void An_Execute_box_without_EN_builds_without_EN_and_reads_back_the_same()
     {
         var scope = new NetworkScope(new[] { "out", "a" }, Array.Empty<string>(), new Dictionary<string, string>());
-        const string text = "%LANGUAGE FBD\n%NETWORK\nEXECUTE(CODE := 'out := a;');\n";
+        const string text = "%LANGUAGE FBD\n%NETWORK\nEXECUTE('out := a;');\n";
         var back = ReadBack(TcArchiveBuilder.Body(NetworkText.Validate(text, scope), scope));
         Assert.Equal(text, StNetworkWriter.Write(back, scope));
     }

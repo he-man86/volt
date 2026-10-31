@@ -265,7 +265,7 @@ namespace Volt.Ide.Codesys
         /// logic in git.</para>
         ///
         /// <para>The model holds the fact and the text spells it on the pin's formal (S6, 2R.5: <c>NOT IN := v</c>,
-        /// <c>R_EDGE IN1 := c</c>). The EN slot's flag set is the box's <see cref="Box.EnableFlags"/> (<c>NOT EN c</c>): the
+        /// <c>RISING IN1 := c</c>). The EN slot's flag set is the box's <see cref="Box.EnableFlags"/> (<c>NOT EN := c</c>): the
         /// enable is a <see cref="Node"/>, not an <see cref="Input"/>.</para>
         ///
         /// <para><b>The list is REQUIRED.</b> Census 2026-09-26 found it on every box (~1,300, none null), and the rung

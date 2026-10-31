@@ -69,7 +69,7 @@ public class TcModelRoundTripOracleTests
         StNetworkOracle.AssertTally(Archives.Value.Read.SelectMany(kv => StNetworkOracle.CheckBody(kv.Key, kv.Value)).ToList(), "TwinCAT archives",
             // every archive body round-trips; the stored members (a rail as TRUE, a negated pin on its value, …) are listed by
             // StNetworkOracle.Report
-            identical: 23, stored: 4, new Dictionary<string, int>
+            identical: 24, stored: 3, new Dictionary<string, int>
             {
                 // importer-unwired's `MUL(, m, 6)`: an empty operand on a FUNCTION's pin has no spelling, refused by name as
                 // on CODESYS (network-text-one-to-one 1.1: it was read as the rail and pulled `MUL(TRUE, m, 6)`).

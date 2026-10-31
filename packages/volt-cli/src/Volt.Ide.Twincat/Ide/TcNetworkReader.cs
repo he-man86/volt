@@ -136,6 +136,10 @@ internal static class TcNetworkReader
                 // bits share a bit-field and an operand; splitting them across two lines is what let one be
                 // fixed while the other stayed broken.
                 UnheldFlags.RefuseOnAssignItem(BeckhoffDriver.Row.Display, flags);
+                // TWINCAT'S UNCONDITIONAL JUMP OR RETURN holds the empty operand where CODESYS holds the rail (its importer,
+                // corpus Vn_jump_uncond / Vn_return_uncond): one fact, read as the rail the model holds it as, so one text
+                // (`JMP.l := RAIL();`) names it on both vendors. The writer keeps the archive's operand (`RailJumpValue`).
+                if (IsRailJump(targets, value)) value = new Terminator(Flags.None);
                 return new Assign(value, targets, flags.WithControlFlowFrom(targets));
             }
 
@@ -548,6 +552,12 @@ internal static class TcNetworkReader
     /// is a quoted string — <c>""</c> on an unwired pin or an unused output slot, never the explicit null, which only an
     /// Instance holds for "no instance" (<see cref="InstanceOf"/> asks that first). <c>Type</c> and <c>SymbolComment</c> are
     /// the IDE's metadata: null where it holds <c>""</c> or the explicit null (the model's "none"), but never absent.</summary>
+    /// <summary>An item whose every target is a jump or a return, on the empty operand: TwinCAT's spelling of the rail
+    /// there (see the <c>BoxTreeAssign</c> arm).</summary>
+    internal static bool IsRailJump(IReadOnlyList<Operand> targets, Node value) =>
+        targets.Count > 0 && targets.All(t => t.Flags is { Jump: true } or { Return: true }) &&
+        value is Leaf { Operand.Text.Length: 0, Flags.IsNone: true };
+
     private static Operand ReadOperand(XElement o)
     {
         const string what = "an operand";

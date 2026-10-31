@@ -180,7 +180,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 	})
 
 	/**
-	 * A RISING-EDGE FLAG on a consumed operand, spelled `R_EDGE(a)` — IEC's edge word for the vendor's IFlags bit,
+	 * A RISING-EDGE FLAG on a consumed operand, spelled `RISING(a)` — IEC's edge word for the vendor's IFlags bit,
 	 * never an `R_TRIG` box (which would add an instance the IDE never had).
 	 *
 	 * The VALUE side is the one the text spells.
@@ -189,10 +189,10 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 		const name = id("rise")
 		const back = await expectRoundTrip(
 			fid("rise", "pou"),
-			prg(name, "FBD", `%NETWORK\nout := AND(R_EDGE(a), b);\n`),
+			prg(name, "FBD", `%NETWORK\nout := AND(RISING(a), b);\n`),
 		)
 
-		expect(back, "the rising edge was dropped").toContain("R_EDGE(a)")
+		expect(back, "the rising edge was dropped").toContain("RISING(a)")
 	})
 
 	/** The same for F_EDGE, which shares the model field and every code path. */
@@ -200,10 +200,10 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 		const name = id("fall")
 		const back = await expectRoundTrip(
 			fid("fall", "pou"),
-			prg(name, "FBD", `%NETWORK\nout := AND(F_EDGE(a), b);\n`),
+			prg(name, "FBD", `%NETWORK\nout := AND(FALLING(a), b);\n`),
 		)
 
-		expect(back, "the falling edge was dropped").toContain("F_EDGE(a)")
+		expect(back, "the falling edge was dropped").toContain("FALLING(a)")
 
 	})
 })

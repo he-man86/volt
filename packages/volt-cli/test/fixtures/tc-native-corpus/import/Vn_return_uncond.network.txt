@@ -2,4 +2,4 @@
 %NETWORK
 out := AND(a, b);
 %NETWORK
-RETURN;
+RETURN := RAIL();

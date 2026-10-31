@@ -361,7 +361,7 @@ public class CodesysModelRoundTripOracleTests
     [Fact]
     public void Reader_double_tally() =>
         StNetworkOracle.AssertTally(Read.Value.SelectMany(kv => StNetworkOracle.CheckBody(kv.Key, kv.Value)).ToList(), "CODESYS reader doubles",
-            identical: 27, stored: 16, new Dictionary<string, int>(StringComparer.Ordinal)
+            identical: 43, stored: 0, new Dictionary<string, int>(StringComparer.Ordinal)
             {
                 // the enabled MOVE whose output list names no ENO: read at no slot the text can state (the reader's own test)
                 ["a box read by an unstated slot"] = 1,

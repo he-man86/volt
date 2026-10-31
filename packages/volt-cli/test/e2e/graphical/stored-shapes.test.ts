@@ -63,7 +63,7 @@ describe(`graphical / stored shapes, ld-fbd-coverage 2R.5 (${BASE})`, () => {
 	// stored member (`x := NOT c;`, `x := c;`) a push builds as the contact it spells.
 
 	it("#15, #16, #6a: an edge on a contact in a box, a negated EN contact, a negated rail", async () => {
-		await shape("r5ep", (n) => fb(n, "FBD", ["x := AND(R_EDGE(c), one);"]), TC.edgePin)
+		await shape("r5ep", (n) => fb(n, "FBD", ["x := AND(RISING(c), one);"]), TC.edgePin)
 		await shape("r5ne", (n) => fb(n, "FBD", ["MOVE(EN := NOT c, 5, OUT => i).ENO;"]), TC.negatedEn)
 		await shape("r5nt", (n) => fb(n, "LD", ["x := NOT TRUE;"]), TC.negatedEmpty)
 	})

@@ -35,7 +35,7 @@ VAR
 END_VAR
 %LANGUAGE FBD
 %NETWORK
-EXECUTE(EN := TRUE, CODE := 'IF g_HMI_MachCommand.CMD.bNewRecipe THEN
+EXECUTE(EN := TRUE, 'IF g_HMI_MachCommand.CMD.bNewRecipe THEN
 	g_HMI_RCP_Parameters_Visu.nProductType:=0;			(* ProductType = 0 = Slab Square *)
 															(* ProductType = 1 = Slab triangle *)
 															(* ProductType = 2 = Slab diagonal *)
@@ -100,7 +100,7 @@ sDateAndTIme2 := REPLACE(STR1 := sDateAndTIme1, STR2 := 'h', L := 1, P := 14);
 %NETWORK
 sRecipeNamePar := REPLACE(STR1 := sDateAndTIme2, STR2 := 'm', L := 1, P := 17);
 %NETWORK
-EXECUTE(EN := TRUE, CODE := 'IF g_HMI_MachCommand.CMD.bSaveMachPar AND GetDateAndTime.xDone THEN
+EXECUTE(EN := TRUE, 'IF g_HMI_MachCommand.CMD.bSaveMachPar AND GetDateAndTime.xDone THEN
 	sMachParName := sRecipeNamePar;
 	bSavePars := TRUE;
 	g_HMI_MachCommand.CMD.bSaveMachPar := FALSE;

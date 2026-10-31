@@ -107,7 +107,7 @@ NETWORK
 %LANGUAGE LD
 %NETWORK
 x := NOT(a AND b);
-y := R_EDGE(a AND b);
+y := RISING(a AND b);
 === model
 NETWORK
   (:= x (NOT (AND a b)))
@@ -219,7 +219,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-x := AND(R_EDGE(c), one);
+x := AND(RISING(c), one);
 === model
 NETWORK
   (:= x (AND rise:c one))
@@ -230,7 +230,7 @@ instance t1 TON
 === text
 %LANGUAGE LD
 %NETWORK
-t1(IN := R_EDGE(NOT v), PT := T#1S);
+t1(IN := RISING(NOT v), PT := T#1S);
 === model
 NETWORK
   (TON@t1 IN=rise:not:v PT=T#1S)

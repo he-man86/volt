@@ -1,5 +1,5 @@
 %LANGUAGE FBD
 %NETWORK
-RETURN(a);
+RETURN := a;
 %NETWORK
 out := AND(a, b);

@@ -59,7 +59,7 @@ internal static class NetworkSpelling
     /// <summary>The default formal of an operator's input: <c>IN&lt;n&gt;</c> on the table's operators, <c>IN</c> on the
     /// NOT box and MOVE — read back as no name, the vendor's own (an operator box stores no input names, census 1.13).
     /// Null for any other box.</summary>
-    private static string? DefaultFormal(string type, int pin) =>
+    public static string? DefaultFormal(string type, int pin) =>
         OperatorWords.Contains(type) ? "IN" + (pin + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)
         : string.Equals(type, Move, StringComparison.OrdinalIgnoreCase) || string.Equals(type, NotBox, StringComparison.OrdinalIgnoreCase) ? "IN"
         : null;
@@ -173,7 +173,7 @@ internal static class NetworkSpelling
 
     // ── the Execute box's ST: a string with its line breaks as they stand ──────────────────────────────────────────────
 
-    /// <summary>The Execute box's ST as its <c>CODE := '…'</c> string (openspec network-output-member 2.6): a <c>'</c> is
+    /// <summary>The Execute box's ST as its <c>'…'</c> string (openspec network-output-member 2.6): a <c>'</c> is
     /// <c>$'</c>, a <c>$</c> is <c>$$</c>, and everything else — a line break, a tab — stands as it is, so the code reads as
     /// the engineer wrote it.</summary>
     public static string EscapeCode(string st)

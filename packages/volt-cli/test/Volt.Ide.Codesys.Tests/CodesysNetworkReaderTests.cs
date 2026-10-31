@@ -694,9 +694,9 @@ public class CodesysNetworkReaderTests
         Assert.Equal(new[] { false, true }, pins.Select(p => p.Flags.Negated));
         Assert.True(((Leaf)pins[1].Value).Flags.IsNone, "the bit belongs to the pin, not to the operand feeding it");
 
-        // A negated pin is a stored member, spelled on the value the pin reads (network-text-st design "Stored members").
+        // A negated pin spells its own mark, before its formal (an operator's pin by its default formal).
         var body = new NetworkBody(BodyLanguage.Fbd, new[] { read });
-        Assert.Contains("\nout := a AND NOT xIsWarningInfo;\n",
+        Assert.Contains("\nout := AND(a, NOT IN2 := xIsWarningInfo);\n",
             StNetworkWriter.Write(body, Volt.Tests.Shared.NetworkModelScopes.ScopeOf(body)));
     }
 
@@ -925,7 +925,7 @@ public class CodesysNetworkReaderTests
         var body = CodesysNetworkReader.Read(Nwl.Body(assign), BodyLanguage.Ld);
         var text = StNetworkWriter.Write(body, NetworkScope.Empty);
 
-        Assert.Contains("RETURN(ioAxis.xVirtual);", text);
+        Assert.Contains("RETURN := ioAxis.xVirtual;", text);
         Assert.DoesNotContain("???", text);
     }
 
@@ -1181,7 +1181,7 @@ public class CodesysNetworkReaderTests
 
         var read = Assert.IsType<Box>(body.Networks.Single().Trees.Single());
         Assert.Equal("", read.StCode);
-        Assert.Contains("CODE := '')", StNetworkWriter.Write(body, NetworkScope.Empty));
+        Assert.Contains(", '')", StNetworkWriter.Write(body, NetworkScope.Empty));
     }
 
     /// <summary>The complement, so the rule above cannot decay into "always empty": a snippet WITH text still

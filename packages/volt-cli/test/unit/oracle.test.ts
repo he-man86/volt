@@ -20,8 +20,8 @@ describe("oracle self-check", () => {
 	})
 	it("catches a jump's discarded condition spine", () => {
 		expect(() => expectNoOperandsLost(
-			wrap("LD", "%NETWORK\nJMP(done, a AND b);"),
-			wrap("LD", "%NETWORK\nJMP done;"))).toThrow()
+			wrap("LD", "%NETWORK\nJMP.done := a AND b;"),
+			wrap("LD", "%NETWORK\nJMP.done := RAIL();"))).toThrow()
 	})
 	it("catches an FB instance type written as empty", () => {
 		expect(() => expectNoOperandsLost(
