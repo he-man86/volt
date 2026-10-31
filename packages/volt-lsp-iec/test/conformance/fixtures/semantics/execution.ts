@@ -15,8 +15,9 @@ import { CASES_C } from "./execution-c.js"
 import { CASES_D } from "./execution-d.js"
 import { CASES_E } from "./execution-e.js"
 import { CASES_F } from "./execution-f.js"
+import { CASES_G } from "./execution-g.js"
 
-const CASES: readonly ExecCase[] = [...CASES_A, ...CASES_B, ...CASES_C, ...CASES_D, ...CASES_E, ...CASES_F]
+const CASES: readonly ExecCase[] = [...CASES_A, ...CASES_B, ...CASES_C, ...CASES_D, ...CASES_E, ...CASES_F, ...CASES_G]
 
 /** An execution case as a conformance fixture: no units, its program is PLC_PRG; `rejects` is `refused`, and a
  *  `deferred` reason belongs to the transpiler. The name keeps a `PRG_LANG_` pouName unique in the replay's project. */
