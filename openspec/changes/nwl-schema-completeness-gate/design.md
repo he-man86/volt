@@ -122,3 +122,21 @@ Evidence comes from three sources:
   picture or the generated code: #1, #2, #7a, #8, #10, #11, #12, #16, #18. The inert bits (#3, #5's falling bit, #7b,
   #9, #14, #15, #17) stay refused by name, so a pull never loses them silently. #4, #6, #13 and #19 cannot be stored.
 - **The operand comment is spelled now**, not refused, designed with Sim-Assist together with the shapes above.
+
+## Decided by Volt + Sim-Assist, 2026-10-31 (the spellings)
+
+- **#1** `a;`, **#2** `NOT AND(a, b);`, **#11** `BRANCH(FEED := start, a, b);`, **#12** `RAIL();`,
+  **#16** `y := NOT EXECUTE(…).ENO;`, **#18** `BRANCH(FEED := RAIL(), a, b)`.
+- **#8** `NOT JMP.l := a;`: the receiver prefix on a jump target. The old refusal "a mark on a jump or a return" goes.
+- **#7a** `y := NOT := a;`: a mark before an empty receiver, as in `AND(a, NOT := b)`. The Assign item is the unnamed
+  receiver between the value and every coil. It stands LAST in a chain (`y := x := NOT := a;`), and anywhere else it
+  is refused by name. Marks stack as everywhere else; a stack the vendor does not store is refused.
+  - Three texts for three models: `y := NOT a` (leaf), `NOT y := a` (target), `y := NOT := a` (item).
+- **#10** a jump and a return on one target: drawn as a plain RETURN, and runs as RETURN, so it is inert and refused by
+  name.
+- **Operand comment:** ONE function wherever the operand stands: `COMMENT(a, 'why')` (value), `COMMENT(y, 'why') := a`
+  (receiver), `IN := COMMENT(a, 'why')`, `Q => COMMENT(x, 'why')`.
+  - COMMENT wraps only the operand name, and marks stay outside it (`NOT COMMENT(y, 'why') := a`,
+    `RISING(COMMENT(a, 'why'))`).
+  - The second argument is a literal string with ST escaping. An empty string is refused, because no comment is the
+    plain operand.
