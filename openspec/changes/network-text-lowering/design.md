@@ -1,7 +1,20 @@
 # network-text-lowering — design
 
-Nothing is decided yet. The three open points of `proposal.md` stay questions for the owner; this file holds the
-measurements they are decided on.
+The three open points of `proposal.md` are decided (below, "Decided 2026-10-31"); the measurements they were decided on
+follow.
+
+## Decided 2026-10-31
+
+1. **Route (b).** Network boxes lower directly in `src/transpile/lower/network/`: each box form becomes the ST statements
+   it runs as (AST nodes carrying the user's spans), lowered by `statements/`, `expressions/` and `calls/` as any ST. The
+   exec twin (`test/support/network-twin*.ts`) stays in `test/` as the independent oracle (task 3.2). Hidden state has
+   `__` names, which no ST identifier can spell.
+2. **Wire paths: one spelling, positional.** `__nw<N>_<wire>`, `__nw<N>_eno<k>`, `__nw<N>_trig<k>`, `<N>` the 1-based
+   index of the network in its body (a `%DISABLED` one counted); in a body that runs in another body's frame (an ACTION,
+   a base body run by `SUPER^()`) `__nw_<body>_<N>_…`. No label variant.
+3. **Scan 1 is recorded, not inferred.** `ExecCase.language` (`"LD" | "FBD"`) states a network body; its cases are
+   recorded through a served CODESYS (`scripts/record-exec-network.ts`), and the lowering reads a wire before its
+   definition as the recording says.
 
 ## Measured (read-only step, 2026-10-30)
 

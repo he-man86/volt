@@ -1,13 +1,13 @@
 ## 1. Read-only (owner: plan first)
 
-- [ ] 1.1 Census: how many corpus and fixture bodies are refused today with `graphical-body` because they are plain-ST
+- [x] 1.1 Census: how many corpus and fixture bodies are refused today with `graphical-body` because they are plain-ST
       network text (the fixture map's "not-lowered" count, split by reason)
-- [ ] 1.2 Measure open point 1: the size of a direct box lowering (b) against moving the twin into `src/` (a); list
+- [x] 1.2 Measure open point 1: the size of a direct box lowering (b) against moving the twin into `src/` (a); list
       the layering rules either one touches (the twin imports `frontend/types` `infer/network-box.ts`, which `src/`
       may already use)
-- [ ] 1.3 Answer open points 2 and 3 (wire paths for `Runner.get`, scan-1 value of a wire read before its definition)
+- [x] 1.3 Answer open points 2 and 3 (wire paths for `Runner.get`, scan-1 value of a wire read before its definition)
       against recordings
-- [ ] 1.4 Owner decides 1–3; write `design.md` with the decision and its measurements
+- [x] 1.4 Owner decides 1–3; write `design.md` with the decision and its measurements
 
 ## 2. Lowering
 
