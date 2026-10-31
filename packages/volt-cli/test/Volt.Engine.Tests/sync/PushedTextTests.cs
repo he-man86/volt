@@ -23,10 +23,10 @@ public class PushedTextTests
     [Theory]
     [InlineData("out := a AND\n    b;", true)]
     [InlineData("out := a OR b;", false)]
-    // Another SPELLING of the same program is written since 2.12 and comes back canonical: the same item, not "another
-    // program" (1+2d review — the CLI told the user the IDE held another program than the text pushed). A box called in
-    // the case it was typed is a box of that type, so `and(a, b)` is another element than the contacts.
-    [InlineData("out := (a AND b);", true)]
+    // A bracket around the whole value is no second spelling of the same program: one model has one text (owner
+    // 2026-10-31, network-text-one-to-one), so the reader refuses it by name and the text is not the item. A box called
+    // in the case it was typed is a box of that type, so `and(a, b)` is another element than the contacts.
+    [InlineData("out := (a AND b);", false)]
     [InlineData("out := and(a, b);", false)]
     public void A_graphical_body_is_compared_as_one_model(string statement, bool same)
     {
