@@ -38,8 +38,13 @@ export abstract class BoxTwinner {
     return this.source.slice(e.span.start, e.span.end)
   }
 
+  /** The box `call` is, an output pin holding `???` (`OUT => ???`, an output nothing is wired to) left out: it runs as
+   *  the box with that output unread. */
   protected box(call: CallExpr): NetworkBox | undefined {
-    return networkBox(call, this.scope, this.project)
+    const box = networkBox(call, this.scope, this.project)
+    if (box === undefined) return undefined
+    const wired = (a: CallArg) => !(a.output && a.value?.kind === "ident_expr" && a.value.name === UNNAMED)
+    return { ...box, pins: box.pins.filter(wired), st: { ...box.st, args: box.st.args.filter(wired) } }
   }
 
   protected name(box: NetworkBox): string {

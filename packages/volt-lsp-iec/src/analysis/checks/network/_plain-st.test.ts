@@ -180,10 +180,11 @@ test("an unnamed operand is the build's pair at the ???, in each vendor's words,
     ["Unexpected token '?' found", at, at + 3],
   ])
   expect(diagnose(src, "twincat").map((d) => d.message)).toEqual(["Expression expected instead of '?'", "Unexpected Token '?' found"])
-  // a box input, positional and named, and an output binding: the same pair at each; the coil its own message
+  // a box input, positional and named: the same pair at each; the coil its own message; an output pin holding ???
+  // (`OUT => ???`) nothing — an unwired output, which lenze-mid's recorded build compiles clean
   const pair = ["Expression expected instead of '?'@???", "Unexpected token '?' found@???"]
   expect(diagnose(unnamedSrc).map((d) => `${d.message}@${unnamedSrc.slice(d.span.start, d.span.end)}`).sort()).toEqual(
-    [...pair, ...pair, ...pair, ...pair, "The assignment target is not specified.@???"].sort(),
+    [...pair, ...pair, ...pair, "The assignment target is not specified.@???"].sort(),
   )
 })
 

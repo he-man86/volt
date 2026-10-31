@@ -101,10 +101,13 @@ export function networkBox(call: CallExpr, scope: Scope, project: Scope): Networ
     enable = en
     at++
   }
-  const pins = call.args.slice(at)
-  // a FUNCTION's `OUT => v` is its box's value pin: the ST call the box is returns it, and takes no such argument
-  const value = (a: CallArg) => signature?.shape === "function" && !declaresOut(signature) && a.output && a.param?.name.toUpperCase() === VALUE
-  const args = pins.filter((a) => !value(a))
+  // `OUT => v` is the box's next unnamed output slot (the bridge's writer), where its callee declares no output OUT: a
+  // FUNCTION's value pin, which the ST call the box is returns, or an extra slot the IDE stores past a block's or a
+  // program's declared outputs (`p(OUT => ???)`), which holds nothing the callee has — no pin of it at all
+  const unnamed = (a: CallArg) =>
+    signature !== undefined && a.output && a.param?.name.toUpperCase() === VALUE && !signature.outputs.some((o) => o.toUpperCase() === VALUE)
+  const pins = call.args.slice(at).filter((a) => signature?.shape === "function" || !unnamed(a))
+  const args = pins.filter((a) => !unnamed(a))
   return { call, instance, enable, pins, st: { kind: "call", callee: instance ?? call.callee, args, span: call.span }, signature }
 }
 
