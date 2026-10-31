@@ -61,10 +61,9 @@ import { messagesFor, type Messages } from "../../messages/index.js"
 import { emit, SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import { calleeText, checkBox } from "./_plain-st-box.js"
 import { checkWires, CODE } from "./_plain-st-wires.js"
+import { checkComments, checkLines, checkNumbering, checkStrings } from "./_plain-st-lines.js"
+import { checkCoilMarks, checkMarkOrder, checkPinMarks, checkValueNot, ownHead } from "./_plain-st-marks.js"
 
-
-/** The `%` lines that stand before a network's code. */
-const HEADER_LINES: ReadonlySet<string> = new Set(["NETWORK", "DISABLED", "UNSUPPORTED"])
 
 /** The statements a network may not hold, by their ST keyword. */
 const NOT_IN_A_NETWORK: Readonly<Record<string, string>> = {
@@ -220,84 +219,6 @@ function checkBody(body: BodySpan, scope: Scope | undefined, project: Scope, out
   checkStrings(body, out)
 }
 
-/** THE WIRE NAMES THE WRITER GIVES (the bridge's `StNetworkWriter.BodyWires`, its reader's `RequireWriterNumbering`): w1,
- *  w2, … across the body, in the order the text first names them, past every name the code uses and every name in reach;
- *  each network declares its wires in that order. */
-function checkNumbering(text: ReturnType<typeof plainStText>, scope: Scope | undefined, out: DiagnosticItem[]): void {
-  const wires = new Set(text.networks.flatMap((n) => n.wires.map((w) => w.name.toLowerCase())))
-  const taken = new Set<string>()
-  const code = text.networks.flatMap((n) => n.executes.map((x) => x.code))
-  for (const t of text.sourceTokens)
-    if (t.kind === "identifier" && !wires.has(t.text.toLowerCase()) && !code.some((c) => t.span.start >= c.start && t.span.start < c.end)) taken.add(t.text.toLowerCase())
-  let next = 1
-  const fresh = (): string => {
-    for (;;) {
-      const name = `w${next++}`
-      if (!taken.has(name) && (scope === undefined || lookup(scope, name) === undefined)) return name
-    }
-  }
-  for (const n of text.networks) {
-    if (n.wires.length === 0) continue
-    const own = new Set(n.wires.map((w) => w.name.toLowerCase()))
-    const first: string[] = []
-    let prev: Token | undefined
-    for (const t of text.sourceTokens) {
-      if (t.span.start < n.span.start || t.span.start >= n.span.end || isTrivia(t.kind)) continue
-      if (t.kind === "identifier" && own.has(t.text.toLowerCase()) && prev?.text !== "." && !first.some((f) => f.toLowerCase() === t.text.toLowerCase())) first.push(t.text)
-      prev = t
-    }
-    for (let k = 0; k < first.length; k++) {
-      const expected = fresh()
-      const at = n.declaration ?? n.header.span
-      if (first[k] !== expected)
-        return emit(out, at, CODE, `the wire ${first[k]} is the body's ${expected}: a body's wires are w1, w2, … across its networks, in the order the text first names them`)
-      if (n.wires[k]?.name !== first[k])
-        return emit(out, at, CODE, `the wire ${n.wires[k]?.name} is the body's ${first[k]}: a network declares its wires in the order the text first names them`)
-    }
-  }
-}
-
-/** A string spans lines only as the Execute box's ST (`network/execute-code.ts` rejoins only that one): any other one is refused as
- *  the bridge's reader refuses it. */
-function checkStrings(body: BodySpan, out: DiagnosticItem[]): void {
-  const text = plainStText(body)
-  const code = new Set(text.networks.flatMap((n) => n.executes.map((x) => x.code.start - 1)))
-  const unclosed = new Set(text.stray.map((s) => s.span.start))
-  for (const t of text.tokens)
-    if ((t.kind === "string_lit" || t.kind === "wstring_lit") && (t.span.endLine > t.span.startLine || !closedString(t.text)) &&
-        !code.has(t.span.start) && !unclosed.has(t.span.start))
-      emit(out, t.span, CODE, "a string across a line: only the Execute box's ST spans lines")
-}
-
-/** A network's `%` lines: `%NETWORK` first, then `%DISABLED`; `%UNSUPPORTED` alone under them. */
-function checkLines(n: PlainStNetwork, body: BodySpan, out: DiagnosticItem[]): void {
-  const order = ["NETWORK", "DISABLED"]
-  let at = 0
-  let code = false
-  for (const line of n.lines.slice(1)) {
-    const k = order.indexOf(line.key)
-    if (k >= 0) {
-      if (k <= at || code) emit(out, line.span, CODE, `'%${line.key}' out of place: a network's % lines stand first, %NETWORK then %DISABLED`)
-      at = Math.max(at, k)
-    } else code = true
-  }
-  const title = n.header.args
-  if (title.length > 1 || (title.length === 1 && !/^".*"$/s.test(title[0]!.text)))
-    emit(out, n.header.span, CODE, "a network title is one \"…\" after %NETWORK and one space")
-  else if (title.length === 1 && title[0]!.text === '""')
-    emit(out, n.header.span, CODE, "an empty title \"\": a network with no title is the line %NETWORK alone")
-  else if (title.length === 1) checkEscapes(title[0]!.text.slice(1, -1), '"', n.header.span, out)
-  if (n.unsupported) {
-    const u = n.lines.find((l) => l.key === "UNSUPPORTED")!
-    const words = u.args.map((t) => t.text).join("")
-    if (!/^".+"#[0-9a-f]{8}$/i.test(words)) emit(out, u.span, CODE, "the line is %UNSUPPORTED \"<shape>\" #<8 hex digits>")
-    // its label, the jump target it stays, may stand under the line (`l:`); nothing else
-    const after = plainStText(body).tokens.filter((t) => t.span.start > u.span.end && t.span.start < n.span.end && t.kind !== "whitespace" && t.kind !== "eof")
-    const label = after.length === 2 && after[0]!.kind === "identifier" && after[1]!.text === ":"
-    if (after.length > 0 && !label) emit(out, after[0]!.span, CODE, "a network shown %UNSUPPORTED holds nothing else but its label")
-  }
-}
-
 function checkStatement(stmt: Statement, first: boolean, scope: Scope | undefined, boxes: Scope | undefined, project: Scope, wires: ReadonlySet<string>, network: PlainStNetwork, out: DiagnosticItem[]): void {
   const word = NOT_IN_A_NETWORK[stmt.kind]
   if (word !== undefined) return emit(out, stmt.span, CODE, `an LD/FBD network cannot hold a ${word}`)
@@ -363,71 +284,6 @@ function checkExprs(stmt: Statement, scope: Scope | undefined, boxes: Scope | un
     })
 }
 
-function isOperand(e: Expr): boolean {
-  return e.kind === "ident_expr" || e.kind === "literal" || e.kind === "member" || e.kind === "index" || e.kind === "deref" || e.kind === "global_expr"
-}
-
-/** The head of a call that is the text's own (an element, the Execute box, a jump or the return), else undefined. */
-function ownHead(e: Expr): string | undefined {
-  if (e.kind !== "call" || e.callee.kind !== "ident_expr") return undefined
-  const upper = e.callee.name.toUpperCase()
-  return NETWORK_ELEMENTS.has(upper) || upper === EXECUTE || upper === "JMP" || upper === "RETURN" ? upper : undefined
-}
-
-/** THE VALUE MARK NOT: before a contact (an operand, no wire) or a box read where it stands (its negated output, `NOT
- *  t1(…).Q`) — the bridge's reader's rule (`StNetworkReader`). Before an edge the order is reversed (the IDE negates
- *  first); before anything else the text has no such mark. */
-function checkValueNot(operand: Expr, span: Span, wires: ReadonlySet<string>, out: DiagnosticItem[]): void {
-  const box = operand.kind === "member" && operand.base.kind === "call" ? operand.base : operand.kind === "call" ? operand : undefined
-  const head = box === undefined ? undefined : ownHead(box)
-  if (head === "RISING" || head === "FALLING")
-    return emit(out, span, CODE, "NOT before an edge: the IDE negates first, so the edge is written outside the negation, RISING(NOT a)")
-  if (box !== undefined && head === undefined) return
-  if (box === undefined && isOperand(operand) && !(operand.kind === "ident_expr" && wires.has(operand.name.toLowerCase()))) return
-  emit(out, span, CODE, "NOT before a wire, a branch, a coil, the rail, an Execute box or another NOT: NOT marks a contact or a box read where it stands, and the NOT box is NOT(…)")
-}
-
-/** THE MARKS BEFORE ONE RECEIVER, outermost first: the edge outside the negation (the IDE negates first, N17), each once. */
-function checkMarkOrder(marks: readonly string[], span: Span, out: DiagnosticItem[]): void {
-  let negated = false
-  let edge = false
-  for (const m of marks) {
-    if (m === "NOT") {
-      if (negated) return emit(out, span, CODE, "NOT twice before one receiver")
-      negated = true
-      continue
-    }
-    if (edge) return emit(out, span, CODE, "two edges before one receiver")
-    if (negated) return emit(out, span, CODE, `NOT ${m}: the IDE negates first, so the edge is written outside the negation, ${m} NOT`)
-    edge = true
-  }
-}
-
-/** A pin's, EN's or an output's own marks: in order, and on no branch's feed (a Parallel holds no flag). */
-function checkPinMarks(call: CallExpr, a: CallArg, out: DiagnosticItem[]): void {
-  checkMarkOrder(a.marks!, a.span, out)
-  if (ownHead(call)?.startsWith("BRANCH") === true) emit(out, a.span, CODE, `a mark on the branch's ${a.param?.name ?? "pin"}: a branch holds none`)
-}
-
-/** A coil's own marks: in order; `NOT` on no `S=` / `R=` coil (a negated set coil IS the reset coil); none on a wire; and a
- *  marked coil only first in its chain — every target receives the rung's power flow (measured), while a chained
- *  assignment hands its value on, and the two agree only there. */
-function checkCoilMarks(stmt: Extract<Statement, { kind: "assign" }>, wires: ReadonlySet<string>, out: DiagnosticItem[]): void {
-  const targets = [stmt.target, ...(stmt.chained ?? [])]
-  const ops = [stmt.op, ...(stmt.chainOps ?? [])]
-  stmt.marks?.forEach((m, i) => {
-    if (m === undefined) return
-    const t = targets[i]!
-    checkMarkOrder(m, t.span, out)
-    if (m.includes("NOT") && (ops[i] === "S=" || ops[i] === "R="))
-      emit(out, t.span, CODE, `NOT ${calleeText({ kind: "call", callee: t, args: [], span: t.span })} ${ops[i]}: a negated set or reset coil is no coil of its own (the reset coil is R=)`)
-    if (t.kind === "ident_expr" && wires.has(t.name.toLowerCase()))
-      emit(out, t.span, CODE, `a mark on the wire ${t.name}: a wire holds none, its producer or a consumer does`)
-    if (i > 0)
-      emit(out, t.span, CODE, "a marked coil inside a chain: every target receives the rung's power flow, and a chained assignment would hand the marked value on")
-  })
-}
-
 function checkCall(call: CallExpr, scope: Scope | undefined, wires: ReadonlySet<string>, out: DiagnosticItem[]): void {
   if (call.callee.kind !== "ident_expr") return
   const name = call.callee.name
@@ -479,39 +335,4 @@ function checkEdge(call: CallExpr, name: string, wires: ReadonlySet<string>, out
   const element = v.kind === "call" && v.callee.kind === "ident_expr" && NETWORK_ELEMENTS.has(v.callee.name.toUpperCase())
   if (element || v.kind === "assign_expr" || (inner.kind === "ident_expr" && wires.has(inner.name.toLowerCase())))
     emit(out, call.span, CODE, `the edge ${name} over a wire, a branch, a coil, the rail, an Execute box or another edge: an edge is on a contact or on a box read where it stands`)
-}
-
-/** A title's or a comment line's escapes, as the bridge's writer writes them and its reader reads them
- *  (`NetworkSpelling.Unescape`): `$$`, `$L`, `$R`, and `$"` in a title; every other character as it stands. */
-function checkEscapes(text: string, quote: '"' | undefined, span: Span, out: DiagnosticItem[]): void {
-  for (let i = 0; i < text.length; i++) {
-    if (text[i] !== "$") continue
-    const e = text[i + 1]
-    if (e === "$" || e === "L" || e === "R" || (e === '"' && quote === '"')) {
-      i++
-      continue
-    }
-    return emit(out, span, CODE, e === undefined
-      ? "a `$` at the end of delimited text: a `$` is written `$$`."
-      : `the escape '$${e}': ${quote === '"' ? 'a title spells $$ $" $L $R' : "a comment line spells $$ $L $R"}, every other character as it stands (a comment's line break is a new // line).`)
-  }
-}
-
-/** A `//` comment stands before its network's code; a block comment or a pragma nowhere (an Execute box's ST is its
- *  string's content, no token of the network). */
-function checkComments(body: BodySpan, networks: readonly PlainStNetwork[], out: DiagnosticItem[]): void {
-  for (const n of networks) {
-    let code = false
-    for (const t of plainStText(body).tokens) {
-      if (t.span.start < n.span.start || t.span.start >= n.span.end) continue
-      if (t.kind === "block_comment" || t.kind === "pragma")
-        emit(out, t.span, CODE, t.kind === "pragma" ? "a pragma {…} in a network: a network holds none" : "a (* comment in a network: a network's comment is its // lines before the code")
-      else if (t.kind === "line_comment" && code)
-        emit(out, t.span, CODE, "a // comment after the code starts: a network's comment is its // lines before the code")
-      else if (t.kind === "line_comment") checkEscapes(t.text.slice(2), undefined, t.span, out)
-      else if (t.kind !== "whitespace" && t.kind !== "eof" && !n.lines.some((l) => HEADER_LINES.has(l.key) && t.span.start >= l.span.start && t.span.start <= l.span.end) &&
-               !(n.declaration !== undefined && t.span.start >= n.declaration.start && t.span.start < n.declaration.end))
-        code = true
-    }
-  }
 }

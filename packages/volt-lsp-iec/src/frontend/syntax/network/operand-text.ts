@@ -11,7 +11,7 @@ import type { Dialect } from "../lex/vocabulary.js"
 import type { Span } from "../span.js"
 import { codeTokens, contentSpan } from "./execute-code.js"
 
-export const OPERAND = "OPERAND"
+const OPERAND = "OPERAND"
 
 const FORM = "OPERAND takes one string, '<the operand's text>', and names no output"
 
