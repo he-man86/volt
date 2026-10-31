@@ -11,3 +11,9 @@
 ## 3. Build
 
 - [ ] 3.1 Writer + both readers + twin, red then green per finding; `network-text.html` updated
+
+## 4. Bugs found while measuring (fix test-first)
+
+- [ ] 4.1 An FB instance named `r` is refused by the reader (`r(SET := …)` does not parse; `rs1` does)
+- [ ] 4.2 A pushed `EXECUTE(…)` with no EN stores EN null and its code never runs (0 of 99 scans)
+- [ ] 4.3 Pushed boxes store EN/ENO and root output lists differently from drawn ones: find out whether it is visible
