@@ -222,6 +222,9 @@ const KNOWN: Readonly<Record<string, string>> = Object.fromEntries([
     "inout_const_fb_variable_10: threshold * 2",
     "inout_const_fb_variable_10: threshold",
     "inout_const_fb_variable_10: label = 'abc'",
+    // lowered for the first time by network-text-lowering (an FBD body's FUNCTION box over a VAR_IN_OUT CONSTANT)
+    "ng_m_function_constant_in_out: c * 10",
+    "ng_m_function_constant_in_out: c",
   ].map((id) => [id, NOT_A_CONSTANT]),
   ...[
     "tr_a14_shift_untyped_literal_variable_count: SHL(1, 65)",

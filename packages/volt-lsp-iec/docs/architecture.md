@@ -107,6 +107,7 @@ src/  the product code, one folder per layer; imports point down the stack (scri
       expressions/  expressions, date and time arithmetic among them
       init/  the init step: initializers, FB_init, attributes
       interfaces/  calls through an interface
+      network/  plain-ST network text (LD, FBD): its boxes, wires and elements as the ST they run as
       places/  places, their paths and access guards
       pointers/  pointers, references and addresses
       project/  the input assembly: files, libraries, attributes
