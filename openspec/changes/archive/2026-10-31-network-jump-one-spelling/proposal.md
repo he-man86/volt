@@ -1,3 +1,5 @@
+> CLOSED 2026-10-31, unbuilt: superseded by `network-rail-and-pin-negation` section 4 (jumps and returns as targets, owner's pick, agreed by Sim-Assist). The wire form was measured to store 3 items, not 1.
+
 > Owner, 2026-10-31 (in Sim-Assist): "we need to retihkn the jump statement i think .. this is the part that has gotten
 > complex with mutlipl options .. do you have an idea to implemen this with just 1 soltuoion instead of multlp"
 
