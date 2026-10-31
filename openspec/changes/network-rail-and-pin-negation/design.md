@@ -635,3 +635,27 @@ For the owner:
 
 - Combined marks and edge marks on outputs store and build, so refusing them is a choice.
 - `VAR_TEMP` misstates the wires' cross-scan memory.
+
+## Decided by Volt + Sim-Assist, 2026-10-31 (the owner delegated the mark family)
+
+This replaces the "Joint proposal" wherever the two differ.
+
+- **Rule: a function on the value, a prefix word on the receiver.** The mark is part of the receiver's name.
+  - value: `NOT a`, `RISING(a)`, `FALLING(a)`; `NOT(a)` stays the NOT box.
+  - pin and EN: `t1(NOT IN := a)`, `t1(RISING IN := a)`, `MOVE(NOT EN := c, …)`.
+  - coil: `NOT y := a;`, `RISING y := a;`, `FALLING y := a;`. These replace `/=`, `P=` and `N=`.
+  - The rail is `RAIL()`, a function (functions add no syntax, per the owner).
+  - Parser rule: a word followed by `(` is a call, whatever the spacing. A complete operand followed by `:=`, `S=`,
+    `R=` or `=>` carries the mark on its receiver. In any other position the word marks the value. `RISING`,
+    `FALLING` and `RAIL` are reserved inside network bodies.
+- **Stacked marks are allowed, written in evaluation order from the outside in:** `RISING NOT a`, `RISING NOT IN := a`,
+  `RISING NOT y := a`. The reverse order is refused by name, unless the vendor stores a distinct model for it.
+  Also refused: `NOT y S= a` (that is `R=`), and any mark on a jump or return target.
+- **Outputs:** `NOT Q => x` is a negated output pin. `NOT t1(…).Q` and `NOT ADD(a, b)` are a negated box output.
+  Scenarios: `NOT IN := F(a)`, `IN := NOT F(a)` and `IN := NOT(F(a))` are three models with three texts.
+- **A mid-rung coil as a positional argument keeps its own parentheses**, because `f(x := a)` is a named argument:
+  `NOT((x := a))`, `AND((x := a), b)`. This is the general ST fact, not a special form.
+- **Chains:** every target in a chain receives the rung's power flow and applies its own mark. This is pending the
+  `a--(/)x--( )y` measurement (`network-text-one-to-one` finding 7).
+- **Words:** `CODE` goes (`EXECUTE(EN := go, '…')`). `ANY` (untypable wires), `FEED`, `BRANCH` and
+  `BRANCH_SHORTCIRCUIT` stay.
