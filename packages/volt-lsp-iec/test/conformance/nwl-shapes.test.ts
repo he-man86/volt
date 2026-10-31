@@ -7,8 +7,8 @@
 import { expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { caseRoot, programOf } from "../../../../test/support/network-cases.js"
-import { networkDiags } from "../../../../test/support/network-docs.js"
+import { caseRoot, programOf } from "../support/network-cases.js"
+import { networkDiags } from "../support/network-docs.js"
 
 interface Shape {
   language: string
