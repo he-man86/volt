@@ -36,7 +36,7 @@ import { libraryOf } from "../../../frontend/library/index.js"
 import { storageOf } from "../storage/layout.js"
 import { overridesCalled } from "../core/ast-walk.js"
 import { brokenAtLibrary, chainOf } from "../core/chain.js"
-import { lowerBlock } from "../statements/statements.js"
+import { lowerBody } from "../statements/statements.js"
 import { localInits } from "../init/temp-resets.js"
 import { interfaceFrame } from "../interfaces/state.js"
 import { drain, nested } from "../core/nested.js"
@@ -269,7 +269,7 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
     if (ast.kind !== "action" || frame === undefined) declareNetworkState(r, parsed.hidden ?? [])
     const inits = localInits(r)
     if (inits === undefined) return void drain(lw, r)
-    const rest = [...inits, ...lowerBlock(r, parsed.statements)]
+    const rest = [...inits, ...lowerBody(r, parsed.statements)]
     const body = [...resets.filter((reset) => !assignedFirst(reset, rest)), ...rest]
     if (drain(lw, r)) return undefined
     return { name, key, kind: ast.kind, uri: sym.uri, ...(frame === undefined ? {} : { fb: frame.name }), locals: r.localSlots, inputs, inouts: r.inoutSlots, ...(result === undefined ? {} : { result }), body, lent: interfaceFrame(r).lends }
@@ -304,7 +304,7 @@ export function baseBody(lw: Lowering, frame: FbType, base: PendingBody, span: S
     for (let i = first; i < r.inoutSlots.length; i++) r.inoutSlots[i] = { ...r.inoutSlots[i]!, ofInstance: true }
     // the base's own VAR_TEMP: locals of this routine, started over each time `SUPER^()` runs it (7.6.4)
     declareVars(r, unit.varSections.filter((s) => s.sectionKind === "VAR_TEMP"), true)
-    const body = [...(localInits(r) ?? []), ...lowerBlock(r, parsed.statements)]
+    const body = [...(localInits(r) ?? []), ...lowerBody(r, parsed.statements)]
     if (drain(lw, r)) return undefined
     return { name, key, kind: "action", fb: frame.name, locals: r.localSlots, inputs: [], inouts: r.inoutSlots, body, lent: interfaceFrame(r).lends }
   })
@@ -343,7 +343,7 @@ export function calledLayout(lw: Lowering, name: string, span: Span): IrLayout |
   declareNetworkState(frame, parsed.hidden ?? [])
   // its own VAR_TEMP starts over on every call (a base's, when `SUPER^()` runs that body): the body's locals, declared with
   // its layout (`storage/layout.ts`); only an initializer that runs is a statement
-  const body = [...(localInits(frame) ?? []), ...lowerBlock(frame, parsed.statements)]
+  const body = [...(localInits(frame) ?? []), ...lowerBody(frame, parsed.statements)]
   // A PROGRAM runs moved out of `Programs` in Rust (the call moves its instance out and back), so a program whose run
   // reaches its own instance — reading `P.x` from an FB it calls — would read a stand-in there. Refused.
   const own = unit.kind === "program" ? lw.shared.globals.byName.get(unit.name.text.toUpperCase()) : undefined

@@ -143,8 +143,14 @@ describe("what the lowering refuses, by name", () => {
     expect(codes("a, x, y : BOOL;", "%NETWORK\ny := MOVE(EN := a, a, NOT OUT => x).ENO;\n").map(([c]) => c)).toContain("network-box")
   })
 
-  test("a jump, as in an ST body", () =>
-    expect(codes("a, x : BOOL;", "%NETWORK\nJMP.l1 := a;\n%NETWORK\nl1:\nx := a;\n").map(([c]) => c)).toContain("stmt-jmp"))
+})
+
+describe("a jump crosses networks as in an ST body (`nt_jmp_over_network`, recorded 2026-10-31)", () => {
+  test("`JMP.l := v` passes the networks before its label while v holds", () => {
+    const r = runner("a, x, y : BOOL;", "%NETWORK\nJMP.l1 := a;\n%NETWORK\nx := TRUE;\n%NETWORK\nl1:\ny := TRUE;\n")
+    expect(trace(r, "x", [{ a: true }, { a: false }])).toEqual([false, true])
+    expect(r.get("y")).toBe(true)
+  })
 })
 
 describe("where a network's state lives", () => {

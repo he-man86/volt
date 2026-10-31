@@ -1,11 +1,13 @@
 /** STATEMENTS AS RUST — a statement list, the dispatch over the IR's statement kinds, and assign, IF, CASE. */
 import type { IrPou, IrStmt } from "../../ir/index.js"
-import { diverges, holdsCall, sameNode } from "../../ir/walk.js"
+import { diverges } from "../../ir/flow.js"
+import { holdsCall, sameNode } from "../../ir/walk.js"
 import { setCharIn } from "./builtins.js"
 import { stmtCall } from "./calls.js"
 import { expr, head, print } from "./expr.js"
 import { at, Prec, printed } from "./precedence.js"
 import { stmtBreak, stmtContinue, stmtLoop } from "./loops.js"
+import { jumpTo, stmtLabeled } from "./labels.js"
 import { tmp } from "./names.js"
 import { borrowOf, lvalue, place } from "./place.js"
 import { guardLine, letTemp, type Printer, push, use } from "./printer.js"
@@ -72,6 +74,10 @@ export function stmt(p: Printer, s: IrStmt, slots: IrPou["slots"], indent: numbe
     }
     case "call":
       return stmtCall(p, s, slots, indent)
+    case "labeled":
+      return stmtLabeled(p, s, slots, indent)
+    case "jump":
+      return jumpTo(p, s, indent)
   }
 }
 

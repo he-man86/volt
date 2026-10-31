@@ -1,7 +1,7 @@
 /** LOOPS AS RUST — the one IR loop as a Rust `while` (a head test) or `loop` (a tail test, or none), and EXIT and CONTINUE as
  *  Rust's own `break` and `continue` — or breaks out of the loop's two labels where a body block needs them. */
 import type { IrPou, IrStmt } from "../../ir/index.js"
-import { divergesAll, loopUses } from "../../ir/walk.js"
+import { divergesAll, loopUses } from "../../ir/flow.js"
 import { head, negated, print } from "./expr.js"
 import { tmp } from "./names.js"
 import { type Printer, push } from "./printer.js"

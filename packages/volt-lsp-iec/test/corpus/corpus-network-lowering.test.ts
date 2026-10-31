@@ -25,7 +25,7 @@ const REACHED: Readonly<Record<string, { compared: number; refused: number }>> =
   "bakon-nano": { compared: 0, refused: 1 },
   "lenze-mid": { compared: 13, refused: 20 },
   pro2193: { compared: 0, refused: 2 },
-  "twincat-project14": { compared: 1, refused: 1 },
+  "twincat-project14": { compared: 2, refused: 0 },
 }
 const TIMEOUT = 300_000
 

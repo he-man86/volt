@@ -5,6 +5,7 @@
  */
 import type { IrBinding, IrCall, IrInvoke, IrPou, IrRoutine, IrStmt, Place } from "../../ir/index.js"
 import { isPlace, type IrNode, someNode, somePlace, writtenPlaces } from "../../ir/walk.js"
+import { leaves } from "../../ir/flow.js"
 import { type Printer, reachOfBody } from "./printer.js"
 import { plainCopy } from "./types.js"
 
@@ -174,6 +175,7 @@ export function lateInit(routine: LocalsBody): Set<number> {
       }
       case "break":
       case "continue":
+      case "jump":
         return "dead"
       case "return":
         if (routine.result !== undefined && !st.has(routine.result)) seen.add(routine.result)
@@ -181,6 +183,13 @@ export function lateInit(routine: LocalsBody): Set<number> {
       case "call":
       case "eval":
         return effects(s, st)
+      // a segment may be entered from the body's entry on (a jump from any segment before a store reaches it): each is
+      // followed from the entry, as rustc follows the dispatch loop it prints as (`labels.ts`); its end the last one's —
+      // or, where a jump leaves the body from anywhere, what the entry had (a store only adds to what is assigned)
+      case "labeled": {
+        const end = s.segments.map((g) => list(g.body, st)).at(-1)!
+        return leaves(s) ? st : end
+      }
     }
   }
   const end = list(routine.body, new Set())
@@ -215,6 +224,12 @@ export function storedTwice(p: Printer, routine: LocalsBody): Set<number> {
         const inside = sites([...s.body, ...s.step])
         for (const slot of inside) twice.add(slot)
         return new Set([...entry, ...inside])
+      }
+      // a labeled body prints as a loop (`stmtLabeled`): a store in it may run on a second pass, as a loop's
+      case "labeled": {
+        const inside = sites(s.segments.flatMap((g) => g.body))
+        for (const slot of inside) twice.add(slot)
+        return new Set([...st, ...inside])
       }
       default:
         return store(sites(s), st)

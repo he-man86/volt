@@ -14,17 +14,17 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     3461
+ *     confirmed     3480
  *     refused       2510
- *     not-lowered    407
+ *     not-lowered    395
  *     lsp-gap         94
  *     diverges         6
  *     unaskable      317
  *
  *   tier                     lowered    clean
- *     decl                   1031     1031
+ *     decl                   1058     1058
  *     arith                  1788     1787
- *     control                 197      184
+ *     control                 198      185
  *     aggregate               176      176
  *     call                    452      452
  *     indirect                493      492
@@ -39,7 +39,7 @@
  *
  *   allowed, and how many fixtures each one still excuses — `support/transpile/lint-policy.ts` holds the reason
  *   each is Volt's own answer rather than a defect. A count could never reach zero: the generator refuses to write.
- *     clippy::missing_panics_doc               272
+ *     clippy::missing_panics_doc               287
  *     clippy::self_assignment                   42
  *     dead_code                                 42
  *     unused_assignments                        14
@@ -54,7 +54,7 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         3876
+ *     agree         3904
  *     disagree         0
  *     not-run        261
  *       not-run: no elementary variable to seed or compare      105
@@ -72,17 +72,17 @@
  *       agree,   5/6 unanswered (the interpreter's loop guard): tr_27_loop_cap_repeat_1000001
  *       agree,   5/6 unanswered (the interpreter's loop guard): tr_27_loop_cap_while_5000000
  *
- *   pedantic — 2347 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *   pedantic — 2365 clippy::pedantic + clippy::perf findings; the ten most frequent
  *     clippy::cast_possible_truncation          981
  *     clippy::cast_sign_loss                    733
  *     clippy::cast_possible_wrap                328
- *     clippy::pub_underscore_fields             130
- *     clippy::struct_excessive_bools             68
+ *     clippy::pub_underscore_fields             132
+ *     clippy::struct_excessive_bools             73
  *     clippy::cast_precision_loss                31
+ *     clippy::single_match_else                  21
  *     clippy::float_cmp                          14
  *     clippy::no_effect_underscore_binding       13
  *     clippy::used_underscore_binding            12
- *     clippy::cast_lossless                      10
  *
  *   size — emitted Rust lines per ST line, runtime-registry lines not counted: median 2.7; the ten largest
  *     string_positions_low                          26.2
@@ -96,7 +96,7 @@
  *     tr_a10_string_to_dint_underscore_sign_edges   10.8
  *     tr_a10_string_to_int_literal_forms            10.8
  *
- *   shape — 2090 distinct emission shapes over 4137 lowered fixtures, 2327 distinct constructs.
+ *   shape — 2104 distinct emission shapes over 4165 lowered fixtures, 2332 distinct constructs.
  *   20 constructs carry a review note (`NOTES`): 39 fixtures are improvable, 24 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  *   Notes per owning task (openspec transpile-restructure; a merged note counts once under each owner of its items;
@@ -853,13 +853,13 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   cc_unknown_member: { evidence: "refused" },
   cc_unterminated_if: { evidence: "refused" },
   cc_vg_duplicate_label: { evidence: "refused" },
-  cc_vg_jump_in_disabled_network: { evidence: "unaskable" },
+  cc_vg_jump_in_disabled_network: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 1.9, shape: "4150493ee9" },
   cc_vg_label_on_disabled_network: { evidence: "refused" },
   cc_vg_undeclared: { evidence: "refused" },
   cc_vg_undefined_label: { evidence: "refused" },
   cc_vg_unknown_member: { evidence: "refused" },
   cc_vg_unknown_pin: { evidence: "refused" },
-  cc_vg_unreferenced_label: { evidence: "unaskable" },
+  cc_vg_unreferenced_label: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.3, shape: "4150493ee9" },
   cc_wstring_init_too_long_2: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 3.2, shape: "bf6992fdec" },
   cc_wstring_init_too_long_7: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 3.2, shape: "bf6992fdec" },
   cc_wstring_plus_wstring: { evidence: "refused" },
@@ -1668,7 +1668,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   enumdup_two_refused: { evidence: "refused" },
   err_c0001_const_too_large: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.9, shape: "9e1bcd8911" },
   err_c0003_bad_bit_index: { evidence: "refused" },
-  err_c0116_duplicate_label: { evidence: "refused" },
+  err_c0116_duplicate_label: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.8, shape: "fe9f7c2628" },
   error_message: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 0, edge: "agree", size: 2.7, shape: "fc896ff999" },
   esc_around_carriage_return: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 3.2, shape: "cca3600759" },
   esc_around_dollar: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 3.2, shape: "cca3600759" },
@@ -1920,10 +1920,10 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   flw_for_usint_by_two_to_255: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 0, edge: "not-run", edgeUnanswered: 9, size: 2.7, shape: "4c88944d51" },
   flw_jmp_into_loop: { evidence: "not-lowered" },
   flw_jmp_label_duplicate: { evidence: "refused" },
-  flw_jmp_label_other_case: { evidence: "not-lowered" },
+  flw_jmp_label_other_case: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "cb956aa80b" },
   flw_jmp_to_variable: { evidence: "refused" },
   flw_jmp_undefined: { evidence: "refused" },
-  flw_label_unreferenced_two: { evidence: "not-lowered" },
+  flw_label_unreferenced_two: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.4, shape: "6214ab89c9" },
   flw_noop_array_element: { evidence: "not-lowered" },
   flw_noop_enum_value: { evidence: "not-lowered" },
   flw_noop_property_read: { evidence: "not-lowered", fix: "offers no 'Remove the statement…' on C0139" },
@@ -3620,7 +3620,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   newdel_without_pragma: { evidence: "refused", diverges: { codesys: "known" } },
   ng_box_output_arrow: { evidence: "unaskable", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 1.7, shape: "70255c824c" },
   ng_coil_storage: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 2, edge: "agree", size: 2.4, shape: "b6a5d87b17" },
-  ng_conditional_jump_and_return: { evidence: "unaskable" },
+  ng_conditional_jump_and_return: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 1, edge: "agree", size: 2.5, shape: "25282e83dd" },
   ng_edge_modifiers: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 2, edge: "agree", size: 5.1, shape: "0c58c6213f" },
   ng_en_eno_named_wire: { evidence: "unaskable", diverges: { codesys: "known" } },
   ng_en_eno_sink: { evidence: "unaskable", diverges: { codesys: "known" } },
@@ -3631,7 +3631,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   ng_group_comparison: { evidence: "unaskable", tier: "arith", rust: "compiles", pedantic: 0, edge: "agree", size: 2.2, shape: "e74b55884a" },
   ng_group_nary: { evidence: "unaskable", tier: "arith", rust: "compiles", pedantic: 1, edge: "agree", size: 2.4, shape: "beee95abc4" },
   ng_group_nested: { evidence: "unaskable", tier: "arith", rust: "compiles", pedantic: 1, edge: "agree", size: 2.4, shape: "bab6c6d40c" },
-  ng_label_jmp_resolved: { evidence: "unaskable" },
+  ng_label_jmp_resolved: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 1, edge: "agree", size: 2.8, shape: "2320d2714b" },
   ng_m_action_call: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 0, edge: "agree", size: 2.3, shape: "b851ef9f4b" },
   ng_m_conversion: { evidence: "unaskable", tier: "arith", rust: "compiles", pedantic: 1, edge: "agree", size: 2.4, shape: "9e97448740" },
   ng_m_function_constant_in_out: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 0, edge: "agree", size: 1.8, shape: "5d912a6a58" },
@@ -3668,7 +3668,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   ng_r1_ne_three_inputs: { evidence: "unaskable" },
   ng_r1_sub_three_inputs: { evidence: "unaskable", tier: "arith", rust: "compiles", pedantic: 0, edge: "agree", size: 2.4, shape: "2de5c3c39b" },
   ng_r5_array_instance: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 2, edge: "agree", size: 3.6, shape: "61bc041227" },
-  ng_r5_coil_and_jump: { evidence: "unaskable" },
+  ng_r5_coil_and_jump: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 2.4, shape: "759ec8500b" },
   ng_r5_coil_and_return: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 1, edge: "agree", size: 2.2, shape: "fe38dab273" },
   ng_r5_comparison_eno: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 2, edge: "agree", size: 2.6, shape: "e2c890d05e" },
   ng_r5_edge_pin: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 2, edge: "agree", size: 3.3, shape: "f848daf4e9" },
@@ -3676,13 +3676,13 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   ng_r5_enabled_comparison_value: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 2, edge: "agree", size: 2.6, shape: "7db85de24e" },
   ng_r5_named_eno: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 1, edge: "agree", size: 2.5, shape: "f81cacae4d" },
   ng_r5_negated_en: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 1, edge: "agree", size: 2.4, shape: "b40fd8e742" },
-  ng_r5_nested_jump: { evidence: "unaskable" },
+  ng_r5_nested_jump: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 3, edge: "agree", size: 2.6, shape: "1f781ea8bd" },
   ng_r5_one_input_add: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 1, edge: "agree", size: 2.3, shape: "a4a1e4a379" },
   ng_r5_one_input_and: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 1, edge: "agree", size: 2.3, shape: "a4a1e4a379" },
   ng_r5_split_before_definition: { evidence: "unaskable", tier: "arith", rust: "compiles", pedantic: 2, edge: "agree", size: 2.2, shape: "69de8d1d3b" },
   ng_r5_split_nested: { evidence: "unaskable" },
   ng_r5_two_eno: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 3, edge: "agree", size: 2.9, shape: "fe32622187" },
-  ng_r5_two_jumps: { evidence: "unaskable" },
+  ng_r5_two_jumps: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 1, edge: "agree", size: 2.4, shape: "f0dc997294" },
   ng_s2_nested_assign: { evidence: "unaskable" },
   ng_s2_nested_set_reset: { evidence: "unaskable" },
   ng_s3a_leaf_split_into_int: { evidence: "unaskable", tier: "arith", rust: "compiles", pedantic: 2, edge: "agree", size: 2.3, shape: "84d9b2880b" },
@@ -3700,6 +3700,9 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   no_virtual_actions: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.9, shape: "4b70673805" },
   noinit: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.7, shape: "8729805295" },
   not_result_width: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 7, edge: "agree", size: 7.7, shape: "9962731fb0" },
+  nt_coil_written_before_jump: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 3.4, shape: "5e3558ddce" },
+  nt_jmp_over_network: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 1, edge: "agree", size: 2.7, shape: "d6158fb00e" },
+  nt_return_on_value: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 0, edge: "agree", size: 2.2, shape: "44416e130d" },
   nt_wire_read_before_definition_scan1: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 2.4, shape: "bd3b38db33" },
   nt_wire_read_before_definition_scan2: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 2.4, shape: "bd3b38db33" },
   numeric_to_bool: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 5.8, shape: "42498f8a71" },
@@ -4365,12 +4368,12 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   qf_c0117_before: { evidence: "refused", fix: "BEFORE of qf_c0117_change" },
   qf_c0117_before_cr: { evidence: "refused", fix: "BEFORE of qf_c0117_change_cr" },
   qf_c0117_before_crlf: { evidence: "refused", fix: "BEFORE of qf_c0117_change_crlf" },
-  qf_c0117_change: { evidence: "not-lowered", fix: "AFTER of qf_c0117_before: C0117 'Change to 'skip''" },
-  qf_c0117_change_cr: { evidence: "not-lowered", fix: "AFTER of qf_c0117_before_cr: C0117 'Change to 'skip''" },
-  qf_c0117_change_crlf: { evidence: "not-lowered", fix: "AFTER of qf_c0117_before_crlf: C0117 'Change to 'skip''" },
-  qf_c0118_before: { evidence: "not-lowered", fix: "BEFORE of qf_c0118_remove" },
-  qf_c0118_before_cr: { evidence: "not-lowered", fix: "BEFORE of qf_c0118_remove_cr" },
-  qf_c0118_before_crlf: { evidence: "not-lowered", fix: "BEFORE of qf_c0118_remove_crlf" },
+  qf_c0117_change: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 1, edge: "agree", size: 3.3, shape: "3f3bc417b7", fix: "AFTER of qf_c0117_before: C0117 'Change to 'skip''" },
+  qf_c0117_change_cr: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 1, edge: "agree", size: 6.6, shape: "3f3bc417b7", fix: "AFTER of qf_c0117_before_cr: C0117 'Change to 'skip''" },
+  qf_c0117_change_crlf: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 1, edge: "agree", size: 3.3, shape: "3f3bc417b7", fix: "AFTER of qf_c0117_before_crlf: C0117 'Change to 'skip''" },
+  qf_c0118_before: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "7f327e5fec", fix: "BEFORE of qf_c0118_remove" },
+  qf_c0118_before_cr: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 5, shape: "7f327e5fec", fix: "BEFORE of qf_c0118_remove_cr" },
+  qf_c0118_before_crlf: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "7f327e5fec", fix: "BEFORE of qf_c0118_remove_crlf" },
   qf_c0118_remove: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "7f327e5fec", fix: "AFTER of qf_c0118_before: C0118 'Remove the label 'lbl'' (preferred)" },
   qf_c0118_remove_cr: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 5, shape: "7f327e5fec", fix: "AFTER of qf_c0118_before_cr: C0118 'Remove the label 'lbl'' (preferred)" },
   qf_c0118_remove_crlf: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "7f327e5fec", fix: "AFTER of qf_c0118_before_crlf: C0118 'Remove the label 'lbl'' (preferred)" },
@@ -5461,7 +5464,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   stmt_if_two_else: { evidence: "refused" },
   stmt_ini_call: { evidence: "refused" },
   stmt_jmp_no_semicolon: { evidence: "refused" },
-  stmt_label_at_end: { evidence: "not-lowered" },
+  stmt_label_at_end: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.3, shape: "7f327e5fec" },
   stmt_limit_call_statement: { evidence: "refused" },
   stmt_r_eq_false_keeps: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "ca3767a6a9" },
   stmt_r_eq_no_space: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "edb455adb1" },
@@ -5863,6 +5866,10 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tr_b5_time_times_udint_literal: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 3.3, shape: "d2057a9c36" },
   tr_b5_time_times_wide_literal: { evidence: "lsp-gap" },
   tr_b5_time_times_word: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 4.5, shape: "3f74067d54" },
+  tr_jmp_backward_counter_loop: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "74b3fde568" },
+  tr_jmp_forward_skip: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 1, edge: "agree", size: 3.4, shape: "46bb617590" },
+  tr_jmp_out_of_loop_to_later_label: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 1, edge: "agree", size: 3.2, shape: "bb1e3cdec0" },
+  tr_return_midway: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 1, edge: "agree", size: 3, shape: "cf1c8610c3" },
   tref_alias: { evidence: "refused" },
   tref_array_bound_name: { evidence: "refused" },
   tref_array_element: { evidence: "refused" },
@@ -6135,7 +6142,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   uoff_comment_control: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.5, shape: "18959e77be" },
   uoff_enum_value: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 1.6, shape: "32c43fc226", diverges: { codesys: "known", twincat: "known" } },
   uoff_global: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 3.5, shape: "658211dee6", diverges: { twincat: "known" } },
-  uoff_label: { evidence: "refused" },
+  uoff_label: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.5, shape: "7f327e5fec" },
   uoff_member_access: { evidence: "refused" },
   uoff_struct_member: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 3.1, shape: "9ae1356c71" },
   uoff_type_named: { evidence: "refused" },
@@ -6293,16 +6300,16 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   wp_label_abs: { evidence: "refused" },
   wp_label_abstract: { evidence: "refused" },
   wp_label_final: { evidence: "refused" },
-  wp_label_get: { evidence: "not-lowered" },
+  wp_label_get: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "7f327e5fec" },
   wp_label_int: { evidence: "refused" },
   wp_label_internal: { evidence: "refused" },
   wp_label_ld: { evidence: "refused" },
   wp_label_limit: { evidence: "refused" },
-  wp_label_override: { evidence: "not-lowered" },
+  wp_label_override: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "7f327e5fec" },
   wp_label_private: { evidence: "refused" },
   wp_label_protected: { evidence: "refused" },
   wp_label_public: { evidence: "refused" },
-  wp_label_set: { evidence: "not-lowered" },
+  wp_label_set: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "7f327e5fec" },
   wp_method_name_abstract: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 1.8, shape: "7f327e5fec" },
   wp_method_name_get: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 1.8, shape: "7f327e5fec" },
   wp_method_name_int: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 1.8, shape: "7f327e5fec" },

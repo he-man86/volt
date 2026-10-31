@@ -105,7 +105,10 @@ import { PROJECT_BASE, PROJECT_LOWERING } from "./support/project-libraries.js"
 // each store `out := TO_X(v)`, which names `out`, or `rec.b := …`, which this test does not read as a target.
 // 541 -> 545 (2026-10-29, lsp-field-false-positives 8.2), read: no new class — the lone-CR and CRLF twins of `qf_c0032_ref`
 // and `qf_c0032_wrap_chain` (`quick-fixes/line-end-twins.ts`), each renamed as its pair is.
-const RENAMED_TARGETS = 545
+// 545 -> 547 (2026-10-31, lower-jumps-and-labels), read: no new class — a network's hidden temp (`__nw<N>_eno<k>`, the
+// network lowering's own state): `y := JMP.l := v` holds `v` in a temp the coils and the jump share, so its first line is
+// `self.__nw1_eno1 = self.a` (`nt_coil_written_before_jump`, `ng_r5_nested_jump`, which lower now that a jump does).
+const RENAMED_TARGETS = 547
 
 interface Program {
   name: string

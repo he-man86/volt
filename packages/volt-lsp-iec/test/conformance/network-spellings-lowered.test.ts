@@ -3,9 +3,6 @@
  * `test/e2e/graphical/st-spellings-run.test.ts` pushes these networks into CODESYS and runs each beside its twin on one
  * stimulus that changes every scan: CODESYS answers network ≡ twin on every scan. Here the same pair is lowered, run on the
  * same stimulus by the same driver, and must agree on every scan too — so the lowering runs what CODESYS runs.
- *
- * The e2e networks' jumps (`JMP(skip1, …)`, `skip1:`, the jump in a tree) are left out: a jump is refused as in an ST
- * body (`stmt-jmp`, `network.test.ts`), so neither side lowers with one.
  */
 import { expect, test } from "bun:test"
 import { lowerSource } from "../../src/transpile/lower/index.js"
@@ -13,8 +10,8 @@ import { run } from "../../src/transpile/interp/index.js"
 import { PROJECT_BASE } from "./support/project-libraries.js"
 
 const inputs = "VAR_INPUT\n\ta, b, c, d : BOOL;\n\ti, j : INT;\nEND_VAR\n"
-const outputs = "VAR_OUTPUT\n\ty1, y2, y6, y9, y10, y11, y12 : INT;\n\tx1, x3, x5, x6, x7, lamp : BOOL;\nEND_VAR\nVAR\n\tc1, c2, c3, c4 : CTU;\nEND_VAR\n"
-const OUT = ["y1", "y2", "y6", "y9", "y10", "y11", "y12", "x1", "x3", "x5", "x6", "x7", "lamp"]
+const outputs = "VAR_OUTPUT\n\ty1, y2, y4, y5, y6, y7, y9, y10, y11, y12 : INT;\n\tx1, x2, x3, x5, x6, x7, lamp : BOOL;\nEND_VAR\nVAR\n\tc1, c2, c3, c4 : CTU;\nEND_VAR\n"
+const OUT = ["y1", "y2", "y4", "y5", "y6", "y7", "y9", "y10", "y11", "y12", "x1", "x2", "x3", "x5", "x6", "x7", "lamp"]
 
 const fn = "FUNCTION FN_Inc : INT\nVAR_INPUT\n\tIN : INT;\nEND_VAR\n%LANGUAGE ST\nFN_Inc := IN + 1;\nEND_FUNCTION\n"
 
@@ -43,7 +40,17 @@ MOVE(EN := c, c3(CU := b, PV := 3).CV, OUT => y11).ENO;
 c4(EN := c, CU := RISING(d), PV := 5, CV => y12).ENO;
 %NETWORK
 lamp := b AND d;
+JMP.skip1 := b AND d;
 %NETWORK
+y4 := ADD(y4, 1);
+%NETWORK
+skip1:
+x2 := (JMP.skip2 := c) AND d;
+%NETWORK
+y5 := ADD(y5, 1);
+%NETWORK
+skip2:
+y7 := ADD(y7, 1);
 RETURN := d AND NOT a;
 %NETWORK
 y6 := ADD(y6, 1);
@@ -52,7 +59,7 @@ END_PROGRAM
 
 const twin = `PROGRAM P_Twin
 ${inputs}${outputs}VAR
-\tt1 : BOOL;
+	t, t1 : BOOL;
 \ttr : R_TRIG;
 \tw1 : BOOL;
 END_VAR
@@ -75,6 +82,15 @@ IF c THEN y11 := c3.CV; END_IF;
 tr(CLK := d);
 IF c THEN c4(CU := tr.Q, PV := 5, CV => y12); END_IF;
 lamp := b AND d;
+IF b AND d THEN JMP skip1; END_IF;
+y4 := y4 + 1;
+skip1:
+t := c;
+IF t THEN JMP skip2; END_IF;
+x2 := t AND d;
+y5 := y5 + 1;
+skip2:
+y7 := y7 + 1;
 IF d AND NOT a THEN RETURN; END_IF;
 y6 := y6 + 1;
 END_PROGRAM

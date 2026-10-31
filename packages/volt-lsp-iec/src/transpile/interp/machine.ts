@@ -18,8 +18,9 @@ import {
 import { type Cell, compileRead, compileWrite, Frame } from "./frame.js"
 import { call, type Caller, invoke } from "./calls.js"
 
-/** How a statement list ended: normally, or by EXIT, CONTINUE or RETURN. */
-type Signal = "none" | "break" | "continue" | "return"
+/** How a statement list ended: normally, or by EXIT, CONTINUE or RETURN — or by a JMP, to the segment of its labeled body
+ *  it names (a number: the segment). */
+type Signal = "none" | "break" | "continue" | "return" | number
 
 /**
  * A HARNESS gave up on a loop — not a program outcome. CODESYS caps no loop (`tr_27_loop_cap_*` run 1,000,001 and
@@ -234,7 +235,8 @@ function compileStmt(s: IrStmt): Run<Signal> {
           if (m.guard !== undefined && n > m.guard) throw new LoopGuardError(m.guard)
           const sig = body(m)
           if (sig === "break") break
-          if (sig === "return") return sig
+          // a RETURN, or a JMP: its label stands at the body's top level, outside every loop
+          if (sig !== "none" && sig !== "continue") return sig
           step(m)
           if (after !== undefined && !bool(after(m))) break
         }
@@ -260,5 +262,30 @@ function compileStmt(s: IrStmt): Run<Signal> {
       return () => "continue"
     case "return":
       return () => "return"
+    case "jump":
+      return () => s.target
+    case "labeled":
+      return compileLabeled(s)
+  }
+}
+
+/** A labeled body: the segments in order, each on from the one before; a jump goes on at its segment, or past the last.
+ *  A jump into the body is a pass of a loop as much as a FOR's is: the harness's guard counts it (`LoopGuardError`). */
+function compileLabeled(s: Extract<IrStmt, { kind: "labeled" }>): Run<Signal> {
+  const segments = s.segments.map((g) => compiledBlock(g.body))
+  return (m) => {
+    let jumps = 0
+    for (let at = 0; at < segments.length; ) {
+      const sig = segments[at]!(m)
+      if (typeof sig !== "number") {
+        if (sig !== "none") return sig
+        at++
+        continue
+      }
+      // past the last segment: the label at the body's end, which leaves it
+      if (m.guard !== undefined && sig < segments.length && ++jumps > m.guard) throw new LoopGuardError(m.guard)
+      at = sig
+    }
+    return "none"
   }
 }

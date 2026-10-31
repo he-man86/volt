@@ -12,7 +12,7 @@ import { storageOf } from "../storage/layout.js"
 import { inferExprType, UNKNOWN } from "../../../frontend/types/index.js"
 import { declareVars } from "../storage/declare.js"
 import { declareNetworkState } from "../network/state.js"
-import { lowerBlock } from "../statements/statements.js"
+import { lowerBody } from "../statements/statements.js"
 import { isSuper } from "./super.js"
 import { instancePlace, selfFb, thisPlace } from "../places/self.js"
 import { lowerPlace } from "../places/places.js"
@@ -49,7 +49,7 @@ export function propertyRoutine(lw: Lowering, frame: FbType, sym: RoutineSymbol,
     r.localSlots.push({ name: sym.name, type, section: accessor === "get" ? "VAR" : "VAR_INPUT", init: zeroInit(type) })
     declareVars(r, part.varSections)
     declareNetworkState(r, parsed.hidden ?? [])
-    const body = lowerBlock(r, parsed.statements)
+    const body = lowerBody(r, parsed.statements)
     if (drain(lw, r)) return undefined
     const shape = accessor === "get" ? { inputs: [], result: 0 } : { inputs: [0] }
     return { name, key, kind: "method", fb: frame.name, uri: sym.uri, locals: r.localSlots, inouts: [], ...shape, body, lent: interfaceFrame(r).lends }

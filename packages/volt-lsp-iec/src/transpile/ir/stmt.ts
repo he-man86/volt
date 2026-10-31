@@ -5,7 +5,7 @@ import type { IrValue } from "./program.js"
 
 // ─── statements ──────────────────────────────────────────────────────────────
 
-export type IrStmt = IrAssign | IrIf | IrSwitch | IrLoop | IrBreak | IrContinue | IrReturn | IrCall | IrEval
+export type IrStmt = IrAssign | IrIf | IrSwitch | IrLoop | IrBreak | IrContinue | IrReturn | IrCall | IrEval | IrLabeled | IrJump
 
 /** A METHOD, ACTION or FUNCTION called as a statement — directly or through an interface; its result, if any, is dropped. */
 export interface IrEval {
@@ -82,5 +82,29 @@ export interface IrContinue {
 }
 export interface IrReturn {
   kind: "return"
+  span: Span
+}
+/**
+ * A BODY WHOSE TOP LEVEL HOLDS A LABEL A JMP NAMES (openspec lower-jumps-and-labels): its statements cut at each such
+ * label into segments, run in order — a segment that ends normally goes on to the next, and a `jump` anywhere inside goes
+ * on at the segment it names. Labels stand only here, at a body's top level; a network body's labels are its one
+ * statement list's, so a jump crosses networks as it crosses ST lines. A RETURN leaves the body as anywhere.
+ */
+export interface IrLabeled {
+  kind: "labeled"
+  segments: readonly IrSegment[]
+  span: Span
+}
+/** A segment of a `labeled` body: the label it starts at (none for the statements before the first one), and its run. */
+export interface IrSegment {
+  label?: string
+  body: readonly IrStmt[]
+}
+/** `JMP l;`: go on at segment `target` of the `labeled` body around it — one past its last segment (a label at the body's
+ *  end) leaves the body. A conditional jump is an IF holding one. */
+export interface IrJump {
+  kind: "jump"
+  target: number
+  label: string
   span: Span
 }
