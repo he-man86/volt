@@ -14,7 +14,7 @@
     "fixtures codesys: refused, no LSP parse error": 1455,
     "fixtures codesys: the push refuses it, LSP parse error": 55,
     "fixtures codesys: the push refuses it, no LSP parse error": 106,
-    "fixtures codesys: unrecorded, no LSP parse error": 151,
+    "fixtures codesys: unrecorded, no LSP parse error": 153,
     "fixtures twincat: builds, no LSP parse error": 3512,
     "fixtures twincat: known divergence (support/divergences.ts), not measured": 314,
     "fixtures twincat: parse errors twincat recorded": 4251,
@@ -23,7 +23,7 @@
     "fixtures twincat: refused, no LSP parse error": 1483,
     "fixtures twincat: the push refuses it, LSP parse error": 58,
     "fixtures twincat: the push refuses it, no LSP parse error": 149,
-    "fixtures twincat: unrecorded, no LSP parse error": 175,
+    "fixtures twincat: unrecorded, no LSP parse error": 177,
     "library: bodies": 50
   },
   "findings": [

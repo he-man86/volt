@@ -11,6 +11,7 @@ import { childScopesByName, lookupMember } from "../../../frontend/symbols/index
 import { storageOf } from "../storage/layout.js"
 import { inferExprType, UNKNOWN } from "../../../frontend/types/index.js"
 import { declareVars } from "../storage/declare.js"
+import { declareNetworkState } from "../network/state.js"
 import { lowerBlock } from "../statements/statements.js"
 import { isSuper } from "./super.js"
 import { instancePlace, selfFb, thisPlace } from "../places/self.js"
@@ -47,6 +48,7 @@ export function propertyRoutine(lw: Lowering, frame: FbType, sym: RoutineSymbol,
     r.localByName.set(sym.name.toUpperCase(), 0)
     r.localSlots.push({ name: sym.name, type, section: accessor === "get" ? "VAR" : "VAR_INPUT", init: zeroInit(type) })
     declareVars(r, part.varSections)
+    declareNetworkState(r, parsed.hidden ?? [])
     const body = lowerBlock(r, parsed.statements)
     if (drain(lw, r)) return undefined
     const shape = accessor === "get" ? { inputs: [], result: 0 } : { inputs: [0] }

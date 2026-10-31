@@ -29,7 +29,8 @@ function program(c: ExecCase): LanguageTest {
     fromDoc: "execution-oracle",
     source: "",
     plcPrgVar: c.vars,
-    plcPrgBody: c.body,
+    // a network body states its language, as a workspace file does (`ExecCase.language`)
+    plcPrgBody: c.language === undefined ? c.body : `%LANGUAGE ${c.language}\n${c.body}`,
     ...(c.cycles === undefined ? {} : { cycles: c.cycles }),
     ...(c.rejects === undefined ? {} : { refused: c.rejects }),
     ...(c.deferred === undefined && c.lspDeferred === undefined

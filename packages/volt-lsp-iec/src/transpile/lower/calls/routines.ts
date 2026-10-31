@@ -18,6 +18,7 @@ import type { PendingBody } from "../core/shared.js"
 import type { LowerDiagnostic } from "../diagnostics/diagnostic.js"
 import type { Expr, Span, TopLevel, VarSection } from "../../../frontend/syntax/index.js"
 import { bodyOf } from "./body.js"
+import { declareInFrame, declareNetworkState } from "../network/state.js"
 import type { IrExpr, IrLayout, IrRoutine, IrStmt, Place } from "../../ir/index.js"
 import { holdsCall, someNode, somePlace } from "../../ir/walk.js"
 import { programReentrant, touchedOf, touchesOf } from "./reentrancy.js"
@@ -242,6 +243,8 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
     if ("code" in parsed) return lw.bail(parsed.code, parsed.message, sym.span, sym.uri)
     const kept = keptVariables(lw, sym, sections, frame, span)
     if (kept === undefined) return undefined
+    // an ACTION's network state: fields of the instance it runs on (a METHOD's or FUNCTION's: its call's, below)
+    if (ast.kind === "action" && frame !== undefined && !declareInFrame(lw, frame.name, parsed.hidden ?? [], span)) return undefined
 
     const key = name.toUpperCase()
     const r = routineLowering(lw, scope, frame, frame === undefined ? undefined : sym.owner, key, name)
@@ -263,6 +266,7 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
     const resets = declareOutputs(lw, r, sections.filter((s) => s.sectionKind === "VAR_OUTPUT"), span)
     if (resets === undefined) return undefined
     if (frame !== undefined) instanceInOuts(lw, r, sym, frame, parsed.statements)
+    if (ast.kind !== "action" || frame === undefined) declareNetworkState(r, parsed.hidden ?? [])
     const inits = localInits(r)
     if (inits === undefined) return void drain(lw, r)
     const rest = [...inits, ...lowerBlock(r, parsed.statements)]
@@ -282,8 +286,9 @@ export function baseBody(lw: Lowering, frame: FbType, base: PendingBody, span: S
   return once(lw, name, span, () => {
     const chain = chainOf(lw, unit)
     if (chain === undefined) return lw.bail(brokenAtLibrary(lw, unit) ? "call-library" : "base-unresolved", `a base of ${unit.name.text} has no body lowering can reach`, unit.name.span, base.uri)
-    const parsed = bodyOf(lw, unit, unit.body, unit.name.text)
+    const parsed = bodyOf(lw, unit, unit.body, unit.name.text, { frame: unit.name.text })
     if ("code" in parsed) return lw.bail(parsed.code, parsed.message, unit.name.span, base.uri)
+    if (!declareInFrame(lw, frame.name, parsed.hidden ?? [], span)) return undefined
     const key = name.toUpperCase()
     const r = routineLowering(lw, base.lowering.scope, frame, base.lowering.codeOwner, key)
     declareInOuts(r, inOutSections(chain))
@@ -334,6 +339,8 @@ export function calledLayout(lw: Lowering, name: string, span: Span): IrLayout |
   const before = frame.diagnostics.length
   declareInOuts(frame, inOutSections(chain))
   pending.state = "lowering"
+  // its networks' state: fields of the instance (the live layout, `storage/layout.ts`)
+  declareNetworkState(frame, parsed.hidden ?? [])
   // its own VAR_TEMP starts over on every call (a base's, when `SUPER^()` runs that body): the body's locals, declared with
   // its layout (`storage/layout.ts`); only an initializer that runs is a statement
   const body = [...(localInits(frame) ?? []), ...lowerBlock(frame, parsed.statements)]

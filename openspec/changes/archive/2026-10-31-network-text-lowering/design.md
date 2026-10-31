@@ -1,7 +1,50 @@
 # network-text-lowering — design
 
-Nothing is decided yet. The three open points of `proposal.md` stay questions for the owner; this file holds the
-measurements they are decided on.
+The three open points of `proposal.md` are decided (below, "Decided 2026-10-31"); the measurements they were decided on
+follow.
+
+## Decided 2026-10-31
+
+1. **Route (b).** Network boxes lower directly in `src/transpile/lower/network/`: each box form becomes the ST statements
+   it runs as (AST nodes carrying the user's spans), lowered by `statements/`, `expressions/` and `calls/` as any ST. The
+   exec twin (`test/support/network-twin*.ts`) stays in `test/` as the independent oracle (task 3.2). Hidden state has
+   `__` names, which no ST identifier can spell.
+2. **Wire paths: one spelling, positional.** `__nw<N>_<wire>`, `__nw<N>_eno<k>`, `__nw<N>_trig<k>`, `<N>` the 1-based
+   index of the network in its body (a `%DISABLED` one counted); in a body that runs in another body's frame (an ACTION,
+   a base body run by `SUPER^()`) `__nw_<body>_<N>_…`. No label variant.
+3. **Scan 1 is recorded, not inferred.** `ExecCase.language` (`"LD" | "FBD"`) states a network body; its cases are
+   recorded through a served CODESYS (`scripts/record-exec-network.ts`), and the lowering reads a wire before its
+   definition as the recording says.
+
+## As built (2026-10-31)
+
+- **Scan 1, recorded** (CODESYS 3.5.21.40 simulation, `nt_wire_read_before_definition_scan1|2`): `y := w1; w1 :=
+  ADD(i, 5); z := w1;` with `i = 7` gives scan 1 `y = 0, z = 12`, scan 2 `y = 12, z = 12`. A wire read before its
+  definition reads its type's initial value on scan 1 and the previous scan's value after: a variable of the frame,
+  started at its type's initial value — what the lowering declares (`network/state.ts`).
+- **The wire-merge finding does not stand.** Two networks of one body cannot both name `w1`: the bridge's reader refuses
+  the push (`StNetworkReader`: "the wire 'w1' is named on an earlier network too: a wire name is one network's in a
+  body", `NETWORK_PARSE`, measured live with the two-network pair) and the LSP's network check says the same
+  (`_plain-st.ts`). So a body's wire names are unique, the twin's per-body map is one wire per name, and nothing was
+  changed in the twin; the pair is no exec case (nothing CODESYS could run). The lowering keys wires per network
+  (`__nw<N>_<wire>`), which is the same thing for every body that pushes.
+- **What it is.** `src/transpile/lower/network/` (5 files, ~630 lines): `network.ts` (statements, wires, the
+  network's own elements), `boxes.ts` (the box rules), `guarded.ts` (a short-circuit branch's calls), `ast.ts` (the ST
+  nodes, user spans), `state.ts` (the hidden variables, declared where the body runs). `calls/body.ts` `bodyOf` lowers
+  a plain-ST network body instead of refusing it; every body site declares its state (a POU's, FB's, METHOD's,
+  FUNCTION's, accessor's in its own frame; an ACTION's and a `SUPER^()` base body's in the instance's frame).
+- **Refused by name** (each the twin's own reason): `network-box` (not modelled — an enabled non-comparison box read in
+  a tree, a box read through a VAR_OUTPUT other than `OUT`, an FB box read whose output no declaration names, a `???`
+  box read or enabled, a wire of no type, an EXECUTE call that is no Execute box, a statement no rule writes);
+  `network-invalid` (CODESYS does not compile it — a box showing ENO without EN at a root or on an FB);
+  `network-wire-type` (a wire of an array/pointer/reference type); `network-frame`. A jump and a label are refused as in
+  an ST body (`stmt-jmp`, `stmt-label`): the IR has no jump.
+- **Oracles.** 3.1: the recorded scan-1/scan-2 cases replay equal; the spellings `st-spellings-run.test.ts` runs live
+  (network ≡ twin in CODESYS) lower equal to their twins on 48 scans of the same stimulus
+  (`test/conformance/network-spellings-lowered.test.ts`; its jumps left out, refused as above). 3.2:
+  `test/corpus/corpus-network-lowering.test.ts` — every corpus POU holding a network body (39), lowered as pulled and
+  with every body twinned: 14 lower and run equal on 12 scans of driven inputs and globals, 25 are refused by the same
+  codes both ways, 0 differ. A mutation (an enabled comparison TRUE when disabled) fails it.
 
 ## Measured (read-only step, 2026-10-30)
 
@@ -146,3 +189,7 @@ recording says `y = 0`. **Counter-case:** the twin's `VAR` already implies the d
 
 **Owner question 3:** extend `ExecCase` with a body language and record these cases (CODESYS; TwinCAT has no runtime
 licence here), or answer scan 1 by adding a discriminating stimulus to `st-spellings-run.test.ts`?
+- **Suite memory** (owner question, 2026-10-31): the full volt-lsp-iec suite peaks at 9.97 GB working set / 11.44 GB
+  private on this change against 9.46 GB / 11.43 GB on its merge base (dev `dc7be6e745`), measured the same way
+  (one `bun test` process, sampled every 2 s). Private memory is unchanged; the new corpus oracle alone peaks at
+  3.3 GB, as `corpus-twins.test.ts` does (3.0 GB). The suite's ~10 GB is dev's, not this change's.
