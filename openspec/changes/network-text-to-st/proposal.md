@@ -22,7 +22,7 @@ network semantics; volt is the maintainer.
    users do not expect a body to build as ST.
 2. For each network-only form, review whether a real ST spelling exists that draws the same picture (owner rule:
    "whenever we can simplify parts of the language we should not neglect it"). `R_EDGE` has none today (an R_TRIG call
-   needs a declared instance the IDE never had; archived `network-text-literal-nwl` 1.14), so it likely stays, but the
+   needs a declared instance the IDE never had; archived `network-text-literal-nwl` 1.14). Owner 2026-10-31: "then lets keep R_EDGE but not decl" — R_EDGE stays, never with a declared instance (CODESYS keeps the edge memory hidden). The
    question is asked once for all of them.
 3. Export the twin as a service (`networkToSt(text) -> { st, declarations }`): this argues for option (a) "twin as
    source" in `network-text-lowering`. Sim-Assist's dropdown calls it for LD/FBD -> ST. ST -> LD/FBD stays a parse:
