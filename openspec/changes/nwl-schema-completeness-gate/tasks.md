@@ -5,9 +5,9 @@
 
 ## 2. Gate
 
-- [ ] 2.1 Generator (class × slot × flag, pairwise stacks, depth ≤ 2; cuts logged)
-- [ ] 2.2 Both-way round trip gate; every combination = one spelling or a named refusal
-- [ ] 2.3 Export the shapes as a versioned fixture for Sim-Assist
+- [x] 2.1 Generator (class × slot × flag, pairwise stacks, depth ≤ 2; cuts logged)
+- [x] 2.2 Both-way round trip gate; every combination = one spelling or a named refusal
+- [x] 2.3 Export the shapes as a versioned fixture for Sim-Assist
 
 ## 3. CODESYS
 
