@@ -154,3 +154,12 @@ A PROGRAM keeps it across scans (measured 2026-10-27, `st-spellings-run`).
 2. **A pushed `EXECUTE` without EN never runs** (F13).
 3. **Pushed boxes differ from drawn ones in held members.** The call-form AND stores EN/ENO null where a drawn one stores
    false (F11). A root box stores no output list where a drawn one stores its names with the null at slot 0 (F3).
+
+## Decided by Volt + Sim-Assist, 2026-10-31
+
+- **F2: `OPERAND('…')`**, one spelling for an operand that holds ST text. Its argument is a literal string with normal ST
+  escaping (`$'`, `$$`). Any other argument is refused by name.
+- **F3:** `.NAME` is allowed at a root box. **F8:** wires are `VAR w1 : ANY; END_VAR`. **F13:** EXECUTE follows the
+  general EN/ENO rule.
+- **F6, F10, F11, F12, F15:** no Volt change. The measurements show distinct stored models, or a picture decided by the
+  operand's own type. Sim-Assist fixes its editor (layout keyed on the operand's type, no merging of nested series).
