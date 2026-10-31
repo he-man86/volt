@@ -1,6 +1,6 @@
 /**
  * THE NWL SCHEMA GATE'S SHAPES ON A LIVE CODESYS (openspec nwl-schema-completeness-gate 3.1): a sample of the spelled
- * shapes the offline gate exports (`test/fixtures/nwl-schema/shapes.v1.jsonl`) — one per depth × slot × class and one per
+ * shapes the offline gate exports (`test/fixtures/nwl-schema/shapes.v2.jsonl`) — one per depth × slot × class and one per
  * flag holder × flag value, in each language — is pushed as the networks of small function blocks, pulled back (the IDE
  * stores it as the text spells it: an exact round trip and a fixed point), exported natively (the IDE serializes the
  * implementation it holds) and built (every error recorded against the block that raised it, since a build names no POU).
@@ -36,7 +36,7 @@ interface Shape {
 }
 
 const FIXTURES = join(import.meta.dir, "..", "..", "fixtures", "nwl-schema")
-const lines = readFileSync(join(FIXTURES, "shapes.v1.jsonl"), "utf8").replace(/\r\n/g, "\n").trim().split("\n")
+const lines = readFileSync(join(FIXTURES, "shapes.v2.jsonl"), "utf8").replace(/\r\n/g, "\n").trim().split("\n")
 const shapes: Shape[] = lines.slice(1).map((l): Shape => JSON.parse(l))
 
 /** One spelled shape per language × depth × slot × class, and per language × holder × flags. */

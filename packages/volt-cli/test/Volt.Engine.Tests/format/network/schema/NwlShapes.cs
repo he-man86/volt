@@ -15,7 +15,7 @@ namespace Volt.Engine.Tests.Format.Network.Schema;
 public sealed record NwlShape(string Class, string Slot, string Holder, int Bits, int Depth, BodyLanguage Language,
                               NetworkBody? Body, string? VendorRefusal)
 {
-    public string Flags => NwlShapes.BitsName(Bits);
+    public string Flags => NwlShapes.IsComment(Holder) ? "'" + NwlShapes.Comment + "'" : NwlShapes.BitsName(Bits);
 
     /// <summary>The shape's stable id: language, depth, slot, class, holder, flags.</summary>
     public string Id => $"{(Language == BodyLanguage.Ld ? "LD" : "FBD")}/d{Depth}/{Slot}/{Class}" +
@@ -35,10 +35,18 @@ public sealed record NwlShape(string Class, string Slot, string Holder, int Bits
 /// with an input, a parallel fed by the empty terminator, a negation or edge on an assignment item) is the refusal's
 /// marker instead — the name that reader gives it.</para>
 ///
+/// <para>The operand comment (<c>Operand.Comment</c>) is generated as a holder of its own on every operand a class carries
+/// (a leaf, a coil target, an output, an FB instance), set to one comment.</para>
+///
 /// <para>What is CUT is listed in <see cref="Cuts"/>, so the gate states its coverage exactly.</para>
 /// </summary>
 public static class NwlShapes
 {
+    /// <summary>The comment an operand-comment shape sets.</summary>
+    public const string Comment = "why";
+
+    public static bool IsComment(string holder) => holder.StartsWith("Operand.Comment", StringComparison.Ordinal);
+
     /// <summary>The fixed scope every shape is read and written against, in the case-set's scope-line form (the export
     /// carries it, so the LSP and Sim-Assist read the texts against the same declarations).</summary>
     public static readonly IReadOnlyList<string> ScopeLines = new[]
@@ -128,7 +136,6 @@ public static class NwlShapes
 
     public const string MuxMarker = "an item with no network-text form";
     public const string TerminatorInputMarker = "a terminator with an input";
-    public const string ParallelTerminatorFeedMarker = "a Parallel fed by the empty terminator";
 
     /// <summary>What the generator does not generate, each a line of the coverage it states.</summary>
     public static readonly IReadOnlyList<string> Cuts = new[]
@@ -137,7 +144,7 @@ public static class NwlShapes
         "stacks of three or more flag bits on one holder; flags on two holders at once",
         "a flag holder's non-first instances (a box's second input pin, a chain's second coil target): the first stands for its kind",
         "Flags.Fixed and Flags.Extensible: the model carries neither (census model-map findings), so no shape can vary them",
-        "member values other than the flags, a box's CallType/EN/ENO/snippet and a parallel's Mode (the class variants): operand text, types, comments, formal names, network header fields — the case set covers those",
+        "member values other than the flags, the operand comment, a box's CallType/EN/ENO/snippet and a parallel's Mode (the class variants): operand text, types, symbol comments, formal names, network header fields — the case set covers those",
         "Network.NetworkItems is typed Object: only the IBoxTree classes are placed there",
         "BoxTreeMux.Merger (an IBoxTreeBox slot) and BoxTreeTerminator.Input: no model field — every class there is the CODESYS reader's refusal",
         "the non-IBoxTree slots (OutputItems, Instance, ParamList, STSnippet, NetworkList, ILLines, Connectors): fixed by their owner, varied only through their flags",
@@ -153,7 +160,7 @@ public static class NwlShapes
         {
             foreach (var (slot, slotText) in Slots)
                 foreach (var (cls, _) in Classes)
-                    foreach (var (holder, bits) in Holders(cls).SelectMany(h => (h.Length == 0 ? new[] { 0 } : BitValues()).Select(b => (h, b))))
+                    foreach (var (holder, bits) in Holders(cls).SelectMany(h => (h.Length == 0 || IsComment(h) ? new[] { 0 } : BitValues()).Select(b => (h, b))))
                         shapes.Add(Shape(lang, 1, slot, slotText, null, cls, holder, bits));
 
             foreach (var (outer, outerText) in Slots.Where(s => s.Text is not null))
@@ -167,12 +174,12 @@ public static class NwlShapes
     /// <summary>The flag holders of <paramref name="cls"/>, "" for "no holder" (a class with none still gets one shape).</summary>
     public static IReadOnlyList<string> Holders(string cls) => cls switch
     {
-        "BoxTreeOperand" => new[] { "Operand.Flags" },
-        "BoxTreeBox[fb]" => new[] { "BoxTreeBox.Flags", "BoxTreeBox.InputFlags", "Operand.Flags[instance]" },
-        "BoxTreeBox[en-eno]" => new[] { "BoxTreeBox.Flags", "BoxTreeBox.InputFlags", "BoxTreeBox.InputFlags[EN]", "Operand.Flags[output]" },
+        "BoxTreeOperand" => new[] { "Operand.Flags", "Operand.Comment" },
+        "BoxTreeBox[fb]" => new[] { "BoxTreeBox.Flags", "BoxTreeBox.InputFlags", "Operand.Flags[instance]", "Operand.Comment[instance]" },
+        "BoxTreeBox[en-eno]" => new[] { "BoxTreeBox.Flags", "BoxTreeBox.InputFlags", "BoxTreeBox.InputFlags[EN]", "Operand.Flags[output]", "Operand.Comment[output]" },
         "BoxTreeBox[execute]" => new[] { "BoxTreeBox.Flags", "BoxTreeBox.InputFlags[EN]" },
         _ when cls.StartsWith("BoxTreeBox", StringComparison.Ordinal) => new[] { "BoxTreeBox.Flags", "BoxTreeBox.InputFlags" },
-        "BoxTreeAssign" => new[] { "BoxTreeAssign.Flags", "Operand.Flags[target]" },
+        "BoxTreeAssign" => new[] { "BoxTreeAssign.Flags", "Operand.Flags[target]", "Operand.Comment[target]" },
         "BoxTreeTerminator" => new[] { "BoxTreeTerminator.Flags" },
         _ => new[] { "" },   // Demux, Parallel: the census gives them no Flags member; Mux: refused
     };
@@ -188,7 +195,7 @@ public static class NwlShapes
 
         var extra = new List<Node>();
         var node = Instance(cls, extra, root: depth == 1 && slot == "Network.NetworkItems");
-        if (holder.Length > 0 && bits != 0)
+        if (holder.Length > 0 && (bits != 0 || IsComment(holder)))
         {
             try { node = WithFlags(node, holder, bits); }
             catch (UnrepresentableBodyException e) { return Refused(e.Reason); }
@@ -208,28 +215,8 @@ public static class NwlShapes
         }
         trees.AddRange(extra);
 
-        if (VendorRefusal(trees) is { } marker) return Refused(marker);
         var body = new NetworkBody(lang, new[] { new Volt.Engine.Format.Network.Network(0, null, null, null, false, trees) });
         return new NwlShape(cls, slot, holder, bits, depth, lang, body, null);
-    }
-
-    /// <summary>The CODESYS reader's refusals of a stored shape before any model exists, in model terms.</summary>
-    static string? VendorRefusal(IEnumerable<Node> trees)
-    {
-        string? found = null;
-        void Walk(Node? n)
-        {
-            if (n is null || found is not null) return;
-            if (n is Parallel { Input: Terminator }) { found = ParallelTerminatorFeedMarker; return; }
-            if (n is Assign a)
-            {
-                try { UnheldFlags.RefuseOnAssignItem("CODESYS", a.Flags with { Jump = false, Return = false }); }
-                catch (UnrepresentableBodyException e) { found = e.Reason; return; }
-            }
-            foreach (var c in n.Children()) Walk(c);
-        }
-        foreach (var t in trees) Walk(t);
-        return found;
     }
 
     // ── building ─────────────────────────────────────────────────────────────────────────────────────────────────
@@ -270,6 +257,14 @@ public static class NwlShapes
         var f = ModelFlags(bits, target: holder == "Operand.Flags[target]");
         switch (n, holder)
         {
+            case (Leaf l, "Operand.Comment"):
+                return l with { Operand = l.Operand with { Comment = Comment } };
+            case (Assign a, "Operand.Comment[target]"):
+                return a with { Targets = a.Targets.Select((t, i) => i == 0 ? t with { Comment = Comment } : t).ToList() };
+            case (Box b, "Operand.Comment[output]"):
+                return b with { Outputs = b.Outputs.Select((o, i) => i == 0 ? o with { Value = o.Value with { Comment = Comment } } : o).ToList() };
+            case (Box b, "Operand.Comment[instance]"):
+                return b with { Instance = b.Instance! with { Comment = Comment } };
             case (Leaf l, "Operand.Flags"):
                 return new Leaf(l.Operand with { Flags = f }, f);
             case (Box b, "BoxTreeBox.Flags"):
@@ -283,11 +278,7 @@ public static class NwlShapes
             case (Box b, "Operand.Flags[output]"):
                 return b with { Outputs = b.Outputs.Select((o, i) => i == 0 ? o with { Value = o.Value with { Flags = f } } : o).ToList() };
             case (Assign a, "BoxTreeAssign.Flags"):
-            {
-                // the CODESYS reader refuses a negation or an edge on the item itself (UnheldFlags.RefuseOnAssignItem)
-                UnheldFlags.RefuseOnAssignItem("CODESYS", f);
                 return a with { Flags = f.WithControlFlowFrom(a.Targets) };
-            }
             case (Assign a, "Operand.Flags[target]"):
             {
                 var targets = a.Targets.Select((t, i) => i == 0 ? t with { Flags = f } : t).ToList();

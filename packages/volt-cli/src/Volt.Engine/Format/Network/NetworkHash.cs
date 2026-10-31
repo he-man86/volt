@@ -33,6 +33,7 @@ public static class NetworkHash
         {
             if (o is null) { s.Append("~"); return; }
             s.Append('<').Append(o.Text.Length).Append(':').Append(o.Text);
+            if (o.Comment is { } c) s.Append('"').Append(c.Length).Append(':').Append(c);
             F(o.Flags, s);
             s.Append('>');
         }

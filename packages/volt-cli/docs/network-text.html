@@ -34,13 +34,16 @@ lamp := MOVE(EN := w1, 100, OUT => speed).ENO;</pre>
   <tr><td class="name">pin</td><td><code>t1(IN := a)</code></td><td><code>t1(NOT IN := a)</code></td><td><code>t1(RISING IN := a)</code></td><td><code>t1(FALLING IN := a)</code></td></tr>
   <tr><td class="name">unnamed pin</td><td><code>AND(a, b)</code></td><td><code>AND(a, NOT := b)</code></td><td><code>AND(a, RISING := b)</code></td><td><code>AND(a, FALLING := b)</code></td></tr>
   <tr><td class="name">coil</td><td><code>y := a;</code></td><td><code>NOT y := a;</code></td><td><code>RISING y := a;</code></td><td><code>FALLING y := a;</code></td></tr>
+  <tr><td class="name">jump</td><td><code>JMP.l := a;</code></td><td><code>NOT JMP.l := a;</code></td><td><code>RISING JMP.l := a;</code></td><td><code>FALLING JMP.l := a;</code></td></tr>
+  <tr><td class="name">assignment</td><td><code>y := a;</code></td><td><code>y := NOT := a;</code></td><td><code>y := RISING := a;</code></td><td><code>y := FALLING := a;</code></td></tr>
 </table>
 <p>
   The same words mark EN (<code>MOVE(NOT EN := c, 1, OUT => n)</code>), an output (<code>NOT Q => x</code>) and a box read
   where it stands (<code>y := NOT t1(IN := a).Q;</code>). Two marks stack edge first: <code>RISING NOT y := a;</code>,
   <code>RISING(NOT a)</code>.
 </p>
-<p>In a chain every target receives the rung's power flow and applies its own mark, so a marked coil stands first: <code>NOT y := x := a;</code>.</p>
+<p>In a chain every target receives the rung's power flow and applies its own mark, so a marked coil stands first: <code>NOT y := x := a;</code>.
+  The assignment's own mark applies to the value every coil receives, so it stands last: <code>y := x := NOT := a;</code>.</p>
 
 <h2 id="lines">Lines</h2>
 <table>
@@ -67,14 +70,17 @@ lamp := MOVE(EN := w1, 100, OUT => speed).ENO;</pre>
   <tr><td class="name">output pin</td><td><code>y := f(IN := a, err => e).OUT;</code></td></tr>
   <tr><td class="name">TRUE contact</td><td><code>x := TRUE;</code></td></tr>
   <tr><td class="name">operand holding ST</td><td><code>y := ADD(OPERAND('INT_TO_WORD(i)'), 1);</code> <code>x := NOT OPERAND('s = $'on$'');</code></td></tr>
-  <tr><td class="name">parallel</td><td><code>x := BRANCH(FEED := start, a, b);</code> <code>x := BRANCH_SHORTCIRCUIT(FEED := start, a, b);</code></td></tr>
+  <tr><td class="name">parallel</td><td><code>x := BRANCH(FEED := start, a, b);</code> <code>x := BRANCH_SHORTCIRCUIT(FEED := start, a, b);</code> <code>x := BRANCH(a, b);</code> <code>x := BRANCH(FEED := RAIL(), a, b);</code></td></tr>
   <tr><td class="name">jump</td><td><code>JMP.l := a;</code> <code>JMP.l := RAIL();</code> <code>x := JMP.l := a;</code> <code>y := (JMP.l := a) AND b;</code></td></tr>
   <tr><td class="name">return</td><td><code>RETURN := a;</code> <code>RETURN := RAIL();</code> <code>x := RETURN := a;</code></td></tr>
   <tr><td class="name">mid-rung coil</td><td><code>y := (x := a) AND b;</code></td></tr>
   <tr><td class="name">unnamed instance</td><td><code>TON(IN := a);</code></td></tr>
   <tr><td class="name">unnamed operand</td><td><code>x := ??? AND a;</code> <code>p(OUT => ???);</code></td></tr>
   <tr><td class="name">Execute box</td><td><code>EXECUTE(EN := go, 'n := n + 1;');</code> (<a href="#execute">below</a>)</td></tr>
+  <tr><td class="name">operand comment</td><td><code>y := COMMENT(a, 'why');</code> <code>COMMENT(y, 'why') := a;</code> <code>t1(IN := COMMENT(a, 'why'), Q => COMMENT(x, 'why'));</code> <code>y := NOT COMMENT(a, 'why');</code></td></tr>
+  <tr><td class="name">value alone</td><td><code>a;</code> <code>NOT AND(a, b);</code> <code>BRANCH(FEED := start, a, b);</code> <code>RAIL();</code> <code>;</code></td></tr>
 </table>
+<p>A comment is a string spelling <code>$$</code> <code>$'</code> <code>$L</code> <code>$R</code>; the marks stand outside <code>COMMENT</code>.</p>
 
 <h2 id="outputs">EN, ENO and outputs</h2>
 <p>
@@ -109,11 +115,11 @@ ok := EXECUTE(EN := go, 'msg := $'done$';').ENO;
 EXECUTE('n := 0;');</pre>
 
 <h2 id="subset">What a network holds</h2>
-<p>Assignments (a jump or the return among their targets) and calls (a box at a root closed by <code>.ENO</code> or by nothing). Any other ST stands only in an Execute box. <code>RISING</code>, <code>FALLING</code>, <code>RAIL</code> and <code>OPERAND</code> name nothing else in a network.</p>
+<p>Assignments (a jump or the return among their targets) and values standing alone (a box there closed by <code>.ENO</code> or by nothing). Any other ST stands only in an Execute box. <code>BRANCH</code>, <code>RISING</code>, <code>FALLING</code>, <code>RAIL</code>, <code>OPERAND</code> and <code>COMMENT</code> name nothing else in a network.</p>
 
 <h2 id="unsupported">A network that cannot be spelled</h2>
 <pre>%NETWORK "Calc"
-%UNSUPPORTED "a mark on a jump or a return" #929f3675</pre>
+%UNSUPPORTED "a coil flag on a jump or a return" #929f3675</pre>
 <p>Pushed back unchanged it stays as the IDE holds it; edited, the push is refused.</p>
 
 <h2 id="pairing">Pushing</h2>
@@ -122,8 +128,8 @@ EXECUTE('n := 0;');</pre>
 <h2 id="diagnostics">Errors</h2>
 <table>
   <tr><th>code</th><th>raised for</th><th>example</th></tr>
-  <tr><td class="name">NETWORK_PARSE</td><td>text a network may not hold, with its line</td><td><code>x := a XOR b;</code> — every box is a call</td></tr>
-  <tr><td class="name">NETWORK_PARSE</td><td>a mark the IDE stores no model for</td><td><code>NOT RISING y := a;</code> <code>NOT y S= a;</code> <code>NOT JMP.l := a;</code> <code>y := NOT x := a;</code></td></tr>
+  <tr><td class="name">NETWORK_PARSE</td><td>text a network may not hold, with its line</td><td><code>x := a XOR b;</code> — every box is a call; <code>y := COMMENT(a, '');</code> — no comment is the plain operand</td></tr>
+  <tr><td class="name">NETWORK_PARSE</td><td>a mark the IDE stores no model for</td><td><code>NOT RISING y := a;</code> <code>NOT y S= a;</code> <code>y := NOT x := a;</code> <code>NOT := y := a;</code></td></tr>
   <tr><td class="name">NETWORK_PARSE</td><td><code>EN :=</code>, <code>.ENO</code>, <code>ENO =></code>, <code>OUT =></code> or a type's call on a callee no declaration in reach states</td><td><code>y := h(EN := c, a);</code> with <code>h</code> declared nowhere</td></tr>
   <tr><td class="name">NETWORK_PARSE</td><td>a jump or a return not written as a target</td><td><code>JMP l;</code> <code>JMP(l, a);</code> <code>RETURN;</code></td></tr>
   <tr><td class="name">NETWORK_UNSUPPORTED</td><td>a model the writer has no spelling for, an edited <code>%UNSUPPORTED</code> line, and a box whose callee no declaration in reach states</td><td><code>x := f1(IN := a).Q;</code> with <code>f1 : Fx;</code> and <code>Fx</code> declared nowhere</td></tr>

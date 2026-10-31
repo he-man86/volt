@@ -135,7 +135,6 @@ internal static class TcNetworkReader
                 // only place the bit appears — an engineer's RETURN coil came back as `??? := cond;`. The two
                 // bits share a bit-field and an operand; splitting them across two lines is what let one be
                 // fixed while the other stayed broken.
-                UnheldFlags.RefuseOnAssignItem(BeckhoffDriver.Row.Display, flags);
                 // TWINCAT'S UNCONDITIONAL JUMP OR RETURN holds the empty operand where CODESYS holds the rail (its importer,
                 // corpus Vn_jump_uncond / Vn_return_uncond): one fact, read as the rail the model holds it as, so one text
                 // (`JMP.l := RAIL();`) names it on both vendors. The writer keeps the archive's operand (`RailJumpValue`).
@@ -194,13 +193,8 @@ internal static class TcNetworkReader
             case "BoxTreeParallel":
             {
                 var feed = TcArchive.Obj(e, "Input") is { } pi ? ReadNode(pi, consumed: true) : null;
-                // Census 1.2, the parity twin of CODESYS's reader: an unfed Parallel is the null feed, and a feed
-                // that is the empty terminator occurs in no measured project — refused by name.
-                if (feed is Terminator)
-                    throw new Volt.Engine.Format.Body.UnrepresentableBodyException(
-                        "a Parallel fed by the empty terminator",
-                        "TwinCAT: a parallel branch's feed is an unconnected terminator, a shape no measured project " +
-                        "holds (an unfed branch has no feed at all). Edit this network in the IDE.");
+                // An unfed Parallel is the null feed (`BRANCH(a, b)`); one fed by the empty terminator is another drawn model
+                // (a stub from the rail, `BRANCH(FEED := RAIL(), a, b)`, nwl-schema-completeness-gate #18), carried as stored.
                 UnheldFlags.RefuseOnNode(BeckhoffDriver.Row.Display, "a Parallel", flags);
                 // `Mode` is an enum scalar, written by member name like `CallType` — read, never defaulted (census
                 // 1.3 found a Sequential); no committed archive holds a Parallel, so an absent or unknown value is
@@ -567,7 +561,8 @@ internal static class TcNetworkReader
             Metadata(o, "SymbolComment"),
             TcArchive.RequireBool(o, "IsInstance", what),
             TcArchive.RequireBool(o, "LValue", what),
-            ReadFlags(TcArchive.RequireFlagBits(o, what)));
+            ReadFlags(TcArchive.RequireFlagBits(o, what)),
+            Comment: Metadata(o, "Comment"));
     }
 
     /// <summary>An operand's metadata string — the explicit null and <c>""</c> both the model's "none" (Type holds both:
@@ -578,7 +573,7 @@ internal static class TcNetworkReader
 
     /// <summary>The vendor bit-field. The archive stores a NUMBER where the live model exposes named booleans,
     /// so the bit values are decoded here — from <c>IFlags</c>'s own member order, not from a guess.</summary>
-    private static Flags ReadFlags(int bits) =>
+    internal static Flags ReadFlags(int bits) =>
         bits == 0
             ? Flags.None
             : new Flags(

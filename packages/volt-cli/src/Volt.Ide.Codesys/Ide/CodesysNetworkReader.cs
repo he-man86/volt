@@ -153,7 +153,6 @@ namespace Volt.Ide.Codesys
                     // alone; read from the ITEM, it would come back as a plain coil assigning to the label.
                     // JUMP AND RETURN TOGETHER, in one call both drivers share (`Flags.WithControlFlowFrom`):
                     // `Return` sits in the same bit-field on the same operand.
-                    UnheldFlags.RefuseOnAssignItem(CodesysDriver.Row.Display, flags);
                     return new Assign(value, targets, flags.WithControlFlowFrom(targets));
                 }
 
@@ -171,14 +170,9 @@ namespace Volt.Ide.Codesys
                 case "BoxTreeParallel":
                 {
                     var feed = Tree(NwlInterop.Get(n, "Input")) is { } pi ? ReadNode(pi, consumed: true) : null;
-                    // Census 1.2: an unfed Parallel is the NULL feed (5 of 17), and a feed that is the empty
-                    // terminator occurs in no measured project. One "no feed" in the model, so the other is refused
-                    // by name — the marker, never a second spelling nobody has seen the vendor hold.
-                    if (feed is Terminator)
-                        throw new Volt.Engine.Format.Body.UnrepresentableBodyException(
-                            "a Parallel fed by the empty terminator",
-                            "CODESYS: a parallel branch's feed is an unconnected terminator, a shape no measured project " +
-                            "holds (an unfed branch has no feed at all). Edit this network in the IDE.");
+                    // An unfed Parallel is the NULL feed (census 1.2: 5 of 17, `BRANCH(a, b)`); one fed by the empty terminator
+                    // is another drawn model (LD a stub from the rail, FBD a TRUE source; nwl-schema-completeness-gate #18),
+                    // carried as stored, `BRANCH(FEED := RAIL(), a, b)`.
                     UnheldFlags.RefuseOnNode(CodesysDriver.Row.Display, "a Parallel", flags);
                     return new Parallel(
                         feed,
@@ -467,7 +461,14 @@ namespace Volt.Ide.Codesys
                 CleanOperandField(StoredSymbolComment(o)),
                 NwlInterop.RequireBool(o, "IsInstance"),
                 NwlInterop.RequireBool(o, "IsLValue"),
-                ReadFlags(NwlInterop.Get(o, "Flags") ?? throw NwlInterop.Unstated(o, "Flags", "a flag set")));
+                ReadFlags(NwlInterop.Get(o, "Flags") ?? throw NwlInterop.Unstated(o, "Flags", "a flag set")),
+                OperandComment(o));
+
+        /// <summary>THE OPERAND COMMENT (<c>Operand.Comment</c>, network text <c>COMMENT(a, 'why')</c>): the text the engineer
+        /// typed beside the operand, carried exactly as stored; <c>""</c> is none (nwl-schema-completeness-gate: it was
+        /// dropped on every pull before it had a spelling).</summary>
+        private static string? OperandComment(object o) =>
+            NwlInterop.RequireText(o, "Comment") is { Length: > 0 } c ? c : null;
 
         /// <summary>The comment the operand's archive stores: a string, or null. Any other answer is refused BY NAME
         /// (gate 1b-3): read as "no comment" it would let <c>NetworkText.RefuseSymbolCommentLoss</c> pass a rebuild that

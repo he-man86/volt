@@ -47,13 +47,20 @@ namespace Volt.Engine.Format.Network;
 /// <para><b>The other elements</b>: the parallel branch <c>BRANCH(FEED := f, b1, b2)</c> / <c>BRANCH_SHORTCIRCUIT(…)</c>; the
 /// rail <c>RAIL()</c> (a Terminator, in every value slot); the empty item <c>;</c>; the Execute box
 /// <c>EXECUTE(EN := e, '&lt;ST&gt;')</c>, its ST a string with its line breaks as they stand
-/// (<see cref="NetworkSpelling.EscapeCode"/>), its one output its ENO.</para>
+/// (<see cref="NetworkSpelling.EscapeCode"/>), its one output its ENO; the operand comment <c>COMMENT(a, 'why')</c> wherever an
+/// operand stands (a value, a coil <c>COMMENT(y, 'why') := a</c>, an output <c>Q =&gt; COMMENT(x, 'why')</c>).</para>
+///
+/// <para><b>Items.</b> An item is an assignment (its coils, then its value), a wire's definition, or a value standing alone, as
+/// it stands in a tree: <c>a;</c>, <c>NOT AND(a, b);</c>, <c>BRANCH(FEED := start, a, b);</c>, <c>RAIL();</c> — a box there is
+/// consumed by nothing, so its call is closed by <c>.ENO</c> or by nothing.</para>
 ///
 /// <para><b>Marks</b> (openspec network-rail-and-pin-negation): a flag is written where the model holds it. On a value:
 /// <c>NOT a</c> (a contact's negation, or a box read where it stands, <c>NOT t1(…).Q</c>), <c>RISING(a)</c>,
 /// <c>FALLING(a)</c>. On a receiver, the same words before it: a pin or EN (<c>t1(NOT IN := a)</c>), an output
-/// (<c>NOT Q =&gt; x</c>), a coil (<c>RISING y := a;</c>). Stacked, the edge stands outside the negation (the IDE negates
-/// first, N17). A jump and a return are targets of the item: <c>JMP.l := v;</c>, <c>RETURN := v;</c>, <c>y := JMP.l := v;</c>.
+/// (<c>NOT Q =&gt; x</c>), a coil (<c>RISING y := a;</c>), a jump (<c>NOT JMP.l := a;</c>), the assignment item itself, the unnamed
+/// receiver between the value and every coil, last in its chain (<c>y := NOT := a;</c>). Stacked, the edge stands outside the
+/// negation (the IDE negates first, N17). A jump and a return are targets of the item: <c>JMP.l := v;</c>, <c>RETURN := v;</c>,
+/// <c>y := JMP.l := v;</c>.
 /// A shape with no spelling throws <see cref="StNetworkUnspellableException"/>, naming it; a pull shows such a network as
 /// <c>%UNSUPPORTED "&lt;shape&gt;" #&lt;hash&gt;</c> (<see cref="WritePulled"/>).</para>
 /// </summary>
@@ -128,6 +135,10 @@ public static class StNetworkWriter
     /// an operand (network-text-one-to-one F2).</summary>
     public const string OperandHead = "OPERAND";
 
+    /// <summary>The operand comment (the vendor's <c>Operand.Comment</c>): <c>COMMENT(a, '&lt;comment&gt;')</c> wherever the operand
+    /// stands, its marks outside it, the comment a string in IEC's escape (<c>$$</c>, <c>$'</c>, <c>$L</c>, <c>$R</c>), never empty.</summary>
+    public const string CommentHead = "COMMENT";
+
     /// <summary>A jump and the return are TARGETS of an item: <c>JMP.label := value;</c>, <c>RETURN := value;</c>, chained after
     /// coils as the IDE stores them (<c>y := JMP.l := v;</c>).</summary>
     public const string JumpHead = "JMP";
@@ -136,7 +147,7 @@ public static class StNetworkWriter
 
     /// <summary>The function names the text gives an element of its own (a branch, an edge, the rail): declared in reach, the
     /// text would mean two things, and the writer refuses it by name.</summary>
-    internal static readonly string[] ElementHeads = { BranchHead, ShortCircuitHead, RisingHead, FallingHead, RailHead, OperandHead };
+    internal static readonly string[] ElementHeads = { BranchHead, ShortCircuitHead, RisingHead, FallingHead, RailHead, OperandHead, CommentHead };
 
     internal const string NetworkLine = "%NETWORK";
     internal const string DisabledLine = "%DISABLED";
@@ -426,62 +437,79 @@ public static class StNetworkWriter
                     return text;
                 }
                 case Box b:
-                    if (!b.Flags.IsNone)
-                        throw Unspellable("a modifier on a box at the root", $"the '{b.Type}' box at the root carries {Describe(b.Flags)}.");
-                    return Call(b, consumed: false) + ";";
+                    return RootBox(b) + ";";
                 // The empty item is ST's empty statement: the empty operand CODESYS stores.
-                case Leaf { Operand.Text.Length: 0, Flags.IsNone: true }:
+                case Leaf { Operand.Text.Length: 0, Operand.Comment: null, Flags.IsNone: true }:
                     return ";";
-                case Terminator:
-                    throw Unspellable("a rail-only item", "an item that is the rail alone, with no target.");
-                case Leaf:
-                    throw Unspellable("a lone leaf item", "an item that is a lone operand: ST has no expression statement.");
-                case Parallel:
-                    throw Unspellable("a Parallel at the root", "an item that is a Parallel with no coil.");
+                // Any other item is a value standing alone, written as it stands in a tree: `a;`, `RAIL();`, `BRANCH(…);`.
                 default:
-                    throw Unspellable("an unknown item", n.GetType().Name);
+                    return Expr(n, 0) + ";";
             }
         }
 
         private string AssignItem(Assign a) => AssignText(a) + ";";
 
+        /// <summary>A box standing alone: its call closed by <c>.ENO</c> or by nothing (nothing consumes it), a contact group
+        /// infix, its value marks around it as on any box read where it stands (<c>NOT AND(a, b);</c>).</summary>
+        private string RootBox(Box b)
+        {
+            if (b.Flags.Jump || b.Flags.Return || b.Flags.Set || b.Flags.Reset)
+                throw Unspellable("a coil flag on a box", $"the '{b.Type}' box carries {Describe(b.Flags)}.");
+            var plain = b with { Flags = Flags.None };
+            string text;
+            if (IsContact(plain))
+            {
+                if (b.Flags.Negated) throw Unspellable("a negated contact group", $"the '{b.Type}' contacts carry a negation of their own.");
+                text = Expr(plain, 0);
+            }
+            else text = Call(plain, consumed: false);
+            if (b.Flags.Negated) text = "NOT " + text;
+            return b.Flags.Rising || b.Flags.Falling ? EdgeCall(b.Flags, text) : text;
+        }
+
         /// <summary>ONE TARGET with its operator: a coil (its marks, its operand, <c>:=</c> / <c>S=</c> / <c>R=</c>), a jump
         /// <c>JMP.label :=</c>, the return <c>RETURN :=</c>.</summary>
-        private static string TargetText(Operand t)
+        private string TargetText(Operand t)
         {
             var f = t.Flags ?? Flags.None;
             if (f.Jump || f.Return)
             {
                 if (f.Jump && f.Return) throw Unspellable("a jump and a return on one target", $"the target '{t.Text}' carries {Describe(f)}.");
-                if (f.Set || f.Reset || f.Negated || f.Rising || f.Falling)
-                    throw Unspellable("a mark on a jump or a return", $"the target '{t.Text}' carries {Describe(f)}.");
+                if (f.Set || f.Reset) throw Unspellable("a coil flag on a jump or a return", $"the target '{t.Text}' carries {Describe(f)}.");
+                if (t.Comment is not null) throw Unspellable("a comment on a jump or a return", $"the target '{t.Text}' carries a comment.");
+                var marks = Marks(f with { Jump = false, Return = false }, $"the target '{t.Text}'");
                 if (f.Return)
                 {
                     if (t.Text != Box.UnnamedInstance) throw Unspellable("a return with a named target", t.Text);
-                    return ReturnHead + " := ";
+                    return marks + ReturnHead + " := ";
                 }
                 if (!NetworkSpelling.Identifier.IsMatch(t.Text) || StNetworkReader.IsKeyword(t.Text))
                     throw Unspellable("a jump with no label", $"a jump to '{t.Text}'.");
-                return JumpHead + "." + t.Text + " := ";
+                return marks + JumpHead + "." + t.Text + " := ";
             }
             if (f.Negated && (f.Set || f.Reset))
                 throw Unspellable("a negated set or reset coil", $"the coil '{t.Text}' carries {Describe(f)}.");
             return Marks(f with { Negated = f.Negated && !f.Reset, Set = false, Reset = false }, $"the coil '{t.Text}'") +
-                   Target(t.Text) + (f.Reset ? " R= " : f.Set ? " S= " : " := ");
+                   Target(t) + (f.Reset ? " R= " : f.Set ? " S= " : " := ");
         }
 
         /// <summary><c>t1 := JMP.l := t2 S= value</c>: the targets in stored order, the value written once.</summary>
         private string AssignText(Assign a)
         {
             if (a.Targets.Count == 0) throw Unspellable("an assignment with no target", "an Assign item holding no target.");
-            // The item's own flags are its targets' jump and return (the reader's), and nothing else: a bit only the item holds
-            // has no position in the text (nwl-schema-completeness-gate 3.2).
-            if (a.Flags != Flags.None.WithControlFlowFrom(a.Targets))
+            // The item's own flags: its targets' jump and return (the reader's), and the marks of the unnamed receiver between the
+            // value and every coil, written last in the chain (`y := NOT := a`). A Set bit, or a jump or return no target carries,
+            // is inert in the IDE and has no position (nwl-schema-completeness-gate #7b).
+            var control = Flags.None.WithControlFlowFrom(a.Targets);
+            var item = a.Flags with { Jump = false, Return = false, Negated = false, Rising = false, Falling = false };
+            if (a.Flags.Jump != control.Jump || a.Flags.Return != control.Return || !item.IsNone)
                 throw Unspellable(UnheldFlags.AssignItemMarker, $"the assignment item carries {Describe(a.Flags)}, which its targets do not.");
             var value = a.Value;
             RequireChainMarks(a.Targets, reason => Unspellable(ChainMarkReason, reason));
             var sb = new StringBuilder();
             foreach (var t in a.Targets) sb.Append(TargetText(t));
+            var itemMarks = a.Flags with { Jump = false, Return = false };
+            if (!itemMarks.IsNone) sb.Append(Marks(itemMarks, "the assignment item")).Append(":= ");
             if (value is Leaf { Operand.Text.Length: 0 })
                 throw Unspellable("an empty operand as a coil value", "a coil is driven by an operand holding no text.");
             var outer = _coilValue;
@@ -514,6 +542,7 @@ public static class StNetworkWriter
                     var atom = l.Operand.Text.Length > 0 && !StNetworkReader.IsOperand(l.Operand.Text)
                         ? OperandText(l.Operand.Text)
                         : Operand(l.Operand.Text);
+                    atom = Commented(atom, l.Operand.Comment);
                     return l.Flags.Negated ? Bracket("NOT " + atom, 9, parent) : atom;
                 }
                 case Demux { Input: null } d:
@@ -539,8 +568,6 @@ public static class StNetworkWriter
                     foreach (var branch in p.Branches) args.Add(Expr(branch, 0));
                     return head + "(" + string.Join(", ", args) + ")";
                 }
-                case Box b when IsExecute(b) && !b.Flags.IsNone:
-                    throw Unspellable("a modifier on an Execute box output", $"the '{b.Type}' box carries {Describe(b.Flags)}.");
                 case Box b:
                 {
                     if (IsEnabledValueBox(b)) RequireCoilValue(n, $"the '{b.Type}' box");
@@ -732,7 +759,7 @@ public static class StNetworkWriter
                     // `ENO => v` is a target of the shown ENO wherever the callee declares no ENO.
                     if (!b.HasEnoOutput && signature is { DeclaresEno: false } && string.Equals(f, Box.EnoPin, StringComparison.OrdinalIgnoreCase))
                         throw Unspellable("an ENO output on a box showing no ENO", $"the '{b.Type}' box wires an output ENO, shows no ENO, and '{b.Type}' declares none.");
-                    args.Add(marks + Name(f) + " => " + Target(o.Value.Text));
+                    args.Add(marks + Name(f) + " => " + Target(o.Value));
                     continue;
                 }
                 // Each `OUT =>` is the next unnamed output slot: ENO and the slot a consumer reads are skipped.
@@ -740,7 +767,7 @@ public static class StNetworkWriter
                 if (o.Slot != next)
                     throw Unspellable("an unnamed output by an unspellable slot",
                         $"the '{b.Type}' box wires its unnamed output slot {o.Slot?.ToString(CultureInfo.InvariantCulture) ?? "(none)"} to '{o.Value.Text}'; the next OUT is slot {next}.");
-                args.Add(marks + ResultPin + " => " + Target(o.Value.Text));
+                args.Add(marks + ResultPin + " => " + Target(o.Value));
                 next++;
             }
             return args;
@@ -751,7 +778,6 @@ public static class StNetworkWriter
         /// call.</summary>
         private string ExecuteCall(Box b, bool consumed)
         {
-            if (!b.Flags.IsNone) throw Unspellable("a modifier on an Execute box output", $"the '{b.Type}' box carries {Describe(b.Flags)}.");
             if (b.Inputs.Count > 0 || b.Outputs.Count > 0 || b.Instance is not null)
                 throw Unspellable("an Execute box with pins", "an Execute box carries pins or an instance beside its ST.");
             if (consumed && !NetworkSpelling.ConnectedByEno(b))
@@ -772,6 +798,7 @@ public static class StNetworkWriter
         {
             if (b.Instance is not { } inst) return CallHead(b.Type);
             if (inst.Flags is { IsNone: false } f) throw Unspellable("a flag on an FB instance", $"'{inst.Text}' carries {Describe(f)}.");
+            if (inst.Comment is not null) throw Unspellable("a comment on an FB instance", $"'{inst.Text}' carries a comment.");
             if (inst.Text != Box.UnnamedInstance && _scope.InstanceType(inst.Text) is { } declared)
             {
                 if (!St.StDeclaration.SameType(declared, b.Type))
@@ -838,12 +865,23 @@ public static class StNetworkWriter
             throw Unspellable("an operand that is no ST expression", $"the operand '{text}' does not read as ST.");
         }
 
-        private static string Target(string text)
+        /// <summary>A coil's or an output's operand: its text, a variable, in <c>COMMENT(…)</c> where it holds a comment.</summary>
+        private string Target(Operand t)
         {
+            var text = t.Text;
             // A direct address (`%QW105`) is a variable; any other literal is none.
             if (!StNetworkReader.IsOperand(text) || StNetworkReader.IsLiteral(text) && !NetworkSpelling.Address.IsMatch(text))
                 throw Unspellable("a target that is no ST variable", $"the target '{text}'.");
-            return text;
+            return Commented(text, t.Comment);
+        }
+
+        /// <summary><c>COMMENT(&lt;operand&gt;, '&lt;comment&gt;')</c> where the operand holds a comment, else the operand.</summary>
+        private string Commented(string operand, string? comment)
+        {
+            if (comment is null) return operand;
+            if (comment.Length == 0) throw Unspellable("an empty operand comment", $"the operand '{operand}' holds the comment \"\".");
+            RequireElementHead(CommentHead);
+            return CommentHead + "(" + operand + ", '" + NetworkSpelling.Escape(comment, '\'') + "')";
         }
     }
 }

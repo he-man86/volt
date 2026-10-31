@@ -99,12 +99,12 @@ NETWORK label:L2
 === text
 %LANGUAGE LD
 %NETWORK
-%UNSUPPORTED "a mark on a jump or a return" #929f3675
+%UNSUPPORTED "a coil flag on a jump or a return" #929f3675
 %NETWORK
 Done:
 x := TRUE;
 === model
-NETWORK unsupported:"a mark on a jump or a return" hash:929f3675
+NETWORK unsupported:"a coil flag on a jump or a return" hash:929f3675
 NETWORK label:Done
   (:= x TRUE)
 

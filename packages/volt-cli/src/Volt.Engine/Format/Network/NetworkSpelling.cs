@@ -110,9 +110,9 @@ internal static class NetworkSpelling
 
     // ── delimited text: the one escape (IEC's) ──────────────────────────────────────────────────────────────────────
 
-    /// <summary>Delimited text (a <c>//</c> line, a title) written with IEC's escape: <c>$</c> is <c>$$</c>, a line feed
-    /// <c>$L</c>, a carriage return <c>$R</c>, and the delimiter <paramref name="quote"/> (a <c>"</c> is <c>$"</c>).
-    /// Everything else is verbatim.</summary>
+    /// <summary>Delimited text (a <c>//</c> line, a title, an operand comment) written with IEC's escape: <c>$</c> is <c>$$</c>,
+    /// a line feed <c>$L</c>, a carriage return <c>$R</c>, and the delimiter <paramref name="quote"/> (a <c>"</c> is <c>$"</c>,
+    /// a <c>'</c> is <c>$'</c>). Everything else is verbatim.</summary>
     public static string Escape(string text, char? quote)
     {
         var sb = new StringBuilder(text.Length);
@@ -124,6 +124,7 @@ internal static class NetworkSpelling
                 case '\n': sb.Append("$L"); break;
                 case '\r': sb.Append("$R"); break;
                 case '"' when quote == '"': sb.Append("$\""); break;
+                case '\'' when quote == '\'': sb.Append("$'"); break;
                 default: sb.Append(c); break;
             }
         }
@@ -131,8 +132,8 @@ internal static class NetworkSpelling
     }
 
     /// <summary>The inverse of <see cref="Escape"/>, and only of it (one spelling per text): <c>$$</c>, <c>$L</c>, <c>$R</c>,
-    /// and <c>$"</c> where <paramref name="quote"/> is <c>"</c>. Null and <paramref name="error"/> for any other escape or a
-    /// <c>$</c> at the end.</summary>
+    /// and the delimiter's own (<c>$"</c>, <c>$'</c>). Null and <paramref name="error"/> for any other escape or a <c>$</c> at
+    /// the end.</summary>
     public static string? Unescape(string text, char? quote, out string? error)
     {
         error = null;
@@ -144,14 +145,14 @@ internal static class NetworkSpelling
             var e = i + 1 < text.Length ? text[i + 1] : '\0';
             string? v = e switch
             {
-                '$' => "$", 'L' => "\n", 'R' => "\r", '"' when quote == '"' => "\"", _ => null,
+                '$' => "$", 'L' => "\n", 'R' => "\r", '"' when quote == '"' => "\"", '\'' when quote == '\'' => "'", _ => null,
             };
             if (v is null)
             {
                 error = e == '\0'
                     ? "a `$` at the end of delimited text: a `$` is written `$$`."
-                    : $"the escape '${e}': " + (quote == '"' ? "a title spells $$ $\" $L $R" : "a comment line spells $$ $L $R") +
-                      ", every other character as it stands (a comment's line break is a new // line).";
+                    : $"the escape '${e}': " + (quote == '"' ? "a title spells $$ $\" $L $R" : quote == '\'' ? "an operand comment spells $$ $' $L $R" : "a comment line spells $$ $L $R") +
+                      ", every other character as it stands" + (quote is null ? " (a comment's line break is a new // line)." : ".");
                 return null;
             }
             sb.Append(v);

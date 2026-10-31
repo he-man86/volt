@@ -315,21 +315,10 @@ public static class UnheldFlags
                 $"{vendor}: {what} carries a modifier, and the IDE holds none there (DIALECT N20). Edit this network in the IDE.");
     }
 
-    /// <summary>Census 1.1: no Assign ITEM carries a negation or an edge — its operands and targets do — while
-    /// <see cref="Assign.Flags"/> is where Jump/Return ride. Neither text has a position for such a bit: v1 printed it
-    /// on the VALUE, so a re-read moved it onto the operand (and onto a wire reference, text its own push refuses).</summary>
-    private static bool OnAssignItem(Flags flags) => flags.Negated || flags.Rising || flags.Falling;
-
+    /// <summary>A bit on an Assign ITEM the text has no position for (the writer's refusal): the item takes a receiver's
+    /// marks (<c>y := NOT := a</c>) and carries its targets' jump and return, and a Set bit, or a jump or return no target
+    /// carries, is inert in the IDE (nwl-schema-completeness-gate #7b).</summary>
     public const string AssignItemMarker = "a flag on an Assign item";
-
-    public static void RefuseOnAssignItem(string vendor, Flags flags)
-    {
-        if (OnAssignItem(flags))
-            throw new Volt.Engine.Format.Body.UnrepresentableBodyException(
-                AssignItemMarker,
-                $"{vendor}: an assignment item carries a negation or an edge of its own, which no measured project holds " +
-                "(census 1.1) and the text has no position for. Edit this network in the IDE.");
-    }
 }
 
 /// <summary>
@@ -444,14 +433,19 @@ public sealed record Output(string? Formal, Operand Value, int? Slot = null);
 /// supplies one — read-only metadata used to declare a wire's temp; it is NOT load-bearing for round-trip.
 /// <para><b>An operand carries its OWN modifiers.</b> Measured in a real ladder project: an assignment target
 /// came back as <c>Operand OperandExpr=… IsLValue=True Flags=Negation,Set</c> — a negated SET coil, with the
-/// modifiers on the TARGET rather than on the assignment. Flags on the tree node alone would drop both.</para></summary>
+/// modifiers on the TARGET rather than on the assignment. Flags on the tree node alone would drop both.</para>
+/// <para><see cref="Comment"/> is the vendor's <c>Operand.Comment</c>, the operand comment an engineer types beside it in the
+/// editor (network text <c>COMMENT(a, 'why')</c>): null where it holds none, never <c>""</c>. <see cref="SymbolComment"/> is
+/// the vendor's <c>Operand.SymbolComment</c>, a copy of a declaration's comment the text does not spell
+/// (<see cref="NetworkText.RefuseSymbolCommentLoss"/>).</para></summary>
 public sealed record Operand(
     string Text,
     string? Type = null,
-    string? Comment = null,
+    string? SymbolComment = null,
     bool IsInstance = false,
     bool IsLValue = false,
-    Flags? Flags = null);
+    Flags? Flags = null,
+    string? Comment = null);
 
 /// <summary>How the box is called. The vendor's <c>BoxTreeBox.CallType</c>.</summary>
 public enum CallKind { Operator, Function, FunctionBlock }

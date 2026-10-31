@@ -115,7 +115,7 @@ public static class NetworkText
     /// <summary>REFUSE TO REBUILD A NETWORK THAT HOLDS A SYMBOL COMMENT — the one rule both drivers apply before a network
     /// is torn down and built again from the text (CODESYS: every changed network; TwinCAT: a changed SHAPE, through the
     /// import). <paramref name="live"/> is the network as the IDE holds it, read by the driver's own reader, which carries
-    /// the vendor's <c>Operand.SymbolComment</c> as <see cref="Operand.Comment"/>.
+    /// the vendor's <c>Operand.SymbolComment</c> as <see cref="Operand.SymbolComment"/>.
     ///
     /// <para><b>Why a refusal and not a write.</b> Network text has no spelling for it (ld-fbd-coverage 1b.2 decides one),
     /// so a text-derived model carries none, and a rebuilt operand comes back without it. It is not the IDE's to
@@ -140,7 +140,7 @@ public static class NetworkText
     /// <see cref="NetworkPairing.RefuseUnseenLoss"/>).</summary>
     public static IReadOnlyList<string> SymbolCommentOperands(Network live) =>
         live.Trees.SelectMany(OperandsOf)
-            .Where(o => !string.IsNullOrWhiteSpace(o.Comment))
+            .Where(o => !string.IsNullOrWhiteSpace(o.SymbolComment))
             .Select(o => $"'{o.Text}'")
             .Distinct()
             .ToList();

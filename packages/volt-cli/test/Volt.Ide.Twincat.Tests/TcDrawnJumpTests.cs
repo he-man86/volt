@@ -63,11 +63,11 @@ public class TcDrawnJumpTests
         Assert.Equal("a terminator with an input", ex.Reason);
     }
 
-    /// <summary>CENSUS 1.2, the Parallel half, the parity twin of CODESYS's reader test: an unfed Parallel is the
-    /// null feed, and a Parallel fed by the empty terminator (0 in five projects) is refused by name. The drawn jump's
-    /// empty terminator becomes the feed of a Parallel built around it.</summary>
+    /// <summary>The parity twin of CODESYS's reader test: a Parallel fed by the empty terminator is its own drawn model
+    /// (nwl-schema-completeness-gate #18), read as stored with the rail as its feed. The drawn jump's empty terminator
+    /// becomes the feed of a Parallel built around it.</summary>
     [Fact]
-    public void A_Parallel_fed_by_the_empty_terminator_is_refused_by_name()
+    public void A_Parallel_fed_by_the_empty_terminator_reads_as_the_rail_fed_branch()
     {
         var impl = Impl();
         var rvalues = impl.Descendants("o").Where(o => (string?)o.Attribute("n") == "RValue").ToList();
@@ -77,10 +77,11 @@ public class TcDrawnJumpTests
         var branch = new XElement(rvalues.First(o => (string?)o.Attribute("t") == "BoxTreeOperand"));
         branch.Attribute("n")!.Remove();
         terminator.ReplaceWith(new XElement("o", new XAttribute("n", "RValue"), new XAttribute("t", "BoxTreeParallel"),
-            feed, new XElement("l2", new XAttribute("n", "Trees"), branch)));
+            feed, new XElement("l2", new XAttribute("n", "Trees"), branch), XElement.Parse("<v n=\"Mode\" t=\"OperationMode\">Sequential</v>")));
 
-        var ex = Assert.Throws<Volt.Engine.Format.Body.UnrepresentableBodyException>(() => TcNetworkReader.Read(impl, BodyLanguage.Ld));
-        Assert.Equal("a Parallel fed by the empty terminator", ex.Reason);
+        var read = TcNetworkReader.Read(impl, BodyLanguage.Ld);
+        var parallel = read.Networks.SelectMany(n => n.Trees).OfType<Assign>().Select(a => a.Value).OfType<Volt.Engine.Format.Network.Parallel>().Single();
+        Assert.IsType<Terminator>(parallel.Input);
     }
 
     /// <summary>DIALECT N20, the parity twin of CODESYS's reader tests: the object model holds no flag on a Parallel,
@@ -162,14 +163,13 @@ public class TcDrawnJumpTests
         Assert.Contains("a Parallel changes mode to Sequential", ex.Message);
     }
 
-    /// <summary>Census 1.1: no Assign ITEM carries a negation or an edge (only its operands do), and the model's
-    /// <c>Assign.Flags</c> is where Jump/Return ride. A bit found there has no position in the text — v1 printed it on
-    /// the VALUE, moving it to the operand on the next read — so it is refused by name, the parity twin of CODESYS's.</summary>
+    /// <summary>A negation or an edge on the Assign ITEM is its own model (nwl-schema-completeness-gate #7a), read onto
+    /// <c>Assign.Flags</c> beside the targets' Jump/Return — the parity twin of CODESYS's.</summary>
     [Theory]
     [InlineData(TcArchive.FlagNegation)]
     [InlineData(TcArchive.FlagRtrig)]
     [InlineData(TcArchive.FlagFtrig)]
-    public void A_negation_or_edge_on_an_Assign_item_is_refused_by_name(int bit)
+    public void A_negation_or_edge_on_an_Assign_item_reads_as_the_item_s_marks(int bit)
     {
         var impl = Impl();
         // The item is typed by its list's `cet`, so it is found through its operand-valued RValue.
@@ -179,8 +179,10 @@ public class TcDrawnJumpTests
             .Elements("v").Single(v => (string?)v.Attribute("n") == "Flags");
         bits.Value = (int.Parse(bits.Value) | bit).ToString();
 
-        Assert.Equal("a flag on an Assign item", Assert.Throws<Volt.Engine.Format.Body.UnrepresentableBodyException>(
-            () => TcNetworkReader.Read(impl, BodyLanguage.Ld)).Reason);
+        var item = TcNetworkReader.Read(impl, BodyLanguage.Ld).Networks.SelectMany(n => n.Trees).OfType<Assign>()
+            .First(a => a.Value is Leaf).Flags;
+        Assert.Equal(Flags.None with { Negated = bit == TcArchive.FlagNegation, Rising = bit == TcArchive.FlagRtrig, Falling = bit == TcArchive.FlagFtrig },
+            item with { Jump = false, Return = false });
     }
 
     /// <summary>The same fact on a wire: a <c>BoxTreeDemux</c> the archive gives a flag is refused by name.</summary>

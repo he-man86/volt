@@ -120,6 +120,8 @@ internal static class Nwl
 
         public string OperandExpr { get; set; } = "";
         public string Type { get; set; } = "";
+        /// <summary>The vendor's <c>Operand.Comment</c>, the operand comment: <c>""</c> on every corpus operand (0 of 5293).</summary>
+        public string Comment { get; set; } = "";
         /// <summary>What the vendor's <c>IOperand.SymbolComment</c> PROPERTY answers: the archive sentinel, on every operand
         /// recorded (openspec <c>ld-fbd-coverage</c> 1b.3, 5,293 operands, the ten that store a comment included). The
         /// stored comment is <see cref="StoredSymbolComment"/>, reached through <see cref="GetSerializableValue"/>.</summary>

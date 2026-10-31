@@ -90,6 +90,7 @@ internal static class TcUnmeasured
     /// where an edit would make one (<see cref="InPlace"/>).</summary>
     internal static string? UnmeasuredCoil(Assign a)
     {
+        if (!ItemMarks(a).IsNone) return ItemMarkShape;
         if (a.Targets.Count > 1 && (a.Flags.Jump || a.Flags.Return || a.Targets.Any(t => t.Flags is { Jump: true } or { Return: true })))
             return "a jump or a return beside another coil on one rung";
         foreach (var t in a.Targets)
@@ -106,6 +107,12 @@ internal static class TcUnmeasured
     /// <summary>The in-place half of <see cref="RefuseUnbuilt"/>: an edit that would WRITE one of its shapes into the
     /// archive the IDE holds. An <see cref="UnsupportedException"/> (a <see cref="NotSupportedException"/>), so the push routes the network to the builder, which
     /// refuses the shape by name before anything is written; a shape the IDE already holds, unchanged, is never refused.</summary>
+    /// <summary>The marks on the assignment ITEM itself (<c>y := NOT := a</c>, nwl-schema-completeness-gate #7a): measured on
+    /// CODESYS only, so no TwinCAT write sets or changes them.</summary>
+    internal static Flags ItemMarks(Assign a) => a.Flags with { Jump = false, Return = false };
+
+    internal const string ItemMarkShape = "a mark on the assignment item";
+
     internal static UnsupportedException InPlace(string shape) =>
         new($"TwinCAT: this push writes {shape} into the body the IDE holds, and no TwinCAT edit of that shape is measured " +
             "(stored, built, reopened), so Volt writes none by a guess. The IDE can make this change.");

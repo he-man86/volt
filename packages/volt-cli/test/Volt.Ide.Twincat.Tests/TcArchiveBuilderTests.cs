@@ -38,6 +38,33 @@ public sealed class TcArchiveBuilderTests(Xunit.Abstractions.ITestOutputHelper o
         return TcNetworkReader.Read(impl, language);
     }
 
+    /// <summary>THE SHAPES THE NWL COMPLETENESS GATE SPELLED (nwl-schema-completeness-gate, 2026-10-31), offline: each text
+    /// builds an archive that reads back to its model — the operand comment in the archive's <c>Comment</c>. A mark on the
+    /// assignment item is refused by name as every shape no TwinCAT build measured (a negated coil, a parallel branch).</summary>
+    [Theory]
+    [InlineData("a;")]
+    [InlineData("NOT AND(a, b);")]
+    [InlineData("RAIL();")]
+    [InlineData("COMMENT(y, 'it$'s') := COMMENT(a, 'why');")]
+    [InlineData("MOVE(COMMENT(a, 'why'), OUT => COMMENT(x, 'why'));")]
+    public void A_spelled_shape_builds_back_to_its_model(string code)
+    {
+        var text = $"%LANGUAGE LD\n%NETWORK\n{code}\n";
+        var scope = NetworkModelScopes.ScopeOf(StNetworkReader.Read(text, NetworkScope.Empty));
+        var model = StNetworkReader.Read(text, scope);
+        var back = ReadBack(TcArchiveBuilder.Body(model, scope));
+        Assert.Equal(text, StNetworkWriter.Write(back, scope));
+    }
+
+    [Fact]
+    public void A_mark_on_the_assignment_item_is_refused_by_name_as_unmeasured()
+    {
+        var text = "%LANGUAGE LD\n%NETWORK\ny := NOT := a;\n";
+        var scope = NetworkModelScopes.ScopeOf(StNetworkReader.Read(text, NetworkScope.Empty));
+        Assert.Contains("a mark on the assignment item",
+            Assert.Throws<NetworkTextException>(() => TcArchiveBuilder.Body(StNetworkReader.Read(text, scope), scope)).Message);
+    }
+
     [Fact]
     public void Every_vendor_body_builds_back_to_the_model_it_was_read_as()
     {
