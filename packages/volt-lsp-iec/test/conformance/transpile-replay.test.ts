@@ -8,14 +8,12 @@
  * process per core.
  */
 import { beforeAll, describe, expect, test } from "bun:test"
-import { mkdtemp, rm } from "node:fs/promises"
-import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { emitRust } from "../../src/transpile/index.js"
 import { ALL_TESTS } from "./fixtures/index.js"
 import { RUNS } from "./support/recordings.js"
 import { ideValue } from "./support/display.js"
-import { CLIPPY, RUSTC as rustc, skipLintCheck, skipRustSuite } from "./support/rustc.js"
+import { CLIPPY, inRustBuildDir, RUSTC as rustc, skipLintCheck, skipRustSuite } from "./support/rustc.js"
 import { buildRust } from "./support/rustc-cache-build.js"
 import { edgeHarness, edgePlan, HARNESS_LOOP_GUARD } from "./support/transpile/edge.js"
 import { buildArgv, rendered, splitFindings } from "./support/transpile/lint-policy.js"
@@ -85,95 +83,110 @@ describe.skipIf(skipRustSuite())("confirmed — the same values out of the emitt
    *  `map.generated.ts` only this build can answer. */
   const measured = new Map<string, Measured>()
 
-  beforeAll(async () => {
-    const started = performance.now()
-    const dir = await mkdtemp(join(tmpdir(), "volt-exec-rust-"))
-    // BOUNDED CONCURRENCY, not `Promise.all` over every case. Each case spawns `rustc`, and at 2253 fixtures that
-    // was 2253 compilers at once — which is not parallelism, it is thrashing, and it pushed this past its own hang
-    // guard as the census sweeps landed. One per core keeps every core busy and the scheduler out of it.
-    //
-    // The guard stays 180s and stays a HANG guard: it is not the budget that changed, it is the shape.
-    const lanes = Math.max(1, navigator.hardwareConcurrency - 1)
-    let next = 0
-    await Promise.all(
-      // each case its own try: one that throws while being prepared fails as itself, not as every Rust case at once
-      Array.from({ length: Math.min(lanes, recorded.length) }, async () => {
-        for (let i = next++; i < recorded.length; i = next++) {
-          const c = recorded[i]!
-          try {
-            await prepare(c)
-          } catch (error) {
-            runs.set(c.name, { exit: -1, stdout: "", stderr: `could not be prepared: ${(error as Error).message}` })
-          }
-        }
-      }),
-    )
-    await rm(dir, { recursive: true, force: true })
-    console.log(`  [rust] ${recorded.length} cases compiled+run in ${Math.round((performance.now() - started) / 1000)}s`)
-
-    async function prepare(c: LanguageTest): Promise<void> {
-      const { pou, diagnostics } = lowering(c)
-      if (pou === undefined)
-        return void runs.set(c.name, { exit: -1, stdout: "", stderr: `does not lower: ${diagnostics[0]?.message}` })
-      // built with the harness's loop guard, which the edge run's seeds need and no recorded pass count reaches
-      const emitted = emitRust(pou, { loopGuard: HARNESS_LOOP_GUARD })
-      // THE EDGE RUN RIDES THE SAME BINARY: `main` runs the recorded scan, or with `edge` the edge variants
-      const plan = edgePlan(c, ALL_TESTS, pou, emitted.code)
-      const main = edgeHarness(pou, emitted, plan, recordedScan(c, pou, emitted))
-      const file = join(dir, `${c.name}.rs`)
-      const exe = join(dir, `${c.name}${process.platform === "win32" ? ".exe" : ""}`)
-      // ST has no dynamic memory, so the Rust needs no `unsafe` — forbidden, so a case needing it fails rather than builds
-      //
-      // DENY warnings, with the exceptions `support/transpile/lint-policy.ts` names and REASONS. This used to be
-      // `-A warnings`, which meant 600+ emitted programs were compiled with no lint checking at all while the
-      // crate check applied real lints to about fifteen — one policy per harness, and the larger one denied
-      // nothing. Measured when it was flipped: 2 of 625 failed, and BOTH were faithful emissions of correct ST
-      // rather than emitter defects (a statement after RETURN, and a SINT loop bound of 127 that rustc reads as
-      // a tautology), which is why those two lints are named there instead of the flip being abandoned.
-      //
-      // `-A unused_parens` USED TO BE ON THAT LIST, under "generated code is not read for style". It is not on it
-      // any more: `emit/rust/index.ts` declares an emitted SURFACE a user's harness reaches into, so somebody reads
-      // this code, and the printer was emitting 2,722 pairs of parentheses no one would write.
-      //
-      // BUILT WITH `clippy-driver` WHERE THERE IS ONE — a drop-in for `rustc` that also runs the lints, so the
-      // OPTIMALITY half of the map costs the compile this pass was already paying for.
-      //
-      // NOTHING IS DENIED. `LINT_FLAGS` is `-W warnings -W clippy::all`, warn and not deny, for the reason spelled
-      // out where it is defined: `-D` makes a diagnostic `level: "error"`, so a findings parser reading warnings
-      // sees nothing and every row is written clean while the build fails for a reason no row records. What a
-      // rustc lint used to get from `-D warnings` it gets from the RATCHET below instead — a fixture may report
-      // only the lints its stored row carries — which is the same guarantee per fixture and covers clippy's too.
-      // A real compile ERROR still fails the build here; it is not a lint.
-      //
-      // THROUGH THE CACHE (`support/rustc-cache.ts`): a source, argv and compiler already built are not built again.
-      const build = await buildRust(buildArgv(CLIPPY ?? rustc!, file, { exe }), file, exe, `${emitted.code}\n${main}`, HARNESS_PROBES)
-      const buildExit = build.exit
-      const buildErr = build.stderr
-      const findings = splitFindings(buildErr, emitted.code.split("\n").length)
-      const measure = (edge: Pick<Measured, "edge" | "edgeUnanswered">) =>
-        measured.set(c.name, { lints: findings.found.map((f) => f.code), pedantic: findings.pedantic.length, ...edge })
-      if (buildExit !== 0) measure({ edge: "not-run" })
-      if (buildExit !== 0)
-        return void runs.set(c.name, {
-          exit: -1,
-          stdout: "",
-          stderr: `does not compile:\n${rendered(buildErr)}`,
-        })
-      const run = Bun.spawn([exe], { stdout: "pipe", stderr: "pipe" })
-      const exit = await run.exited
-      runs.set(c.name, {
-        exit,
-        stdout: await new Response(run.stdout).text(),
-        stderr: await new Response(run.stderr).text(),
+  beforeAll(
+    async () => {
+      const started = performance.now()
+      await inRustBuildDir("volt-exec-rust-", async (dir) => {
+        // BOUNDED CONCURRENCY, not `Promise.all` over every case. Each case spawns `rustc`, and at 2253 fixtures that
+        // was 2253 compilers at once — which is not parallelism, it is thrashing, and it pushed this past its own hang
+        // guard as the census sweeps landed. One per core keeps every core busy and the scheduler out of it.
+        //
+        // The guard stays 180s and stays a HANG guard: it is not the budget that changed, it is the shape.
+        const lanes = Math.max(1, navigator.hardwareConcurrency - 1)
+        let next = 0
+        await Promise.all(
+          // each case its own try: one that throws while being prepared fails as itself, not as every Rust case at once
+          Array.from({ length: Math.min(lanes, recorded.length) }, async () => {
+            for (let i = next++; i < recorded.length; i = next++) {
+              const c = recorded[i]!
+              try {
+                await prepare(c, dir)
+              } catch (error) {
+                runs.set(c.name, { exit: -1, stdout: "", stderr: `could not be prepared: ${(error as Error).message}` })
+              }
+            }
+          }),
+        )
       })
-      measure(await edgeOf(true, exe, pou, plan))
-    }
-    // A HANG GUARD PROPORTIONAL TO THE WORK, not a constant. Measured 2026-09-20: 1857 cases compile and run in
-    // 179s — against a guard of 180s, which it had silently grown into. That is the failure mode a constant has:
-    // it is a budget the suite outgrows without anybody deciding to, and it fails as a timeout, which reads as a
-    // hang rather than as "there are more fixtures now". 300ms per case is ~3x the measured cost, so a real hang
-    // still fails and a thousand more fixtures do not.
-  }, Math.max(120_000, recorded.length * 300))
+      console.log(
+        `  [rust] ${recorded.length} cases compiled+run in ${Math.round((performance.now() - started) / 1000)}s`,
+      )
+
+      async function prepare(c: LanguageTest, dir: string): Promise<void> {
+        const { pou, diagnostics } = lowering(c)
+        if (pou === undefined)
+          return void runs.set(c.name, { exit: -1, stdout: "", stderr: `does not lower: ${diagnostics[0]?.message}` })
+        // built with the harness's loop guard, which the edge run's seeds need and no recorded pass count reaches
+        const emitted = emitRust(pou, { loopGuard: HARNESS_LOOP_GUARD })
+        // THE EDGE RUN RIDES THE SAME BINARY: `main` runs the recorded scan, or with `edge` the edge variants
+        const plan = edgePlan(c, ALL_TESTS, pou, emitted.code)
+        const main = edgeHarness(pou, emitted, plan, recordedScan(c, pou, emitted))
+        const file = join(dir, `${c.name}.rs`)
+        const exe = join(dir, `${c.name}${process.platform === "win32" ? ".exe" : ""}`)
+        // ST has no dynamic memory, so the Rust needs no `unsafe` — forbidden, so a case needing it fails rather than builds
+        //
+        // DENY warnings, with the exceptions `support/transpile/lint-policy.ts` names and REASONS. This used to be
+        // `-A warnings`, which meant 600+ emitted programs were compiled with no lint checking at all while the
+        // crate check applied real lints to about fifteen — one policy per harness, and the larger one denied
+        // nothing. Measured when it was flipped: 2 of 625 failed, and BOTH were faithful emissions of correct ST
+        // rather than emitter defects (a statement after RETURN, and a SINT loop bound of 127 that rustc reads as
+        // a tautology), which is why those two lints are named there instead of the flip being abandoned.
+        //
+        // `-A unused_parens` USED TO BE ON THAT LIST, under "generated code is not read for style". It is not on it
+        // any more: `emit/rust/index.ts` declares an emitted SURFACE a user's harness reaches into, so somebody reads
+        // this code, and the printer was emitting 2,722 pairs of parentheses no one would write.
+        //
+        // BUILT WITH `clippy-driver` WHERE THERE IS ONE — a drop-in for `rustc` that also runs the lints, so the
+        // OPTIMALITY half of the map costs the compile this pass was already paying for.
+        //
+        // NOTHING IS DENIED. `LINT_FLAGS` is `-W warnings -W clippy::all`, warn and not deny, for the reason spelled
+        // out where it is defined: `-D` makes a diagnostic `level: "error"`, so a findings parser reading warnings
+        // sees nothing and every row is written clean while the build fails for a reason no row records. What a
+        // rustc lint used to get from `-D warnings` it gets from the RATCHET below instead — a fixture may report
+        // only the lints its stored row carries — which is the same guarantee per fixture and covers clippy's too.
+        // A real compile ERROR still fails the build here; it is not a lint.
+        //
+        // THROUGH THE CACHE (`support/rustc-cache.ts`): a source, argv and compiler already built are not built again.
+        const build = await buildRust(
+          buildArgv(CLIPPY ?? rustc!, file, { exe }),
+          file,
+          exe,
+          `${emitted.code}\n${main}`,
+          HARNESS_PROBES,
+        )
+        const buildExit = build.exit
+        const buildErr = build.stderr
+        const findings = splitFindings(buildErr, emitted.code.split("\n").length)
+        const measure = (edge: Pick<Measured, "edge" | "edgeUnanswered">) =>
+          measured.set(c.name, {
+            lints: findings.found.map((f) => f.code),
+            pedantic: findings.pedantic.length,
+            ...edge,
+          })
+        if (buildExit !== 0) measure({ edge: "not-run" })
+        if (buildExit !== 0)
+          return void runs.set(c.name, {
+            exit: -1,
+            stdout: "",
+            stderr: `does not compile:\n${rendered(buildErr)}`,
+          })
+        const run = Bun.spawn([exe], { stdout: "pipe", stderr: "pipe" })
+        const exit = await run.exited
+        runs.set(c.name, {
+          exit,
+          stdout: await new Response(run.stdout).text(),
+          stderr: await new Response(run.stderr).text(),
+        })
+        measure(await edgeOf(true, exe, pou, plan))
+      }
+      // A HANG GUARD PROPORTIONAL TO THE WORK, not a constant. Measured 2026-09-20: 1857 cases compile and run in
+      // 179s — against a guard of 180s, which it had silently grown into. That is the failure mode a constant has:
+      // it is a budget the suite outgrows without anybody deciding to, and it fails as a timeout, which reads as a
+      // hang rather than as "there are more fixtures now". 300ms per case is ~3x the measured cost, so a real hang
+      // still fails and a thousand more fixtures do not.
+    },
+    Math.max(120_000, recorded.length * 300),
+  )
 
   for (const c of recorded) {
     test(c.name, () => compareRust(c, runs.get(c.name)!))

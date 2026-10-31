@@ -38,11 +38,15 @@ let warnedSkip = false
 function skipRustOnPurpose(): boolean {
   if (process.env.VOLT_SKIP_RUST !== "1") return false
   if (process.env.VOLT_REQUIRE_RUSTC === "1")
-    throw new Error("VOLT_SKIP_RUST=1 and VOLT_REQUIRE_RUSTC=1 contradict each other — this run was told to verify the emitter.")
+    throw new Error(
+      "VOLT_SKIP_RUST=1 and VOLT_REQUIRE_RUSTC=1 contradict each other — this run was told to verify the emitter.",
+    )
   if (!warnedSkip) {
     warnedSkip = true
     // eslint-disable-next-line no-console
-    console.warn("  [transpile] VOLT_SKIP_RUST=1 — the emitted-Rust differential and its lints are SKIPPED: the emitter is UNVERIFIED in this run.")
+    console.warn(
+      "  [transpile] VOLT_SKIP_RUST=1 — the emitted-Rust differential and its lints are SKIPPED: the emitter is UNVERIFIED in this run.",
+    )
   }
   return true
 }
@@ -90,4 +94,26 @@ export function skipRustSuite(): boolean {
       "runs; the emitter is UNVERIFIED in this run.",
   )
   return true
+}
+
+/** A fresh build dir for one pass's `.rs`/`.exe` files, `run` inside it, the dir removed after — also when `run`
+ *  throws. A run that is KILLED cannot clean up (each such dir held 0.4–3.5 GB), so a dir of the same prefix untouched
+ *  for six hours is removed first: no live pass leaves its dir unwritten that long. */
+export async function inRustBuildDir<T>(prefix: string, run: (dir: string) => Promise<T>): Promise<T> {
+  const { mkdtemp, readdir, rm, stat } = await import("node:fs/promises")
+  const { tmpdir } = await import("node:os")
+  const { join } = await import("node:path")
+  const stale = Date.now() - 6 * 3600_000
+  for (const name of await readdir(tmpdir())) {
+    if (!name.startsWith(prefix)) continue
+    const path = join(tmpdir(), name)
+    const touched = (await stat(path).catch(() => undefined))?.mtimeMs ?? Infinity
+    if (touched < stale) await rm(path, { recursive: true, force: true })
+  }
+  const dir = await mkdtemp(join(tmpdir(), prefix))
+  try {
+    return await run(dir)
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
 }

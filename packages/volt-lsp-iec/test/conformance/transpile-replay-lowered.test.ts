@@ -5,13 +5,11 @@
  * confirmed runs: `transpile-replay.test.ts`; the refusals: `transpile-replay-refusals.test.ts`.
  */
 import { beforeAll, describe, expect, test } from "bun:test"
-import { mkdtemp, rm } from "node:fs/promises"
-import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { emitRust } from "../../src/transpile/index.js"
 import { ALL_TESTS } from "./fixtures/index.js"
 import { RUNS } from "./support/recordings.js"
-import { CLIPPY, RUSTC as rustc, skipLintCheck, skipRustSuite } from "./support/rustc.js"
+import { CLIPPY, inRustBuildDir, RUSTC as rustc, skipLintCheck, skipRustSuite } from "./support/rustc.js"
 import { buildRust } from "./support/rustc-cache-build.js"
 import { rejectionIsADefect } from "./support/transpile/correctness.js"
 import { edgeHarness, edgePlan, HARNESS_LOOP_GUARD } from "./support/transpile/edge.js"
@@ -52,58 +50,72 @@ const DIVERGES_RUST = new Map<string, RustRun>()
  * and both are refused by CODESYS, so `rejected` is the honest oracle for them.
  */
 describe.skipIf(skipRustSuite())("the rest of the lowered fixtures — the emitted Rust builds, or says why not", () => {
-  const seen = new Set(rated("confirmed").filter((c) => RUNS[c.name]?.values !== undefined).map((c) => c.name))
+  const seen = new Set(
+    rated("confirmed")
+      .filter((c) => RUNS[c.name]?.values !== undefined)
+      .map((c) => c.name),
+  )
   const rest = SELECTION.selected.filter((t) => !seen.has(t.name) && t.transpile?.tier !== undefined)
   const built = new Map<string, { ok: boolean; why: string } & Measured>()
 
-  beforeAll(async () => {
-    const started = performance.now()
-    const dir = await mkdtemp(join(tmpdir(), "volt-exec-rust-rest-"))
-    const lanes = Math.max(1, navigator.hardwareConcurrency - 1)
-    let next = 0
-    await Promise.all(
-      Array.from({ length: Math.min(lanes, rest.length) }, async () => {
-        for (let i = next++; i < rest.length; i = next++) {
-          const c = rest[i]!
-          const pou = lowering(c).pou
-          if (pou === undefined) continue
-          const emitted = emitRust(pou, { loopGuard: HARNESS_LOOP_GUARD })
-          // AN EXECUTABLE, like the value pass and the generator: the edge run needs one, and `rust` then means one
-          // build everywhere — the generator's `compiles`/`rejected` is decided by this same argv.
-          const plan = edgePlan(c, ALL_TESTS, pou, emitted.code)
-          const file = join(dir, `${c.name}.rs`)
-          const exe = join(dir, `${c.name}${process.platform === "win32" ? ".exe" : ""}`)
-          // A `diverges` fixture the vendor RAN also gets the recorded scan, so its expected-failure row can tell
-          // the day its Rust starts producing CODESYS's values (`DIVERGES_RUST`).
-          const valued = c.evidence === "diverges" && RUNS[c.name]?.values !== undefined
-          const source = `${emitted.code}\n${edgeHarness(pou, emitted, plan, valued ? recordedScan(c, pou, emitted) : "")}`
-          const build = await buildRust(buildArgv(CLIPPY ?? rustc!, file, { exe }), file, exe, source, HARNESS_PROBES)
-          const ok = build.exit === 0
-          const stderr = build.stderr
-          if (valued && !ok) DIVERGES_RUST.set(c.name, { exit: -1, stdout: "", stderr: `does not compile:\n${rendered(stderr)}` })
-          if (valued && ok) {
-            const run = Bun.spawn([exe], { stdout: "pipe", stderr: "pipe" })
-            const exit = await run.exited
-            DIVERGES_RUST.set(c.name, {
-              exit,
-              stdout: await new Response(run.stdout).text(),
-              stderr: await new Response(run.stderr).text(),
-            })
-          }
-          const { found, pedantic } = splitFindings(stderr, emitted.code.split("\n").length)
-          built.set(c.name, {
-            ok,
-            lints: found.map((f) => f.code),
-            pedantic: pedantic.length,
-            ...(await edgeOf(ok, exe, pou, plan)),
-            why: ok ? "" : rendered(stderr),
-          })
-        }
-      }),
-    )
-    await rm(dir, { recursive: true, force: true })
-    console.log(`  [rust] ${rest.length} more cases compiled in ${Math.round((performance.now() - started) / 1000)}s`)
-  }, Math.max(120_000, rest.length * 300))
+  beforeAll(
+    async () => {
+      const started = performance.now()
+      await inRustBuildDir("volt-exec-rust-rest-", async (dir) => {
+        const lanes = Math.max(1, navigator.hardwareConcurrency - 1)
+        let next = 0
+        await Promise.all(
+          Array.from({ length: Math.min(lanes, rest.length) }, async () => {
+            for (let i = next++; i < rest.length; i = next++) {
+              const c = rest[i]!
+              const pou = lowering(c).pou
+              if (pou === undefined) continue
+              const emitted = emitRust(pou, { loopGuard: HARNESS_LOOP_GUARD })
+              // AN EXECUTABLE, like the value pass and the generator: the edge run needs one, and `rust` then means one
+              // build everywhere — the generator's `compiles`/`rejected` is decided by this same argv.
+              const plan = edgePlan(c, ALL_TESTS, pou, emitted.code)
+              const file = join(dir, `${c.name}.rs`)
+              const exe = join(dir, `${c.name}${process.platform === "win32" ? ".exe" : ""}`)
+              // A `diverges` fixture the vendor RAN also gets the recorded scan, so its expected-failure row can tell
+              // the day its Rust starts producing CODESYS's values (`DIVERGES_RUST`).
+              const valued = c.evidence === "diverges" && RUNS[c.name]?.values !== undefined
+              const source = `${emitted.code}\n${edgeHarness(pou, emitted, plan, valued ? recordedScan(c, pou, emitted) : "")}`
+              const build = await buildRust(
+                buildArgv(CLIPPY ?? rustc!, file, { exe }),
+                file,
+                exe,
+                source,
+                HARNESS_PROBES,
+              )
+              const ok = build.exit === 0
+              const stderr = build.stderr
+              if (valued && !ok)
+                DIVERGES_RUST.set(c.name, { exit: -1, stdout: "", stderr: `does not compile:\n${rendered(stderr)}` })
+              if (valued && ok) {
+                const run = Bun.spawn([exe], { stdout: "pipe", stderr: "pipe" })
+                const exit = await run.exited
+                DIVERGES_RUST.set(c.name, {
+                  exit,
+                  stdout: await new Response(run.stdout).text(),
+                  stderr: await new Response(run.stderr).text(),
+                })
+              }
+              const { found, pedantic } = splitFindings(stderr, emitted.code.split("\n").length)
+              built.set(c.name, {
+                ok,
+                lints: found.map((f) => f.code),
+                pedantic: pedantic.length,
+                ...(await edgeOf(ok, exe, pou, plan)),
+                why: ok ? "" : rendered(stderr),
+              })
+            }
+          }),
+        )
+      })
+      console.log(`  [rust] ${rest.length} more cases compiled in ${Math.round((performance.now() - started) / 1000)}s`)
+    },
+    Math.max(120_000, rest.length * 300),
+  )
 
   test("a fixture whose ST CODESYS accepts emits Rust that compiles", () => {
     const broken = rest
@@ -123,7 +135,9 @@ describe.skipIf(skipRustSuite())("the rest of the lowered fixtures — the emitt
   })
 
   test.skipIf(skipLintCheck())("every case's lints are exactly what its stored row carries", () => {
-    const stale = lintDrift(new Map(rest.filter((c) => built.has(c.name)).map((c) => [c.name, built.get(c.name)!.lints])))
+    const stale = lintDrift(
+      new Map(rest.filter((c) => built.has(c.name)).map((c) => [c.name, built.get(c.name)!.lints])),
+    )
     if (stale.length > 0) console.log("  [fixtures] the emitted Rust changed — run `bun run rate:fixtures`")
     expect(stale).toEqual([])
   })
@@ -169,12 +183,18 @@ describe("diverges — measured, and run as an expected failure", () => {
   test("an unproven row is one the Rust pass did not reach this run", () => {
     console.log(
       `  [fixtures] ${rated("diverges").length} diverge, each run as an expected failure` +
-        (inconclusive.length > 0 ? `; ${inconclusive.length} unproven (no Rust half this run): ${inconclusive.join(", ")}` : ""),
+        (inconclusive.length > 0
+          ? `; ${inconclusive.length} unproven (no Rust half this run): ${inconclusive.join(", ")}`
+          : ""),
     )
     if (DIVERGES_RUST.size > 0) expect(inconclusive).toEqual([])
   })
 
   test("each names what was measured", () => {
-    expect(rated("diverges").filter((c) => c.deferred?.transpile === undefined).map((c) => c.name)).toEqual([])
+    expect(
+      rated("diverges")
+        .filter((c) => c.deferred?.transpile === undefined)
+        .map((c) => c.name),
+    ).toEqual([])
   })
 })
