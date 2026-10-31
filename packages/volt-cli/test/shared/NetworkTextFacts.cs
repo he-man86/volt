@@ -88,7 +88,7 @@ public static class NetworkTextFacts
             b.Instance is null ? null : new Operand(b.Instance.Text, IsInstance: true,
                 Flags: b.Instance.Flags is { IsNone: false } f ? f : null),
             NetworkSpelling.KindOf(b.Type, isFb),
-            b.Inputs.Select((p, i) => new Input(NetworkSpelling.IsOperatorBox(b.Type) && NetworkSpelling.IsDefaultFormal(b.Type, i, p.Formal) ? null : p.Formal,
+            b.Inputs.Select((p, i) => new Input(p.Formal,
                 Node(p.Value, consumed: true), p.Flags)).ToList(),
             b.Outputs.Select(o => new Output(o.Formal, Target(o.Value), o.Formal is not null ? null : o.Slot)).ToList(),
             NodeOrNull(b.Enable),

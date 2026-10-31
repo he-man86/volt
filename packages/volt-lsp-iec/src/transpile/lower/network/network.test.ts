@@ -58,7 +58,7 @@ describe("a network body lowers to what it runs", () => {
   test("a pin's and EN's NOT negate what the box reads", () => {
     const r = runner("a, c : BOOL; n : INT;", "%NETWORK\nMOVE(NOT EN := c, 1, OUT => n).ENO;\n", "", "FBD")
     expect(trace(r, "n", [{ c: true }, { c: false }])).toEqual([0n, 1n])
-    const s = runner("a, x : BOOL;", "%NETWORK\nx := AND(NOT IN1 := a, TRUE);\n", "", "FBD")
+    const s = runner("a, x : BOOL;", "%NETWORK\nx := AND(NOT := a, TRUE);\n", "", "FBD")
     expect(trace(s, "x", [{ a: true }, { a: false }])).toEqual([false, true])
   })
 

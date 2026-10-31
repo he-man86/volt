@@ -816,6 +816,14 @@ public static class StNetworkReader
                     _i = span.Next;
                     call.Args.Add(new AArg { Formal = f.Text, Out = true, Target = span.Text, Marks = marks });
                 }
+                else if (Network && Is(":="))
+                {
+                    // THE EMPTY NAME: a pin the IDE stores unnamed, its marks before it (`AND(a, NOT := b)`); unmarked it is
+                    // its value alone, one spelling.
+                    if (marks.Count == 0) throw Error("an empty pin name with no mark: a pin with no name and no mark is its value alone");
+                    _i++;
+                    call.Args.Add(new AArg { Value = Expr(), Marks = marks });
+                }
                 else if (Peek() is { Kind: Tk.Ident } g && Is(":=", 1) && !IsKeyword(g.Text))
                 {
                     _i += 2;
@@ -1170,11 +1178,7 @@ public static class StNetworkReader
                     throw Error(c.Line, enable is null
                         ? $"EN := stands first in the call {c.Head}: it is the box's shown EN"
                         : $"the call {c.Head} holds EN := twice");
-                // An operator's pin named by its default formal (the formal a mark stands before, `AND(NOT IN2 := a, b)`) is the
-                // pin the IDE stores unnamed.
-                var formal = NetworkSpelling.IsOperatorBox(type) && a.Formal is { } named &&
-                             string.Equals(named, NetworkSpelling.DefaultFormal(type, inputs.Count), StringComparison.OrdinalIgnoreCase) ? null : a.Formal;
-                inputs.Add(new Input(formal, Expr(a.Value!), MarkFlags(a.Marks, c.Line)));
+                inputs.Add(new Input(a.Formal, Expr(a.Value!), MarkFlags(a.Marks, c.Line)));
             }
 
             var (hasEno, connected, byName) = Member(c, type, instance is not null, signature, consumed, declaresEno);

@@ -142,7 +142,7 @@ export function networkStatements(list: StatementList, marks: ReadonlyMap<number
   const markOf = (e: Expr | undefined) => (e === undefined ? undefined : marks.get(e.span.start)?.words)
   // in place: the parse is this body's own, made here
   const tree = (e: Expr): void => walkExpr(e, (x) => {
-    if (x.kind === "call") for (const a of x.args) if (a.param !== undefined) setMarks(a, markOf(a.param))
+    if (x.kind === "call") for (const a of x.args) setMarks(a, markOf(a.param ?? (a.output ? undefined : a.value)))
     if (x.kind !== "assign_expr") return
     setMarks(x, markOf(x.target))
     const control = controlTarget(x.target)
@@ -297,7 +297,7 @@ function read(lexed: readonly Token[], dialect: Dialect, unicodeIdentifiers: boo
       const receiver = receiverOfMark(tokens, i)
       if (receiver !== undefined) {
         const at = tokens[receiver]!
-        if (!marks.has(at.span.start) && at.kind === "keyword") {
+        if (!marks.has(at.span.start) && at.kind === "keyword" && (at.keyword === "JMP" || at.keyword === "RETURN")) {
           const label = at.keyword === "JMP" ? "." + (tokens[nextWord(tokens, nextWord(tokens, receiver))]?.text ?? "") : ""
           stray.push({ message: `a mark on the target ${at.text.toUpperCase()}${label}: a jump or a return carries none`, span: t.span })
         }
@@ -305,6 +305,13 @@ function read(lexed: readonly Token[], dialect: Dialect, unicodeIdentifiers: boo
         m.words.push(t.text.toUpperCase())
         m.span = joinSpans(m.span, t.span)
         marks.set(at.span.start, m)
+        out.push({ ...t, kind: "whitespace", keyword: undefined })
+        continue
+      }
+      // THE EMPTY RECEIVER NAME, `AND(a, NOT := b)`: its `:=` trivia (its marks are recorded on the value); unmarked it is
+      // a second spelling of the value alone
+      if (isPunct(t, ":=") && emptyName(tokens, i) !== undefined) {
+        if (emptyName(tokens, i) === 0) stray.push({ message: "an empty pin name with no mark: a pin with no name and no mark is its value alone", span: t.span })
         out.push({ ...t, kind: "whitespace", keyword: undefined })
         continue
       }
@@ -349,6 +356,25 @@ function isMarkWord(tokens: readonly Token[], k: number): boolean {
     !isPunct(tokens[nextWord(tokens, k)], "(")
 }
 
+/** The index of the first token before `k` that is no trivia, or -1. */
+function prevWord(tokens: readonly Token[], k: number): number {
+  let n = k - 1
+  while (n >= 0 && isTrivia(tokens[n]!.kind)) n--
+  return n
+}
+
+/** Is the `:=` at `k` an EMPTY receiver name — after `(` or `,`, past the mark words before it? The number of those
+ *  marks; undefined for any other `:=`. */
+function emptyName(tokens: readonly Token[], k: number): number | undefined {
+  let p = prevWord(tokens, k)
+  let marks = 0
+  while (p >= 0 && isMarkWord(tokens, p)) {
+    marks++
+    p = prevWord(tokens, p)
+  }
+  return p >= 0 && (isPunct(tokens[p], "(") || isPunct(tokens[p], ",")) ? marks : undefined
+}
+
 /** THE RECEIVER the mark word `tokens[at]` stands before — the index of its first token — or undefined where the mark is
  *  the value's: after the mark words, a complete operand (a name chain `s.x[i]^.y`, `JMP.l`, `RETURN`), then an assignment
  *  operator. */
@@ -357,6 +383,8 @@ function receiverOfMark(tokens: readonly Token[], at: number): number | undefine
   let k = at
   while (isMarkWord(tokens, k)) k = nextWord(tokens, k)
   const start = tokens[k]
+  // the empty name, `NOT := b`: the receiver is the pin the value stands in, keyed by the value
+  if (isPunct(start, ":=") && emptyName(tokens, k) !== undefined) return nextWord(tokens, k)
   if (start === undefined || (start.kind !== "identifier" && !(start.kind === "keyword" && (start.keyword === "JMP" || start.keyword === "RETURN"))))
     return undefined
   let n = nextWord(tokens, k)

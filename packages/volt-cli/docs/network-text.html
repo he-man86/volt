@@ -32,6 +32,7 @@ lamp := MOVE(EN := w1, 100, OUT => speed).ENO;</pre>
   <tr><th></th><th>plain</th><th>negated</th><th>rising</th><th>falling</th></tr>
   <tr><td class="name">contact</td><td><code>x := a;</code></td><td><code>x := NOT a;</code></td><td><code>x := RISING(a);</code></td><td><code>x := FALLING(a);</code></td></tr>
   <tr><td class="name">pin</td><td><code>t1(IN := a)</code></td><td><code>t1(NOT IN := a)</code></td><td><code>t1(RISING IN := a)</code></td><td><code>t1(FALLING IN := a)</code></td></tr>
+  <tr><td class="name">unnamed pin</td><td><code>AND(a, b)</code></td><td><code>AND(a, NOT := b)</code></td><td><code>AND(a, RISING := b)</code></td><td><code>AND(a, FALLING := b)</code></td></tr>
   <tr><td class="name">coil</td><td><code>y := a;</code></td><td><code>NOT y := a;</code></td><td><code>RISING y := a;</code></td><td><code>FALLING y := a;</code></td></tr>
 </table>
 <p>

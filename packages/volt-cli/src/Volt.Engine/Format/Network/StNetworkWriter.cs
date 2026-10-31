@@ -593,7 +593,7 @@ public static class StNetworkWriter
         private bool IsContact(Box b) =>
             Contacts.Contains(b.Type) && b.Instance is null && b.Enable is null && b.StCode is null && b.Outputs.Count == 0 &&
             b.Inputs.Count >= 2 && b.Inputs.All(p => p.Flags.IsNone) &&
-            b.Inputs.Select((p, i) => NetworkSpelling.IsDefaultFormal(b.Type, i, p.Formal)).All(x => x) &&
+            b.Inputs.All(p => p.Formal is null) &&
             (b.Members?[NetworkMembers.OutputNames] is { } names ? names.AsTexts.Count == 0 : _language == BodyLanguage.Ld);
 
         /// <summary>THE CALL THAT IS THE BOX (openspec network-output-member): <c>inst(EN := e, pins…, outputs…)</c> (an FB) or <c>T(…)</c>,
@@ -629,7 +629,7 @@ public static class StNetworkWriter
             }
             else member = consumed ? DataMember(b, signature) : "";
             if (string.Equals(b.Type, NetworkSpelling.NotBox, StringComparison.OrdinalIgnoreCase) && b.Enable is null &&
-                (b.Inputs.Count != 1 || b.Outputs.Count > 0 || !NetworkSpelling.IsDefaultFormal(b.Type, 0, b.Inputs[0].Formal)))
+                (b.Inputs.Count != 1 || b.Outputs.Count > 0))
                 throw Unspellable("a NOT box with pins", "a NOT box with outputs, a named pin or several inputs.");
             return Head(b) + "(" + string.Join(", ", Args(b, signature)) + ")" + member;
         }
@@ -671,7 +671,6 @@ public static class StNetworkWriter
         {
             var args = new List<string>();
             if (b.Enable is { } en) args.Add(PinMarks(b, Box.EnablePin, b.EnableFlags) + Box.EnablePin + " := " + Expr(en, 0));
-            var op = NetworkSpelling.IsOperatorBox(b.Type);
             for (var i = 0; i < b.Inputs.Count; i++)
             {
                 var p = b.Inputs[i];
@@ -685,13 +684,14 @@ public static class StNetworkWriter
                     throw Unspellable("an empty operand on a pin", $"the '{b.Type}' box's pin {p.Formal ?? "#" + i.ToString(CultureInfo.InvariantCulture)} holds an empty operand (an unconnected input), measured only on an FB's named pin.");
                 }
                 var value = Expr(p.Value, 0);
-                // A marked pin is written by its formal, which the mark stands before: an operator's pin by its default
-                // formal where the IDE stores none (`AND(NOT IN2 := a, b)`).
-                var positional = p.Flags.IsNone && (p.Formal is null || op && NetworkSpelling.IsDefaultFormal(b.Type, i, p.Formal));
-                var formal = p.Formal ?? (p.Flags.IsNone ? null : NetworkSpelling.DefaultFormal(b.Type, i));
-                if (!positional && formal is null)
-                    throw Unspellable("a mark on a pin with no name", $"the '{b.Type}' box's pin #{i.ToString(CultureInfo.InvariantCulture)} carries {Describe(p.Flags)} and has no formal to stand before.");
-                if (!positional && string.Equals(p.Formal, Box.EnablePin, StringComparison.OrdinalIgnoreCase))
+                // A pin's marks are part of its receiver's name, written before it; a pin the IDE stores unnamed has the
+                // empty name (`AND(a, NOT := b)`), and unmarked it is its value alone.
+                if (p.Formal is null)
+                {
+                    args.Add(p.Flags.IsNone ? value : PinMarks(b, null, p.Flags) + ":= " + value);
+                    continue;
+                }
+                if (string.Equals(p.Formal, Box.EnablePin, StringComparison.OrdinalIgnoreCase))
                 {
                     if (b.Enable is not null)
                         throw Unspellable("a data pin named EN on an enabled box", $"the enabled '{b.Type}' box has a data input named EN beside its enable.");
@@ -699,7 +699,7 @@ public static class StNetworkWriter
                     if (signature is { DeclaresEn: false })
                         throw Unspellable("a pin named EN its callee does not declare", $"the '{b.Type}' box has an input named EN, and '{b.Type}' declares none.");
                 }
-                args.Add(positional ? value : PinMarks(b, formal, p.Flags) + Name(formal!) + " := " + value);
+                args.Add(PinMarks(b, p.Formal, p.Flags) + Name(p.Formal) + " := " + value);
             }
             var eno = b.HasEnoOutput ? 0 : (int?)null;
             var connected = b.ConnectedSlot;

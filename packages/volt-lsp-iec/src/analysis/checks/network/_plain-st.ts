@@ -499,7 +499,7 @@ function checkComments(body: BodySpan, networks: readonly PlainStNetwork[], out:
       else if (t.kind === "line_comment" && code)
         emit(out, t.span, CODE, "a // comment after the code starts: a network's comment is its // lines before the code")
       else if (t.kind === "line_comment") checkEscapes(t.text.slice(2), undefined, t.span, out)
-      else if (t.kind !== "whitespace" && t.kind !== "line_comment" && t.kind !== "eof" && !n.lines.some((l) => HEADER_LINES.has(l.key) && t.span.start >= l.span.start && t.span.start <= l.span.end) &&
+      else if (t.kind !== "whitespace" && t.kind !== "eof" && !n.lines.some((l) => HEADER_LINES.has(l.key) && t.span.start >= l.span.start && t.span.start <= l.span.end) &&
                !(n.declaration !== undefined && t.span.start >= n.declaration.start && t.span.start < n.declaration.end))
         code = true
     }

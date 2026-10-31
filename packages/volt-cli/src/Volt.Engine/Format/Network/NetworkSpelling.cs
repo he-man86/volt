@@ -56,18 +56,6 @@ internal static class NetworkSpelling
         OperatorWords.Contains(type) || string.Equals(type, Move, StringComparison.OrdinalIgnoreCase) ||
         string.Equals(type, NotBox, StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>The default formal of an operator's input: <c>IN&lt;n&gt;</c> on the table's operators, <c>IN</c> on the
-    /// NOT box and MOVE — read back as no name, the vendor's own (an operator box stores no input names, census 1.13).
-    /// Null for any other box.</summary>
-    public static string? DefaultFormal(string type, int pin) =>
-        OperatorWords.Contains(type) ? "IN" + (pin + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)
-        : string.Equals(type, Move, StringComparison.OrdinalIgnoreCase) || string.Equals(type, NotBox, StringComparison.OrdinalIgnoreCase) ? "IN"
-        : null;
-
-    /// <summary>Whether a pin's stored formal is its operator's default — a fact the text does not carry.</summary>
-    public static bool IsDefaultFormal(string type, int pin, string? formal) =>
-        formal is null || (DefaultFormal(type, pin) is { } d && string.Equals(formal, d, StringComparison.OrdinalIgnoreCase));
-
     /// <summary>THE VALUE SLOT a consumer of a box reads when it reads the box by its value (not by ENO, not by an FB's
     /// <c>.name</c>): none on a bit operator (census 1.6; a stored one is lost on rebuild, B7), slot 0 on every other.</summary>
     public static int? MainSlotOfCall(string type) => BitOperators.Contains(type) ? null : 0;

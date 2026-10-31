@@ -863,6 +863,14 @@ y := w1;
 === refused
 network-plain-st a network holds no such line
 
+#### empty-name-unmarked — an unmarked pin with no name is its value alone
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := AND(a, := b);
+=== refused
+network-plain-st an empty pin name with no mark
+
 #### wire-numbered-per-network — a body's wires are numbered across its networks
 === text
 %LANGUAGE LD

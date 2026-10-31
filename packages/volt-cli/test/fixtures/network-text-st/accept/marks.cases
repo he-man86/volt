@@ -129,3 +129,41 @@ NETWORK
   (:= y not:(TON@t1 IN=a PT=T#1S name:Q))
   (:= z not:(AND a b))
   (:= w (NOT (AND a b)))
+
+#### unnamed-pin-marks — a mark on a pin the IDE stores unnamed stands before an empty name
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := AND(a, NOT := b);
+%NETWORK
+x := AND(a, RISING := b);
+%NETWORK
+x := AND(a, FALLING := b);
+%NETWORK
+x := AND(a, RISING NOT := b);
+%NETWORK
+x := AND(NOT := a, b, NOT := c);
+%NETWORK
+x := AND(a, NOT b);
+=== model
+NETWORK
+  (:= x (AND a !b))
+NETWORK
+  (:= x (AND a /b))
+NETWORK
+  (:= x (AND a \b))
+NETWORK
+  (:= x (AND a /!b))
+NETWORK
+  (:= x (AND !a b !c))
+NETWORK
+  (:= x (AND a not:b))
+
+#### named-operator-pin — an operator pin the IDE stores named keeps its name
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := AND(a, NOT IN2 := b);
+=== model
+NETWORK
+  (:= x (AND a !IN2=b))
