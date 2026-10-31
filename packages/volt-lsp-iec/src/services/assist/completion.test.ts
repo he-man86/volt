@@ -177,3 +177,45 @@ END_PROGRAM`
     expect(labels).toContain("Pos")
   })
 })
+
+// A wire is its network's (`VAR_TEMP … END_VAR` on that network's line), and `???` is the IDE's unnamed operand, no
+// variable (openspec network-completion-scope).
+describe("completion in network text is scoped to the network", () => {
+  const NET = `FUNCTION_BLOCK Snip
+VAR
+	a, b, c, x, y, out : BOOL;
+	i, j : INT;
+END_VAR
+%LANGUAGE FBD
+%NETWORK
+out := AND(a, NOT(b), c);
+%NETWORK
+VAR_TEMP w1 : ANY; END_VAR
+w1 := GT(i, j);
+x := AND(w1, a);
+y := w1;
+%NETWORK
+??? := AND(???, b);
+END_FUNCTION_BLOCK`
+  const labelsAt = (at: number) => {
+    const { doc, project } = setup(NET)
+    return completion(doc, project, at).map((i) => i.label)
+  }
+
+  test("network 1 offers no other network's wire and no ???", () => {
+    const labels = labelsAt(NET.indexOf("AND(a") + 4)
+    expect(labels).toContain("a")
+    expect(labels).not.toContain("w1")
+    expect(labels).not.toContain("???")
+  })
+
+  test("network 2 offers its own wire", () => {
+    const labels = labelsAt(NET.indexOf("AND(w1") + 4)
+    expect(labels).toContain("w1")
+    expect(labels).not.toContain("???")
+  })
+
+  test("network 3, which holds ???, offers no ???", () => {
+    expect(labelsAt(NET.indexOf("AND(???") + 4)).not.toContain("???")
+  })
+})

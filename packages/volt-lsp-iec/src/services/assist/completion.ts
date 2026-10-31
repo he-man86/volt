@@ -8,17 +8,38 @@
  * back to scope completion. Upgrade to full-chain resolution when a case needs it.
  */
 import { CompletionItemKind, type CompletionItem } from "vscode-languageserver-protocol"
-import { dialectOf, findChildScope, lookup, type Scope, type Symbol, visibleNames } from "../../frontend/symbols/index.js"
+import { bodiesAt, dialectOf, findChildScope, lookup, type Scope, type Symbol, visibleNames } from "../../frontend/symbols/index.js"
 import { memberScopeOf, resolveTypeExpr } from "../../frontend/types/index.js"
 import { SYMBOL_KINDS, scopeAtOffset } from "../shared/index.js"
-import { attributeNames, type Dialect } from "../../frontend/syntax/index.js"
+import { attributeNames, type Dialect, isPlainStNetworkBody, plainStText, UNNAMED } from "../../frontend/syntax/index.js"
 import { pragmaHelp } from "./builtin-hover.js"
 import type { Document } from "../shared/index.js"
 
 export function completion(doc: Document, project: Scope, offset: number): CompletionItem[] {
   const attrs = attributeCompletions(doc.source, offset, dialectOf(project))
   if (attrs !== undefined) return attrs
-  return completionAtScope(scopeAtOffset(doc, project, offset), project, doc.source, offset)
+  const items = completionAtScope(scopeAtOffset(doc, project, offset), project, doc.source, offset)
+  const hidden = outOfNetwork(doc, project, offset)
+  return hidden.size === 0 ? items : items.filter((i) => !hidden.has(i.label.toLowerCase()))
+}
+
+/**
+ * The names a network body's scope holds that the network at `offset` must not offer: every OTHER network's wires (one
+ * scope holds the whole body's wires, so rename and references see one symbol per wire — `network-scope.ts` — but a
+ * wire is its own network's) and `???`, the IDE's unnamed operand, no variable. Lower-cased.
+ */
+function outOfNetwork(doc: Document, project: Scope, offset: number): Set<string> {
+  const hidden = new Set<string>()
+  for (const { body } of bodiesAt(doc.parseResult.units, project, offset)) {
+    if (!isPlainStNetworkBody(body)) return hidden
+    hidden.add(UNNAMED)
+    const networks = plainStText(body).networks
+    const here = networks.find((n) => n.span.start <= offset && offset <= n.span.end)
+    const own = new Set(here?.wires.map((w) => w.name.toLowerCase()))
+    for (const n of networks) for (const w of n.wires) if (!own.has(w.name.toLowerCase())) hidden.add(w.name.toLowerCase())
+    return hidden
+  }
+  return hidden
 }
 
 /** Inside `{attribute '<partial>'}` → the DIALECT's attribute names (the `unknown-attribute` catalog as an
