@@ -19,6 +19,15 @@ test("a PROGRAM → FB call chain keeps the FB live", () => {
   expect(dead.has("fb_live")).toBe(false)
 })
 
+test("a FUNCTION called only inside a network operand's ST text, OPERAND('…'), stays live", () => {
+  // the file's tokens hold the operand as one string; what it calls is named only by the body's statement tokens
+  const dead = deadPous([
+    PRG("Main", "VAR\n t : TIME;\n c : BOOL;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\nMOVE(EN := c, OPERAND('F_Conv(2)'), OUT => t).ENO;"),
+    file("F_Conv.pou", "FUNCTION F_Conv : TIME\nVAR_INPUT\n n : INT;\nEND_VAR\n%LANGUAGE ST\nF_Conv := T#1S;\nEND_FUNCTION"),
+  ])
+  expect(dead.has("f_conv")).toBe(false)
+})
+
 test("an FB never called or instantiated is dead", () => {
   const dead = deadPous([
     PRG("Main", "VAR\n inst : FB_Live;\nEND_VAR\ninst();"),
