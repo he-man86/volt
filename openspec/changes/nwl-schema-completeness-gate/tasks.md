@@ -1,4 +1,4 @@
-﻿## 1. Census
+## 1. Census
 
 - [x] 1.1 NWL schema census from the assembly: classes, fields, flags, slots â†’ generated table
 - [ ] 1.2 Import Sim-Assist's editor texts (`%TEMP%\volt-sim-assist-texts\texts.jsonl`, copied into fixtures)
