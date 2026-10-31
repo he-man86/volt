@@ -185,7 +185,7 @@ w23 := w21 AND HMI_Var.Mach1.CalibrateTorqueValues;
 MOVE(EN := w23, Mach1_AuxData.TorqueCalibrationValue, OUT => Data_Exchange_Motion.BobbinTorque).ENO;
 HMI_Var.Mach1.setMinTorqueValue R= MOVE(EN := w23 AND HMI_Var.Mach1.setMinTorqueValue, Mach1_AuxData.TorqueCalibrationValue, OUT => Mach1_Data.Settings.Dints.minTorqueValue).ENO;
 HMI_Var.Mach1.setMaxTorqueValue R= MOVE(EN := w23 AND HMI_Var.Mach1.setMaxTorqueValue, Mach1_AuxData.TorqueCalibrationValue, OUT => Mach1_Data.Settings.Dints.maxTorqueValue).ENO;
-MOVE(EN := ScaleBobbinTorque(EN := w21 AND NOT HMI_Var.Mach1.CalibrateTorqueValues, IN := Mach1_Data.Settings.Ints.TorqueControlBobbin, IN_MIN := 0, IN_MAX := 1000, OUT_MIN := DINT_TO_REAL(Mach1_Data.Settings.Dints.minTorqueValue), OUT_MAX := DINT_TO_REAL(Mach1_Data.Settings.Dints.maxTorqueValue), OUT => tBobbinTorque).ENO, REAL_TO_DINT(tBobbinTorque), OUT => Data_Exchange_Motion.BobbinTorque).ENO;
+MOVE(EN := ScaleBobbinTorque(EN := w21 AND NOT HMI_Var.Mach1.CalibrateTorqueValues, IN := Mach1_Data.Settings.Ints.TorqueControlBobbin, IN_MIN := 0, IN_MAX := 1000, OUT_MIN := OPERAND('DINT_TO_REAL(Mach1_Data.Settings.Dints.minTorqueValue)'), OUT_MAX := OPERAND('DINT_TO_REAL(Mach1_Data.Settings.Dints.maxTorqueValue)'), OUT => tBobbinTorque).ENO, OPERAND('REAL_TO_DINT(tBobbinTorque)'), OUT => Data_Exchange_Motion.BobbinTorque).ENO;
 %NETWORK "DONE Network 21: Alarms Bobbine $R$L"
 VAR w24 : ANY; END_VAR
 w24 := Alarms_V5_1_100(AlarmDB := Mach1_Alarms, iCond := Mach1_AuxData.MIDS_Active AND Mach1.GenFlags.DelayAfterEmergStop AND NOT Mach1_Data.Drives.Bobbine.Status.DriveReady AND Mach1_AuxData.AllDrivesHomed, iReset := True, iAlm := Mach1_Alarms.Alm010, ioAction := Mach1.GenFlags.MinorAlarm);

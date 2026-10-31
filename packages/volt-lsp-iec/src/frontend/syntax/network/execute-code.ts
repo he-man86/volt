@@ -110,7 +110,7 @@ export function codeAt(tokens: readonly Token[], at: number, calls: readonly { h
 }
 
 /** The span of a string token's content, inside its quotes. */
-function contentSpan(t: Token): Span {
+export function contentSpan(t: Token): Span {
   const closed = t.text.length >= 2 && t.text.endsWith("'")
   const [startLine, startCol] = [t.span.startLine, t.span.startCol + 1]
   const end = closed ? t.span.end - 1 : t.span.end
@@ -123,7 +123,7 @@ function contentSpan(t: Token): Span {
  * dollar, everything else as it stands (`StNetworkReader` / `NetworkSpelling.UnescapeCode`, one spelling per code) — lexed,
  * each span mapped back through the escapes. Any other `$` answers the refusal, in the bridge's words.
  */
-function codeTokens(string: Token, dialect: Dialect, unicodeIdentifiers: boolean): { tokens: Token[]; st: string } | string {
+export function codeTokens(string: Token, dialect: Dialect, unicodeIdentifiers: boolean, what = "the Execute box's ST"): { tokens: Token[]; st: string } | string {
   const raw = string.text.slice(1, string.text.length >= 2 && string.text.endsWith("'") ? -1 : undefined)
   let decoded = ""
   const at: number[] = [] // decoded index → raw index
@@ -136,8 +136,8 @@ function codeTokens(string: Token, dialect: Dialect, unicodeIdentifiers: boolean
     const e = raw[i + 1]
     if (e !== "$" && e !== "'")
       return e === undefined
-        ? "a `$` at the end of the Execute box's ST: a `$` is written `$$`"
-        : `the escape '$${e}' in the Execute box's ST: its code spells a ' as $' and a $ as $$, and everything else as it stands`
+        ? `a \`$\` at the end of ${what}: a \`$\` is written \`$$\``
+        : `the escape '$${e}' in ${what}: its ${what.endsWith("ST") ? "code" : "text"} spells a ' as $' and a $ as $$, and everything else as it stands`
     decoded += e
     i++
   }

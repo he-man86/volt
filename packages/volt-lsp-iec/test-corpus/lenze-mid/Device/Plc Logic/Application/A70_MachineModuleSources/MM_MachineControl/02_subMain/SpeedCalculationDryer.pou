@@ -27,7 +27,7 @@ MUL(EN := w1, Mach1_Data.AUTOSPEED, 10, OUT => MainDrive_AutoSpeed01rpm).ENO;
 MOVE(EN := w1, MainDrive_AutoSpeed01rpm, OUT => Droger_Data.Cor_denumerator).ENO;
 w2 := w1 AND True;
 MOVE(EN := MOVE(EN := Mach1_AuxData.IEC_TIMERS.TON_DelayIdling(IN := w2 AND NOT Mach1.GenFlags.DriveIsRunning, PT := T#500MS).Q AND NOT Mach1_Alarms.Alm049, MainDrive_AutoSpeed01rpm, OUT => Mach_ActSpeed_Rpm01).ENO, MainDrive_AutoSpeed01rpm, OUT => Droger_Data.Cor_numerator).ENO;
-MOVE(EN := w2 AND (Mach1.GenFlags.DriveIsRunning OR NOT Mach1_AuxData.IEC_TIMERS.TON_DelayIdling.Q), MUL(HMI_Var.Mach1.ActualSpeed, 10), OUT => Mach_ActSpeed_Rpm01).ENO;
+MOVE(EN := w2 AND (Mach1.GenFlags.DriveIsRunning OR NOT Mach1_AuxData.IEC_TIMERS.TON_DelayIdling.Q), OPERAND('HMI_Var.Mach1.ActualSpeed*10'), OUT => Mach_ActSpeed_Rpm01).ENO;
 w3 := w2 AND True;
 w4 := w3 AND Trayfiller_Data.commInterface.HoldFeedFwd;
 MOVE(EN := (Mach1_AuxData.ADS_StopOnZeroPulse := w4 AND (LST_InputsOutputs.I133_1_PROX_zero_position_transport_ADS OR Mach1_AuxData.ADS_StopOnZeroPulse)), 750, OUT => Droger_Data.Cor_numerator).ENO;

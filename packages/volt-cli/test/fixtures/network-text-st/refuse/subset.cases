@@ -1,3 +1,43 @@
+#### operand-plain — a plain operand is written as it stands, never OPERAND
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := OPERAND('a');
+=== refused
+network-plain-st a plain operand is written as it stands
+
+#### operand-not-a-string — OPERAND takes one string
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := OPERAND(a);
+=== refused
+network-plain-st OPERAND takes one string
+
+#### operand-two-strings — OPERAND takes one string
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := OPERAND('a + 1', 'b');
+=== refused
+network-plain-st OPERAND takes one string
+
+#### operand-escape — an operand's text spells a ' as $' and a $ as $$, everything else as it stands
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := OPERAND('a$N+ b');
+=== refused
+network-plain-st the escape '$N'
+
+#### operand-empty — an empty operand is no OPERAND
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := OPERAND('');
+=== refused
+network-plain-st OPERAND holds no text
+
 #### wires-var-temp — a wire keeps its value across scans, as ST's VAR does
 === text
 %LANGUAGE LD

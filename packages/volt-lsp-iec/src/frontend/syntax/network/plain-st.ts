@@ -39,6 +39,7 @@ import type { Dialect } from "../lex/vocabulary.js"
 import { joinSpans, type Span } from "../span.js"
 import { isPlainStNetworkBody } from "../format/bodies.js"
 import { codeAt, joinCodeStrings, takeCode } from "./execute-code.js"
+import { isOperandHead, takeOperand } from "./operand-text.js"
 
 export { closedString, EXECUTE } from "./execute-code.js"
 
@@ -96,6 +97,8 @@ export interface PlainStNetwork {
   /** Each Execute box whose ST stands as its last pin, `'…'`: its call, from `EXECUTE` to its `)`, and its ST, the
    *  string's content — where the box's own statements stand. */
   executes: readonly PlainStExecute[]
+  /** Each `OPERAND('…')`'s text: an operand's own ST, which the network check does not hold to the subset. */
+  operands: readonly Span[]
 }
 
 export interface PlainStExecute {
@@ -250,7 +253,7 @@ function read(lexed: readonly Token[], dialect: Dialect, unicodeIdentifiers: boo
       const { line, end } = percentLine(tokens, i, key, stray)
       if (key === "NETWORK") {
         close()
-        cur = { header: line, lines: [line], executes: [], last: line.span, wires: [], comment: false, code: false }
+        cur = { header: line, lines: [line], executes: [], operands: [], last: line.span, wires: [], comment: false, code: false }
       } else if (cur === undefined) stray.push({ message: `'%${key}' before the first %NETWORK line`, span: line.span })
       else {
         flush()
@@ -280,6 +283,13 @@ function read(lexed: readonly Token[], dialect: Dialect, unicodeIdentifiers: boo
       continue
     }
     if (cur !== undefined) {
+      // AN OPERAND HOLDING ST TEXT, `OPERAND('…')`: read as the bracketed ST it holds (`operand-text.ts`)
+      if (isOperandHead(tokens, i)) {
+        i = takeOperand(tokens, i, dialect, unicodeIdentifiers, { out, stray, operands: cur.operands })
+        calls.push({ head: undefined })
+        cur.last = tokens[i]!.span
+        continue
+      }
       // THE EXECUTE BOX'S ST: the string `'…'` closing an `EXECUTE(` call is trivia, its ST the statements after its statement
       const code = codeAt(tokens, i, calls)
       if (code !== undefined) {
@@ -446,6 +456,7 @@ interface NetworkState {
   header: PlainStLine
   lines: PlainStLine[]
   executes: PlainStExecute[]
+  operands: Span[]
   last: Span
   wires: PlainStWire[]
   declaration?: Span
@@ -465,6 +476,7 @@ function networkOf(cur: NetworkState, index: number): PlainStNetwork {
     ...(cur.declaration !== undefined ? { declaration: cur.declaration } : {}),
     unsupported: cur.lines.some((l) => l.key === "UNSUPPORTED"),
     executes: cur.executes,
+    operands: cur.operands,
   }
 }
 

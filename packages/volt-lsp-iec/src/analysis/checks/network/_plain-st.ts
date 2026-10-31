@@ -200,6 +200,9 @@ function checkBody(body: BodySpan, scope: Scope | undefined, project: Scope, out
     }
   }
   checkNumbering(text, scope, out)
+  const operand = text.networks.flatMap((n) => n.operands)[0]
+  if (operand !== undefined && scope !== undefined && lookup(scope, "OPERAND") !== undefined)
+    emit(out, operand, CODE, "the call OPERAND names something declared in reach, which the text reads as its own OPERAND")
   const parsed = sourceStatements(body)
   const of = (span: Span) => text.networks.find((n) => span.start >= n.span.start && span.start < n.span.end)
   const inExecute = (span: Span) => text.networks.some((n) => n.executes.some((x) => span.start >= x.code.start && span.start < x.code.end))
@@ -209,7 +212,7 @@ function checkBody(body: BodySpan, scope: Scope | undefined, project: Scope, out
     if (inExecute(stmt.span)) continue
     const network = of(stmt.span)
     if (network === undefined) continue
-    checkStatement(stmt, !first.has(network), scope, boxes, project, wires, network.executes, out)
+    checkStatement(stmt, !first.has(network), scope, boxes, project, wires, network, out)
     first.add(network)
   }
   checkComments(body, text.networks, out)
@@ -295,7 +298,7 @@ function checkLines(n: PlainStNetwork, body: BodySpan, out: DiagnosticItem[]): v
   }
 }
 
-function checkStatement(stmt: Statement, first: boolean, scope: Scope | undefined, boxes: Scope | undefined, project: Scope, wires: ReadonlySet<string>, executes: readonly PlainStExecute[], out: DiagnosticItem[]): void {
+function checkStatement(stmt: Statement, first: boolean, scope: Scope | undefined, boxes: Scope | undefined, project: Scope, wires: ReadonlySet<string>, network: PlainStNetwork, out: DiagnosticItem[]): void {
   const word = NOT_IN_A_NETWORK[stmt.kind]
   if (word !== undefined) return emit(out, stmt.span, CODE, `an LD/FBD network cannot hold a ${word}`)
   switch (stmt.kind) {
@@ -307,27 +310,27 @@ function checkStatement(stmt: Statement, first: boolean, scope: Scope | undefine
     case "call_stmt":
       if (stmt.call.callee.kind === "ident_expr" && NETWORK_ELEMENTS.has(stmt.call.callee.name.toUpperCase()))
         emit(out, stmt.span, CODE, `the call ${stmt.call.callee.name} stands alone: a branch, an edge or the rail is a value in a tree`)
-      checkExprs(stmt, scope, boxes, project, wires, executes, out)
+      checkExprs(stmt, scope, boxes, project, wires, network, out)
       return
     case "expr_stmt":
       // a box at a root showing ENO, its call closed by `.ENO`: network text's one added statement form
       if (stmt.expr.kind === "member" && stmt.expr.base.kind === "call") {
-        if (calleeText(stmt.expr.base).toUpperCase() === EXECUTE) return checkExprs(stmt, scope, boxes, project, wires, executes, out)
+        if (calleeText(stmt.expr.base).toUpperCase() === EXECUTE) return checkExprs(stmt, scope, boxes, project, wires, network, out)
         const m = boxes === undefined ? undefined : boxMember(stmt.expr, boxes, project)
         if (m === undefined || !m.eno)
           emit(out, stmt.span, CODE, `the call ${calleeText(stmt.expr.base)} stands as a statement closed by .${stmt.expr.member.name}: a box at a root hands nothing on, and its call is closed by .ENO (it shows ENO) or by nothing`)
-        checkExprs(stmt, scope, boxes, project, wires, executes, out)
+        checkExprs(stmt, scope, boxes, project, wires, network, out)
         return
       }
       emit(out, stmt.span, CODE, "a statement a network cannot hold: an assignment, a call, a jump or a return")
       return
     case "assign":
       checkCoilMarks(stmt, wires, out)
-      checkExprs(stmt, scope, boxes, project, wires, executes, out)
+      checkExprs(stmt, scope, boxes, project, wires, network, out)
       return
     case "jmp":
     case "return":
-      checkExprs(stmt, scope, boxes, project, wires, executes, out)
+      checkExprs(stmt, scope, boxes, project, wires, network, out)
       return
     case "empty":
       return
@@ -337,7 +340,7 @@ function checkStatement(stmt: Statement, first: boolean, scope: Scope | undefine
 }
 
 /** Infix only for the contacts; `NOT` only before an operand; every box as `checkBox` holds it. */
-function checkExprs(stmt: Statement, scope: Scope | undefined, boxes: Scope | undefined, project: Scope, wires: ReadonlySet<string>, executes: readonly PlainStExecute[], out: DiagnosticItem[]): void {
+function checkExprs(stmt: Statement, scope: Scope | undefined, boxes: Scope | undefined, project: Scope, wires: ReadonlySet<string>, network: PlainStNetwork, out: DiagnosticItem[]): void {
   // the member closing each call, and the call standing as the statement (a root: it hands nothing on)
   const closer = new Map<CallExpr, string>()
   const root = stmt.kind === "call_stmt" ? stmt.call
@@ -345,13 +348,17 @@ function checkExprs(stmt: Statement, scope: Scope | undefined, boxes: Scope | un
   for (const e of stmtExprs(stmt)) walkExpr(e, (x) => { if (x.kind === "member" && x.base.kind === "call") closer.set(x.base, x.member.name) })
   for (const e of stmtExprs(stmt))
     walkExpr(e, (x) => {
+      // an OPERAND's text is the operand's own ST (`operand-text.ts`): no box, no subset
+      if (network.operands.some((o) => x.span.start >= o.start && x.span.end <= o.end)) return
       if (x.kind === "binary" && CALL_ONLY.has(x.op.toUpperCase()))
         emit(out, x.span, CODE, `an infix '${x.op}': in a network every box is a call, and only contacts are infix AND / OR`)
-      if (x.kind === "unary" && x.op.toUpperCase() === "NOT") checkValueNot(x.operand, x.span, wires, out)
+      // NOT before an OPERAND marks that operand, a contact
+      const operandText = x.kind === "unary" && x.operand.kind === "paren" && network.operands.some((o) => x.operand.span.start < o.start && x.operand.span.end > o.end)
+      if (x.kind === "unary" && x.op.toUpperCase() === "NOT" && !operandText) checkValueNot(x.operand, x.span, wires, out)
       if (x.kind === "assign_expr" && x.marks !== undefined) checkMarkOrder(x.marks, x.span, out)
       if (x.kind === "call") for (const a of x.args) if (a.marks !== undefined) checkPinMarks(x, a, out)
       if (x.kind === "call") checkCall(x, scope, wires, out)
-      if (x.kind === "call" && calleeText(x).toUpperCase() === EXECUTE) return checkExecute(x, closer.get(x), x !== root, scope, executes, out)
+      if (x.kind === "call" && calleeText(x).toUpperCase() === EXECUTE) return checkExecute(x, closer.get(x), x !== root, scope, network.executes, out)
       if (x.kind === "call" && boxes !== undefined) checkBox(x, closer.get(x), x !== root, boxes, project, out)
     })
 }

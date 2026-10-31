@@ -168,33 +168,6 @@ public static class StNetworkReader
         catch (StNetworkReadException) { return false; }
     }
 
-    /// <summary>Whether <paramref name="text"/> reads as one ST expression of the subset — what an operand holding an
-    /// expression an engineer typed into it is written as (bracketed).</summary>
-    public static bool IsExpression(string text)
-    {
-        try
-        {
-            var toks = Lex(text, k => 1 + k);
-            if (toks.Count == 0) return false;
-            var p = new Parser(text, toks, _ => false, 1);
-            p.Expr();
-            return p.AtEnd;
-        }
-        catch (StNetworkReadException) { return false; }
-    }
-
-    /// <summary>The tree an operand holding an ST expression reads as (a stored member, design.md): the expression read as
-    /// ST, every operator its box, against <paramref name="scope"/>. Not network text: infix arithmetic and comparisons are
-    /// ST here, where a network spells each box as a call.</summary>
-    public static Node ExpressionTree(string text, NetworkScope scope)
-    {
-        var p = new Parser(text, Lex(text, k => 1 + k), _ => false, 1);
-        var e = p.Expr();
-        if (!p.AtEnd) throw new StNetworkReadException(1, $"the operand '{text}' is more than one expression");
-        var net = new NetworkReader(new List<string> { StNetworkWriter.NetworkLine }, 1, 0, scope);
-        return new Builder(net, new List<AStmt>(), 1).Tree(e);
-    }
-
     /// <summary>Whether <paramref name="text"/> is a name a call can head (an identifier chain, no literal).</summary>
     public static bool IsCallHead(string text) =>
         IsOperand(text) && !IsLiteral(text) && text != Box.UnnamedInstance;
@@ -1039,7 +1012,7 @@ public static class StNetworkReader
                     var inner = Expr(n.Inner);
                     switch (inner)
                     {
-                        case Leaf { Flags.IsNone: true } l when n.Inner is AOperand:
+                        case Leaf { Flags.IsNone: true } l when n.Inner is AOperand || n.Inner is ACall oc && Is(oc.Head, StNetworkWriter.OperandHead):
                             return l with { Flags = Flags.None with { Negated = true } };
                         case Box { Flags.IsNone: true, StCode: null } b when n.Inner is ACall:
                             return b with { Flags = Flags.None with { Negated = true } };
@@ -1077,6 +1050,16 @@ public static class StNetworkReader
         /// <c>FALLING(x)</c>: the edge on the contact or the box <c>x</c> (a negated contact negated first, N17).</summary>
         private Node Element(ACall c, string element)
         {
+            if (element == StNetworkWriter.OperandHead)
+            {
+                if (c.Member is not null || c.Args.Count != 1 || c.Args[0] is not { Out: false, Formal: null, Value: AOperand { Text: var lit } } ||
+                    lit.Length < 2 || lit[0] != '\'' || lit[lit.Length - 1] != '\'')
+                    throw Error(c.Line, $"{c.Head} takes one string, '<the operand's text>', and names no output");
+                var text = NetworkSpelling.UnescapeCode(lit.Substring(1, lit.Length - 2), out var escape, "an operand's text") ?? throw Error(c.Line, escape!);
+                if (text.Length == 0) throw Error(c.Line, $"{c.Head} holds no text: an empty operand is ;");
+                if (IsOperand(text)) throw Error(c.Line, $"{c.Head}('{lit.Substring(1, lit.Length - 2)}'): a plain operand is written as it stands");
+                return new Leaf(new Operand(text), Flags.None);
+            }
             if (element == StNetworkWriter.RailHead)
             {
                 if (c.Args.Count != 0 || c.Member is not null) throw Error(c.Line, $"the rail {c.Head}() takes no value and names no output");

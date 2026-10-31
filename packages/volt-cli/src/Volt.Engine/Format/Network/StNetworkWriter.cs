@@ -123,6 +123,11 @@ public static class StNetworkWriter
     /// <summary>The rail, the vendor's <c>BoxTreeTerminator</c>: <c>RAIL()</c> wherever a value stands.</summary>
     public const string RailHead = "RAIL";
 
+    /// <summary>An operand that holds ST text and is no plain operand (an IDE operand box an engineer typed an expression
+    /// into): <c>OPERAND('&lt;its text&gt;')</c>, the text a string with ST escaping (<c>$'</c>, <c>$$</c>), the one spelling of such
+    /// an operand (network-text-one-to-one F2).</summary>
+    public const string OperandHead = "OPERAND";
+
     /// <summary>A jump and the return are TARGETS of an item: <c>JMP.label := value;</c>, <c>RETURN := value;</c>, chained after
     /// coils as the IDE stores them (<c>y := JMP.l := v;</c>).</summary>
     public const string JumpHead = "JMP";
@@ -131,7 +136,7 @@ public static class StNetworkWriter
 
     /// <summary>The function names the text gives an element of its own (a branch, an edge, the rail): declared in reach, the
     /// text would mean two things, and the writer refuses it by name.</summary>
-    internal static readonly string[] ElementHeads = { BranchHead, ShortCircuitHead, RisingHead, FallingHead, RailHead };
+    internal static readonly string[] ElementHeads = { BranchHead, ShortCircuitHead, RisingHead, FallingHead, RailHead, OperandHead };
 
     internal const string NetworkLine = "%NETWORK";
     internal const string DisabledLine = "%DISABLED";
@@ -500,15 +505,11 @@ public static class StNetworkWriter
                 {
                     if (l.Flags.Jump || l.Flags.Return || l.Flags.Set || l.Flags.Reset)
                         throw Unspellable("a coil flag on an operand", $"the operand '{l.Operand.Text}' carries {Describe(l.Flags)}.");
-                    // An operand holding an ST expression an engineer typed into it is written as the boxes it reads as (a
-                    // stored member: it runs the same, gap probe 911876691e), so the text is one text whichever it came from.
-                    if (OperandExpression(l.Operand.Text) is { } tree)
-                    {
-                        if (!l.Flags.Negated) return Expr(tree, parent);
-                        // NOT before an expression's tree: a box takes the mark, anything else is under a NOT box.
-                        return Expr(tree is Box { Flags.IsNone: true } tb && !IsContact(tb) ? tb with { Flags = Flags.None with { Negated = true } } : NotBox(tree), parent);
-                    }
-                    var atom = Operand(l.Operand.Text);
+                    // An operand holding ST text that is no plain operand is that text, OPERAND('…') (F2): never the boxes it
+                    // would read as, which are another model.
+                    var atom = l.Operand.Text.Length > 0 && !StNetworkReader.IsOperand(l.Operand.Text)
+                        ? OperandText(l.Operand.Text)
+                        : Operand(l.Operand.Text);
                     return l.Flags.Negated ? Bracket("NOT " + atom, 9, parent) : atom;
                 }
                 case Demux { Input: null } d:
@@ -813,11 +814,15 @@ public static class StNetworkWriter
             return formal;
         }
 
-        /// <summary>The boxes an operand holding an ST expression (not one primary) reads as, or null for any other operand.</summary>
-        private Node? OperandExpression(string text) =>
-            text.Length > 0 && !StNetworkReader.IsOperand(text) && StNetworkReader.IsExpression(text)
-                ? StNetworkReader.ExpressionTree(text, _scope)
-                : null;
+
+        /// <summary><c>OPERAND('&lt;text&gt;')</c>: an operand holding ST text, its text a one-line string in ST escaping.</summary>
+        private string OperandText(string text)
+        {
+            RequireElementHead(OperandHead);
+            if (text.IndexOf('\n') >= 0 || text.IndexOf('\r') >= 0)
+                throw Unspellable("an operand holding a line break", $"the operand '{text.Replace("\r", "").Replace("\n", "⏎")}'.");
+            return OperandHead + "('" + NetworkSpelling.EscapeCode(text) + "')";
+        }
 
         /// <summary>An operand: one ST primary as it stands.</summary>
         private string Operand(string text)

@@ -93,9 +93,9 @@ ioUDT_ServoDrive.Status.InSync := w4 AND iServoStatus.InSync;
 ioUDT_ServoDrive.Status.DriveTorqueError := w4 AND iServoStatus.TorqueLimit;
 ioUDT_ServoDrive.Status.DriveIsHomed := HomingDoneDelay(IN := w4 AND NOT STATE_Prehoming AND NOT STATE_HomePosNOK, PT := T#2S).Q;
 %NETWORK "DONE Network 25: ActualXPos/Ypos"
-MOVE(EN := RAIL(), LREAL_TO_INT(iServoStatus.ActPos), OUT => ioUDT_ServoDrive.CAM.ActualYPos).ENO;
+MOVE(EN := RAIL(), OPERAND('LREAL_TO_INT(iServoStatus.ActPos)'), OUT => ioUDT_ServoDrive.CAM.ActualYPos).ENO;
 %NETWORK "DONE Network 26: ActualSpeed"
-MOVE(EN := RAIL(), LREAL_TO_INT(iServoStatus.ActSpeed), OUT => ioUDT_ServoDrive.CAM.ActualYSpeed).ENO;
+MOVE(EN := RAIL(), OPERAND('LREAL_TO_INT(iServoStatus.ActSpeed)'), OUT => ioUDT_ServoDrive.CAM.ActualYSpeed).ENO;
 %NETWORK
 MOVE(EN := RAIL(), ioUDT_ServoDrive.Control.TorqueLimit, OUT => oServoControl.TorqueLimit).ENO;
 %NETWORK "DONE Network 27: Reset ResetError in UDT"

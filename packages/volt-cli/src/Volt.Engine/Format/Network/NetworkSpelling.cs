@@ -180,7 +180,7 @@ internal static class NetworkSpelling
     /// <summary>The inverse of <see cref="EscapeCode"/>: <c>$'</c> and <c>$$</c>, the only escapes of the code. Null and
     /// <paramref name="error"/> for any other <c>$</c>: one spelling per code, so a <c>$N</c> is refused, not read as a line
     /// break the text writes as it stands.</summary>
-    public static string? UnescapeCode(string text, out string? error)
+    public static string? UnescapeCode(string text, out string? error, string what = "the Execute box's ST")
     {
         error = null;
         var sb = new StringBuilder(text.Length);
@@ -192,8 +192,8 @@ internal static class NetworkSpelling
             if (e != '$' && e != '\'')
             {
                 error = e == '\0'
-                    ? "a `$` at the end of the Execute box's ST: a `$` is written `$$`"
-                    : $"the escape '${e}' in the Execute box's ST: its code spells a ' as $' and a $ as $$, and everything else as it stands";
+                    ? $"a `$` at the end of {what}: a `$` is written `$$`"
+                    : $"the escape '${e}' in {what}: its {(what.EndsWith("ST", StringComparison.Ordinal) ? "code" : "text")} spells a ' as $' and a $ as $$, and everything else as it stands";
                 return null;
             }
             sb.Append(e);
