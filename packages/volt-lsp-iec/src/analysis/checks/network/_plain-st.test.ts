@@ -77,6 +77,13 @@ test("a jump and a return are targets on their value: JMP.label := value names a
   expect(networkDiags(iff).map((d) => d.message)).toContain("a network holds no IF: a jump on a value is JMP.label := value, a return RETURN := value")
 })
 
+test("a bracket groups a chain inside a tighter or the same chain, and nothing else (as the bridge's reader)", () => {
+  const brackets = (code: string) =>
+    networkDiags(ld("\ta, b, c, x : BOOL;", `%NETWORK\n${code}\n`)).filter((d) => d.message.startsWith("a bracket that groups nothing")).length
+  for (const ok of ["x := a AND (b OR c);", "x := a AND (b AND c);", "x := NOT(a OR b);", "x := (JMP.l1 := c) AND a;"]) expect([ok, brackets(ok)]).toEqual([ok, 0])
+  for (const bad of ["x := a AND (b);", "x := (a AND b);", "x := a OR (b AND c);", "x := MOVE((a OR b));"]) expect([bad, brackets(bad)]).toEqual([bad, 1])
+})
+
 test("an UNSUPPORTED network keeps its label under its line: still the jump target, and nothing else stands there", () => {
   const ok = ld("\ta : BOOL;", "%NETWORK\n%UNSUPPORTED \"an edge contact\" #0011aabb\nl9:\n%NETWORK\nJMP.l9 := a;\n")
   expect([...diagnose(ok), ...networkDiags(ok)].map((d) => d.message)).toEqual([])
