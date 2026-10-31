@@ -73,7 +73,7 @@ public sealed class TcNativeCorpusTests
         ("shl", "%NETWORK\nw := SHL(w, 2);\n"),
         ("ton_call", "%NETWORK\nt1(IN := a, PT := pt);\n"),
         ("ton_call_t3s", "%NETWORK\nt1(IN := a, PT := T#3S);\n"),
-        ("ton_unwired", "%NETWORK\nt1(IN := TRUE, PT := TRUE);\n"),
+        ("ton_unwired", "%NETWORK\nt1();\n"),
         ("ton_in_box", "%NETWORK\nt1(IN := AND(a, b), PT := pt);\n"),
         ("ton_q_assign", "%NETWORK\nout := t1(IN := a, PT := pt).Q;\n"),
         ("ton_then_read", "%NETWORK\nt1(IN := a, PT := pt);\nout := t1.Q;\n"),

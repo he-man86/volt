@@ -1,6 +1,6 @@
 ## 1. Bug first
 
-- [ ] 1.1 Finding 1: TwinCAT unwired pin → pin left out (test-first from `Vn_ton_unwired`, offline)
+- [x] 1.1 Finding 1: TwinCAT unwired pin → pin left out (test-first from `Vn_ton_unwired`, offline)
 
 ## 2. Measure (live CODESYS; TwinCAT offline only)
 

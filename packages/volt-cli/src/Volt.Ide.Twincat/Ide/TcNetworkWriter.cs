@@ -677,11 +677,6 @@ internal static class TcNetworkWriter
             // (an engineer deleting whatever drove a rung, leaving `?;`) would be wiped and rewritten in
             // place — discarding every id and unmodelled member under it — instead of falling to `default`
             // and letting the IDE rebuild that network. Found by review.
-            // An UNWIRED BOX INPUT held as an empty operand (TwinCAT's import's spelling, which the builder writes) is the reader's Terminator
-            // (`TcNetworkReader.IsUnwiredPin`), so the same Terminator pushed back over it is no change.
-            case Terminator when n.Flags.IsNone && (string?)e.Parent?.Attribute("n") == "InputItems" && TcNetworkReader.IsUnwiredPin(e):
-                return changed;
-
             case Terminator when type == "BoxTreeOperand" && e.Attribute("t") != null:
                 return SwapToTerminator(e, n.Flags);
 

@@ -261,11 +261,11 @@ internal sealed class TcArchiveBuilder
             : ("Operand", Operand(s with { IsLValue = true }, TcArchive.Bits(s.Flags), isInstance: false, fixedFlags: true))).ToList();
 
         // INPUTS — the enable is slot 0, named EN; an unwired pin is the empty operand TwinCAT's importer writes for one
-        // (Vn_ton_unwired), which the reader reads as the empty terminator.
+        // (Vn_ton_unwired): the pin left out, `Leaf ""`, as the reader reads it. The rail on a pin is a stored terminator.
         var pins = new List<Node>();
         if (b.Enable is { } en) pins.Add(en);
         pins.AddRange(b.Inputs.Select(p => p.Value));
-        var inputs = pins.Select(p => p is Terminator { Flags.IsNone: true }
+        var inputs = pins.Select(p => p is Leaf { Operand.Text.Length: 0, Flags.IsNone: true }
             ? ("BoxTreeOperand", Unwired())
             : Node(p, consumed: true)).ToList();
 

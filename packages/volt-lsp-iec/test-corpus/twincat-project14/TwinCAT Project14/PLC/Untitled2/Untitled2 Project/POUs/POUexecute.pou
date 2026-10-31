@@ -25,6 +25,6 @@ w1 := b;
 out1 := AND(OR(a, w1), c);
 out2 := w1;
 %NETWORK
-output := t2(IN := TRUE, PT := e1).Q;
+output := t2(PT := e1).Q;
 
 END_PROGRAM

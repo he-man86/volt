@@ -246,7 +246,9 @@ public class TcStructuralEditTests
         Assert.Contains("<v>Out1</v>", imported);
         var scope = NetworkScope.FromDeclarations("PROGRAM VltProbe_Max\nVAR\n  n : INT;\n  m : INT;\n  t1 : TON;\nEND_VAR",
                                                   _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName, Volt.Tests.Shared.Scopes.NoLibrary);
-        var text = StNetworkWriter.Write(TcNetworkReader.Read(TcArchive.Root(imported)!, BodyLanguage.Ld), scope);
+        // The TON's network alone: the MUL's empty function pin has no spelling (refused by name, as on CODESYS).
+        var read = TcNetworkReader.Read(TcArchive.Root(imported)!, BodyLanguage.Ld);
+        var text = StNetworkWriter.Write(read with { Networks = read.Networks.Where(n => n.Trees.OfType<Box>().Any(b => b.Type == "TON")).ToList() }, scope);
 
         var built = TcArchiveBuilder.Body(NetworkText.Validate(text, scope), scope);
 
@@ -269,10 +271,11 @@ public class TcStructuralEditTests
         var pulled = TcNetworkReader.Read(TcArchive.Root(xml)!, BodyLanguage.Ld);
         var text = StNetworkWriter.WritePulled(pulled, scope);
 
-        // An unwired pin is the rail, TRUE (a stored member, design.md 1.4).
-        Assert.Contains("\nn := MUL(TRUE, m, 6);\n", text);
+        // An unwired pin is the empty operand CODESYS reads, never the rail: on a function's pin it has no spelling and
+        // is refused by name, as on CODESYS; on an FB's named pin it is the pin left out.
+        Assert.Contains("%UNSUPPORTED \"an empty operand on a pin\"", text);
         // The import's output list is a stored member the text derives (B7): not written, kept by an unchanged push.
-        Assert.Contains("\nt1(IN := TRUE, PT := TRUE);\n", text);
+        Assert.Contains("\nt1();\n", text);
         Assert.Null(TcNetworkWriter.Apply(xml, NetworkText.Validate(text, scope), scope));
     }
 
@@ -295,12 +298,13 @@ public class TcStructuralEditTests
 
         var pulled = TcNetworkReader.Read(TcArchive.Root(xml)!, BodyLanguage.Ld);
         var box = pulled.Networks.SelectMany(n => n.Trees).OfType<Box>().Single(b => b.Type == "TON");
-        Assert.IsType<Terminator>(box.Enable);
+        Assert.Equal("", Assert.IsType<Leaf>(box.Enable).Operand.Text);
 
-        // An enabled box with no ENO at the root is its call with `EN :=` and no member (network-output-member), its unwired
-        // enable the rail, TRUE; pushed back unchanged it is kept.
+        // An unwired enable is the empty operand, never the rail: refused by name, as on CODESYS; pushed back unchanged
+        // the network is kept.
         var text = StNetworkWriter.WritePulled(pulled, scope);
-        Assert.Contains("\nt1(EN := TRUE, PT := TRUE);\n", text);
+        Assert.DoesNotContain("TRUE", text);
+        Assert.DoesNotContain("t1(", text);
         Assert.Null(TcNetworkWriter.Apply(xml, NetworkText.Validate(text, scope), scope));
     }
 
