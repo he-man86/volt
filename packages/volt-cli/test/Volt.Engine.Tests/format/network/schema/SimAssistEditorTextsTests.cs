@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Volt.Engine.Format.Network;
@@ -79,6 +80,8 @@ public class SimAssistEditorTextsTests(Xunit.Abstractions.ITestOutputHelper outp
     {
         var failures = new List<string>();
         var refused = new Dictionary<string, int>();
+        var verdicts = new StringBuilder("# the bridge reader's verdict on each line of sim-assist-editor-texts.v1.jsonl (the LSP's test compares its own); " +
+            "regenerate with VOLT_WRITE_NWL_SHAPES=1 dotnet test test/Volt.Engine.Tests --filter SimAssistEditorTextsTests\n");
         foreach (var t in Texts())
         {
             var scope = ScopeOf(t.Declaration);
@@ -87,17 +90,23 @@ public class SimAssistEditorTextsTests(Xunit.Abstractions.ITestOutputHelper outp
                 var back = StNetworkWriter.Write(StNetworkReader.Read(t.Body, scope), scope);
                 if (Layout(back) != Layout(t.Body))
                     failures.Add($"line {t.Line} ({t.Op}) has a second spelling:\n{t.Body}-- writes back as --\n{back}");
+                verdicts.Append(t.Line).Append(" accept\n");
             }
             catch (StNetworkReadException e)
             {
                 var why = Expected.FirstOrDefault(x => e.Message.Contains(x.Names, StringComparison.Ordinal)).Why;
                 if (why is null) failures.Add($"line {t.Line} ({t.Op}) is refused for no cited reason: {e.Message}\n{t.Body}");
                 else refused[why] = refused.GetValueOrDefault(why) + 1;
+                verdicts.Append(t.Line).Append(" refuse ").Append(e.Message).Append('\n');
             }
         }
         Assert.True(failures.Count == 0, $"{failures.Count} editor texts:\n" + string.Join("\n\n", failures.Take(20)));
         output.WriteLine($"{Texts().Count - refused.Values.Sum()} write back as themselves; " + string.Join("; ", refused.Select(r => $"{r.Value} {r.Key}")));
         // every expected refusal still occurs: a reason that no longer refuses anything is a stale entry
         Assert.All(Expected, x => Assert.True(refused.ContainsKey(x.Why), $"no text is refused any more for: {x.Why}"));
+        var path = Path.ChangeExtension(Path_, ".verdicts.txt");
+        if (Environment.GetEnvironmentVariable("VOLT_WRITE_NWL_SHAPES") == "1") File.WriteAllText(path, verdicts.ToString());
+        Assert.True(File.Exists(path) && File.ReadAllText(path).Replace("\r\n", "\n") == verdicts.ToString(),
+            $"{Path.GetFileName(path)} is not the reader's verdicts; regenerate with VOLT_WRITE_NWL_SHAPES=1");
     }
 }
