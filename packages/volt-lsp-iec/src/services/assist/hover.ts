@@ -9,7 +9,7 @@
 import type { Hover } from "vscode-languageserver-protocol"
 import { allUnits, renderTypeExpr, spanContains, unitBodies, type Dialect } from "../../frontend/syntax/index.js"
 import { dialectOf, type Scope, type Symbol } from "../../frontend/symbols/index.js"
-import { humanKind, rangeFromSpan, resolveAt, SYMBOL_KINDS } from "../shared/index.js"
+import { humanKind, networkWordAt, rangeFromSpan, resolveAt, SYMBOL_KINDS } from "../shared/index.js"
 import { builtinHover, pragmaHelp } from "./builtin-hover.js"
 import type { Document } from "../shared/index.js"
 import { tokenAtOffset } from "../shared/index.js"
@@ -17,6 +17,10 @@ import { tokenAtOffset } from "../shared/index.js"
 export function hover(doc: Document, project: Scope, offset: number): Hover | undefined {
   const tok = tokenAtOffset(doc.parseResult.tokens, offset)
   const range = tok !== undefined ? { range: rangeFromSpan(tok.span) } : {}
+
+  // A network word (`RAIL()`, a mark, `JMP.l`, a `%` line): what it runs as, one line.
+  const word = networkWordAt(doc.parseResult.units, offset)
+  if (word !== undefined) return { contents: { kind: "markdown", value: word.meaning }, ...range }
 
   const sym = resolveAt(doc, project, offset)
   if (sym !== undefined) return { ...symbolHover(sym), ...range }

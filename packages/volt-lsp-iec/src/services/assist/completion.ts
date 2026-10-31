@@ -10,17 +10,30 @@
 import { CompletionItemKind, type CompletionItem } from "vscode-languageserver-protocol"
 import { bodiesAt, dialectOf, findChildScope, lookup, type Scope, type Symbol, visibleNames } from "../../frontend/symbols/index.js"
 import { memberScopeOf, resolveTypeExpr } from "../../frontend/types/index.js"
-import { SYMBOL_KINDS, scopeAtOffset } from "../shared/index.js"
-import { attributeNames, type Dialect, isPlainStNetworkBody, plainStText, UNNAMED } from "../../frontend/syntax/index.js"
+import { networkBodies, SYMBOL_KINDS, scopeAtOffset } from "../shared/index.js"
+import { attributeNames, type BodySpan, type Dialect, isPlainStNetworkBody, plainStText, UNNAMED } from "../../frontend/syntax/index.js"
 import { pragmaHelp } from "./builtin-hover.js"
+import { jumpLabelCompletions, networkWordCompletions } from "./network-completion.js"
 import type { Document } from "../shared/index.js"
 
 export function completion(doc: Document, project: Scope, offset: number): CompletionItem[] {
   const attrs = attributeCompletions(doc.source, offset, dialectOf(project))
   if (attrs !== undefined) return attrs
+  const network = networkBodyAt(doc, offset)
+  const labels = network === undefined ? undefined : jumpLabelCompletions(doc.source, offset, network)
+  if (labels !== undefined) return labels
   const items = completionAtScope(scopeAtOffset(doc, project, offset), project, doc.source, offset)
   const hidden = outOfNetwork(doc, project, offset)
-  return hidden.size === 0 ? items : items.filter((i) => !hidden.has(i.label.toLowerCase()))
+  const shown = hidden.size === 0 ? items : items.filter((i) => !hidden.has(i.label.toLowerCase()))
+  if (network === undefined) return shown
+  const seen = new Set(shown.map((i) => i.label.toLowerCase()))
+  return [...shown, ...networkWordCompletions(doc.source, offset).filter((i) => addOnce(seen, i.label))]
+}
+
+/** The plain-ST network body `offset` stands in, if any — read off the parse, so a body still being typed (`JMP.|`, no
+ *  statement yet) answers too. */
+function networkBodyAt(doc: Document, offset: number): BodySpan | undefined {
+  return networkBodies(doc.parseResult.units).find((b) => b.span.start <= offset && offset <= b.span.end)
 }
 
 /**
