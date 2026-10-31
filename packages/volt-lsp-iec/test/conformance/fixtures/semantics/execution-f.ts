@@ -188,4 +188,13 @@ export const CASES_F: readonly ExecCase[] = [
     vars: "x : REAL := 0.4; z : REAL := 0.0; m : REAL := -1.5; b1 : BOOL; b2 : BOOL; b3 : BOOL;",
     body: "b1 := REAL_TO_BIT(x); b2 := REAL_TO_BIT(z); b3 := REAL_TO_BIT(m);",
   },
+  // network-text-lowering point 3: a wire read before its definition — on scan 1 its type's initial value (y = 0) or the
+  // scan's own definition (y = 12)? On scan 2 the previous scan's (12). An INT tells the readings apart where a BOOL cannot.
+  ...[1, 2].map((cycles) => ({
+    name: `nt_wire_read_before_definition_scan${cycles}`,
+    language: "FBD" as const,
+    vars: "i : INT := 7; y : INT; z : INT;",
+    body: "%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\ny := w1;\nw1 := ADD(i, 5);\nz := w1;",
+    cycles,
+  })),
 ]

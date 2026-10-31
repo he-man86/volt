@@ -33248,6 +33248,22 @@
       "values": {
         "n_tref_struct_field_unused": "INT#0"
       }
+    },
+    "nt_wire_read_before_definition_scan1": {
+      "cycles": "INT#1",
+      "values": {
+        "i": "INT#7",
+        "y": "INT#0",
+        "z": "INT#12"
+      }
+    },
+    "nt_wire_read_before_definition_scan2": {
+      "cycles": "INT#2",
+      "values": {
+        "i": "INT#7",
+        "y": "INT#12",
+        "z": "INT#12"
+      }
     }
   }
 }

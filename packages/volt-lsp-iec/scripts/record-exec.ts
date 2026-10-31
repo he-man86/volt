@@ -22,6 +22,7 @@ import { join } from "node:path"
 import { ALL_TESTS } from "../test/conformance/fixtures/index.js"
 import { fixtureUnits, withDependencies } from "../test/conformance/support/fixture-units.js"
 import { runPaths } from "../test/conformance/support/run-paths.js"
+import { isNetworkCase } from "../test/conformance/support/plc-prg.js"
 
 const CODESYS = "C:\\Program Files\\CODESYS 3.5.21.40\\CODESYS\\Common\\CODESYS.exe"
 const PROFILE = "CODESYS V3.5 SP21 Patch 4"
@@ -31,7 +32,8 @@ const RECORDINGS = join(import.meta.dir, "..", "test", "conformance", "recording
 const ONLY = process.env.RECORD_ONLY ? new Set(process.env.RECORD_ONLY.split(",")) : undefined
 
 const build = JSON.parse(readFileSync(join(RECORDINGS, "codesys.build.json"), "utf8")).tests as Record<string, { buildSuccess: boolean }>
-const cases = ALL_TESTS.filter((t) => !t.recorderSkip && !t.execSkip && (ONLY === undefined || ONLY.has(t.name)))
+// A network body (`ExecCase.language`) needs the bridge to become a network: `record-exec-network.ts` records it.
+const cases = ALL_TESTS.filter((t) => !t.recorderSkip && !t.execSkip && !isNetworkCase(t) && (ONLY === undefined || ONLY.has(t.name)))
   // A case the BUILD recording says does not build is skipped; one it does not mention is NEW, and unknown is not
   // known-bad — sending it is how a fixture written today gets its values without a bridge round-trip first.
   .filter((t) => t.source === "" || build[t.name]?.buildSuccess !== false)

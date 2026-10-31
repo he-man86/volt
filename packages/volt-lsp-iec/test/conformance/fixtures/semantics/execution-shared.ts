@@ -7,6 +7,9 @@ export interface ExecCase {
   /** The body of a VAR block. Initial values are the inputs — the oracle writes no values online. */
   vars: string
   body: string
+  /** The body is plain-ST network text of this language (`%LANGUAGE LD|FBD`), not ST — recorded through a served CODESYS
+   *  (`scripts/record-exec-network.ts`), which pushes it as the program's body; the headless `record:exec` writes ST only. */
+  language?: "LD" | "FBD"
   /** Scan cycles the body runs. Default 1. */
   cycles?: number
   /** Set when the case must NOT compile: a fragment of CODESYS's error text. Such a case pins the transpiler's input
