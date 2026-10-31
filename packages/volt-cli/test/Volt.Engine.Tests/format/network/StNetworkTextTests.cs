@@ -404,11 +404,27 @@ public class StNetworkTextTests
     [InlineData("x := i > 3;", "every box is a call")]
     [InlineData("x := a + b;", "every box is a call")]
     [InlineData("x := NOT RISING(a);", "NOT before an edge")]
+    [InlineData("x := a AND (b);", "a bracket that groups nothing")]
+    [InlineData("x := (a AND b);", "a bracket that groups nothing")]
+    [InlineData("x := a OR (b AND c);", "a bracket that groups nothing")]
+    [InlineData("x := MOVE((a OR b));", "a bracket that groups nothing")]
     public void What_a_network_cannot_hold_is_refused_by_name_with_its_line(string code, string named)
     {
         var ex = Assert.Throws<StNetworkReadException>(() => StNetworkReader.Read("%LANGUAGE LD\n%NETWORK\n" + code + "\n", NetworkScope.Empty));
         Assert.Contains(named, ex.Message);
         Assert.Equal(3, ex.Line);
+    }
+
+    /// <summary>A bracket is the one spelling of a chain inside a tighter (or the same) chain, and nothing else: the
+    /// writer brackets exactly these (Sim-Assist editor texts, nwl-schema-completeness-gate 1.2).</summary>
+    [Theory]
+    [InlineData("x := a AND (b OR c);")]
+    [InlineData("x := a AND (b AND c);")]
+    [InlineData("x := NOT(a OR b);")]
+    public void A_bracket_that_groups_a_chain_reads_and_writes_as_itself(string code)
+    {
+        var text = "%LANGUAGE LD\n%NETWORK\n" + code + "\n";
+        Assert.Equal(text, StNetworkWriter.Write(StNetworkReader.Read(text, NetworkScope.Empty), NetworkScope.Empty));
     }
 
     /// <summary>3.0: a Demux is a wire whatever its reads — once, or none (TwinCAT and the case set store both).</summary>
