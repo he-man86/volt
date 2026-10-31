@@ -1,3 +1,5 @@
+> CLOSED 2026-10-31, unbuilt. Parts 1–2 are folded into `network-rail-and-pin-negation`: its doc rewrite calls the body "ST-shaped", and task 2.3 generates the "what it runs as" table. Part 3 is dropped. Owner: nothing is converted; an ST view of an LD/FBD POU shows the network text itself instead of blocks.
+
 > Owner, 2026-10-31 (in Sim-Assist), on `y := R_EDGE(a) AND GT(EN := c, i, j);`: "in this situation it is 100% a R_TRIG
 > from ST" ... "that is really something that does not exist in st". Also 2026-10-31: a POU's language is not chosen
 > at creation; a ST/LD/FBD dropdown switches it at any time.
