@@ -61,3 +61,23 @@ test("a client with no dynamic file watching: a written, saved and deleted sourc
   await until(() => h.exits().length > 0, 2000, "the server ended")
   h.dispose()
 }, 20_000)
+
+test("a file written again right after it was created: the second write reaches the store", async () => {
+  // Bun on Linux sees a file's writes only once it has watched the new file itself, which it does a moment after the
+  // create; a write inside that moment fired no event at all (7 in 10 at 1 ms, measured in WSL).
+  const n = 10
+  const decls = Array.from({ length: n }, (_, i) => `\tn${i} : FB_${i};\n`).join("")
+  const root = tempWorkspace({ "Main.pou": `PROGRAM Main\nVAR\n${decls}END_VAR\n%LANGUAGE ST\n;\nEND_PROGRAM\n` })
+  roots.push(root)
+  const h = harness()
+  await h.initIn(root, { workspace: { diagnostics: { refreshSupport: true } } })
+  for (let i = 0; i < n; i++) {
+    writeFileSync(join(root, `FB_${i}.pou`), FB_N.replaceAll("FB_N", `FB_X${i}`)) // created under another name …
+    await new Promise((r) => setTimeout(r, 1))
+    writeFileSync(join(root, `FB_${i}.pou`), FB_N.replaceAll("FB_N", `FB_${i}`)) // … and written again at once
+  }
+  await eventually(h, root, (m) => !m.some((x) => x.startsWith("Unknown type")), "every rewritten FB binds")
+  h.endInput()
+  await until(() => h.exits().length > 0, 2000, "the server ended")
+  h.dispose()
+}, 20_000)
