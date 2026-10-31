@@ -48,7 +48,15 @@ export function toLspDiagnostic(item: DiagnosticItem): VoltDiagnostic {
     message: item.message,
     // the finding's fixes ride in `data`, which a client hands back unchanged with a code-action request (LSP 3.16), so
     // `services/assist/code-actions` renders them without re-deriving anything (openspec lsp-quick-fixes design.md §2)
-    ...(item.fixes !== undefined ? { data: { fixes: item.fixes } satisfies FixData } : {}),
+    // …and a project-dependent finding names the name it hangs on beside them (`DiagnosticItem.dependsOnProject`)
+    ...(item.fixes !== undefined || item.dependsOnProject !== undefined
+      ? {
+          data: {
+            ...(item.fixes !== undefined ? ({ fixes: item.fixes } satisfies FixData) : {}),
+            ...(item.dependsOnProject !== undefined ? { dependsOnProject: item.dependsOnProject } : {}),
+          },
+        }
+      : {}),
   }
 }
 

@@ -13,6 +13,9 @@ export interface DiagnosticItem {
   /** What the reporting check offers to fix it, from the facts it already resolved — absent when they do not suffice
    *  (openspec lsp-quick-fixes design.md §2). The code-action service only renders these; it re-derives nothing. */
   fixes?: readonly Fix[]
+  /** Set ONLY when the check fired solely because `unresolved` resolved to nothing: in a project that declares it the
+   *  finding may not exist. A client checking one item alone (PLC Assist) drops these; absent on every other finding. */
+  dependsOnProject?: { unresolved: string }
 }
 
 /**

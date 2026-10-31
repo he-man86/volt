@@ -17,6 +17,16 @@ const init = (decls: string, vendor: "codesys" | "twincat" = "codesys"): string[
     .map((d) => d.message)
 }
 
+// The cascade's two name lines fire only because the field name resolves to nothing in the POU: they name it
+// (`dependsOnProject`); the struct-initialisation and conversion lines hold in any project and carry none.
+test("dependsOnProject: only the cascade's name lines carry the unresolved field name", () => {
+  const src = `PROGRAM PLC_PRG\nVAR\n  x : INT := (p1 := 1);\nEND_VAR\nEND_PROGRAM`
+  const seen = diagnose(src, "codesys")
+    .filter((d) => d.code === "unexpected-struct-init")
+    .map((d) => d.dependsOnProject)
+  expect(seen).toEqual([undefined, { unresolved: "p1" }, { unresolved: "p1" }, undefined])
+})
+
 test("a struct initializer on an elementary type is flagged (single and multi-field), with its cascade", () => {
   expect(init(`  x : INT := (p1 := 1);`)).toEqual([
     "Unexpected structure initialisation",
