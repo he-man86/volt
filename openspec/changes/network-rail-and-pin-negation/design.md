@@ -158,3 +158,15 @@ NOT box), and TwinCAT's empty-operand unconditional jump.
    names)
 3. Shared value: jumps and returns as chain targets (`y := JMP.skip := v;`), reversing `JMP(label, value)`? Or keep
    `JMP(…)` and leave the shape refused? (default: targets)
+
+## Decided (owner, 2026-10-31)
+
+1. **Jumps and returns are targets.** Every jump and return is an assignment target, with one spelling for all cases:
+   `JMP.skip := v;` and `RETURN := v;`, and chained after coils, `y := JMP.skip := v;` (one stored item). This replaces
+   `JMP(l, v)`, `RETURN(v)`, `JMP l;` and `RETURN;`, and it closes both writer refusals for a coil sharing its value
+   with a jump. It also covers Sim-Assist's `network-jump-one-spelling`.
+2. **Rail.** The owner prefers no extra function but requires 100% coverage. `RAIL()` is used only if no spelling
+   without a function exists that builds the stored rail as distinct from a TRUE contact. Before building, that
+   question goes to Sim-Assist (an editor consumer) for review.
+3. **Negation and edges.** On pins they are functions: `NEGATED(a)`, `RISING(a)`, `FALLING(a)`. On coils the coil kind
+   is the assignment operator, as `S=` and `R=` already are: `y /= a;`, `y P= a;`, `y N= a;`.
