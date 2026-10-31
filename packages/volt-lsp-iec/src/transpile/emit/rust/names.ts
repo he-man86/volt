@@ -32,6 +32,7 @@ export const TEMP_PURPOSES = {
   bit_v: "the value stored into a bit, read once",
   bit_w: "the integer a bit is stored into",
   guard: "a harness's loop guard counter (`__guard_<n>`)",
+  segment: "the segment a labeled body runs next (`__segment_<n>`, `labels.ts`)",
   mem: "the byte image (`image.ts`)",
   a: "an image address, read once",
   v: "a value stored into the image, read once",

@@ -218,4 +218,8 @@
 // 394 -> 407, FOR MEASUREMENT (lsp-field-false-positives 8, class 2, 2026-10-29; no fixture moved): the lone-CR and CRLF twins
 // of the quick-fix pairs lowering already refuses (`qf_c0117_change`, `qf_c0118_before`, the `qf_c0139_*` BEFOREs —
 // `quick-fixes/line-end-twins.ts`), each refused for its pair's reason; a twin asks the LSP's reading of the raw text.
-export const NOT_LOWERED_CEILING = 407
+// 407 -> 395, lower-jumps-and-labels (2026-10-31): a JMP and the label it names lower (`IrLabeled`), so the twelve that
+// were refused for them only are confirmed — `flw_jmp_label_other_case`, `flw_label_unreferenced_two`,
+// `stmt_label_at_end`, the `wp_label_*` three and the six `qf_c0117_change*` / `qf_c0118_before*` line-end twins.
+// `flw_jmp_into_loop` stays: a JMP to a label inside a block is refused by name (`stmt-jmp`).
+export const NOT_LOWERED_CEILING = 395

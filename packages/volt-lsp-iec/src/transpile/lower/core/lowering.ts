@@ -66,6 +66,8 @@ export class Lowering {
   conditional = 0
   /** How many loop bodies enclose this statement: an EXIT or CONTINUE at 0 has no loop to leave (transpile-review 39). */
   loops = 0
+  /** The body's labels a JMP names, lower-case → the segment of its `labeled` node each starts (`lowerBody`). */
+  jumpTargets: ReadonlyMap<string, number> = new Map()
 
   constructor(
     readonly scope: Scope,

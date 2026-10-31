@@ -4,7 +4,8 @@
  * f = …; f`, nor (clippy's `needless_late_init`) `let f; if c { f = … } else { f = … } f`.
  */
 import type { IrExpr, IrRoutine, IrStmt } from "../../ir/index.js"
-import { diverges, type IrNode, isPlace, someNode, somePlace } from "../../ir/walk.js"
+import { diverges } from "../../ir/flow.js"
+import { type IrNode, isPlace, someNode, somePlace } from "../../ir/walk.js"
 import type { Span } from "../../../frontend/syntax/index.js"
 import { closingBrace, head, print } from "./expr.js"
 import { at, Prec } from "./precedence.js"

@@ -8,24 +8,21 @@ import { elementaryRef } from "../../frontend/types/index.js"
 import type { IrCopy, IrExpr, IrFreeze, IrInvoke, Place } from "./expr.js"
 import type { IrLoop, IrStmt } from "./stmt.js"
 import {
-  blocksOf,
   callsIn,
   childrenOf,
-  diverges,
-  divergesAll,
   findPlace,
   forEachExpr,
   forEachStmt,
   holdsCall,
   initReadChildren,
   type IrNode,
-  loopUses,
   mapPlaces,
   sameNode,
   somePlace,
   touchesOnlyItsOwn,
   writesOnlyLocals,
 } from "./walk.js"
+import { blocksOf, diverges, divergesAll, loopUses } from "./flow.js"
 
 const INT = elementaryRef("INT")
 const span = { uri: "f", start: { line: 0, character: 0 }, end: { line: 0, character: 0 } } as never
@@ -72,6 +69,8 @@ const KINDS: Record<string, [IrNode, IrNode[]]> = {
   return: [{ kind: "return", span }, []],
   call: [{ kind: "call", instance: place(0), fb: "FB", inouts: [place(6)], bind: { place: place(7), tag: 1n }, span }, [place(0), place(6), place(7)]],
   eval: [{ kind: "eval", value: invoke(), span }, [invoke()]],
+  labeled: [{ kind: "labeled", segments: [{ body: [assign(place(1), c(1n))] }, { label: "l", body: [{ kind: "jump", target: 1, label: "l", span }] }], span }, [assign(place(1), c(1n)), { kind: "jump", target: 1, label: "l", span }]],
+  jump: [{ kind: "jump", target: 0, label: "l", span }, []],
 }
 
 describe("childrenOf", () => {
@@ -79,7 +78,7 @@ describe("childrenOf", () => {
     // the kinds of the two unions, the place, and the two binding forms — `never` in the switch makes a new kind a
     // compile error there; this makes forgetting it here a test failure
     expect(Object.keys(KINDS).sort()).toEqual(
-      ["address", "assign", "binary", "break", "builtin", "call", "const", "count", "continue", "convert", "copy", "dispatch", "eval", "freeze", "fresh", "if", "image place", "invoke", "load", "loop", "place", "reinterpret", "return", "select", "switch", "unary"].sort(),
+      ["address", "assign", "binary", "break", "builtin", "call", "const", "count", "continue", "convert", "copy", "dispatch", "eval", "freeze", "fresh", "if", "image place", "invoke", "jump", "labeled", "load", "loop", "place", "reinterpret", "return", "select", "switch", "unary"].sort(),
     )
     for (const [kind, [node, children]] of Object.entries(KINDS)) expect([kind, childrenOf(node)]).toEqual([kind, children])
   })

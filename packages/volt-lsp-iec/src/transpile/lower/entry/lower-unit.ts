@@ -32,7 +32,7 @@ import { declareVars } from "../storage/declare.js"
 import { declareLists, unloweredGlobals } from "../places/globals.js"
 import { buildInitSequence } from "../init/sequence.js"
 import { localInits } from "../init/temp-resets.js"
-import { lowerBlock } from "../statements/statements.js"
+import { lowerBody } from "../statements/statements.js"
 import { storageRefusal } from "./checks.js"
 import { storageOf } from "../storage/layout.js"
 import { resolveNamedType } from "../../../frontend/types/index.js"
@@ -208,7 +208,7 @@ function programBody(lowering: Lowering, unit: Extract<TopLevel, { kind: "functi
   if ("code" in parsed) return refusedBody(lowering, unit, parsed)
   declareNetworkState(lowering, parsed.hidden ?? [])
   // its VAR_TEMP: the scan's locals, started over on every scan (conformance `life_program_var_temp_runs`; 7.6.4)
-  return [...(localInits(lowering) ?? []), ...lowerBlock(lowering, parsed.statements)]
+  return [...(localInits(lowering) ?? []), ...lowerBody(lowering, parsed.statements)]
 }
 
 /** The refusal of a lowered POU whose storage a backend cannot hold (`checks.ts` `storageRefusal`), at the POU. */

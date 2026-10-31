@@ -29,6 +29,9 @@ export class Printer {
    *  label is printed at all is asked of the IR before the loop prints: `ir/walk.loopUses`). */
   readonly loops: { n: number; labeled: boolean }[] = []
   loopCount = 0
+  /** The labeled body being printed (`labels.ts`): its number names its `'jump_N` loop, `single` when it is one segment (no
+   *  `__segment_N` to set), `end` its segment count (a jump there leaves it), `loops` when a jump goes back into it. */
+  jumps: { n: number; single: boolean; end: number; loops: boolean } | undefined = undefined
 
   /** The body being printed: its VAR_IN_OUT parameters and its routine's locals (Rust names and slots), and the name of
    *  the result local a `return` hands back. */
