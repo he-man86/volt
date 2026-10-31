@@ -6,6 +6,7 @@
 import { isTrivia, type Token } from "../lex/tokens.js"
 import { joinSpans, type Span } from "../span.js"
 import { isCommentHead } from "./comment-text.js"
+import { percentKeyAt } from "./network-lines.js"
 
 /** The one form of a jump and the return: a target (the bridge's reader's words). */
 const CONTROL_FORM = "a jump or a return is a target: JMP.label := value; RETURN := value; (on the rail, := RAIL())"
@@ -48,7 +49,44 @@ function emptyName(tokens: readonly Token[], k: number): number | undefined {
     marks++
     p = prevWord(tokens, p)
   }
-  return p >= 0 && (isPunct(tokens[p], "(") || isPunct(tokens[p], ",")) ? marks : undefined
+  if (p < 0 || !(isPunct(tokens[p], "(") || isPunct(tokens[p], ","))) return undefined
+  return callBracket(tokens, isPunct(tokens[p], "(") ? p : enclosingOpen(tokens, p)) ? marks : undefined
+}
+
+/** The `(` the token `k` stands inside, or -1. */
+function enclosingOpen(tokens: readonly Token[], k: number): number {
+  let depth = 0
+  for (let n = prevWord(tokens, k); n >= 0; n = prevWord(tokens, n)) {
+    if (isPunct(tokens[n], ")") || isPunct(tokens[n], "]")) depth++
+    else if (isPunct(tokens[n], "(") || isPunct(tokens[n], "[")) {
+      if (depth === 0) return isPunct(tokens[n], "(") ? n : -1
+      depth--
+    }
+  }
+  return -1
+}
+
+/** Does `tokens[k]` stand on a `%` line (`%NETWORK`, …), no code? */
+function onPercentLine(tokens: readonly Token[], k: number): boolean {
+  let first = k
+  for (let n = prevWord(tokens, k); n >= 0 && tokens[n]!.span.startLine === tokens[k]!.span.startLine; n = prevWord(tokens, n)) first = n
+  return percentKeyAt(tokens, first) !== undefined
+}
+
+/** Does the `(` at `k` open a CALL's arguments — after a name, or an operator word heading a call where an operand starts
+ *  (`AND(a, b)`)? After an operand an operator word is the contact (`b AND (…)`), and its bracket groups. */
+function callBracket(tokens: readonly Token[], k: number): boolean {
+  if (k < 0) return false
+  const h = prevWord(tokens, k)
+  const head = tokens[h]
+  if (head === undefined) return false
+  if (head.kind === "identifier") return true
+  if (head.kind !== "keyword") return false
+  const b = prevWord(tokens, h)
+  const before = tokens[b]
+  return !(before !== undefined && !onPercentLine(tokens, b) && (before.kind === "identifier" || before.kind.endsWith("_lit") ||
+    (before.kind === "keyword" && ["TRUE", "FALSE"].includes(before.text.toUpperCase())) ||
+    isPunct(before, ")") || isPunct(before, "]")))
 }
 
 /** THE ASSIGNMENT ITEM'S MARKS, the unnamed receiver between the targets and the value (`y := NOT := a`): the words and
