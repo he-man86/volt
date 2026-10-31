@@ -415,3 +415,20 @@ Two rows share a spelling:
 10. **An empty operand on a function pin**: 0 in the corpus, refused today. Unmeasured.
 11. **An empty `Parallel` arm**: N41 found that it stores. Its stored form (Terminator, `Leaf ""` or none) was not
     re-measured here.
+
+## Joint proposal (Volt + Sim-Assist, 2026-10-31, for the owner)
+
+- **The rail is `RAIL`.** A bare keyword, written like `TRUE` (not a call), is the only spelling of a `Terminator` in
+  every slot: `y := RAIL;`, `t1(IN := RAIL)`, `MOVE(EN := RAIL, …)`, `w1 := RAIL;`, `JMP.skip := RAIL;`. An identifier
+  named `RAIL` is refused, as `R_EDGE` is. An unconnected pin stays omitted; `IN := ,` is refused by name. A forgotten
+  operand stays a parse error. The empty value was measured out: `IN := ,` is ST for "unconnected".
+- **Jumps and returns are targets** (decided): `JMP.l := v;`, `RETURN := v;`, `y := JMP.l := v;`. They take only `:=`;
+  any other operator is refused by name.
+- **Pins** use functions (`NEGATED`, `RISING`, `FALLING`; `NOT a` stays the operand negation). **Coils** use operators
+  (`/=`, `P=`, `N=`, recognised only at a statement's target, because `n=0` is a comparison).
+- **Refused by name until seen in a corpus:**
+  - a rail-only item with no target (leftover 2);
+  - a negated box output (3). `NEGATED(F(…))` collides with a negated pin fed by `F`;
+  - combined target flags (8).
+- **One text, one stored form per vendor:** TwinCAT's empty-operand jump and CODESYS's Terminator jump (7).
+- **Docs:** a contact / pin / coil × plain / negated / rising / falling table at the top of `network-text.html`.
