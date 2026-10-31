@@ -217,7 +217,7 @@ END_VAR
 
 %LANGUAGE FBD
 %NETWORK
-SetAlarm := AND(AND(xOutput, NOT IN2 := xOutInv, NOT IN3 := xSensor) OR AND(xOutInv, NOT IN2 := xOutput, xSensor) OR AND(xOutput, xOutInv, xSensor), EnableOutputs.Q);
+SetAlarm := AND(AND(xOutput, NOT := xOutInv, NOT := xSensor) OR AND(xOutInv, NOT := xOutput, xSensor) OR AND(xOutput, xOutInv, xSensor), EnableOutputs.Q);
 END_METHOD
 
 // Set the output True or False

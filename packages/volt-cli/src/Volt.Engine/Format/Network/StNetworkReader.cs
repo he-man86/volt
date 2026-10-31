@@ -19,7 +19,7 @@ namespace Volt.Engine.Format.Network;
 /// ENO, where the callee declares no <c>EN</c>/<c>ENO</c> of its own; any other <c>.NAME</c> names the output a consumer
 /// reads, required where the callee declares more than one data output and refused where it declares one
 /// (<see cref="NetworkSpelling.SignatureOf(string, bool, NetworkScope)"/>). A statement is an assignment, a call, a call
-/// closed by <c>.ENO</c>, a jump or a return, a label. A name its network declares <c>VAR_TEMP w1 : ANY; END_VAR</c> is a wire: a Demux over its
+/// closed by <c>.ENO</c>, a jump or a return, a label. A name its network declares <c>VAR w1 : ANY; END_VAR</c> is a wire: a Demux over its
 /// definition, read by its name any number of times. <c>BRANCH</c>, <c>BRANCH_SHORTCIRCUIT</c>, <c>RISING</c>, <c>RAIL</c> and
 /// <c>FALLING</c> are the text's own elements (<see cref="StNetworkWriter.ElementHeads"/>), and <c>EXECUTE(EN := e,
 /// '&lt;ST&gt;')</c> the Execute box, its ST the one string that spans lines.</para>
@@ -47,6 +47,7 @@ public static class StNetworkReader
             open = OpenQuoteAfter(lines[k], open);
         }
         var i = 1;
+        var readers = new List<NetworkReader>();
         while (i < lines.Count)
         {
             if (!IsNetworkLine(lines[i]))
@@ -54,21 +55,49 @@ public static class StNetworkReader
             var start = i;
             open = OpenQuoteAfter(lines[i++], null);
             while (i < lines.Count && (open is not null || !IsNetworkLine(lines[i]))) open = OpenQuoteAfter(lines[i++], open);
-            nets.Add(new NetworkReader(lines.GetRange(start, Math.Min(i, lines.Count) - start), start + 1, nets.Count, scope, bodyWires, allWires).Read());
+            var reader = new NetworkReader(lines.GetRange(start, Math.Min(i, lines.Count) - start), start + 1, nets.Count, scope, bodyWires, allWires);
+            nets.Add(reader.Read());
+            readers.Add(reader);
         }
-        return new NetworkBody(lang, nets);
+        var body = new NetworkBody(lang, nets);
+        RequireWriterNumbering(body, scope, readers);
+        return body;
     }
 
-    /// <summary>Whether <paramref name="line"/> declares wires: its first word <c>VAR_TEMP</c>, in any case.</summary>
-    private static bool IsWiresLine(string line)
+    /// <summary>THE WIRE NAMES THE WRITER GIVES (<see cref="StNetworkWriter.BodyWires"/>): <c>w1</c>, <c>w2</c>, … across the
+    /// body, in the order the text first names them, past every name the body's operands use and every name in reach. Any
+    /// other numbering is a second text of one model, refused by name.</summary>
+    private static void RequireWriterNumbering(NetworkBody body, NetworkScope scope, IReadOnlyList<NetworkReader> readers)
+    {
+        var names = new StNetworkWriter.BodyWires(body, scope);
+        foreach (var r in readers)
+        {
+            var declared = r.Declared;
+            for (var k = 0; k < r.FirstNamed.Count; k++)
+            {
+                var expected = names.New();
+                var wire = r.FirstNamed[k];
+                if (!string.Equals(wire, expected, StringComparison.Ordinal))
+                    throw new StNetworkReadException(r.DeclarationLine, $"the wire {wire} is the body's {expected}: a body's wires are w1, w2, … across its networks, in the order the text first names them");
+                if (!string.Equals(declared[k], wire, StringComparison.Ordinal))
+                    throw new StNetworkReadException(r.DeclarationLine, $"the wire {declared[k]} is the body's {wire}: a network declares its wires in the order the text first names them");
+            }
+        }
+    }
+
+    /// <summary>Whether <paramref name="line"/> declares wires: its first word <c>VAR</c>, in any case.</summary>
+    private static bool IsWiresLine(string line) =>
+        string.Equals(FirstWord(line), StNetworkWriter.WiresOpen, StringComparison.OrdinalIgnoreCase);
+
+    private static string FirstWord(string line)
     {
         var t = line.TrimStart();
         var k = 0;
         while (k < t.Length && (char.IsLetterOrDigit(t[k]) || t[k] == '_')) k++;
-        return string.Equals(t.Substring(0, k), StNetworkWriter.WiresOpen, StringComparison.OrdinalIgnoreCase);
+        return t.Substring(0, k);
     }
 
-    /// <summary>THE WIRES A NETWORK DECLARES (owner, 2026-10-28): one line <c>VAR_TEMP w1 : ANY; w2 : ANY; END_VAR</c>, each
+    /// <summary>THE WIRES A NETWORK DECLARES (owner, 2026-10-28): one line <c>VAR w1 : ANY; w2 : ANY; END_VAR</c>, each
     /// <c>: ANY</c> — the type is its definition's, which the text does not state.</summary>
     private static IReadOnlyList<string> WireDeclaration(string line, int lineNo)
     {
@@ -139,33 +168,6 @@ public static class StNetworkReader
         catch (StNetworkReadException) { return false; }
     }
 
-    /// <summary>Whether <paramref name="text"/> reads as one ST expression of the subset — what an operand holding an
-    /// expression an engineer typed into it is written as (bracketed).</summary>
-    public static bool IsExpression(string text)
-    {
-        try
-        {
-            var toks = Lex(text, k => 1 + k);
-            if (toks.Count == 0) return false;
-            var p = new Parser(text, toks, _ => false, 1);
-            p.Expr();
-            return p.AtEnd;
-        }
-        catch (StNetworkReadException) { return false; }
-    }
-
-    /// <summary>The tree an operand holding an ST expression reads as (a stored member, design.md): the expression read as
-    /// ST, every operator its box, against <paramref name="scope"/>. Not network text: infix arithmetic and comparisons are
-    /// ST here, where a network spells each box as a call.</summary>
-    public static Node ExpressionTree(string text, NetworkScope scope)
-    {
-        var p = new Parser(text, Lex(text, k => 1 + k), _ => false, 1);
-        var e = p.Expr();
-        if (!p.AtEnd) throw new StNetworkReadException(1, $"the operand '{text}' is more than one expression");
-        var net = new NetworkReader(new List<string> { StNetworkWriter.NetworkLine }, 1, 0, scope);
-        return new Builder(net, new List<AStmt>(), 1).Tree(e);
-    }
-
     /// <summary>Whether <paramref name="text"/> is a name a call can head (an identifier chain, no literal).</summary>
     public static bool IsCallHead(string text) =>
         IsOperand(text) && !IsLiteral(text) && text != Box.UnnamedInstance;
@@ -221,7 +223,8 @@ public static class StNetworkReader
                 var h = head.Substring(1);
                 if (h.Length < 2 || h[0] != '"' || h[h.Length - 1] != '"')
                     throw Error(0, $"a network title is one \"…\" after {StNetworkWriter.NetworkLine} and one space, not '{h}'");
-                title = NetworkSpelling.Unescape(h.Substring(1, h.Length - 2), out var err) ?? throw Error(0, err!);
+                if (h.Length == 2) throw Error(0, $"an empty title \"\": a network with no title is the line {StNetworkWriter.NetworkLine} alone");
+                title = NetworkSpelling.Unescape(h.Substring(1, h.Length - 2), '"', out var err) ?? throw Error(0, err!);
             }
             var i = 1;
             var disabled = false;
@@ -229,12 +232,14 @@ public static class StNetworkReader
             if (i < _lines.Count && _lines[i] == StNetworkWriter.DisabledLine) { disabled = true; i++; }
             if (i < _lines.Count && IsWiresLine(_lines[i]))
             {
+                DeclarationLine = _firstLine + i;
                 foreach (var w in WireDeclaration(_lines[i], _firstLine + i))
                 {
                     if (WireId(w) is null) throw Error(i, $"the wire '{w}': a wire is w<n>");
                     if (_scope.Contains(w) || _scope.InstanceType(w) is not null)
                         throw Error(i, $"the wire '{w}' is also a name declared in reach: a wire is never a variable");
                     if (!_wires.Add(w)) throw Error(i, $"the wire '{w}' is named twice");
+                    Declared.Add(w);
                     if (!_bodyWires.Add(w)) throw Error(i, $"the wire '{w}' is named on an earlier network too: a wire name is one network's in a body");
                 }
                 i++;
@@ -243,7 +248,7 @@ public static class StNetworkReader
             while (i < _lines.Count && _lines[i].StartsWith("//", StringComparison.Ordinal))
             {
                 var c = _lines[i++].Substring(2);
-                comment.Add(NetworkSpelling.Unescape(c.StartsWith(" ", StringComparison.Ordinal) ? c.Substring(1) : c, out var err)
+                comment.Add(NetworkSpelling.Unescape(c.StartsWith(" ", StringComparison.Ordinal) ? c.Substring(1) : c, null, out var err)
                             ?? throw Error(i - 1, "the comment line: " + err));
             }
             if (i < _lines.Count && _lines[i].StartsWith(StNetworkWriter.UnsupportedLine + " ", StringComparison.Ordinal))
@@ -274,6 +279,8 @@ public static class StNetworkReader
                             : $"'{line}': a network holds no such line");
                     if (IsWiresLine(line))
                         throw Error(i, $"{StNetworkWriter.WiresOpen} after the network's comment or code: its wires are declared after its % lines, before its comment");
+                    if (FirstWord(line) is { } w && string.Equals(w, "VAR_TEMP", StringComparison.OrdinalIgnoreCase))
+                        throw Error(i, $"VAR_TEMP: a network's wires keep their value across scans, as ST's VAR does, and are declared {StNetworkWriter.WiresOpen} w1 : {StNetworkWriter.WireType}; {StNetworkWriter.WiresClose}");
                     if (line.TrimStart().StartsWith("//", StringComparison.Ordinal))
                         throw Error(i, "a comment after the code starts: a network's comment is its // lines before the code");
                 }
@@ -284,7 +291,12 @@ public static class StNetworkReader
 
             var src = code.ToString();
             Func<int, int> bodyLine = k => _firstLine + lineOf[Math.Min(k, lineOf.Count - 1)];
-            var parser = new Parser(src, Lex(src, bodyLine), w => _wires.Contains(w), _firstLine, bodyLine) { Network = true };
+            var toks = Lex(src, bodyLine);
+            for (var k = 0; k < toks.Count; k++)
+                if (toks[k].Kind == Tk.Ident && _wires.Contains(toks[k].Text) && !(k > 0 && toks[k - 1].Text == ".") &&
+                    !FirstNamed.Contains(toks[k].Text, StringComparer.OrdinalIgnoreCase))
+                    FirstNamed.Add(toks[k].Text);
+            var parser = new Parser(src, toks, w => _wires.Contains(w), _firstLine, bodyLine) { Network = true };
             var (label, stmts) = parser.Statements();
             if (unsupported is not null && stmts.Count > 0)
                 throw Error(0, $"a network shown {StNetworkWriter.UnsupportedLine} holds nothing else but its label");
@@ -292,6 +304,13 @@ public static class StNetworkReader
             return new Network(_order, title, label, comment.Count == 0 ? null : string.Join("\r\n", comment), disabled,
                 trees, unsupported, hash);
         }
+
+        /// <summary>The wires its declaration line names, in order, and the line it stands on.</summary>
+        public List<string> Declared { get; } = new();
+        public int DeclarationLine { get; private set; }
+
+        /// <summary>The wires in the order the code first names them.</summary>
+        public List<string> FirstNamed { get; } = new();
 
         public NetworkScope Scope => _scope;
         public string? InstanceType(string head) => _scope.InstanceType(head);
@@ -775,6 +794,14 @@ public static class StNetworkReader
                     _i = span.Next;
                     call.Args.Add(new AArg { Formal = f.Text, Out = true, Target = span.Text, Marks = marks });
                 }
+                else if (Network && Is(":="))
+                {
+                    // THE EMPTY NAME: a pin the IDE stores unnamed, its marks before it (`AND(a, NOT := b)`); unmarked it is
+                    // its value alone, one spelling.
+                    if (marks.Count == 0) throw Error("an empty pin name with no mark: a pin with no name and no mark is its value alone");
+                    _i++;
+                    call.Args.Add(new AArg { Value = Expr(), Marks = marks });
+                }
                 else if (Peek() is { Kind: Tk.Ident } g && Is(":=", 1) && !IsKeyword(g.Text))
                 {
                     _i += 2;
@@ -985,7 +1012,7 @@ public static class StNetworkReader
                     var inner = Expr(n.Inner);
                     switch (inner)
                     {
-                        case Leaf { Flags.IsNone: true } l when n.Inner is AOperand:
+                        case Leaf { Flags.IsNone: true } l when n.Inner is AOperand || n.Inner is ACall oc && Is(oc.Head, StNetworkWriter.OperandHead):
                             return l with { Flags = Flags.None with { Negated = true } };
                         case Box { Flags.IsNone: true, StCode: null } b when n.Inner is ACall:
                             return b with { Flags = Flags.None with { Negated = true } };
@@ -1023,6 +1050,16 @@ public static class StNetworkReader
         /// <c>FALLING(x)</c>: the edge on the contact or the box <c>x</c> (a negated contact negated first, N17).</summary>
         private Node Element(ACall c, string element)
         {
+            if (element == StNetworkWriter.OperandHead)
+            {
+                if (c.Member is not null || c.Args.Count != 1 || c.Args[0] is not { Out: false, Formal: null, Value: AOperand { Text: var lit } } ||
+                    lit.Length < 2 || lit[0] != '\'' || lit[lit.Length - 1] != '\'')
+                    throw Error(c.Line, $"{c.Head} takes one string, '<the operand's text>', and names no output");
+                var text = NetworkSpelling.UnescapeCode(lit.Substring(1, lit.Length - 2), out var escape, "an operand's text") ?? throw Error(c.Line, escape!);
+                if (text.Length == 0) throw Error(c.Line, $"{c.Head} holds no text: an empty operand is ;");
+                if (IsOperand(text)) throw Error(c.Line, $"{c.Head}('{lit.Substring(1, lit.Length - 2)}'): a plain operand is written as it stands");
+                return new Leaf(new Operand(text), Flags.None);
+            }
             if (element == StNetworkWriter.RailHead)
             {
                 if (c.Args.Count != 0 || c.Member is not null) throw Error(c.Line, $"the rail {c.Head}() takes no value and names no output");
@@ -1103,6 +1140,18 @@ public static class StNetworkReader
                 throw Error(c.Line, $"{type} declares VAR_OUTPUT OUT, which also names its value: the text cannot tell the two apart");
             var declaresEn = signature is { DeclaresEn: true };
             var declaresEno = signature is { DeclaresEno: true };
+            if (signature is null)
+            {
+                // A CALLEE NO DECLARATION IN REACH STATES: each of these means a box flag or the callee's own pin, chosen by a
+                // declaration the text cannot see, so the reader refuses it as the writer does (StNetworkUnspellableException).
+                string? what = instance is { Text: Box.UnnamedInstance } ? $"the call of the FB type {type}"
+                    : c.Args.FirstOrDefault() is { Out: false } f && Is(f.Formal, Box.EnablePin) ? "EN :="
+                    : c.Member is { } m && Is(m, Box.EnoPin) ? ".ENO"
+                    : c.Args.FirstOrDefault(a => a.Out && (Is(a.Formal, Box.EnoPin) || Is(a.Formal, StNetworkWriter.ResultPin))) is { } o ? o.Formal + " =>"
+                    : null;
+                if (what is not null)
+                    throw Error(c.Line, $"{what} on the call {c.Head}, whose callee no declaration in reach states: it is a box flag or the callee's own pin, which only the declaration tells");
+            }
 
             Node? enable = null;
             var enableFlags = Flags.None;
@@ -1129,11 +1178,7 @@ public static class StNetworkReader
                     throw Error(c.Line, enable is null
                         ? $"EN := stands first in the call {c.Head}: it is the box's shown EN"
                         : $"the call {c.Head} holds EN := twice");
-                // An operator's pin named by its default formal (the formal a mark stands before, `AND(NOT IN2 := a, b)`) is the
-                // pin the IDE stores unnamed.
-                var formal = NetworkSpelling.IsOperatorBox(type) && a.Formal is { } named &&
-                             string.Equals(named, NetworkSpelling.DefaultFormal(type, inputs.Count), StringComparison.OrdinalIgnoreCase) ? null : a.Formal;
-                inputs.Add(new Input(formal, Expr(a.Value!), MarkFlags(a.Marks, c.Line)));
+                inputs.Add(new Input(a.Formal, Expr(a.Value!), MarkFlags(a.Marks, c.Line)));
             }
 
             var (hasEno, connected, byName) = Member(c, type, instance is not null, signature, consumed, declaresEno);
@@ -1198,8 +1243,10 @@ public static class StNetworkReader
         {
             if (_net.InReach(c.Head))
                 throw Error(c.Line, $"the call {c.Head} names something declared in reach, which the text reads as its Execute box");
-            if (c.Member is { } member)
-                throw Error(c.Line, $"the Execute box is closed by .{member}: its one output is its ENO, read where the box stands");
+            // EN and ENO as on every box (network-text-one-to-one F13): `EN :=` shows EN, `.ENO` shows ENO, at a root too.
+            var eno = c.Member is { } m && Is(m, Box.EnoPin);
+            if (c.Member is { } member && !eno)
+                throw Error(c.Line, $"the Execute box is closed by .{member}: its one output is its ENO, read as .ENO");
             var at = 0;
             Node? enable = null;
             var enableFlags = Flags.None;
@@ -1212,9 +1259,11 @@ public static class StNetworkReader
             if (c.Args.Count != at + 1 || c.Args[at] is not { Out: false, Formal: null, Value: AOperand { Text: var literal } } ||
                 literal.Length < 2 || literal[0] != '\'' || literal[literal.Length - 1] != '\'')
                 throw Error(c.Line, $"the Execute box takes {Box.EnablePin} := first where it shows EN, then its ST as one string '<ST>', and nothing else");
+            if (consumed && !eno)
+                throw Error(c.Line, "the Execute box is read and shows no ENO: its one output is its ENO, read as .ENO");
             var st = NetworkSpelling.UnescapeCode(literal.Substring(1, literal.Length - 2), out var error) ?? throw Error(c.Line, error!);
             return new Box(NetworkSpelling.ExecuteType, null, NetworkSpelling.KindOf(NetworkSpelling.ExecuteType, false), Array.Empty<Input>(),
-                Array.Empty<Output>(), enable, st, Flags.None, ConnectedSlot: consumed ? 0 : null, HasEnoOutput: true) { EnableFlags = enableFlags };
+                Array.Empty<Output>(), enable, st, Flags.None, ConnectedSlot: consumed ? 0 : null, HasEnoOutput: eno) { EnableFlags = enableFlags };
         }
     }
 

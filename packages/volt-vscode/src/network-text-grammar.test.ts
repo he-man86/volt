@@ -38,7 +38,7 @@ test("a body is network text only under %LANGUAGE LD or FBD", () => {
 
 test("the % lines of a network are its keywords; a title is a string", () => {
 	const lines = rule("meta.line.network-text")
-	const text = '%NETWORK "Start $"it$""\n%DISABLED\nVAR_TEMP w1 : ANY; w2 : ANY; END_VAR\n%UNSUPPORTED "a shape" #0011aabb\n'
+	const text = '%NETWORK "Start $"it$""\n%DISABLED\nVAR w1 : ANY; w2 : ANY; END_VAR\n%UNSUPPORTED "a shape" #0011aabb\n'
 	expect(matches(lines, text, 1)).toEqual(["%NETWORK", "%DISABLED", "%UNSUPPORTED"])
 	// …only first on its line, and only its own keys: a % in a comment or a name is none.
 	expect(matches(lines, "x := a; // %NETWORK\n%NETWORKS\n")).toEqual([])

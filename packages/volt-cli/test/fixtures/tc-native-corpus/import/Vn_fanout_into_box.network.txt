@@ -1,6 +1,6 @@
 %LANGUAGE FBD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := AND(a, b);
 out1 := OR(w1, c);
 out2 := w1;

@@ -318,6 +318,8 @@ class Networker extends BoxLowerer {
         return wire === undefined ? e : ident(wire, e.span)
       }
       case "member": {
+        // the Execute box's `.ENO` is the box read where it stands, its ENO (F13)
+        if (e.base.kind === "call" && e.base.callee.kind === "ident_expr" && e.base.callee.name.toUpperCase() === "EXECUTE" && e.member.name.toUpperCase() === "ENO") return this.expr(e.base, pre)
         const m = e.base.kind === "call" ? boxMember(e, this.scope, this.project) : undefined
         if (m !== undefined) return this.boxRead(m.box, m.name, pre)
         return { ...e, base: this.expr(e.base, pre) }

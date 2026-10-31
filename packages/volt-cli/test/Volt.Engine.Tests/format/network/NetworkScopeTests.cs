@@ -77,7 +77,7 @@ public class NetworkScopeTests
         var text = StNetworkWriter.Write(Body(Net(Def(4, Op("AND", L("TRUE"), L("a"))), Set(Ref(4), T("out")), Set(Ref(4), T("x")))), scope);
         var r = Gate(text, scope);
         Assert.True(r.Ok, string.Join("\n", r.Diagnostics.Select(d => d.Code + " " + d.Message)));
-        var declared = text.Split('\n').Single(l => l.StartsWith("VAR_TEMP ", StringComparison.Ordinal));
+        var declared = text.Split('\n').Single(l => l.StartsWith("VAR ", StringComparison.Ordinal));
         foreach (var w in declared.Substring(9, declared.Length - 9 - " END_VAR".Length).Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
             Assert.False(scope.Contains(w.Replace(": ANY", "").Trim()), $"the wire {w} is a name in scope");
     }

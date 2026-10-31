@@ -63,6 +63,8 @@ function boxValue(box: NetworkBox, scope: Scope, project: Scope): Type {
 /** The type of `<box>.NAME`: the shown ENO a BOOL, a function's value `OUT` its value, any other output its declared type;
  *  undefined where `e` closes no box's call. */
 export function networkMemberType(e: MemberExpr, scope: Scope, project: Scope): Type | undefined {
+  // the Execute box's `.ENO`, its one output (network-text-one-to-one F13)
+  if (e.base.kind === "call" && e.base.callee.kind === "ident_expr" && e.base.callee.name.toUpperCase() === "EXECUTE" && e.member.name.toUpperCase() === "ENO") return elementaryRef("BOOL")
   const m = boxMember(e, scope, project)
   if (m === undefined) return undefined
   if (m.eno) return elementaryRef("BOOL")

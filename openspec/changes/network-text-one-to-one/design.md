@@ -163,3 +163,35 @@ A PROGRAM keeps it across scans (measured 2026-10-27, `st-spellings-run`).
   general EN/ENO rule.
 - **F6, F10, F11, F12, F15:** no Volt change. The measurements show distinct stored models, or a picture decided by the
   operand's own type. Sim-Assist fixes its editor (layout keyed on the operand's type, no merging of nested series).
+
+## Built (step 3.1 and 4), 2026-10-31
+
+- **F2** `OPERAND('…')`: the 35 lenze-mid operands re-pull as their own text; 17 more corpus networks identical
+  (oracle 335 → 352). The LSP reads the string as the ST it holds (`operand-text.ts`).
+- **F4** `OUT => ???`: 4 lenze-mid networks keep the slot. NWL ledger, read node by node: the rebuilt slot's `LValue` is
+  the IDE's to resolve (known row), and its `OutputParam` gains an empty name/type past `['ENO']` (+4 nodes each). Whether
+  that empty name is visible in the editor is not measured.
+- **F5, F9, F14, F16** refused by name in both readers, as the writer refuses or never writes them. F9's post-push check
+  (the CLI holds no project, every callee unstated there) now claims such a body equal only byte for byte. F16 keeps
+  `$L`/`$R` in a comment line: the writer writes a lone LF/CR so, and refusing them would leave such a stored comment
+  unspellable.
+- **F8** `VAR w1 : ANY; END_VAR`; `VAR_TEMP` is refused by name.
+- **F13** `EXECUTE(…)` shows EN and ENO as every box. TwinCAT has no measured archive for an ENO-off Execute box and
+  refuses it by name.
+- **The mark before an empty name** (owner, same day): `AND(a, NOT := b)` replaces the default-formal spelling
+  `AND(a, NOT IN2 := b)`, which read back as unnamed. An operator pin the IDE stores named keeps its name.
+- **4.1 is no bug.** An FB instance named `r` cannot be declared on either vendor: `r : INT;` is refused "Unexpected
+  token 'r' found" (CODESYS) / "Unexpected Token 'r' found" (TwinCAT), conformance `cc_reserved_name_r`. The reader
+  refusing `r(…)` follows both IDEs.
+- **4.2.** Live, CODESYS 3.5.21.40 (`-Run o2ob`): with the bridge before this change, an `EXECUTE('…');` pushed with EN
+  null ran in a PROGRAM (`execute-runs.test.ts`) and in an FB (`execute-fb-runs.test.ts`, all four EN/ENO models counted).
+  The measurement probe's "never ran" did not reproduce through Volt's push; it is most likely the probe's single-commit
+  Execute fault (`ld-fbd-coverage` 2R.6a). The writer now stores what a drawn box stores anyway (below).
+- **4.3.** The pushed EN/ENO null is fixed to the drawn `false` on every box but the contact AND/OR: the NWL ledger's
+  `BoxTreeBox.EN`/`ENO` "changed" rows (181 networks, 261 nodes each) close. Built and run live (st-spellings-run,
+  stored-shapes, the Execute tests: 9 pass). The pushed ROOT box's missing output list (drawn without pin names) is F3's
+  and stays open with it.
+
+## Open
+
+- **F3** (`.NAME` at a root box; the writer writing a root box's output list with the null at its main slot) is not built.

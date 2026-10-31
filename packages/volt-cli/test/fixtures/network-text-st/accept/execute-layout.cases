@@ -21,42 +21,42 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-done := EXECUTE(EN := go, 'i := i + 1;');
+done := EXECUTE(EN := go, 'i := i + 1;').ENO;
 === model
 NETWORK
-  (:= done (EXECUTE "i := i + 1;" en:go conn:0))
+  (:= done (EXECUTE "i := i + 1;" en:go conn:0 eno:1))
 
 #### execute-in-a-chain
 === text
 %LANGUAGE LD
 %NETWORK
-lamp := MOVE(EN := EXECUTE(EN := go, 'i := i + 1;'), 1, OUT => t).ENO;
+lamp := MOVE(EN := EXECUTE(EN := go, 'i := i + 1;').ENO, 1, OUT => t).ENO;
 === model
 NETWORK
-  (:= lamp (MOVE 1 =>1:t en:(EXECUTE "i := i + 1;" en:go conn:0) conn:0 eno:1))
+  (:= lamp (MOVE 1 =>1:t en:(EXECUTE "i := i + 1;" en:go conn:0 eno:1) conn:0 eno:1))
 
 #### execute-as-operand
 === text
 %LANGUAGE LD
 %NETWORK
-x := EXECUTE(EN := go, 'i := 1;') AND d;
-y := BRANCH(FEED := EXECUTE(EN := go, 'j := 1;'), d, e);
+x := EXECUTE(EN := go, 'i := 1;').ENO AND d;
+y := BRANCH(FEED := EXECUTE(EN := go, 'j := 1;').ENO, d, e);
 === model
 NETWORK
-  (:= x (AND (EXECUTE "i := 1;" en:go conn:0) d))
-  (:= y (par seq (EXECUTE "j := 1;" en:go conn:0) d e))
+  (:= x (AND (EXECUTE "i := 1;" en:go conn:0 eno:1) d))
+  (:= y (par seq (EXECUTE "j := 1;" en:go conn:0 eno:1) d e))
 
 #### execute-through-a-wire — an Execute box read twice defines a wire, like any box
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
-w1 := EXECUTE(EN := go, 'i := 1;');
+VAR w1 : ANY; END_VAR
+w1 := EXECUTE(EN := go, 'i := 1;').ENO;
 x := w1;
 y := w1 AND d;
 === model
 NETWORK
-  (split 1 (EXECUTE "i := 1;" en:go conn:0))
+  (split 1 (EXECUTE "i := 1;" en:go conn:0 eno:1))
   (:= x #1)
   (:= y (AND #1 d))
 
@@ -89,11 +89,26 @@ EXECUTE('');
 NETWORK
   (EXECUTE "")
 
+#### execute-en-eno — the Execute box shows EN and ENO as every box does: EN :=, .ENO, each kept on its own
+=== text
+%LANGUAGE LD
+%NETWORK
+EXECUTE('a := 1;');
+EXECUTE('a := 1;').ENO;
+EXECUTE(EN := go, 'a := 1;');
+EXECUTE(EN := go, 'a := 1;').ENO;
+=== model
+NETWORK
+  (EXECUTE "a := 1;")
+  (EXECUTE "a := 1;" eno:1)
+  (EXECUTE "a := 1;" en:go)
+  (EXECUTE "a := 1;" en:go eno:1)
+
 #### layout-free
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; w2 : ANY; END_VAR
+VAR w1 : ANY; w2 : ANY; END_VAR
 w1 := TRUE;
 w2 := w1 AND enable AND ready AND NOT stop;
 x := f(IN1 := a, IN2 := b);

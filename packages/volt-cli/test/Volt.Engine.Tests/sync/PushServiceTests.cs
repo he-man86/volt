@@ -449,7 +449,7 @@ public class PushServiceTests
             Name = "PLC_PRG.pou",
             IfVersion = v,
             SourceText = "PROGRAM PLC_PRG\nVAR\n  out : BOOL;\nEND_VAR\n%LANGUAGE LD\n" +
-                         "%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := TRUE;\nout := w1;\n\nEND_PROGRAM\n",
+                         "%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := TRUE;\nout := w1;\n\nEND_PROGRAM\n",
         });
 
         if (!withGlobal)

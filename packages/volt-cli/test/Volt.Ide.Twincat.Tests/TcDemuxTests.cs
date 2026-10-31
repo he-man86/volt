@@ -89,7 +89,7 @@ public class TcDemuxTests
     {
         var text = TcText.Write(Read());
 
-        Assert.Contains("VAR_TEMP w1 : ANY; END_VAR\nw1 := b;\n", text);
+        Assert.Contains("VAR w1 : ANY; END_VAR\nw1 := b;\n", text);
         Assert.Contains("out2 := w1;", text);          // one consumer
         Assert.Contains("OR(a, w1)", text);            // ...and the other, inside the OR box
     }

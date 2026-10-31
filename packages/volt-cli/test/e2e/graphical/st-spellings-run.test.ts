@@ -47,7 +47,7 @@ const outputs2 = "VAR_OUTPUT\n\tx2 : BOOL;\n\ty5, y7 : INT;\nEND_VAR\n"
 const net1 = `PROGRAM ${NET1}
 ${inputs}${outputs1}%LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 x6 := a AND w1;
 w1 := b OR c;
 x7 := w1;

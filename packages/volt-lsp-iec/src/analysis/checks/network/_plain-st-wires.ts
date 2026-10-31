@@ -1,6 +1,6 @@
 /**
  * THE WIRES OF A PLAIN-ST NETWORK BODY (openspec network-text-st 2.3, network-output-member; `_plain-st.ts`, the one
- * network check, holds the rest): a name its network declares `VAR_TEMP w : ANY;` is defined once — `w := <box>` — and read by its
+ * network check, holds the rest): a name its network declares `VAR w : ANY;` is defined once — `w := <box>` — and read by its
  * name any number of times, before its definition too; a box's output reaches no wire; an enabled box other than a comparison is read by its value only as a coil's value, however often its wire is
  * read (CODESYS: "A box with EN can be used for comparison operators only."). Refused by name, as the bridge's reader
  * refuses it (`StNetworkReader`).

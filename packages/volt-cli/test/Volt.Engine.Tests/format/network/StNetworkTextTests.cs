@@ -151,7 +151,7 @@ public class StNetworkTextTests
         var second = new Volt.Engine.Format.Network.Network(1, null, null, null, false, new Node[] { Def(4, L("d")), Set(Ref(4), T("u")), Set(Ref(4), T("v")) });
         var body = new NetworkBody(BodyLanguage.Ld, new[] { first, second });
         var text = StNetworkWriter.Write(body, Scope(body));
-        Assert.Equal("%LANGUAGE LD\n%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := a AND b;\nx := w1;\ny := w1 OR c;\n%NETWORK\nVAR_TEMP w2 : ANY; END_VAR\nw2 := d;\nu := w2;\nv := w2;\n", text);
+        Assert.Equal("%LANGUAGE LD\n%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := a AND b;\nx := w1;\ny := w1 OR c;\n%NETWORK\nVAR w2 : ANY; END_VAR\nw2 := d;\nu := w2;\nv := w2;\n", text);
         var back = StNetworkReader.Read(text, Scope(body));
         Assert.Equal(new[] { 1, 1 }, back.Networks.Select(n => ((Demux)n.Trees[0]).VarId));
     }
@@ -185,12 +185,12 @@ public class StNetworkTextTests
     {
         var t1 = Fb("t1", new[] { In(Ref(1), "IN"), In(L("T#1S"), "PT") }, type: "TON") with { MainOutputName = "Q" };
         RoundTrips(Ld1(Set(Op("AND", Def(1, Op("OR", L("a"), L("b"))), t1), T("y")), Set(Ref(1), T("z"))),
-            "%LANGUAGE LD\n%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\ny := (w1 := a OR b) AND t1(IN := w1, PT := T#1S).Q;\nz := w1;\n", TonScope);
+            "%LANGUAGE LD\n%NETWORK\nVAR w1 : ANY; END_VAR\ny := (w1 := a OR b) AND t1(IN := w1, PT := T#1S).Q;\nz := w1;\n", TonScope);
         RoundTrips(Ld1(Def(1, Op("OR", L("a"), L("b"))), Set(Op("AND", Ref(1), t1), T("y")), Set(Ref(1), T("z"))),
-            "%LANGUAGE LD\n%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := a OR b;\ny := w1 AND t1(IN := w1, PT := T#1S).Q;\nz := w1;\n", TonScope);
+            "%LANGUAGE LD\n%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := a OR b;\ny := w1 AND t1(IN := w1, PT := T#1S).Q;\nz := w1;\n", TonScope);
         // a Demux read before the item that defines it (TwinCAT stores one): the previous scan's value
         RoundTrips(Ld1(Set(Ref(1), T("x")), Def(1, Op("AND", L("a"), L("b"))), Set(Ref(1), T("y"))),
-            "%LANGUAGE LD\n%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nx := w1;\nw1 := a AND b;\ny := w1;\n");
+            "%LANGUAGE LD\n%NETWORK\nVAR w1 : ANY; END_VAR\nx := w1;\nw1 := a AND b;\ny := w1;\n");
     }
 
     [Fact]
@@ -276,13 +276,13 @@ public class StNetworkTextTests
     [Fact]
     public void An_Execute_box_is_a_call_its_ST_the_string_CODE_with_its_line_breaks_as_they_stand() =>
         RoundTrips(Ld1(Exec("IF go THEN\r\n\to := o + 'i$';\r\nEND_IF", en: L("en"))),
-            "%LANGUAGE LD\n%NETWORK\nEXECUTE(EN := en, 'IF go THEN\n\to := o + $'i$$$';\nEND_IF');\n");
+            "%LANGUAGE LD\n%NETWORK\nEXECUTE(EN := en, 'IF go THEN\n\to := o + $'i$$$';\nEND_IF').ENO;\n");
 
     [Fact]
     public void An_Execute_box_read_twice_defines_a_wire_like_any_box() =>
         RoundTrips(Ld1(new Demux(1, Exec("k := 1;", en: L("go"), connected: 0)), Set(new Demux(1, null), T("x")),
                 Set(new Demux(1, null), T("y"))),
-            "%LANGUAGE LD\n%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := EXECUTE(EN := go, 'k := 1;');\nx := w1;\ny := w1;\n");
+            "%LANGUAGE LD\n%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := EXECUTE(EN := go, 'k := 1;').ENO;\nx := w1;\ny := w1;\n");
 
     /// <summary>The Execute box's spellings the writer refuses (2.6 review), each by its reason: EXECUTE declared in reach
     /// (anything of that name, a variable too: the text's own word), a lone CR in its ST, a consumer reading it by another
@@ -335,23 +335,27 @@ public class StNetworkTextTests
                        Set(Op("AND", L("x"), L("y")) with { Flags = Rise }, T("c"))),
             "%LANGUAGE LD\n%NETWORK\na := RISING(clk);\nb := FALLING(NOT clk);\nc := RISING(x AND y);\n");
 
-    /// <summary>An FB box is the call of its instance (design "FB boxes: the instance is the call head"); one with no usable
-    /// instance — the vendor's <c>???</c>, or one no declaration in reach holds (network-text-st 3.0: the build refuses both)
-    /// — is the call of its TYPE, which names no instance; a type no declaration in reach states as an FB's has no such call.</summary>
+    /// <summary>An FB box is the call of its instance (design "FB boxes: the instance is the call head"); the vendor's unnamed
+    /// instance <c>???</c> is the call of its TYPE; an instance no declaration in reach holds has no call (it would read back as
+    /// the unnamed one: network-text-one-to-one F5), nor has a type no declaration states as an FB's.</summary>
     [Fact]
-    public void An_FB_box_with_no_declared_instance_is_the_call_of_its_type()
+    public void An_FB_box_with_no_declared_instance_is_refused_by_name()
     {
         var none = new System.Collections.Generic.Dictionary<string, string>();
-        var scope = new NetworkScope(new[] { "go" }, Array.Empty<string>(), none, new[] { "Axis" });
+        var scope = new NetworkScope(new[] { "go" }, Array.Empty<string>(), none, new[] { "Axis" }, AxisSignature);
         var undeclared = Fbd1(Fb("ax9", new[] { In(L("go"), "xEnable") }, type: "Axis"));
-        Assert.Equal("%LANGUAGE FBD\n%NETWORK\nAxis(xEnable := go);\n", StNetworkWriter.Write(undeclared, scope));
-        var back = Assert.IsType<Box>(StNetworkReader.Read(StNetworkWriter.Write(undeclared, scope), scope).Networks[0].Trees[0]);
-        Assert.Equal((Box.UnnamedInstance, "Axis"), (back.Instance!.Text, back.Type));
+        var u = Assert.Throws<StNetworkUnspellableException>(() => StNetworkWriter.Write(undeclared, scope));
+        Assert.Equal("an FB instance no declaration in reach holds", u.Reason);
+        var unnamed = Fbd1(Fb("???", new[] { In(L("go"), "xEnable") }, type: "Axis"));
+        Assert.Equal("%LANGUAGE FBD\n%NETWORK\nAxis(xEnable := go);\n", StNetworkWriter.Write(unnamed, scope));
 
         var unstated = Fbd1(Fb("???", new[] { In(L("go"), "xEnable") }, type: "Axis"));
         var e = Assert.Throws<StNetworkUnspellableException>(() => StNetworkWriter.Write(unstated, new NetworkScope(new[] { "go" }, Array.Empty<string>(), none)));
         Assert.Equal("an FB box with no instance whose type is no FB type in reach", e.Reason);
     }
+
+    private static readonly System.Collections.Generic.Dictionary<string, CalleeSignature> AxisSignature =
+        new() { ["Axis"] = new(CalleeShape.Block, new[] { "xEnable" }, Array.Empty<string>()) };
 
     /// <summary>3.0: the vendor's unnamed instance (<c>???</c>) is the call of its type; a box showing ENO and no EN is its call
     /// closed by <c>.ENO</c>; the empty item is <c>;</c>.</summary>
@@ -359,7 +363,8 @@ public class StNetworkTextTests
     public void The_unnamed_instance_the_ENO_only_box_and_the_empty_item_are_spelled()
     {
         var none = new System.Collections.Generic.Dictionary<string, string>();
-        var scope = new NetworkScope(new[] { "go", "x", "a" }, new[] { "f" }, none, new[] { "Axis" });
+        var scope = new NetworkScope(new[] { "go", "x", "a" }, new[] { "f" }, none, new[] { "Axis" },
+            new System.Collections.Generic.Dictionary<string, CalleeSignature>(AxisSignature) { ["f"] = new(CalleeShape.Function, new[] { "IN" }, Array.Empty<string>()) });
         RoundTrips(Fbd1(Fb("???", new[] { In(L("go"), "xEnable") }, type: "Axis"),
                         Set(Call("f", new[] { In(L("a"), "IN") }, connected: 0, eno: true), T("x")),
                         new Leaf(new Operand(""), Flags.None)),
@@ -380,12 +385,12 @@ public class StNetworkTextTests
     public void A_wire_name_skips_the_names_in_reach_and_one_declared_in_reach_is_refused_by_name()
     {
         var body = Ld1(Def(4, L("w1")), Set(Ref(4), T("x")), Set(Ref(4), T("y")));
-        Assert.Equal("%LANGUAGE LD\n%NETWORK\nVAR_TEMP w3 : ANY; END_VAR\nw3 := w1;\nx := w3;\ny := w3;\n", StNetworkWriter.Write(body, Scope(body, "w2")));
+        Assert.Equal("%LANGUAGE LD\n%NETWORK\nVAR w3 : ANY; END_VAR\nw3 := w1;\nx := w3;\ny := w3;\n", StNetworkWriter.Write(body, Scope(body, "w2")));
         var twice = Assert.Throws<StNetworkReadException>(() =>
-            StNetworkReader.Read("%LANGUAGE LD\n%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := a;\nx := w1;\ny := w1;\n%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := b;\nu := w1;\nv := w1;\n", NetworkScope.Empty));
+            StNetworkReader.Read("%LANGUAGE LD\n%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := a;\nx := w1;\ny := w1;\n%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := b;\nu := w1;\nv := w1;\n", NetworkScope.Empty));
         Assert.Contains("an earlier network too", twice.Message);
         var read = Assert.Throws<StNetworkReadException>(() =>
-            StNetworkReader.Read("%LANGUAGE LD\n%NETWORK\nVAR_TEMP w4 : ANY; END_VAR\nw4 := a;\nx := w4;\ny := w4;\n", Scope(body, "w4")));
+            StNetworkReader.Read("%LANGUAGE LD\n%NETWORK\nVAR w4 : ANY; END_VAR\nw4 := a;\nx := w4;\ny := w4;\n", Scope(body, "w4")));
         Assert.Contains("declared in reach", read.Message);
     }
 
@@ -411,7 +416,7 @@ public class StNetworkTextTests
     [Fact]
     public void A_wire_read_once_or_never_is_a_Demux() =>
         RoundTrips(Ld1(Def(1, Op("AND", L("a"), L("b"))), Set(Ref(1), T("x")), Def(2, L("c"))),
-            "%LANGUAGE LD\n%NETWORK\nVAR_TEMP w1 : ANY; w2 : ANY; END_VAR\nw1 := a AND b;\nx := w1;\nw2 := c;\n");
+            "%LANGUAGE LD\n%NETWORK\nVAR w1 : ANY; w2 : ANY; END_VAR\nw1 := a AND b;\nx := w1;\nw2 := c;\n");
 
     /// <summary>A keyword operator heads a call wherever an operand or a statement starts (<c>AND(</c>, <c>XOR(</c>,
     /// <c>MOD(</c>, <c>NOT(</c>); after an operand it is the contact (<c>a AND b</c>).</summary>
@@ -430,8 +435,8 @@ public class StNetworkTextTests
     /// <summary>A box's output reaches no wire: a wire is defined by <c>w := &lt;box&gt;</c>, its box closed by the output it
     /// reads.</summary>
     [Theory]
-    [InlineData("VAR_TEMP w1 : ANY; END_VAR\nMOVE(EN := c, 1, OUT => w1).ENO;\ny := w1;", "a wire is defined by")]
-    [InlineData("VAR_TEMP w1 : ANY; END_VAR\ny := MOVE(EN := c, 1, OUT => w1).ENO;\nz := w1;", "a wire is defined by")]
+    [InlineData("VAR w1 : ANY; END_VAR\nMOVE(EN := c, 1, OUT => w1).ENO;\ny := w1;", "a wire is defined by")]
+    [InlineData("VAR w1 : ANY; END_VAR\ny := MOVE(EN := c, 1, OUT => w1).ENO;\nz := w1;", "a wire is defined by")]
     public void A_box_output_to_a_wire_is_refused_by_name(string code, string named)
     {
         var ex = Assert.Throws<StNetworkReadException>(() => StNetworkReader.Read("%LANGUAGE LD\n%NETWORK\n" + code + "\n", NetworkScope.Empty));
@@ -458,7 +463,7 @@ public class StNetworkTextTests
         }
         // read by coils only, through a wire read twice, it is spelled
         RoundTrips(Fbd1(Def(1, Add()), Set(Ref(1), T("x")), Set(Ref(1), T("y"))),
-            "%LANGUAGE FBD\n%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := ADD(EN := c, i, 3);\nx := w1;\ny := w1;\n");
+            "%LANGUAGE FBD\n%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := ADD(EN := c, i, 3);\nx := w1;\ny := w1;\n");
     }
 
     /// <summary>A callee that declares EN or ENO has them as its pins (1.2): a box showing the flag over a callee declaring

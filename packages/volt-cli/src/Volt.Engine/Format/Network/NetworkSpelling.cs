@@ -56,18 +56,6 @@ internal static class NetworkSpelling
         OperatorWords.Contains(type) || string.Equals(type, Move, StringComparison.OrdinalIgnoreCase) ||
         string.Equals(type, NotBox, StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>The default formal of an operator's input: <c>IN&lt;n&gt;</c> on the table's operators, <c>IN</c> on the
-    /// NOT box and MOVE — read back as no name, the vendor's own (an operator box stores no input names, census 1.13).
-    /// Null for any other box.</summary>
-    public static string? DefaultFormal(string type, int pin) =>
-        OperatorWords.Contains(type) ? "IN" + (pin + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)
-        : string.Equals(type, Move, StringComparison.OrdinalIgnoreCase) || string.Equals(type, NotBox, StringComparison.OrdinalIgnoreCase) ? "IN"
-        : null;
-
-    /// <summary>Whether a pin's stored formal is its operator's default — a fact the text does not carry.</summary>
-    public static bool IsDefaultFormal(string type, int pin, string? formal) =>
-        formal is null || (DefaultFormal(type, pin) is { } d && string.Equals(formal, d, StringComparison.OrdinalIgnoreCase));
-
     /// <summary>THE VALUE SLOT a consumer of a box reads when it reads the box by its value (not by ENO, not by an FB's
     /// <c>.name</c>): none on a bit operator (census 1.6; a stored one is lost on rebuild, B7), slot 0 on every other.</summary>
     public static int? MainSlotOfCall(string type) => BitOperators.Contains(type) ? null : 0;
@@ -142,9 +130,10 @@ internal static class NetworkSpelling
         return sb.ToString();
     }
 
-    /// <summary>The inverse of <see cref="Escape"/>: <c>$$ $' $" $L $N $R $T</c> (case-insensitive letters; <c>$N</c> is the
-    /// IDE's line end, CR LF). Null and <paramref name="error"/> for any other escape or a <c>$</c> at the end.</summary>
-    public static string? Unescape(string text, out string? error)
+    /// <summary>The inverse of <see cref="Escape"/>, and only of it (one spelling per text): <c>$$</c>, <c>$L</c>, <c>$R</c>,
+    /// and <c>$"</c> where <paramref name="quote"/> is <c>"</c>. Null and <paramref name="error"/> for any other escape or a
+    /// <c>$</c> at the end.</summary>
+    public static string? Unescape(string text, char? quote, out string? error)
     {
         error = null;
         var sb = new StringBuilder(text.Length);
@@ -155,14 +144,14 @@ internal static class NetworkSpelling
             var e = i + 1 < text.Length ? text[i + 1] : '\0';
             string? v = e switch
             {
-                '$' => "$", '\'' => "'", '"' => "\"", 'L' or 'l' => "\n", 'N' or 'n' => "\r\n", 'R' or 'r' => "\r",
-                'T' or 't' => "\t", _ => null,
+                '$' => "$", 'L' => "\n", 'R' => "\r", '"' when quote == '"' => "\"", _ => null,
             };
             if (v is null)
             {
                 error = e == '\0'
                     ? "a `$` at the end of delimited text: a `$` is written `$$`."
-                    : $"the escape '${e}': delimited text spells $$ $' $\" $L $N $R $T (IEC's escapes), and a `$` is written `$$`.";
+                    : $"the escape '${e}': " + (quote == '"' ? "a title spells $$ $\" $L $R" : "a comment line spells $$ $L $R") +
+                      ", every other character as it stands (a comment's line break is a new // line).";
                 return null;
             }
             sb.Append(v);
@@ -191,7 +180,7 @@ internal static class NetworkSpelling
     /// <summary>The inverse of <see cref="EscapeCode"/>: <c>$'</c> and <c>$$</c>, the only escapes of the code. Null and
     /// <paramref name="error"/> for any other <c>$</c>: one spelling per code, so a <c>$N</c> is refused, not read as a line
     /// break the text writes as it stands.</summary>
-    public static string? UnescapeCode(string text, out string? error)
+    public static string? UnescapeCode(string text, out string? error, string what = "the Execute box's ST")
     {
         error = null;
         var sb = new StringBuilder(text.Length);
@@ -203,8 +192,8 @@ internal static class NetworkSpelling
             if (e != '$' && e != '\'')
             {
                 error = e == '\0'
-                    ? "a `$` at the end of the Execute box's ST: a `$` is written `$$`"
-                    : $"the escape '${e}' in the Execute box's ST: its code spells a ' as $' and a $ as $$, and everything else as it stands";
+                    ? $"a `$` at the end of {what}: a `$` is written `$$`"
+                    : $"the escape '${e}' in {what}: its {(what.EndsWith("ST", StringComparison.Ordinal) ? "code" : "text")} spells a ' as $' and a $ as $$, and everything else as it stands";
                 return null;
             }
             sb.Append(e);

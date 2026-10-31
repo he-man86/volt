@@ -118,7 +118,7 @@ test("an edge in an enabled function box's pin runs on every scan; the box under
 // Measured 2.3: a wire read before its definition reads the value its definition held on the previous scan, so the twin
 // keeps its wires across scans (VAR), as CODESYS keeps the network's own.
 test("a wire is a VAR of the twin: read before its definition, the previous scan's value", () => {
-  const t = twin("\tx, y, a, b, c : BOOL;", "%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nx := a AND w1;\nw1 := b OR c;\ny := w1;\n")
+  const t = twin("\tx, y, a, b, c : BOOL;", "%NETWORK\nVAR w1 : ANY; END_VAR\nx := a AND w1;\nw1 := b OR c;\ny := w1;\n")
   expect(t.refused).toEqual([])
   expect(t.source).not.toContain("VAR_TEMP")
   expect(t.source).toContain("VAR\n\tvtw1_w1 : BOOL;\nEND_VAR\n")

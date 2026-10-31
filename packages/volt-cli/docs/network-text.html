@@ -20,7 +20,7 @@
 </p>
 <pre>%LANGUAGE LD
 %NETWORK "Start the motor"
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 // runs while auto is on
 w1 := start AND NOT stop;
 motor := w1;
@@ -32,6 +32,7 @@ lamp := MOVE(EN := w1, 100, OUT => speed).ENO;</pre>
   <tr><th></th><th>plain</th><th>negated</th><th>rising</th><th>falling</th></tr>
   <tr><td class="name">contact</td><td><code>x := a;</code></td><td><code>x := NOT a;</code></td><td><code>x := RISING(a);</code></td><td><code>x := FALLING(a);</code></td></tr>
   <tr><td class="name">pin</td><td><code>t1(IN := a)</code></td><td><code>t1(NOT IN := a)</code></td><td><code>t1(RISING IN := a)</code></td><td><code>t1(FALLING IN := a)</code></td></tr>
+  <tr><td class="name">unnamed pin</td><td><code>AND(a, b)</code></td><td><code>AND(a, NOT := b)</code></td><td><code>AND(a, RISING := b)</code></td><td><code>AND(a, FALLING := b)</code></td></tr>
   <tr><td class="name">coil</td><td><code>y := a;</code></td><td><code>NOT y := a;</code></td><td><code>RISING y := a;</code></td><td><code>FALLING y := a;</code></td></tr>
 </table>
 <p>
@@ -45,9 +46,9 @@ lamp := MOVE(EN := w1, 100, OUT => speed).ENO;</pre>
 <table>
   <tr><th>line</th><th>says</th></tr>
   <tr><td class="name"><code>%LANGUAGE LD</code></td><td>the body's language, <code>LD</code> or <code>FBD</code>; first line of the body</td></tr>
-  <tr><td class="name"><code>%NETWORK "title"</code></td><td>a network starts; the title is optional</td></tr>
+  <tr><td class="name"><code>%NETWORK "title"</code></td><td>a network starts; a network with no title is <code>%NETWORK</code> alone; the title spells <code>$$</code> <code>$"</code> <code>$L</code> <code>$R</code></td></tr>
   <tr><td class="name"><code>%DISABLED</code></td><td>the network is not compiled</td></tr>
-  <tr><td class="name"><code>// text</code></td><td>the network's comment</td></tr>
+  <tr><td class="name"><code>// text</code></td><td>one line of the network's comment; it spells <code>$$</code> <code>$L</code> <code>$R</code></td></tr>
   <tr><td class="name"><code>l:</code></td><td>the network's label, its first code line</td></tr>
   <tr><td class="name"><code>%UNSUPPORTED "shape" #hash</code></td><td>a network the text cannot spell (<a href="#unsupported">below</a>)</td></tr>
 </table>
@@ -65,11 +66,13 @@ lamp := MOVE(EN := w1, 100, OUT => speed).ENO;</pre>
   <tr><td class="name">FB</td><td><code>t1(IN := a, PT := T#1S, Q => x);</code></td></tr>
   <tr><td class="name">output pin</td><td><code>y := f(IN := a, err => e).OUT;</code></td></tr>
   <tr><td class="name">TRUE contact</td><td><code>x := TRUE;</code></td></tr>
+  <tr><td class="name">operand holding ST</td><td><code>y := ADD(OPERAND('INT_TO_WORD(i)'), 1);</code> <code>x := NOT OPERAND('s = $'on$'');</code></td></tr>
   <tr><td class="name">parallel</td><td><code>x := BRANCH(FEED := start, a, b);</code> <code>x := BRANCH_SHORTCIRCUIT(FEED := start, a, b);</code></td></tr>
   <tr><td class="name">jump</td><td><code>JMP.l := a;</code> <code>JMP.l := RAIL();</code> <code>x := JMP.l := a;</code> <code>y := (JMP.l := a) AND b;</code></td></tr>
   <tr><td class="name">return</td><td><code>RETURN := a;</code> <code>RETURN := RAIL();</code> <code>x := RETURN := a;</code></td></tr>
   <tr><td class="name">mid-rung coil</td><td><code>y := (x := a) AND b;</code></td></tr>
   <tr><td class="name">unnamed instance</td><td><code>TON(IN := a);</code></td></tr>
+  <tr><td class="name">unnamed operand</td><td><code>x := ??? AND a;</code> <code>p(OUT => ???);</code></td></tr>
   <tr><td class="name">Execute box</td><td><code>EXECUTE(EN := go, 'n := n + 1;');</code> (<a href="#execute">below</a>)</td></tr>
 </table>
 
@@ -89,22 +92,24 @@ MOVE(EN := c, 7, ENO => lamp, OUT => x).ENO;</pre>
 
 <h2 id="wires">Wires</h2>
 <pre>%NETWORK
-VAR_TEMP w1 : ANY; w2 : ANY; END_VAR
+VAR w1 : ANY; w2 : ANY; END_VAR
 w1 := a AND b;
 w2 := t1(IN := w1).Q;
 x := w2;
 y := w2 AND w1;</pre>
-<p>A value read twice is a wire, declared <code>: ANY</code> on the network's one <code>VAR_TEMP</code> line (its type is its definition's) and defined once (<code>w1 := …</code>). A box read once stands where it is read.</p>
+<p>A value read twice is a wire, declared <code>: ANY</code> on the network's one <code>VAR</code> line (its type is its definition's; like ST's <code>VAR</code>, it keeps its value from one scan to the next) and defined once (<code>w1 := …</code>). A box read once stands where it is read.</p>
+<p>Wires are numbered <code>w1</code>, <code>w2</code>, … across the body, in the order the text first names them, past every name the body or its declarations use; the <code>VAR</code> line lists them in that order.</p>
 
 <h2 id="execute">Execute box</h2>
-<p>Its ST is its last pin, one string, line breaks as they stand, <code>'</code> written <code>$'</code> and <code>$</code> written <code>$$</code>. Its one output is its ENO.</p>
+<p>Its ST is its last pin, one string, line breaks as they stand, <code>'</code> written <code>$'</code> and <code>$</code> written <code>$$</code>. EN and ENO are shown as on every box (<code>EN :=</code>, <code>.ENO</code>); its one output is its ENO.</p>
 <pre>EXECUTE(EN := go, 'IF start THEN
     count := count + 1;
 END_IF');
-ok := EXECUTE(EN := go, 'msg := $'done$';');</pre>
+ok := EXECUTE(EN := go, 'msg := $'done$';').ENO;
+EXECUTE('n := 0;');</pre>
 
 <h2 id="subset">What a network holds</h2>
-<p>Assignments (a jump or the return among their targets) and calls (a box at a root closed by <code>.ENO</code> or by nothing). Any other ST stands only in an Execute box. <code>RISING</code>, <code>FALLING</code> and <code>RAIL</code> name nothing else in a network.</p>
+<p>Assignments (a jump or the return among their targets) and calls (a box at a root closed by <code>.ENO</code> or by nothing). Any other ST stands only in an Execute box. <code>RISING</code>, <code>FALLING</code>, <code>RAIL</code> and <code>OPERAND</code> name nothing else in a network.</p>
 
 <h2 id="unsupported">A network that cannot be spelled</h2>
 <pre>%NETWORK "Calc"
@@ -119,6 +124,7 @@ ok := EXECUTE(EN := go, 'msg := $'done$';');</pre>
   <tr><th>code</th><th>raised for</th><th>example</th></tr>
   <tr><td class="name">NETWORK_PARSE</td><td>text a network may not hold, with its line</td><td><code>x := a XOR b;</code> — every box is a call</td></tr>
   <tr><td class="name">NETWORK_PARSE</td><td>a mark the IDE stores no model for</td><td><code>NOT RISING y := a;</code> <code>NOT y S= a;</code> <code>NOT JMP.l := a;</code> <code>y := NOT x := a;</code></td></tr>
+  <tr><td class="name">NETWORK_PARSE</td><td><code>EN :=</code>, <code>.ENO</code>, <code>ENO =></code>, <code>OUT =></code> or a type's call on a callee no declaration in reach states</td><td><code>y := h(EN := c, a);</code> with <code>h</code> declared nowhere</td></tr>
   <tr><td class="name">NETWORK_PARSE</td><td>a jump or a return not written as a target</td><td><code>JMP l;</code> <code>JMP(l, a);</code> <code>RETURN;</code></td></tr>
   <tr><td class="name">NETWORK_UNSUPPORTED</td><td>a model the writer has no spelling for, an edited <code>%UNSUPPORTED</code> line, and a box whose callee no declaration in reach states</td><td><code>x := f1(IN := a).Q;</code> with <code>f1 : Fx;</code> and <code>Fx</code> declared nowhere</td></tr>
 </table>

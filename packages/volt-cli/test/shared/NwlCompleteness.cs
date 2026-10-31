@@ -155,7 +155,7 @@ public static class NwlDisposition
         R("TextLine", "Tag", NwlCode.C, "TwinCAT: null ×2, beside the minted line Id", "nwl-stsnippet-line-ids"),
 
         R("Operand", "Operand", NwlCode.S, "the name / literal / expression; \"\" an unconnected pin; null on a function/operator instance D"),
-        R("Operand", "Type", NwlCode.R, "on a wire its VAR_TEMP type (S); elsewhere the declared type; Instance.Type R nwl-instance-type", "nwl-operand-type"),
+        R("Operand", "Type", NwlCode.R, "on a wire its declared type (S); elsewhere the declared type; Instance.Type R nwl-instance-type", "nwl-operand-type"),
         R("Operand", "Comment", NwlCode.D, "\"\"; else {Comment := '…'}"),
         R("Operand", "SymbolComment", NwlCode.SPlus, "\"\"; else {SymbolComment := '…'}"),
         R("Operand", "Address", NwlCode.R, "\"\" vs the archive sentinel; a real address by the pragma", "nwl-address-sentinel"),

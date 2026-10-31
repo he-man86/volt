@@ -39,7 +39,7 @@ END_VAR
 EXECUTE('k := ${k};
 i := i + 1;');
 %NETWORK
-done := EXECUTE(EN := go, 'j := j + 1;');
+done := EXECUTE(EN := go, 'j := j + 1;').ENO;
 
 END_PROGRAM
 `

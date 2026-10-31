@@ -111,6 +111,12 @@ export function networkBox(call: CallExpr, scope: Scope, project: Scope): Networ
 /** The member closing a box's call, `<box>.ENO` / `<box>.NAME`: the box and the name; undefined for any other member. */
 export function boxMember(e: MemberExpr, scope: Scope, project: Scope): { box: NetworkBox; name: string; eno: boolean } | undefined {
   if (e.base.kind !== "call") return undefined
+  // the Execute box closed by `.ENO`, its one output (network-text-one-to-one F13): a box of no callee, its EN its only pin
+  const call = e.base
+  if (call.callee.kind === "ident_expr" && call.callee.name.toUpperCase() === "EXECUTE" && e.member.name.toUpperCase() === "ENO" && inNetwork(scope)) {
+    const enable = call.args[0] !== undefined && !call.args[0].output && call.args[0].param?.name.toUpperCase() === "EN" ? call.args[0] : undefined
+    return { box: { call, ...(enable !== undefined ? { enable } : {}), pins: [], st: call }, name: e.member.name, eno: true }
+  }
   const box = networkBox(e.base, scope, project)
   if (box === undefined) return undefined
   const name = e.member.name

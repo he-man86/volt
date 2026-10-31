@@ -89,7 +89,7 @@ export function bodyOf(src: string): string {
 /** Everything in a network line that is grammar rather than the engineer's program: ST's words, the text's own
  *  elements and `%` lines, a box's call head. */
 const NETWORK_KEYWORDS = new Set([
-	"NETWORK", "DISABLED", "VAR_TEMP", "END_VAR", "ANY", "UNSUPPORTED", "NOT", "AND", "OR", "XOR", "ADD", "SUB", "MUL", "DIV", "MOD",
+	"NETWORK", "DISABLED", "VAR", "END_VAR", "ANY", "UNSUPPORTED", "NOT", "AND", "OR", "XOR", "ADD", "SUB", "MUL", "DIV", "MOD",
 	"GT", "GE", "EQ", "NE", "LE", "LT", "MOVE", "EN", "ENO", "OUT", "FEED", "BRANCH", "BRANCH_SHORTCIRCUIT", "JMP",
 	"RETURN", "IF", "THEN", "END_IF", "EXECUTE", "RISING", "FALLING", "RAIL", "NOT", "TRUE", "FALSE",
 ])

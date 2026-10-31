@@ -190,7 +190,7 @@ END_VAR
 %NETWORK
 out := AND(a, NOT(b), c);
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := GT(i, j);
 x := AND(w1, a);
 y := w1;

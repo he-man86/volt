@@ -58,7 +58,7 @@ describe("a network body lowers to what it runs", () => {
   test("a pin's and EN's NOT negate what the box reads", () => {
     const r = runner("a, c : BOOL; n : INT;", "%NETWORK\nMOVE(NOT EN := c, 1, OUT => n).ENO;\n", "", "FBD")
     expect(trace(r, "n", [{ c: true }, { c: false }])).toEqual([0n, 1n])
-    const s = runner("a, x : BOOL;", "%NETWORK\nx := AND(NOT IN1 := a, TRUE);\n", "", "FBD")
+    const s = runner("a, x : BOOL;", "%NETWORK\nx := AND(NOT := a, TRUE);\n", "", "FBD")
     expect(trace(s, "x", [{ a: true }, { a: false }])).toEqual([false, true])
   })
 
@@ -68,13 +68,13 @@ describe("a network body lowers to what it runs", () => {
   })
 
   test("a wire is kept across scans, read before its definition the previous scan's value, by the path __nw<N>_<wire>", () => {
-    const r = runner("a, b, x : BOOL;", "%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nx := a AND w1;\nw1 := b;\n")
+    const r = runner("a, b, x : BOOL;", "%NETWORK\nVAR w1 : ANY; END_VAR\nx := a AND w1;\nw1 := b;\n")
     expect(trace(r, "x", [{ a: true, b: true }, { b: false }, {}])).toEqual([false, true, false])
     expect(r.get("__nw1_w1")).toBe(false)
   })
 
   test("the wire's network index is its place in the body, a disabled network counted and lowered to nothing", () => {
-    const r = runner("a, x, y : BOOL;", "%NETWORK\n%DISABLED\ny := TRUE;\n%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := NOT a;\nx := w1;\n")
+    const r = runner("a, x, y : BOOL;", "%NETWORK\n%DISABLED\ny := TRUE;\n%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := NOT a;\nx := w1;\n")
     r.scan()
     expect([r.get("x"), r.get("y"), r.get("__nw2_w1")]).toEqual([true, false, true])
   })
@@ -151,7 +151,7 @@ describe("where a network's state lives", () => {
   test("an ACTION's wires are fields of the instance it runs on, __nw_<action>_<N>_<wire>", () => {
     const src =
       "PROGRAM P\nVAR\n\ta, x : BOOL;\nEND_VAR\n%LANGUAGE ST\nA1();\nEND_PROGRAM\n" +
-      "ACTION A1\n%LANGUAGE LD\n%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nx := w1;\nw1 := a;\nEND_ACTION\n"
+      "ACTION A1\n%LANGUAGE LD\n%NETWORK\nVAR w1 : ANY; END_VAR\nx := w1;\nw1 := a;\nEND_ACTION\n"
     const { pou, diagnostics } = lowerSource(src, "P")
     expect(diagnostics).toEqual([])
     const r = run(pou!)

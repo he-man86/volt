@@ -1,3 +1,22 @@
+#### operand-text — an operand holding ST text is OPERAND('<its text>'), ST string escaping
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := OPERAND('INT_TO_WORD(i)');
+y := ADD(OPERAND('a.b*10'), 1);
+z := NOT OPERAND('a OR b');
+w := OPERAND('s = $'x$'');
+v := RISING(OPERAND('a AND b'));
+u := OPERAND('t = $'$$$$$'');
+=== model
+NETWORK
+  (:= x `INT_TO_WORD(i)`)
+  (:= y (ADD `a.b*10` 1 conn:0))
+  (:= z not:`a OR b`)
+  (:= w `s = 'x'`)
+  (:= v rise:`a AND b`)
+  (:= u `t = '$$'`)
+
 #### header-order
 === text
 %LANGUAGE LD
@@ -99,7 +118,7 @@ NETWORK
 
 #### unnamed-instance
 === scope
-fb Axis
+fb Axis xEnable =>
 === text
 %LANGUAGE FBD
 %NETWORK
@@ -110,7 +129,7 @@ NETWORK
 
 #### undeclared-instance — an instance the declarations do not name: the call names its type, which the build judges
 === scope
-fb TON
+fb TON IN PT => Q ET
 === text
 %LANGUAGE FBD
 %NETWORK

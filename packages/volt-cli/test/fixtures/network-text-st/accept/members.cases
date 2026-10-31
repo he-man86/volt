@@ -1,3 +1,14 @@
+#### extra-unnamed-slot — an output slot the IDE stores holding ??? is written, OUT => ???
+=== scope
+program p =>
+=== text
+%LANGUAGE LD
+%NETWORK
+p(EN := RAIL(), OUT => ???).ENO;
+=== model
+NETWORK
+  (p =>1:??? en:_ eno:1)
+
 #### fb-one-output — an FB with one output: its call names none
 === scope
 instance r1 R_TRIG
@@ -80,18 +91,18 @@ x := AND(t1(EN := c, IN := a, PT := T#1S).ENO, b);
 NETWORK
   (:= x (AND (TON@t1 IN=a PT=T#1S en:c conn:0 eno:1) b))
 
-#### unstated-callee-as-written — a callee no declaration in reach states: EN := and .ENO the shown flags, .NAME the output named so
+#### unstated-callee-as-written — a callee no declaration in reach states: .NAME the output named so
 === scope
 instance t1 TON
 === text
 %LANGUAGE FBD
 %NETWORK
 x := t1(IN := a, PT := T#1S).Q;
-y := h(EN := c, a).ENO;
+y := h(a, b);
 === model
 NETWORK
   (:= x (TON@t1 IN=a PT=T#1S name:Q))
-  (:= y (h a en:c conn:0 eno:1))
+  (:= y (h a b conn:0))
 
 #### unstated-fb-read-by-no-name — an FB no declaration states, read with nothing named: the push refuses it by name
 === scope

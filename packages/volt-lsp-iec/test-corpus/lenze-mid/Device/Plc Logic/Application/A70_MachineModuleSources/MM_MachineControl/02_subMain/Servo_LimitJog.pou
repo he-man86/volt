@@ -20,7 +20,7 @@ ioUDT_JogLimitFree.Status.Limit_Left_OK := iServoStatus.Spare1;
 %NETWORK "NETWORK 3 (p2): Check for limit switch"
 ioUDT_JogLimitFree.Status.Limit_Right_OK := iServoStatus.Spare2;
 %NETWORK "COPY previous control word to current controlword"
-EXECUTE(EN := RAIL(), 'oServoControl:=iServoControl;');
+EXECUTE(EN := RAIL(), 'oServoControl:=iServoControl;').ENO;
 %NETWORK "NETWORK 4 (p1): ControlToFreeLimitSwitches"
 oServoControl.Spare1 := ioUDT_JogLimitFree.Status.Limit_Left_OK AND ioUDT_JogLimitFree.Control.Jog_LimitToLeft;
 %NETWORK "NETWORK 4 (p2): ControlToFreeLimitSwitches"

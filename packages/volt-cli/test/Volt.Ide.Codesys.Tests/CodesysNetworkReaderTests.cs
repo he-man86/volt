@@ -694,9 +694,9 @@ public class CodesysNetworkReaderTests
         Assert.Equal(new[] { false, true }, pins.Select(p => p.Flags.Negated));
         Assert.True(((Leaf)pins[1].Value).Flags.IsNone, "the bit belongs to the pin, not to the operand feeding it");
 
-        // A negated pin spells its own mark, before its formal (an operator's pin by its default formal).
+        // A negated pin spells its own mark, before its receiver's name: an unnamed pin's name is empty.
         var body = new NetworkBody(BodyLanguage.Fbd, new[] { read });
-        Assert.Contains("\nout := AND(a, NOT IN2 := xIsWarningInfo);\n",
+        Assert.Contains("\nout := AND(a, NOT := xIsWarningInfo);\n",
             StNetworkWriter.Write(body, Volt.Tests.Shared.NetworkModelScopes.ScopeOf(body)));
     }
 

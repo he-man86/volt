@@ -121,13 +121,6 @@ public static class StNetworkOracle
         Node S(Node x) => Spelled(x, fired, scope);
         switch (n)
         {
-            case Leaf { Operand.Text.Length: > 0 } l when !StNetworkReader.IsOperand(l.Operand.Text) && StNetworkReader.IsExpression(l.Operand.Text):
-            {
-                fired.Add("an operand holding an ST expression as its boxes");
-                var tree = ExpressionTree(l.Operand.Text, scope);
-                if (l.Flags.Negated) tree = Negate(tree);
-                return l.Flags.Rising || l.Flags.Falling ? EdgeOn(tree, l.Flags) : tree;
-            }
             case Assign a: return a with { Value = S(a.Value) };
             case Demux d: return d.Input is null ? d : new Demux(d.VarId, S(d.Input));
             case Parallel p:
@@ -141,19 +134,10 @@ public static class StNetworkOracle
                 var inputs = kept.Select(i => i with { Value = S(i.Value) }).ToList();
                 var enable = b.Enable is null ? null : S(b.Enable);
                 var outputs = b.Outputs.ToList();
-                if (outputs.RemoveAll(o => o.Formal is null && o.Value.Text == Box.UnnamedInstance) > 0)
-                    fired.Add("extra output slot (???)");
-                // An FB box is the call of its instance (design "FB boxes: the instance is the call head"): an instance no
-                // declaration holds is the call of its type, as the unnamed instance is; a declared one carries its
-                // declaration's spelling of the type.
+                // An FB box is the call of its instance (design "FB boxes: the instance is the call head"); a declared one
+                // carries its declaration's spelling of the type.
                 var type = b.Type;
                 var instance = b.Instance;
-                if (b.Instance is { } undeclared && undeclared.Text != Box.UnnamedInstance && scope.InstanceType(undeclared.Text) is null
-                    && scope.IsBlockType(type))
-                {
-                    fired.Add("an FB instance no declaration holds as the unnamed instance");
-                    instance = undeclared with { Text = Box.UnnamedInstance };
-                }
                 if (b.Instance is { } inst && scope.InstanceType(inst.Text) is { } declared && declared != type
                     && Volt.Engine.Format.St.StDeclaration.SameType(declared, type))
                 {
@@ -165,30 +149,6 @@ public static class StNetworkOracle
             default: return n;
         }
     }
-
-    // ── the stored-member rules, stated here in the oracle's own code (design.md "Stored members, not spelled") ──
-    // The writer applies the same rules to write them; sharing the code would make the oracle agree with the writer by
-    // construction.
-
-    /// <summary>The negation of an operand's expression as the text spells it: the value mark on a plain leaf or on a box
-    /// read where it stands, a contact group (AND/OR, no call of its own) under a NOT box.</summary>
-    static Node Negate(Node n) => n switch
-    {
-        Leaf { Flags: { Negated: false, Rising: false, Falling: false } } l => l with { Flags = l.Flags with { Negated = true } },
-        Box { Flags.IsNone: true, StCode: null, Type: not ("AND" or "OR") } b => b with { Flags = Flags.None with { Negated = true } },
-        _ => StNetworkWriter.NotBox(n),
-    };
-
-    /// <summary>An edge of an operand's expression as the text spells it: on the leaf or the box it is carried onto.</summary>
-    static Node EdgeOn(Node n, Flags f) => n switch
-    {
-        Leaf l => l with { Flags = l.Flags with { Rising = f.Rising, Falling = f.Falling } },
-        Box b => b with { Flags = b.Flags with { Rising = f.Rising, Falling = f.Falling } },
-        _ => n,
-    };
-
-    /// <summary>The boxes an operand holding an ST expression reads back as: the expression read as ST.</summary>
-    static Node ExpressionTree(string text, NetworkScope scope) => StNetworkReader.ExpressionTree(text, scope);
 
     // ── the report ─────────────────────────────────────────────────────────────────────────────────────────────
 

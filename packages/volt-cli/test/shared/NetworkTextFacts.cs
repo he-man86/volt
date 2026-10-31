@@ -79,8 +79,8 @@ public static class NetworkTextFacts
         int? connected = !consumed || byName is not null ? null
             : !byEno && NetworkSpelling.MainSlotOfCall(b.Type) is null ? null
             : b.ConnectedSlot;
-        // `.ENO` carries whether a box shows ENO, an Execute box has its ENO by type
-        var hasEno = isExecute || b.HasEnoOutput;
+        // `.ENO` carries whether a box shows ENO, the Execute box as every box (network-text-one-to-one F13)
+        var hasEno = b.HasEnoOutput;
         return new Box(
             b.Type,
             // The instance's text and its flags: the text has no position for a flag on the instance operand, so the writer
@@ -88,7 +88,7 @@ public static class NetworkTextFacts
             b.Instance is null ? null : new Operand(b.Instance.Text, IsInstance: true,
                 Flags: b.Instance.Flags is { IsNone: false } f ? f : null),
             NetworkSpelling.KindOf(b.Type, isFb),
-            b.Inputs.Select((p, i) => new Input(NetworkSpelling.IsOperatorBox(b.Type) && NetworkSpelling.IsDefaultFormal(b.Type, i, p.Formal) ? null : p.Formal,
+            b.Inputs.Select((p, i) => new Input(p.Formal,
                 Node(p.Value, consumed: true), p.Flags)).ToList(),
             b.Outputs.Select(o => new Output(o.Formal, Target(o.Value), o.Formal is not null ? null : o.Slot)).ToList(),
             NodeOrNull(b.Enable),

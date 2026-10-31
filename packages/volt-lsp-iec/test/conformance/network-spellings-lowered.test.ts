@@ -21,7 +21,7 @@ const fn = "FUNCTION FN_Inc : INT\nVAR_INPUT\n\tIN : INT;\nEND_VAR\n%LANGUAGE ST
 const net = `PROGRAM P_Net
 ${inputs}${outputs}%LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 x6 := a AND w1;
 w1 := b OR c;
 x7 := w1;

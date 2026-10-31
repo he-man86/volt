@@ -565,10 +565,10 @@ public class TcRoundTripTests
     {
         var before = EnoWired(withEn: false);
         var pulled = TcNetworkReader.Read(Impl(before), BodyLanguage.Fbd);
-        var text = TcText.Write(pulled);
+        var text = TcText.Write(pulled, EnoDeclaredFb);
 
         Assert.Contains("ENO => enoFlag", text);
-        Assert.Null(TcText.Apply(before, TcText.Validate(text, TcText.ScopeOf(pulled))));
+        Assert.Null(TcText.Apply(before, TcText.Validate(text, TcText.ScopeOf(pulled, EnoDeclaredFb)), EnoDeclaredFb));
     }
 
     /// <summary>…and ON A BOX WITH EN IT IS THE NAMED ENO PIN (P5, 2R.5 awkward-sweep #23), the parity twin of CODESYS's
@@ -579,10 +579,10 @@ public class TcRoundTripTests
     {
         var before = EnoWired(withEn: true);
         var pulled = TcNetworkReader.Read(Impl(before), BodyLanguage.Fbd);
-        var text = TcText.Write(pulled);
+        var text = TcText.Write(pulled, EnoSlotFb);
 
         Assert.Contains("ENO => enoFlag", text);
-        Assert.Null(TcText.Apply(before, TcText.Validate(text, TcText.ScopeOf(pulled))));
+        Assert.Null(TcText.Apply(before, TcText.Validate(text, TcText.ScopeOf(pulled, EnoSlotFb)), EnoSlotFb));
     }
 
     /// <summary>…its deletion is refused, never a silent no-op: the in-place write never visited the ENO slot, so removing
@@ -592,7 +592,7 @@ public class TcRoundTripTests
     {
         var before = EnoWired(withEn: true);
         var pulled = TcNetworkReader.Read(Impl(before), BodyLanguage.Fbd);
-        var text = TcText.Write(pulled);
+        var text = TcText.Write(pulled, EnoSlotFb);
         Assert.Contains("ENO => enoFlag", text);
         var dropped = text.Replace(", ENO => enoFlag", "").Replace("ENO => enoFlag, ", "");
         Assert.NotEqual(text, dropped);
@@ -609,7 +609,7 @@ public class TcRoundTripTests
     {
         var before = EnoWired(withEn: true);
         var pulled = TcNetworkReader.Read(Impl(before), BodyLanguage.Fbd);
-        var text = TcText.Write(pulled);
+        var text = TcText.Write(pulled, EnoSlotFb);
 
         var written = TcText.Apply(before, TcText.Validate(text.Replace("ENO => enoFlag", "ENO => wiredPin"), TcText.ScopeOf(pulled, EnoSlotFb)), EnoSlotFb);
 
@@ -622,6 +622,10 @@ public class TcRoundTripTests
     /// output oResult (its ENO is the shown one): a push reads its callee's declaration (network-output-member).</summary>
     private static readonly System.Collections.Generic.Dictionary<string, CalleeSignature> EnoSlotFb =
         new() { ["TON"] = new(CalleeShape.Block, new[] { "IN", "PT" }, new[] { "oResult" }) };
+
+    /// <summary>…and as a declaration declaring its own output ENO states it (the box shows no ENO).</summary>
+    private static readonly System.Collections.Generic.Dictionary<string, CalleeSignature> EnoDeclaredFb =
+        new() { ["TON"] = new(CalleeShape.Block, new[] { "IN", "PT" }, new[] { "ENO", "oResult" }) };
 
     /// <summary><c>EnoSlot.derived.TcPOU</c>'s NWL body with a variable on the ENO slot (its null echo replaced by a copy of
     /// the wired pin's operand, named <c>enoFlag</c>) and, <paramref name="withEn"/>, the enable a box showing EN/ENO holds:

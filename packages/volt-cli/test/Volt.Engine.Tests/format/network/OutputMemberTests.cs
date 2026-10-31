@@ -9,8 +9,9 @@ namespace Volt.Engine.Tests.Format.Network;
 /// <summary>
 /// openspec <c>network-output-member</c> 1.2 / 2a: the call is the box, and what its <c>EN :=</c>, <c>.ENO</c> and <c>.NAME</c>
 /// read as is decided by the callee's declaration in the scope (<see cref="NetworkScope.Signature"/>). A callee no declaration
-/// in reach states is read as written, and the push refuses it by name (<see cref="NetworkPairing.RefuseUnbuildableBoxes"/>) while the
-/// post-push comparison, which holds no project, compares both texts as written. The case set holds the spellings
+/// in reach states gives <c>EN :=</c>, <c>.ENO</c>, <c>ENO =&gt;</c>, <c>OUT =&gt;</c> and its type's call no meaning, and the reader
+/// refuses them by name (network-text-one-to-one F9); the post-push comparison, which holds no project, then claims no
+/// layout-equal body for them (byte-equal texts are still one). The case set holds the spellings
 /// (<c>test/fixtures/network-text-st</c>); these are the push's refusals and the comparison.
 /// </summary>
 public class OutputMemberTests
@@ -23,16 +24,20 @@ public class OutputMemberTests
     static Volt.Engine.Format.Network.Network Read(string text, NetworkScope scope) => StNetworkReader.Read(text, scope).Networks[0];
 
     [Fact]
-    public void An_unstated_callee_is_read_as_written_and_refused_by_name_at_a_push()
+    public void An_unstated_callee_s_EN_is_refused_by_name_at_the_read()
     {
-        var scope = Scope();
-        var box = (Box)((Assign)Read(Text, scope).Trees[0]).Value;
-        // As written: EN := first the shown EN, .ENO the shown ENO — the reading of a callee that declares neither.
-        Assert.NotNull(box.Enable);
-        Assert.True(box.HasEnoOutput);
+        var ex = Assert.Throws<StNetworkReadException>(() => Read(Text, Scope()));
+        Assert.Contains("EN := on the call w1, whose callee no declaration in reach states", ex.Message);
+    }
 
-        var ex = Assert.Throws<NetworkTextException>(() => NetworkPairing.RefuseUnbuildableBoxes("CODESYS", Read(Text, scope), scope));
-        Assert.Contains("WSM: no declaration in reach states its pins, so EN/ENO/.X cannot be told from a declared pin", ex.Message);
+    /// <summary>The call of an FB type whose pins no declaration states: the unnamed-instance box or a function, which only a
+    /// declaration says (F9). The LSP never meets it: every FB type in its reach is a declaration.</summary>
+    [Fact]
+    public void The_call_of_an_unstated_FB_type_is_refused_by_name_at_the_read()
+    {
+        var scope = new NetworkScope(new[] { "a" }, Array.Empty<string>(), new Dictionary<string, string>(), new[] { "Axis" });
+        var ex = Assert.Throws<StNetworkReadException>(() => Read("%LANGUAGE FBD\n%NETWORK\nAxis(a);\n", scope));
+        Assert.Contains("the call of the FB type Axis on the call Axis, whose callee no declaration in reach states", ex.Message);
     }
 
     [Fact]
@@ -48,14 +53,15 @@ public class OutputMemberTests
     }
 
     /// <summary>The CLI's post-push check reads with the body's own declaration only (<c>PushedText.SameBody</c>): every
-    /// callee is unstated there, both texts are read as written, and a push that landed is not reported as diverging.</summary>
+    /// callee is unstated there, so a body showing an unstated callee's EN reads in no scope and is claimed equal only
+    /// byte for byte.</summary>
     [Fact]
     public void The_post_push_check_compares_an_unstated_callee_as_written()
     {
         var thin = NetworkScope.FromDeclarations("PROGRAM P\nVAR\n\tok : BOOL;\n\ta : BOOL;\n\tw1 : WSM;\nEND_VAR", _ => null,
             () => Array.Empty<string>(), kindOf: _ => null, isRefusedPouName: _ => false, libraryFunction: _ => null);
         Assert.Null(thin.Signature("WSM"));
-        Assert.True(StNetworkGate.SameBody(Text, Text.Replace("w1(EN", "w1( EN"), thin));
+        Assert.False(StNetworkGate.SameBody(Text, Text.Replace("w1(EN", "w1( EN"), thin));
     }
 
     /// <summary>A function read through a VAR_OUTPUT is spelled (<c>.Q</c>), and the push refuses it by name until its

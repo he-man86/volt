@@ -20,14 +20,14 @@ END_VAR
 
 %LANGUAGE LD
 %NETWORK "NETWORK 1 : Speed control transport system dryer"
-VAR_TEMP w1 : ANY; w2 : ANY; w3 : ANY; w4 : ANY; END_VAR
+VAR w1 : ANY; w2 : ANY; w3 : ANY; w4 : ANY; END_VAR
 w1 := True;
 MOVE(EN := w1, 0, OUT => TempI).ENO;
 MUL(EN := w1, Mach1_Data.AUTOSPEED, 10, OUT => MainDrive_AutoSpeed01rpm).ENO;
 MOVE(EN := w1, MainDrive_AutoSpeed01rpm, OUT => Droger_Data.Cor_denumerator).ENO;
 w2 := w1 AND True;
 MOVE(EN := MOVE(EN := Mach1_AuxData.IEC_TIMERS.TON_DelayIdling(IN := w2 AND NOT Mach1.GenFlags.DriveIsRunning, PT := T#500MS).Q AND NOT Mach1_Alarms.Alm049, MainDrive_AutoSpeed01rpm, OUT => Mach_ActSpeed_Rpm01).ENO, MainDrive_AutoSpeed01rpm, OUT => Droger_Data.Cor_numerator).ENO;
-MOVE(EN := w2 AND (Mach1.GenFlags.DriveIsRunning OR NOT Mach1_AuxData.IEC_TIMERS.TON_DelayIdling.Q), MUL(HMI_Var.Mach1.ActualSpeed, 10), OUT => Mach_ActSpeed_Rpm01).ENO;
+MOVE(EN := w2 AND (Mach1.GenFlags.DriveIsRunning OR NOT Mach1_AuxData.IEC_TIMERS.TON_DelayIdling.Q), OPERAND('HMI_Var.Mach1.ActualSpeed*10'), OUT => Mach_ActSpeed_Rpm01).ENO;
 w3 := w2 AND True;
 w4 := w3 AND Trayfiller_Data.commInterface.HoldFeedFwd;
 MOVE(EN := (Mach1_AuxData.ADS_StopOnZeroPulse := w4 AND (LST_InputsOutputs.I133_1_PROX_zero_position_transport_ADS OR Mach1_AuxData.ADS_StopOnZeroPulse)), 750, OUT => Droger_Data.Cor_numerator).ENO;
@@ -40,9 +40,9 @@ cor_DenumDI:=Droger_Data.Cor_denumerator;
 HMI_Var.Mach1.ActualSpeedDryer:=(Mach_ActSpeed_Rpm01*cor_numDI)/cor_denumdi;
 Mach1_Data.Drives.FeedForwardADS.Control.AutoSpeed:=REAL_TO_INT(0.9*dint_to_real(HMI_Var.Mach1.ActualSpeedDryer)*6/10);
 
-');
+').ENO;
 %NETWORK "NETWORK 2: Deviation calculation of sync point, transport system trayfiller"
-VAR_TEMP w5 : ANY; END_VAR
+VAR w5 : ANY; END_VAR
 // Principle: It's better to accelerate the drive then to decelerate, because otherwise cigars could be missed. 
 // So that is why the deceleration should be kept short, by trial and error the optimum point is 60degrees (difference between setpoint and actual point).
 // dev: [0-60]: dec.
@@ -67,7 +67,7 @@ w5 := ADD(EN := SUB(EN := SUB(EN := Mach1.GenFlags.DriveIsRunning, Droger_Data.A
 ADD(EN := LT(EN := w5, devAngle, -60), Droger_Data.Cor_numerator, 360, OUT => Droger_Data.Cor_numerator).ENO;
 SUB(EN := GT(EN := w5, devAngle, 300), Droger_Data.Cor_numerator, 360, OUT => Droger_Data.Cor_numerator).ENO;
 %NETWORK
-VAR_TEMP w6 : ANY; END_VAR
+VAR w6 : ANY; END_VAR
 w6 := R_TRIG_0(CLK := LST_InputsOutputs.I133_1_PROX_zero_position_transport_ADS);
 MOVE(EN := w6, HMI_Var.Mach1.Position, OUT => Droger_Data.Act_sync_pos).ENO;
 MOVE(EN := w6, Mach1_Data.CamControls.FeedforwardDryer_CP.Start, OUT => Droger_Data.set_sync_pos).ENO;

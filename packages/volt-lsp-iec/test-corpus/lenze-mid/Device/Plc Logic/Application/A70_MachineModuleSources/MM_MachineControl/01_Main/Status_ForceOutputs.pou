@@ -4,12 +4,12 @@ END_VAR
 
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := TRUE;
 MOVE(EN := w1, %IB26, OUT => LST_InputsOutputs.Serv_IB100).ENO;
 MOVE(EN := w1, %IB27, OUT => LST_InputsOutputs.Serv_IB101).ENO;
 %NETWORK
-VAR_TEMP w2 : ANY; END_VAR
+VAR w2 : ANY; END_VAR
 w2 := TRUE;
 MOVE(EN := w2, %IB370, OUT => LST_InputsOutputs.Serv_IB132).ENO;
 MOVE(EN := w2, %IB371, OUT => LST_InputsOutputs.Serv_IB133).ENO;

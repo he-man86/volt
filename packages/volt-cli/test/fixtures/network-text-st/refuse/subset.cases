@@ -1,3 +1,54 @@
+#### operand-plain — a plain operand is written as it stands, never OPERAND
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := OPERAND('a');
+=== refused
+network-plain-st a plain operand is written as it stands
+
+#### operand-not-a-string — OPERAND takes one string
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := OPERAND(a);
+=== refused
+network-plain-st OPERAND takes one string
+
+#### operand-two-strings — OPERAND takes one string
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := OPERAND('a + 1', 'b');
+=== refused
+network-plain-st OPERAND takes one string
+
+#### operand-escape — an operand's text spells a ' as $' and a $ as $$, everything else as it stands
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := OPERAND('a$N+ b');
+=== refused
+network-plain-st the escape '$N'
+
+#### operand-empty — an empty operand is no OPERAND
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := OPERAND('');
+=== refused
+network-plain-st OPERAND holds no text
+
+#### wires-var-temp — a wire keeps its value across scans, as ST's VAR does
+=== text
+%LANGUAGE LD
+%NETWORK
+VAR_TEMP w1 : ANY; END_VAR
+w1 := a AND b;
+x := w1;
+y := w1;
+=== refused
+network-plain-st are declared VAR w1 : ANY; END_VAR
+
 #### for-loop — a network holds no loop
 === text
 %LANGUAGE LD
@@ -159,7 +210,7 @@ network-plain-st the rail RAIL() takes no value
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 NOT w1 := a;
 x := w1;
 === refused
@@ -193,7 +244,7 @@ network-plain-st every box is a call
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := AND(a, b);
 x := NOT w1;
 y := w1;
@@ -239,7 +290,7 @@ network-plain-st stands first
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 MOVE(EN := c, 1, OUT => w1).ENO;
 y := w1;
 === refused
@@ -262,7 +313,7 @@ name w1
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := a AND b;
 x := w1;
 y := w1;
@@ -273,7 +324,7 @@ network-plain-st declared in reach
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; w1 : ANY; END_VAR
+VAR w1 : ANY; w1 : ANY; END_VAR
 w1 := a AND b;
 x := w1;
 y := w1;
@@ -284,12 +335,12 @@ network-plain-st is named twice
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := a AND b;
 x := w1;
 y := w1;
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := c;
 u := w1;
 v := w1;
@@ -300,7 +351,7 @@ network-plain-st named on an earlier network too
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP split1 : ANY; END_VAR
+VAR split1 : ANY; END_VAR
 split1 := a AND b;
 x := split1;
 y := split1;
@@ -311,7 +362,7 @@ network-plain-st a wire is w<n>
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := a;
 w1 := b;
 x := w1;
@@ -323,7 +374,7 @@ network-plain-st is defined twice
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 x := w1 := a;
 y := w1;
 z := w1;
@@ -334,7 +385,7 @@ network-plain-st a wire is defined alone
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 x := a;
 === refused
 network-plain-st is named and never defined
@@ -343,7 +394,7 @@ network-plain-st is named and never defined
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := a AND b;
 x := w1;
 y := w1;
@@ -374,7 +425,7 @@ network-plain-st an assignment, a call, a jump or a return
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 %DISABLED
 w1 := a AND b;
 x := w1;
@@ -415,6 +466,64 @@ network-plain-st the line is %UNSUPPORTED
 x := a;
 === refused
 network-plain-st a network title is one
+
+#### title-empty — a network with no title has no "" after %NETWORK
+=== text
+%LANGUAGE LD
+%NETWORK ""
+x := a;
+=== refused
+network-plain-st an empty title
+
+#### title-escape-n — a title's line break is $R$L, as the writer writes it
+=== text
+%LANGUAGE LD
+%NETWORK "a$Nb"
+x := a;
+=== refused
+network-plain-st the escape '$N'
+
+#### title-escape-quote — a ' in a title stands as it is
+=== text
+%LANGUAGE LD
+%NETWORK "a$'b"
+x := a;
+=== refused
+network-plain-st the escape '$''
+
+#### title-escape-lowercase — an escape letter is upper case
+=== text
+%LANGUAGE LD
+%NETWORK "a$lb"
+x := a;
+=== refused
+network-plain-st the escape '$l'
+
+#### title-escape-tab — a tab in a title stands as it is
+=== text
+%LANGUAGE LD
+%NETWORK "a$Tb"
+x := a;
+=== refused
+network-plain-st the escape '$T'
+
+#### comment-escape-n — a comment's line break is a new // line
+=== text
+%LANGUAGE LD
+%NETWORK
+// a$Nb
+x := a;
+=== refused
+network-plain-st the escape '$N'
+
+#### comment-escape-dquote — a " in a comment stands as it is
+=== text
+%LANGUAGE LD
+%NETWORK
+// a$"b
+x := a;
+=== refused
+network-plain-st the escape '$"'
 
 #### execute-without-code — the Execute box takes EN := where it shows EN, then its ST, and nothing else
 === text
@@ -534,7 +643,7 @@ network-plain-st the Execute box takes EN := first where it shows EN, then its S
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 l:
 JMP.l := AND(EN := c, a, b);
 === refused
@@ -544,7 +653,7 @@ network-plain-st comparison operators only
 === text
 %LANGUAGE FBD
 %NETWORK
-VAR_TEMP w2 : ANY; END_VAR
+VAR w2 : ANY; END_VAR
 y := MUL((w2 := ADD(EN := c, i, j)), 2);
 z := w2;
 v := w2;
@@ -579,7 +688,7 @@ network-plain-st holds no branch
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := AND(a, b);
 x := RISING(w1);
 y := w1;
@@ -627,7 +736,7 @@ network-plain-st ENO => v is a target of the shown ENO
 === text
 %LANGUAGE FBD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 GT(EN := c, i, 3, OUT => w1);
 x := w1;
 === refused
@@ -645,7 +754,7 @@ network-plain-st comparison operators only
 === text
 %LANGUAGE FBD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := ADD(EN := c, i, j);
 x := MUL(w1, 2);
 y := w1;
@@ -728,11 +837,19 @@ x := MUL(g(EN := c, a).OUT, 2);
 === refused
 network-plain-st comparison operators only
 
-#### execute-closed-by-a-member — the Execute box has one output, its ENO: no member closes its call
+#### execute-read-by-no-eno — the Execute box's one output is its ENO: read, its call is closed by .ENO
 === text
 %LANGUAGE LD
 %NETWORK
-x := EXECUTE(EN := a, 'k := 1;').ENO;
+x := EXECUTE(EN := a, 'k := 1;');
+=== refused
+network-plain-st its one output is its ENO
+
+#### execute-closed-by-another-member — the Execute box has no output but its ENO
+=== text
+%LANGUAGE LD
+%NETWORK
+x := EXECUTE(EN := a, 'k := 1;').Q;
 === refused
 network-plain-st its one output is its ENO
 
@@ -750,7 +867,7 @@ network-plain-st names no output: p has 2
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : BOOL; END_VAR
+VAR w1 : BOOL; END_VAR
 w1 := a AND b;
 x := w1;
 y := w1;
@@ -762,7 +879,7 @@ network-plain-st a wire is declared : ANY
 %LANGUAGE LD
 %NETWORK
 // start
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := a AND b;
 x := w1;
 y := w1;
@@ -773,7 +890,7 @@ network-plain-st its wires are declared after its % lines, before its comment
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP
+VAR
 w1 : ANY;
 END_VAR
 w1 := a AND b;
@@ -786,7 +903,7 @@ network-plain-st a network's wires are declared on one line
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1, w2 : ANY; END_VAR
+VAR w1, w2 : ANY; END_VAR
 w1 := a AND b;
 w2 := a OR b;
 x := w1 AND w2;
@@ -804,3 +921,82 @@ x := w1;
 y := w1;
 === refused
 network-plain-st a network holds no such line
+
+#### empty-name-unmarked — an unmarked pin with no name is its value alone
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := AND(a, := b);
+=== refused
+network-plain-st an empty pin name with no mark
+
+#### wire-numbered-per-network — a body's wires are numbered across its networks
+=== text
+%LANGUAGE LD
+%NETWORK
+VAR w1 : ANY; END_VAR
+w1 := a AND b;
+x := w1;
+y := w1;
+%NETWORK
+VAR w3 : ANY; END_VAR
+w3 := a OR b;
+x := w3;
+y := w3;
+=== refused
+network-plain-st the wire w3 is the body's w2
+
+#### wire-not-first — a body's first wire is w1
+=== text
+%LANGUAGE LD
+%NETWORK
+VAR w2 : ANY; END_VAR
+w2 := a AND b;
+x := w2;
+y := w2;
+=== refused
+network-plain-st the wire w2 is the body's w1
+
+#### wire-declared-out-of-order — wires are numbered in the order the text first names them
+=== text
+%LANGUAGE LD
+%NETWORK
+VAR w1 : ANY; w2 : ANY; END_VAR
+w2 := a OR b;
+w1 := a AND b;
+x := w1 AND w2;
+y := w1 OR w2;
+=== refused
+network-plain-st the wire w2 is the body's w1
+
+#### unstated-en — EN := on a callee no declaration states is the shown EN or its own pin EN
+=== text
+%LANGUAGE FBD
+%NETWORK
+y := h(EN := c, a);
+=== refused
+network-plain-st no declaration in reach states
+
+#### unstated-eno — .ENO on a callee no declaration states is the shown ENO or its own output ENO
+=== text
+%LANGUAGE FBD
+%NETWORK
+y := h(a).ENO;
+=== refused
+network-plain-st no declaration in reach states
+
+#### unstated-eno-target — ENO => on a callee no declaration states
+=== text
+%LANGUAGE FBD
+%NETWORK
+h(a, ENO => y);
+=== refused
+network-plain-st no declaration in reach states
+
+#### unstated-out-target — OUT => on a callee no declaration states is its value or its own output OUT
+=== text
+%LANGUAGE FBD
+%NETWORK
+h(a, OUT => y);
+=== refused
+network-plain-st no declaration in reach states

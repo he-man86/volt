@@ -213,6 +213,7 @@ public static class NetworkMembers
         return slots;
     }
 
-    /// <summary>Whether the box has an ENO output — the model's fact (an Execute box has one by type).</summary>
+    /// <summary>Whether the box lists an ENO output slot: where it shows ENO, and an Execute box always (its output list is
+    /// its type's; whether the ENO is SHOWN is its flag, F13).</summary>
     private static bool CarriedHasEno(Box b, bool consumed) => b.HasEnoOutput || b.StCode is not null;
 }

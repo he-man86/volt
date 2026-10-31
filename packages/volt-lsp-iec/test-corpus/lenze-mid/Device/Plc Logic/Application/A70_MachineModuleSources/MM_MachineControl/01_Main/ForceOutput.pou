@@ -4,7 +4,7 @@ END_VAR
 
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := HMI_Var.ForceOutputs;
 LST_InputsOutputs.Q100_0_Pilot_light_Alarm_green_ := w1 AND LST_InputsOutputs.Serv_QB100.0;
 LST_InputsOutputs.Q100_1_Pilot_light_Alarm_orange_ := w1 AND LST_InputsOutputs.Serv_QB100.1;
@@ -23,7 +23,7 @@ LST_InputsOutputs.Q101_5_Spare := w1 AND LST_InputsOutputs.Serv_QB101.5;
 LST_InputsOutputs.Q101_6_Spare := w1 AND LST_InputsOutputs.Serv_QB101.6;
 LST_InputsOutputs.Q101_7_Spare := w1 AND LST_InputsOutputs.Serv_QB101.7;
 %NETWORK
-VAR_TEMP w2 : ANY; END_VAR
+VAR w2 : ANY; END_VAR
 w2 := HMI_Var.ForceOutputs;
 LST_InputsOutputs.Q132_0_SL_Start_OP2a := w2 AND LST_InputsOutputs.Serv_QB132.0;
 LST_InputsOutputs.Q132_1_SL_Stop_OP2a := w2 AND LST_InputsOutputs.Serv_QB132.1;
@@ -42,7 +42,7 @@ LST_InputsOutputs.Q133_5_InfeedConv_Fwd := w2 AND LST_InputsOutputs.Serv_QB133.5
 LST_InputsOutputs.Q133_6_InfeedConv_Rev := w2 AND LST_InputsOutputs.Serv_QB133.6;
 LST_InputsOutputs.Q133_7_OutfeedConv_Fwd := w2 AND LST_InputsOutputs.Serv_QB133.7;
 %NETWORK
-VAR_TEMP w3 : ANY; END_VAR
+VAR w3 : ANY; END_VAR
 w3 := HMI_Var.ForceOutputs;
 LST_InputsOutputs.Q136_0_Spare := w3 AND LST_InputsOutputs.Serv_QB136.0;
 LST_InputsOutputs.Q136_1_Spare := w3 AND LST_InputsOutputs.Serv_QB136.1;

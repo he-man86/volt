@@ -78,7 +78,7 @@ const ld = (decls: string, body: string) =>
 test("a plain-ST network body is ST: its boxes and wires resolve and type, a wrong type is the ST error", () => {
   const src = ld(
     "\ta, b, c, x, y, lamp, hot : BOOL;\n\ti, n : INT;\n\tt1 : FB_T;",
-    "%NETWORK\nVAR_TEMP w1 : ANY; END_VAR\nw1 := a AND NOT b;\nx := w1;\ny := w1 OR c;\nlamp := t1(IN := w1);\n" +
+    "%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := a AND NOT b;\nx := w1;\ny := w1 OR c;\nlamp := t1(IN := w1);\n" +
       "hot := GT(i, 3);\nn := ADD(i, 1, 2);\nx := MOVE(EN := GT(EN := a, i, n), 1, OUT => n).ENO;\n",
   )
   expect([...diagnose(src), ...networkDiags(src)].map((d) => d.message)).toEqual([])
@@ -110,7 +110,7 @@ test("an UNSUPPORTED network keeps its label under its line: still the jump targ
 })
 
 test("an Execute box's EN is code, and its ST is ST where it stands in its CODE string: each name it reads resolves", () => {
-  const src = ld("\ta : BOOL;\n\tn : INT;", "%NETWORK\nok := EXECUTE(EN := nowhere, 'n := n + 1;\n  IF a THEN m := $'x$'; END_IF') AND a;\n")
+  const src = ld("\ta : BOOL;\n\tn : INT;", "%NETWORK\nok := EXECUTE(EN := nowhere, 'n := n + 1;\n  IF a THEN m := $'x$'; END_IF').ENO AND a;\n")
   const found = diagnose(src).map((d) => `${d.message} at '${src.slice(d.span.start, d.span.end)}' ${d.span.startLine}:${d.span.startCol}`)
   const line = src.split("\n").findIndex((l) => l.startsWith("  IF a")) + 1
   expect(found).toEqual([

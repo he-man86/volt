@@ -55,6 +55,8 @@ NETWORK
   (:= lamp (MOVE 1 =>1:t en:c conn:0 eno:1))
 
 #### enabled-value — EN without ENO: a consumer reads the box's value (measurement 5, 6)
+=== scope
+function f IN =>
 === text
 %LANGUAGE LD
 %NETWORK
@@ -147,7 +149,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 y := MOVE(EN := (w1 := a AND b), w1, OUT => t).ENO;
 === model
 NETWORK
@@ -157,7 +159,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := MOVE(EN := go, 860, OUT => speed).ENO;
 a := w1;
 b := w1;
@@ -240,6 +242,7 @@ NETWORK
 === scope
 instance c1 CTU
 instance c2 CTU
+fb CTU CU RESET PV => Q CV
 === text
 %LANGUAGE LD
 %NETWORK
@@ -272,6 +275,8 @@ NETWORK
   (LIMIT MN=0 IN=v MX=100 =>1:y en:c eno:1)
 
 #### function-eno-without-en — a function's box shows its ENO without EN, and is read through it (recorded: it builds on both vendors)
+=== scope
+function f IN =>
 === text
 %LANGUAGE LD
 %NETWORK
@@ -283,6 +288,8 @@ NETWORK
   (f IN=b eno:1)
 
 #### call-read-through-eno — a call read through its ENO with no output wired (a PROGRAM call's box has none)
+=== scope
+program Drive =>
 === text
 %LANGUAGE LD
 %NETWORK

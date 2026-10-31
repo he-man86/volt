@@ -86,7 +86,7 @@ END_VAR
 
 %LANGUAGE FBD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := OR(a, b);
 out1 := w1;
 out2 := w1;
@@ -105,7 +105,7 @@ END_VAR
 
 %LANGUAGE LD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := a OR b;
 plain := w1;
 latched S= w1;
@@ -232,7 +232,7 @@ END_VAR
 
 %LANGUAGE FBD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := OR(EN := go, b, c).ENO;
 out := w1;
 out3 := w1;

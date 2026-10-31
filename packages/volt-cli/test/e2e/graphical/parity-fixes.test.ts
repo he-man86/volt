@@ -240,13 +240,13 @@ END_VAR
 			// Two fan-outs, in two networks, so the test sees both the edited one and its untouched neighbour.
 			`%LANGUAGE FBD
 %NETWORK
-VAR_TEMP w1 : ANY; END_VAR
+VAR w1 : ANY; END_VAR
 w1 := AND(a, b);
 p := w1;
 q := w1;
 ` +
 			`%NETWORK
-VAR_TEMP w2 : ANY; END_VAR
+VAR w2 : ANY; END_VAR
 w2 := OR(a, b);
 x := w2;
 y := w2;

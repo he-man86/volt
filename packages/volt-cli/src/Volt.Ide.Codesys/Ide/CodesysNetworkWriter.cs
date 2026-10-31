@@ -513,6 +513,14 @@ namespace Volt.Ide.Codesys
                         // Set only under an enable, a pushed `f(…).ENO` lost it — the next pull dropped `.ENO`, and a root
                         // box did not compile (network-output-member 2.3, `st-spellings-run.test.ts`).
                         else if (eno) NwlInterop.Set(box, "Eno", true);
+                        // EN AND ENO NOT SHOWN ARE STORED FALSE, as the editor stores them on every box it draws but the
+                        // contact form of AND/OR (census: a Boolean on 468 boxes, null on the 814 contacts). Left null, a
+                        // pushed Execute box never ran its code (measured, network-text-one-to-one 4.2: 0 of 99 scans).
+                        if (!IsContactForm(b))
+                        {
+                            if (b.Enable is null) NwlInterop.Set(box, "En", false);
+                            if (!eno) NwlInterop.Set(box, "Eno", false);
+                        }
 
                         foreach (var p in b.Inputs)
                             NwlInterop.Call(box, "AppendInputItem", Node(p.Value));
@@ -677,6 +685,11 @@ namespace Volt.Ide.Codesys
             /// <c>InsertOutputItem</c> (measured live 2026-10-15, a TON consumed by Q with ET wired: pushed, pulled
             /// byte-identical, built clean), where <c>AppendOutputItem(null)</c> throws.
             /// </summary>
+            /// <summary>The contact form of AND/OR — an AND/OR box storing no output name (infix in the text): the one box the
+            /// editor stores EN and ENO null on.</summary>
+            private static bool IsContactForm(Box b) =>
+                b.StCode is null && b.Instance is null && b.Members?[NetworkMembers.OutputNames] is { } names && names.AsTexts.Count == 0;
+
             private static List<OutputSlot> OutputSlots(Box b, bool eno, IReadOnlyList<string> names)
             {
                 var slots = new List<OutputSlot?>();

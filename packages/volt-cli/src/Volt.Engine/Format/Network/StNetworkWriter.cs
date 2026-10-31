@@ -17,7 +17,7 @@ namespace Volt.Engine.Format.Network;
 /// <code>
 /// %LANGUAGE LD
 /// %NETWORK "Start the motor"
-/// VAR_TEMP w3 : ANY; END_VAR
+/// VAR w3 : ANY; END_VAR
 /// // runs while auto is on
 /// l1:
 /// w3 := start AND NOT stop;
@@ -41,7 +41,7 @@ namespace Volt.Engine.Format.Network;
 /// callee no declaration in reach states is written as its model says (<see cref="NetworkScope.Signature"/>).</para>
 ///
 /// <para><b>Wires.</b> A Demux is a wire <c>w&lt;n&gt;</c>, defined once and read by its name any number of times, before its
-/// definition too (the value it held). Every wire is declared at its network's start, <c>VAR_TEMP w1 : ANY; END_VAR</c> (its
+/// definition too (the value it held). Every wire is declared at its network's start, <c>VAR w1 : ANY; END_VAR</c> (its
 /// type its definition's), so the text alone says what is a wire.</para>
 ///
 /// <para><b>The other elements</b>: the parallel branch <c>BRANCH(FEED := f, b1, b2)</c> / <c>BRANCH_SHORTCIRCUIT(…)</c>; the
@@ -123,6 +123,11 @@ public static class StNetworkWriter
     /// <summary>The rail, the vendor's <c>BoxTreeTerminator</c>: <c>RAIL()</c> wherever a value stands.</summary>
     public const string RailHead = "RAIL";
 
+    /// <summary>An operand that holds ST text and is no plain operand (an IDE operand box an engineer typed an expression
+    /// into): <c>OPERAND('&lt;its text&gt;')</c>, the text a string with ST escaping (<c>$'</c>, <c>$$</c>), the one spelling of such
+    /// an operand (network-text-one-to-one F2).</summary>
+    public const string OperandHead = "OPERAND";
+
     /// <summary>A jump and the return are TARGETS of an item: <c>JMP.label := value;</c>, <c>RETURN := value;</c>, chained after
     /// coils as the IDE stores them (<c>y := JMP.l := v;</c>).</summary>
     public const string JumpHead = "JMP";
@@ -131,13 +136,13 @@ public static class StNetworkWriter
 
     /// <summary>The function names the text gives an element of its own (a branch, an edge, the rail): declared in reach, the
     /// text would mean two things, and the writer refuses it by name.</summary>
-    internal static readonly string[] ElementHeads = { BranchHead, ShortCircuitHead, RisingHead, FallingHead, RailHead };
+    internal static readonly string[] ElementHeads = { BranchHead, ShortCircuitHead, RisingHead, FallingHead, RailHead, OperandHead };
 
     internal const string NetworkLine = "%NETWORK";
     internal const string DisabledLine = "%DISABLED";
-    /// <summary>A network's wires, declared on one line at its start (owner, 2026-10-28): <c>VAR_TEMP w1 : ANY; w2 : ANY;
+    /// <summary>A network's wires, declared on one line at its start (owner, 2026-10-28): <c>VAR w1 : ANY; w2 : ANY;
     /// END_VAR</c>, after its <c>%</c> lines and before its comment — each <c>: ANY</c>, the type its definition's.</summary>
-    internal const string WiresOpen = "VAR_TEMP";
+    internal const string WiresOpen = "VAR";
 
     internal const string WiresClose = "END_VAR";
 
@@ -198,6 +203,9 @@ public static class StNetworkWriter
 
     public const string ChainMarkReason = "a marked coil inside a chain";
 
+    /// <summary>A box whose text would need EN, ENO, OUT or its type's call against a callee no declaration states (F9).</summary>
+    public const string UnstatedCalleeReason = "a box flag on a callee no declaration in reach states";
+
     /// <summary>The NOT box over <paramref name="n"/>.</summary>
     public static Box NotBox(Node n) =>
         new(NetworkSpelling.NotBox, null, CallKind.Operator, new[] { new Input(null, n, Flags.None) }, Array.Empty<Output>(), null, null, Flags.None);
@@ -214,7 +222,7 @@ public static class StNetworkWriter
     /// across the body, skipping every name the body's operands, targets and instances use and every name in scope, so a
     /// name is one wire of one network and never a variable. The vendor's Demux VarId is not spelled: the reader numbers a
     /// network's Demux nodes in the order their definitions stand (<see cref="StNetworkReader"/>).</summary>
-    private sealed class BodyWires
+    internal sealed class BodyWires
     {
         private readonly HashSet<string> _taken = new(StringComparer.OrdinalIgnoreCase);
         private readonly NetworkScope _scope;
@@ -497,15 +505,11 @@ public static class StNetworkWriter
                 {
                     if (l.Flags.Jump || l.Flags.Return || l.Flags.Set || l.Flags.Reset)
                         throw Unspellable("a coil flag on an operand", $"the operand '{l.Operand.Text}' carries {Describe(l.Flags)}.");
-                    // An operand holding an ST expression an engineer typed into it is written as the boxes it reads as (a
-                    // stored member: it runs the same, gap probe 911876691e), so the text is one text whichever it came from.
-                    if (OperandExpression(l.Operand.Text) is { } tree)
-                    {
-                        if (!l.Flags.Negated) return Expr(tree, parent);
-                        // NOT before an expression's tree: a box takes the mark, anything else is under a NOT box.
-                        return Expr(tree is Box { Flags.IsNone: true } tb && !IsContact(tb) ? tb with { Flags = Flags.None with { Negated = true } } : NotBox(tree), parent);
-                    }
-                    var atom = Operand(l.Operand.Text);
+                    // An operand holding ST text that is no plain operand is that text, OPERAND('…') (F2): never the boxes it
+                    // would read as, which are another model.
+                    var atom = l.Operand.Text.Length > 0 && !StNetworkReader.IsOperand(l.Operand.Text)
+                        ? OperandText(l.Operand.Text)
+                        : Operand(l.Operand.Text);
                     return l.Flags.Negated ? Bracket("NOT " + atom, 9, parent) : atom;
                 }
                 case Demux { Input: null } d:
@@ -593,7 +597,7 @@ public static class StNetworkWriter
         private bool IsContact(Box b) =>
             Contacts.Contains(b.Type) && b.Instance is null && b.Enable is null && b.StCode is null && b.Outputs.Count == 0 &&
             b.Inputs.Count >= 2 && b.Inputs.All(p => p.Flags.IsNone) &&
-            b.Inputs.Select((p, i) => NetworkSpelling.IsDefaultFormal(b.Type, i, p.Formal)).All(x => x) &&
+            b.Inputs.All(p => p.Formal is null) &&
             (b.Members?[NetworkMembers.OutputNames] is { } names ? names.AsTexts.Count == 0 : _language == BodyLanguage.Ld);
 
         /// <summary>THE CALL THAT IS THE BOX (openspec network-output-member): <c>inst(EN := e, pins…, outputs…)</c> (an FB) or <c>T(…)</c>,
@@ -611,6 +615,16 @@ public static class StNetworkWriter
             // Its own pin EN first, or a read through its own output ENO, would read back as another box.
             if (signature is null && b.StCode is null)
             {
+                // EN :=, .ENO, ENO => and OUT => read as a box flag or the callee's own pin, and the call of a type as the
+                // unnamed instance or a function: which, only a declaration says (network-text-one-to-one F9).
+                var what = b.Instance is { Text: Box.UnnamedInstance } && _scope.IsBlockType(b.Type) ? "the call of its FB type"
+                    : b.Enable is not null ? "EN :="
+                    : b.HasEnoOutput ? ".ENO"
+                    : b.Outputs.FirstOrDefault(o => o.Formal is null || string.Equals(o.Formal, Box.EnoPin, StringComparison.OrdinalIgnoreCase)) is { } o
+                        ? (o.Formal ?? ResultPin) + " =>"
+                    : null;
+                if (what is not null)
+                    throw Unspellable(UnstatedCalleeReason, $"the '{b.Type}' box needs {what}, which reads as a box flag or the callee's own pin: no declaration in reach states '{b.Type}'.");
                 if (b.Enable is null && b.Inputs.Count > 0 && string.Equals(b.Inputs[0].Formal, Box.EnablePin, StringComparison.OrdinalIgnoreCase))
                     throw Unspellable("a first pin named EN on a box whose callee no declaration states", $"the '{b.Type}' box's first pin is named EN, which reads back as its shown EN: no declaration in reach states '{b.Type}'.");
                 if (!b.HasEnoOutput && string.Equals(b.MainOutputName, Box.EnoPin, StringComparison.OrdinalIgnoreCase))
@@ -629,7 +643,7 @@ public static class StNetworkWriter
             }
             else member = consumed ? DataMember(b, signature) : "";
             if (string.Equals(b.Type, NetworkSpelling.NotBox, StringComparison.OrdinalIgnoreCase) && b.Enable is null &&
-                (b.Inputs.Count != 1 || b.Outputs.Count > 0 || !NetworkSpelling.IsDefaultFormal(b.Type, 0, b.Inputs[0].Formal)))
+                (b.Inputs.Count != 1 || b.Outputs.Count > 0))
                 throw Unspellable("a NOT box with pins", "a NOT box with outputs, a named pin or several inputs.");
             return Head(b) + "(" + string.Join(", ", Args(b, signature)) + ")" + member;
         }
@@ -671,7 +685,6 @@ public static class StNetworkWriter
         {
             var args = new List<string>();
             if (b.Enable is { } en) args.Add(PinMarks(b, Box.EnablePin, b.EnableFlags) + Box.EnablePin + " := " + Expr(en, 0));
-            var op = NetworkSpelling.IsOperatorBox(b.Type);
             for (var i = 0; i < b.Inputs.Count; i++)
             {
                 var p = b.Inputs[i];
@@ -685,13 +698,14 @@ public static class StNetworkWriter
                     throw Unspellable("an empty operand on a pin", $"the '{b.Type}' box's pin {p.Formal ?? "#" + i.ToString(CultureInfo.InvariantCulture)} holds an empty operand (an unconnected input), measured only on an FB's named pin.");
                 }
                 var value = Expr(p.Value, 0);
-                // A marked pin is written by its formal, which the mark stands before: an operator's pin by its default
-                // formal where the IDE stores none (`AND(NOT IN2 := a, b)`).
-                var positional = p.Flags.IsNone && (p.Formal is null || op && NetworkSpelling.IsDefaultFormal(b.Type, i, p.Formal));
-                var formal = p.Formal ?? (p.Flags.IsNone ? null : NetworkSpelling.DefaultFormal(b.Type, i));
-                if (!positional && formal is null)
-                    throw Unspellable("a mark on a pin with no name", $"the '{b.Type}' box's pin #{i.ToString(CultureInfo.InvariantCulture)} carries {Describe(p.Flags)} and has no formal to stand before.");
-                if (!positional && string.Equals(p.Formal, Box.EnablePin, StringComparison.OrdinalIgnoreCase))
+                // A pin's marks are part of its receiver's name, written before it; a pin the IDE stores unnamed has the
+                // empty name (`AND(a, NOT := b)`), and unmarked it is its value alone.
+                if (p.Formal is null)
+                {
+                    args.Add(p.Flags.IsNone ? value : PinMarks(b, null, p.Flags) + ":= " + value);
+                    continue;
+                }
+                if (string.Equals(p.Formal, Box.EnablePin, StringComparison.OrdinalIgnoreCase))
                 {
                     if (b.Enable is not null)
                         throw Unspellable("a data pin named EN on an enabled box", $"the enabled '{b.Type}' box has a data input named EN beside its enable.");
@@ -699,7 +713,7 @@ public static class StNetworkWriter
                     if (signature is { DeclaresEn: false })
                         throw Unspellable("a pin named EN its callee does not declare", $"the '{b.Type}' box has an input named EN, and '{b.Type}' declares none.");
                 }
-                args.Add(positional ? value : PinMarks(b, formal, p.Flags) + Name(formal!) + " := " + value);
+                args.Add(PinMarks(b, p.Formal, p.Flags) + Name(p.Formal) + " := " + value);
             }
             var eno = b.HasEnoOutput ? 0 : (int?)null;
             var connected = b.ConnectedSlot;
@@ -717,7 +731,6 @@ public static class StNetworkWriter
                     args.Add(marks + Name(f) + " => " + Target(o.Value.Text));
                     continue;
                 }
-                if (o.Value.Text == Box.UnnamedInstance && marks.Length == 0) continue;   // an extra slot past the names (stored member)
                 // Each `OUT =>` is the next unnamed output slot: ENO and the slot a consumer reads are skipped.
                 next = NetworkSpelling.NextFreeSlot(next, eno, connected);
                 if (o.Slot != next)
@@ -744,7 +757,7 @@ public static class StNetworkWriter
             if (st.IndexOf('\r') >= 0) throw Unspellable("an Execute box's ST holding a lone carriage return", "a line of the Execute box's ST ends in a carriage return.");
             var args = Args(b);
             args.Add("'" + NetworkSpelling.EscapeCode(st) + "'");
-            return ExecuteHead + "(" + string.Join(", ", args) + ")";
+            return ExecuteHead + "(" + string.Join(", ", args) + ")" + (b.HasEnoOutput ? "." + Box.EnoPin : "");
         }
 
         /// <summary>THE HEAD OF A BOX'S CALL (owner, 2026-10-28, design "FB boxes: the instance is the call head"): an FB box's
@@ -765,9 +778,12 @@ public static class StNetworkWriter
                     throw Unspellable("a box named like an element of the text", $"the instance '{inst.Text}' reads as an element of the text.");
                 return inst.Text;
             }
-            // THE UNNAMED INSTANCE, and one no declaration holds (a stored member, network-text-st 3.0): the call of the FB TYPE,
-            // which names no instance — what the IDE draws, and the build's error ("Program name, function or function block
-            // instance expected").
+            // AN INSTANCE NO DECLARATION HOLDS has no call: the call of its type is the unnamed instance's text, and would read
+            // back as `???` (network-text-one-to-one F5).
+            if (inst.Text != Box.UnnamedInstance)
+                throw Unspellable("an FB instance no declaration in reach holds", $"the '{b.Type}' box's instance '{inst.Text}' is declared nowhere in reach.");
+            // THE UNNAMED INSTANCE (a stored member, network-text-st 3.0): the call of the FB TYPE, which names no instance — what
+            // the IDE draws, and the build's error ("Program name, function or function block instance expected").
             if (!_scope.IsBlockType(b.Type))
                 throw Unspellable("an FB box with no instance whose type is no FB type in reach",
                     $"the '{b.Type}' box's instance is {inst.Text}, which no declaration holds, and '{b.Type}' names no function block type in reach.");
@@ -798,11 +814,15 @@ public static class StNetworkWriter
             return formal;
         }
 
-        /// <summary>The boxes an operand holding an ST expression (not one primary) reads as, or null for any other operand.</summary>
-        private Node? OperandExpression(string text) =>
-            text.Length > 0 && !StNetworkReader.IsOperand(text) && StNetworkReader.IsExpression(text)
-                ? StNetworkReader.ExpressionTree(text, _scope)
-                : null;
+
+        /// <summary><c>OPERAND('&lt;text&gt;')</c>: an operand holding ST text, its text a one-line string in ST escaping.</summary>
+        private string OperandText(string text)
+        {
+            RequireElementHead(OperandHead);
+            if (text.IndexOf('\n') >= 0 || text.IndexOf('\r') >= 0)
+                throw Unspellable("an operand holding a line break", $"the operand '{text.Replace("\r", "").Replace("\n", "⏎")}'.");
+            return OperandHead + "('" + NetworkSpelling.EscapeCode(text) + "')";
+        }
 
         /// <summary>An operand: one ST primary as it stands.</summary>
         private string Operand(string text)
