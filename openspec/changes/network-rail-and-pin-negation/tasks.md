@@ -1,6 +1,6 @@
 ## 1. Design
 
-- [ ] 1.1 Propose the spellings (rail coil, negated box pin, negated/edge coils, a shared non-repeatable value beside a
+- [x] 1.1 Propose the spellings (rail coil, negated box pin, negated/edge coils, a shared non-repeatable value beside a
   jump) with the stored model each one builds; owner picks
 
 ## 2. Build

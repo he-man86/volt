@@ -416,7 +416,7 @@ Two rows share a spelling:
 11. **An empty `Parallel` arm**: N41 found that it stores. Its stored form (Terminator, `Leaf ""` or none) was not
     re-measured here.
 
-## Joint proposal (Volt + Sim-Assist, 2026-10-31, for the owner)
+## Joint proposal (Volt + Sim-Assist, 2026-10-31) — APPROVED by the owner the same day
 
 - **The rail is `RAIL`.** A bare keyword, written like `TRUE` (not a call), is the only spelling of a `Terminator` in
   every slot: `y := RAIL;`, `t1(IN := RAIL)`, `MOVE(EN := RAIL, …)`, `w1 := RAIL;`, `JMP.skip := RAIL;`. An identifier
