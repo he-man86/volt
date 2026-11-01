@@ -26,5 +26,10 @@ The semantics were agreed with PLC Assist before building (their relay sends the
 
 ## 4. Joint verification
 
-- [ ] 4.1 Throttled rerun of case 1 (large fetch at 2 KB/s, relay timeout) against PLC Assist's relay with both builds:
+- [x] 4.1 Throttled rerun of case 1 (large fetch at 2 KB/s, relay timeout) against PLC Assist's relay with both builds:
       the bridge stops streaming after the cancel and logs `cancelled (timeout) after <n> of <m> chunks`.
+      2026-11-01, 0.1.18308, CODESYS 3.5.21.40 on the Lenze copy, 2000 B/s proxy: bridge `-> fetch (r-d4a884af) cancelled
+      (timeout) after 64 of 110 chunks 299981ms`; relay `rpc_cancel_sent` chunksIn 62 (2 still in the proxy queue);
+      healths 1–3 ms at the bridge throughout, 555–682 ms at the caller right after (≈8 s during the transfer).
+      Case 4 (proxy dropped 120 s into a fetch): `abandoned ok … delivered=no`, caller `BRIDGE_DISCONNECTED`, redial
+      through the restarted proxy on the same pipe, healths answered.
