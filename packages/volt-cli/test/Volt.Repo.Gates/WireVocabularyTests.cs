@@ -124,7 +124,7 @@ public class WireVocabularyTests
             ("Volt.Ide.Twincat/Ide/TcArchive.cs", 8),   // wire-final-shape 3c: coded at the throw; +6 the strict scalar reads: a member TwinCAT writes on every object absent, null, or not its type (zero-fallback)
             ("Volt.Ide.Twincat/Ide/TcNetworkReader.cs", 5),   // zero-fallback: a contact holding Flags, an empty BoxType, an Execute box with no TextLines, a box with no CallType value, an Instance naming ""
             ("Volt.Engine/Format/Network/NetworkModel.cs", 1),   // zero-fallback: CallKinds.FromVendor handed no member name
-            ("Volt.Ide.Twincat/Ide/TcArchiveBuilder.cs", 5),   // wire-final-shape 3c: coded at the throw; +1 an Execute box showing no ENO, which has no measured archive form (network-text-one-to-one F13)
+            ("Volt.Ide.Twincat/Ide/TcArchiveBuilder.cs", 4),   // wire-final-shape 3c: coded at the throw (the ENO-hidden Execute box, F13, is NETWORK_UNSUPPORTED)
             ("Volt.Ide.Twincat/Ide/TcArchiveWriter.cs", 6),   // wire-final-shape 3c: coded at the throw; +2 rule 6 on the parse side, a blank line and stray text (3c review 3)
             ("Volt.Ide.Twincat/Ide/TcNetworkWriter.cs", 3),   // wire-final-shape 3c: coded at the throw
             ("Volt.Ide.Twincat/Ide/TcUnmeasured.cs", 2))),   // wire-final-shape 3c: coded at the throw
