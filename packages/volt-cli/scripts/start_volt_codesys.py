@@ -92,7 +92,7 @@ def _prune(root):
     # cannot be deleted" alone is not that test — a session that has copied its DLL but not yet loaded it looks
     # closed, and two CODESYS starting together deleted each other's DLL before the load (release matrix,
     # 2026-10-15: the IDE ran the script and never served). A pid reused by another process keeps its old folder until
-    # that process ends — harmless. Best-effort; never let cleanup break activation.
+    # that process ends; reused by a new CODESYS, _stage replaces the stale copy. Best-effort; never let cleanup break activation.
     try:
         for name in os.listdir(root):
             d = os.path.join(root, name)
@@ -141,7 +141,17 @@ def _stage(src):
         dst_dir = os.path.join(root, str(os.getpid()))  # os.getpid() == THIS CODESYS pid (matches the pipe name)
         dst = os.path.join(dst_dir, _DLL_NAME)
         if os.path.exists(dst):
-            return dst  # already staged for this session (script re-run) — don't recopy a DLL we hold open
+            # Same pid is not same session: a closed CODESYS that had this pid left its copy here, and the prune skips
+            # the folder because the pid runs again (release matrix 2026-11-01: the previous bridge served another
+            # build). copy2 keeps size and mtime, so a match is our own copy (script re-run); else replace it. A remove
+            # that fails means THIS session holds that copy loaded — keep it, it is what already serves.
+            s, d = os.stat(src), os.stat(dst)
+            if s.st_size == d.st_size and int(s.st_mtime) == int(d.st_mtime):
+                return dst
+            try:
+                os.remove(dst)
+            except Exception:
+                return dst
         if not os.path.isdir(dst_dir):
             os.makedirs(dst_dir)
         try:

@@ -224,6 +224,48 @@ namespace Volt.Ide.Codesys.Tests
             }
         }
 
+        /// <summary>A REUSED PID NEVER SERVES A CLOSED SESSION'S COPY. The staging folder is named by the CODESYS pid, and the
+        /// prune skips it because that pid runs again — so an existing folder was taken as "already staged" and the new IDE
+        /// loaded the DLL a closed CODESYS had staged under the same pid: another build. The release matrix's previous
+        /// bridge (0.1.18304) answered as the current commit on 2026-11-01 (pid 21004, staged 27 minutes earlier by a matrix
+        /// cell). Here a folder named by THIS process's pid holds a stale file; the script must stage the bundle's DLL over
+        /// it, byte for byte.</summary>
+        [Fact]
+        public void A_copy_left_under_a_reused_pid_is_replaced_by_the_bridge_being_started()
+        {
+            Assert.True(Directory.Exists(Bundle), $"no shipped bundle at {Bundle}: the Volt.Ide.Codesys build did not produce one");
+            var root = Path.Combine(Path.GetTempPath(), "volt-reused-pid-" + Guid.NewGuid().ToString("N"));
+            var download = Path.Combine(root, "codesys-scriptcommands");
+            var temp = Path.Combine(root, "temp");
+            var hostBase = Path.Combine(root, "host");
+            foreach (var d in new[] { download, temp, hostBase }) Directory.CreateDirectory(d);
+            foreach (var f in Directory.GetFiles(Bundle)) File.Copy(f, Path.Combine(download, Path.GetFileName(f)));
+            var script = Path.Combine(download, "start_volt_codesys.py");
+            File.Copy(Path.Combine(Root(), "scripts", "start_volt_codesys.py"), script);
+
+            using var self = System.Diagnostics.Process.GetCurrentProcess();
+            var mine = Path.Combine(temp, "Volt", "codesys-bridge", self.Id.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            Directory.CreateDirectory(mine);
+            var staged = Path.Combine(mine, "Volt.Ide.Codesys.dll");
+            File.WriteAllText(staged, "staged by a closed CODESYS that had this pid");
+
+            var domain = AppDomain.CreateDomain("volt-ide-" + Guid.NewGuid().ToString("N"), null,
+                new AppDomainSetup { ApplicationBase = hostBase });
+            try
+            {
+                var host = (ScriptHost)domain.CreateInstanceFromAndUnwrap(
+                    new Uri(typeof(ScriptHost).Assembly.CodeBase).LocalPath, typeof(ScriptHost).FullName!);
+                var run = host.Run(script, new[] { Path.Combine(Bin, "Lib"), download }, temp, 1, null, null, false);
+                Assert.True(File.ReadAllBytes(staged).SequenceEqual(File.ReadAllBytes(Path.Combine(download, "Volt.Ide.Codesys.dll"))),
+                    "the script kept the copy a closed session left under this pid\nprinted:\n" + string.Join("\n", run.Printed));
+            }
+            finally
+            {
+                AppDomain.Unload(domain);
+                try { Directory.Delete(root, true); } catch { /* a loaded copy can stay locked until the process exits */ }
+            }
+        }
+
         /// <summary>THE BRIDGE IS STARTED WITH THE FOLDER IT WAS INSTALLED IN, NEVER ITS STAGED COPY. The relay pairing
         /// (<c>setup.json</c> redeemed once into <c>volt-relay.json</c>) must live where the user installed or extracted the
         /// bridge: each CODESYS process stages a FRESH copy into <c>%TEMP%\Volt\codesys-bridge\&lt;pid&gt;</c>, so a sidecar
