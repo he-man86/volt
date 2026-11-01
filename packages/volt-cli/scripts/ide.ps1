@@ -713,7 +713,13 @@ function Copy-FixtureOut([string]$path, [string]$vendor) {
         $dst = Join-Path $work (Split-Path -Leaf $srcDir)
         if (Test-Path $dst) { Remove-Item $dst -Recurse -Force }
         New-Item -ItemType Directory -Force -Path $work | Out-Null
-        Copy-Item $srcDir $dst -Recurse -Force
+        # WITHOUT `_CompileInfo`: TwinCAT's per-build cache (git-ignored, ~2 MB a build) piles up in the committed
+        # fixture folder and was 3.8 GB by 2026-11-01. Two TwinCAT cells copying it filled the disk, and Windows
+        # Storage Sense then deleted files of a running copy from %TEMP% (release matrix, twincat-32: 18 failures).
+        # TwinCAT rebuilds the cache on the next build.
+        robocopy $srcDir $dst /E /XD _CompileInfo /NFL /NDL /NJH /NJS /NP | Out-Null
+        if ($LASTEXITCODE -ge 8) { throw "could not copy the fixture $srcDir to $dst (robocopy exit $LASTEXITCODE)" }
+        $global:LASTEXITCODE = 0
         return Join-Path $dst (Split-Path -Leaf $path)
     }
     New-Item -ItemType Directory -Force -Path $work | Out-Null

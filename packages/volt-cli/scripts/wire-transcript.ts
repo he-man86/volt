@@ -89,6 +89,16 @@ export async function record(vendor: "codesys" | "twincat", instance: string): P
 	const a = inFolder(folder, `${PREFIX}A.pou`), t = inFolder(folder, `${PREFIX}T.dut`)
 	const b = inFolder(folder, `${PREFIX}B.pou`), moved = inFolder(inFolder(folder, `${PREFIX}Sub`), `${PREFIX}B.pou`)
 
+	// A just-opened IDE can still move its project: CODESYS 3.5.18.30 refused the create below as a stale lease 4 s
+	// after load (release matrix 2026-11-01). Two reads that agree, a second apart, before the recorded steps.
+	for (let last = "", i = 0; ; i++) {
+		const v = (await call("refs", {})).projectVersion
+		if (v === last) break
+		if (i >= 30) throw new Error(`the project never settled: its version still moved after ${i} reads a second apart`)
+		last = v
+		await new Promise((r) => setTimeout(r, 1000))
+	}
+
 	// ── the scenario ──
 	await step("health", "health")
 	const refs = await step("refs", "refs", {})
