@@ -227,7 +227,7 @@ internal sealed class TcArchiveBuilder
         // AN EXECUTE BOX HIDING ITS ENO (network-text-one-to-one F13) is a shape no TwinCAT archive was seen to hold: its member
         // list is unmeasured, so it is refused by name rather than built from a guess.
         if (b.StCode is not null && !eno)
-            throw new UnsupportedException("TwinCAT: an Execute box that shows no ENO has no measured archive form; write it with .ENO.");
+            throw Unbuildable("an Execute box that shows no ENO has no measured archive form; write it with .ENO.");
         var (names, types) = NetworkMembers.Buildable(b, new BoxSite(consumed));
         // A FUNCTION's whole output list, as the editor draws it and CODESYS's writer builds it (2R.4): its result pin
         // '   ' (or the ENO echo) and every VAR_OUTPUT, wired or not.

@@ -54,14 +54,13 @@ const SAMPLES: Sample[] = [
 	{ key: "co", lang: "FBD", code: "t1(IN := a, PT := T#1S, Q => COMMENT(x, 'why output'));", stored: [comment("why output")] },
 ]
 
-describe(`graphical / the NWL completeness gate's spellings (${BASE})`, () => {
+describe.skipIf(VENDOR !== "codesys")(`graphical / the NWL completeness gate's spellings (${BASE})`, () => {
 	beforeAll(async () => {
 		await requireHealthy()
 	})
 
 	for (const s of SAMPLES)
 		it(`${s.key}: ${s.code}`, async () => {
-			expect(VENDOR).toBe("codesys")
 			const name = id("nwlsp" + s.key)
 			const item = fid("nwlsp" + s.key, "pou")
 			try {

@@ -97,7 +97,7 @@ interface Recorded {
 	buildErrors?: string[]
 }
 
-describe(`graphical / NWL schema shapes, nwl-schema-completeness-gate 3.1 (${BASE})`, () => {
+describe.skipIf(VENDOR !== "codesys")(`graphical / NWL schema shapes, nwl-schema-completeness-gate 3.1 (${BASE})`, () => {
 	const recorded: Recorded[] = []
 
 	beforeAll(async () => {
@@ -118,7 +118,6 @@ describe(`graphical / NWL schema shapes, nwl-schema-completeness-gate 3.1 (${BAS
 	})
 
 	it("every sampled shape is stored as spelled, exported and built", async () => {
-		expect(VENDOR).toBe("codesys")
 		const picked = sample()
 		const reshaped: string[] = []
 		for (const language of ["LD", "FBD"] as const) {

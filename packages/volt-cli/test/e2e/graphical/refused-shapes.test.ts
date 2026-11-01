@@ -133,7 +133,7 @@ END_VAR
 %NETWORK
 EXECUTE(EN := bRun, 'IF bStart THEN
 \ttarget := 40 + 2;
-END_IF');
+END_IF').ENO;
 
 END_FUNCTION_BLOCK
 `,
@@ -310,7 +310,7 @@ describe(`graphical / editing a body INTO a refused shape (${BASE})`, () => {
 			vars: BOOLS,
 			nets: ["%NETWORK", "out := a;"],
 			from: "out := a;",
-			to: "EXECUTE('out := a;');",
+			to: "EXECUTE('out := a;').ENO;",
 		},
 	]
 
@@ -383,7 +383,7 @@ END_FUNCTION_BLOCK
 METHOD Step : BOOL
 %LANGUAGE FBD
 %NETWORK
-EXECUTE(EN := bRun, 'target := 40 + 2;');
+EXECUTE(EN := bRun, 'target := 40 + 2;').ENO;
 
 
 END_METHOD

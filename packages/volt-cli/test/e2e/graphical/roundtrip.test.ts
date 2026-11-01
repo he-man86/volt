@@ -120,7 +120,7 @@ END_VAR
 %NETWORK
 EXECUTE(EN := bRun, '  IF bRun THEN
 \tiResult := 40 + 2;   (* the answer *)
-  END_IF');
+  END_IF').ENO;
 
 END_PROGRAM
 `
@@ -139,7 +139,7 @@ VAR
 END_VAR
 %LANGUAGE FBD
 %NETWORK
-EXECUTE(EN := bRun, '');
+EXECUTE(EN := bRun, '').ENO;
 
 END_PROGRAM
 `

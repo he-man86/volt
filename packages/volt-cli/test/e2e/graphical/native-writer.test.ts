@@ -47,7 +47,7 @@ const SHAPES: Record<string, (lang: string) => string> = {
 	set_coil: () => "%NETWORK\nout S= a;\n",
 	reset_coil: (l) => `%NETWORK\nout R= ${and(l, "a", "b")};\n`,
 	rising_edge: (l) => `%NETWORK\nout := ${and(l, "RISING(a)", "b")};\n`,
-	execute: () => "%NETWORK\nEXECUTE(EN := go, 'n := n + 1;');\n",
+	execute: () => "%NETWORK\nEXECUTE(EN := go, 'n := n + 1;').ENO;\n",
 	multi_rung: (l) => `%NETWORK\nout1 := ${and(l, "a", "b")};\nout2 := ${or(l, "c", "d")};\nt1(IN := e, PT := pt);\n`,
 	assign_below_top: () => "%NETWORK\nt1(IN := (out := go), PT := pt);\n",
 	jump_and_label: (l) => `%NETWORK\nJMP.L1 := a;\n%NETWORK\nL1:\nout := ${or(l, "a", "b")};\n`,
@@ -173,6 +173,8 @@ describe(`graphical / native writer (${BASE})`, () => {
 		const refused: Record<string, string> = {
 			parallel: "%NETWORK\nout := BRANCH(FEED := go, a, b);\n",
 			enable_and: "%NETWORK\nout := AND(EN := go, a, b).ENO;\n",
+			// An Execute box hiding its ENO (F13): no TwinCAT archive was measured holding one.
+			execute_no_eno: "%NETWORK\nEXECUTE(EN := go, 'n := n + 1;');\n",
 		}
 		for (const [shape, body] of Object.entries(refused)) {
 			const bare = id(`nw_r_${shape}`)

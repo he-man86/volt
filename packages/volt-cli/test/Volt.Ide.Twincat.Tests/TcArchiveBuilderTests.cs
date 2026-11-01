@@ -65,6 +65,19 @@ public sealed class TcArchiveBuilderTests(Xunit.Abstractions.ITestOutputHelper o
             Assert.Throws<NetworkTextException>(() => TcArchiveBuilder.Body(StNetworkReader.Read(text, scope), scope)).Message);
     }
 
+    /// <summary>An Execute box hiding its ENO (F13) has no measured TwinCAT archive form: refused under the code every
+    /// unbuildable network takes, <c>NETWORK_UNSUPPORTED</c> — it reached the push as a bare <c>UNSUPPORTED</c> (release
+    /// matrix 2026-11-01, twincat-32).</summary>
+    [Fact]
+    public void An_Execute_box_hiding_its_ENO_is_refused_as_an_unsupported_network()
+    {
+        var text = "%LANGUAGE FBD\n%NETWORK\nEXECUTE(EN := go, 'n := 1;');\n";
+        var scope = new NetworkScope(new[] { "go", "n" }, Array.Empty<string>(), new Dictionary<string, string>());
+        var e = Assert.Throws<NetworkTextException>(() => TcArchiveBuilder.Body(NetworkText.Validate(text, scope), scope));
+        Assert.Equal(Volt.Contracts.ConflictCodes.NetworkUnsupported, e.Code);
+        Assert.Contains("an Execute box that shows no ENO", e.Message);
+    }
+
     [Fact]
     public void Every_vendor_body_builds_back_to_the_model_it_was_read_as()
     {
