@@ -180,9 +180,11 @@ class Twinner extends BoxTwinner {
           this.expr(value, pre)
           return pre
         }
-        if (root.member !== undefined && this.text(root.call.callee).toUpperCase() !== "EXECUTE" && boxMember(root.member, this.scope, this.project)?.eno !== true)
-          throw new TwinRefusal(`the statement ${this.text(s)} in a network`)
-        return [...pre, ...this.callStatement(root.call, root.member !== undefined, pre)]
+        // closed by its shown ENO (an Execute box's is its one output), by its main slot's name, which runs as the call
+        const execute = this.text(root.call.callee).toUpperCase() === "EXECUTE"
+        const closer = root.member === undefined || execute ? undefined : boxMember(root.member, this.scope, this.project)
+        if (root.member !== undefined && !execute && closer === undefined) throw new TwinRefusal(`the statement ${this.text(s)} in a network`)
+        return [...pre, ...this.callStatement(root.call, closer?.eno === true, pre)]
       }
       case "empty":
         return []

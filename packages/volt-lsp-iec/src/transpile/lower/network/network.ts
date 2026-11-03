@@ -187,8 +187,7 @@ class Networker extends BoxLowerer {
           this.expr(value, pre)
           return pre
         }
-        // a root's call is closed by its shown ENO (an Execute box's is its one output), by the name of its main slot, which
-        // changes nothing at run time (the box runs as its call, network-text-one-to-one F3), or by nothing
+        // closed by its shown ENO (an Execute box's is its one output), by its main slot's name, which runs as the call, or by nothing
         const execute = this.text(root.call.callee.span).toUpperCase() === "EXECUTE"
         const closer = root.member === undefined || execute ? undefined : boxMember(root.member, this.scope, this.project)
         if (root.member !== undefined && !execute && closer === undefined)
