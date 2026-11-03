@@ -228,6 +228,10 @@ internal sealed class TcArchiveBuilder
         // list is unmeasured, so it is refused by name rather than built from a guess.
         if (b.StCode is not null && !eno)
             throw Unbuildable("an Execute box that shows no ENO has no measured archive form; write it with .ENO.");
+        // A ROOT'S MAIN OUTPUT PAST ITS FIRST (network-text-one-to-one F3) is a null past slot 0 on a box nothing consumes: no
+        // fixture and no corpus archive holds one, so it is refused by name rather than built from a guess.
+        if (!consumed && b.ConnectedSlot is > 0)
+            throw Unbuildable($"the root '{b.Type}' box names a main output past its first (.{b.MainOutputName}), which has no measured archive form. Close it with nothing, or draw it in the IDE.");
         var (names, types) = NetworkMembers.Buildable(b, new BoxSite(consumed));
         // A FUNCTION's whole output list, as the editor draws it and CODESYS's writer builds it (2R.4): its result pin
         // '   ' (or the ENO echo) and every VAR_OUTPUT, wired or not.

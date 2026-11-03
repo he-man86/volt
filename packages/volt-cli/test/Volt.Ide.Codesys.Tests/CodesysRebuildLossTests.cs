@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Volt.Contracts;
+using Volt.Engine.Format.Body;
 using Volt.Engine.Format.Network;
+using Volt.Tests.Shared;
 using Xunit;
 
 namespace Volt.Ide.Codesys.Tests;
@@ -186,38 +188,39 @@ public class CodesysRebuildLossTests
         Assert.Contains("OutputParam.Types ×1 (vendor-facts row nwl-param-types)", said);
     }
 
-    /// <summary>A ROOT BOX'S STORED MOVED PIN (openspec network-output-member 1.2, spec "A root's stored moved pin is
-    /// counted when a rebuild loses it"): a root hands nothing on, so no text spells its main output, and MainOutputIndex is
-    /// read-only on a built box (N21) — a rebuild of its network drops a stored index other than 0, and the warning names
-    /// it (Lenze <c>L_GetErrorTextFromFileReadArray</c>, 1 in the corpora; niche, accepted loss).</summary>
+    /// <summary>A ROOT BOX'S STORED MAIN SLOT (openspec network-text-one-to-one F3) is the text's <c>.NAME</c>, so a rebuild
+    /// keeps it: the null stands at that slot again, and the warning has nothing to name.</summary>
     [Fact]
-    public void A_rebuilt_root_box_names_the_moved_pin_it_drops()
+    public void A_rebuilt_root_box_keeps_its_stored_main_slot()
     {
-        Nwl.BoxTreeBox Root(string input)
+        const string fb = "FUNCTION_BLOCK FB_T\nVAR_INPUT\n\tIN : BOOL;\n\tPT : TIME;\nEND_VAR\nVAR_OUTPUT\n\tQ : BOOL;\n\tET : TIME;\nEND_VAR";
+        var call = new Nwl.BoxTreeBox
         {
-            var call = new Nwl.BoxTreeBox
-            {
-                BoxType = "TON",
-                Instance = new Nwl.Operand { OperandExpr = "t1", IsInstance = true, Type = "TON" },
-                InputItemList = new object[] { Nwl.Leaf(input), Nwl.Leaf("b") },
-                InputParams = new Nwl.ParamList { Names = new[] { "IN", "PT" }, Types = new[] { "BOOL", "TIME" } },
-                OutputParams = new Nwl.ParamList { Names = new[] { "Q", "ET" }, Types = new[] { "BOOL", "TIME" } },
-                MainOutputIndex = 1,
-            };
-            call.Outputs.List.Add(new Nwl.Operand { OperandExpr = "x6", IsLValue = true });
-            call.Outputs.List.Add(null!);
-            return call;
-        }
+            BoxType = "FB_T",
+            Instance = new Nwl.Operand { OperandExpr = "t1", IsInstance = true, Type = "FB_T" },
+            InputItemList = new object[] { Nwl.Leaf("a"), Nwl.Leaf("b") },
+            InputParams = new Nwl.ParamList { Names = new[] { "IN", "PT" }, Types = new[] { "BOOL", "TIME" } },
+            OutputParams = new Nwl.ParamList { Names = new[] { "Q", "ET" }, Types = new[] { "BOOL", "TIME" } },
+            MainOutputIndex = 1,
+        };
+        call.Outputs.List.Add(new Nwl.Operand { OperandExpr = "x6", IsLValue = true });
+        call.Outputs.List.Add(null!);
         var impl = new Nwl.NWLImplementationObject { DefaultViewMode = "Fbd" };
-        impl.NetworkList.Add(new Nwl.Network().With(Root("a")));
-        var scope = new NetworkScope(new[] { "a", "b", "c", "x6", "t1" }, Array.Empty<string>(),
-            new Dictionary<string, string> { ["t1"] = "TON" });
+        impl.NetworkList.Add(new Nwl.Network().With(call));
+        var scope = NetworkScope.FromDeclarations("PROGRAM P\nVAR\n\ta : BOOL;\n\tb : TIME;\n\tc : BOOL;\n\tx6 : BOOL;\n\tt1 : FB_T;\nEND_VAR",
+            n => n == "FB_T" ? fb : null, () => Array.Empty<string>(), n => n == "FB_T" ? Volt.Engine.Item.ItemKind.Kinds.Pou : null,
+            Scopes.RefusedPouName, _ => null);
         var pulled = StNetworkWriter.WritePulled(CodesysNetworkReader.ReadShown(impl, BodyLanguage.Fbd), scope);
-        var read = StNetworkReader.Read(pulled.Replace("IN := a", "IN := c"), scope);
+        Assert.Contains(".ET;", pulled);
+        var read = StNetworkGate.Validate(pulled.Replace("IN := a", "IN := c"), scope);
+        Assert.True(read.Ok, string.Join("\n", read.Diagnostics.Select(d => d.Message)));
 
-        var said = CaptureStdErr(() => CodesysNetworkWriter.Write(new Holder(impl), read, scope));
+        var said = CaptureStdErr(() => CodesysNetworkWriter.Write(new Holder(impl), read.Body!, scope));
 
-        Assert.Contains("MainOutputIndex ×1 (no vendor-facts row yet", said);
+        Assert.DoesNotContain("MainOutputIndex", said);
+        var rebuilt = (Nwl.BoxTreeBox)((Nwl.Network)impl.NetworkList.Single()).GetTree(0)!;
+        Assert.Null(rebuilt.Outputs.List[1]);
+        Assert.Equal("x6", ((Nwl.Operand)rebuilt.Outputs.List[0]).OperandExpr);
     }
 
     /// <summary>An unchanged network is kept — nothing is rebuilt and nothing is said about it; a header-only edit is

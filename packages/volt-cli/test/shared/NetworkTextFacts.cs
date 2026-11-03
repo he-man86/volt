@@ -22,11 +22,11 @@ namespace Volt.Tests.Shared;
 /// <item>An operand's <c>Type</c>, <c>SymbolComment</c>, its copy of its item's flags; <c>IsInstance</c> / <c>IsLValue</c> are what
 /// the position says.</item>
 /// <item><c>Box.Kind</c> → <see cref="NetworkSpelling.KindOf"/> (derived on push from the declarations).</item>
-/// <item><c>ConnectedSlot</c> where the text states no slot: a top-level box (none), a bit operator read by its value (the
+/// <item><c>ConnectedSlot</c> where the text states no slot: a top-level box whose main slot is its first, a bit operator read by its value (the
 /// vendor stores none), an FB read by <c>.name</c> (the name is carried, its slot is the declaration's).</item>
 /// <item><c>HasEnoOutput</c> where the text shows nothing of it: an FB with no EN that nothing reads through ENO (its
 /// declared ENO, unread); an Execute box has one by type.</item>
-/// <item><c>MainOutputName</c> anywhere but on a consumed FB read by a data output.</item>
+/// <item><c>MainOutputName</c> anywhere but on an FB read by a data output, or at a root closed by one.</item>
 /// <item>A NAMED output's slot (the box type's), the ENO pin's included.</item>
 /// <item>Control flow: the Jump/Return bit rides on the target and on the item as a cache (C13) — carried as the OR of the
 /// targets', a lone target taking the item's; a target-less return's target is the vendor's <c>???</c>.</item>
@@ -74,9 +74,11 @@ public static class NetworkTextFacts
     {
         var isFb = b.Instance is not null;
         var isExecute = b.StCode is not null;
-        var byEno = consumed && NetworkSpelling.ConnectedByEno(b);
-        var byName = consumed && isFb && !byEno ? b.MainOutputName : null;
-        int? connected = !consumed || byName is not null ? null
+        // A root states its main slot past its first (`.NAME`, network-text-one-to-one F3), and nothing else.
+        var stated = consumed || b.ConnectedSlot is > 0 || b.MainOutputName is not null;
+        var byEno = stated && NetworkSpelling.ConnectedByEno(b);
+        var byName = stated && isFb && !byEno ? b.MainOutputName : null;
+        int? connected = !stated || byName is not null ? null
             : !byEno && NetworkSpelling.MainSlotOfCall(b.Type) is null ? null
             : b.ConnectedSlot;
         // `.ENO` carries whether a box shows ENO, the Execute box as every box (network-text-one-to-one F13)

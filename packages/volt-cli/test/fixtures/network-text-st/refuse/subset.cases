@@ -279,7 +279,7 @@ y := w1;
 === refused
 network-plain-st a wire is defined by
 
-#### member-at-a-root — a box at a root hands nothing on: its call is closed by .ENO or by nothing
+#### root-names-its-first-output — no closer is the first output, so .NAME never names it
 === scope
 instance t1 TON
 fb TON IN PT => Q ET
@@ -288,7 +288,39 @@ fb TON IN PT => Q ET
 %NETWORK
 t1(IN := a, PT := T#1S).Q;
 === refused
-network-plain-st a box at a root hands nothing on
+network-plain-st a root with no closer
+
+#### root-names-no-output — an unknown output stays refused by name
+=== scope
+instance t1 TON
+fb TON IN PT => Q ET
+=== text
+%LANGUAGE LD
+%NETWORK
+t1(IN := a, PT := T#1S).X;
+=== refused
+network-plain-st names no output of TON
+
+#### root-names-its-one-output — a box with one output names none, at a root too
+=== scope
+instance r1 R_TRIG
+fb R_TRIG CLK => Q
+=== text
+%LANGUAGE FBD
+%NETWORK
+r1(CLK := a).Q;
+=== refused
+network-plain-st a box with one output names none
+
+#### root-function-names-its-value — a function's value is its first output
+=== scope
+function g IN => Q
+=== text
+%LANGUAGE FBD
+%NETWORK
+g(a).OUT;
+=== refused
+network-plain-st a root with no closer
 
 #### wire-declared-in-reach — a wire is never a variable
 === scope

@@ -606,12 +606,9 @@ public static class StNetworkReader
         private const string ItemMarksPlace =
             "the assignment item's marks stand last in its chain, after its targets and right before its value (y := NOT := a)";
 
-        /// <summary>A call standing as a statement: a box at a root, its call closed by <c>.ENO</c> where it shows ENO and by
-        /// nothing else — a root hands nothing on, so no other output is named.</summary>
+        /// <summary>A call standing as a statement: a box at a root, closed as <see cref="Builder.Member"/> reads it.</summary>
         private SCall CallStatement(ACall call, int line)
         {
-            if (call.Member is { } member && !string.Equals(member, Box.EnoPin, StringComparison.OrdinalIgnoreCase))
-                throw new StNetworkReadException(line, $"the call {call.Head} stands as a statement closed by .{member}: a box at a root hands nothing on, and its call is closed by .ENO (it shows ENO) or by nothing");
             Expect(";");
             return new SCall { Call = call, Line = line };
         }
@@ -1022,8 +1019,8 @@ public static class StNetworkReader
             return new Assign(Expr(a.Value, assignValue: !control.Jump && !control.Return), targets, item);
         }
 
-        /// <summary>A VALUE STANDING ALONE: as it stands in a tree, a box consumed by nothing — its call closed by <c>.ENO</c> or
-        /// by nothing — with the value marks around it (<c>NOT AND(a, b);</c>, <c>RISING(t1(…));</c>).</summary>
+        /// <summary>A VALUE STANDING ALONE: as it stands in a tree, a box consumed by nothing — its call closed by <c>.ENO</c>,
+        /// by the <c>.NAME</c> of its main slot, or by nothing — with the value marks around it (<c>NOT AND(a, b);</c>, <c>RISING(t1(…));</c>).</summary>
         private Node RootValue(AExpr e)
         {
             switch (e)
@@ -1326,19 +1323,15 @@ public static class StNetworkReader
         /// consumer reads, where the callee declares more than one, refused where it declares one; nothing, a consumed box
         /// reading its one data output. A callee no declaration in reach states is read as written: <c>.NAME</c> the output
         /// named so (its slot unknown, which the push refuses by name), nothing an FB read by no named output, a function by
-        /// its value.
+        /// its value. At a ROOT, consumed by nothing, <c>.NAME</c> names the stored main slot and nothing is the first output,
+        /// so the first output is never named there.
         /// </summary>
         private (bool HasEno, int? Connected, string? ByName) Member(ACall c, string type, bool block, CalleeSignature? signature,
                                                                      bool consumed, bool declaresEno)
         {
             var member = c.Member;
             if (member is not null && Is(member, Box.EnoPin) && !declaresEno) return (true, consumed ? 0 : null, null);
-            if (!consumed)
-            {
-                if (member is not null)
-                    throw Error(c.Line, $"the box {c.Head} stands at a root closed by .{member}: a root hands nothing on, and its call is closed by .ENO (it shows ENO) or by nothing");
-                return (false, null, null);
-            }
+            if (!consumed && member is null) return (false, null, null);
             if (signature is null)
                 return member is not null ? (false, null, member) : (false, block ? null : NetworkSpelling.MainSlotOfCall(type), null);
             var outputs = block ? signature.Outputs : signature.DataOutputs;
@@ -1355,6 +1348,8 @@ public static class StNetworkReader
                 throw Error(c.Line, $"the box {c.Head} is closed by .{member}, which names no output of {type} ({string.Join(", ", outputs)})");
             if (outputs.Count == 1)
                 throw Error(c.Line, $"the box {c.Head} is closed by .{member}, the one output {type} has: a box with one output names none");
+            if (!consumed && slot == 0)
+                throw Error(c.Line, $"the box {c.Head} stands at a root closed by .{member}, the first output of {type}: a root with no closer is its first output, so it names none");
             return block ? (false, null, member) : (false, slot, null);
         }
 

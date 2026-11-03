@@ -27,6 +27,29 @@ public static class NetworkDerivation
         return ReferenceEquals(derived, body) ? network : derived.Networks[0];
     }
 
+    /// <summary><paramref name="network"/> with every root FB box given its declared output list, the ENO echo first where
+    /// it shows one, as the 43 corpus root FB boxes with an output list hold it, for a driver whose box draws its pin names
+    /// from it (network-text-one-to-one F3). A callee no declaration states, or one declaring no output, keeps what its
+    /// text gives.</summary>
+    public static Network WithRootOutputs(Network network, NetworkScope scope)
+    {
+        var trees = network.Trees.Select(t => t is Box b ? WithDeclaredOutputs(b, scope) : t).ToList();
+        return trees.Where((t, i) => !ReferenceEquals(t, network.Trees[i])).Any() ? network with { Trees = trees } : network;
+    }
+
+    private static Box WithDeclaredOutputs(Box box, NetworkScope scope)
+    {
+        if (box.Instance is null || box.StCode is not null || box.Members?[NetworkMembers.OutputNames] is not null) return box;
+        if (scope.BlockOutputs(box.Type) is not { Count: > 0 } outputs) return box;
+        return WithOutputNames(box, MemberValue.Texts(BoxOutputNames(box, outputs)));
+    }
+
+    private static List<string> BoxOutputNames(Box box, IReadOnlyList<string> outputs) =>
+        (box.HasEnoOutput ? new[] { Box.EnoPin } : Array.Empty<string>()).Concat(outputs).ToList();
+
+    private static Box WithOutputNames(Box box, MemberValue names) =>
+        box with { Members = (box.Members ?? NwlMembers.Empty).With(NetworkMembers.OutputNames, names) };
+
     /// <summary>
     /// <paramref name="box"/> with the inputs its text leaves out restored, unconnected (an empty operand), in its type's
     /// declaration order: an FB box the CODESYS editor draws holds every input its declaration names, the unconnected ones
@@ -61,12 +84,8 @@ public static class NetworkDerivation
         if (scope.BlockOutputs(box.Type) is not { } outputs) return box;
         var at = outputs.Select((o, i) => (o, i)).Where(x => string.Equals(x.o, name, StringComparison.OrdinalIgnoreCase)).Select(x => (int?)x.i).FirstOrDefault();
         if (at is null) return box;
-        var names = (box.HasEnoOutput ? new[] { Box.EnoPin } : Array.Empty<string>()).Concat(outputs).ToList();
-        return box with
-        {
-            ConnectedSlot = at.Value + (box.HasEnoOutput ? 1 : 0),
-            Members = (box.Members ?? NwlMembers.Empty).With(NetworkMembers.OutputNames, box.Members?[NetworkMembers.OutputNames] ?? MemberValue.Texts(names)),
-        };
+        return WithOutputNames(box with { ConnectedSlot = at.Value + (box.HasEnoOutput ? 1 : 0) },
+            box.Members?[NetworkMembers.OutputNames] ?? MemberValue.Texts(BoxOutputNames(box, outputs)));
     }
 
     /// <summary><paramref name="pushed"/> given, box for box, the input names the IDE's box holds where the pushed box

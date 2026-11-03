@@ -78,15 +78,15 @@ lamp := MOVE(EN := w1, 100, OUT => speed).ENO;</pre>
   <tr><td class="name">unnamed operand</td><td><code>x := ??? AND a;</code> <code>p(OUT => ???);</code></td></tr>
   <tr><td class="name">Execute box</td><td><code>EXECUTE(EN := go, 'n := n + 1;');</code> (<a href="#execute">below</a>)</td></tr>
   <tr><td class="name">operand comment</td><td><code>y := COMMENT(a, 'why');</code> <code>COMMENT(y, 'why') := a;</code> <code>t1(IN := COMMENT(a, 'why'), Q => COMMENT(x, 'why'));</code> <code>y := NOT COMMENT(a, 'why');</code></td></tr>
-  <tr><td class="name">value alone</td><td><code>a;</code> <code>NOT AND(a, b);</code> <code>BRANCH(FEED := start, a, b);</code> <code>RAIL();</code> <code>;</code></td></tr>
+  <tr><td class="name">value alone</td><td><code>a;</code> <code>NOT AND(a, b);</code> <code>BRANCH(FEED := start, a, b);</code> <code>RAIL();</code> <code>c2(CU := a).CV;</code> <code>;</code></td></tr>
 </table>
 <p>A comment is a string spelling <code>$$</code> <code>$'</code> <code>$L</code> <code>$R</code>; the marks stand outside <code>COMMENT</code>.</p>
 
 <h2 id="outputs">EN, ENO and outputs</h2>
 <p>
   The call is the box. <code>EN :=</code> written first shows EN; <code>.ENO</code> closes the call of a box showing ENO;
-  <code>.NAME</code> names the output a box hands on where its callee declares more than one (<code>OUT</code> is a
-  function's value).
+  <code>.NAME</code> names a box's main output where its callee declares more than one (<code>OUT</code> is a function's
+  value): the one it hands on and, at a root, the one stored as main. A root closed by nothing has its first as main.
 </p>
 <pre>x    := GT(EN := c, a, b);
 done := MOVE(EN := MOVE(EN := c, 1, OUT => x).ENO, 2, OUT => y).ENO;
@@ -94,7 +94,8 @@ y    := f(IN := a).ENO;
 x    := AND(r1(CLK := a), b);
 t    := t1(IN := a, PT := T#1S).ET;
 q    := g(a, Q => v).OUT;
-MOVE(EN := c, 7, ENO => lamp, OUT => x).ENO;</pre>
+MOVE(EN := c, 7, ENO => lamp, OUT => x).ENO;
+c2(CU := a, PV := 5).CV;</pre>
 
 <h2 id="wires">Wires</h2>
 <pre>%NETWORK
@@ -115,7 +116,7 @@ ok := EXECUTE(EN := go, 'msg := $'done$';').ENO;
 EXECUTE('n := 0;');</pre>
 
 <h2 id="subset">What a network holds</h2>
-<p>Assignments (a jump or the return among their targets) and values standing alone (a box there closed by <code>.ENO</code> or by nothing). Any other ST stands only in an Execute box. <code>BRANCH</code>, <code>RISING</code>, <code>FALLING</code>, <code>RAIL</code>, <code>OPERAND</code> and <code>COMMENT</code> name nothing else in a network.</p>
+<p>Assignments (a jump or the return among their targets) and values standing alone. Any other ST stands only in an Execute box. <code>BRANCH</code>, <code>RISING</code>, <code>FALLING</code>, <code>RAIL</code>, <code>OPERAND</code> and <code>COMMENT</code> name nothing else in a network.</p>
 
 <h2 id="unsupported">A network that cannot be spelled</h2>
 <pre>%NETWORK "Calc"
@@ -128,7 +129,7 @@ EXECUTE('n := 0;');</pre>
 <h2 id="diagnostics">Errors</h2>
 <table>
   <tr><th>code</th><th>raised for</th><th>example</th></tr>
-  <tr><td class="name">NETWORK_PARSE</td><td>text a network may not hold, with its line</td><td><code>x := a XOR b;</code> — every box is a call; <code>y := COMMENT(a, '');</code> — no comment is the plain operand</td></tr>
+  <tr><td class="name">NETWORK_PARSE</td><td>text a network may not hold, with its line</td><td><code>x := a XOR b;</code> — every box is a call; <code>y := COMMENT(a, '');</code> — no comment is the plain operand; <code>t1(IN := a).Q;</code> — a root closed by nothing has its first output as main</td></tr>
   <tr><td class="name">NETWORK_PARSE</td><td>a mark the IDE stores no model for</td><td><code>NOT RISING y := a;</code> <code>NOT y S= a;</code> <code>y := NOT x := a;</code> <code>NOT := y := a;</code></td></tr>
   <tr><td class="name">NETWORK_PARSE</td><td><code>EN :=</code>, <code>.ENO</code>, <code>ENO =></code>, <code>OUT =></code> or a type's call on a callee no declaration in reach states</td><td><code>y := h(EN := c, a);</code> with <code>h</code> declared nowhere</td></tr>
   <tr><td class="name">NETWORK_PARSE</td><td>a jump or a return not written as a target</td><td><code>JMP l;</code> <code>JMP(l, a);</code> <code>RETURN;</code></td></tr>

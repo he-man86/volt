@@ -87,7 +87,7 @@ function instanceOf(call: CallExpr, scope: Scope, project: Scope): Expr | undefi
 }
 
 /** THE BOX A VALUE STANDING ALONE IS, consumed by nothing (`NOT AND(a, b);`, `RISING(NOT t1(…));`, `EXECUTE(…).ENO;`): its
- *  call and the member closing it, the value marks around it — as the bridge's reader reads a root
+ *  call and the member closing it (`.ENO`, or the `.NAME` of its main slot), the value marks around it — as the bridge's reader reads a root
  *  (`StNetworkReader.RootValue`); undefined where the value is no box (an operand, contacts, a branch, the rail). */
 export function rootBox(e: Expr): { call: CallExpr; member: MemberExpr | undefined } | undefined {
   const box = (x: Expr) => {

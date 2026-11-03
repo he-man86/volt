@@ -189,11 +189,38 @@ A PROGRAM keeps it across scans (measured 2026-10-27, `st-spellings-run`).
   Execute fault (`ld-fbd-coverage` 2R.6a). The writer now stores what a drawn box stores anyway (below).
 - **4.3.** The pushed EN/ENO null is fixed to the drawn `false` on every box but the contact AND/OR: the NWL ledger's
   `BoxTreeBox.EN`/`ENO` "changed" rows (181 networks, 261 nodes each) close. Built and run live (st-spellings-run,
-  stored-shapes, the Execute tests: 9 pass). The pushed ROOT box's missing output list (drawn without pin names) is F3's
-  and stays open with it.
+  stored-shapes, the Execute tests: 9 pass). The pushed ROOT box's missing output list (drawn without pin names) is F3's.
+
+## Built: F3, 2026-11-03 (owner's delegation with Sim-Assist)
+
+- **The rule.** `c2(CU := a, PV := 5).CV;` names the stored main slot. A root closed by nothing is slot 0. The model holds
+  `ConnectedSlot` at a root only past slot 0, so the two texts are two models and index 0 has one text.
+- **`.NAME` naming the first output at a root is refused** (`t1(IN := a).Q;`, "a root with no closer is its first output"):
+  it would be a second text of the model the closer-less text already spells. An unknown name and the one output of a box
+  stay refused by name. Both readers, one wording.
+- **Pull.** CODESYS reads `MainOutputIndex`, TwinCAT the null's position; a slot past 0 pulls as `.NAME`. The lenze-mid box
+  now pulls `.dwFindErrorID`, its corpus file regenerated. `RebuildLoss.RootMainOutput` is deleted: the text carries it.
+- **A box showing ENO whose main slot is past 0** has no second closer: `%UNSUPPORTED "a box showing ENO read by another
+  output"`, named, where it was silently dropped. 0 in the corpus.
+- **CODESYS push.** A root FB box stores its declared output list with the null at the main slot, the ENO echo first where
+  shown (`NetworkDerivation.WithRootOutputs`), as the 43 corpus root FB boxes with a list do. A callee no declaration
+  states, an FB declaring no output (the 10 with none) and a PROGRAM box (0 no-EN programs with outputs in the corpus, so
+  no measured list) keep what the text gives. NWL ledger: list-length rows close 21; the slots this adds read the row's
+  known `LValue`/`Type` differences on the doubles, and all 219 name rows differ in case alone (a library signature's case).
+- **TwinCAT.** No fixture and no corpus archive holds a root box's null past slot 0 (census: every root box's null is at
+  slot 0), so the push refuses `.NAME` at a root through `Unbuildable` (`NETWORK_UNSUPPORTED`). The default builds as before,
+  no output list added. A pull still states such a slot, and a text dropping the closer over one is refused in place rather
+  than reported as a push that changed nothing.
+- **LSP.** The network check, types and lowering follow the reader; a root's main slot lowers as the box call. Found in
+  passing, fixed test-first: hover on any `.NAME` closing an FB box answered nothing (`resolveAt`).
 
 ## Open
 
-- **F3** (`.NAME` at a root box; the writer writing a root box's output list with the null at its main slot) is not built.
-  The settled `network-text.html` closes a root box "by .ENO or by nothing", and both readers refuse `t1(IN := a).Q;` (dev 3bf209901e),
-  so the decision above goes back to the owner: spell the stored index (1 of the corpus's 183 root boxes) or refuse it by name.
+- **2.0**, the XAE probe (tasks.md). The TwinCAT archive form of a root's main slot past 0 would be measured the same way.
+
+### For the owner: edge cases this rule leaves
+
+- A root closed by nothing whose FIRST output is wired (`c2(CU := a, Q => x);`) stores no null, so no index: the slot holds
+  `x`. The text is one model, but "no closer is slot 0" holds only where slot 0 is free. Never drawn in the corpus.
+- Naming the first output at a root is refused while naming any other is allowed (above).
+- TwinCAT refuses what CODESYS builds, until 2.0's kind of probe measures the archive.

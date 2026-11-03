@@ -537,6 +537,9 @@ internal static class TcNetworkWriter
                     throw new TcEnoRefusal(b.Type, textReadsEno: b.HasEnoOutput);
                 if (b.ConnectedSlot is { } slot && TcNetworkReader.ConnectedSlot(e) != slot)
                     throw Refuse($"the consumer of box '{b.Type}' moves to output slot {slot}");
+                // A root with no closer states its first output as main (F3): over a stored slot past it, the slot moves.
+                if (!consumed && b.ConnectedSlot is null && b.MainOutputName is null && TcNetworkReader.ConnectedSlot(e) is > 0)
+                    throw Refuse($"the main output of root box '{b.Type}' moves to its first");
 
                 changed |= WriteOperand(e, "Instance", b.Instance);
 

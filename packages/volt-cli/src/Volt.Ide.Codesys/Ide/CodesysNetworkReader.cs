@@ -363,6 +363,8 @@ namespace Volt.Ide.Codesys
             var hasEno = Box.ShowsEno(NwlInterop.Get(n, "Eno") as bool?, outputNames, CodesysDriver.Row.Display, type);
             var mainOutput = NwlInterop.Get(n, "MainOutputIndex") is int main ? main
                 : consumed ? UnstoredMainOutput(type, enable is not null, hasEno, outputNames) : null;
+            // A root's main slot is stated past its first: `.NAME`; its first is what a root with no closer is (F3).
+            var connected = consumed || mainOutput is > 0 ? mainOutput : null;
 
             return new Box(
                 type,
@@ -377,10 +379,10 @@ namespace Volt.Ide.Codesys
                 enable,
                 ReadStCode(n),
                 flags,
-                ConnectedSlot: consumed ? mainOutput : null,
+                ConnectedSlot: connected,
                 OutputTypes: OutputTypes(n),
                 HasEnoOutput: hasEno,
-                MainOutputName: consumed ? Box.NameOfConnectedOutput(instance is not null, mainOutput, hasEno, outputNames) : null,
+                MainOutputName: Box.NameOfConnectedOutput(instance is not null, connected, hasEno, outputNames),
                 // The stored output names whole (ld-fbd-coverage 2.3): S1's slot on a bit operator, a call's unconnected
                 // pins — the text spells them where they differ from what its own pins give.
                 Members: NwlMembers.Of((NetworkMembers.OutputNames, MemberValue.Texts(outputNames))))

@@ -43,6 +43,33 @@ test("server: structural requests (selectionRange, foldingRange, semanticTokens)
   client.dispose()
 })
 
+test("server: a root box's closing .NAME gets the token an output read elsewhere gets", async () => {
+  const fb = "FUNCTION_BLOCK FB_C\nVAR_OUTPUT\nQ : BOOL;\nCV : INT;\nEND_VAR\n%LANGUAGE ST\nQ := TRUE;\nEND_FUNCTION_BLOCK\n"
+  const tokenAt = async (statement: string, name: string): Promise<number[] | undefined> => {
+    const client = connect()
+    const src = `${fb}PROGRAM P\nVAR\nc2 : FB_C;\nn : INT;\nEND_VAR\n%LANGUAGE FBD\n%NETWORK\n${statement}\nEND_PROGRAM`
+    await client.sendRequest(InitializeRequest.type, { processId: null, rootUri: null, capabilities: {} })
+    await client.sendNotification(DidOpenTextDocumentNotification.type, {
+      textDocument: { uri: URI, languageId: "iecst", version: 1, text: src },
+    })
+    const { data } = (await client.sendRequest(SemanticTokensRequest.type, td)) as { data: number[] }
+    client.dispose()
+    const lineOf = src.split("\n").indexOf(statement)
+    const at = statement.indexOf(name)
+    let line = 0
+    let col = 0
+    for (let i = 0; i < data.length; i += 5) {
+      line += data[i]!
+      col = data[i]! === 0 ? col + data[i + 1]! : data[i + 1]!
+      if (line === lineOf && col === at) return [data[i + 2]!, data[i + 3]!, data[i + 4]!]
+    }
+    return undefined
+  }
+  const read = await tokenAt("n := c2().CV;", "CV")
+  expect(read).toBeDefined()
+  expect(await tokenAt("c2().CV;", "CV")).toEqual(read)
+})
+
 test("server: semanticTokens/range returns tokens for the viewport only (multiple of 5)", async () => {
   const client = connect()
   await openF(client)

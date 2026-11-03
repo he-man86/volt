@@ -113,13 +113,13 @@ public sealed record Assign(Node Value, IReadOnlyList<Operand> Targets, Flags Fl
 /// (<see cref="HasEnoSlot"/>), which makes output slot 0 the ENO. Independent of EN (census 1.6: 40 enabled comparisons
 /// have none; an FB may declare ENO without EN). Always stated: a reader reads it, the text states it (<c>ENO</c> on an
 /// enabled box; an Execute box has one by type; a consumed FB read with no <c>.name</c> is read by its declared ENO).</item>
-/// <item><see cref="ConnectedSlot"/>: on a CONSUMED box, the output slot its consumer is connected to — the position of
-/// the one null in the vendor's output items (v2-measurements #12: the null's position IS the connection, on both
-/// vendors). Null on a top-level box, on a bit operator read by its value (the vendor stores no slot, census 1.6), and on
-/// an FB read from text by <c>.name</c> until the push derives the name's slot from the callee
-/// (<see cref="NetworkDerivation"/>).</item>
-/// <item><see cref="MainOutputName"/>: the output a consumer of an FB reads, by name (<c>t1 : TON(…).Q</c>) — on every FB
-/// consumed by a data output.</item>
+/// <item><see cref="ConnectedSlot"/>: the box's main output slot — the position of the first null in the vendor's output
+/// items (v2-measurements #12: the null's position IS the connection, on both vendors), which a consumer reads. Null on a
+/// top-level box whose main slot is its first or which has none, on a bit operator read by its value (the vendor stores
+/// no slot, census 1.6), and on an FB read from text by <c>.name</c> until the push derives the name's slot from the
+/// callee (<see cref="NetworkDerivation"/>).</item>
+/// <item><see cref="MainOutputName"/>: the FB output at <see cref="ConnectedSlot"/>, by name (<c>t1(…).Q</c>) — on every FB
+/// consumed by a data output, and on a top-level FB whose main slot is past its first.</item>
 /// <item><see cref="OutputTypes"/>: the vendor's <c>OutputParams.Types</c>, index-aligned with the output slots; null where
 /// not read (a text read).</item>
 /// <item><see cref="Members"/>: the stored values of members the text does not carry (B7), for the rebuild-loss warning.</item>

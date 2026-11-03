@@ -47,6 +47,18 @@ test("a box closed by .ENO is its ENO, a BOOL; with EN and no ENO its value; an 
     "p4 := t1(IN := a).Q;\nd1 := t1(IN := a).ET;\n")).toEqual({ p1: "BOOL", p2: "BOOL", q1: "INT", p4: "BOOL", d1: "TIME" })
 })
 
+test("a root box closed by .NAME is that output (network-text-one-to-one F3): a member of the box, typed as one read elsewhere", () => {
+  const src = `${FB}PROGRAM P\nVAR\n\ta : BOOL;\n\tt1 : FB_T;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\nt1(IN := a).ET;\nEND_PROGRAM\n`
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "P.pou", parseResult, source: src }], [], "codesys")
+  const found: string[] = []
+  for (const { scope, statements } of bodies(parseResult.units, project))
+    walkAllExprs(statements, (e: Expr) => {
+      if (e.kind === "member" && e.member.name === "ET") found.push(renderType(inferExprType(e, scope, project)))
+    })
+  expect(found).toEqual(["TIME"])
+})
+
 test("a wire is of its definition's type: an expression's, an FB output's, an enabled box's value, an ENO", () => {
   const code =
     "%NETWORK\nVAR w1 : ANY; w2 : ANY; w3 : ANY; w4 : ANY; w5 : ANY; END_VAR\nw1 := ADD(i, j);\nq1 := w1;\nq2 := w1;\nw2 := t1(IN := a).Q;\np1 := w2;\nw3 := t1(IN := a).ET;\nd1 := w3;\n" +

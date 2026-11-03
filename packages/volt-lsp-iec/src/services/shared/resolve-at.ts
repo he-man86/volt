@@ -12,7 +12,7 @@ import {
   spanContains,
 } from "../../frontend/syntax/index.js"
 import { bareEnumMember, bodiesAt, lookup, type Scope, scopeForUnit, type Symbol, symbolDefinedAt } from "../../frontend/symbols/index.js"
-import { resolveMemberChain } from "../../frontend/types/index.js"
+import { boxMember, resolveMemberChain } from "../../frontend/types/index.js"
 import type { Document } from "./document.js"
 import { exprAtOffset, memberAtOffset, tokenAtOffset } from "./positions.js"
 
@@ -22,7 +22,9 @@ export function resolveAt(doc: Document, project: Scope, offset: number): Symbol
   for (const { scope, statements } of bodiesAt(doc.parseResult.units, project, offset)) {
     const member = memberAtOffset(statements, offset)
     if (member !== undefined) {
-      const sym = resolveMemberChain(member, scope, project)
+      // the member closing an FB box's call (`t1(…).Q`) is the output of its instance: the call's own type is no FB's
+      const instance = member.base.kind === "call" ? boxMember(member, scope, project)?.box.instance : undefined
+      const sym = resolveMemberChain(instance !== undefined ? { ...member, base: instance } : member, scope, project)
       if (sym !== undefined) return sym
     }
     const expr = exprAtOffset(statements, offset)

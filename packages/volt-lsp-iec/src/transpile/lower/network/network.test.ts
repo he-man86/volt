@@ -125,6 +125,27 @@ describe("a network body lowers to what it runs", () => {
   })
 })
 
+describe("a root box's main output (network-text-one-to-one F3)", () => {
+  test("a root closed by .NAME runs as the box call: the main slot changes nothing at run time", () => {
+    const named = runner("a : BOOL; c1 : FB_C;", "%NETWORK\nc1(CU := a).CV;\n", COUNTER, "FBD")
+    const plain = runner("a : BOOL; c1 : FB_C;", "%NETWORK\nc1(CU := a);\n", COUNTER, "FBD")
+    const scans = [{ a: true }, { a: true }, { a: false }]
+    expect(trace(named, "c1.CV", scans)).toEqual(trace(plain, "c1.CV", scans))
+    expect(trace(runner("a : BOOL; c1 : FB_C;", "%NETWORK\nc1(CU := a).CV;\n", COUNTER, "FBD"), "c1.CV", scans)).toEqual([1n, 2n, 2n])
+  })
+
+  test("the pins beside the closer are written", () => {
+    const r = runner("a, x : BOOL; c1 : FB_C;", "%NETWORK\nc1(CU := a, Q => x).CV;\n", COUNTER, "FBD")
+    expect(trace(r, "x", [{ a: true }])).toEqual(trace(runner("a, x : BOOL; c1 : FB_C;", "%NETWORK\nc1(CU := a, Q => x);\n", COUNTER, "FBD"), "x", [{ a: true }]))
+  })
+
+  test("a function box closed by its VAR_OUTPUT runs as the call", () => {
+    const G = "FUNCTION G : INT\nVAR_INPUT i : INT; END_VAR\nVAR_OUTPUT q : INT; END_VAR\n%LANGUAGE ST\nq := i + 1;\nG := i;\nEND_FUNCTION\n"
+    const { diagnostics } = lowered("n, m : INT;", "%NETWORK\nG(n, q => m).q;\n", G, "FBD")
+    expect(diagnostics).toEqual([])
+  })
+})
+
 describe("what the lowering refuses, by name", () => {
   const codes = (vars: string, body: string, extra = "") => lowered(vars, body, extra).diagnostics.map((d) => [d.code, d.message])
 

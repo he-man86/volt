@@ -10,10 +10,10 @@
 
 ## 3. Build
 
-- [ ] 3.1 Writer + both readers + twin, red then green per finding; `network-text.html` updated — F2, F4, F5, F8, F9, F13, F14, F16 and the empty-name mark built; **F3 open** (design.md "Open"; its `.NAME` at a root contradicts `network-text.html` and both readers today, owner decides)
+- [x] 3.1 Writer + both readers + twin, red then green per finding; `network-text.html` updated — F2, F3, F4, F5, F8, F9, F13, F14, F16 and the empty-name mark built (F3: design.md "Built")
 
 ## 4. Bugs found while measuring (fix test-first)
 
 - [x] 4.1 An FB instance named `r` is refused by the reader (`r(SET := …)` does not parse; `rs1` does) — no bug: neither IDE declares `r` (design.md "Built")
 - [x] 4.2 A pushed `EXECUTE(…)` with no EN stores EN null and its code never runs (0 of 99 scans) — stores false now; runs live in FB and PROGRAM
-- [ ] 4.3 Pushed boxes store EN/ENO and root output lists differently from drawn ones: find out whether it is visible — EN/ENO fixed to the drawn false; the root output list is F3's, open
+- [x] 4.3 Pushed boxes store EN/ENO and root output lists differently from drawn ones: find out whether it is visible — EN/ENO fixed to the drawn false; a root FB box stores its declared output list (F3)

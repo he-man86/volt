@@ -33,7 +33,7 @@ t := t1(IN := a, PT := T#1S).ET;
 NETWORK
   (:= t (TON@t1 IN=a PT=T#1S name:ET))
 
-#### fb-at-a-root — a root hands nothing on: its outputs are its targets
+#### fb-at-a-root — a root with no closer: its outputs are its targets
 === scope
 instance t1 TON
 fb TON IN PT => Q ET
@@ -44,6 +44,62 @@ t1(IN := a, PT := T#1S, Q => lamp);
 === model
 NETWORK
   (TON@t1 IN=a PT=T#1S =>Q:lamp)
+
+#### root-names-its-main-slot — .NAME at a root names the stored main slot
+=== scope
+instance c2 CTU
+fb CTU CU PV => Q CV
+=== text
+%LANGUAGE FBD
+%NETWORK
+c2(CU := a, PV := 5).CV;
+=== model
+NETWORK
+  (CTU@c2 CU=a PV=5 name:CV)
+
+#### root-main-slot-negated — the mark stands around the closed call as on any root
+=== scope
+instance c2 CTU
+fb CTU CU PV => Q CV
+=== text
+%LANGUAGE FBD
+%NETWORK
+NOT c2(CU := a, PV := 5).CV;
+=== model
+NETWORK
+  not:(CTU@c2 CU=a PV=5 name:CV)
+
+#### root-main-slot-beside-a-pin — slot 0 wired, the main slot past it
+=== scope
+instance c2 CTU
+fb CTU CU PV => Q CV
+=== text
+%LANGUAGE FBD
+%NETWORK
+c2(CU := a, PV := 5, Q => x).CV;
+=== model
+NETWORK
+  (CTU@c2 CU=a PV=5 =>Q:x name:CV)
+
+#### root-main-slot-of-a-function — a function's main slot past its value
+=== scope
+function g IN => Q
+=== text
+%LANGUAGE FBD
+%NETWORK
+g(a).Q;
+=== model
+NETWORK
+  (g a conn:1)
+
+#### root-main-slot-unstated-callee — a callee no declaration states is read as written, as a consumed box
+=== text
+%LANGUAGE FBD
+%NETWORK
+h(a).X;
+=== model
+NETWORK
+  (h a)
 
 #### function-value-beside-an-output — a function with a VAR_OUTPUT: .OUT names its value
 === scope

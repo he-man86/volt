@@ -79,12 +79,10 @@ public class StNetworkOracleCodesysTests
         Assert.True(found.Count == 0, $"{found.Count} boxes:\n" + string.Join("\n", found));
     }
 
-    /// <summary>A ROOT BOX'S STORED MOVED PIN (openspec network-output-member 1.2): a root hands nothing on, so no text spells
-    /// its main output and no model holds it; MainOutputIndex is read-only on a built box (N21). An unchanged network keeps it
-    /// (the change gate); a rebuild drops it, named by the rebuild-loss warning (<see cref="RebuildLoss.RootMainOutput"/>).
-    /// Known divergence — niche: accepted loss (1 occurrence in the corpora). The mark fails the day the model holds it.</summary>
+    /// <summary>A ROOT BOX'S STORED MAIN SLOT (openspec network-text-one-to-one F3): the corpora's one root box storing an
+    /// index past 0 holds it in the model, and its text names it.</summary>
     [Fact]
-    public void A_root_box_storing_a_moved_pin_is_a_known_divergence()
+    public void A_root_box_storing_a_moved_pin_holds_its_main_slot()
     {
         var dir = CorpusDir(CorpusProjects.CliRoot().FullName);
         var moved = new List<(string Where, Box Read, int Index)>();
@@ -107,9 +105,8 @@ public class StNetworkOracleCodesysTests
         }
         Assert.Equal(new[] { "lenze-mid/Device/Plc Logic/Application/FirstErrorCapture/call_FirstErrorCapture_FB #4: L_FECA.L_GetErrorTextFromFileReadArray stores MainOutputIndex 1" },
                      moved.Select(m => m.Where).ToArray());
-        ExpectRed.Until("network-output-member: niche: accepted loss (1 occurrence in the corpora)",
-            "a root box's stored main output other than its first is held by no model",
-            () => Assert.All(moved, m => Assert.Equal(m.Index, m.Read.ConnectedSlot)));
+        Assert.All(moved, m => Assert.Equal(m.Index, m.Read.ConnectedSlot));
+        Assert.All(moved, m => Assert.Equal("dwFindErrorID", m.Read.MainOutputName));
     }
 
     static NetworkScope PushScopeOf(CorpusProject project, CorpusBody body, string id)

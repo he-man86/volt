@@ -153,6 +153,8 @@ namespace Volt.Ide.Codesys
         {
             // an FB box holds every input its declaration names, the unconnected ones as an empty operand
             model = NetworkDerivation.WithLeftOutPins(model, scope);
+            // a root FB box holds its declared output list, the null at its main slot, as a drawn one does
+            model = NetworkDerivation.WithRootOutputs(model, scope);
             SetIfChanged(net, "Title", model.Title ?? "");
             SetIfChanged(net, "Label", model.Label ?? "");
             SetIfChanged(net, "Comment", model.Comment ?? "");
@@ -295,9 +297,6 @@ namespace Volt.Ide.Codesys
             for (int i = 0; i < NwlInterop.RequireInt(net, "NetworkItemCount"); i++)
             {
                 var tree = NwlInterop.TryCall(net, "GetTree", i);
-                // A root box's stored main output other than its first, which no text spells (RebuildLoss.RootMainOutput).
-                if (tree is not null && NwlInterop.TypeName(tree) == "BoxTreeBox" && NwlInterop.Get(tree, "MainOutputIndex") is int main && main != 0)
-                    held.Add(new(RebuildLoss.RootMainOutput, "BoxTreeBox", main.ToString(CultureInfo.InvariantCulture)));
                 Item(tree);
             }
             return held;

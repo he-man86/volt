@@ -41,6 +41,23 @@ test("server: hover inside a network-text body resolves a wire", async () => {
   client.dispose()
 })
 
+test("server: hover on the .NAME closing an FB box's call states that output, at a root and where it is read", async () => {
+  for (const statement of ["c2().CV;", "n := c2().CV;"]) {
+    const client = connect()
+    const src = `FUNCTION_BLOCK FB_C\nVAR_OUTPUT\nQ : BOOL;\nCV : INT;\nEND_VAR\n%LANGUAGE ST\nQ := TRUE;\nEND_FUNCTION_BLOCK\nPROGRAM P\nVAR\nc2 : FB_C;\nn : INT;\nEND_VAR\n%LANGUAGE FBD\n%NETWORK\n${statement}\nEND_PROGRAM`
+    await client.sendRequest(InitializeRequest.type, { processId: null, rootUri: null, capabilities: {} })
+    await client.sendNotification(DidOpenTextDocumentNotification.type, {
+      textDocument: { uri: URI, languageId: "iecst", version: 1, text: src },
+    })
+    const h = await client.sendRequest(HoverRequest.type, {
+      textDocument: { uri: URI },
+      position: { line: 15, character: statement.indexOf("CV") },
+    })
+    expect((h as { contents: { value: string } })?.contents.value).toContain("CV : INT")
+    client.dispose()
+  }
+})
+
 // the `count :=` usage
 
 test("server: completion returns items in scope", async () => {

@@ -89,7 +89,7 @@ fbOverwriteFirstErrCapture(xEnable := AND(xEnabledOverwrite, fbTonEnableDelay.Q)
 // // Call up L_GetErrorTextFromFileArray for getting the Error/Reasoncode Text of the active error/reason message
 // // Before using this FB the FB L_ReadErrorFromFile must be used to read the error/reson code text from the error text file into the assigned array
 // //*****************************************************************************************************************************************************
-fbGetErrorTextFromFileArray(xEnabled := AND(xEnabledGetErrorTextfromFileArray, fbTonEnableDelay.Q), xErrorActive := fbFirstErrCapture.xErrorActive, xUpdateError := OR(fbFirstErrCapture.xUpdateError, fbOverwriteFirstErrCapture.xUpdateError), xOnlyUserAppErrorFromFile := TRUE, scFirstErrorData := fbOverwriteFirstErrCapture.scOutFirstErrorData, asErrorText := GVL_ReadErrorFromFile.asErrorText, adwErrorID := GVL_ReadErrorFromFile.adwErrorID, scFirstErrorDataOut => GVL_FirstErrCapture.scFirstErrorData);
+fbGetErrorTextFromFileArray(xEnabled := AND(xEnabledGetErrorTextfromFileArray, fbTonEnableDelay.Q), xErrorActive := fbFirstErrCapture.xErrorActive, xUpdateError := OR(fbFirstErrCapture.xUpdateError, fbOverwriteFirstErrCapture.xUpdateError), xOnlyUserAppErrorFromFile := TRUE, scFirstErrorData := fbOverwriteFirstErrCapture.scOutFirstErrorData, asErrorText := GVL_ReadErrorFromFile.asErrorText, adwErrorID := GVL_ReadErrorFromFile.adwErrorID, scFirstErrorDataOut => GVL_FirstErrCapture.scFirstErrorData).dwFindErrorID;
 %NETWORK
 %NETWORK
 %DISABLED

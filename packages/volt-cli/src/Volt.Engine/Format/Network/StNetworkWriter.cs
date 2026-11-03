@@ -35,9 +35,9 @@ namespace Volt.Engine.Format.Network;
 /// <para><b>The call is the box</b> (openspec network-output-member): one call of its toolbox name, an FB's the call ON ITS
 /// INSTANCE <c>t1(…)</c>, its type the instance's declaration — only an FB box with no usable instance (<c>???</c>) is the
 /// call of its TYPE; <c>EN := e</c> written is EN shown. Two members close
-/// a call: <c>.ENO</c> every box that shows ENO (the output it hands on, N16), and <c>.NAME</c> a consumed box without ENO
+/// a call: <c>.ENO</c> every box that shows ENO (the output it hands on, N16), and <c>.NAME</c> a box without ENO
 /// whose callee declares more than one data output (a function's value <c>OUT</c>, then its <c>VAR_OUTPUT</c>s; an FB's
-/// outputs), naming the one its consumer reads. A callee that DECLARES <c>EN</c> or <c>ENO</c> has them as ordinary pins. A
+/// outputs), naming the one its consumer reads, and at a root its stored main slot past the first. A callee that DECLARES <c>EN</c> or <c>ENO</c> has them as ordinary pins. A
 /// callee no declaration in reach states is written as its model says (<see cref="NetworkScope.Signature"/>).</para>
 ///
 /// <para><b>Wires.</b> A Demux is a wire <c>w&lt;n&gt;</c>, defined once and read by its name any number of times, before its
@@ -52,7 +52,8 @@ namespace Volt.Engine.Format.Network;
 ///
 /// <para><b>Items.</b> An item is an assignment (its coils, then its value), a wire's definition, or a value standing alone, as
 /// it stands in a tree: <c>a;</c>, <c>NOT AND(a, b);</c>, <c>BRANCH(FEED := start, a, b);</c>, <c>RAIL();</c> — a box there is
-/// consumed by nothing, so its call is closed by <c>.ENO</c> or by nothing.</para>
+/// consumed by nothing, so its call is closed by <c>.ENO</c>, by the <c>.NAME</c> of a main slot past its first, or by
+/// nothing.</para>
 ///
 /// <para><b>Marks</b> (openspec network-rail-and-pin-negation): a flag is written where the model holds it. On a value:
 /// <c>NOT a</c> (a contact's negation, or a box read where it stands, <c>NOT t1(…).Q</c>), <c>RISING(a)</c>,
@@ -633,7 +634,7 @@ public static class StNetworkWriter
 
         /// <summary>THE CALL THAT IS THE BOX (openspec network-output-member): <c>inst(EN := e, pins…, outputs…)</c> (an FB) or <c>T(…)</c>,
         /// closed by <c>.ENO</c> where the box shows ENO, else by <c>.NAME</c> where it is consumed and its callee declares more
-        /// than one data output (<see cref="DataMember"/>).</summary>
+        /// than one data output, or it stands at a root with a main slot past its first (<see cref="DataMember"/>).</summary>
         private string Call(Box b, bool consumed)
         {
             if (IsExecute(b)) return ExecuteCall(b, consumed);
@@ -668,11 +669,11 @@ public static class StNetworkWriter
                     throw Unspellable("a box showing ENO whose callee declares ENO", $"the '{b.Type}' box shows ENO, and '{b.Type}' declares an output ENO of its own.");
                 // A box showing ENO hands its ENO on. MEASURED (CODESYS 3.5.21.40, 2026-10-28, network-text-st design "3.0"): an
                 // enabled MOVE showing ENO, built read at its value slot, is held by the IDE read by its ENO.
-                if (consumed && !NetworkSpelling.ConnectedByEno(b))
+                if ((consumed || b.ConnectedSlot is > 0) && !NetworkSpelling.ConnectedByEno(b))
                     throw Unspellable("a box showing ENO read by another output", $"the '{b.Type}' box shows ENO and is read at slot {Slot(b.ConnectedSlot)}, not its ENO.");
                 member = "." + Box.EnoPin;
             }
-            else member = consumed ? DataMember(b, signature) : "";
+            else member = consumed || b.ConnectedSlot is > 0 || b.MainOutputName is not null ? DataMember(b, signature) : "";
             if (string.Equals(b.Type, NetworkSpelling.NotBox, StringComparison.OrdinalIgnoreCase) && b.Enable is null &&
                 (b.Inputs.Count != 1 || b.Outputs.Count > 0))
                 throw Unspellable("a NOT box with pins", "a NOT box with outputs, a named pin or several inputs.");

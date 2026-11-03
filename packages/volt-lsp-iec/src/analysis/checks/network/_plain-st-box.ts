@@ -51,7 +51,7 @@ export function checkBox(call: CallExpr, member: string | undefined, consumed: b
   const eno = member !== undefined && member.toUpperCase() === "ENO" && !declaresEno(signature)
   if (signature !== undefined && !eno && !declaresEno(signature) && box.pins.some((a) => a.output && a.param?.name.toUpperCase() === "ENO"))
     emit(out, at, CODE, `the call ${head} wires ENO => and shows no ENO: ENO => v is a target of the shown ENO, which its call closed by .ENO states`)
-  if (eno || !consumed || signature === undefined) return
+  if (eno || signature === undefined || (!consumed && member === undefined)) return
   const outputs = box.instance !== undefined ? signature.outputs : dataOutputs(signature)
   if (member === undefined) {
     if (outputs.length === 0) emit(out, at, CODE, `the box ${head} is read, and ${type} declares no output to read`)
@@ -63,4 +63,6 @@ export function checkBox(call: CallExpr, member: string | undefined, consumed: b
     emit(out, at, CODE, `the box ${head} is closed by .${member}, which names no output of ${type} (${outputs.join(", ")})`)
   else if (outputs.length === 1)
     emit(out, at, CODE, `the box ${head} is closed by .${member}, the one output ${type} has: a box with one output names none`)
+  else if (!consumed && outputs[0]!.toLowerCase() === member.toLowerCase())
+    emit(out, at, CODE, `the box ${head} stands at a root closed by .${member}, the first output of ${type}: a root with no closer is its first output, so it names none`)
 }

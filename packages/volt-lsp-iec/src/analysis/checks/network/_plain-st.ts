@@ -24,8 +24,8 @@
  *                   comparison operators only.");
  *   boxes           the call is the box (`types` `infer/network-box.ts`): an FB's the call of its instance, or of its
  *                   type where it has none (`???`); `EN :=` first the shown EN; `.ENO` closes the call of a box
- *                   showing ENO, `.NAME` a consumed box whose callee declares several outputs, naming the one read — no
- *                   other member, none on a box with one output, none but `.ENO` at a root; `ENO => v` with `.ENO`;
+ *                   showing ENO, `.NAME` a box whose callee declares several outputs, naming the one read, at a root its
+ *                   main slot past the first — no other member, none on a box with one output; `ENO => v` with `.ENO`;
  *   elements        `BRANCH(FEED := f, b1, b2)` / `BRANCH_SHORTCIRCUIT(…)` take the feed first, if fed, then the
  *                   branches, positional; `RISING(x)` / `FALLING(x)` one value, a contact or a box read where it stands;
  *                   `RAIL()` none; none names anything declared in reach (nor does `COMMENT`); the Execute box
@@ -244,12 +244,10 @@ function checkStatement(stmt: Statement, first: boolean, scope: Scope | undefine
       checkExprs(stmt, scope, boxes, project, wires, network, out)
       return
     case "expr_stmt":
-      // a box at a root showing ENO, its call closed by `.ENO`: no other member closes a root's call
-      if (stmt.expr.kind === "member" && stmt.expr.base.kind === "call" && calleeText(stmt.expr.base).toUpperCase() !== EXECUTE) {
-        const m = boxes === undefined ? undefined : boxMember(stmt.expr, boxes, project)
-        if (m === undefined || !m.eno)
-          emit(out, stmt.span, CODE, `the call ${calleeText(stmt.expr.base)} stands as a statement closed by .${stmt.expr.member.name}: a box at a root hands nothing on, and its call is closed by .ENO (it shows ENO) or by nothing`)
-      }
+      // a member closes a call only where the call is a box (`checkBox` judges the member)
+      if (stmt.expr.kind === "member" && stmt.expr.base.kind === "call" && calleeText(stmt.expr.base).toUpperCase() !== EXECUTE &&
+          boxes !== undefined && boxMember(stmt.expr, boxes, project) === undefined)
+        emit(out, stmt.span, CODE, `the call ${calleeText(stmt.expr.base)} stands as a statement closed by .${stmt.expr.member.name}: it is no box`)
       // a value standing alone, as it stands in a tree (`a;`, `NOT AND(a, b);`, `RAIL();`) — but no bracketed assignment
       if (stmt.expr.kind === "paren" && stmt.expr.inner.kind === "assign_expr")
         emit(out, stmt.span, CODE, "an assignment in brackets standing alone: an assignment is written without them, y := a;")
@@ -273,7 +271,7 @@ function checkStatement(stmt: Statement, first: boolean, scope: Scope | undefine
 
 /** Infix only for the contacts; `NOT` only before an operand; every box as `checkBox` holds it. */
 function checkExprs(stmt: Statement, scope: Scope | undefined, boxes: Scope | undefined, project: Scope, wires: ReadonlySet<string>, network: PlainStNetwork, out: DiagnosticItem[]): void {
-  // the member closing each call, and the call standing as the statement (a root: it hands nothing on)
+  // the member closing each call, and the call standing as the statement (a root)
   const closer = new Map<CallExpr, string>()
   // (the box a value standing alone is, its marks around it: `rootBox`)
   const root = stmt.kind === "call_stmt" ? (rootBox(stmt.call)?.call ?? stmt.call) : stmt.kind === "expr_stmt" ? rootBox(stmt.expr)?.call : undefined

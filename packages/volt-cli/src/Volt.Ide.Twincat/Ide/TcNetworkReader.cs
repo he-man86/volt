@@ -147,7 +147,8 @@ internal static class TcNetworkReader
                 // The edge order is unmeasured on TwinCAT on a box as on an operand (N17 measured both on CODESYS).
                 if (TcUnmeasured.NegatedEdge(flags))
                     throw TcUnmeasured.EdgeOrderOnPull($"the '{BoxType(e)}' box");
-                var connected = consumed ? ConnectedSlot(e) : null;
+                // A root's main slot is stated past its first: `.NAME`; its first is what a root with no closer is (F3).
+                var connected = ConnectedSlot(e) is var main && (consumed || main is > 0) ? main : null;
                 return new Box(
                     BoxType(e),
                     InstanceOf(e),
@@ -166,8 +167,7 @@ internal static class TcNetworkReader
                     ReadStCode(e),
                     flags,
                     // A consumer reads the box's MAIN output (DIALECT N16), so on a consumed box the connected slot is
-                    // the main output; a top-level box has no consumer, and the text no position for its main
-                    // output, so neither is stated there.
+                    // the main output.
                     ConnectedSlot: connected,
                     // The vendor's stored output types, beside the names this reads (`OutputParam/Types`) — a wire
                     // fed by the box is declared with the type of its connected slot (spec, "a stored output type").
