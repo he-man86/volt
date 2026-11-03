@@ -361,8 +361,9 @@ namespace Volt.Ide.Codesys
             // stored `Eno` flag (`Box.ShowsEno`, network-text-st 1c), independent of EN — census 1.6 found 40 enabled comparisons with none.
             var outputNames = Names(n, "OutputParams");
             var hasEno = Box.ShowsEno(NwlInterop.Get(n, "Eno") as bool?, outputNames, CodesysDriver.Row.Display, type);
-            var mainOutput = NwlInterop.Get(n, "MainOutputIndex") is int main ? main
-                : consumed ? UnstoredMainOutput(type, enable is not null, hasEno, outputNames) : null;
+            var stored = NwlInterop.Get(n, "MainOutputIndex") as int?;
+            if (consumed && stored is null && CallsWithNoValue(n) && !HoldsNull(n, type)) throw BoxRefusals.NoMainOutput(CodesysDriver.Row.Display, type);
+            var mainOutput = stored ?? (consumed ? UnstoredMainOutput(type, enable is not null, hasEno, outputNames) : null);
             // A root's main slot is stated past its first: `.NAME`; its first is what a root with no closer is (F3).
             var connected = consumed || mainOutput is > 0 ? mainOutput : null;
 
@@ -388,6 +389,16 @@ namespace Volt.Ide.Codesys
                 Members: NwlMembers.Of((NetworkMembers.OutputNames, MemberValue.Texts(outputNames))))
             { EnableFlags = enableFlags };
         }
+
+        /// <summary>Whether the box calls what hands on no value of its own: an FB or a PROGRAM, whose consumer can only read the
+        /// output its null names. Measured live (openspec nwl-box-storage-map): over a list holding no null a FUNCTION's and an
+        /// operator's consumer still reads the call's value, and an FB's and a PROGRAM's is a build error.</summary>
+        private static bool CallsWithNoValue(object box) =>
+            NwlInterop.Get(box, "CallType")?.ToString() is "FunctionBlock" or "Program";
+
+        private static bool HoldsNull(object box, string type) =>
+            (NwlInterop.Get(NwlInterop.Require(box, "Outputs"), "List") as IEnumerable
+             ?? throw BoxRefusals.MissingList(CodesysDriver.Row.Display, type, "Outputs.List")).Cast<object?>().Any(s => s is null);
 
         /// <summary>THE OUTPUT A CONSUMER READS WHEN THE BOX STORES NO <c>MainOutputIndex</c> — the contact form of AND/OR,
         /// drawn (814 in LD-view bodies, 1 in an FBD-view body) or built by a push (the member is read-only); every drawn

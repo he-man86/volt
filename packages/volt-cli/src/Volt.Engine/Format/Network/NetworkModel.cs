@@ -332,6 +332,7 @@ public static class BoxRefusals
     public const string PinFlagMarker = "a flag on a box input pin";
     public const string NullInputSlotMarker = "a box input slot holding nothing";
     public const string MissingListMarker = "a box list the reader cannot find";
+    public const string NoMainOutputMarker = "a consumed box storing no main output";
     /// <summary>An Execute box whose ST snippet the reader cannot read — raised by both vendor readers and answered by
     /// TwinCAT's archive pre-scan too, so the pull names it in one wording whichever way it was found.</summary>
     public const string UnreadableExecuteMarker = "an Execute box whose ST cannot be read";
@@ -353,6 +354,15 @@ public static class BoxRefusals
             $"{vendor}: the '{boxType}' box holds nothing in input slot {slot} — not an unwired pin, a slot with no item, a " +
             "shape no measured box holds. Volt refuses to materialize the body rather than read its pins against the " +
             "wrong names.");
+
+    /// <summary>A consumed FB or PROGRAM box whose output list holds no null: nothing names what its consumer reads, and the
+    /// IDE's build answers "The assignment source is incorrect." (live CODESYS 3.5.21.40, openspec nwl-box-storage-map, with
+    /// and without a shown ENO). Read as its first output, the next edit of the network would build another program.</summary>
+    public static Volt.Engine.Format.Body.UnrepresentableBodyException NoMainOutput(string vendor, string boxType) =>
+        new(NoMainOutputMarker,
+            $"{vendor}: the '{boxType}' box is consumed and its output list holds no null, so no output is its main one, and " +
+            "the IDE does not build it. Volt refuses to read it as a call read by an output it does not state. Connect its " +
+            "main output in the IDE.");
 
     /// <summary>A list a box always holds, not there: its outputs, or a pin-name list. Missing is not empty — an
     /// operator's empty name list is a real answer, while an absent one means the reader is looking by a name the

@@ -85,4 +85,73 @@ public class CodesysBoxSlotTests
         var read = Read(new Nwl.BoxTreeBox { BoxType = "AND", InputItemList = new object[] { Nwl.Leaf("a"), Nwl.Leaf("b") } });
         Assert.Equal(2, Assert.IsType<Box>(Assert.IsType<Assign>(Assert.Single(read.Trees)).Value).Inputs.Count);
     }
+
+    /// <summary>A CONSUMED FB OR PROGRAM BOX WHOSE OUTPUT LIST HOLDS NO NULL HANDS NOTHING ON. Measured live (CODESYS 3.5.21.40,
+    /// openspec nwl-box-storage-map, EN off and EN+ENO, LD and FBD): the IDE stores it and its build answers "The assignment
+    /// source is incorrect." The slot-0 fallback read it as a call read by its first output, so the pull showed
+    /// <c>y := t2(a := a).q1;</c>, which builds and assigns <c>y</c>: another program than the stored one on the next edit of
+    /// that network. There is no main output to name, so the network is refused by name.</summary>
+    [Theory]
+    [InlineData("FunctionBlock", 0)]
+    [InlineData("FunctionBlock", 2)]
+    [InlineData("Program", 0)]
+    [InlineData("Program", 2)]
+    public void A_consumed_FB_or_program_box_holding_no_null_is_refused_by_name(string callType, int emptySlots)
+    {
+        var box = new Nwl.BoxTreeBox
+        {
+            BoxType = "Callee",
+            CallType = (Nwl.Operator)System.Enum.Parse(typeof(Nwl.Operator), callType),
+            InputItemList = new object[] { Nwl.Leaf("a") },
+            InputParams = new Nwl.ParamList { Names = new[] { "a" }, Types = new[] { "BOOL" } },
+            OutputParams = new Nwl.ParamList { Names = new[] { "q1", "q2" }, Types = new[] { "BOOL", "INT" } },
+        };
+        if (callType == "FunctionBlock") box.Instance = new Nwl.Operand { OperandExpr = "t2" };
+        for (var i = 0; i < emptySlots; i++) box.Outputs.AppendOutputItem(new Nwl.Operand { OperandExpr = "" });
+
+        var ex = Refused(box);
+
+        Assert.Equal(BoxRefusals.NoMainOutputMarker, ex.Reason);
+        Assert.Contains("'Callee'", ex.Message);
+    }
+
+    /// <summary>The ENO does not save it: a shown ENO over a list with no null fails the same way, measured with every list
+    /// of the same run (<c>[]</c>, <c>['','','']</c>, <c>['z','','']</c>); it pulled as a clean <c>.ENO</c>.</summary>
+    [Fact]
+    public void A_consumed_FB_showing_ENO_and_holding_no_null_is_refused_by_name()
+    {
+        var box = new Nwl.BoxTreeBox
+        {
+            BoxType = "Callee",
+            CallType = Nwl.Operator.FunctionBlock,
+            Instance = new Nwl.Operand { OperandExpr = "t2" },
+            En = true,
+            Eno = true,
+            InputItemList = new object[] { Nwl.Leaf("go"), Nwl.Leaf("a") },
+            InputParams = new Nwl.ParamList { Names = new[] { "EN", "a" }, Types = new[] { "BOOL", "BOOL" } },
+            OutputParams = new Nwl.ParamList { Names = new[] { "ENO", "q1" }, Types = new[] { "BOOL", "BOOL" } },
+        };
+        box.Outputs.AppendOutputItem(new Nwl.Operand { OperandExpr = "z" });
+        box.Outputs.AppendOutputItem(new Nwl.Operand { OperandExpr = "" });
+
+        Assert.Equal(BoxRefusals.NoMainOutputMarker, Refused(box).Reason);
+    }
+
+    /// <summary>A consumed FUNCTION holding no null is another fact: the same run reads its value (<c>y := f(a);</c>), so it
+    /// stays read by its value slot.</summary>
+    [Fact]
+    public void A_consumed_function_holding_no_null_is_still_read_by_its_value()
+    {
+        var box = new Nwl.BoxTreeBox
+        {
+            BoxType = "F",
+            CallType = Nwl.Operator.Function,
+            InputItemList = new object[] { Nwl.Leaf("a") },
+            InputParams = new Nwl.ParamList { Names = new[] { "a" }, Types = new[] { "BOOL" } },
+            OutputParams = new Nwl.ParamList { Names = new[] { "   " }, Types = new[] { "BOOL" } },
+        };
+        box.Outputs.AppendOutputItem(new Nwl.Operand { OperandExpr = "" });
+
+        Assert.Equal(0, Assert.IsType<Box>(Assert.IsType<Assign>(Assert.Single(Read(box).Trees)).Value).ConnectedSlot);
+    }
 }
