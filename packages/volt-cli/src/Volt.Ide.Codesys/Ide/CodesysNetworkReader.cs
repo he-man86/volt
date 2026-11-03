@@ -361,6 +361,8 @@ namespace Volt.Ide.Codesys
             // stored `Eno` flag (`Box.ShowsEno`, network-text-st 1c), independent of EN — census 1.6 found 40 enabled comparisons with none.
             var outputNames = Names(n, "OutputParams");
             var hasEno = Box.ShowsEno(NwlInterop.Get(n, "Eno") as bool?, outputNames, CodesysDriver.Row.Display, type);
+            if (!hasEno && instance is null && CallsAnOperator(n) && FirstSlotIsEmpty(n, type))
+                throw BoxRefusals.EmptyOperatorOutput(CodesysDriver.Row.Display, type);
             var stored = NwlInterop.Get(n, "MainOutputIndex") as int?;
             if (consumed && stored is null && CallsWithNoValue(n) && !HoldsNull(n, type)) throw BoxRefusals.NoMainOutput(CodesysDriver.Row.Display, type);
             var mainOutput = stored ?? (consumed ? UnstoredMainOutput(type, enable is not null, hasEno, outputNames) : null);
@@ -396,9 +398,19 @@ namespace Volt.Ide.Codesys
         private static bool CallsWithNoValue(object box) =>
             NwlInterop.Get(box, "CallType")?.ToString() is "FunctionBlock" or "Program";
 
-        private static bool HoldsNull(object box, string type) =>
+        /// <summary>Whether the box's stored CallType names an operator, the IDE's own word for it: every member but "not resolved"
+        /// and the POU kinds a call can have.</summary>
+        private static bool CallsAnOperator(object box) =>
+            NwlInterop.Get(box, "CallType")?.ToString() is { } call && call is not ("None" or "Function" or "FunctionBlock" or "Program" or "Method" or "Action");
+
+        private static List<object?> OutputSlots(object box, string type) =>
             (NwlInterop.Get(NwlInterop.Require(box, "Outputs"), "List") as IEnumerable
-             ?? throw BoxRefusals.MissingList(CodesysDriver.Row.Display, type, "Outputs.List")).Cast<object?>().Any(s => s is null);
+             ?? throw BoxRefusals.MissingList(CodesysDriver.Row.Display, type, "Outputs.List")).Cast<object?>().ToList();
+
+        private static bool HoldsNull(object box, string type) => OutputSlots(box, type).Contains(null);
+
+        private static bool FirstSlotIsEmpty(object box, string type) =>
+            OutputSlots(box, type).FirstOrDefault() is { } first && ReadOperand(first).Text.Length == 0;
 
         /// <summary>THE OUTPUT A CONSUMER READS WHEN THE BOX STORES NO <c>MainOutputIndex</c> — the contact form of AND/OR,
         /// drawn (814 in LD-view bodies, 1 in an FBD-view body) or built by a push (the member is read-only); every drawn

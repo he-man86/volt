@@ -154,4 +154,48 @@ public class CodesysBoxSlotTests
 
         Assert.Equal(0, Assert.IsType<Box>(Assert.IsType<Assign>(Assert.Single(Read(box).Trees)).Value).ConnectedSlot);
     }
+
+    /// <summary>AN OPERATOR BOX WHOSE ONE OUTPUT SLOT HOLDS AN EMPTY OPERAND HAS NO TARGET AND NO VALUE TO HAND ON. Measured live
+    /// (CODESYS 3.5.21.40, openspec nwl-box-storage-map, AND, GT, ADD, MOVE, at a root and consumed): the build answers "The
+    /// assignment target is not specified." It pulled as the plain box, <c>y := AND(a, b);</c>, whose null slot builds and
+    /// runs: the next edit of the network would make another program.</summary>
+    [Theory]
+    [InlineData("AND", "And")]
+    [InlineData("MOVE", "Move")]
+    [InlineData("GT", "Gt")]
+    [InlineData("ADD", "Add")]
+    public void An_operator_box_with_an_empty_output_slot_is_refused_by_name(string type, string callType)
+    {
+        var box = new Nwl.BoxTreeBox
+        {
+            BoxType = type,
+            CallType = (Nwl.Operator)System.Enum.Parse(typeof(Nwl.Operator), callType),
+            InputItemList = new object[] { Nwl.Leaf("a"), Nwl.Leaf("b") },
+            OutputParams = new Nwl.ParamList { Names = new[] { "" }, Types = new[] { "BOOL" } },
+        };
+        box.Outputs.AppendOutputItem(new Nwl.Operand { OperandExpr = "" });
+
+        var ex = Refused(box);
+
+        Assert.Equal(BoxRefusals.EmptyOperatorOutputMarker, ex.Reason);
+        Assert.Contains($"'{type}'", ex.Message);
+    }
+
+    /// <summary>A FUNCTION's empty result slot is another fact: it builds, and its consumer reads the function's value (the same
+    /// run), so it stays read.</summary>
+    [Fact]
+    public void A_function_with_an_empty_output_slot_is_still_read()
+    {
+        var box = new Nwl.BoxTreeBox
+        {
+            BoxType = "F",
+            CallType = Nwl.Operator.Function,
+            InputItemList = new object[] { Nwl.Leaf("a") },
+            InputParams = new Nwl.ParamList { Names = new[] { "a" }, Types = new[] { "BOOL" } },
+            OutputParams = new Nwl.ParamList { Names = new[] { "   " }, Types = new[] { "BOOL" } },
+        };
+        box.Outputs.AppendOutputItem(new Nwl.Operand { OperandExpr = "" });
+
+        Assert.IsType<Box>(Assert.IsType<Assign>(Assert.Single(Read(box).Trees)).Value);
+    }
 }

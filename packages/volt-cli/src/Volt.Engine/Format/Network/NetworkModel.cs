@@ -333,6 +333,7 @@ public static class BoxRefusals
     public const string NullInputSlotMarker = "a box input slot holding nothing";
     public const string MissingListMarker = "a box list the reader cannot find";
     public const string NoMainOutputMarker = "a consumed box storing no main output";
+    public const string EmptyOperatorOutputMarker = "an operator box with an empty output slot";
     /// <summary>An Execute box whose ST snippet the reader cannot read — raised by both vendor readers and answered by
     /// TwinCAT's archive pre-scan too, so the pull names it in one wording whichever way it was found.</summary>
     public const string UnreadableExecuteMarker = "an Execute box whose ST cannot be read";
@@ -363,6 +364,14 @@ public static class BoxRefusals
             $"{vendor}: the '{boxType}' box is consumed and its output list holds no null, so no output is its main one, and " +
             "the IDE does not build it. Volt refuses to read it as a call read by an output it does not state. Connect its " +
             "main output in the IDE.");
+
+    /// <summary>An operator box showing no ENO whose one output slot holds an empty operand: the IDE's build answers "The
+    /// assignment target is not specified." (live CODESYS 3.5.21.40, openspec nwl-box-storage-map). Read as the plain box, the
+    /// next edit of the network would build a program the IDE does not hold.</summary>
+    public static Volt.Engine.Format.Body.UnrepresentableBodyException EmptyOperatorOutput(string vendor, string boxType) =>
+        new(EmptyOperatorOutputMarker,
+            $"{vendor}: the '{boxType}' box holds an empty operand in its output slot, so it has no target and hands on no value, " +
+            "and the IDE does not build it. Volt refuses to read it as the plain box. Give the output a variable in the IDE.");
 
     /// <summary>A list a box always holds, not there: its outputs, or a pin-name list. Missing is not empty — an
     /// operator's empty name list is a real answer, while an absent one means the reader is looking by a name the
