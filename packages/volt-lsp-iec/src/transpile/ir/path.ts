@@ -29,7 +29,7 @@ export function namesVariable(declared: string, segment: string): boolean {
 }
 
 /** A variable a path can start at: a POU slot or a global — its name, its GVL and whether that list is `qualified_only`;
- *  a called PROGRAM's instance (`section` "program") no path names. */
+ *  a called PROGRAM's instance (`section` "program") has no list, and its name is its path. */
 interface Named {
   readonly name: string
   readonly section: string
@@ -44,7 +44,9 @@ interface Named {
  *   - `<list>.<name>`, a GVL variable named through its list — the one path every global has;
  *   - a bare name, only for a global ONE list declares and that list not `qualified_only` (the `__clock` too). A bare name
  *     two lists declare is AMBIGUOUS, and one a `qualified_only` list declares is not its name: both are refused by
- *     name, never resolved to the first or to the only plain one.
+ *     name, never resolved to the first or to the only plain one;
+ *   - `<program>.<member>`, the frame of a PROGRAM the entry program calls, held from the first scan. A program's member
+ *     has no bare name.
  * A GVL variable whose declaration did not lower (`IrPou.unlowered`) is a variable all the same — named, counted for
  * ambiguity — and the path that reaches it is refused with the refusal it met.
  * `rest` is the path after the root. A throw names what the path does not reach.
@@ -64,7 +66,7 @@ export function pathRoot(
   const own = pou.slots.findIndex((s) => namesVariable(s.name, head.name))
   if (own >= 0) return { global: false, slot: own, rest: parts.slice(1) }
   const globals = [
-    ...pou.globals.flatMap((g, slot) => (g.section === "program" ? [] : [{ g, slot, refused: undefined }])),
+    ...pou.globals.map((g, slot) => ({ g, slot, refused: undefined })),
     ...(pou.unlowered ?? []).map((g) => ({ g, slot: -1, refused: `${g.code}: ${g.message}` })),
   ]
   const reached = (found: (typeof globals)[number], rest: PathSegment[]) => {
@@ -77,7 +79,7 @@ export function pathRoot(
   const bare = globals.filter(({ g }) => namesVariable(g.name, head.name))
   const [only] = bare
   if (only === undefined) throw new Error(`no variable ${path} in ${pou.name}`)
-  if (bare.length > 1) throw new Error(`${head.name} is ambiguous: ${bare.map(({ g }) => `${g.list}.${g.name}`).join(", ")}`)
+  if (bare.length > 1) throw new Error(`${head.name} is ambiguous: ${bare.map(({ g }) => (g.list === undefined ? `the program ${g.name}` : `${g.list}.${g.name}`)).join(", ")}`)
   if (only.g.qualifiedOnly === true) throw new Error(`${head.name} is declared by the qualified_only list ${only.g.list} — name it ${only.g.list}.${only.g.name}`)
   return reached(only, parts.slice(1))
 }

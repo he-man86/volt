@@ -1,4 +1,4 @@
-> DRAFT, written from Sim-Assist (C20 `sim-perf`, 2026-11-03). Measured, not started. Owner (2026-10-29): "whenever you
+> Written from Sim-Assist (C20 `sim-perf`, 2026-11-03). Valid; built 2026-11-03. Owner (2026-10-29): "whenever you
 > find bugs in volt engine please report to volt ... this way both apps are becoming more stable".
 
 ## Why
@@ -27,14 +27,16 @@ is the largest part of the frame and its garbage causes the GC pauses in the 3D 
 
 ## What Changes
 
-- The runner resolves each distinct path once and reuses the result (the slot or image place, the type, the located
-  container and key) for later `get`/`set` of the same path; `checkValue` still runs on every `set`. Containers are
-  stable for the life of the runner (frame, globals, FB records), so a cached place stays valid; an index path with a
-  constant index is too.
-- Or, if a cache is not wanted: a `ref(path)` that resolves once and returns `{ get(), set(value) }`, which hosts keep.
-- Either way `pathRoot` stops building a new globals array per call (build the lookup once per POU).
+- The runner resolves each distinct path once and keeps the resolved PLACE and type for later `get`/`set` of that path;
+  `checkValue` still runs on every `set`.
 
-Expected: an IO copy of 290 variables in about 0.3 ms instead of 10.5 ms, and no garbage per call.
+## What was built, against the draft
+
+The draft kept the located container and key, on the ground that containers are stable for the life of the runner. They
+are not guaranteed to be: `a := b;` on a struct or an array may replace the record a path leads through, and a VAR_TEMP
+starts over every scan, so a cached container could read a stale value and lose a write. A place depends on the POU alone,
+so it is what is kept, and `machine.locate` still walks it on every call. No `ref(path)` API and no per-POU globals lookup:
+neither is needed for this cost. A path that does not resolve is refused every time, never remembered.
 
 ## Impact
 

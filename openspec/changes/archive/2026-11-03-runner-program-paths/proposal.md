@@ -1,4 +1,4 @@
-> DRAFT, written from Sim-Assist (review of `plc-add-dialogs`, 2026-10-31). Measured, not started.
+> Written from Sim-Assist (review of `plc-add-dialogs`, 2026-10-31). Valid; built 2026-11-03.
 
 ## Why
 

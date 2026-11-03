@@ -56,6 +56,8 @@ function placeOf(pou: IrPou, path: string): { place: Place; rootType: Type; addr
   // GVL variable, or the `__clock` a harness sets, is a field of `Globals`
   const start = pathRoot(pou, path)
   let root = start.global ? pou.globals[start.slot]! : pou.slots[start.slot]!
+  // the emitted `Globals` holds no PROGRAM instance (`fieldPath` below), so the harness has no field to read
+  if (start.global && root.section === "program") throw new Error(`${path}: the Rust harness reads no called program's frame`)
   let at = start.slot
   let inGlobals = start.global
   let type = root.type
