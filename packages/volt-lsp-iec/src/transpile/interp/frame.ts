@@ -11,7 +11,7 @@ export type Cell = { container: Record<string | number, Val>; key: string | numb
 
 /** What {@link Frame.locate} answers: the container the steps before a place's last one lead to, the key into it, and the
  *  bit a last `bit` step names. */
-export interface Located {
+interface Located {
   container: Val[] | { [field: string]: Val }
   key: number | string
   bit: Extract<Access, { kind: "bit" }> | undefined
