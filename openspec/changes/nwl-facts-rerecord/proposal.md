@@ -1,3 +1,5 @@
+> Checked on dev 3bf209901e (2026-11-03): network-text-st is archived, so this can start. Most push sources are already re-spelled: 20 of the 23 rows pass the LSP network check; `nwl-stsnippet-line-ids`, `nwl-editor-refill` and `nwl-assign-item-flags` do not. The snapshots are still stale (`IMPLEMENTATION` in 23 CODESYS and 16 TwinCAT rows, `refused-names` among them). Needs live CODESYS and TwinCAT.
+
 > Found by the language-line step-3 gate review (2026-10-27). Not started; it follows network-text-st, whose grammar
 > the re-spelled push sources must use. Nothing here is a fix to make before then.
 
@@ -18,10 +20,10 @@ be re-measured:
 
 Their snapshot text still holds the retired `IMPLEMENTATION LD|FBD` line, and their push sources in
 `packages/volt-cli/scripts/vendor-facts.table.ts` (`%LANGUAGE` since language-line) use a network-text grammar the
-current reader refuses (`bun scripts/vendor-facts.ts codesys --only nwl-editor-refill`: "'t1' is an FB instance: its
-call names its type"). So `vendor-facts --write` cannot reproduce them. The grammar drifted under network text v2,
-before language-line; language-line only changed the line. network-text-st replaces that grammar with plain ST, so
-re-spelling the sources now would be done twice.
+current reader refuses (three rows left; `nwl-editor-refill`: "the call t2 wires its output Q to the wire w1: a wire is
+defined by `w1 := <box>`"; `nwl-assign-item-flags`: `JMP`/`RETURN` not written as targets; `nwl-stsnippet-line-ids`:
+a string across a line). So `vendor-facts --write` cannot reproduce them. The grammar drifted under network text v2,
+before language-line; language-line only changed the line. network-text-st replaced that grammar with plain ST.
 
 Open data question, no home until now: re-spelling `nwl-editor-refill` in the current grammar changes the tree the push
 STORES (CallType Function, a derived OutputParam, ENO=False), measured by the language-line implementer and not kept.
@@ -29,7 +31,7 @@ Whether that is the recorder's source or a writer defect is unmeasured.
 
 ## What Changes
 
-- Re-spell every listed row's push source in the grammar network-text-st ships.
+- Re-spell the three remaining rows' push sources in the grammar of `network-text.html`.
 - Re-record those rows on both vendors (`vendor-facts --write`, one run per vendor, two agreeing runs) on an `ide.ps1`
   instance of this change.
 - Re-check each fact that cites a re-recorded row (DIALECT N-rows, `NwlCompleteness`, RebuildLoss) against the new

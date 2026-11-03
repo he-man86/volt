@@ -2,7 +2,7 @@
 
 ### Requirement: pin edges and output marks run as CODESYS runs them
 The lowering SHALL run an edge mark on a box pin or on EN (`t1(RISING IN := a)`, `MOVE(RISING EN := c, …)`) and a mark
-on a bound output (`t1(…, NOT Q => x)`) as CODESYS 3.5.21.40 runs the stored model, in the interpreter and in Rust,
+on a bound output (`t1(…, NOT Q => x)`), and an edge mark on a jump (`RISING JMP.l := a;`) as CODESYS 3.5.21.40 runs the stored model, in the interpreter and in Rust,
 instead of refusing them as unmeasured.
 
 #### Scenario: a rising edge on a timer's IN

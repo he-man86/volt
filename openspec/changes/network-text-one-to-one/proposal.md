@@ -1,3 +1,5 @@
+> Checked on dev 3bf209901e (2026-11-03): findings stand as the problem statement; where a finding proposes a rule, design.md "Decided" and "Built" win (F6 and F12 keep both forms, wires are `VAR`). Open: F3 and 2.0. **F3 conflicts with the settled doc:** design.md decided `.NAME` at a root, but `network-text.html` ("closed by .ENO or by nothing") and both readers refuse `t1(IN := a).Q;`. The owner decides.
+
 ## Why
 
 Joint review by Volt and Sim-Assist, 2026-10-31, at the owner's request ("see where we made a similar design mistake").

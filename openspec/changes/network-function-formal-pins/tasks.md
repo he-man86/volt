@@ -2,9 +2,9 @@
 
 ## 1. Measure
 
-- [ ] 1.1 Confirm in CODESYS that the FBD and LD boxes `LIMIT(MN := 0, IN := v, MX := 100)` and
-      `SEL(G := g, IN0 := a, IN1 := b)` compile and run as their positional calls (LookFBD "Function with formals" is
-      the FBD case, captured from CODESYS).
+- [ ] 1.1 Confirm in CODESYS that the LD boxes `LIMIT(MN := 0, IN := v, MX := 100)` and
+      `SEL(G := g, IN0 := a, IN1 := b)` compile and run as their positional calls. The FBD boxes do: measured live,
+      `network-text-one-to-one/design.md` F12 (`LIMIT` gives 5).
 - [ ] 1.2 Measure whether CODESYS compiles an array-typed FBD wire (`w1 := MOVE(arr); out := w1;`).
 
 ## 2. Lower

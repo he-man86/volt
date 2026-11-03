@@ -195,3 +195,5 @@ A PROGRAM keeps it across scans (measured 2026-10-27, `st-spellings-run`).
 ## Open
 
 - **F3** (`.NAME` at a root box; the writer writing a root box's output list with the null at its main slot) is not built.
+  The settled `network-text.html` closes a root box "by .ENO or by nothing", and both readers refuse `t1(IN := a).Q;` (dev 3bf209901e),
+  so the decision above goes back to the owner: spell the stored index (1 of the corpus's 183 root boxes) or refuse it by name.

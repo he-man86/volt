@@ -7,7 +7,7 @@
 ## 2. Read and write
 
 - [ ] 2.1 The receiver reader takes `JMP.???` as a jump target with an unnamed label; one diagnostic on the label
-- [ ] 2.2 The writer spells an empty stored label `JMP.???`; the bridge reader reads it back (round trip)
+- [ ] 2.2 The writer spells an empty stored label `JMP.???` (today `Unspellable`, `StNetworkWriter.cs:487`); the bridge reader already takes it (probe, dev 3bf209901e); round-trip test
 
 ## 3. Consumers
 

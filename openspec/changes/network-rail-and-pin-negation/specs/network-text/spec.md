@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: every stored LD/FBD mark, the rail and every jump target has its own spelling
-Network text SHALL spell the rail as `RAIL()`, a jump and the return as targets (`JMP.l := v;`, `RETURN := v;`, `y := JMP.l := v;`), and the negation and edge marks where the model holds them: on a value (`NOT a`, `RISING(a)`, `FALLING(a)`, `NOT t1(…).Q`) and as a prefix on a receiver (a pin or EN `t1(NOT IN := a)`, an output `NOT Q => x`, a coil `RISING y := a;`), each pulling as a text that pushes back to the same stored model.
+Network text SHALL spell the rail as `RAIL()`, a jump and the return as targets (`JMP.l := v;`, `RETURN := v;`, `y := JMP.l := v;`), and the negation and edge marks where the model holds them: on a value (`NOT a`, `RISING(a)`, `FALLING(a)`, `NOT t1(…).Q`) and as a prefix on a receiver (a pin or EN `t1(NOT IN := a)`, an output `NOT Q => x`, a coil `RISING y := a;`, a jump `NOT JMP.l := v;`), each pulling as a text that pushes back to the same stored model.
 
 #### Scenario: a drawn rail coil round-trips
 - **WHEN** a network with a coil fed straight from the rail is pulled and pushed back
@@ -20,5 +20,5 @@ Network text SHALL spell the rail as `RAIL()`, a jump and the return as targets 
 - **THEN** the text is refused by name, because every target receives the rung's power flow (measured, CODESYS 3.5.21.40)
 
 #### Scenario: a mark the IDE stores no model for is refused by name
-- **WHEN** the text writes `NOT RISING y := a;`, `NOT y S= a;`, a mark on a jump, or `JMP l;` / `JMP(l, v);` / `RETURN;`
+- **WHEN** the text writes `NOT RISING y := a;`, `NOT y S= a;`, or `JMP l;` / `JMP(l, v);` / `RETURN;`
 - **THEN** the reader refuses it by name, with its line

@@ -10,7 +10,7 @@
 
 ## 3. Build
 
-- [ ] 3.1 Writer + both readers + twin, red then green per finding; `network-text.html` updated — F2, F4, F5, F8, F9, F13, F14, F16 and the empty-name mark built; **F3 open** (design.md "Open")
+- [ ] 3.1 Writer + both readers + twin, red then green per finding; `network-text.html` updated — F2, F4, F5, F8, F9, F13, F14, F16 and the empty-name mark built; **F3 open** (design.md "Open"; its `.NAME` at a root contradicts `network-text.html` and both readers today, owner decides)
 
 ## 4. Bugs found while measuring (fix test-first)
 

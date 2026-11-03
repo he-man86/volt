@@ -1,4 +1,5 @@
 > DRAFT, written from Sim-Assist (change `network-spellings`, 2026-10-31). Measured, not started.
+> Checked on dev 3bf209901e (2026-11-03): LSP half reproduced as below. The bridge differs from this draft: `StNetworkReader` already reads `JMP.???` (a jump to `???`), and the writer refuses that model by name (`StNetworkWriter.cs:487`, "a jump with no label").
 
 ## Why
 
@@ -28,5 +29,5 @@ Sim-Assist works around it without writing anything volt refuses: its Insert Jum
 
 ## Impact
 
-- `frontend/syntax/network/receivers.ts`, the unnamed-target check, the bridge reader/writer for parity.
+- `frontend/syntax/network/receivers.ts`, the unnamed-target check, `StNetworkWriter.cs:487` (the refusal goes; the reader needs no change).
 - Sim-Assist: with it, Insert Jump can write `JMP.??? := …` at once and select the label for naming, as CODESYS does.

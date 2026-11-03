@@ -2,7 +2,7 @@
 
 ## 1. Measure
 
-- [ ] 1.1 Record on CODESYS 3.5.21.40: `RISING IN :=` / `FALLING IN :=` on an FB pin and an operator pin, `RISING EN :=`,
+- [ ] 1.1 Record on CODESYS 3.5.21.40: `RISING IN :=` / `FALLING IN :=` on an FB pin and an operator pin, `RISING EN :=`, `RISING JMP.l :=`,
   and `NOT Q => x` / `RISING Q => x` on an FB output, each over a few scans (record-exec-network)
 
 ## 2. Lower

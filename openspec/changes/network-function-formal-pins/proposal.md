@@ -1,4 +1,5 @@
 > DRAFT, written from Sim-Assist (change `plc-workspace-ide`, 2026-10-31). Measured, not started.
+> Checked on dev 3bf209901e (2026-11-03): still real (`LIMIT`, `SEL`, `MIN`, `MUX` with formals: `call-named-args`, `builtins.ts:56`; `MOVE(arr)` wire: `network-box` at 1:1, `network.ts:123`). The FBD half of 1.1 is measured: `network-text-one-to-one/design.md` F12.
 
 ## Why
 
@@ -19,7 +20,7 @@ Measured with Sim-Assist's bundle of volt `2e45aa4098` (`parseDocument` + `build
 | ST `y := LIMIT(MN := 0, IN := v, MX := 100);` | `call-named-args` | unchanged: `call-named-args` (`rk_builtin_named_args`, CODESYS refuses it in ST) |
 
 A second, smaller finding on the same run: an FBD wire fed by `MOVE` of an array
-(`VAR_TEMP w1 : ANY; END_VAR` / `w1 := MOVE(arr);` / `out := w1;`, `arr, out : ARRAY[0..1] OF INT`) is refused as
+(`VAR w1 : ANY; END_VAR` / `w1 := MOVE(arr);` / `out := w1;`, `arr, out : ARRAY[0..1] OF INT`) is refused as
 `network-box` "the wire w1 has no type lowering can declare" at 1:1, the start of the file, not at the wire. `w1 :=
 arr;` instead gives `network-wire-type` at the wire. Whether CODESYS compiles an array-typed wire is not measured here.
 
@@ -29,7 +30,7 @@ arr;` instead gives `network-wire-type` at the wire. Whether CODESYS compiles an
   called with its formal input names lowers as the positional call in the declaration's pin order, as the box runs in
   CODESYS. An unknown pin name, a pin given twice, or a missing pin is refused by name, as today for a positional call
   of the wrong arity. ST keeps `call-named-args` (CODESYS refuses named arguments to a built-in in ST).
-- A wire whose type lowering cannot infer is refused at the wire's span (its `VAR_TEMP` declaration or its definition),
+- A wire whose type lowering cannot infer is refused at the wire's span (its `VAR` declaration or its definition),
   not at 1:1; `MOVE(x)` gives its wire `x`'s type, so an array wire reaches the same `network-wire-type` refusal as
   `w1 := arr;` until CODESYS's behaviour is measured.
 

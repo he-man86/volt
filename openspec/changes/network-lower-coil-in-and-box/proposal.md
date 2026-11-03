@@ -1,4 +1,5 @@
 > DRAFT, written from Sim-Assist (change `network-spellings`, 2026-10-31). Measured, not started.
+> Checked on dev 3bf209901e (2026-11-03): still real, and wider than measured below. `lowerSource` refuses every nested coil, the first operand too: `y := (x := a) AND b;` and `y := (x := a AND b) AND c;` give `expr-assign_expr` (`expressions.ts:62`; `lower/` has no case for `assign_expr` beyond the network pass-through, `network.ts:386`). The bridge reader reads them.
 
 ## Why
 
@@ -10,7 +11,7 @@ The lowering refuses it. Measured with Sim-Assist's bundle of volt dev `a292dd0f
 
 | text | result |
 |---|---|
-| `y := (x := a) AND b;` (the coil on the first operand, one rung) | runs |
+| `y := (x := a) AND b;` (the coil on the first operand, one rung) | measured then as "runs"; refused on dev 3bf209901e, `expr-assign_expr` |
 | `y := a AND (x := b) AND c;` (the coil on operand 2, an AND box) | `expr-assign_expr: assign_expr is not lowered yet` |
 
 So a network CODESYS stores, builds and draws cannot run in Sim-Assist. Sim-Assist's Insert Coil writes the mid-rung
@@ -19,7 +20,7 @@ text, or from a CODESYS network pulled as text.
 
 ## What Changes
 
-- Lower an assignment that stands as a non-first operand of an AND (and any other box input) the way CODESYS runs the
+- Lower an assignment that stands as any operand of an AND (the doc's mid-rung coil `y := (x := a) AND b;`, and any other box input) the way CODESYS runs the
   stored `Assign` node: the target takes that operand's value, and the operand hands the value on. Measure the scan order
   first (is `x` written before or after `a` is read?).
 - Interpreter and Rust, with twin parity.

@@ -19,6 +19,6 @@ A network wire whose type lowering cannot declare SHALL be refused at the span o
 file.
 
 #### Scenario: a wire fed by MOVE of an array
-- **WHEN** an FBD network declares `VAR_TEMP w1 : ANY; END_VAR`, assigns `w1 := MOVE(arr);` with `arr` an array, and
+- **WHEN** an FBD network declares `VAR w1 : ANY; END_VAR`, assigns `w1 := MOVE(arr);` with `arr` an array, and
   reads `out := w1;`
 - **THEN** the refusal names `w1` and stands on the wire's line
