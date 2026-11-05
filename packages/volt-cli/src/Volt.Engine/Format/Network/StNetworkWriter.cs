@@ -673,7 +673,15 @@ public static class StNetworkWriter
                     throw Unspellable("a box showing ENO read by another output", $"the '{b.Type}' box shows ENO and is read at slot {Slot(b.ConnectedSlot)}, not its ENO.");
                 member = "." + Box.EnoPin;
             }
-            else member = consumed || b.ConnectedSlot is > 0 || b.MainOutputName is not null ? DataMember(b, signature) : "";
+            else
+            {
+                // A slot named ENO on a box showing none, where its callee declares none: the IDE reads an unset flag by that
+                // name, and a false one stores a box the text has no form for.
+                if (signature is { DeclaresEno: false } && b.Members?[NetworkMembers.OutputNames]?.AsTexts is { Count: > 0 } held &&
+                    string.Equals(held[0], Box.EnoPin, StringComparison.OrdinalIgnoreCase))
+                    throw Unspellable("an ENO output on a box showing no ENO", $"the '{b.Type}' box holds an output slot named ENO, shows no ENO, and '{b.Type}' declares none.");
+                member = consumed || b.ConnectedSlot is > 0 || b.MainOutputName is not null ? DataMember(b, signature) : "";
+            }
             if (string.Equals(b.Type, NetworkSpelling.NotBox, StringComparison.OrdinalIgnoreCase) && b.Enable is null &&
                 (b.Inputs.Count != 1 || b.Outputs.Count > 0))
                 throw Unspellable("a NOT box with pins", "a NOT box with outputs, a named pin or several inputs.");

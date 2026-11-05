@@ -167,6 +167,20 @@ public class CodesysRootMainOutputTests
         Assert.Contains("%UNSUPPORTED \"a box showing ENO read by another output\"", text);
     }
 
+    /// <summary>A SLOT NAMED ENO ON A BOX SHOWING NO ENO, WHERE THE CALLEE DECLARES NONE: the IDE reads an unset flag by that name and
+    /// so shows the ENO (DLL read, measured), and over a false flag the box does not read as it stores. The text states neither,
+    /// so a pull would show the plain box, which builds and runs where this one need not (openspec nwl-box-storage-map).</summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void A_slot_named_ENO_on_a_box_showing_no_ENO_is_unsupported_by_name(bool unset)
+    {
+        var impl = Stored(0, "ENO", "Q");
+        Root(impl).Eno = unset ? null : false;
+        var text = StNetworkWriter.WritePulled(CodesysNetworkReader.ReadShown(impl, BodyLanguage.Fbd), Scope());
+        Assert.Contains("%UNSUPPORTED \"an ENO output on a box showing no ENO\"", text);
+    }
+
     /// <summary>A PROGRAM BOX STORES WHAT THE EDITOR'S INSERT STORES (live CODESYS 3.5.21.40, openspec nwl-box-storage-map, the
     /// editor's own <c>InsertBox</c>): its declared output names, one more slot than names, the null at its main slot and
     /// a second null in the slot after the first output. Pushed with no list a consumed one did not build ("The assignment
