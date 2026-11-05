@@ -70,3 +70,45 @@ batch at once, because a modal dialog blocks the IDE and hides what follows. Eve
 - **Is there one language or one per model?** The language is being fitted to NWL as closely as possible, and another vendor's
   model may not fit it 1:1. Either each model gets its own close-fitting language by this method, or one language gives up some
   fit. To decide when a second model has been mapped, with the owner.
+
+## Language direction (owner, 2026-11-05)
+
+Settled for now; built in task 5 after the maps. Each rule is checked against its rows before it is built, and a row that
+contradicts it reopens the rule here.
+
+**The principle.** The text is the stored NWL tree written as ST calls. Every stored node is one call holding its stored
+parts inside its `()`, and the flow is each call's return.
+
+**Decided:**
+
+- A mark on a value is a function, nested in run order: `INVERT(a)`, `RISING(a)`, `FALLING(a)`, `RISING(INVERT(a))`. This
+  covers contacts, pins, EN, the line into a coil and a box's own output: `IN := RISING(a)`, `EN := INVERT(c)`,
+  `y := INVERT(t1(IN := a).Q)`. `INVERT`, not `NOT`: `NOT(a)` stays NWL's NOT box. A chain deeper than the store holds is
+  refused by name.
+- A mark on a receiver is its output name: `Q_INVERTED => x`, `Q_SET => x`, `Q_RESET => x`. An edge on a receiver cannot be
+  drawn and is refused.
+- A pin mark and a value mark that run alike read alike: a changed network is rebuilt to one drawing, the outer mark on the
+  pin. An unchanged network keeps its own.
+- A box's default output flows on: ENO when EN is shown, otherwise its value; an FB's or a program's its first output. A dot
+  is written only when another output flows on: `x := t1(IN := a).Q2;`, a function after the editor's Set Output
+  `y := F(n := i, OUT => k).q;`. No `.ENO`, no `GT_EN`, no `ENO()`.
+  ```
+  x := GT(a, b);
+  y := GT(EN := c, a, b, OUT => v);
+  ```
+- Kept as they are: wires (`VAR w1 : ANY;`, `w1 := …`), `RAIL()`, `BRANCH()`, `BRANCH_SHORTCIRCUIT()`, `EXECUTE()`,
+  `OPERAND()`, the `%` lines.
+- A project POU, variable or pin with one of these names (`INVERT`, `RISING`, `FALLING`, `ASSIGN`, `<pin>_INVERTED`,
+  `<pin>_SET`, `<pin>_RESET`) is refused by name.
+
+**Open, decided from the assign map:**
+
+- Coils as `ASSIGN`, each returning its value, so a chain nests and a target's mark is its output name:
+  `ASSIGN(ASSIGN(a, Q => x), Q_INVERTED => y)`; a mid-rung coil `y := AND(ASSIGN(a, Q => x), b)`; a jump and the return as
+  targets `Q => JMP.l`, `Q => RETURN`. Holds only if a chain is one assign with a list of targets and no assign nests in an
+  assign's value. Whether one plain coil keeps `y := a;`, `y S= a;`, `y R= a;` is the owner's choice then.
+- `???` as `OPERAND('???')`, or kept.
+- `INVERT` on a value that is not BOOL: what it runs as.
+- A function showing EN and no ENO: refused if only a direct write makes it.
+
+**Parked by the owner:** comments on an operand.
