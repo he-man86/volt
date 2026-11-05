@@ -51,6 +51,7 @@ covers what was run, and combinations cover what the shape generator reaches.
 - Trusting a preview or a pull instead of running the program.
 - A new probe or list per fact.
 - Calling something unmeasured without checking the map, or measured without a fixture.
+- Concluding that the IDE ignores a stored form before measuring the form its editor draws.
 - Running one vendor's or one version's tests and assuming the rest: a change names what it did not run.
 
 ## Machine rules for measuring
