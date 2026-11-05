@@ -332,6 +332,11 @@ namespace Volt.Ide.Codesys
                 pinFlags.RemoveAt(0);
             }
 
+            // A RESOLVED CALL does not pass an input past its names (measured: `t2(a := a)` over two items); an operator names
+            // only what it names, and a box whose CallType resolved nothing is built as the text reads it.
+            if (items.Count > formals.Count && NwlInterop.Get(n, "CallType")?.ToString() is "FunctionBlock" or "Program" or "Function")
+                throw BoxRefusals.UnnamedCallInput(CodesysDriver.Row.Display, type, formals.Count);
+
             // `Names` is INDEX-ALIGNED, never length-equal: it may be shorter than the item list (see Box.FormalAt).
             // `InputFlags` is length-equal — required and checked above.
             var inputs = items

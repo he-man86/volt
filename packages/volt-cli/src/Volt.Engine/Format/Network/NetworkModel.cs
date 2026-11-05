@@ -335,6 +335,7 @@ public static class BoxRefusals
     public const string NoMainOutputMarker = "a consumed box storing no main output";
     public const string EmptyOperatorOutputMarker = "an operator box with an empty output slot";
     public const string ExtensibleInputsMarker = "a box storing extensible inputs";
+    public const string UnnamedCallInputMarker = "a call box input past its pin names";
     public const string OperatorSecondNullMarker = "an operator box holding a second null";
     /// <summary>An Execute box whose ST snippet the reader cannot read — raised by both vendor readers and answered by
     /// TwinCAT's archive pre-scan too, so the pull names it in one wording whichever way it was found.</summary>
@@ -381,6 +382,13 @@ public static class BoxRefusals
         new(ExtensibleInputsMarker,
             $"{vendor}: the '{boxType}' box stores extensible inputs, so the IDE calls it without its pin names, and the text has " +
             "no form for that. Edit this network in the IDE.");
+
+    /// <summary>A resolved FB, PROGRAM or FUNCTION box holding an input past its pin names: the IDE does not pass it, so the text would
+    /// state a pin the program does not have (live CODESYS 3.5.21.40, openspec nwl-box-storage-map).</summary>
+    public static Volt.Engine.Format.Body.UnrepresentableBodyException UnnamedCallInput(string vendor, string boxType, int slot) =>
+        new(UnnamedCallInputMarker,
+            $"{vendor}: the '{boxType}' box holds input {slot} past its pin names, which the IDE does not pass. Volt refuses to show it as " +
+            "a pin. Update the box's parameters in the IDE.");
 
     /// <summary>An operator box showing no ENO holding a null past its main slot: at a root the build fails on the implicit variable
     /// of that slot, and no IDE command writes one (live CODESYS 3.5.21.40, openspec nwl-box-storage-map).</summary>
