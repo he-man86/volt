@@ -146,6 +146,17 @@ describe("a root box's main output (network-text-one-to-one F3)", () => {
   })
 })
 
+describe("an enabled comparison's target, disabled (live CODESYS 3.5.21.40, openspec nwl-box-storage-map)", () => {
+  const z = (body: string) => {
+    const r = runner("gf, z, y : BOOL; i, j : INT;", `%NETWORK\nz := TRUE;\n%NETWORK\n${body}\n`, "", "FBD")
+    r.scan()
+    return r.get("z")
+  }
+  test("written FALSE where the box shows no ENO", () => expect(z("GT(EN := gf, i, j, OUT => z);")).toBe(false))
+  test("held where it shows ENO, at a root", () => expect(z("GT(EN := gf, i, j, OUT => z).ENO;")).toBe(true))
+  test("held where it shows ENO, read", () => expect(z("y := GT(EN := gf, i, j, OUT => z).ENO;")).toBe(true))
+})
+
 describe("what the lowering refuses, by name", () => {
   const codes = (vars: string, body: string, extra = "") => lowered(vars, body, extra).diagnostics.map((d) => [d.code, d.message])
 

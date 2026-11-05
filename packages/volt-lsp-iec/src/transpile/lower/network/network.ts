@@ -250,7 +250,7 @@ class Networker extends BoxLowerer {
       return pre
     }
     if (box.enable !== undefined) {
-      this.enabled(box, pre, false)
+      this.enabled(box, pre, false, eno)
       return pre
     }
     // measured 2.3: CODESYS does not compile a root box showing ENO without EN (`rcc_network_eno_function_without_en_root`)

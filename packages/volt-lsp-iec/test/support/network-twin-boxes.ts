@@ -85,7 +85,7 @@ export abstract class BoxTwinner {
 
   /** An enabled function box: runs under its EN, what its pins evaluate on every scan (2.3); its ENO is EN (1.3).
    *  Returns the ENO's temp where `read`. */
-  protected enabled(box: NetworkBox, pre: string[], read: boolean): string {
+  protected enabled(box: NetworkBox, pre: string[], read: boolean, shown: boolean = read): string {
     const base = this.name(box)
     const cond = this.pin(box.enable!, pre)
     const eno = read ? this.temp() : undefined
@@ -98,7 +98,7 @@ export abstract class BoxTwinner {
     if (result !== undefined) {
       const target = this.expr(result.value!, pre)
       inner.push(`${target} := ${value};`)
-      if (COMPARISON.has(base.toUpperCase())) elseLines.push(`${target} := FALSE;`)
+      if (!shown && COMPARISON.has(base.toUpperCase())) elseLines.push(`${target} := FALSE;`)
     } else inner.push(`${value};`)
     if (eno !== undefined) {
       inner.push(`${eno} := TRUE;`)

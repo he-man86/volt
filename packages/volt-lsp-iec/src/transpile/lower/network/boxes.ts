@@ -92,8 +92,9 @@ export abstract class BoxLowerer {
     return t
   }
 
-  /** An enabled function box: it runs under its EN, its ENO is its EN. Returns the ENO's temp where `read`. */
-  protected enabled(box: NetworkBox, pre: Statement[], read: boolean): Expr | undefined {
+  /** An enabled function box: it runs under its EN, its ENO is its EN. Returns the ENO's temp where `read`. A comparison
+   *  showing no ENO writes its target FALSE when disabled; showing ENO it holds it (live CODESYS 3.5.21.40). */
+  protected enabled(box: NetworkBox, pre: Statement[], read: boolean, shown: boolean = read): Expr | undefined {
     const span = box.call.span
     const cond = this.pin(box.enable!, pre)
     const eno = read ? this.temp(span) : undefined
@@ -105,7 +106,7 @@ export abstract class BoxLowerer {
     if (result !== undefined) {
       const target = this.expr(result.value!, pre)
       then.push(assign(target, value, span))
-      if (COMPARISON.has(this.name(box).toUpperCase())) otherwise.push(assign(target, bool(false, span), span))
+      if (!shown && COMPARISON.has(this.name(box).toUpperCase())) otherwise.push(assign(target, bool(false, span), span))
     } else then.push(standing(value))
     if (eno !== undefined) {
       then.push(assign(eno, bool(true, span), span))

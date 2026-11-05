@@ -241,7 +241,7 @@ class Twinner extends BoxTwinner {
       return pre.splice(0)
     }
     if (box.enable !== undefined) {
-      this.enabled(box, pre, false)
+      this.enabled(box, pre, false, eno)
       return pre.splice(0)
     }
     // measured 2.3: CODESYS does not compile a root box showing ENO without EN (`rcc_network_eno_function_without_en_root`)
