@@ -50,8 +50,6 @@ export const NETWORK_GRAPHICAL_TESTS_E: readonly LanguageTest[] = [
     r5Fb("FB_NG_r5_split_nested", "LD", ["VAR w1 : ANY; END_VAR\nx := (w1 := a AND b);\ny := w1 AND c;"]), r5Doc),
   ng("ng_r5_comparison_eno", "FB_NG_r5_cmp_eno", "2R.5 #22: a comparison is a box like any other — enabled, read through its ENO",
     r5Fb("FB_NG_r5_cmp_eno", "LD", ["lamp := GT(EN := c, v, 5, OUT => x).ENO;"]), r5Doc),
-  ng("ng_r5_named_eno", "FB_NG_r5_named_eno", "2R.5 #23: the wired ENO pin beside a data output — `MOVE(EN := c, 7, ENO => lamp, OUT => i).ENO`",
-    r5Fb("FB_NG_r5_named_eno", "FBD", ["MOVE(EN := c, 7, ENO => lamp, OUT => i).ENO;"]), r5Doc),
   ng("ng_r5_empty_branch", "FB_NG_r5_empty_branch", "a branch of a parallel that is the rail — `BRANCH(FEED := c, a, TRUE)`",
     r5Fb("FB_NG_r5_empty_branch", "LD", ["x := BRANCH(FEED := c, a, TRUE);", "y := BRANCH(FEED := c, a, TRUE, b);"]), r5Doc),
   ng("ng_r5_one_input_add", "FB_NG_r5_one_add", "2R.5 #4: an ADD box with one input — `ADD(i)`, which the build refuses",

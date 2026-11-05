@@ -94,7 +94,7 @@ y    := f(IN := a).ENO;
 x    := AND(r1(CLK := a), b);
 t    := t1(IN := a, PT := T#1S).ET;
 q    := g(a, Q => v).OUT;
-MOVE(EN := c, 7, ENO => lamp, OUT => x).ENO;
+lamp := MOVE(EN := c, 7, OUT => x).ENO;
 c2(CU := a, PV := 5).CV;</pre>
 
 <h2 id="wires">Wires</h2>
@@ -133,7 +133,7 @@ EXECUTE('n := 0;');</pre>
   <tr><td class="name">NETWORK_PARSE</td><td>a mark the IDE stores no model for</td><td><code>NOT RISING y := a;</code> <code>NOT y S= a;</code> <code>y := NOT x := a;</code> <code>NOT := y := a;</code></td></tr>
   <tr><td class="name">NETWORK_PARSE</td><td><code>EN :=</code>, <code>.ENO</code>, <code>ENO =></code>, <code>OUT =></code> or a type's call on a callee no declaration in reach states</td><td><code>y := h(EN := c, a);</code> with <code>h</code> declared nowhere</td></tr>
   <tr><td class="name">NETWORK_PARSE</td><td>a jump or a return not written as a target</td><td><code>JMP l;</code> <code>JMP(l, a);</code> <code>RETURN;</code></td></tr>
-  <tr><td class="name">NETWORK_PARSE</td><td>text whose run is not what it says</td><td><code>MOVE(a, OUT => x, OUT => y);</code> — the IDE writes no second target, and two targets are a chain; <code>t1(a);</code> — an FB's or a PROGRAM's box passes only named pins, and the IDE drops the rest</td></tr>
+  <tr><td class="name">NETWORK_PARSE</td><td>text whose run is not what it says</td><td><code>MOVE(a, OUT => x, OUT => y);</code> — the IDE writes no second target, and two targets are a chain; <code>t1(a);</code> — an FB's or a PROGRAM's box passes only named pins, and the IDE drops the rest; <code>MOVE(EN := c, 7, ENO => z, OUT => x).ENO;</code> — the IDE never writes a variable on the ENO pin, so ENO is read as a coil's value</td></tr>
   <tr><td class="name">NETWORK_UNSUPPORTED</td><td>a model the writer has no spelling for, an edited <code>%UNSUPPORTED</code> line, and a box whose callee no declaration in reach states</td><td><code>x := f1(IN := a).Q;</code> with <code>f1 : Fx;</code> and <code>Fx</code> declared nowhere</td></tr>
 </table>
 <p>The language server gives the same refusals while typing.</p>

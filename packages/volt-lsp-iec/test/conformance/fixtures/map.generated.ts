@@ -3674,7 +3674,6 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   ng_r5_edge_pin: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 2, edge: "agree", size: 3.3, shape: "f848daf4e9" },
   ng_r5_empty_branch: { evidence: "unaskable", tier: "arith", rust: "compiles", lints: ["clippy::overly_complex_bool_expr"], pedantic: 1, edge: "agree", size: 2.1, shape: "ba6a952769" },
   ng_r5_enabled_comparison_value: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 2, edge: "agree", size: 2.6, shape: "7db85de24e" },
-  ng_r5_named_eno: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 1, edge: "agree", size: 2.5, shape: "f81cacae4d" },
   ng_r5_negated_en: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 1, edge: "agree", size: 2.4, shape: "b40fd8e742" },
   ng_r5_nested_jump: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 3, edge: "agree", size: 2.6, shape: "1f781ea8bd" },
   ng_r5_one_input_add: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 1, edge: "agree", size: 2.3, shape: "a4a1e4a379" },

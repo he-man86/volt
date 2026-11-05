@@ -81,16 +81,15 @@ describe(`graphical / stored shapes, ld-fbd-coverage 2R.5 (${BASE})`, () => {
 		await shape("r5eb", (n) => fb(n, "LD", ["x := BRANCH(FEED := c, a, TRUE);", "y := BRANCH(FEED := c, a, TRUE, b);"]), TC.emptyBranch)
 	})
 
-	it("#22, #23, #26: a comparison's ENO, the named ENO pin, an enabled comparison as a value", async () => {
+	it("#22, #26: a comparison's ENO, an enabled comparison as a value", async () => {
 		await shape("r5ce", (n) => fb(n, "LD", ["lamp := GT(EN := c, v, 5, OUT => x).ENO;"]), TC.comparisonEno)
-		await shape("r5ne2", (n) => fb(n, "FBD", ["MOVE(EN := c, 7, ENO => lamp, OUT => i).ENO;"]), TC.namedEno)
 		await shape("r5cv", (n) => fb(n, "FBD", ["x := AND(a, GT(EN := c, v, 40));"]), TC.comparisonValue)
 	})
 })
 
 /** TwinCAT's refusals, by the words `TcUnmeasured` and the native builder name them — undefined where the shape is
  *  expected to round-trip. (The four the PLCopen lowering refused — a result pin, a nested jump, an output pin of an
- *  array element's call, a named ENO — the native writer builds, measured here.) */
+ *  array element's call — the native writer builds, measured here.) */
 const TC: Record<string, string | undefined> = {
 	twoEno: undefined,
 	edgePin: "a modifier on its input pin",
@@ -100,7 +99,6 @@ const TC: Record<string, string | undefined> = {
 	splitBefore: "referenced above its definition",
 	splitNested: "defined below the top level",
 	comparisonEno: undefined,
-	namedEno: undefined,
 	comparisonValue: undefined,
 	emptyBranch: "a parallel branch",
 }

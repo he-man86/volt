@@ -723,14 +723,6 @@ x := r1(CLK := a).Q;
 === refused
 network-plain-st a box with one output names none
 
-#### eno-target-without-eno — ENO => v is a target of the shown ENO, which .ENO states
-=== text
-%LANGUAGE FBD
-%NETWORK
-ADD(EN := c, i, 1, ENO => lamp, OUT => x);
-=== refused
-network-plain-st ENO => v is a target of the shown ENO
-
 #### value-to-a-wire — a box's value reaches a wire as the wire's definition, `w := <box>`
 === text
 %LANGUAGE FBD
@@ -1153,3 +1145,32 @@ program p a n => q1 q2
 x := p(a, i).q1;
 === refused
 network-plain-st the call p passes a pin by position
+
+#### eno-target-on-an-operator — z is never written (live CODESYS 3.5.21.40)
+=== text
+%LANGUAGE FBD
+%NETWORK
+MOVE(EN := c, 7, ENO => z, OUT => x).ENO;
+=== refused
+network-plain-st the IDE never writes a variable on the ENO pin
+
+#### eno-target-on-a-function — neither z nor k is written
+=== scope
+function f IN => q
+=== text
+%LANGUAGE FBD
+%NETWORK
+f(EN := c, IN := a, ENO => z, OUT => k).ENO;
+=== refused
+network-plain-st the IDE never writes a variable on the ENO pin
+
+#### eno-target-on-an-fb — z is never written
+=== scope
+fb Fx a => q1 q2
+instance t2 Fx
+=== text
+%LANGUAGE FBD
+%NETWORK
+t2(EN := c, a := a, ENO => z).ENO;
+=== refused
+network-plain-st the IDE never writes a variable on the ENO pin

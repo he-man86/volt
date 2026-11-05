@@ -164,6 +164,11 @@ describe("what the lowering refuses, by name", () => {
       ["network-box", "the call c1 passes a pin by position: the box of an FB or a PROGRAM passes only named pins, and the IDE drops the rest. Name it, c1(<pin> := value)"],
     ]))
 
+  test("a variable on the ENO pin: the IDE never writes it, so nothing runs it written", () =>
+    expect(codes("a, c, x, z : BOOL;", "%NETWORK\nMOVE(EN := c, a, ENO => z, OUT => x).ENO;\n")).toEqual([
+      ["network-box", "the call MOVE wires ENO =>: the IDE never writes a variable on the ENO pin. ENO is read where its call is closed, v := MOVE(…).ENO"],
+    ]))
+
   test("an enabled box other than a comparison read inside a tree", () =>
     expect(codes("x : BOOL; i : INT; c : BOOL;", "%NETWORK\nx := EQ(ADD(EN := c, i, 1), 2);\n")).toEqual([
       ["network-box", "the enabled ADD box is read by its value other than as an assignment's whole value"],

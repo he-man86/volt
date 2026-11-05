@@ -202,8 +202,6 @@ public sealed class TcArchiveBuilderTests(Xunit.Abstractions.ITestOutputHelper o
         ("enable_and", "%NETWORK\nAND(EN := go, a, b, OUT => out).ENO;\n"),
         ("enable_move", "%NETWORK\nout := MOVE(EN := go, b, OUT => n).ENO;\n"),
         ("function_named", "%NETWORK\nn := F_Custom(A := i1, B := i2);\n"),
-        // 2R.5 #23: the named ENO pin — the variable stored on the ENO slot, in place of its null, as CODESYS's writer builds it.
-        ("named_eno", "%NETWORK\nMOVE(EN := go, 7, ENO => out, OUT => n).ENO;\n"),
     };
 
     /// <summary>The shapes the builder refuses, by the phrase of the reason.</summary>

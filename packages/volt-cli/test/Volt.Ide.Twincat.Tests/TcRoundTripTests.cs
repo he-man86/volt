@@ -571,51 +571,19 @@ public class TcRoundTripTests
         Assert.Null(TcText.Apply(before, TcText.Validate(text, TcText.ScopeOf(pulled, EnoDeclaredFb)), EnoDeclaredFb));
     }
 
-    /// <summary>…and ON A BOX WITH EN IT IS THE NAMED ENO PIN (P5, 2R.5 awkward-sweep #23), the parity twin of CODESYS's
-    /// <c>A_variable_wired_on_the_ENO_slot_is_the_named_ENO_pin_not_dropped</c>: pulled, the unchanged text pushes back as
-    /// no change at all.</summary>
+    /// <summary>…and ON A BOX WITH EN THE IDE NEVER WRITES IT (live CODESYS 3.5.21.40, openspec nwl-box-storage-map; the writer shared
+    /// with CODESYS, unmeasured on TwinCAT and refused until it is): the pull refuses it by name, and the unchanged text pushes
+    /// back as no change at all, the variable kept in the IDE.</summary>
     [Fact]
-    public void A_variable_on_the_ENO_slot_is_the_named_ENO_pin_not_dropped()
+    public void A_variable_on_the_ENO_slot_is_refused_by_name()
     {
         var before = EnoWired(withEn: true);
         var pulled = TcNetworkReader.Read(Impl(before), BodyLanguage.Fbd);
         var text = TcText.Write(pulled, EnoSlotFb);
 
-        Assert.Contains("ENO => enoFlag", text);
-        Assert.Null(TcText.Apply(before, TcText.Validate(text, TcText.ScopeOf(pulled, EnoSlotFb)), EnoSlotFb));
-    }
-
-    /// <summary>…its deletion is refused, never a silent no-op: the in-place write never visited the ENO slot, so removing
-    /// `ENO => enoFlag` wrote nothing, the push reported success and the IDE kept the variable.</summary>
-    [Fact]
-    public void Dropping_the_named_ENO_pin_is_refused_rather_than_ignored()
-    {
-        var before = EnoWired(withEn: true);
-        var pulled = TcNetworkReader.Read(Impl(before), BodyLanguage.Fbd);
-        var text = TcText.Write(pulled, EnoSlotFb);
-        Assert.Contains("ENO => enoFlag", text);
-        var dropped = text.Replace(", ENO => enoFlag", "").Replace("ENO => enoFlag, ", "");
-        Assert.NotEqual(text, dropped);
-
-        var without = TcText.Validate(dropped, TcText.ScopeOf(pulled, EnoSlotFb));
-
-        var ex = Assert.ThrowsAny<System.Exception>(() => TcText.Apply(before, without, EnoSlotFb));
-        Assert.Contains("output pin 'ENO'", ex.Message);
-    }
-
-    /// <summary>…and its retarget is written onto the ENO slot, where the IDE stores it.</summary>
-    [Fact]
-    public void Retargeting_the_named_ENO_pin_writes_the_ENO_slot()
-    {
-        var before = EnoWired(withEn: true);
-        var pulled = TcNetworkReader.Read(Impl(before), BodyLanguage.Fbd);
-        var text = TcText.Write(pulled, EnoSlotFb);
-
-        var written = TcText.Apply(before, TcText.Validate(text.Replace("ENO => enoFlag", "ENO => wiredPin"), TcText.ScopeOf(pulled, EnoSlotFb)), EnoSlotFb);
-
-        Assert.NotNull(written);
-        var slots = Impl(written!).Descendants("l2").First(l => (string?)l.Attribute("n") == "OutputItems").Elements().ToList();
-        Assert.Equal("\"wiredPin\"", slots[0].Elements("v").Single(v => (string?)v.Attribute("n") == "Operand").Value);
+        Assert.Contains("%UNSUPPORTED \"a variable on the ENO pin\"", text);
+        var scope = TcText.ScopeOf(pulled, EnoSlotFb);
+        Assert.Null(TcNetworkWriter.Apply(before, TcText.Validate(text, scope), scope));
     }
 
     /// <summary>The block <c>EnoSlot.derived.TcPOU</c>'s box calls, as its declaration would state it — inputs IN, PT, one

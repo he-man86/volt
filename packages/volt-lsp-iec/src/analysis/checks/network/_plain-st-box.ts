@@ -50,8 +50,6 @@ export function checkBox(call: CallExpr, member: string | undefined, consumed: b
         : `the call ${head} holds EN := twice`)
   }
   const eno = member !== undefined && member.toUpperCase() === "ENO" && !declaresEno(signature)
-  if (signature !== undefined && !eno && !declaresEno(signature) && box.pins.some((a) => a.output && a.param?.name.toUpperCase() === "ENO"))
-    emit(out, at, CODE, `the call ${head} wires ENO => and shows no ENO: ENO => v is a target of the shown ENO, which its call closed by .ENO states`)
   if (eno || signature === undefined || (!consumed && member === undefined)) return
   const outputs = box.instance !== undefined ? signature.outputs : dataOutputs(signature)
   if (member === undefined) {

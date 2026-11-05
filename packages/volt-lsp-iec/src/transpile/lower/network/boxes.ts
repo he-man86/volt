@@ -100,9 +100,8 @@ export abstract class BoxLowerer {
     const cond = this.pin(box.enable!, pre)
     const eno = read ? this.temp(span) : undefined
     const outs = box.pins.filter((a) => a.output)
-    const enoOut = outs.find((a) => named(a, "ENO"))
     const result = outs.find((a) => named(a, "OUT"))
-    const value = this.boxValue(box, [...box.pins.filter((a) => !a.output), ...outs.filter((a) => a !== result && a !== enoOut)], pre)
+    const value = this.boxValue(box, [...box.pins.filter((a) => !a.output), ...outs.filter((a) => a !== result)], pre)
     const then: Statement[] = []
     const otherwise: Statement[] = []
     if (result !== undefined) {
@@ -110,9 +109,9 @@ export abstract class BoxLowerer {
       then.push(assign(target, value, span))
       if (COMPARISON.has(this.name(box).toUpperCase())) otherwise.push(assign(target, bool(false, span), span))
     } else then.push(standing(value))
-    for (const flag of [...(enoOut === undefined ? [] : [this.expr(enoOut.value!, pre)]), ...(eno === undefined ? [] : [eno])]) {
-      then.push(assign(flag, bool(true, span), span))
-      otherwise.push(assign(flag, bool(false, span), span))
+    if (eno !== undefined) {
+      then.push(assign(eno, bool(true, span), span))
+      otherwise.push(assign(eno, bool(false, span), span))
     }
     pre.push(ifThen(cond, then, otherwise, span))
     return eno
@@ -122,15 +121,12 @@ export abstract class BoxLowerer {
    *  no EN for). */
   protected enoOnly(box: NetworkBox, pre: Statement[]): Expr {
     const span = box.call.span
-    const enoOut = box.pins.find((a) => a.output && named(a, "ENO"))
-    const rest = box.pins.filter((a) => a !== enoOut)
-    const result = rest.find((a) => a.output && named(a, "OUT"))
-    if (result === undefined) pre.push(standing(this.callOf(box.st, rest, pre)))
+    const result = box.pins.find((a) => a.output && named(a, "OUT"))
+    if (result === undefined) pre.push(standing(this.callOf(box.st, box.pins, pre)))
     else {
-      const value = this.callOf(box.st, rest.filter((a) => a !== result), pre)
+      const value = this.callOf(box.st, box.pins.filter((a) => a !== result), pre)
       pre.push(assign(this.expr(result.value!, pre), value, span))
     }
-    if (enoOut !== undefined) pre.push(assign(this.expr(enoOut.value!, pre), bool(false, span), span))
     return bool(false, span)
   }
 
@@ -147,22 +143,20 @@ export abstract class BoxLowerer {
       return undefined
     }
     const instance = this.expr(inst, pre)
-    const enoOut = box.pins.find((a) => a.output && named(a, "ENO") && !declaresEno(box.signature))
-    const pins = box.pins.filter((a) => a !== enoOut)
+    const pins = box.pins
     let value: Expr | undefined
     if (box.enable !== undefined) {
       const cond = this.pin(box.enable, pre)
       const then: Statement[] = [standing(this.callOf({ ...box.st, callee: inst }, pins, pre))]
       const otherwise: Statement[] = []
-      const flags = enoOut === undefined ? [] : [this.expr(enoOut.value!, pre)]
-      if (eno) flags.push((value = this.temp(span)))
-      for (const flag of flags) {
-        then.push(assign(flag, bool(true, span), span))
-        otherwise.push(assign(flag, bool(false, span), span))
+      if (eno) {
+        value = this.temp(span)
+        then.push(assign(value, bool(true, span), span))
+        otherwise.push(assign(value, bool(false, span), span))
       }
       pre.push(ifThen(cond, then, otherwise, span))
     } else {
-      if (eno || enoOut !== undefined) throw new NetworkRefusal(`the ${this.name(box)} box shows ENO without EN, which CODESYS does not compile`, NOT_COMPILED)
+      if (eno) throw new NetworkRefusal(`the ${this.name(box)} box shows ENO without EN, which CODESYS does not compile`, NOT_COMPILED)
       pre.push(standing(this.callOf({ ...box.st, callee: inst }, pins, pre)))
     }
     if (eno || read === undefined) return value

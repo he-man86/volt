@@ -93,19 +93,13 @@ export abstract class BoxTwinner {
     const elseLines: string[] = []
     const outs = box.pins.filter((a) => a.output)
     const ins = box.pins.filter((a) => !a.output)
-    const enoOut = outs.find((a) => a.param?.name.toUpperCase() === "ENO")
     const result = outs.find((a) => a.param?.name.toUpperCase() === "OUT")
-    const value = this.boxValue(box, [...ins, ...outs.filter((a) => a !== result && a !== enoOut)], pre)
+    const value = this.boxValue(box, [...ins, ...outs.filter((a) => a !== result)], pre)
     if (result !== undefined) {
       const target = this.expr(result.value!, pre)
       inner.push(`${target} := ${value};`)
       if (COMPARISON.has(base.toUpperCase())) elseLines.push(`${target} := FALSE;`)
     } else inner.push(`${value};`)
-    if (enoOut !== undefined) {
-      const target = this.expr(enoOut.value!, pre)
-      inner.push(`${target} := TRUE;`)
-      elseLines.push(`${target} := FALSE;`)
-    }
     if (eno !== undefined) {
       inner.push(`${eno} := TRUE;`)
       elseLines.push(`${eno} := FALSE;`)
@@ -117,15 +111,12 @@ export abstract class BoxTwinner {
   /** A function box showing its ENO and no EN (`X(…).ENO`): it runs on every scan, and its ENO is FALSE (measured,
    *  network-output-member 2.3: CODESYS sets no ENO a box has no EN for). */
   protected enoOnly(box: NetworkBox, pre: string[]): string {
-    const enoOut = box.pins.find((a) => a.output && a.param?.name.toUpperCase() === "ENO")
-    const rest = box.pins.filter((a) => a !== enoOut)
-    const result = rest.find((a) => a.output && a.param?.name.toUpperCase() === "OUT")
-    if (result === undefined) pre.push(this.callText(box.st, rest, pre) + ";")
+    const result = box.pins.find((a) => a.output && a.param?.name.toUpperCase() === "OUT")
+    if (result === undefined) pre.push(this.callText(box.st, box.pins, pre) + ";")
     else {
-      const value = this.callText(box.st, rest.filter((a) => a !== result), pre)
+      const value = this.callText(box.st, box.pins.filter((a) => a !== result), pre)
       pre.push(`${this.expr(result.value!, pre)} := ${value};`)
     }
-    if (enoOut !== undefined) pre.push(`${this.expr(enoOut.value!, pre)} := FALSE;`)
     return "FALSE"
   }
 
@@ -146,18 +137,13 @@ export abstract class BoxTwinner {
       return ""
     }
     const instance = this.expr(inst, pre)
-    const enoOut = box.pins.find((a) => a.output && a.param?.name.toUpperCase() === "ENO" && !declaresEno(box.signature))
-    const pins = box.pins.filter((a) => a !== enoOut)
+    const pins = box.pins
     let value = ""
     if (box.enable !== undefined) {
       const cond = this.pin(box.enable, pre)
       const inner: string[] = []
       inner.push(this.callText({ ...box.st, callee: inst }, pins, pre) + ";")
       const elseLines: string[] = []
-      if (enoOut !== undefined) {
-        inner.push(`${this.expr(enoOut.value!, pre)} := TRUE;`)
-        elseLines.push(`${this.expr(enoOut.value!, pre)} := FALSE;`)
-      }
       if (eno) {
         value = this.temp()
         inner.push(`${value} := TRUE;`)
@@ -165,7 +151,7 @@ export abstract class BoxTwinner {
       }
       pre.push(`IF ${cond} THEN\n\t${inner.join("\n\t")}` + (elseLines.length > 0 ? `\nELSE\n\t${elseLines.join("\n\t")}` : "") + "\nEND_IF;")
     } else {
-      if (eno || enoOut !== undefined) throw new TwinRefusal(`the ${this.name(box)} box shows ENO without EN, which CODESYS does not compile`)
+      if (eno) throw new TwinRefusal(`the ${this.name(box)} box shows ENO without EN, which CODESYS does not compile`)
       pre.push(this.callText({ ...box.st, callee: inst }, pins, pre) + ";")
     }
     if (eno || read === undefined) return value

@@ -383,8 +383,10 @@ public class CodesysModelRoundTripOracleTests
     [Fact]
     public void Reader_double_tally() =>
         StNetworkOracle.AssertTally(Read.Value.SelectMany(kv => StNetworkOracle.CheckBody(kv.Key, kv.Value)).ToList(), "CODESYS reader doubles",
-            identical: 48, stored: 0, new Dictionary<string, int>(StringComparer.Ordinal)
+            identical: 47, stored: 0, new Dictionary<string, int>(StringComparer.Ordinal)
             {
+                // the IDE never writes a variable on the ENO pin (live CODESYS 3.5.21.40, openspec nwl-box-storage-map)
+                ["a variable on the ENO pin"] = 1,
                 // a box showing EN or ENO whose callee no declaration in the double's scope states (network-text-one-to-one F9)
                 ["a box flag on a callee no declaration in reach states"] = 1,
                 // the enabled MOVE whose output list names no ENO: read at no slot the text can state (the reader's own test)

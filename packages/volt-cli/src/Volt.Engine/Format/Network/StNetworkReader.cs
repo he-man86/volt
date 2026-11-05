@@ -1304,13 +1304,15 @@ public static class StNetworkReader
             // given its names by the push (`NetworkDerivation`).
             if ((instance is not null || signature is { Shape: CalleeShape.Program }) && inputs.Any(i => i.Formal is null))
                 throw Error(c.Line, $"the call {c.Head} passes a pin by position: the box of an FB or a PROGRAM passes only named pins, and the IDE drops the rest. Name it, {c.Head}(<pin> := value)");
+            // A VARIABLE ON THE ENO PIN IS NEVER WRITTEN (live CODESYS 3.5.21.40, openspec nwl-box-storage-map), on an operator, a
+            // FUNCTION, an FB alike, and a FUNCTION's `OUT =>` beside it is not written either. ENO is read as a coil's value.
+            if (signature is not null && !declaresEno && outputs.Any(o => Is(o.Formal, Box.EnoPin)))
+                throw Error(c.Line, $"the call {c.Head} wires ENO =>: the IDE never writes a variable on the ENO pin. ENO is read where its call is closed, v := {c.Head}(…).ENO");
             // ONE OUTPUT, ONE TARGET (live CODESYS 3.5.21.40, openspec nwl-box-storage-map): the IDE writes no second target.
             if (outputs.GroupBy(o => o.Formal ?? StNetworkWriter.ResultPin, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1) is { } twice)
                 throw Error(c.Line, $"the call {c.Head} wires {twice.Key} => twice: the IDE writes no second target. Two targets are a chain, x := y := {c.Head}(…)");
 
             var (hasEno, connected, byName) = Member(c, type, instance is not null, signature, consumed, declaresEno);
-            if (signature is not null && !hasEno && !declaresEno && outputs.Any(o => Is(o.Formal, Box.EnoPin)))
-                throw Error(c.Line, $"the call {c.Head} wires ENO => and shows no ENO: ENO => v is a target of the shown ENO, which its call closed by .ENO states");
             var eno = hasEno ? 0 : (int?)null;
             var next = 0;
             var outs = new List<Output>();

@@ -185,15 +185,6 @@ NETWORK
   (:= lamp (NOT (MOVE 1 =>1:t en:c conn:0 eno:1)))
   (:= edge rise:(MOVE 2 =>1:u en:c conn:0 eno:1))
 
-#### eno-wired-top-level
-=== text
-%LANGUAGE LD
-%NETWORK
-MOVE(EN := c, 7, ENO => lamp, OUT => x).ENO;
-=== model
-NETWORK
-  (MOVE 7 =>ENO:lamp =>1:x en:c eno:1)
-
 #### negated-en-pin
 === text
 %LANGUAGE LD

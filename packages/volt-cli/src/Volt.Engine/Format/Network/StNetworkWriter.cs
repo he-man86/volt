@@ -771,9 +771,9 @@ public static class StNetworkWriter
                 {
                     if (b.Instance is null && string.Equals(f, ResultPin, StringComparison.OrdinalIgnoreCase))
                         throw Unspellable("a named output called OUT", $"the '{b.Type}' function declares an output OUT, which the text reads as its result pin.");
-                    // `ENO => v` is a target of the shown ENO wherever the callee declares no ENO.
-                    if (!b.HasEnoOutput && signature is { DeclaresEno: false } && string.Equals(f, Box.EnoPin, StringComparison.OrdinalIgnoreCase))
-                        throw Unspellable("an ENO output on a box showing no ENO", $"the '{b.Type}' box wires an output ENO, shows no ENO, and '{b.Type}' declares none.");
+                    // The IDE never writes it (live CODESYS 3.5.21.40, openspec nwl-box-storage-map); on a FUNCTION the value's target is lost with it.
+                    if (signature is { DeclaresEno: false } && string.Equals(f, Box.EnoPin, StringComparison.OrdinalIgnoreCase))
+                        throw Unspellable("a variable on the ENO pin", $"the '{b.Type}' box holds '{o.Value.Text}' on its ENO pin, which the IDE never writes.");
                     args.Add(marks + Name(f) + " => " + Target(o.Value));
                     continue;
                 }

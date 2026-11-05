@@ -154,6 +154,11 @@ export function misleadingBox(box: NetworkBox, head: string): { span: Span; mess
     if (positional !== undefined)
       out.push({ span: positional.span, message: `the call ${head} passes a pin by position: the box of an FB or a PROGRAM passes only named pins, and the IDE drops the rest. Name it, ${head}(<pin> := value)` })
   }
+  if (box.signature !== undefined && !declaresEno(box.signature)) {
+    const eno = box.call.args.find((a) => a.output && a.param?.name.toUpperCase() === "ENO")
+    if (eno !== undefined)
+      out.push({ span: eno.span, message: `the call ${head} wires ENO =>: the IDE never writes a variable on the ENO pin. ENO is read where its call is closed, v := ${head}(…).ENO` })
+  }
   const wired = new Set<string>()
   for (const a of box.call.args) {
     if (!a.output || a.param === undefined) continue

@@ -373,10 +373,16 @@ public class StNetworkTextTests
     /// <summary>3.0: each <c>OUT =&gt;</c> is the next unnamed output slot; <c>ENO =&gt;</c> a variable is the ENO pin wired;
     /// a box type is spelled in the case the IDE stores it.</summary>
     [Fact]
-    public void An_ENO_variable_and_a_typed_case_are_spelled() =>
-        RoundTrips(Fbd1(Call("MOVE", new[] { In(L("7")) }, new[] { new Output("ENO", new Operand("lamp", IsLValue: true)), Out("x", 1) }, en: L("c"), eno: true, kind: CallKind.Operator),
-                        Set(Op("and", L("a"), L("b")), T("y"))),
-            "%LANGUAGE FBD\n%NETWORK\nMOVE(EN := c, 7, ENO => lamp, OUT => x).ENO;\ny := and(a, b);\n");
+    public void A_typed_case_is_spelled() =>
+        RoundTrips(Fbd1(Set(Op("and", L("a"), L("b")), T("y"))), "%LANGUAGE FBD\n%NETWORK\ny := and(a, b);\n");
+
+    /// <summary>A stored variable on the ENO pin (live CODESYS 3.5.21.40): the IDE never writes it, so the pull refuses it.</summary>
+    [Fact]
+    public void A_variable_on_the_ENO_pin_is_not_spelled()
+    {
+        var body = Fbd1(Call("MOVE", new[] { In(L("7")) }, new[] { new Output("ENO", new Operand("lamp", IsLValue: true)), Out("x", 1) }, en: L("c"), eno: true, kind: CallKind.Operator));
+        Assert.Contains("%UNSUPPORTED \"a variable on the ENO pin\"", StNetworkWriter.WritePulled(body, NetworkScope.Empty));
+    }
 
     /// <summary>A stored FB box holding an input with no name (live CODESYS 3.5.21.40, CallType None): the IDE does not pass it, so
     /// the pull refuses it.</summary>
