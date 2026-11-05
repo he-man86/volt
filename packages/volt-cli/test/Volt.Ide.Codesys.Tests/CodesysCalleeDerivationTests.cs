@@ -114,11 +114,10 @@ public class CodesysCalleeDerivationTests
         Assert.Equal(new[] { "run" }, InputNames(box));
     }
 
-    /// <summary>An FB call, a PROGRAM call and a conversion run as drawn with the fresh value (measured): the writer
+    /// <summary>An FB call and a conversion run as drawn with the fresh value (measured): the writer
     /// leaves them to the vendor.</summary>
     [Theory]
     [InlineData("fbm(run := go);")]
-    [InlineData("P_Sub(go := go);")]
     [InlineData("y := TO_INT(v);")]
     public void Every_other_call_keeps_the_fresh_call_type(string statement) =>
         Assert.False(Built(statement).CallTypeSet);

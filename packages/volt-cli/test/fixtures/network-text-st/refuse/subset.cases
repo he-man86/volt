@@ -1354,3 +1354,27 @@ function f IN =>
 y := f(IN := a).ENO;
 === refused
 network-plain-st is read through .ENO and shows no EN
+
+#### operator-pin-out-of-place — an operator runs by position, whatever its names say: SUB(IN2 := i, IN1 := j) is i - j (live CODESYS 3.5.21.40)
+=== text
+%LANGUAGE FBD
+%NETWORK
+k := SUB(IN2 := i, IN1 := j);
+=== refused
+network-plain-st the box SUB names its pin IN2 out of place
+
+#### operator-pin-out-of-place-limit — LIMIT(MX := 3, IN := i, MN := 0) runs with MN 3 and MX 0
+=== text
+%LANGUAGE FBD
+%NETWORK
+k := LIMIT(MX := 3, IN := i, MN := 0);
+=== refused
+network-plain-st the box LIMIT names its pin MX out of place
+
+#### operator-pin-out-of-place-sel
+=== text
+%LANGUAGE FBD
+%NETWORK
+k := SEL(IN1 := j, G := go, IN0 := i);
+=== refused
+network-plain-st the box SEL names its pin IN1 out of place

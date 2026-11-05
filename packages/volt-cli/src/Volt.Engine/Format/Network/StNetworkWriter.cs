@@ -773,6 +773,11 @@ public static class StNetworkWriter
                 }
                 args.Add(PinMarks(b, p.Formal, p.Flags) + Name(p.Formal) + " := " + value);
             }
+            // An operator runs its pins by position, whatever their names say (live CODESYS 3.5.21.40, openspec nwl-box-storage-map).
+            if (NetworkSpelling.IsOperator(signature))
+                for (var k = 0; k < b.Inputs.Count; k++)
+                    if (b.Inputs[k].Formal is { } pin && NetworkSpelling.OperatorPinPlace(b.Type, pin) is { } place && place != k)
+                        throw Unspellable("an operator pin named out of place", $"the '{b.Type}' box holds its pin {pin} at place {k.ToString(CultureInfo.InvariantCulture)}, and runs by position.");
             // One output, one target: the IDE writes no second one (live CODESYS 3.5.21.40, openspec nwl-box-storage-map).
             if (b.Outputs.GroupBy(o => o.Formal ?? ResultPin, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1) is { } twice)
                 throw Unspellable("one output wired to two targets", $"the '{b.Type}' box wires {twice.Key} to two targets, and the IDE writes no second one.");

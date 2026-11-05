@@ -200,6 +200,11 @@ describe("what the lowering refuses, by name", () => {
       ["network-box", "the box ADD is read by its value and wires OUT =>: the IDE writes no second target. Two targets are a chain, x := y := ADD(…)"],
     ]))
 
+  test("an operator's pin named out of place: it runs by position, so nothing runs what the names say", () =>
+    expect(codes("k, i, j : INT;", "%NETWORK\nk := SUB(IN2 := i, IN1 := j);\n")[0]).toEqual([
+      "network-box", "the box SUB names its pin IN2 out of place: an operator runs its pins by position, whatever their names say. Write them in order",
+    ]))
+
   test("an enabled box other than a comparison read inside a tree", () =>
     expect(codes("x : BOOL; i : INT; c : BOOL;", "%NETWORK\nx := EQ(ADD(EN := c, i, 1), 2);\n")).toEqual([
       ["network-box", "the enabled ADD box is read by its value other than as an assignment's whole value"],
