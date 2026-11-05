@@ -235,6 +235,7 @@ class Twinner extends BoxTwinner {
     if (head?.toUpperCase() === "EXECUTE") return this.execute(call, pre)
     const box = this.box(call)
     if (box === undefined) return [this.callText(call, call.args, pre) + ";"]
+    this.refuseMisleading(box)
     if (box.instance !== undefined) {
       this.fb(box, eno && box.enable === undefined, undefined, pre) // a root's ENO: read by nothing
       return pre.splice(0)
@@ -246,10 +247,10 @@ class Twinner extends BoxTwinner {
     // measured 2.3: CODESYS does not compile a root box showing ENO without EN (`rcc_network_eno_function_without_en_root`)
     if (eno) throw new TwinRefusal(`the ${this.name(box)} box at a root shows ENO without EN, which CODESYS does not compile`)
     // a function box at the root: its value to the targets its `OUT =>` names, an operator's infix
-    const results = box.pins.filter((a) => a.output && a.param?.name.toUpperCase() === "OUT")
-    if (results.length > 0) {
-      const value = this.boxValue(box, box.pins.filter((a) => !results.includes(a)), pre)
-      return [...pre.splice(0), results.map((r) => `${this.expr(r.value!, pre)} := `).join("") + value + ";"]
+    const result = box.pins.find((a) => a.output && a.param?.name.toUpperCase() === "OUT")
+    if (result !== undefined) {
+      const value = this.boxValue(box, box.pins.filter((a) => a !== result), pre)
+      return [...pre.splice(0), `${this.expr(result.value!, pre)} := ${value};`]
     }
     if (INFIX[this.name(box).toUpperCase()] !== undefined) return []
     return [...pre.splice(0), this.callText(box.st, box.pins, pre) + ";"]

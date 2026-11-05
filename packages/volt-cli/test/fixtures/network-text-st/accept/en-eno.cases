@@ -16,15 +16,6 @@ MOVE(EN := c, 0, OUT => x).ENO;
 NETWORK
   (MOVE 0 =>1:x en:c eno:1)
 
-#### add-enabled-two-targets — the data outputs fill the slots after ENO, in order
-=== text
-%LANGUAGE LD
-%NETWORK
-ADD(EN := c, x, 5, OUT => x, OUT => y).ENO;
-=== model
-NETWORK
-  (ADD x 5 =>1:x =>2:y en:c eno:1)
-
 #### empty-enable
 === text
 %LANGUAGE LD

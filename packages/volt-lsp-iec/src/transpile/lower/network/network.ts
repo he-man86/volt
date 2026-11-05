@@ -242,6 +242,7 @@ class Networker extends BoxLowerer {
     }
     const box = this.box(c)
     if (box === undefined) return [...pre, { kind: "call_stmt", call: this.callOf(c, c.args, pre), span: c.span }]
+    this.refuseMisleading(box)
     if (box.instance !== undefined) {
       this.fb(box, eno && box.enable === undefined, undefined, pre) // a root's ENO: read by nothing
       return pre
@@ -253,11 +254,10 @@ class Networker extends BoxLowerer {
     // measured 2.3: CODESYS does not compile a root box showing ENO without EN (`rcc_network_eno_function_without_en_root`)
     if (eno) throw new NetworkRefusal(`the ${this.name(box)} box at a root shows ENO without EN, which CODESYS does not compile`, NOT_COMPILED)
     // a function box at the root: its value to the targets its `OUT =>` names
-    const results = box.pins.filter((a) => a.output && a.param?.name.toUpperCase() === "OUT")
-    if (results.length > 0) {
-      const value = this.boxValue(box, box.pins.filter((a) => !results.includes(a)), pre)
-      const targets = results.map((r) => this.expr(r.value!, pre))
-      return [...pre, { kind: "assign", target: targets[0]!, value, ...(targets.length > 1 ? { chained: targets.slice(1), chainOps: targets.slice(1).map(() => undefined) } : {}), span: c.span }]
+    const result = box.pins.find((a) => a.output && a.param?.name.toUpperCase() === "OUT")
+    if (result !== undefined) {
+      const value = this.boxValue(box, box.pins.filter((a) => a !== result), pre)
+      return [...pre, assign(this.expr(result.value!, pre), value, c.span)]
     }
     if (isInfix(this.name(box))) return []
     return [...pre, { kind: "call_stmt", call: this.callOf(box.st, box.pins, pre), span: c.span }]

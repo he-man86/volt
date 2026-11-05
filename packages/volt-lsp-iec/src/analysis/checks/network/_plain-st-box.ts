@@ -4,7 +4,7 @@
  */
 import { type CallExpr } from "../../../frontend/syntax/index.js"
 import { type Scope } from "../../../frontend/symbols/index.js"
-import { dataOutputs, declaresEn, declaresEno, declaresOut, inferExprType, networkBox } from "../../../frontend/types/index.js"
+import { dataOutputs, declaresEn, declaresEno, declaresOut, inferExprType, misleadingBox, networkBox } from "../../../frontend/types/index.js"
 import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import { CODE } from "./_plain-st-wires.js"
 
@@ -41,6 +41,7 @@ export function checkBox(call: CallExpr, member: string | undefined, consumed: b
     return
   }
   if (declaresOut(signature)) emit(out, at, CODE, `${type} declares VAR_OUTPUT OUT, which also names its value: the text cannot tell the two apart`)
+  for (const m of misleadingBox(box, head)) emit(out, m.span, CODE, m.message)
   if (signature !== undefined && !declaresEn(signature)) {
     const enAgain = box.pins.find((a) => !a.output && a.param?.name.toUpperCase() === "EN")
     if (enAgain !== undefined)

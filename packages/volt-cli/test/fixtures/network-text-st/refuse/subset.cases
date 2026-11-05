@@ -1063,3 +1063,30 @@ network-plain-st takes an operand and one string
 y := COMMENT(a, 'x$N');
 === refused
 network-plain-st the escape '$N'
+
+#### out-target-twice — the IDE writes no second target of one output: k and m measured on MOVE, ADD, AND and a FUNCTION
+=== text
+%LANGUAGE FBD
+%NETWORK
+MOVE(a, OUT => x, OUT => y);
+=== refused
+network-plain-st the call MOVE wires OUT => twice
+
+#### out-target-twice-behind-eno — the same with EN and ENO shown
+=== text
+%LANGUAGE FBD
+%NETWORK
+y := ADD(EN := c, i, 1, OUT => k, OUT => m).ENO;
+=== refused
+network-plain-st the call ADD wires OUT => twice
+
+#### named-output-target-twice — one output, two targets, on an FB as on a call
+=== scope
+fb Fx IN => q1 q2
+instance t2 Fx
+=== text
+%LANGUAGE FBD
+%NETWORK
+t2(IN := a, q2 => k, q2 => m);
+=== refused
+network-plain-st the call t2 wires q2 => twice

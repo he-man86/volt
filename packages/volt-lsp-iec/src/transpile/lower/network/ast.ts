@@ -35,8 +35,3 @@ export function standing(value: Expr): Statement {
   return value.kind === "call" ? { kind: "call_stmt", call: value, span: value.span } : { kind: "expr_stmt", expr: value, span: value.span }
 }
 
-/** `t1 := t2 := … := value;` — the first target the assignment's, the rest its chain. */
-export function assignAll(targets: readonly Expr[], value: Expr, span: Span): Statement {
-  const [first, ...rest] = targets
-  return { kind: "assign", target: first!, value, ...(rest.length > 0 ? { chained: rest, chainOps: rest.map(() => undefined) } : {}), span }
-}

@@ -5,7 +5,7 @@
  */
 import { type CallArg, type CallExpr, type Expr, UNNAMED } from "../../src/frontend/syntax/index.js"
 import { type Scope } from "../../src/frontend/symbols/index.js"
-import { declaresEno, networkBox, type NetworkBox } from "../../src/frontend/types/index.js"
+import { declaresEno, misleadingBox, networkBox, type NetworkBox } from "../../src/frontend/types/index.js"
 
 export class TwinRefusal extends Error {}
 
@@ -119,11 +119,11 @@ export abstract class BoxTwinner {
   protected enoOnly(box: NetworkBox, pre: string[]): string {
     const enoOut = box.pins.find((a) => a.output && a.param?.name.toUpperCase() === "ENO")
     const rest = box.pins.filter((a) => a !== enoOut)
-    const result = rest.filter((a) => a.output && a.param?.name.toUpperCase() === "OUT")
-    if (result.length === 0) pre.push(this.callText(box.st, rest, pre) + ";")
+    const result = rest.find((a) => a.output && a.param?.name.toUpperCase() === "OUT")
+    if (result === undefined) pre.push(this.callText(box.st, rest, pre) + ";")
     else {
-      const value = this.callText(box.st, rest.filter((a) => !result.includes(a)), pre)
-      pre.push(result.map((r) => `${this.expr(r.value!, pre)} := `).join("") + value + ";")
+      const value = this.callText(box.st, rest.filter((a) => a !== result), pre)
+      pre.push(`${this.expr(result.value!, pre)} := ${value};`)
     }
     if (enoOut !== undefined) pre.push(`${this.expr(enoOut.value!, pre)} := FALSE;`)
     return "FALSE"
@@ -172,8 +172,15 @@ export abstract class BoxTwinner {
     return `${instance}.${read}`
   }
 
+  /** A box whose text claims what its run does not do has no twin (`misleadingBox`). */
+  protected refuseMisleading(box: NetworkBox): void {
+    const [first] = misleadingBox(box, this.name(box))
+    if (first !== undefined) throw new TwinRefusal(first.message)
+  }
+
   /** A box read where it stands (`member` the name closing its call). */
   protected boxRead(box: NetworkBox, member: string | undefined, pre: string[]): string {
+    this.refuseMisleading(box)
     const eno = member !== undefined && member.toUpperCase() === "ENO" && !declaresEno(box.signature)
     if (box.instance !== undefined) {
       const read = eno ? undefined : member ?? box.signature?.outputs[0]

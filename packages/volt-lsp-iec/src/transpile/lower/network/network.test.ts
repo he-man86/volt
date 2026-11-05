@@ -154,6 +154,11 @@ describe("what the lowering refuses, by name", () => {
       ["network-invalid", "the c1 box shows ENO without EN, which CODESYS does not compile"],
     ]))
 
+  test("one output wired to two targets: the IDE writes no second one, so nothing runs a meaning the text does not have", () =>
+    expect(codes("a, x, y : BOOL;", "%NETWORK\nMOVE(a, OUT => x, OUT => y);\n")).toEqual([
+      ["network-box", "the call MOVE wires OUT => twice: the IDE writes no second target. Two targets are a chain, x := y := MOVE(…)"],
+    ]))
+
   test("an enabled box other than a comparison read inside a tree", () =>
     expect(codes("x : BOOL; i : INT; c : BOOL;", "%NETWORK\nx := EQ(ADD(EN := c, i, 1), 2);\n")).toEqual([
       ["network-box", "the enabled ADD box is read by its value other than as an assignment's whole value"],

@@ -20,8 +20,8 @@
  */
 import { type CallArg, type CallExpr, type Expr, type Statement, type BodySpan, type Span, UNNAMED } from "../../../frontend/syntax/index.js"
 import type { Scope } from "../../../frontend/symbols/index.js"
-import { declaresEno, networkBox, type NetworkBox } from "../../../frontend/types/index.js"
-import { assign, assignAll, binary, bool, call, ifThen, member, NetworkRefusal, NOT_COMPILED, not, standing } from "./ast.js"
+import { declaresEno, misleadingBox, networkBox, type NetworkBox } from "../../../frontend/types/index.js"
+import { assign, binary, bool, call, ifThen, member, NetworkRefusal, NOT_COMPILED, not, standing } from "./ast.js"
 
 const INFIX: Readonly<Record<string, string>> = {
   AND: "AND", OR: "OR", XOR: "XOR", ADD: "+", SUB: "-", MUL: "*", DIV: "/", MOD: "MOD",
@@ -52,6 +52,12 @@ export abstract class BoxLowerer {
 
   protected box(c: CallExpr): NetworkBox | undefined {
     return networkBox(c, this.scope, this.project)
+  }
+
+  /** A box whose text claims what its run does not do has no run to lower to (`misleadingBox`). */
+  protected refuseMisleading(box: NetworkBox): void {
+    const [first] = misleadingBox(box, this.name(box))
+    if (first !== undefined) throw new NetworkRefusal(first.message)
   }
 
   protected name(box: NetworkBox): string {
@@ -118,11 +124,11 @@ export abstract class BoxLowerer {
     const span = box.call.span
     const enoOut = box.pins.find((a) => a.output && named(a, "ENO"))
     const rest = box.pins.filter((a) => a !== enoOut)
-    const results = rest.filter((a) => a.output && named(a, "OUT"))
-    if (results.length === 0) pre.push(standing(this.callOf(box.st, rest, pre)))
+    const result = rest.find((a) => a.output && named(a, "OUT"))
+    if (result === undefined) pre.push(standing(this.callOf(box.st, rest, pre)))
     else {
-      const value = this.callOf(box.st, rest.filter((a) => !results.includes(a)), pre)
-      pre.push(assignAll(results.map((r) => this.expr(r.value!, pre)), value, span))
+      const value = this.callOf(box.st, rest.filter((a) => a !== result), pre)
+      pre.push(assign(this.expr(result.value!, pre), value, span))
     }
     if (enoOut !== undefined) pre.push(assign(this.expr(enoOut.value!, pre), bool(false, span), span))
     return bool(false, span)
@@ -165,6 +171,7 @@ export abstract class BoxLowerer {
 
   /** A box read where it stands (`name` the member closing its call). */
   protected boxRead(box: NetworkBox, name: string | undefined, pre: Statement[]): Expr {
+    this.refuseMisleading(box)
     const eno = name !== undefined && name.toUpperCase() === "ENO" && !declaresEno(box.signature)
     if (box.instance !== undefined) {
       const read = eno ? undefined : name ?? box.signature?.outputs[0]

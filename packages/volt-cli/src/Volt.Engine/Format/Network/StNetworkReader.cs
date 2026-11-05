@@ -1299,6 +1299,10 @@ public static class StNetworkReader
                 inputs.Add(new Input(a.Formal, Expr(a.Value!), MarkFlags(a.Marks, c.Line)));
             }
 
+            // ONE OUTPUT, ONE TARGET (live CODESYS 3.5.21.40, openspec nwl-box-storage-map): the IDE writes no second target.
+            if (outputs.GroupBy(o => o.Formal ?? StNetworkWriter.ResultPin, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1) is { } twice)
+                throw Error(c.Line, $"the call {c.Head} wires {twice.Key} => twice: the IDE writes no second target. Two targets are a chain, x := y := {c.Head}(…)");
+
             var (hasEno, connected, byName) = Member(c, type, instance is not null, signature, consumed, declaresEno);
             if (signature is not null && !hasEno && !declaresEno && outputs.Any(o => Is(o.Formal, Box.EnoPin)))
                 throw Error(c.Line, $"the call {c.Head} wires ENO => and shows no ENO: ENO => v is a target of the shown ENO, which its call closed by .ENO states");

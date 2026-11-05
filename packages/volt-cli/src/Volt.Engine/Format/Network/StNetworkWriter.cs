@@ -755,6 +755,9 @@ public static class StNetworkWriter
                 }
                 args.Add(PinMarks(b, p.Formal, p.Flags) + Name(p.Formal) + " := " + value);
             }
+            // One output, one target: the IDE writes no second one (live CODESYS 3.5.21.40, openspec nwl-box-storage-map).
+            if (b.Outputs.GroupBy(o => o.Formal ?? ResultPin, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1) is { } twice)
+                throw Unspellable("one output wired to two targets", $"the '{b.Type}' box wires {twice.Key} to two targets, and the IDE writes no second one.");
             var eno = b.HasEnoOutput ? 0 : (int?)null;
             var connected = b.ConnectedSlot;
             var next = 0;

@@ -161,15 +161,6 @@ a := b;
 NETWORK
   (:= a b)
 
-#### move-two-targets — MOVE writes to as many targets as drawn, in slot order
-=== text
-%LANGUAGE LD
-%NETWORK
-MOVE(0, OUT => a, OUT => b);
-=== model
-NETWORK
-  (MOVE 0 =>0:a =>1:b)
-
 #### move-empty-operand
 === text
 %LANGUAGE FBD

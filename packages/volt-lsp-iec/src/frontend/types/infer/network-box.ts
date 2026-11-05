@@ -17,7 +17,7 @@
  * or ENO). A callee nothing in reach declares has no signature, and its call is read as written.
  */
 import { lookup, lookupLocal, visibleNames, type Scope } from "../../symbols/index.js"
-import { type CallArg, type CallExpr, type Expr, type MemberExpr, UNNAMED, type VarSection } from "../../syntax/index.js"
+import { type CallArg, type CallExpr, type Expr, type MemberExpr, type Span, UNNAMED, type VarSection } from "../../syntax/index.js"
 import { NETWORK_CONTROLS, NETWORK_ELEMENTS, resolveBareName } from "../names.js"
 import { resolveCallee, type CalleeInfo } from "./callee.js"
 import { inferExprType } from "./expr.js"
@@ -140,6 +140,23 @@ export function boxMember(e: MemberExpr, scope: Scope, project: Scope): { box: N
   if (box === undefined) return undefined
   const name = e.member.name
   return { box, name, eno: name.toUpperCase() === "ENO" && !declaresEno(box.signature) }
+}
+
+/**
+ * WHAT A BOX'S TEXT CLAIMS AND ITS RUN DOES NOT DO (live CODESYS 3.5.21.40, openspec nwl-box-storage-map), in the bridge
+ * reader's words (`StNetworkReader` `CallBox`): the network check refuses each, and neither lowering nor the twin runs a
+ * meaning the text does not have. `head` is the call's head as written.
+ */
+export function misleadingBox(box: NetworkBox, head: string): { span: Span; message: string }[] {
+  const out: { span: Span; message: string }[] = []
+  const wired = new Set<string>()
+  for (const a of box.call.args) {
+    if (!a.output || a.param === undefined) continue
+    const name = a.param.name.toUpperCase()
+    if (wired.has(name)) out.push({ span: a.span, message: `the call ${head} wires ${a.param.name} => twice: the IDE writes no second target. Two targets are a chain, x := y := ${head}(…)` })
+    wired.add(name)
+  }
+  return out
 }
 
 const OPERATOR: BoxSignature = { shape: "function", inputs: new Set(), outputs: [] }

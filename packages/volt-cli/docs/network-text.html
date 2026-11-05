@@ -64,7 +64,7 @@ lamp := MOVE(EN := w1, 100, OUT => speed).ENO;</pre>
   <tr><td class="name">coil</td><td><code>x := a;</code> <code>x S= a;</code> <code>x R= a;</code> <code>y := x := a;</code></td></tr>
   <tr><td class="name">rail</td><td><code>x := RAIL();</code> <code>t1(IN := RAIL());</code> <code>MOVE(EN := RAIL(), a, OUT => n);</code></td></tr>
   <tr><td class="name">operator box</td><td><code>x := AND(a, b);</code> <code>i := ADD(j, k, 1);</code> <code>x := NOT(a);</code></td></tr>
-  <tr><td class="name">MOVE</td><td><code>x := MOVE(a);</code> <code>MOVE(a, OUT => x, OUT => y);</code></td></tr>
+  <tr><td class="name">MOVE</td><td><code>x := MOVE(a);</code> <code>MOVE(a, OUT => x);</code> <code>y := x := MOVE(a);</code></td></tr>
   <tr><td class="name">function</td><td><code>y := LIMIT(MN := 0, IN := v, MX := 100);</code> <code>y := f(a, b);</code></td></tr>
   <tr><td class="name">FB</td><td><code>t1(IN := a, PT := T#1S, Q => x);</code></td></tr>
   <tr><td class="name">output pin</td><td><code>y := f(IN := a, err => e).OUT;</code></td></tr>
@@ -133,6 +133,7 @@ EXECUTE('n := 0;');</pre>
   <tr><td class="name">NETWORK_PARSE</td><td>a mark the IDE stores no model for</td><td><code>NOT RISING y := a;</code> <code>NOT y S= a;</code> <code>y := NOT x := a;</code> <code>NOT := y := a;</code></td></tr>
   <tr><td class="name">NETWORK_PARSE</td><td><code>EN :=</code>, <code>.ENO</code>, <code>ENO =></code>, <code>OUT =></code> or a type's call on a callee no declaration in reach states</td><td><code>y := h(EN := c, a);</code> with <code>h</code> declared nowhere</td></tr>
   <tr><td class="name">NETWORK_PARSE</td><td>a jump or a return not written as a target</td><td><code>JMP l;</code> <code>JMP(l, a);</code> <code>RETURN;</code></td></tr>
+  <tr><td class="name">NETWORK_PARSE</td><td>text whose run is not what it says</td><td><code>MOVE(a, OUT => x, OUT => y);</code> — the IDE writes no second target; two targets are a chain, <code>y := x := MOVE(a);</code></td></tr>
   <tr><td class="name">NETWORK_UNSUPPORTED</td><td>a model the writer has no spelling for, an edited <code>%UNSUPPORTED</code> line, and a box whose callee no declaration in reach states</td><td><code>x := f1(IN := a).Q;</code> with <code>f1 : Fx;</code> and <code>Fx</code> declared nowhere</td></tr>
 </table>
 <p>The language server gives the same refusals while typing.</p>
