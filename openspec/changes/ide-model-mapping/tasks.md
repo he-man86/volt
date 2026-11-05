@@ -26,7 +26,7 @@
 
 ## 5. The final language for NWL
 
-- [ ] 5.1 One proposal to the owner and Sim-Assist, derived from the map, every rule with its row. Direction chosen by the owner: every box a function and an FB has members; what flows in is a function (`y := INVERT(a)`, `IN := RISING(a)`, nested in run order, up to what the store holds); only an output pin takes a name (`OUT_INVERTED => k`, `OUT_SET => k`, `OUT_RESET => k`); `S=`, `R=`, jumps and return stay. Settle from the map: each single mark runs alike in each place on each box kind, a mark on an unnamed output, S and R on an output of a box not enabled, a real pin or POU holding one of these names.
+- [ ] 5.1 One proposal to the owner and Sim-Assist from the map, every rule with its row, following design.md "Language direction" (settled 2026-11-05) and closing its open points.
 - [ ] 5.2 Build it after the owner decides.
 - [ ] 5.3 `network-text.html` "What it runs as": one row per network-only form and the exact plain ST it runs as, generated from the lowering's rules and gated, each row pinned by a run; it replaces the text in `services/shared/network-meanings.ts` (from `network-rail-and-pin-negation` 2.3).
 
