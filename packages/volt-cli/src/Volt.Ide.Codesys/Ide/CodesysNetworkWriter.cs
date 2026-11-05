@@ -127,7 +127,7 @@ namespace Volt.Ide.Codesys
                     "and Volt does not guess it. Refusing to rebuild this network; a network whose text is unchanged is kept " +
                     "as the IDE holds it. The IDE can edit this network.");
             // A box whose callee no declaration in reach states, and a function read through a VAR_OUTPUT (network-output-member).
-            NetworkPairing.RefuseUnbuildableBoxes(CodesysDriver.Row.Display, model, scope);
+            NetworkPairing.RefuseUnbuildableBoxes(CodesysDriver.Row.Display, model, scope, programMovedPinBuilds: true);
         }
 
         private static IEnumerable<Node> Walk(Node n) => new[] { n }.Concat(n.Children().SelectMany(Walk));
@@ -155,6 +155,8 @@ namespace Volt.Ide.Codesys
             model = NetworkDerivation.WithLeftOutPins(model, scope);
             // a root FB box holds its declared output list, the null at its main slot, as a drawn one does
             model = NetworkDerivation.WithRootOutputs(model, scope);
+            // a PROGRAM box, at a root or consumed, holds its declared output list as the editor's insert gives it
+            model = NetworkDerivation.WithProgramOutputs(model, scope);
             SetIfChanged(net, "Title", model.Title ?? "");
             SetIfChanged(net, "Label", model.Label ?? "");
             SetIfChanged(net, "Comment", model.Comment ?? "");
@@ -432,6 +434,7 @@ namespace Volt.Ide.Codesys
                         // no callee for them and the vendor keeps its own.
                         var callee = b.Instance is null && b.StCode is null ? _scope.Callee(b.Type) : null;
                         if (callee is not null) NwlInterop.SetEnum(box, "CallType", callee.CallType);
+                        var program = b.Instance is null && b.StCode is null && _scope.Signature(b.Type)?.Shape == CalleeShape.Program;
 
                         // Everything else the READER models on a box — an FB call's instance, an embedded output,
                         // an EN pin — is set through the member the reader reads, so the two cannot drift -
@@ -586,6 +589,7 @@ namespace Volt.Ide.Codesys
                             types = drawn.Select(n => n == Box.EnoPin ? "BOOL" : "").ToList();
                         }
                         var slots = OutputSlots(b, eno, names);
+                        if (program) slots = ProgramSlots(slots, eno, names.Count);
                         if (slots.Count > 0)
                         {
                             var outs = NwlInterop.Require(box, "Outputs");
@@ -738,6 +742,24 @@ namespace Volt.Ide.Codesys
                 while (slots.Count < names.Count) slots.Add(null);
                 if (slots.Count > 0 && slots[0] is null && !(b.ConnectedSlot is > 0)) slots[0] = OutputSlot.Null;
                 return slots.Select(s => s ?? OutputSlot.Empty).ToList();
+            }
+
+            /// <summary>THE OUTPUT ITEMS OF A PROGRAM BOX, as the editor's insert lays them out (live CODESYS 3.5.21.40, openspec
+            /// nwl-box-storage-map): one slot more than names, and a second null in the slot after the first output, unwired,
+            /// beside a free main slot. No output at all holds the main null alone. The second null changes neither the build
+            /// nor the run; the editor draws its pin as a line where an empty operand draws a box.</summary>
+            private static List<OutputSlot> ProgramSlots(List<OutputSlot> slots, bool eno, int names)
+            {
+                var laidOut = new List<OutputSlot>(slots);
+                while (laidOut.Count < names + 1) laidOut.Add(OutputSlot.Empty);
+                var first = eno ? 1 : 0;
+                if (names == first)
+                {
+                    if (ReferenceEquals(laidOut[first], OutputSlot.Empty)) laidOut[first] = OutputSlot.Null;
+                }
+                else if (ReferenceEquals(laidOut[first + 1], OutputSlot.Empty) && (eno || laidOut[first].IsNull))
+                    laidOut[first + 1] = OutputSlot.Null;
+                return laidOut;
             }
 
             /// <summary>One output item: a pin's operand, an empty operand (an unwired slot), or the vendor's null.</summary>

@@ -97,8 +97,8 @@ public class OutputMemberTests
     }
 
     /// <summary>A program box read through a data output is spelled as a function's (review 2a, finding 3): through its one
-    /// or first output it is built as before 2a; through a later one it has no measured build, as a function's, and the
-    /// push refuses it by name.</summary>
+    /// or first output it is built as before 2a; through a later one a driver with no measured build (TwinCAT) refuses it
+    /// by name, and CODESYS, which measured one (openspec nwl-box-storage-map), builds it.</summary>
     [Fact]
     public void A_program_box_read_by_a_data_output_is_spelled_and_its_moved_pin_refused_at_a_push()
     {
@@ -108,8 +108,9 @@ public class OutputMemberTests
         NetworkPairing.RefuseUnbuildableBoxes("CODESYS", first.Body!.Networks[0], scope);
         var moved = StNetworkGate.Validate("%LANGUAGE FBD\n%NETWORK\nq := p(IN := v).Q2;\n", scope);
         Assert.True(moved.Ok, string.Join("\n", moved.Diagnostics.Select(d => d.Message)));
-        var ex = Assert.Throws<NetworkTextException>(() => NetworkPairing.RefuseUnbuildableBoxes("CODESYS", moved.Body!.Networks[0], scope));
+        var ex = Assert.Throws<NetworkTextException>(() => NetworkPairing.RefuseUnbuildableBoxes("TwinCAT", moved.Body!.Networks[0], scope));
         Assert.Contains("has no measured build", ex.Message);
+        NetworkPairing.RefuseUnbuildableBoxes("CODESYS", moved.Body!.Networks[0], scope, programMovedPinBuilds: true);
     }
 
     /// <summary>The writer refuses a model its text would read back as another box (review 2a, finding 7): with the callee

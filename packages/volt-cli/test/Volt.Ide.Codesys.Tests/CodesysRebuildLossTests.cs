@@ -123,10 +123,10 @@ public class CodesysRebuildLossTests
     }
 
     /// <summary>AN ENABLED PROGRAM CALL'S SECOND NULL OUTPUT SLOT (gate 2-3 review): the IDE draws one with two null
-    /// slots for its one output name <c>['ENO']</c> (10 corpus boxes, DIALECT N37), and a rebuild lays out one slot per
-    /// name — so the second slot went with every rebuild of its network, and nothing named it.</summary>
+    /// slots for its one output name <c>['ENO']</c> (10 corpus boxes, DIALECT N37). A rebuild now lays it out as the editor's
+    /// insert does (openspec nwl-box-storage-map), so the slot comes back, and the warning has nothing to name.</summary>
     [Fact]
-    public void A_rebuilt_enabled_program_call_names_the_output_slot_it_drops()
+    public void A_rebuilt_enabled_program_call_keeps_the_second_null_slot()
     {
         static Nwl.BoxTreeAssign Rung(string target)
         {
@@ -148,7 +148,7 @@ public class CodesysRebuildLossTests
 
         var said = Push(impl, t => t.Replace("x6 :=", "x7 :="));
 
-        Assert.Contains("OutputItemList.OutputItems ×1 (vendor-facts row nwl-output-param-names)", said);
+        Assert.DoesNotContain("OutputItemList.OutputItems", said);
     }
 
     /// <summary>A CALL'S STORED OUTPUT LIST (2R.3 B7, design "2R.3, as built": "lost on rebuild (named by RebuildLoss),

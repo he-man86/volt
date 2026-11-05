@@ -253,17 +253,22 @@ public static class NetworkPairing
     }
 
     /// <summary>A FUNCTION or PROGRAM box a consumer reads past its first data output (a function's <c>VAR_OUTPUT</c>, slot
-    /// past its value; a program's second <c>VAR_OUTPUT</c> on): the text spells it, but no build route for a call's moved
-    /// pin is measured (network-output-member 1.2; 0 in the corpora) — the null-slot route is an FB's
-    /// (<see cref="NetworkDerivation"/>).</summary>
-    private static IEnumerable<Box> CallMovedPins(Network network, NetworkScope scope) =>
+    /// past its value; a program's second <c>VAR_OUTPUT</c> on): the text spells it, and no build route for a function's
+    /// moved pin is measured (network-output-member 1.2). A program's is measured on CODESYS (openspec nwl-box-storage-map:
+    /// the null past the first slot builds and runs), so a driver that builds it says so.</summary>
+    private static IEnumerable<Box> CallMovedPins(Network network, NetworkScope scope, bool programsBuild) =>
         Boxes(network).Select(x => x.Box).Where(b =>
             b.Instance is null && b.StCode is null && !b.HasEnoOutput && b.ConnectedSlot is > 0 &&
-            NetworkSpelling.SignatureOf(b, scope) is { Shape: CalleeShape.Function or CalleeShape.Program });
+            NetworkSpelling.SignatureOf(b, scope)?.Shape is { } shape &&
+            (shape == CalleeShape.Function || (shape == CalleeShape.Program && !programsBuild)));
 
     /// <summary>The refusal of the boxes <see cref="UnstatedCallees"/> and <see cref="CallMovedPins"/> name — one rule both
     /// drivers apply before they build a network, one wording.</summary>
-    public static void RefuseUnbuildableBoxes(string vendor, Network network, NetworkScope scope)
+    public static void RefuseUnbuildableBoxes(string vendor, Network network, NetworkScope scope) =>
+        RefuseUnbuildableBoxes(vendor, network, scope, programMovedPinBuilds: false);
+
+    /// <param name="programMovedPinBuilds">Whether this driver builds a PROGRAM box read past its first output.</param>
+    public static void RefuseUnbuildableBoxes(string vendor, Network network, NetworkScope scope, bool programMovedPinBuilds)
     {
         foreach (var box in UnstatedCallees(network, scope))
             throw new NetworkTextException(
@@ -271,7 +276,7 @@ public static class NetworkPairing
                 $"{box.Type}: no declaration in reach states its pins, so EN/ENO/.X cannot be told from a declared pin. " +
                 "Volt refuses to build it rather than guess; a network whose text is unchanged is kept as the IDE holds it.",
                 ConflictCodes.NetworkUnsupported);
-        foreach (var box in CallMovedPins(network, scope))
+        foreach (var box in CallMovedPins(network, scope, programMovedPinBuilds))
             throw new NetworkTextException(
                 $"{vendor}: network {network.Order + 1} changed, and its '{box.Type}' box is read through its output " +
                 $"slot {box.ConnectedSlot}, one of its VAR_OUTPUTs: " +

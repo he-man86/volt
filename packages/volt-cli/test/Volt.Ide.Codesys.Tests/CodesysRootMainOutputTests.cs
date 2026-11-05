@@ -26,6 +26,9 @@ public class CodesysRootMainOutputTests
     {
         ["FB_C"] = "FUNCTION_BLOCK FB_C\nVAR_INPUT\n\tCU : BOOL;\n\tPV : INT;\nEND_VAR\nVAR_OUTPUT\n\tQ : BOOL;\n\tCV : INT;\nEND_VAR",
         ["FB_N"] = "FUNCTION_BLOCK FB_N\nVAR_INPUT\n\tCU : BOOL;\nEND_VAR",
+        ["PRG_2"] = "PROGRAM PRG_2\nVAR_INPUT\n\tCU : BOOL;\nEND_VAR\nVAR_OUTPUT\n\tQ : BOOL;\n\tCV : INT;\nEND_VAR",
+        ["PRG_1"] = "PROGRAM PRG_1\nVAR_INPUT\n\tCU : BOOL;\nEND_VAR\nVAR_OUTPUT\n\tQ : BOOL;\nEND_VAR",
+        ["PRG_0"] = "PROGRAM PRG_0\nVAR_INPUT\n\tCU : BOOL;\nEND_VAR",
     };
 
     const string Own = "PROGRAM P\nVAR\n\ta : BOOL;\n\te : BOOL;\n\tx : BOOL;\n\tn : INT;\n\tc2 : FB_C;\n\tn1 : FB_N;\n\tun : Unknown_FB;\nEND_VAR";
@@ -162,5 +165,42 @@ public class CodesysRootMainOutputTests
         Root(impl).Eno = true;
         var text = StNetworkWriter.WritePulled(CodesysNetworkReader.ReadShown(impl, BodyLanguage.Fbd), Scope());
         Assert.Contains("%UNSUPPORTED \"a box showing ENO read by another output\"", text);
+    }
+
+    /// <summary>A PROGRAM BOX STORES WHAT THE EDITOR'S INSERT STORES (live CODESYS 3.5.21.40, openspec nwl-box-storage-map, the
+    /// editor's own <c>InsertBox</c>): its declared output names, one more slot than names, the null at its main slot and
+    /// a second null in the slot after the first output. Pushed with no list a consumed one did not build ("The assignment
+    /// source is incorrect."); both nulls build and run as the first one alone, and draw as the editor's box.</summary>
+    [Theory]
+    [InlineData("PRG_2(CU := a);", "Q,CV", "~,~,_")]
+    [InlineData("x := PRG_2(CU := a).Q;", "Q,CV", "~,~,_")]
+    [InlineData("n := PRG_2(CU := a).CV;", "Q,CV", "_,~,_")]
+    [InlineData("PRG_2(CU := a).CV;", "Q,CV", "_,~,_")]
+    [InlineData("PRG_2(CU := a, CV => n);", "Q,CV", "~,n,_")]
+    [InlineData("PRG_2(CU := a, Q => x, CV => n);", "Q,CV", "x,n,_")]
+    [InlineData("PRG_2(CU := a, Q => x);", "Q,CV", "x,_,_")]
+    [InlineData("PRG_1(CU := a);", "Q", "~,~")]
+    [InlineData("x := PRG_1(CU := a);", "Q", "~,~")]
+    [InlineData("PRG_0(CU := a);", "", "~")]
+    [InlineData("PRG_2(EN := e, CU := a).ENO;", "ENO,Q,CV", "~,_,~,_")]
+    [InlineData("x := PRG_2(EN := e, CU := a).ENO;", "ENO,Q,CV", "~,_,~,_")]
+    [InlineData("PRG_2(EN := e, CU := a, Q => x).ENO;", "ENO,Q,CV", "~,x,~,_")]
+    [InlineData("PRG_1(EN := e, CU := a).ENO;", "ENO,Q", "~,_,~")]
+    [InlineData("PRG_0(EN := e, CU := a).ENO;", "ENO", "~,~")]
+    public void A_program_box_stores_the_output_list_the_editor_inserts(string statement, string names, string slots)
+    {
+        var tree = ((Nwl.Network)Pushed(statement).NetworkList.Single()).GetTree(0)!;
+        var box = tree as Nwl.BoxTreeBox ?? (Nwl.BoxTreeBox)((Nwl.BoxTreeAssign)tree).RValue!;
+        Assert.Equal(names.Length == 0 ? Array.Empty<string>() : names.Split(','), Names(box));
+        Assert.Equal(slots.Split(',').Select(s => s == "~" ? null : s == "_" ? "" : s).ToArray(), Slots(box));
+    }
+
+    /// <summary>A push builds a program box read past its first output: the stored form builds and runs (the same run), as an
+    /// FB's does. TwinCAT has no measured archive for one, so its push keeps the refusal.</summary>
+    [Fact]
+    public void A_program_box_read_past_its_first_output_builds_on_CODESYS()
+    {
+        var box = (Nwl.BoxTreeBox)((Nwl.BoxTreeAssign)((Nwl.Network)Pushed("n := PRG_2(CU := a).CV;").NetworkList.Single()).GetTree(0)!).RValue!;
+        Assert.Equal(1, box.Outputs.List.IndexOf(null!));
     }
 }

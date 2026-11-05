@@ -37,6 +37,23 @@ public static class NetworkDerivation
         return trees.Where((t, i) => !ReferenceEquals(t, network.Trees[i])).Any() ? network with { Trees = trees } : network;
     }
 
+    /// <summary><paramref name="network"/> with every PROGRAM box given its declared output list, the ENO echo first where it
+    /// shows one, as the editor's own insert gives it (live CODESYS 3.5.21.40, openspec nwl-box-storage-map), at a root and
+    /// consumed: a consumed one with no list does not build. For a driver whose box needs the names; the slots follow them.</summary>
+    public static Network WithProgramOutputs(Network network, NetworkScope scope)
+    {
+        var body = new NetworkBody(BodyLanguage.Fbd, new[] { network });
+        var derived = Derive(body, b => WithProgramOutputs(b, scope));
+        return ReferenceEquals(derived, body) ? network : derived.Networks[0];
+    }
+
+    private static Box WithProgramOutputs(Box box, NetworkScope scope)
+    {
+        if (box.Instance is not null || box.StCode is not null || box.Members?[NetworkMembers.OutputNames] is not null) return box;
+        if (scope.Signature(box.Type) is not { Shape: CalleeShape.Program } program) return box;
+        return WithOutputNames(box, MemberValue.Texts(BoxOutputNames(box, program.Outputs)));
+    }
+
     private static Box WithDeclaredOutputs(Box box, NetworkScope scope)
     {
         if (box.Instance is null || box.StCode is not null || box.Members?[NetworkMembers.OutputNames] is not null) return box;
