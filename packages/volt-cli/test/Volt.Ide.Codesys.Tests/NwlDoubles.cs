@@ -369,7 +369,10 @@ internal static class Nwl
 
         /// <summary>Derived, not settable — the vendor has no setter for it (measured:
         /// `BoxTreeBox.ProvidesSTSnippet settable: False`); hanging a snippet on the box turns it on.</summary>
-        public bool ProvidesSTSnippet => STSnippet != null;
+        public bool ProvidesSTSnippet => ProvidesSTSnippetAnswer ?? STSnippet != null;
+
+        /// <summary>What a test describing a stored box says the member answers: the IDE's own getter reads the box type (DLL read), not the snippet.</summary>
+        public bool? ProvidesSTSnippetAnswer { get; set; }
 
         /// <summary>The vendor's <c>ContainsExtensibleInputs</c>: false unless the editor found an extensible input on the callee.</summary>
         public bool ContainsExtensibleInputs { get; set; }
