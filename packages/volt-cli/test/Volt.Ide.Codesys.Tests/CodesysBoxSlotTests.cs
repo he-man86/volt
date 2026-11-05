@@ -239,4 +239,24 @@ public class CodesysBoxSlotTests
 
         Assert.Equal(BoxRefusals.EmptyOperatorOutputMarker, Refused(box).Reason);
     }
+
+    /// <summary>AN OPERATOR BOX SHOWING NO ENO HOLDING A NULL PAST ITS MAIN SLOT. Measured live and after a reopen (CODESYS 3.5.21.40, openspec
+    /// nwl-box-storage-map, AND, GT, ADD): at a root the build answers C0046 for the implicit variable of the second null, consumed
+    /// it builds as one null. The editor never draws one, and it pulled as the plain box.</summary>
+    [Fact]
+    public void An_operator_box_holding_a_second_null_is_refused_by_name()
+    {
+        var box = new Nwl.BoxTreeBox
+        {
+            BoxType = "AND",
+            CallType = Nwl.Operator.And,
+            InputItemList = new object[] { Nwl.Leaf("a"), Nwl.Leaf("b") },
+            OutputParams = new Nwl.ParamList { Names = new[] { "" }, Types = new[] { "BOOL" } },
+            MainOutputIndex = 0,
+        };
+        box.Outputs.AppendOutputItem(null!);
+        box.Outputs.AppendOutputItem(null!);
+
+        Assert.Equal(BoxRefusals.OperatorSecondNullMarker, Refused(box).Reason);
+    }
 }
