@@ -198,4 +198,24 @@ public class CodesysBoxSlotTests
 
         Assert.IsType<Box>(Assert.IsType<Assign>(Assert.Single(Read(box).Trees)).Value);
     }
+
+    /// <summary>A BOX STORING <c>ContainsExtensibleInputs</c> IS CALLED WITHOUT ITS PIN NAMES (DLL read: the generator leaves the names
+    /// out; measured live, openspec nwl-box-storage-map: an FB or a PROGRAM then answers C0044 "Assignment to input missing").
+    /// The text has no place for the member, and a push builds the named call, so the network is refused by name.</summary>
+    [Fact]
+    public void A_box_storing_extensible_inputs_is_refused_by_name()
+    {
+        var box = new Nwl.BoxTreeBox
+        {
+            BoxType = "F",
+            CallType = Nwl.Operator.Function,
+            ContainsExtensibleInputs = true,
+            InputItemList = new object[] { Nwl.Leaf("a") },
+            InputParams = new Nwl.ParamList { Names = new[] { "p" }, Types = new[] { "BOOL" } },
+            OutputParams = new Nwl.ParamList { Names = new[] { "   " }, Types = new[] { "BOOL" } },
+        };
+        box.Outputs.AppendOutputItem(null!);
+
+        Assert.Equal(BoxRefusals.ExtensibleInputsMarker, Refused(box).Reason);
+    }
 }

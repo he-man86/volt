@@ -371,6 +371,9 @@ internal static class Nwl
         /// `BoxTreeBox.ProvidesSTSnippet settable: False`); hanging a snippet on the box turns it on.</summary>
         public bool ProvidesSTSnippet => STSnippet != null;
 
+        /// <summary>The vendor's <c>ContainsExtensibleInputs</c>: false unless the editor found an extensible input on the callee.</summary>
+        public bool ContainsExtensibleInputs { get; set; }
+
         /// <summary>An Execute box's ST, hung on the box. Settable, as on the vendor.</summary>
         public object? STSnippet { get; set; }
 

@@ -361,8 +361,10 @@ namespace Volt.Ide.Codesys
             // stored `Eno` flag (`Box.ShowsEno`, network-text-st 1c), independent of EN — census 1.6 found 40 enabled comparisons with none.
             var outputNames = Names(n, "OutputParams");
             var hasEno = Box.ShowsEno(NwlInterop.Get(n, "Eno") as bool?, outputNames, CodesysDriver.Row.Display, type);
-            if (!hasEno && instance is null && CallsAnOperator(n) && FirstSlotIsEmpty(n, type))
+            if (!hasEno && instance is null && CallsAnOperator(n) && SlotIsEmpty(n, type, 0))
                 throw BoxRefusals.EmptyOperatorOutput(CodesysDriver.Row.Display, type);
+            if (NwlInterop.Get(n, "ContainsExtensibleInputs") is true)
+                throw BoxRefusals.ExtensibleInputs(CodesysDriver.Row.Display, type);
             var stored = NwlInterop.Get(n, "MainOutputIndex") as int?;
             if (consumed && stored is null && CallsWithNoValue(n) && !HoldsNull(n, type)) throw BoxRefusals.NoMainOutput(CodesysDriver.Row.Display, type);
             var mainOutput = stored ?? (consumed ? UnstoredMainOutput(type, enable is not null, hasEno, outputNames) : null);
@@ -409,8 +411,8 @@ namespace Volt.Ide.Codesys
 
         private static bool HoldsNull(object box, string type) => OutputSlots(box, type).Contains(null);
 
-        private static bool FirstSlotIsEmpty(object box, string type) =>
-            OutputSlots(box, type).FirstOrDefault() is { } first && ReadOperand(first).Text.Length == 0;
+        private static bool SlotIsEmpty(object box, string type, int slot) =>
+            OutputSlots(box, type).Skip(slot).FirstOrDefault() is { } held && ReadOperand(held).Text.Length == 0;
 
         /// <summary>THE OUTPUT A CONSUMER READS WHEN THE BOX STORES NO <c>MainOutputIndex</c> — the contact form of AND/OR,
         /// drawn (814 in LD-view bodies, 1 in an FBD-view body) or built by a push (the member is read-only); every drawn

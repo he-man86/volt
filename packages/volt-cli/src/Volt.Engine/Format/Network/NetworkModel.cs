@@ -334,6 +334,7 @@ public static class BoxRefusals
     public const string MissingListMarker = "a box list the reader cannot find";
     public const string NoMainOutputMarker = "a consumed box storing no main output";
     public const string EmptyOperatorOutputMarker = "an operator box with an empty output slot";
+    public const string ExtensibleInputsMarker = "a box storing extensible inputs";
     /// <summary>An Execute box whose ST snippet the reader cannot read — raised by both vendor readers and answered by
     /// TwinCAT's archive pre-scan too, so the pull names it in one wording whichever way it was found.</summary>
     public const string UnreadableExecuteMarker = "an Execute box whose ST cannot be read";
@@ -372,6 +373,13 @@ public static class BoxRefusals
         new(EmptyOperatorOutputMarker,
             $"{vendor}: the '{boxType}' box holds an empty operand in its output slot, so it has no target and hands on no value, " +
             "and the IDE does not build it. Volt refuses to read it as the plain box. Give the output a variable in the IDE.");
+
+    /// <summary>A box storing <c>ContainsExtensibleInputs</c>: the IDE calls it without its pin names, and the text, which has no
+    /// place for the member, would rebuild the named call (live CODESYS 3.5.21.40, openspec nwl-box-storage-map).</summary>
+    public static Volt.Engine.Format.Body.UnrepresentableBodyException ExtensibleInputs(string vendor, string boxType) =>
+        new(ExtensibleInputsMarker,
+            $"{vendor}: the '{boxType}' box stores extensible inputs, so the IDE calls it without its pin names, and the text has " +
+            "no form for that. Edit this network in the IDE.");
 
     /// <summary>A list a box always holds, not there: its outputs, or a pin-name list. Missing is not empty — an
     /// operator's empty name list is a real answer, while an absent one means the reader is looking by a name the
