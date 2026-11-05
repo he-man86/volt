@@ -10,7 +10,7 @@ const fbd = (body: string) => `PROGRAM P\nVAR\n\ta, b, c, x, y : BOOL;\nEND_VAR\
 const findings = (body: string) => networkDiags(fbd(body)).filter((d) => d.code === "network-plain-st").map((d) => d.message)
 
 test("a mark stands before its receiver, an unnamed pin's before the empty name, the edge outside the negation", () => {
-  expect(findings("%NETWORK\nx := AND(a, NOT := b, RISING NOT := c);\nNOT y := a;\n")).toEqual([])
+  expect(findings("%NETWORK\nx := AND(a, NOT := b, RISING := c);\nNOT y := a;\n")).toEqual([])
   expect(findings("%NETWORK\nx := AND(a, NOT RISING := b);\n")[0]).toContain("NOT RISING: the IDE negates first")
   expect(findings("%NETWORK\nx := AND(a, := b);\n")[0]).toContain("an empty pin name with no mark")
 })
@@ -20,7 +20,7 @@ test("a marked coil stands first in its chain", () => {
 })
 
 test("the assignment item's marks stand last in its chain, right before the value: anywhere else they are refused", () => {
-  expect(findings("%NETWORK\ny := NOT := a;\n%NETWORK\ny := x := RISING NOT := a;\n%NETWORK\ny := (x := NOT := a) AND b;\n")).toEqual([])
+  expect(findings("%NETWORK\ny := NOT := a;\n%NETWORK\ny := x := RISING := a;\n%NETWORK\ny := (x := NOT := a) AND b;\n")).toEqual([])
   const place = "the assignment item's marks stand last in its chain"
   expect(findings("%NETWORK\nNOT := y := a;\n")[0]).toContain(place)
   expect(findings("%NETWORK\ny := NOT := x := a;\n")[0]).toContain(place)

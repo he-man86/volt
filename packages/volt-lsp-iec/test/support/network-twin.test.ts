@@ -126,8 +126,10 @@ test("a wire is a VAR of the twin: read before its definition, the previous scan
 test("the assignment item's marks mark the value every target receives, the negation first, then the edge", () => {
   expect(code(twin("\tx, y, a : BOOL;", "%NETWORK\ny := x := NOT := a;\n").source)).toBe("y := x := (NOT a);")
   const t = twin("\ty, a : BOOL;", "%NETWORK\ny := RISING NOT := a;\n")
-  expect(t.refused).toEqual([])
-  expect(code(t.source)).toBe("vtw1_trig1(CLK := (NOT a));\ny := vtw1_trig1.Q;")
+  expect(t.refused).toHaveLength(1)
+  const edge = twin("\ty, a : BOOL;", "%NETWORK\ny := RISING := a;\n")
+  expect(edge.refused).toEqual([])
+  expect(code(edge.source)).toBe("vtw1_trig1(CLK := a);\ny := vtw1_trig1.Q;")
 })
 
 test("a jump and the return on NOT their value; an edge on a jump is refused (unmeasured)", () => {

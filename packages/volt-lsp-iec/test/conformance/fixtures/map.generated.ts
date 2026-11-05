@@ -3669,7 +3669,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   ng_r5_array_instance: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 2, edge: "agree", size: 3.6, shape: "61bc041227" },
   ng_r5_coil_and_jump: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 2.4, shape: "759ec8500b" },
   ng_r5_coil_and_return: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 1, edge: "agree", size: 2.2, shape: "fe38dab273" },
-  ng_r5_comparison_eno: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 2, edge: "agree", size: 2.6, shape: "e2c890d05e" },
+  ng_r5_comparison_eno: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 2, edge: "agree", size: 2.6, shape: "15b696a832" },
   ng_r5_edge_pin: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 2, edge: "agree", size: 3.3, shape: "f848daf4e9" },
   ng_r5_empty_branch: { evidence: "unaskable", tier: "arith", rust: "compiles", lints: ["clippy::overly_complex_bool_expr"], pedantic: 1, edge: "agree", size: 2.1, shape: "ba6a952769" },
   ng_r5_enabled_comparison_value: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 2, edge: "agree", size: 2.6, shape: "7db85de24e" },

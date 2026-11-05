@@ -42,7 +42,6 @@ public class NwlShapeSpellingTests
     {
         RoundTrips(Ld1(new Assign(L("a"), new[] { T("y") }, Neg)), "%LANGUAGE LD\n%NETWORK\ny := NOT := a;\n");
         RoundTrips(Ld1(new Assign(L("a"), new[] { T("y"), T("x") }, Neg)), "%LANGUAGE LD\n%NETWORK\ny := x := NOT := a;\n");
-        RoundTrips(Ld1(new Assign(L("a"), new[] { T("y") }, Neg with { Rising = true })), "%LANGUAGE LD\n%NETWORK\ny := RISING NOT := a;\n");
     }
 
     [Fact] // #8

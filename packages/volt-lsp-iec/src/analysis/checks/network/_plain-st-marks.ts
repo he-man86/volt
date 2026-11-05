@@ -89,6 +89,10 @@ export function checkMarkOrder(marks: readonly string[], span: Span, out: Diagno
     if (negated) return emit(out, span, CODE, `NOT ${m}: the IDE negates first, so the edge is written outside the negation, ${m} NOT`)
     edge = true
   }
+  // an edge stacked on NOT runs the NOT and no edge (live CODESYS 3.5.21.40, openspec nwl-box-storage-map)
+  const stacked = marks.find((m) => m === "RISING" || m === "FALLING")
+  if (negated && stacked !== undefined)
+    emit(out, span, CODE, `${stacked} NOT before one receiver: the IDE runs the NOT and no edge. The edge of the negated value is RISING(NOT a)`)
 }
 
 /** A mark on a coil or a jump standing in a tree (`y := (RISING x := a) AND b`, `(RISING JMP.l := a)`). */

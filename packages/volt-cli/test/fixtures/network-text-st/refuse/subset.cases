@@ -1221,7 +1221,7 @@ network-plain-st an edge mark on the coil
 %NETWORK
 FALLING NOT y := a;
 === refused
-network-plain-st an edge mark on the coil
+network-plain-st FALLING NOT before one receiver
 
 #### coil-edge-set
 === text
@@ -1361,7 +1361,7 @@ network-plain-st is read through .ENO and shows no EN
 %NETWORK
 k := SUB(IN2 := i, IN1 := j);
 === refused
-network-plain-st the box SUB names its pin IN2 out of place
+network-plain-st the box SUB names its pin IN1 out of place
 
 #### operator-pin-out-of-place-limit — LIMIT(MX := 3, IN := i, MN := 0) runs with MN 3 and MX 0
 === text
@@ -1377,4 +1377,38 @@ network-plain-st the box LIMIT names its pin MX out of place
 %NETWORK
 k := SEL(IN1 := j, G := go, IN0 := i);
 === refused
-network-plain-st the box SEL names its pin IN1 out of place
+network-plain-st the box SEL names its pin G out of place
+
+#### pin-marks-stacked — RISING NOT on a pin runs the NOT and no edge (live CODESYS 3.5.21.40); the value's own edge runs both
+=== scope
+instance t1 TON
+=== text
+%LANGUAGE FBD
+%NETWORK
+t1(RISING NOT IN := a, PT := T#1S);
+=== refused
+network-plain-st RISING NOT before one receiver
+
+#### unnamed-pin-marks-stacked
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := AND(a, FALLING NOT := b);
+=== refused
+network-plain-st FALLING NOT before one receiver
+
+#### en-marks-stacked
+=== text
+%LANGUAGE FBD
+%NETWORK
+MOVE(RISING NOT EN := c, 1, OUT => n);
+=== refused
+network-plain-st RISING NOT before one receiver
+
+#### item-marks-stacked
+=== text
+%LANGUAGE LD
+%NETWORK
+y := RISING NOT := a;
+=== refused
+network-plain-st RISING NOT before one receiver

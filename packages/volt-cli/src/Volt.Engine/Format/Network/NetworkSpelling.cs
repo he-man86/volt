@@ -73,23 +73,33 @@ internal static class NetworkSpelling
     /// <summary>Whether <paramref name="signature"/> is an operator's, not a declared callee's.</summary>
     public static bool IsOperator(CalleeSignature? signature) => ReferenceEquals(signature, OperatorSignature);
 
-    /// <summary>THE PLACE AN OPERATOR'S PIN NAME STATES, or null for a name that states none. An operator runs its pins by position,
-    /// whatever their names say (live CODESYS 3.5.21.40, openspec nwl-box-storage-map): <c>LIMIT</c> and <c>SEL</c> and <c>MUX</c> have
-    /// their own names, any other numbers its pins from <c>IN1</c>.</summary>
-    public static int? OperatorPinPlace(string type, string formal)
+    /// <summary>THE FIRST OPERATOR PIN NAMED OUT OF ITS PLACE, or null. An operator runs its pins by position, whatever their names say
+    /// (live CODESYS 3.5.21.40, openspec nwl-box-storage-map), so a name stating another place is a claim the run does not keep:
+    /// <c>G</c>, <c>K</c> and <c>MN</c>, <c>IN</c>, <c>MX</c> have their place, and numbered pins ascend. TwinCAT numbers a SEL's and a
+    /// MUX's from <c>In1</c> where CODESYS has <c>IN0</c> (the corpus's archives), so a number states an order, not a place.</summary>
+    public static string? OperatorPinOutOfPlace(string type, IReadOnlyList<string?> formals)
     {
-        var name = formal.ToUpperInvariant();
-        switch (type.ToUpperInvariant())
+        var last = -1;
+        var upper = type.ToUpperInvariant();
+        for (var k = 0; k < formals.Count; k++)
         {
-            case "LIMIT": return name switch { "MN" => 0, "IN" => 1, "MX" => 2, _ => null };
-            case "SEL": return name switch { "G" => 0, "IN0" => 1, "IN1" => 2, _ => null };
-            case "MUX": return name == "K" ? 0 : InNumber(name) + 1;
-            default: return InNumber(name) - 1;
+            if (formals[k] is not { } formal) continue;
+            var name = formal.ToUpperInvariant();
+            var place = upper switch
+            {
+                "LIMIT" => name switch { "MN" => 0, "IN" => 1, "MX" => 2, _ => (int?)null },
+                "SEL" => name == "G" ? 0 : null,
+                "MUX" => name == "K" ? 0 : null,
+                _ => null,
+            };
+            if (place is { } at && at != k) return formal;
+            if (place is not null || !name.StartsWith("IN", StringComparison.Ordinal) ||
+                !int.TryParse(name.Substring(2), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var n)) continue;
+            if (n <= last) return formal;
+            last = n;
         }
+        return null;
     }
-
-    private static int? InNumber(string name) =>
-        name.StartsWith("IN", StringComparison.Ordinal) && int.TryParse(name.Substring(2), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var n) ? n : null;
 
     /// <summary>Whether a box type is an IEC operator the compiler provides — the keyword boxes, MOVE and NOT, and every
     /// other one (LIMIT, SEL, the shifts, the conversions, …, <see cref="NetworkMembers.IsOperatorType"/>): a name no

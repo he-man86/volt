@@ -42,7 +42,7 @@ const SAMPLES: Sample[] = [
 	{ key: "s2", lang: "FBD", code: "NOT AND(a, b);" },                            // #2
 	{ key: "s7a", lang: "LD", code: "y := NOT := a;" },                            // #7a
 	{ key: "s7c", lang: "LD", code: "y := x := NOT := a;" },                       // #7a, last in a chain
-	{ key: "s7r", lang: "LD", code: "y := RISING NOT := a;" },                     // #7a, stacked marks
+	{ key: "s7r", lang: "LD", code: "y := RISING := a;" },                     // #7a, stacked marks
 	{ key: "s8", lang: "LD", code: "NOT JMP.l := a;" },                            // #8
 	{ key: "s11", lang: "LD", code: "BRANCH(FEED := start, a, b);" },              // #11
 	{ key: "s12", lang: "LD", code: "RAIL();" },                                   // #12

@@ -1099,6 +1099,10 @@ public static class StNetworkReader
                 if (f.Negated) throw Error(line, $"NOT {m}: the IDE negates first, so the edge is written outside the negation, {m} NOT");
                 f = m == StNetworkWriter.RisingHead ? f with { Rising = true } : f with { Falling = true };
             }
+            // AN EDGE STACKED ON NOT RUNS THE NOT AND NO EDGE (live CODESYS 3.5.21.40, openspec nwl-box-storage-map), on a pin, EN and
+            // the assignment item alike; each alone runs as it reads.
+            if (f.Negated && (f.Rising || f.Falling))
+                throw Error(line, $"{(f.Rising ? StNetworkWriter.RisingHead : StNetworkWriter.FallingHead)} NOT before one receiver: the IDE runs the NOT and no edge. The edge of the negated value is {StNetworkWriter.RisingHead}(NOT a)");
             return f;
         }
 
@@ -1316,10 +1320,8 @@ public static class StNetworkReader
             if (signature is not null && !declaresEno && outputs.Any(o => Is(o.Formal, Box.EnoPin)))
                 throw Error(c.Line, $"the call {c.Head} wires ENO =>: the IDE never writes a variable on the ENO pin. ENO is read where its call is closed, v := {c.Head}(…).ENO");
             // AN OPERATOR RUNS ITS PINS BY POSITION, whatever their names say (live CODESYS 3.5.21.40, openspec nwl-box-storage-map).
-            if (NetworkSpelling.IsOperator(signature))
-                for (var k = 0; k < inputs.Count; k++)
-                    if (inputs[k].Formal is { } pin && NetworkSpelling.OperatorPinPlace(type, pin) is { } place && place != k)
-                        throw Error(c.Line, $"the box {c.Head} names its pin {pin} out of place: an operator runs its pins by position, whatever their names say. Write them in order");
+            if (NetworkSpelling.IsOperator(signature) && NetworkSpelling.OperatorPinOutOfPlace(type, inputs.Select(i => i.Formal).ToList()) is { } pin)
+                throw Error(c.Line, $"the box {c.Head} names its pin {pin} out of place: an operator runs its pins by position, whatever their names say. Write them in order");
             // ONE OUTPUT, ONE TARGET (live CODESYS 3.5.21.40, openspec nwl-box-storage-map): the IDE writes no second target.
             if (outputs.GroupBy(o => o.Formal ?? StNetworkWriter.ResultPin, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1) is { } twice)
                 throw Error(c.Line, $"the call {c.Head} wires {twice.Key} => twice: the IDE writes no second target. Two targets are a chain, x := y := {c.Head}(…)");

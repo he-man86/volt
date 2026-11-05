@@ -142,17 +142,25 @@ export function boxMember(e: MemberExpr, scope: Scope, project: Scope): { box: N
   return { box, name, eno: name.toUpperCase() === "ENO" && !declaresEno(box.signature) }
 }
 
-/** The place an operator's pin name states, or undefined for a name that states none (`NetworkSpelling.OperatorPinPlace`). */
-function operatorPinPlace(type: string, formal: string): number | undefined {
-  const name = formal.toUpperCase()
-  const numbered = /^IN(\d+)$/.exec(name)
-  const n = numbered === null ? undefined : Number(numbered[1])
-  switch (type.toUpperCase()) {
-    case "LIMIT": return ({ MN: 0, IN: 1, MX: 2 } as Record<string, number>)[name]
-    case "SEL": return ({ G: 0, IN0: 1, IN1: 2 } as Record<string, number>)[name]
-    case "MUX": return name === "K" ? 0 : n === undefined ? undefined : n + 1
-    default: return n === undefined ? undefined : n - 1
+/** The first operator pin named out of its place (`NetworkSpelling.OperatorPinOutOfPlace`): `G`, `K` and `MN`, `IN`, `MX` have
+ *  their place, and numbered pins ascend. */
+function operatorPinOutOfPlace(type: string, pins: readonly CallArg[]): CallArg | undefined {
+  const upper = type.toUpperCase()
+  let last = -1
+  for (const [k, a] of pins.entries()) {
+    const name = a.param?.name.toUpperCase()
+    if (name === undefined) continue
+    const place = upper === "LIMIT" ? ({ MN: 0, IN: 1, MX: 2 } as Record<string, number>)[name] : upper === "SEL" && name === "G" ? 0 : upper === "MUX" && name === "K" ? 0 : undefined
+    if (place !== undefined) {
+      if (place !== k) return a
+      continue
+    }
+    const numbered = /^IN(\d+)$/.exec(name)
+    if (numbered === null) continue
+    if (Number(numbered[1]) <= last) return a
+    last = Number(numbered[1])
   }
+  return undefined
 }
 
 /**
@@ -164,12 +172,9 @@ function operatorPinPlace(type: string, formal: string): number | undefined {
 export function misleadingBox(box: NetworkBox, head: string, at: { eno: boolean; consumed: boolean; member: string | undefined }): { span: Span; message: string }[] {
   const out: { span: Span; message: string }[] = []
   const { eno } = at
-  if (box.signature === OPERATOR)
-    box.pins.filter((a) => !a.output).forEach((a, k) => {
-      const place = a.param === undefined ? undefined : operatorPinPlace(head, a.param.name)
-      if (place !== undefined && place !== k)
-        out.push({ span: a.span, message: `the box ${head} names its pin ${a.param!.name} out of place: an operator runs its pins by position, whatever their names say. Write them in order` })
-    })
+  const misplaced = box.signature === OPERATOR ? operatorPinOutOfPlace(head, box.pins.filter((a) => !a.output)) : undefined
+  if (misplaced !== undefined)
+    out.push({ span: misplaced.span, message: `the box ${head} names its pin ${misplaced.param!.name} out of place: an operator runs its pins by position, whatever their names say. Write them in order` })
   const value = box.call.args.find((a) => a.output && a.param?.name.toUpperCase() === VALUE)
   const readByValue = at.consumed && !eno && (at.member === undefined || at.member.toUpperCase() === VALUE)
   if (readByValue && value !== undefined && box.instance === undefined && box.signature !== undefined && box.signature.shape !== "program")

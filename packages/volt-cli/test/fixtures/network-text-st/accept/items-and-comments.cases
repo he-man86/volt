@@ -65,15 +65,11 @@ NETWORK
 y := NOT := a;
 %NETWORK
 y := x := NOT := a;
-%NETWORK
-y := RISING NOT := a;
 === model
 NETWORK
   (:= y item:! a)
 NETWORK
   (:= y x item:! a)
-NETWORK
-  (:= y item:/! a)
 
 #### three-negations — a leaf, a target and the item are three models
 === text

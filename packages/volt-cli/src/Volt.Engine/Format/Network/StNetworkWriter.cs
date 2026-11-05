@@ -198,6 +198,8 @@ public static class StNetworkWriter
     {
         if (f.Jump || f.Return) throw Unspellable("a jump or return flag on a receiver", $"{where} carries {Describe(f)}.");
         if (f.Rising && f.Falling) throw Unspellable("a rising and falling edge on one node", $"{where} carries both edges.");
+        // It runs the NOT and no edge (live CODESYS 3.5.21.40, openspec nwl-box-storage-map).
+        if (f.Negated && (f.Rising || f.Falling)) throw Unspellable("an edge stacked on a negation", $"{where} carries {Describe(f)}.");
         return (f.Rising ? RisingHead + " " : f.Falling ? FallingHead + " " : "") + (f.Negated ? "NOT " : "");
     }
 
@@ -774,10 +776,8 @@ public static class StNetworkWriter
                 args.Add(PinMarks(b, p.Formal, p.Flags) + Name(p.Formal) + " := " + value);
             }
             // An operator runs its pins by position, whatever their names say (live CODESYS 3.5.21.40, openspec nwl-box-storage-map).
-            if (NetworkSpelling.IsOperator(signature))
-                for (var k = 0; k < b.Inputs.Count; k++)
-                    if (b.Inputs[k].Formal is { } pin && NetworkSpelling.OperatorPinPlace(b.Type, pin) is { } place && place != k)
-                        throw Unspellable("an operator pin named out of place", $"the '{b.Type}' box holds its pin {pin} at place {k.ToString(CultureInfo.InvariantCulture)}, and runs by position.");
+            if (NetworkSpelling.IsOperator(signature) && NetworkSpelling.OperatorPinOutOfPlace(b.Type, b.Inputs.Select(i => i.Formal).ToList()) is { } pin)
+                throw Unspellable("an operator pin named out of place", $"the '{b.Type}' box holds its pin {pin} out of its place, and runs by position.");
             // One output, one target: the IDE writes no second one (live CODESYS 3.5.21.40, openspec nwl-box-storage-map).
             if (b.Outputs.GroupBy(o => o.Formal ?? ResultPin, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1) is { } twice)
                 throw Unspellable("one output wired to two targets", $"the '{b.Type}' box wires {twice.Key} to two targets, and the IDE writes no second one.");

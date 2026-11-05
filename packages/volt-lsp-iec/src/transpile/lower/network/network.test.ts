@@ -202,7 +202,7 @@ describe("what the lowering refuses, by name", () => {
 
   test("an operator's pin named out of place: it runs by position, so nothing runs what the names say", () =>
     expect(codes("k, i, j : INT;", "%NETWORK\nk := SUB(IN2 := i, IN1 := j);\n")[0]).toEqual([
-      "network-box", "the box SUB names its pin IN2 out of place: an operator runs its pins by position, whatever their names say. Write them in order",
+      "network-box", "the box SUB names its pin IN1 out of place: an operator runs its pins by position, whatever their names say. Write them in order",
     ]))
 
   test("an enabled box other than a comparison read inside a tree", () =>
@@ -246,8 +246,13 @@ describe("the assignment item's marks mark the value every target receives", () 
     expect(r.get("x")).toBe(true)
   })
 
-  test("RISING NOT := is the edge of the negated value, negation first", () => {
-    const r = runner("a, y : BOOL;", "%NETWORK\ny := RISING NOT := a;\n", TRIGS)
+  test("RISING NOT := runs the NOT and no edge in the IDE: refused", () =>
+    expect(lowered("a, y : BOOL;", "%NETWORK\ny := RISING NOT := a;\n", TRIGS).diagnostics.map((d) => d.message)).toEqual([
+      "RISING NOT before one receiver: the IDE runs the NOT and no edge. The edge of the negated value is RISING(NOT a)",
+    ]))
+
+  test("RISING := is the edge of the value, and a negated value's edge is RISING(NOT a)", () => {
+    const r = runner("a, y : BOOL;", "%NETWORK\ny := RISING(NOT a);\n", TRIGS)
     expect(trace(r, "y", [{ a: true }, { a: false }, {}, { a: true }])).toEqual([false, true, false, false])
   })
 

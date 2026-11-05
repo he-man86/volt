@@ -36,7 +36,7 @@ public class CodesysNwlShapeWriteTests
     [InlineData("LD", "a;")]                                          // #1
     [InlineData("FBD", "NOT AND(a, b);")]                             // #2
     [InlineData("LD", "y := NOT := a;")]                              // #7a
-    [InlineData("LD", "y := x := RISING NOT := a;")]                  // #7a, stacked, last in the chain
+    [InlineData("LD", "y := x := RISING := a;")]                  // #7a, stacked, last in the chain
     [InlineData("LD", "NOT JMP.l := a;")]                             // #8
     [InlineData("LD", "BRANCH(FEED := start, a, b);")]                // #11
     [InlineData("LD", "RAIL();")]                                     // #12

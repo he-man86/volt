@@ -32,7 +32,7 @@
  *                                                refused (unmeasured);
  *   `NOT y := x := a`                            every target receives the power flow, the first its mark applied:
  *                                                `t := a; x := t; y := (NOT t);`;
- *   `y := x := RISING NOT := a`                  the item's marks on the value every target receives, negation first;
+ *   `y := x := RISING := a`                      the item's marks on the value every target receives;
  *   `a;`, `NOT t1(…);`, `RAIL();`                a value standing alone: a box runs, its marks of no effect; else nothing;
  *   `COMMENT(a, 'why')`                          `a` (the front-end reads the operand it wraps);
  *   `JMP.l := v`, `RETURN := v`                  `IF v THEN JMP l; END_IF;` / `IF v THEN RETURN; END_IF;` (`NOT JMP.l`: on
@@ -332,9 +332,12 @@ class Twinner extends BoxTwinner {
     return `${name}.Q`
   }
 
-  /** A value under the assignment item's marks (`y := RISING NOT := a`): negated first, then its edge, as everywhere. */
+  /** A value under the assignment item's marks (`y := NOT := a`, `y := RISING := a`). */
   private marked(marks: readonly string[] | undefined, value: string, pre: string[]): string {
     if (marks === undefined) return value
+    // an edge stacked on NOT runs the NOT and no edge (live CODESYS 3.5.21.40, openspec nwl-box-storage-map)
+    if (marks.includes("NOT") && marks.some((m) => m !== "NOT"))
+      throw new TwinRefusal(`${marks.find((m) => m !== "NOT")} NOT before one receiver: the IDE runs the NOT and no edge. The edge of the negated value is RISING(NOT a)`)
     const negated = marks.includes("NOT") ? `(NOT ${value})` : value
     const edge = marks.find((m) => m === "RISING" || m === "FALLING")
     return edge === undefined ? negated : this.edgeOf(edge === "RISING", negated, pre)

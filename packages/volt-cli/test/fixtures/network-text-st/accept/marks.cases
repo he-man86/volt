@@ -50,16 +50,12 @@ y := t1(NOT IN := a, PT := T#1S).Q;
 %NETWORK
 y := t1(RISING IN := a, PT := T#1S).Q;
 %NETWORK
-y := t1(FALLING NOT IN := a, PT := T#1S).Q;
-%NETWORK
 y := t1(IN := NOT a, PT := T#1S).Q;
 === model
 NETWORK
   (:= y (TON@t1 !IN=a PT=T#1S name:Q))
 NETWORK
   (:= y (TON@t1 /IN=a PT=T#1S name:Q))
-NETWORK
-  (:= y (TON@t1 \!IN=a PT=T#1S name:Q))
 NETWORK
   (:= y (TON@t1 IN=not:a PT=T#1S name:Q))
 
@@ -128,8 +124,6 @@ x := AND(a, RISING := b);
 %NETWORK
 x := AND(a, FALLING := b);
 %NETWORK
-x := AND(a, RISING NOT := b);
-%NETWORK
 x := AND(NOT := a, b, NOT := c);
 %NETWORK
 x := AND(a, NOT b);
@@ -140,8 +134,6 @@ NETWORK
   (:= x (AND a /b))
 NETWORK
   (:= x (AND a \b))
-NETWORK
-  (:= x (AND a /!b))
 NETWORK
   (:= x (AND !a b !c))
 NETWORK
