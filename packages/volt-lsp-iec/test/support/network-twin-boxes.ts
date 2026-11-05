@@ -108,18 +108,6 @@ export abstract class BoxTwinner {
     return eno ?? ""
   }
 
-  /** A function box showing its ENO and no EN (`X(…).ENO`): it runs on every scan, and its ENO is FALSE (measured,
-   *  network-output-member 2.3: CODESYS sets no ENO a box has no EN for). */
-  protected enoOnly(box: NetworkBox, pre: string[]): string {
-    const result = box.pins.find((a) => a.output && a.param?.name.toUpperCase() === "OUT")
-    if (result === undefined) pre.push(this.callText(box.st, box.pins, pre) + ";")
-    else {
-      const value = this.callText(box.st, box.pins.filter((a) => a !== result), pre)
-      pre.push(`${this.expr(result.value!, pre)} := ${value};`)
-    }
-    return "FALSE"
-  }
-
   /**
    * AN FB BOX: its instance called before the item that reads it (`t1(IN := a);`, the FB runs before the tree) — before
    * the enabled box that reads it too, on every scan — under its own EN where shown, what its pins evaluate on every
@@ -175,7 +163,7 @@ export abstract class BoxTwinner {
     }
     if (member !== undefined && !eno && member.toUpperCase() !== "OUT") throw new TwinRefusal(`the ${this.name(box)} box is read through its VAR_OUTPUT ${member}`)
     if (box.enable !== undefined) return eno ? this.enabled(box, pre, true) : this.enOnlyRead(box, pre)
-    if (eno) return this.enoOnly(box, pre)
+    if (eno) throw new TwinRefusal(`the ${this.name(box)} box is read through .ENO and shows no EN`)
     return this.boxValue(box, box.pins, pre)
   }
 

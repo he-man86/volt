@@ -19,14 +19,14 @@
  *     not-lowered    395
  *     lsp-gap         94
  *     diverges         6
- *     unaskable      317
+ *     unaskable      313
  *
  *   tier                     lowered    clean
  *     decl                   1058     1058
  *     arith                  1788     1787
- *     control                 198      185
+ *     control                 197      184
  *     aggregate               176      176
- *     call                    452      452
+ *     call                    449      449
  *     indirect                493      492
  *
  *   surviving lints (a lint listed here is work, not policy — 12 allowed ones are named with their reasons)
@@ -54,7 +54,7 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         3904
+ *     agree         3900
  *     disagree         0
  *     not-run        261
  *       not-run: no elementary variable to seed or compare      105
@@ -72,12 +72,12 @@
  *       agree,   5/6 unanswered (the interpreter's loop guard): tr_27_loop_cap_repeat_1000001
  *       agree,   5/6 unanswered (the interpreter's loop guard): tr_27_loop_cap_while_5000000
  *
- *   pedantic — 2365 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *   pedantic — 2362 clippy::pedantic + clippy::perf findings; the ten most frequent
  *     clippy::cast_possible_truncation          981
  *     clippy::cast_sign_loss                    733
- *     clippy::cast_possible_wrap                328
+ *     clippy::cast_possible_wrap                326
  *     clippy::pub_underscore_fields             132
- *     clippy::struct_excessive_bools             73
+ *     clippy::struct_excessive_bools             72
  *     clippy::cast_precision_loss                31
  *     clippy::single_match_else                  21
  *     clippy::float_cmp                          14
@@ -96,7 +96,7 @@
  *     tr_a10_string_to_dint_underscore_sign_edges   10.8
  *     tr_a10_string_to_int_literal_forms            10.8
  *
- *   shape — 2104 distinct emission shapes over 4165 lowered fixtures, 2332 distinct constructs.
+ *   shape — 2101 distinct emission shapes over 4161 lowered fixtures, 2330 distinct constructs.
  *   20 constructs carry a review note (`NOTES`): 39 fixtures are improvable, 24 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  *   Notes per owning task (openspec transpile-restructure; a merged note counts once under each owner of its items;
@@ -3646,10 +3646,9 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   ng_m_function_two_inputs: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 0, edge: "agree", size: 1.9, shape: "fa5c79fec2" },
   ng_m_interface_method: { evidence: "unaskable", tier: "indirect", rust: "compiles", lints: ["clippy::match_single_binding", "clippy::redundant_closure_call"], pedantic: 0, edge: "agree", size: 1.7, shape: "41cd155181" },
   ng_m_library_function: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 1, edge: "agree", size: 2.6, shape: "8ebb7e9a16" },
-  ng_m_library_function_eno: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 1, edge: "agree", size: 2.6, shape: "7178f7d17e" },
   ng_m_library_function_named: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 1, edge: "agree", size: 2.6, shape: "8ebb7e9a16" },
   ng_m_library_function_qualified: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 1, edge: "agree", size: 2.6, shape: "8ebb7e9a16" },
-  ng_m_library_function_qualified_eno: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 1, edge: "agree", size: 2.6, shape: "7178f7d17e" },
+  ng_m_library_function_qualified_eno: { evidence: "unaskable" },
   ng_m_method_call: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 0, edge: "agree", size: 2.1, shape: "5374978f7a" },
   ng_m_method_positional: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 0, edge: "agree", size: 2.1, shape: "5374978f7a" },
   ng_m_own_method: { evidence: "unaskable", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 1.9, shape: "2a45ed3886" },
@@ -4924,9 +4923,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   rcc_implementation_variable: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "dd164fb363" },
   rcc_member_backtick_name: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.1, shape: "7f327e5fec" },
   rcc_member_name_not_identifier: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.1, shape: "7f327e5fec" },
-  rcc_network_eno_function_without_en: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 0, edge: "agree", size: 1.9, shape: "b11799dff6" },
   rcc_network_eno_function_without_en_root: { evidence: "unaskable" },
-  rcc_network_eno_without_en: { evidence: "unaskable" },
   rcc_network_located_wire_shape: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.5, shape: "247ccdc804" },
   rcc_network_second_var_temp: { evidence: "unaskable", tier: "arith", rust: "compiles", pedantic: 3, edge: "agree", size: 2.2, shape: "8fcc61149d" },
   rcc_network_undeclared_wire_shape: { evidence: "unaskable" },

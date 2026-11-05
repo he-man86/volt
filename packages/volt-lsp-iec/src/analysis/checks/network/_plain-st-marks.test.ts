@@ -30,7 +30,7 @@ test("the assignment item's marks stand last in its chain, right before the valu
 })
 
 test("a jump and the return take a receiver's marks, first in their chain as a coil's", () => {
-  expect(findings("%NETWORK\nl:\nNOT JMP.l := c;\nRISING RETURN := a;\nJMP.l := NOT := b;\n")).toEqual([])
+  expect(findings("%NETWORK\nl:\nNOT JMP.l := c;\nNOT RETURN := a;\nJMP.l := NOT := b;\n")).toEqual([])
   expect(findings("%NETWORK\nl:\ny := NOT JMP.l := c;\n")[0]).toContain("a marked coil inside a chain")
 })
 

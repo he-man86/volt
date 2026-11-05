@@ -678,6 +678,8 @@ public static class StNetworkWriter
                 // It does not build (live CODESYS 3.5.21.40, openspec nwl-box-storage-map), and the reader refuses its text.
                 if (NetworkSpelling.IsOperator(signature) && !b.Outputs.Any(o => o.Formal is null))
                     throw Unspellable("an operator box closed by ENO with its value wired nowhere", $"the '{b.Type}' box shows ENO and holds no target for its value.");
+                if (consumed && b.Enable is null && signature is not null)
+                    throw Unspellable("a box read through ENO with no EN", $"the '{b.Type}' box is read through its ENO and shows no EN.");
                 member = "." + Box.EnoPin;
             }
             else
@@ -690,6 +692,9 @@ public static class StNetworkWriter
                 // It writes its reader and no `OUT =>` (live CODESYS 3.5.21.40, openspec nwl-box-storage-map).
                 if (consumed && b.Instance is null && signature is { Shape: not CalleeShape.Program } && b.ConnectedSlot is null or 0 && b.Outputs.Any(o => o.Formal is null))
                     throw Unspellable("a box read by its value with a target on it", $"the '{b.Type}' box is read by its value and holds a target for it as well.");
+                // Not written, and enabled it faults the IDE (live CODESYS 3.5.21.40, openspec nwl-box-storage-map).
+                if (!consumed && signature is { Shape: CalleeShape.Function } && !NetworkSpelling.IsOperator(signature) && b.ConnectedSlot is null && b.Outputs.Any(o => o.Formal is null))
+                    throw Unspellable("a function value wired at a root with no ENO", $"the '{b.Type}' function box stands at a root, shows no ENO and holds a target for its value.");
                 member = consumed || b.ConnectedSlot is > 0 || b.MainOutputName is not null ? DataMember(b, signature) : "";
             }
             if (string.Equals(b.Type, NetworkSpelling.NotBox, StringComparison.OrdinalIgnoreCase) && b.Enable is null &&
@@ -790,6 +795,10 @@ public static class StNetworkWriter
                     args.Add(marks + Name(f) + " => " + Target(o.Value));
                     continue;
                 }
+                // A slot past an FB's or a PROGRAM's names holding a variable is never written (live CODESYS 3.5.21.40); `???` there is
+                // the unnamed output a real project holds, which builds and writes nothing.
+                if ((b.Instance is not null || signature is { Shape: CalleeShape.Program }) && o.Value.Text != Box.UnnamedInstance)
+                    throw Unspellable("a variable on an output no declaration names", $"the '{b.Type}' box holds '{o.Value.Text}' on an output past its names.");
                 // Each `OUT =>` is the next unnamed output slot: ENO and the slot a consumer reads are skipped.
                 next = NetworkSpelling.NextFreeSlot(next, eno, connected);
                 if (o.Slot != next)

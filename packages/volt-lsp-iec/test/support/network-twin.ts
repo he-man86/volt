@@ -12,8 +12,6 @@
  *   `X(EN := e, pins…)`                          the box with EN and no ENO, its value: a comparison's FALSE when disabled
  *                                                (1.3), any other an assignment's whole value, held when disabled (1.4):
  *                                                `IF e THEN y := X(pins…); END_IF`; at the root as with ENO;
- *   `X(pins…).ENO`                               the call, on every scan; its ENO FALSE (2.3); at a root, or on an
- *                                                FB, refused: CODESYS compiles neither (2.3);
  *   `t1(IN := a).Q`                              `t1(IN := a);` before the item, `t1.Q` in it — the FB runs before the tree
  *                                                that reads it, on every scan though an enabled box reads it; with
  *                                                `EN := e` under `IF e THEN … END_IF`; read by nothing named, its one
@@ -239,7 +237,7 @@ class Twinner extends BoxTwinner {
     if (box === undefined) return [this.callText(call, call.args, pre) + ";"]
     this.refuseMisleading(box, { eno, consumed: false, member: undefined })
     if (box.instance !== undefined) {
-      this.fb(box, eno && box.enable === undefined, undefined, pre) // a root's ENO: read by nothing
+      this.fb(box, false, undefined, pre) // a root's ENO is read by nothing: with no EN it runs as the plain call (live CODESYS 3.5.21.40)
       return pre.splice(0)
     }
     if (box.enable !== undefined) {

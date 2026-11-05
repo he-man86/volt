@@ -74,7 +74,7 @@ public class TcCalleeDerivationTests
     [Fact]
     public void A_box_showing_its_ENO_without_EN_is_built_showing_it()
     {
-        var box = Built("x := AwF(v).ENO;");
+        var box = Built("AwF(v).ENO;");
         Assert.True(TcNetworkReader.HasEno(box));
     }
 

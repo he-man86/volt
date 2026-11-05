@@ -10402,7 +10402,7 @@ null
 "code": "bmF0(a := a, b := b);",
 "layout": "fbc492bd4d"
 },
-"pull": "bmF0(a := a, b := b, OUT =\u003E z);"
+"pull": "%UNSUPPORTED \u0022a function value wired at a root with no ENO\u0022 #e82de676"
 },
 {
 "id": "0189",
@@ -10647,7 +10647,7 @@ null
 "code": "y := bmF0(a := a, b := b);",
 "layout": "21cbbc4906"
 },
-"pull": "%UNSUPPORTED \u0022an unnamed output by an unspellable slot\u0022 #b5873f36"
+"pull": "%UNSUPPORTED \u0022a box read by its value with a target on it\u0022 #b5873f36"
 },
 {
 "id": "0194",
@@ -10893,7 +10893,7 @@ null
 "layout": "36af301b3e",
 "afterReopen": true
 },
-"pull": "bmF0(a := a, b := b, OUT =\u003E z);"
+"pull": "%UNSUPPORTED \u0022a function value wired at a root with no ENO\u0022 #e82de676"
 },
 {
 "id": "0199",
@@ -11142,7 +11142,7 @@ null
 "layout": "ba47debb72",
 "afterReopen": true
 },
-"pull": "%UNSUPPORTED \u0022an unnamed output by an unspellable slot\u0022 #b5873f36"
+"pull": "%UNSUPPORTED \u0022a box read by its value with a target on it\u0022 #b5873f36"
 },
 {
 "id": "0204",
@@ -12720,7 +12720,7 @@ null,
 "code": "bmP2(a := a, n := i);",
 "layout": "7eb67cb186"
 },
-"pull": "%UNSUPPORTED \u0022an unnamed output by an unspellable slot\u0022 #082c45ee"
+"pull": "%UNSUPPORTED \u0022a variable on an output no declaration names\u0022 #082c45ee"
 },
 {
 "id": "0233",
@@ -13338,7 +13338,7 @@ null,
 "code": "bmP2(a := a, n := i); x := bmP2.q1;",
 "layout": "f9e517cdcf"
 },
-"pull": "%UNSUPPORTED \u0022an unnamed output by an unspellable slot\u0022 #59c52987"
+"pull": "%UNSUPPORTED \u0022a variable on an output no declaration names\u0022 #59c52987"
 },
 {
 "id": "0245",
@@ -13963,7 +13963,7 @@ null,
 "layout": "51511fd49f",
 "afterReopen": true
 },
-"pull": "%UNSUPPORTED \u0022an unnamed output by an unspellable slot\u0022 #082c45ee"
+"pull": "%UNSUPPORTED \u0022a variable on an output no declaration names\u0022 #082c45ee"
 },
 {
 "id": "0257",
@@ -14592,7 +14592,7 @@ null,
 "layout": "2e0b3303cd",
 "afterReopen": true
 },
-"pull": "%UNSUPPORTED \u0022an unnamed output by an unspellable slot\u0022 #59c52987"
+"pull": "%UNSUPPORTED \u0022a variable on an output no declaration names\u0022 #59c52987"
 },
 {
 "id": "0269",
@@ -20148,7 +20148,7 @@ null
 "code": "y := (a AND b);",
 "layout": "b75c1e58a3"
 },
-"pull": "%UNSUPPORTED \u0022an unnamed output by an unspellable slot\u0022 #1ff645a1"
+"pull": "%UNSUPPORTED \u0022a box read by its value with a target on it\u0022 #1ff645a1"
 },
 {
 "id": "0380",
@@ -20672,7 +20672,7 @@ null
 "layout": "58f5243e9d",
 "afterReopen": true
 },
-"pull": "%UNSUPPORTED \u0022an unnamed output by an unspellable slot\u0022 #1ff645a1"
+"pull": "%UNSUPPORTED \u0022a box read by its value with a target on it\u0022 #1ff645a1"
 },
 {
 "id": "0392",
@@ -24881,7 +24881,7 @@ null
 "code": ";",
 "layout": "d5d8586d59"
 },
-"pull": "%UNSUPPORTED \u0022an unnamed output by an unspellable slot\u0022 #3c9b7c94"
+"pull": "%UNSUPPORTED \u0022a box read by its value with a target on it\u0022 #3c9b7c94"
 },
 {
 "id": "0478",
@@ -24925,7 +24925,7 @@ null
 "code": ";",
 "layout": "d5d8586d59"
 },
-"pull": "%UNSUPPORTED \u0022one output wired to two targets\u0022 #b9c3ed09"
+"pull": "%UNSUPPORTED \u0022a box read by its value with a target on it\u0022 #b9c3ed09"
 },
 {
 "id": "0479",
@@ -24967,7 +24967,7 @@ null,
 "code": "k := i;",
 "layout": "e7707fa648"
 },
-"pull": "k := MOVE(i, OUT =\u003E k);"
+"pull": "%UNSUPPORTED \u0022a box read by its value with a target on it\u0022 #3b2d79c9"
 },
 {
 "id": "0480",
@@ -25010,7 +25010,7 @@ null,
 "code": "k := i;",
 "layout": "e7707fa648"
 },
-"pull": "%UNSUPPORTED \u0022one output wired to two targets\u0022 #72c119ed"
+"pull": "%UNSUPPORTED \u0022a box read by its value with a target on it\u0022 #72c119ed"
 },
 {
 "id": "0481",
@@ -25487,7 +25487,7 @@ null
 "layout": "24e544f22d",
 "afterReopen": true
 },
-"pull": "%UNSUPPORTED \u0022an unnamed output by an unspellable slot\u0022 #3c9b7c94"
+"pull": "%UNSUPPORTED \u0022a box read by its value with a target on it\u0022 #3c9b7c94"
 },
 {
 "id": "0492",
@@ -25532,7 +25532,7 @@ null
 "layout": "24e544f22d",
 "afterReopen": true
 },
-"pull": "%UNSUPPORTED \u0022one output wired to two targets\u0022 #b9c3ed09"
+"pull": "%UNSUPPORTED \u0022a box read by its value with a target on it\u0022 #b9c3ed09"
 },
 {
 "id": "0493",
@@ -25575,7 +25575,7 @@ null,
 "layout": "9c4953615b",
 "afterReopen": true
 },
-"pull": "k := MOVE(i, OUT =\u003E k);"
+"pull": "%UNSUPPORTED \u0022a box read by its value with a target on it\u0022 #3b2d79c9"
 },
 {
 "id": "0494",
@@ -25619,7 +25619,7 @@ null,
 "layout": "9c4953615b",
 "afterReopen": true
 },
-"pull": "%UNSUPPORTED \u0022one output wired to two targets\u0022 #72c119ed"
+"pull": "%UNSUPPORTED \u0022a box read by its value with a target on it\u0022 #72c119ed"
 },
 {
 "id": "0495",
@@ -26092,7 +26092,7 @@ null
 "code": "y := (go AND (i > j));",
 "layout": "f7bea6e2d6"
 },
-"pull": "%UNSUPPORTED \u0022a box read by an unstated slot\u0022 #999f62d3"
+"pull": "%UNSUPPORTED \u0022a box read by its value with a target on it\u0022 #999f62d3"
 },
 {
 "id": "0505",
@@ -26282,7 +26282,7 @@ null,
 "code": "y := (go AND (i > j));",
 "layout": "7f18371b28"
 },
-"pull": "y := GT(EN := go, i, j, OUT =\u003E z);"
+"pull": "%UNSUPPORTED \u0022a box read by its value with a target on it\u0022 #23ad5e27"
 },
 {
 "id": "0509",
@@ -26668,7 +26668,7 @@ null
 "code": "y := (i > j);",
 "layout": "b3e1f10847"
 },
-"pull": "%UNSUPPORTED \u0022an unnamed output by an unspellable slot\u0022 #5d88eb7c"
+"pull": "%UNSUPPORTED \u0022a box read by its value with a target on it\u0022 #5d88eb7c"
 },
 {
 "id": "0518",
@@ -27104,7 +27104,7 @@ null
 "layout": "d00b16edd7",
 "afterReopen": true
 },
-"pull": "%UNSUPPORTED \u0022an unnamed output by an unspellable slot\u0022 #5d88eb7c"
+"pull": "%UNSUPPORTED \u0022a box read by its value with a target on it\u0022 #5d88eb7c"
 },
 {
 "id": "0528",
@@ -28163,7 +28163,7 @@ null
 "code": "y := (i + j);",
 "layout": "9f5f027452"
 },
-"pull": "%UNSUPPORTED \u0022an unnamed output by an unspellable slot\u0022 #54a4276d"
+"pull": "%UNSUPPORTED \u0022a box read by its value with a target on it\u0022 #54a4276d"
 },
 {
 "id": "0550",
@@ -28604,7 +28604,7 @@ null
 "layout": "ec47677506",
 "afterReopen": true
 },
-"pull": "%UNSUPPORTED \u0022an unnamed output by an unspellable slot\u0022 #54a4276d"
+"pull": "%UNSUPPORTED \u0022a box read by its value with a target on it\u0022 #54a4276d"
 },
 {
 "id": "0560",
@@ -29930,7 +29930,7 @@ null
 "code": "y := NOT(a);",
 "layout": "1b6b315502"
 },
-"pull": "%UNSUPPORTED \u0022a NOT box with pins\u0022 #0925a4c3"
+"pull": "%UNSUPPORTED \u0022a box read by its value with a target on it\u0022 #0925a4c3"
 },
 {
 "id": "0587",
@@ -30178,7 +30178,7 @@ null
 "layout": "b6e1051108",
 "afterReopen": true
 },
-"pull": "%UNSUPPORTED \u0022a NOT box with pins\u0022 #0925a4c3"
+"pull": "%UNSUPPORTED \u0022a box read by its value with a target on it\u0022 #0925a4c3"
 },
 {
 "id": "0593",
@@ -30881,7 +30881,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN t2(a := a, n := i); END_IF; y := __ENO;",
 "layout": "6aeed52ea6"
 },
-"pull": "%UNSUPPORTED \u0022a pin named EN its callee does not declare\u0022 #74f47f32"
+"pull": "%UNSUPPORTED \u0022a box read through ENO with no EN\u0022 #74f47f32"
 },
 {
 "id": "0605",
@@ -31003,7 +31003,7 @@ null,
 "code": "t2(EN := go, a := a, n := i); y := t2.ENO;",
 "layout": "7f67b4fa97"
 },
-"pull": "%UNSUPPORTED \u0022a pin named EN its callee does not declare\u0022 #74f47f32"
+"pull": "%UNSUPPORTED \u0022a box read through ENO with no EN\u0022 #74f47f32"
 },
 {
 "id": "0607",
@@ -31663,7 +31663,7 @@ null,
 "code": "t2(a := a, n := i); y := t2.ENO;",
 "layout": "45329cd0c3"
 },
-"pull": "y := t2(a := a, n := i).ENO;"
+"pull": "%UNSUPPORTED \u0022a box read through ENO with no EN\u0022 #89d2d594"
 },
 {
 "id": "0619",
@@ -31774,7 +31774,7 @@ null,
 "code": "t2(a := a, n := i); y := t2.ENO;",
 "layout": "45329cd0c3"
 },
-"pull": "y := t2(a := a, n := i).ENO;"
+"pull": "%UNSUPPORTED \u0022a box read through ENO with no EN\u0022 #89d2d594"
 },
 {
 "id": "0621",
@@ -33064,7 +33064,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN bmF0(a := a, b := b); END_IF; y := __ENO;",
 "layout": "eed0520b4d"
 },
-"pull": "%UNSUPPORTED \u0022a pin named EN its callee does not declare\u0022 #a1ec9a90"
+"pull": "%UNSUPPORTED \u0022a box read through ENO with no EN\u0022 #a1ec9a90"
 },
 {
 "id": "0645",
@@ -33176,7 +33176,7 @@ null,
 "code": "bmF0(EN := go, a := a, b := b); y := bmF0.ENO;",
 "layout": "2e81a04f2d"
 },
-"pull": "%UNSUPPORTED \u0022a pin named EN its callee does not declare\u0022 #a1ec9a90"
+"pull": "%UNSUPPORTED \u0022a box read through ENO with no EN\u0022 #a1ec9a90"
 },
 {
 "id": "0647",
@@ -33800,7 +33800,7 @@ null,
 "code": "bmF0(a := a, b := b); y := bmF0.ENO;",
 "layout": "5b34eb0d7d"
 },
-"pull": "y := bmF0(a := a, b := b).ENO;"
+"pull": "%UNSUPPORTED \u0022a box read through ENO with no EN\u0022 #5340221a"
 },
 {
 "id": "0659",
@@ -33906,7 +33906,7 @@ null,
 "code": "bmF0(a := a, b := b); y := bmF0.ENO;",
 "layout": "5b34eb0d7d"
 },
-"pull": "y := bmF0(a := a, b := b).ENO;"
+"pull": "%UNSUPPORTED \u0022a box read through ENO with no EN\u0022 #5340221a"
 },
 {
 "id": "0661",
@@ -35213,7 +35213,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN bmP2(a := a, n := i); END_IF; y := __ENO;",
 "layout": "b333a96691"
 },
-"pull": "%UNSUPPORTED \u0022a pin named EN its callee does not declare\u0022 #2bb8fe71"
+"pull": "%UNSUPPORTED \u0022a box read through ENO with no EN\u0022 #2bb8fe71"
 },
 {
 "id": "0685",
@@ -35335,7 +35335,7 @@ null,
 "code": "bmP2(EN := go, a := a, n := i); y := bmP2.ENO;",
 "layout": "9268b4c754"
 },
-"pull": "%UNSUPPORTED \u0022a pin named EN its callee does not declare\u0022 #2bb8fe71"
+"pull": "%UNSUPPORTED \u0022a box read through ENO with no EN\u0022 #2bb8fe71"
 },
 {
 "id": "0687",
@@ -35995,7 +35995,7 @@ null,
 "code": "bmP2(a := a, n := i); y := bmP2.ENO;",
 "layout": "e899f433ac"
 },
-"pull": "y := bmP2(a := a, n := i).ENO;"
+"pull": "%UNSUPPORTED \u0022a box read through ENO with no EN\u0022 #3cf3e307"
 },
 {
 "id": "0699",
@@ -36106,7 +36106,7 @@ null,
 "code": "bmP2(a := a, n := i); y := bmP2.ENO;",
 "layout": "e899f433ac"
 },
-"pull": "y := bmP2(a := a, n := i).ENO;"
+"pull": "%UNSUPPORTED \u0022a box read through ENO with no EN\u0022 #3cf3e307"
 },
 {
 "id": "0701",
@@ -39276,7 +39276,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN k := i; END_IF; y := __ENO;",
 "layout": "6a20293001"
 },
-"pull": "%UNSUPPORTED \u0022a pin named EN its callee does not declare\u0022 #369ceb0e"
+"pull": "%UNSUPPORTED \u0022a box read through ENO with no EN\u0022 #369ceb0e"
 },
 {
 "id": "0765",
@@ -39380,7 +39380,7 @@ null,
 "code": "; ;",
 "layout": "5f5cae4281"
 },
-"pull": "%UNSUPPORTED \u0022a pin named EN its callee does not declare\u0022 #369ceb0e"
+"pull": "%UNSUPPORTED \u0022a box read through ENO with no EN\u0022 #369ceb0e"
 },
 {
 "id": "0767",
@@ -39944,7 +39944,7 @@ null,
 "code": "; ;",
 "layout": "079cdc99a2"
 },
-"pull": "y := MOVE(i, OUT =\u003E k).ENO;"
+"pull": "%UNSUPPORTED \u0022a box read through ENO with no EN\u0022 #51d1b124"
 },
 {
 "id": "0779",
@@ -40037,7 +40037,7 @@ null,
 "code": "; ;",
 "layout": "079cdc99a2"
 },
-"pull": "y := MOVE(i, OUT =\u003E k).ENO;"
+"pull": "%UNSUPPORTED \u0022a box read through ENO with no EN\u0022 #51d1b124"
 },
 {
 "id": "0781",

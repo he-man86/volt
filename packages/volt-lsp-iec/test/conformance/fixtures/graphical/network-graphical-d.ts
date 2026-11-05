@@ -89,11 +89,6 @@ export const NETWORK_GRAPHICAL_TESTS_D: readonly LanguageTest[] = [
     callerFb("FB_NG_m_lib", "", "y := LEN(txt);", str), calls),
   ng("ng_m_library_function_named", "FB_NG_m_lib_named", "a LIBRARY function's box with its input named, its result consumed — the drawn form (bakon-nano's REPLACE/DELETE)",
     callerFb("FB_NG_m_lib_named", "", "y := LEN(STR := txt);", str), calls),
-  ng("ng_m_library_function_eno", "FB_NG_m_lib_eno", "a LIBRARY function's box read through ENO with no EN",
-    callerFb("FB_NG_m_lib_eno", "", "x := LEN(txt).ENO;", str), calls,
-    "CODESYS builds it clean; TwinCAT does not (\"Function 'LEN' requires exactly '1' inputs\") and the LSP says nothing " +
-      "there — niche: accepted loss (0 occurrences in the corpora: no function box in the six shows ENO without EN, " +
-      "2026-10-17). A project FUNCTION's box builds on both (`rcc_network_eno_function_without_en`)."),
   ng("ng_m_library_function_qualified", "FB_NG_m_lib_ns", "a LIBRARY function through its namespace, its result consumed: nothing derived (the signature is read by bare name; niche)",
     callerFb("FB_NG_m_lib_ns", "", "y := Standard.LEN(txt);", str), calls),
   ng("ng_m_library_function_qualified_eno", "FB_NG_m_lib_ns_eno", "a LIBRARY function through its namespace, read through ENO with no EN",

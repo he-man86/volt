@@ -1293,3 +1293,64 @@ network-plain-st the box f is read by its value and wires OUT =>
 x := GT(EN := go, i, j, OUT => z);
 === refused
 network-plain-st the box GT is read by its value and wires OUT =>
+
+#### function-out-at-a-root — k is not written, and with EN shown and no ENO the IDE faults on the box (live CODESYS 3.5.21.40)
+=== scope
+function f IN =>
+=== text
+%LANGUAGE FBD
+%NETWORK
+f(IN := i, OUT => k);
+=== refused
+network-plain-st the FUNCTION box f wires OUT => at a root
+
+#### function-out-at-a-root-enabled
+=== scope
+function f IN =>
+=== text
+%LANGUAGE FBD
+%NETWORK
+f(EN := go, IN := i, OUT => k);
+=== refused
+network-plain-st the FUNCTION box f wires OUT => at a root
+
+#### function-out-at-a-root-beside-an-output
+=== scope
+function f IN => q
+=== text
+%LANGUAGE FBD
+%NETWORK
+f(IN := i, OUT => k, q => m);
+=== refused
+network-plain-st the FUNCTION box f wires OUT => at a root
+
+#### out-target-on-a-program — a program declares no OUT: the variable lands past its names, or on its first output
+=== scope
+program p a => q1
+=== text
+%LANGUAGE FBD
+%NETWORK
+p(a := a, OUT => k);
+=== refused
+network-plain-st declares no output OUT
+
+#### out-target-on-an-fb
+=== scope
+fb Fx a => q1
+instance t2 Fx
+=== text
+%LANGUAGE FBD
+%NETWORK
+t2(a := a, OUT => k);
+=== refused
+network-plain-st declares no output OUT
+
+#### eno-read-with-no-en — a FUNCTION's ENO with no EN is FALSE on every scan; every other callee does not build
+=== scope
+function f IN =>
+=== text
+%LANGUAGE FBD
+%NETWORK
+y := f(IN := a).ENO;
+=== refused
+network-plain-st is read through .ENO and shows no EN

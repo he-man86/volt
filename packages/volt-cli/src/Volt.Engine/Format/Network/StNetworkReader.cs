@@ -1323,10 +1323,21 @@ public static class StNetworkReader
             // A BOX READ BY ITS VALUE WRITES ITS READER AND NO `OUT =>` (live CODESYS 3.5.21.40, openspec nwl-box-storage-map).
             if (consumed && !hasEno && instance is null && signature is { Shape: not CalleeShape.Program } && connected is null or 0 && outputs.Any(o => o.Formal is null))
                 throw Error(c.Line, $"the box {c.Head} is read by its value and wires OUT =>: the IDE writes no second target. Two targets are a chain, x := y := {c.Head}(…)");
+            // A FUNCTION'S `OUT =>` AT A ROOT IS WRITTEN ONLY CLOSED BY .ENO (live CODESYS 3.5.21.40, openspec nwl-box-storage-map); with
+            // EN shown and no ENO the IDE faults on the box.
+            if (!consumed && !hasEno && signature is { Shape: CalleeShape.Function } && !NetworkSpelling.IsOperator(signature) && connected is null && outputs.Any(o => o.Formal is null))
+                throw Error(c.Line, $"the FUNCTION box {c.Head} wires OUT => at a root: the IDE does not write it. Read its value, x := {c.Head}(…)");
+            // `OUT =>` ON AN FB OR A PROGRAM THAT DECLARES NONE lands past its names or on its first output (same measurement).
+            if (signature is { Shape: CalleeShape.Block or CalleeShape.Program } && !signature.Outputs.Any(o => Is(o, StNetworkWriter.ResultPin)) &&
+                outputs.Any(o => (o.Formal is null || Is(o.Formal, StNetworkWriter.ResultPin)) && o.Target != Box.UnnamedInstance))
+                throw Error(c.Line, $"the call {c.Head} wires OUT =>, and {type} declares no output OUT: the IDE does not write it");
             // AN OPERATOR CLOSED BY .ENO NEEDS ITS VALUE WIRED (live CODESYS 3.5.21.40, openspec nwl-box-storage-map): it does not
             // build, and a user FUNCTION does. `y := GT(EN := go, i, j, OUT => v).ENO` builds and runs.
             if (hasEno && NetworkSpelling.IsOperator(signature) && !outputs.Any(o => o.Formal is null))
                 throw Error(c.Line, $"the operator box {c.Head} is closed by .ENO and wires its value nowhere. Wire it, {c.Head}(…, OUT => v).ENO");
+            // A CONSUMED .ENO WITH NO EN: a FUNCTION's is FALSE on every scan, and no other callee builds (same measurement).
+            if (consumed && hasEno && enable is null && signature is not null)
+                throw Error(c.Line, $"the box {c.Head} is read through .ENO and shows no EN: its ENO is FALSE on every scan. Show it, {c.Head}(EN := …).ENO");
             var eno = hasEno ? 0 : (int?)null;
             var next = 0;
             var outs = new List<Output>();

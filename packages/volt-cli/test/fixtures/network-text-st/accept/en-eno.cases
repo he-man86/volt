@@ -256,17 +256,15 @@ LIMIT(EN := c, MN := 0, IN := v, MX := 100, OUT => y).ENO;
 NETWORK
   (LIMIT MN=0 IN=v MX=100 =>1:y en:c eno:1)
 
-#### function-eno-without-en — a function's box shows its ENO without EN, and is read through it (recorded: it builds on both vendors)
+#### function-eno-without-en — a function's box shows its ENO without EN at a root: the text is true, and the build refuses it
 === scope
 function f IN =>
 === text
 %LANGUAGE LD
 %NETWORK
-x := f(IN := a).ENO;
 f(IN := b).ENO;
 === model
 NETWORK
-  (:= x (f IN=a conn:0 eno:1))
   (f IN=b eno:1)
 
 #### call-read-through-eno — a call read through its ENO with no output wired (a PROGRAM call's box has none)

@@ -79,11 +79,10 @@ test("an FB box with EN runs under it, and its call closed by .ENO hands on its 
   expect(code(t.source)).toBe("IF c THEN\n\tt1(IN := a);\n\tvtw1_eno1 := TRUE;\nELSE\n\tvtw1_eno1 := FALSE;\nEND_IF;\nx := vtw1_eno1;")
 })
 
-test("a function box showing ENO and no EN runs on every scan, its ENO FALSE (network-output-member 2.3, measured)", () => {
+test("a box read through .ENO with no EN has no twin: its ENO is FALSE on every scan (live CODESYS 3.5.21.40)", () => {
   const fn = "FUNCTION F_inc : INT\nVAR_INPUT\n\ti : INT;\nEND_VAR\n%LANGUAGE ST\nF_inc := i + 1;\nEND_FUNCTION\n"
   const t = twin("\tx : BOOL;\n\ti, n : INT;", "%NETWORK\nx := F_inc(i := i, OUT => n).ENO;\n", fn)
-  expect(t.refused).toEqual([])
-  expect(code(t.source)).toBe("n := F_inc(i := i);\nx := FALSE;")
+  expect(t.refused).toHaveLength(1)
 })
 
 // Measured 2.3: CODESYS compiles neither — a root function box showing ENO without EN ("Type of lazy typed variable …

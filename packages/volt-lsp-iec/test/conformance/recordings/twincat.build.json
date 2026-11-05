@@ -70356,11 +70356,6 @@
       "durationMs": 909,
       "diagnostics": []
     },
-    "ng_m_library_function_eno": {
-      "buildSuccess": true,
-      "durationMs": 999,
-      "diagnostics": []
-    },
     "ng_m_library_function_qualified_eno": {
       "buildSuccess": false,
       "durationMs": 396,
@@ -70395,11 +70390,6 @@
     "ng_r5_comparison_eno": {
       "buildSuccess": true,
       "durationMs": 900,
-      "diagnostics": []
-    },
-    "rcc_network_eno_function_without_en": {
-      "buildSuccess": true,
-      "durationMs": 1019,
       "diagnostics": []
     },
     "expr_inline_assign_chain": {
@@ -70561,22 +70551,6 @@
       "buildSuccess": true,
       "durationMs": 942,
       "diagnostics": []
-    },
-    "rcc_network_eno_without_en": {
-      "buildSuccess": false,
-      "durationMs": 403,
-      "diagnostics": [
-        {
-          "severity": "error",
-          "message": "Inconsistent element detected (Missing EN pin). Consider repair",
-          "line": 0
-        },
-        {
-          "severity": "error",
-          "message": "Cannot convert type 'INT' to type 'BOOL'",
-          "line": 0
-        }
-      ]
     },
     "rcc_network_eno_function_without_en_root": {
       "buildSuccess": false,

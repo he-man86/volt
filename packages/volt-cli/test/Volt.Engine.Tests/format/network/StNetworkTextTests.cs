@@ -363,9 +363,9 @@ public class StNetworkTextTests
         var scope = new NetworkScope(new[] { "go", "x", "a" }, new[] { "f" }, none, new[] { "Axis" },
             new System.Collections.Generic.Dictionary<string, CalleeSignature>(AxisSignature) { ["f"] = new(CalleeShape.Function, new[] { "IN" }, Array.Empty<string>()) });
         RoundTrips(Fbd1(Fb("???", new[] { In(L("go"), "xEnable") }, type: "Axis"),
-                        Set(Call("f", new[] { In(L("a"), "IN") }, connected: 0, eno: true), T("x")),
+                        Call("f", new[] { In(L("a"), "IN") }, eno: true),
                         new Leaf(new Operand(""), Flags.None)),
-            "%LANGUAGE FBD\n%NETWORK\nAxis(xEnable := go);\nx := f(IN := a).ENO;\n;\n", scope);
+            "%LANGUAGE FBD\n%NETWORK\nAxis(xEnable := go);\nf(IN := a).ENO;\n;\n", scope);
     }
 
     /// <summary>3.0: each <c>OUT =&gt;</c> is the next unnamed output slot; <c>ENO =&gt;</c> a variable is the ENO pin wired;

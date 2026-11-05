@@ -31,7 +31,7 @@ x1 := a AND GT(EN := c, i, 3);
 %NETWORK
 x3 := c1(EN := c, CU := a, PV := 5).Q;
 %NETWORK
-x5 := FN_Inc(IN := i, OUT => y9).ENO;
+x5 := FN_Inc(EN := TRUE, IN := i, OUT => y9).ENO;
 %NETWORK
 y10 := c2(CU := a, PV := 5).CV;
 %NETWORK
@@ -74,7 +74,7 @@ x1 := a AND t1;
 IF c THEN c1(CU := a, PV := 5); END_IF;
 x3 := c1.Q;
 y9 := FN_Inc(IN := i);
-x5 := FALSE;
+x5 := TRUE;
 c2(CU := a, PV := 5);
 y10 := c2.CV;
 c3(CU := b, PV := 3);

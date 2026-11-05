@@ -8,8 +8,6 @@
  *                                            value is FALSE when disabled;
  *   `X(EN := e, pins…)`                      read by its value: a comparison FALSE when disabled; any other only as an
  *                                            assignment's whole value, which holds when disabled (`network.ts`);
- *   `X(pins…).ENO`                           the call on every scan, its ENO FALSE; on an FB refused (CODESYS compiles
- *                                            none);
  *   `t1(IN := a).Q`                          `t1(IN := a);` before the item, `t1.Q` in it, on every scan; under its own EN
  *                                            where shown; read through nothing named, its one output;
  *   `T(pins…)`, T an FB type (`???`)         the call of its type, read or enabled refused;
@@ -117,19 +115,6 @@ export abstract class BoxLowerer {
     return eno
   }
 
-  /** A function box showing its ENO and no EN: it runs on every scan, and its ENO is FALSE (CODESYS sets no ENO a box has
-   *  no EN for). */
-  protected enoOnly(box: NetworkBox, pre: Statement[]): Expr {
-    const span = box.call.span
-    const result = box.pins.find((a) => a.output && named(a, "OUT"))
-    if (result === undefined) pre.push(standing(this.callOf(box.st, box.pins, pre)))
-    else {
-      const value = this.callOf(box.st, box.pins.filter((a) => a !== result), pre)
-      pre.push(assign(this.expr(result.value!, pre), value, span))
-    }
-    return bool(false, span)
-  }
-
   /**
    * AN FB BOX: its instance called before the item that reads it, on every scan — under its own EN where shown; read
    * through `.ENO` its ENO (its EN), through `.NAME` that output. Returns what the box hands on (undefined at a root).
@@ -175,7 +160,7 @@ export abstract class BoxLowerer {
     }
     if (name !== undefined && !eno && name.toUpperCase() !== "OUT") throw new NetworkRefusal(`the ${this.name(box)} box is read through its VAR_OUTPUT ${name}`)
     if (box.enable !== undefined) return eno ? this.enabled(box, pre, true)! : this.enOnlyRead(box, pre)
-    if (eno) return this.enoOnly(box, pre)
+    if (eno) throw new NetworkRefusal(`the ${this.name(box)} box is read through .ENO and shows no EN`, NOT_COMPILED)
     return this.boxValue(box, box.pins, pre)
   }
 

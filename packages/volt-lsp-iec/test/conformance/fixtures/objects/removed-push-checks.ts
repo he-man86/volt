@@ -147,50 +147,7 @@ END_TYPE
     "out := g5;",
   ),
 
-  // ─── 1.5 — ENO on a box with no EN ───
-  network(
-    "rcc_network_eno_without_en",
-    "FB_LANG_rcc_nw_eno",
-    "ENO read on an ADD box that has no EN — `ADD(a, b).ENO`: it stores, and the build refuses it (\"Missing EN pin\", X9)",
-    "\ta : INT;\n\tb : INT;\n\tx : BOOL;",
-    "x := ADD(a, b).ENO;",
-  ),
-
-  // …and on a user FUNCTION's box: the push derives a project FUNCTION's CallType and output list from its declaration
-  // (ld-fbd-coverage 2R.4), and CODESYS builds it clean. A LIBRARY function's box read so is `ng_m_library_function_eno`.
-  {
-    name: "rcc_network_eno_function_without_en",
-    pouName: "FB_LANG_rcc_nw_eno_fun",
-    kind: "function_block",
-    feature: "ENO read on a user FUNCTION's box that has no EN",
-    fromDoc: doc,
-    source: `FUNCTION FUN_LANG_rcc_twice : INT
-VAR_INPUT
-	a : INT;
-	b : INT;
-END_VAR
-FUN_LANG_rcc_twice := a + b;
-END_FUNCTION
-
-FUNCTION_BLOCK FB_LANG_rcc_nw_eno_fun
-VAR
-	a : INT;
-	b : INT;
-	x : BOOL;
-END_VAR
-
-%LANGUAGE FBD
-%NETWORK
-x := FUN_LANG_rcc_twice(a := a, b := b).ENO;
-
-END_FUNCTION_BLOCK
-`,
-    plcPrgVar: "inst : FB_LANG_rcc_nw_eno_fun;",
-    plcPrgBody: "inst();",
-    execSkip: NOT_ST,
-  },
-
-  // …and the same box at a ROOT, showing ENO without EN (network-output-member 2.3): nothing reads the ENO.
+  // ─── 1.5 — ENO on a box with no EN, read: refused by name (`eno-read-with-no-en`); at a ROOT, nothing reads the ENO ───
   {
     name: "rcc_network_eno_function_without_en_root",
     pouName: "FB_LANG_rcc_nw_eno_root",

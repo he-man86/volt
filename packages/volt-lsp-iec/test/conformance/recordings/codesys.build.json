@@ -54397,32 +54397,6 @@
       "durationMs": 1105,
       "diagnostics": []
     },
-    "rcc_network_eno_without_en": {
-      "buildSuccess": false,
-      "durationMs": 775,
-      "diagnostics": [
-        {
-          "severity": "error",
-          "message": "Type of lazy typed variable '__FB_LANG_rcc_nw_eno__ImpVar19' could not be resolved",
-          "line": 0
-        },
-        {
-          "severity": "error",
-          "message": "An inconsistent element has been detected (Missing EN pin). Consider making a correction.",
-          "line": 0
-        },
-        {
-          "severity": "error",
-          "message": "The assignment target is not specified.",
-          "line": 0
-        },
-        {
-          "severity": "error",
-          "message": "Cannot convert type 'INT' to type 'BOOL'",
-          "line": 0
-        }
-      ]
-    },
     "rcc_retired_comment_in_body": {
       "buildSuccess": true,
       "durationMs": 526,
@@ -54473,11 +54447,6 @@
     "rcc_member_backtick_name": {
       "buildSuccess": true,
       "durationMs": 843,
-      "diagnostics": []
-    },
-    "rcc_network_eno_function_without_en": {
-      "buildSuccess": true,
-      "durationMs": 1115,
       "diagnostics": []
     },
     "rcc_network_var_temp_after_statement": {
@@ -62629,11 +62598,6 @@
     "ng_m_library_function": {
       "buildSuccess": true,
       "durationMs": 433,
-      "diagnostics": []
-    },
-    "ng_m_library_function_eno": {
-      "buildSuccess": true,
-      "durationMs": 430,
       "diagnostics": []
     },
     "ng_m_library_function_qualified": {

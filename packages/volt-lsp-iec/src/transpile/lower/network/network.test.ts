@@ -149,9 +149,19 @@ describe("a root box's main output (network-text-one-to-one F3)", () => {
 describe("what the lowering refuses, by name", () => {
   const codes = (vars: string, body: string, extra = "") => lowered(vars, body, extra).diagnostics.map((d) => [d.code, d.message])
 
-  test("an FB box showing ENO without EN: CODESYS does not compile it", () =>
+  test("a box read through .ENO with no EN", () =>
     expect(codes("x, a : BOOL; c1 : FB_C;", "%NETWORK\nx := c1(CU := a).ENO;\n", COUNTER)).toEqual([
-      ["network-invalid", "the c1 box shows ENO without EN, which CODESYS does not compile"],
+      ["network-box", "the box c1 is read through .ENO and shows no EN: its ENO is FALSE on every scan. Show it, c1(EN := …).ENO"],
+    ]))
+
+  test("an FB's root .ENO with no EN runs as the plain call", () => {
+    const r = runner("a : BOOL; c1 : FB_C;", "%NETWORK\nc1(CU := a).ENO;\n", COUNTER)
+    expect(trace(r, "c1.CV", [{ a: true }])).toEqual([1n])
+  })
+
+  test("a FUNCTION's OUT => at a root: the IDE does not write it", () =>
+    expect(codes("k, i : INT;", "%NETWORK\nf(n := i, OUT => k);\n", "FUNCTION f : INT\nVAR_INPUT n : INT; END_VAR\n%LANGUAGE ST\nf := n;\nEND_FUNCTION\n")).toEqual([
+      ["network-box", "the FUNCTION box f wires OUT => at a root: the IDE does not write it. Read its value, x := f(…)"],
     ]))
 
   test("one output wired to two targets: the IDE writes no second one, so nothing runs a meaning the text does not have", () =>

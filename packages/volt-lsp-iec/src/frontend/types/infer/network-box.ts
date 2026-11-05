@@ -155,6 +155,13 @@ export function misleadingBox(box: NetworkBox, head: string, at: { eno: boolean;
   const readByValue = at.consumed && !eno && (at.member === undefined || at.member.toUpperCase() === VALUE)
   if (readByValue && value !== undefined && box.instance === undefined && box.signature !== undefined && box.signature.shape !== "program")
     out.push({ span: value.span, message: `the box ${head} is read by its value and wires OUT =>: the IDE writes no second target. Two targets are a chain, x := y := ${head}(…)` })
+  if (!at.consumed && !eno && at.member === undefined && value !== undefined && box.signature?.shape === "function" && box.signature !== OPERATOR && !declaresOut(box.signature))
+    out.push({ span: value.span, message: `the FUNCTION box ${head} wires OUT => at a root: the IDE does not write it. Read its value, x := ${head}(…)` })
+  if (value !== undefined && (box.signature?.shape === "block" || box.signature?.shape === "program") && !box.signature.outputs.some((o) => o.toUpperCase() === VALUE) &&
+      !(value.value?.kind === "ident_expr" && value.value.name === UNNAMED))
+    out.push({ span: value.span, message: `the call ${head} wires OUT =>, and ${head} declares no output OUT: the IDE does not write it` })
+  if (at.consumed && eno && box.enable === undefined && box.signature !== undefined)
+    out.push({ span: box.call.span, message: `the box ${head} is read through .ENO and shows no EN: its ENO is FALSE on every scan. Show it, ${head}(EN := …).ENO` })
   if (eno && box.signature === OPERATOR && value === undefined)
     out.push({ span: box.call.span, message: `the operator box ${head} is closed by .ENO and wires its value nowhere. Wire it, ${head}(…, OUT => v).ENO` })
   if (box.instance !== undefined || box.signature?.shape === "program") {

@@ -246,7 +246,7 @@ class Networker extends BoxLowerer {
     if (box === undefined) return [...pre, { kind: "call_stmt", call: this.callOf(c, c.args, pre), span: c.span }]
     this.refuseMisleading(box, { eno, consumed: false, member: undefined })
     if (box.instance !== undefined) {
-      this.fb(box, eno && box.enable === undefined, undefined, pre) // a root's ENO: read by nothing
+      this.fb(box, false, undefined, pre) // a root's ENO is read by nothing: with no EN it runs as the plain call (live CODESYS 3.5.21.40)
       return pre
     }
     if (box.enable !== undefined) {

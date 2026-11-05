@@ -6,8 +6,6 @@
  *
  *   `X(EN := e, …)`             a box with EN and no ENO, read by its value: held under a coil when disabled, at the root
  *                               the IF that runs it, an enabled comparison FALSE when disabled, an FB not called;
- *   `f(…).ENO`                  a box with ENO and no EN, read by its ENO: called on every scan, its ENO FALSE (at a
- *                               root CODESYS does not compile it — recorded, `rcc_network_eno_function_without_en_root`);
  *   `c2(…).CV`                  an FB read through its moved pin: called before the item, read by that output;
  *   an FB in an enabled box's pin  called before the item on every scan, whatever the enabled box's EN;
  *   `c4(EN := c, …)`            what an enabled FB's pins evaluate (an edge) runs on every scan, only the FB under its
@@ -60,7 +58,7 @@ x1 := a AND GT(EN := c, i, 3);
 %NETWORK
 x3 := c1(EN := c, CU := a, PV := 5).Q;
 %NETWORK
-x5 := ${FN}(IN := i, OUT => y9).ENO;
+x5 := ${FN}(EN := TRUE, IN := i, OUT => y9).ENO;
 %NETWORK
 y10 := c2(CU := a, PV := 5).CV;
 %NETWORK
@@ -98,7 +96,7 @@ x1 := a AND t1;
 IF c THEN c1(CU := a, PV := 5); END_IF;
 x3 := c1.Q;
 y9 := ${FN}(IN := i);
-x5 := FALSE;
+x5 := TRUE;
 c2(CU := a, PV := 5);
 y10 := c2.CV;
 c3(CU := b, PV := 3);
@@ -179,7 +177,7 @@ describe.skipIf(VENDOR !== "codesys")(`graphical / the spellings run as their tw
 		await requireHealthy()
 	})
 
-	it("EN without ENO, ENO without EN, an FB's moved pin, the FB evaluation order, JMP.label := value, RETURN := value, a coil and a jump on one value and a jump in a tree", async () => {
+	it("EN without ENO, an FB's moved pin, the FB evaluation order, JMP.label := value, RETURN := value, a coil and a jump on one value and a jump in a tree", async () => {
 		try {
 			for (const item of ITEMS) await removeItem(item)
 			for (const [item, src] of [[fid("stfn"), fn], [fid("stnet1"), net1], [fid("sttwin1"), twin1], [fid("stnet2"), net2], [fid("sttwin2"), twin2], [fid("stdrv"), drv]] as const) {
