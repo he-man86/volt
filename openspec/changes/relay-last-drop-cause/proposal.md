@@ -1,3 +1,5 @@
+> 2026-11-05: a drop on the dev machine during a gate run, 19:31:19 ("dropped without a close" after 1290 s, back in 1.7 s); the bridge log is kept, the relay's side is only in Cloudflare and needs the owner's login before retention ends.
+
 ## Why
 
 One customer's bridge drops far more often than any other (153 closes in 3.5 days, 143 of them 1006 with no Close frame), and

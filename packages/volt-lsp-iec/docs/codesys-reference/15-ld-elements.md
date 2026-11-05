@@ -57,7 +57,7 @@ PLCopenXML: `<contact negated="true">`.
 
 #### Rising-edge / falling-edge contacts
 
-Documented under the **Edge Detection** command (`Ctrl+E`): "The command inserts an edge detection before the selected box input or box output." The same command applies to contacts. Measured on 3.5.21.40: it is offered on a contact, a value operand, a BOOL box input, EN and the main connector, and disabled on a box output and a coil. The "box output" of that sentence is the main connector, the line from the box to its coil (`openspec/changes/nwl-box-storage-map/design.md`, "Marks as the editor draws them").
+Documented under the **Edge Detection** command (`Ctrl+E`): "The command inserts an edge detection before the selected box input or box output." The same command applies to contacts. Measured on 3.5.21.40: it is offered on a contact, a value operand, a BOOL box input, EN and the main connector, and disabled on a box output and a coil. The "box output" of that sentence is the main connector, the line from the box to its coil (`openspec/changes/archive/2026-11-05-nwl-box-storage-map/design.md`, "Marks as the editor draws them").
 
 - **Rising-edge contact** → passes `TRUE` for one cycle when the variable transitions from `FALSE` → `TRUE`. PLCopenXML: `<contact edge="rising">`.
 - **Falling-edge contact** → passes `TRUE` for one cycle when the variable transitions from `TRUE` → `FALSE`. PLCopenXML: `<contact edge="falling">`.

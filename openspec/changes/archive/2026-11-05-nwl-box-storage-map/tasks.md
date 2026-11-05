@@ -24,5 +24,5 @@
 
 ## 4. For the owner and Sim-Assist, not this change
 
-- [ ] 4.1 The parked decision on a box's main output, from the design's last section
-- [ ] 4.2 The gap list: what a picture needs, and each difference between a pushed box and the editor's
+- [x] 4.1 The parked decision on a box's main output, from the design's last section. Decided by the owner 2026-11-05 as the final language direction, built after the maps: `ide-model-mapping` 5.1
+- [x] 4.2 The gap list: what a picture needs, and each difference between a pushed box and the editor's. Held as rows of `map.3.5.21.40.json` (`refused-gap`, `lost-inert`), fixed under `ide-model-mapping` 3.1
