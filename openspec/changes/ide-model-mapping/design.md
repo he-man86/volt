@@ -114,10 +114,17 @@ parts inside its `()`, and the flow is each call's return.
 
 **Open, decided from the assign map:**
 
-- Several targets on one assign, and a coil inside a rung: nested, each returning its value
-  (`ASSIGN(ASSIGN(a, Q => x), Q_INVERTED => y)`, `ASSIGN(AND(ASSIGN(a, Q => x), b), Q => y)`), or the targets as a list in one call.
-  Nesting holds only if a chain is one assign with a list of targets and no assign nests in an assign's value.
-- What `BoxTreeTerminator` stores (140 in the recording) and whether it is an `ASSIGN` or its own call.
+- Several coils. Measured from the editor's own commands (LD and FBD, stored form only, not yet built or run, no rows yet):
+  coils drawn in parallel are ONE assign with a list of targets, top to bottom; a coil drawn in series is an assign nested in
+  an assign's value; a coil inside a rung is an assign as a box input. So both shapes exist and each has its own call:
+  ```
+  ASSIGN(a, Q => x, Q => y);                     // parallel coils: one node, two targets
+  ASSIGN(ASSIGN(a, Q => x), Q => y);             // series coils: two nodes
+  ASSIGN(AND(ASSIGN(a, Q => x), b), Q => y);     // a coil inside a rung
+  ```
+  To confirm by the run and the rows.
+- `BoxTreeTerminator` is what LD stores as the value of a coil, S, R, jump or return with no contact in front; FBD stores
+  `???` there instead. Its text, and how it differs from `RAIL()`, after its build and run.
 - `???` as `OPERAND('???')`, or kept.
 - `INVERT` on a value that is not BOOL: what it runs as.
 - A function showing EN and no ENO: refused if only a direct write makes it.
