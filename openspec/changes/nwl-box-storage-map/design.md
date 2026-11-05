@@ -163,7 +163,7 @@ With EN+ENO, names `[ENO,'']`: `[null,'k']` runs and is the only form that consu
 
 ### `CallType`
 
-The editor writes it from the callee (`SignatureAnalyzer`, `Common.GetOperator`); no command writes another. A wrong one is stored only through the object model, and the reader, having no callee, cannot compare. A push leaves FB and PROGRAM boxes on the fresh `None` and they run alike.
+The editor writes it from the callee (`SignatureAnalyzer`, `Common.GetOperator`); no command writes another. A wrong one is stored only through the object model, and the reader, having no callee, cannot compare. A push leaves FB boxes on the fresh `None` and they run alike. A PROGRAM's does not: below, "Text against the run".
 
 | stored | result |
 |---|---|
@@ -243,10 +243,10 @@ The same run on EN+ENO with a later null, whose old-generator text carries `{err
 | state | what it does | today |
 |---|---|---|
 | no null, consumed | no build | refused |
-| ENO slot holding a variable, consumed | no build on FB and PROGRAM | `ENO => z` kept at a root; consumed refused by the no-null row |
-| ENO slot holding a variable on a FUNCTION | the data output is not written: `['z','k','','']` writes no `k` | text says `OUT => k` |
-| operator with `OUT => k, OUT => m` | `m` never written | text says it is; the language reference shows this form |
-| FB, PROGRAM, FUNCTION positional text `t2(a, i);` | FB and PROGRAM store names `[]`: `t2()`, the pins are not passed, and it builds; `x := bmP2(a, i).q1;` compiles to `x := bmP2.q1;`, the program not even called. FUNCTION is given its names | pull of a push with CallType `None` shows `t2(a, i);` |
+| ENO slot holding a variable, consumed | no build on FB and PROGRAM | refused, `a variable on the ENO pin` |
+| ENO slot holding a variable on a FUNCTION | the data output is not written: `['z','k','','']` writes no `k` | refused, `a variable on the ENO pin` |
+| operator with `OUT => k, OUT => m` | `m` never written | refused, `one output wired to two targets` |
+| FB, PROGRAM, FUNCTION positional text `t2(a, i);` | FB and PROGRAM store names `[]`: `t2()`, the pins are not passed, and it builds. FUNCTION is given its names | refused, `a pin by position on an FB or a program` |
 | a shown ENO over a main output past it | no build | refused |
 | EN only, consumed | `IF EN THEN … x := q1 END_IF`; x keeps its value when EN is false | spelled, not run with `go` false here |
 
@@ -280,7 +280,7 @@ Same run, the push's text on each kind, FBD; LD gave the same. Runs are alike un
 | FB EN+ENO, root | `[ENO,q1,q2]` `[null,'','']` | `[null,'???','']` | the `???` |
 | FB EN+ENO, consumed | `[ENO]` `[null]` | `[ENO,q1,q2]` list | **no pins q1,q2 drawn**: `WithRootOutputs` is root-only |
 | FB no output | `[]` | same | none |
-| PROGRAM, EN off | names, `[null,null,'']`, after the fix below | same | CallType `None` |
+| PROGRAM, EN off | names, `[null,null,'']`, after the fix below | same | none, once a push stores CallType `Program` |
 | PROGRAM EN+ENO | `[ENO,q1,q2]` `[null,'',null,'']`, after the fix | `[null,'???',null,'']` | the `???` |
 | PROGRAM no output | `[null]`, `[ENO]` `[null,null]`, after the fix | same, EN null against false on the plain one | |
 | AND, OR call form | `['']` `[null]` | same | types `''` |
@@ -330,6 +330,87 @@ Per output slot the IDE stores one of: absent, null, empty operand, a variable, 
 | a slot past the names | nothing | nothing |
 
 **Can `.NAME` state every state that changes the program?** For the slot a consumer reads, yes wherever a building state exists: the first null is one position among the declared outputs, on all of FB, PROGRAM and FUNCTION. Every state with no such position does not build (no null consumed, a shown ENO with a null past it), so it has nothing to state, and is refused. `.NAME` states one slot. A later null is a second stored position it does not reach: that changes only the drawing, and any per-slot form would have to state it to keep the picture. A root's main slot is stated the same way, and at a root it changes the drawing, not the run.
+
+## Text against the run
+
+A form whose text claims what its run does not do. CODESYS 3.5.21.40 64-bit, FBD, every row pushed, pulled, built and run in simulation through the shipped bridge, one PROGRAM per form, read from the holder's own variables; LD gave the same on the rows marked LD. `a b go` TRUE, `gf` FALSE, `i` 5, `j` 3; `F0(n)` returns `n + 1`; `F1(n)` the same with `q` TRUE and `q3 := n + 2`; `F2(p1, p2)` returns `p1 * 10 + p2`; `t2` and `P2` as above; `c1(in)` counts the scans `in` is TRUE in `n`. A count of about 140 is every scan of the run.
+
+| text | build, run | refusal |
+|---|---|---|
+| `MOVE(i, OUT => k, OUT => m);`, LD | `k=5`, m never | `the call MOVE wires OUT => twice` |
+| `ADD(i, j, OUT => k, OUT => m);` | `k=8`, m never | same |
+| `AND(a, b, OUT => x, OUT => y);` | `x=TRUE`, y never | same |
+| `F0(n := i, OUT => k, OUT => m);` | neither | same |
+| `y := MOVE(EN := go, i, OUT => k, OUT => m).ENO;` | `y=TRUE k=5`, m never | same |
+| `k := MOVE(i, OUT => m);`, `k := ADD(i, j, OUT => m);`, `x := GT(i, j, OUT => z);`, `x := AND(a, b, OUT => z);`, `k := F0(n := i, OUT => m);`, `x := GT(EN := go, i, j, OUT => z);`, `k := MOVE(EN := go, i, OUT => m);` | the reader written, the target never | `the box … is read by its value and wires OUT =>` |
+| `t2(a, i);` | builds, `t2()` | `the call t2 passes a pin by position` |
+| `t2(a, i, q2 => k);`, LD | `k=1`: n not passed | same |
+| `P2(a, i, q2 => k);` | `k=1` | same |
+| `t2(a, n := i);`, `P2(a, n := i);`, `F2(p1 := i, j);` | **no build** "'' is no input". FB and PROGRAM refused; the FUNCTION left to the build | same, FB and PROGRAM |
+| `F1(EN := go, n := i, ENO => z, OUT => k).ENO;`, `F0(…)` alike | builds, z and k never | `the IDE never writes a variable on the ENO pin` |
+| `F1(EN := go, n := i, ENO => z, q => x).ENO;` | `x=TRUE`, z never | same |
+| `MOVE(EN := go, i, ENO => z, OUT => k).ENO;`, LD; `y := …` the same | `k=5`, y as ENO, z never | same |
+| `t2(EN := go, a := a, n := i, ENO => z, q1 => x, q2 => k).ENO;` | `x=TRUE k=6`, z never | same |
+| `P2(EN := go, a := a, n := i, ENO => z, q1 => x).ENO;` | **no build** "ENO output is not used as main output"; pull refused | same |
+| `y := GT(EN := go, i, j).ENO;`, LD; `ADD`, `MOVE`, `LIMIT`, `SEL`, `INT_TO_WORD` alike | **no build** "The assignment target is not specified." | `the operator box … wires its value nowhere` |
+| `y := AND(EN := go, a, b).ENO;`, `NOT`, `XOR` alike | **no build** "'__…__ImpVar' not defined" | same |
+| `GT(EN := go, i, j).ENO;`, `MOVE`, `ADD` alike | **no build**, the same message | same |
+| `AND(EN := go, a, b).ENO;`, `OR` alike | builds, does nothing | same: one rule, and a value wired nowhere has nothing to run for |
+| `y := F0(n := i).ENO;`, also with `z := TRUE` above it | runs, the coil written FALSE every scan | `is read through .ENO and shows no EN` |
+| `y := GT(i, j).ENO;`, `y := MOVE(i, OUT => k).ENO;` | **no build** "Missing EN pin" | operator rule, or the row above |
+| `y := t2(a := a, n := i).ENO;`, `y := P2(…).ENO;` | **no build** "'ENO' is no component" | row above |
+| `F0(n := i, OUT => k);`, `F1(…)`, `F2(p2 := i, p1 := j, OUT => k);` | builds, k never | `the function box … wires OUT => at a root` |
+| `F1(n := i, OUT => k, q3 => m);` | `m=7`, k never | same |
+| `F0(EN := go, n := i, OUT => k);` | **the IDE faults on it**: dialog "Internal error while object … is providing language model information: Value cannot be null. Parameter name: expRValue" | same |
+| `P2(a := a, n := i, OUT => k);` | lands as `q1 => k`; **no build** by type | `declares no output OUT` |
+| `t2(a := a, n := i, OUT => k);` | the driver refused it, no output OUT | same, at the gate |
+| `RISING y := a;`, with a counter on y | `k` every scan: a plain coil | `an edge mark on the coil` |
+| `FALLING y := a;` | the same | same |
+| `RISING y := x := a;` | the same, x written | same |
+| `RISING y S= a;` | y set, no counter read | same |
+| `RISING JMP.l := a;`, `FALLING JMP.l := a;` | jumps every scan | `an edge mark on the jump` |
+| `RISING RETURN := a;`, `FALLING RETURN := a;` | returns every scan | `an edge mark on the return` |
+| `t2(a := a, n := i, RISING q1 => x);`, `FALLING` alike; `MOVE(a, RISING OUT => x);` | the level, `x=TRUE` | `an edge mark on the output` |
+| `k := c1(RISING NOT in := gf).n;`, `FALLING NOT`; `AND(a, RISING NOT := gf)`; `ADD(RISING NOT EN := gf, k, 1, OUT => k);`; `y := RISING NOT := gf;`; `RISING NOT y := gf;` | the NOT every scan, no edge | `RISING NOT before one receiver` |
+| `k := SUB(IN2 := i, IN1 := j);` | `k=2`: `i - j` | `names its pin IN1 out of place` |
+| `x := GT(IN2 := j, IN1 := i);` | `x=FALSE`: `j > i` | same |
+| `k := LIMIT(MX := 3, IN := i, MN := 0);` | `k=0`: MN 3, MX 0 | same |
+| `k := SEL(IN1 := j, G := go, IN0 := i);` | **no build** by type: by position | same |
+
+A pull refuses each stored state by the writer's name: `one output wired to two targets`, `a box read by its value with a target on it`, `a pin by position on an FB or a program`, `a variable on the ENO pin`, `an operator box closed by ENO with its value wired nowhere`, `a box read through ENO with no EN`, `a function value wired at a root with no ENO`, `a variable on an output no declaration names`, `an edge mark on a coil`, `an edge mark on a jump or a return`, `an edge mark on an output`, `an edge stacked on a negation`, `an operator pin named out of place`. Pushed back unchanged it stays as the IDE holds it. None of them is in the six corpora, except that the TwinCAT archives hold `In1`-numbered SEL and MUX pins, which is why a number states an order and not a place.
+
+**A push's PROGRAM box was not called where something read it.** On the fresh CallType `None`: `x := P2(a := a, n := i).q1;` `x=FALSE`, `y := P2(EN := go, a := a, n := i, q2 => k).ENO;` `y=TRUE k=0`, all building. A root box runs either way, which is what hid it. The editor's insert stores `Program`. Fixed test-first: the push stores it, and every row then runs as it reads, `x=TRUE`, `y=TRUE k=6`. TwinCAT's archive is unmeasured.
+
+**An enabled comparison's target, EN false.** Showing no ENO it is written FALSE: `z := TRUE;` then `GT(EN := gf, i, j, OUT => z);`, `z=FALSE`, and `x := GT(EN := gf, i, j);`, `x=FALSE`. Showing ENO it holds: `… OUT => z).ENO;`, at a root and read, `z=TRUE`. Any other operator holds in both. Lowering and the twin wrote FALSE in both; fixed.
+
+### What works
+
+| wanted | form | ran |
+|---|---|---|
+| ENO and the value | `y := GT(EN := go, i, j, OUT => z).ENO;` | `y=TRUE z=TRUE`; EN false: y FALSE, z held |
+| | `y := AND(EN := go, a, b, OUT => z).ENO;` | `y=TRUE z=TRUE`; EN false: z held |
+| | `y := MOVE(EN := go, i, OUT => k).ENO;` | `y=TRUE k=5` |
+| | `y := ADD(EN := go, i, j, OUT => k).ENO;` | `y=TRUE k=8`; EN false: k held |
+| | `y := F0(EN := go, n := i, OUT => k).ENO;` | `y=TRUE k=6`; EN false: k held |
+| | `y := LIMIT(EN := go, 0, i, 3, OUT => k).ENO;`, `y := LEN(EN := go, 'abc', OUT => k).ENO;`, `y := NOT(EN := go, gf, OUT => z).ENO;` | as they read |
+| ENO alone, a FUNCTION | `y := F0(EN := go, n := i).ENO;` | `y=TRUE` |
+| two targets | `k := m := MOVE(i);`, `k := m := ADD(i, j);`, `k := m := F0(n := i);`, `x := y := GT(EN := go, i, j);` | both written |
+| | a wire, `w1 := MOVE(i); k := w1; m := w1;` | both written |
+| ENO on two coils | `z := y := MOVE(EN := go, i, OUT => k).ENO;` | all three |
+| ENO's variable and the value | `z := F1(EN := go, n := i, OUT => k).ENO;` | `z=TRUE k=6` |
+| | with a named output, `z := F1(EN := go, n := i, OUT => k, q3 => m).ENO;` | `z=TRUE k=6 m=7`. `q => x` before `OUT =>` is refused by the CODESYS driver: "a slot another pin already holds" |
+| a FUNCTION's value and its outputs | `k := F1(n := i, q => x, q3 => m).OUT;` | `x=TRUE k=6 m=7` |
+| FB pins | `t2(a := a, n := i, q2 => k);`, in any order of the names | as named |
+| an edge, on a coil | `y := RISING(a);` or `y := RISING := a;` | once |
+| on a jump, a return | `JMP.l := RISING(a);`, `JMP.l := RISING := a;`, `RETURN := RISING(a);`, `RETURN := RISING := a;` | once |
+| on an output | `x := RISING(t2(a := a, n := i).q1);` | once |
+| on a negated value | `RISING(NOT gf)`, `RISING(NOT t2(…).q1)` | once |
+
+### Checked, runs as it reads
+
+Measured, one form each unless a count is given: `NOT` on a contact, a pin, an unnamed pin, a coil, a jump, the return, EN, an output, `OUT =>`, a box read, the item; `RISING` and `FALLING` as `RISING(x)`, on a pin, an unnamed pin, EN, the item, a box read; `S=`, `R=` and their chains; `RAIL()` on a coil, a pin, EN; a mid-rung coil; `JMP.l :=` on a value, `RAIL()`, beside a coil, in a tree; `RETURN :=` on a value, `RAIL()`, beside a coil; `BRANCH` fed, unfed, on the rail, with a box (it runs); `BRANCH_SHORTCIRCUIT` (the box skipped under a TRUE free branch, run otherwise); an operand holding ST; `TRUE`; `COMMENT` on a value, a coil, a pin, an output, under NOT; a value alone; a root box under NOT or an edge (the marks of no effect, the box run); `.NAME` at a root and read; a wire; `%DISABLED`; `EXECUTE` with and without EN and ENO; `x := GT(EN := gf, i, j);` FALSE and any other enabled box read by a coil held; `t2(EN := gf, …)` not called; `t2(…).ENO;` and `P2(…).ENO;` at a root with no EN, which run as the plain call. `TON(IN := a);`, `x := ??? AND a;`, `q2 => ???` do not build, and a build that refuses them is what they read as.
+
+Not measured here: `F(EN := go, …, OUT => k);` past the first dialog, since the batch stopped there (`F1`, `LEN`), so those rows are refused by the rule, not by a run of their own; `OUT => ???` on a program declaring no output is the corpus's form and stays, measured only on a program with outputs, where it lands as `q1 => ???` and does not build; LD beyond the rows marked; TwinCAT.
 
 ## Not measured
 
