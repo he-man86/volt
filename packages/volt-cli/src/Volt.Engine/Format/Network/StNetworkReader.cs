@@ -1099,10 +1099,10 @@ public static class StNetworkReader
                 if (f.Negated) throw Error(line, $"NOT {m}: the IDE negates first, so the edge is written outside the negation, {m} NOT");
                 f = m == StNetworkWriter.RisingHead ? f with { Rising = true } : f with { Falling = true };
             }
-            // AN EDGE STACKED ON NOT RUNS THE NOT AND NO EDGE (live CODESYS 3.5.21.40, openspec nwl-box-storage-map), on a pin, EN and
-            // the assignment item alike; each alone runs as it reads.
+            // AN EDGE STACKED ON NOT DOES NOT RUN AS IT READS (live CODESYS 3.5.21.40, openspec nwl-box-storage-map): on a pin and EN the
+            // generator takes the NOT alone, on the assignment item it negates the edge, NOT(RISING(a)); each alone runs as it reads.
             if (f.Negated && (f.Rising || f.Falling))
-                throw Error(line, $"{(f.Rising ? StNetworkWriter.RisingHead : StNetworkWriter.FallingHead)} NOT before one receiver: the IDE runs the NOT and no edge. The edge of the negated value is {StNetworkWriter.RisingHead}(NOT a)");
+                throw Error(line, $"{(f.Rising ? StNetworkWriter.RisingHead : StNetworkWriter.FallingHead)} NOT before one receiver: on a pin or EN the IDE runs the NOT and no edge, on the assignment NOT of the edge. The edge of the negated value is {StNetworkWriter.RisingHead}(NOT a)");
             return f;
         }
 
@@ -1330,7 +1330,7 @@ public static class StNetworkReader
             // A BOX READ BY ITS VALUE WRITES ITS READER AND NO `OUT =>` (live CODESYS 3.5.21.40, openspec nwl-box-storage-map).
             if (consumed && !hasEno && instance is null && signature is { Shape: not CalleeShape.Program } && connected is null or 0 && outputs.Any(o => o.Formal is null))
                 throw Error(c.Line, $"the box {c.Head} is read by its value and wires OUT =>: the IDE writes no second target. Two targets are a chain, x := y := {c.Head}(…)");
-            // A FUNCTION'S `OUT =>` AT A ROOT IS WRITTEN ONLY CLOSED BY .ENO (live CODESYS 3.5.21.40, openspec nwl-box-storage-map); with
+            // A FUNCTION'S `OUT =>` AT A ROOT IS WRITTEN ONLY CLOSED, BY .ENO OR A VAR_OUTPUT (live CODESYS 3.5.21.40, openspec nwl-box-storage-map); with
             // EN shown and no ENO the IDE faults on the box.
             if (!consumed && !hasEno && signature is { Shape: CalleeShape.Function } && !NetworkSpelling.IsOperator(signature) && connected is null && outputs.Any(o => o.Formal is null))
                 throw Error(c.Line, $"the function box {c.Head} wires OUT => at a root: the IDE does not write it. Read its value, x := {c.Head}(…)");

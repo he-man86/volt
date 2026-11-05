@@ -1405,10 +1405,10 @@ MOVE(RISING NOT EN := c, 1, OUT => n);
 === refused
 network-plain-st RISING NOT before one receiver
 
-#### item-marks-stacked
+#### item-marks-stacked — the editor draws it, and it runs NOT of the edge (live CODESYS 3.5.21.40)
 === text
 %LANGUAGE LD
 %NETWORK
 y := RISING NOT := a;
 === refused
-network-plain-st RISING NOT before one receiver
+network-plain-st on the assignment NOT of the edge

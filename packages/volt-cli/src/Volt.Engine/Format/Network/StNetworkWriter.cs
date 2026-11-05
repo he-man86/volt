@@ -198,7 +198,7 @@ public static class StNetworkWriter
     {
         if (f.Jump || f.Return) throw Unspellable("a jump or return flag on a receiver", $"{where} carries {Describe(f)}.");
         if (f.Rising && f.Falling) throw Unspellable("a rising and falling edge on one node", $"{where} carries both edges.");
-        // It runs the NOT and no edge (live CODESYS 3.5.21.40, openspec nwl-box-storage-map).
+        // It does not run as it reads (live CODESYS 3.5.21.40, openspec nwl-box-storage-map): a pin and EN the NOT alone, the item NOT of the edge.
         if (f.Negated && (f.Rising || f.Falling)) throw Unspellable("an edge stacked on a negation", $"{where} carries {Describe(f)}.");
         return (f.Rising ? RisingHead + " " : f.Falling ? FallingHead + " " : "") + (f.Negated ? "NOT " : "");
     }

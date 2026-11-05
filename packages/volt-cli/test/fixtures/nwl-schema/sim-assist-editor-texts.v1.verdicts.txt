@@ -138,7 +138,7 @@
 138 accept
 139 accept
 140 accept
-141 refuse line 3: RISING NOT before one receiver: the IDE runs the NOT and no edge. The edge of the negated value is RISING(NOT a)
+141 refuse line 3: RISING NOT before one receiver: on a pin or EN the IDE runs the NOT and no edge, on the assignment NOT of the edge. The edge of the negated value is RISING(NOT a)
 142 accept
 143 accept
 144 accept
@@ -148,10 +148,10 @@
 148 refuse line 3: an edge mark on the coil: the IDE runs it unmarked. The edge is on the value, y := RISING(a)
 149 accept
 150 accept
-151 refuse line 3: RISING NOT before one receiver: the IDE runs the NOT and no edge. The edge of the negated value is RISING(NOT a)
+151 refuse line 3: RISING NOT before one receiver: on a pin or EN the IDE runs the NOT and no edge, on the assignment NOT of the edge. The edge of the negated value is RISING(NOT a)
 152 accept
 153 accept
-154 refuse line 3: RISING NOT before one receiver: the IDE runs the NOT and no edge. The edge of the negated value is RISING(NOT a)
+154 refuse line 3: RISING NOT before one receiver: on a pin or EN the IDE runs the NOT and no edge, on the assignment NOT of the edge. The edge of the negated value is RISING(NOT a)
 155 refuse line 3: the wire w2 is the body's w1: a body's wires are w1, w2, … across its networks, in the order the text first names them
 156 accept
 157 accept

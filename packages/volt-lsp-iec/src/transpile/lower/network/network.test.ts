@@ -246,9 +246,9 @@ describe("the assignment item's marks mark the value every target receives", () 
     expect(r.get("x")).toBe(true)
   })
 
-  test("RISING NOT := runs the NOT and no edge in the IDE: refused", () =>
+  test("RISING NOT := does not run as it reads in the IDE: refused", () =>
     expect(lowered("a, y : BOOL;", "%NETWORK\ny := RISING NOT := a;\n", TRIGS).diagnostics.map((d) => d.message)).toEqual([
-      "RISING NOT before one receiver: the IDE runs the NOT and no edge. The edge of the negated value is RISING(NOT a)",
+      "RISING NOT before one receiver: on a pin or EN the IDE runs the NOT and no edge, on the assignment NOT of the edge. The edge of the negated value is RISING(NOT a)",
     ]))
 
   test("RISING := is the edge of the value, and a negated value's edge is RISING(NOT a)", () => {

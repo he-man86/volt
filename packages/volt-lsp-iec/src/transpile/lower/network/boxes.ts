@@ -57,10 +57,10 @@ export abstract class BoxLowerer {
     if (marks?.some((m) => m !== "NOT")) throw new NetworkRefusal("an edge mark on the coil: the IDE runs it unmarked. The edge is on the value, y := RISING(a)")
   }
 
-  /** An edge stacked on NOT runs the NOT and no edge (live CODESYS 3.5.21.40, openspec nwl-box-storage-map). */
+  /** An edge stacked on NOT does not run as it reads (live CODESYS 3.5.21.40, openspec nwl-box-storage-map). */
   protected refuseStackedMarks(marks: readonly string[]): void {
     if (marks.includes("NOT") && marks.some((m) => m !== "NOT"))
-      throw new NetworkRefusal(`${marks.find((m) => m !== "NOT")} NOT before one receiver: the IDE runs the NOT and no edge. The edge of the negated value is RISING(NOT a)`)
+      throw new NetworkRefusal(`${marks.find((m) => m !== "NOT")} NOT before one receiver: on a pin or EN the IDE runs the NOT and no edge, on the assignment NOT of the edge. The edge of the negated value is RISING(NOT a)`)
   }
 
   /** A box whose text claims what its run does not do has no run to lower to (`misleadingBox`). */

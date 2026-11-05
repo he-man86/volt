@@ -140,7 +140,7 @@ EXECUTE('n := 0;');</pre>
   <tr><td class="name">NETWORK_PARSE</td><td>a function's value wired at a root: the IDE writes it only closed by ENO</td><td><code>f(IN := a, OUT => k);</code></td></tr>
   <tr><td class="name">NETWORK_PARSE</td><td>an output its callee does not declare: the IDE does not write it</td><td><code>t1(IN := a, OUT => k);</code></td></tr>
   <tr><td class="name">NETWORK_PARSE</td><td>an edge on a coil, a jump, the return or an output: it runs as if unmarked, and the edge is on the value</td><td><code>RISING y := a;</code> <code>FALLING JMP.l := a;</code> <code>t1(IN := a, RISING Q => x);</code></td></tr>
-  <tr><td class="name">NETWORK_PARSE</td><td>an edge stacked on NOT: it runs the NOT and no edge</td><td><code>t1(RISING NOT IN := a);</code></td></tr>
+  <tr><td class="name">NETWORK_PARSE</td><td>an edge stacked on NOT: it does not run as it reads</td><td><code>t1(RISING NOT IN := a);</code></td></tr>
   <tr><td class="name">NETWORK_PARSE</td><td>an operator pin named out of its place: an operator runs by position</td><td><code>k := SUB(IN2 := a, IN1 := b);</code></td></tr>
   <tr><td class="name">NETWORK_UNSUPPORTED</td><td>a model the writer has no spelling for, an edited <code>%UNSUPPORTED</code> line, and a box whose callee no declaration in reach states</td><td><code>x := f1(IN := a).Q;</code> with <code>f1 : Fx;</code> and <code>Fx</code> declared nowhere</td></tr>
 </table>

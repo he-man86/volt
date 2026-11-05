@@ -335,9 +335,9 @@ class Twinner extends BoxTwinner {
   /** A value under the assignment item's marks (`y := NOT := a`, `y := RISING := a`). */
   private marked(marks: readonly string[] | undefined, value: string, pre: string[]): string {
     if (marks === undefined) return value
-    // an edge stacked on NOT runs the NOT and no edge (live CODESYS 3.5.21.40, openspec nwl-box-storage-map)
+    // an edge stacked on NOT does not run as it reads (live CODESYS 3.5.21.40, openspec nwl-box-storage-map)
     if (marks.includes("NOT") && marks.some((m) => m !== "NOT"))
-      throw new TwinRefusal(`${marks.find((m) => m !== "NOT")} NOT before one receiver: the IDE runs the NOT and no edge. The edge of the negated value is RISING(NOT a)`)
+      throw new TwinRefusal(`${marks.find((m) => m !== "NOT")} NOT before one receiver: on a pin or EN the IDE runs the NOT and no edge, on the assignment NOT of the edge. The edge of the negated value is RISING(NOT a)`)
     const negated = marks.includes("NOT") ? `(NOT ${value})` : value
     const edge = marks.find((m) => m === "RISING" || m === "FALLING")
     return edge === undefined ? negated : this.edgeOf(edge === "RISING", negated, pre)
