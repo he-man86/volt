@@ -2377,28 +2377,7 @@
           "line": 0
         }
       ]
-    },
-    "network_unnamed_target_behind_enable": {
-      "buildSuccess": false,
-      "durationMs": 470,
-      "diagnostics": [
-        {
-          "severity": "error",
-          "message": "Cannot convert type 'Unknown type: ''' to type 'BOOL'",
-          "line": 0
-        },
-        {
-          "severity": "error",
-          "message": "Identifier '' not defined",
-          "line": 0
-        },
-        {
-          "severity": "error",
-          "message": "Assignment target not specified",
-          "line": 9
-        }
-      ]
-    },
+    },
     "network_unnamed_input_pin": {
       "buildSuccess": false,
       "durationMs": 392,
@@ -2502,17 +2481,7 @@
       "buildSuccess": true,
       "durationMs": 919,
       "diagnostics": []
-    },
-    "ng_en_eno_sink": {
-      "buildSuccess": true,
-      "durationMs": 895,
-      "diagnostics": []
-    },
-    "ng_en_eno_named_wire": {
-      "buildSuccess": true,
-      "durationMs": 928,
-      "diagnostics": []
-    },
+    },
     "ng_network_title_and_comment": {
       "buildSuccess": true,
       "durationMs": 881,

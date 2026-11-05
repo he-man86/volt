@@ -46,12 +46,6 @@ export function ng(name: string, pouName: string, feature: string, source: strin
  * shapes against a LIVE IDE.
  */
 export const TWINCAT_REFUSES: Record<string, string | undefined> = {
-  network_unnamed_target_behind_enable:
-    "TwinCAT: the 'NOT' box has an EN pin, and TwinCAT does not compile an enabled NOT built with only its ENO output (measured: \"__ImpVar not defined\"); the box its editor draws keeps a result slot the text has no position for. Draw it in the IDE, or feed the rung into the box as an input.",
-  ng_en_eno_sink:
-    "TwinCAT: the 'AND' box has an EN pin, and TwinCAT does not compile an enabled AND built with only its ENO output (measured: \"__ImpVar not defined\"); the box its editor draws keeps a result slot the text has no position for. Draw it in the IDE, or feed the rung into the box as an input.",
-  ng_en_eno_named_wire:
-    "TwinCAT: the 'OR' box has an EN pin, and TwinCAT does not compile an enabled OR built with only its ENO output (measured: \"__ImpVar not defined\"); the box its editor draws keeps a result slot the text has no position for. Draw it in the IDE, or feed the rung into the box as an input.",
   ng_r5_split_before_definition:
     "TwinCAT: network 1 is built and holds a wire referenced above its definition, which no TwinCAT build has been measured for (stored, reloaded, built and pulled back), so Volt does not write it by a guess. The IDE can make this change.",
   ng_r5_split_nested:

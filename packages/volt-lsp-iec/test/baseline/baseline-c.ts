@@ -153,38 +153,8 @@ const ACTION_VAR_SECTION: readonly CeilingException[] = [
   })),
 ]
 
-/**
- * …and the shapes the push writes as stated since network-text-st, which store and do not build — an operator box read
- * through its ENO with its value wired nowhere (X3: `ng_en_eno_sink`, `ng_en_eno_named_wire`,
- * `network_unnamed_target_behind_enable`) and an operator box showing ENO without EN (X9: `rcc_network_eno_without_en`).
- * CODESYS's build names the implicit variable it invents with a counter (`__<pou>__ImpVar<n>`) no text holds, and adds
- * the box's own inconsistency; the LSP gives what the text states. Niche: 0 such boxes in the corpora (which build).
- */
+/** A library function's box named through its namespace and shown with ENO, which stores and does not build. */
 const UNBUILDABLE_BOXES: readonly CeilingException[] = [
-  ...(["network_unnamed_target_behind_enable", "ng_en_eno_sink", "ng_en_eno_named_wire"] as const).map((fixture) => ({
-    baseline: "fixtures.codesys",
-    measure: "total: GAP",
-    by: 2,
-    fixture,
-    task: "none: niche, accepted loss (0 occurrences in the corpora)",
-    why: "an operator box read through its ENO, its value wired nowhere: CODESYS's errors name the implicit variable it numbers (`__<pou>__ImpVar<n>`)",
-  })),
-  ...(
-    [
-      ["fixtures.codesys", "total: GAP", 4],
-      ["fixtures.codesys", "total: unowned GAP", 2],
-      ["fixtures.codesys", "group network: GAP", 1],
-      ["fixtures.twincat", "total: GAP", 2],
-      ["fixtures.twincat", "total: unowned GAP", 1],
-    ] as const
-  ).map(([baseline, measure, by]) => ({
-    baseline,
-    measure,
-    by,
-    fixture: "rcc_network_eno_without_en",
-    task: "none: niche, accepted loss (0 occurrences in the corpora)",
-    why: "an operator box showing ENO without EN: the build's \"Missing EN pin\", its implicit variable and the value it reads as the ENO",
-  })),
   {
     baseline: "fixtures.codesys",
     measure: "total: GAP",

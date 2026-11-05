@@ -2532,28 +2532,7 @@
           "line": 0
         }
       ]
-    },
-    "network_unnamed_target_behind_enable": {
-      "buildSuccess": false,
-      "durationMs": 932,
-      "diagnostics": [
-        {
-          "severity": "error",
-          "message": "Identifier '__FB_LANG_network_unnamed_target_en__ImpVar16' not defined",
-          "line": 0
-        },
-        {
-          "severity": "error",
-          "message": "'__FB_LANG_network_unnamed_target_en__ImpVar16' is no valid assignment target",
-          "line": 0
-        },
-        {
-          "severity": "error",
-          "message": "The assignment target is not specified.",
-          "line": 0
-        }
-      ]
-    },
+    },
     "network_unnamed_input_pin": {
       "buildSuccess": false,
       "durationMs": 1226,
@@ -2662,39 +2641,7 @@
       "buildSuccess": true,
       "durationMs": 906,
       "diagnostics": []
-    },
-    "ng_en_eno_sink": {
-      "buildSuccess": false,
-      "durationMs": 787,
-      "diagnostics": [
-        {
-          "severity": "error",
-          "message": "Identifier '__FB_NG_en__ImpVar19' not defined",
-          "line": 0
-        },
-        {
-          "severity": "error",
-          "message": "'__FB_NG_en__ImpVar19' is no valid assignment target",
-          "line": 0
-        }
-      ]
-    },
-    "ng_en_eno_named_wire": {
-      "buildSuccess": false,
-      "durationMs": 858,
-      "diagnostics": [
-        {
-          "severity": "error",
-          "message": "Identifier '__FB_NG_enwire__ImpVar21' not defined",
-          "line": 0
-        },
-        {
-          "severity": "error",
-          "message": "'__FB_NG_enwire__ImpVar21' is no valid assignment target",
-          "line": 0
-        }
-      ]
-    },
+    },
     "ng_execute_box": {
       "buildSuccess": true,
       "durationMs": 1838,

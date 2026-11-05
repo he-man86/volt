@@ -104,32 +104,6 @@ END_FUNCTION_BLOCK
 `,
   },
   {
-    name: "network_unnamed_target_behind_enable",
-    pouName: "FB_LANG_network_unnamed_target_en",
-    kind: "function_block",
-    feature: "`???` as the assignment target of an OPERATOR read through its ENO behind an UNCONNECTED enable",
-    fromDoc: "network-text.html#outputs",
-    note:
-      "The shape the two LIVE Lenze POUs carry: an unconnected EN does NOT excuse the marker, the compiler still errors, so " +
-      "'the rung is not generated' does not explain those POUs building clean, leaving exclude-from-build. Its operator box " +
-      "writes its value nowhere (X3), which stores and does not build either (CODESYS adds the implicit temp's errors, " +
-      "TwinCAT \"__ImpVar not defined\", DIALECT N42 e).",
-    vendorRefuses: { twincat: TWINCAT_REFUSES.network_unnamed_target_behind_enable! },
-    plcPrgVar: "fb_nute : FB_LANG_network_unnamed_target_en;",
-    plcPrgBody: "fb_nute();",
-    source: `FUNCTION_BLOCK FB_LANG_network_unnamed_target_en
-VAR
-\ta : BOOL;
-END_VAR
-
-%LANGUAGE LD
-%NETWORK
-??? := NOT(EN := TRUE, a).ENO;
-
-END_FUNCTION_BLOCK
-`,
-  },
-  {
     name: "network_unnamed_input_pin",
     pouName: "FB_LANG_network_unnamed_input_pin",
     kind: "function_block",

@@ -205,40 +205,6 @@ END_FUNCTION_BLOCK
 `, `${doc}#outputs`,
     "208 wired output pins on 171 boxes were DROPPED before this form existed — a pin the engineer wired was simply absent from the file. IEC's own split: a function's result is assigned, its VAR_OUTPUTs use `=>`."),
   // ─── EN/ENO and EXECUTE (§6) ───────────────────────────────────────────────
-  ng("ng_en_eno_sink", "FB_NG_en", "an enabled operator box read through its ENO, its value wired nowhere (X3: it stores, and the build refuses it)",
-    `FUNCTION_BLOCK FB_NG_en
-VAR
-\tgo : BOOL;
-\ta : BOOL;
-\tb : BOOL;
-\tout : BOOL;
-END_VAR
-
-%LANGUAGE LD
-%NETWORK
-out := AND(EN := go, a, b).ENO;
-
-END_FUNCTION_BLOCK
-`, `${doc}#outputs`),
-  ng("ng_en_eno_named_wire", "FB_NG_enwire", "an enabled operator box whose ENO is a wire, its value wired nowhere (X3: it stores, and the build refuses it)",
-    `FUNCTION_BLOCK FB_NG_enwire
-VAR
-\tgo : BOOL;
-\tb : BOOL;
-\tc : BOOL;
-\tout : BOOL;
-\tout3 : BOOL;
-END_VAR
-
-%LANGUAGE FBD
-%NETWORK
-VAR w1 : ANY; END_VAR
-w1 := OR(EN := go, b, c).ENO;
-out := w1;
-out3 := w1;
-
-END_FUNCTION_BLOCK
-`, `${doc}#outputs`),
   ng("ng_execute_box", "FB_NG_execute", "an EXECUTE box — raw ST inside a graphical body, with its own nested END_IF",
     `FUNCTION_BLOCK FB_NG_execute
 VAR
