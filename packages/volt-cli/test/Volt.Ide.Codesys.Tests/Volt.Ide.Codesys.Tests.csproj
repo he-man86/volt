@@ -50,6 +50,7 @@
          relay-chunked-results §5): the same real-socket tests the net10 relay suite runs. -->
     <Compile Include="..\shared\RelayRealSocketTests.cs" Link="RelayRealSocketTests.cs" />
     <Compile Include="..\shared\RelayChunkCheck.cs" Link="RelayChunkCheck.cs" />
+    <Compile Include="..\shared\RelayFaultTests.cs" Link="RelayFaultTests.cs" />
   </ItemGroup>
 
   <!-- The SHIPPED bundle (the bridge's merged single assembly, Volt.Ide.Codesys.csproj's VoltBundle target), copied in

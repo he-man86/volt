@@ -73,15 +73,43 @@ public static class RealSocketScale
     }
 }
 
-/// <summary>A TCP proxy that carries <c>bytesPerSecond</c> each way, paced over time, in 1 KiB reads. What it has not
-/// read yet waits in the OS's socket buffers, as it does in front of a slow link.</summary>
+/// <summary>What a direction of a flow does with the bytes it is given, while the TCP connections stay open.</summary>
+public enum FlowFault
+{
+    /// <summary>Forwards.</summary>
+    None,
+    /// <summary>Takes the bytes and forwards nothing, an end of stream included: the sender's send completes and nobody
+    /// hears it. A dead path behind something that terminates TCP (a VPN, a proxy).</summary>
+    Discard,
+    /// <summary>Stops reading, so the sender's OS buffers fill and its send blocks. A dead path with nothing acking.</summary>
+    Hold,
+}
+
+/// <summary>A TCP proxy that carries <c>bytesPerSecond</c> each way (0: no limit), paced over time, in 1 KiB reads. What
+/// it has not read yet waits in the OS's socket buffers, as it does in front of a slow link. Faults: a blackhole of either
+/// direction leaves both TCP connections open, no FIN and no RST; it applies to the flows open now, and a redial is a
+/// new flow unless <see cref="BlackholeNewFlows"/>. <see cref="Latency"/> and <see cref="Stall"/> delay what it forwards.</summary>
 public sealed class ThrottledProxy : IDisposable
 {
+    private sealed class Flow
+    {
+        public TcpClient Inbound = null!;
+        public TcpClient Outbound = null!;
+        public volatile FlowFault Up;
+        public volatile FlowFault Down;
+        public long UpBytes;
+        public long ArmedAt = long.MaxValue;
+        public FlowFault ArmedUp;
+        public FlowFault ArmedDown;
+    }
+
     private readonly TcpListener _listener = new TcpListener(IPAddress.Loopback, 0);
     private readonly int _target;
     private readonly int _bytesPerSecond;
     private readonly CancellationTokenSource _stop = new CancellationTokenSource();
     private readonly ConcurrentBag<TcpClient> _clients = new ConcurrentBag<TcpClient>();
+    private readonly ConcurrentQueue<Flow> _flows = new ConcurrentQueue<Flow>();
+    private readonly Stopwatch _clock = Stopwatch.StartNew();
 
     public ThrottledProxy(int targetPort, int bytesPerSecond)
     {
@@ -92,6 +120,42 @@ public sealed class ThrottledProxy : IDisposable
     }
 
     public int Port => ((IPEndPoint)_listener.LocalEndpoint).Port;
+    /// <summary>The flows accepted so far.</summary>
+    public int Flows => _flows.Count;
+    /// <summary>A flow accepted while this is set is dead from its first byte: TCP connects, nothing crosses.</summary>
+    public volatile bool BlackholeNewFlows;
+    /// <summary>Each byte forwarded this much after it was read.</summary>
+    public TimeSpan Latency { get; set; }
+    /// <summary>Nothing forwarded for <c>Length</c> at the start of every <c>Every</c>: what loss does to a TCP flow, a
+    /// retransmission pause with no error. Bytes wait and arrive late.</summary>
+    public (TimeSpan Every, TimeSpan Length)? Stall { get; set; }
+
+    /// <summary>Every open flow goes dead now, each way as stated.</summary>
+    public void Blackhole(FlowFault up, FlowFault down)
+    {
+        foreach (var f in _flows) { f.Up = up; f.Down = down; }
+    }
+
+    /// <summary>Every open flow goes dead once <paramref name="bytes"/> more have gone from the bridge to the relay.</summary>
+    public void BlackholeAfterUpBytes(long bytes, FlowFault up, FlowFault down)
+    {
+        foreach (var f in _flows)
+        {
+            f.ArmedUp = up;
+            f.ArmedDown = down;
+            Interlocked.Exchange(ref f.ArmedAt, Interlocked.Read(ref f.UpBytes) + bytes);
+        }
+    }
+
+    /// <summary>An RST each way on every open flow.</summary>
+    public void Reset()
+    {
+        foreach (var f in _flows)
+            foreach (var c in new[] { f.Inbound, f.Outbound })
+            {
+                try { c.Client.LingerState = new LingerOption(true, 0); c.Close(); } catch { }
+            }
+    }
 
     private async Task AcceptLoop()
     {
@@ -105,23 +169,48 @@ public sealed class ThrottledProxy : IDisposable
             catch { inbound.Close(); continue; }
             _clients.Add(inbound);
             _clients.Add(outbound);
-            _ = Pump(inbound.GetStream(), outbound.GetStream(), inbound, outbound);
-            _ = Pump(outbound.GetStream(), inbound.GetStream(), outbound, inbound);
+            var dead = BlackholeNewFlows ? FlowFault.Discard : FlowFault.None;
+            var flow = new Flow { Inbound = inbound, Outbound = outbound, Up = dead, Down = dead };
+            _flows.Enqueue(flow);
+            _ = Pump(inbound.GetStream(), outbound.GetStream(), flow, up: true);
+            _ = Pump(outbound.GetStream(), inbound.GetStream(), flow, up: false);
         }
     }
 
-    private async Task Pump(NetworkStream from, NetworkStream to, TcpClient a, TcpClient b)
+    private async Task Pump(NetworkStream from, NetworkStream to, Flow flow, bool up)
     {
+        FlowFault Fault() => up ? flow.Up : flow.Down;
         var buffer = new byte[1024];
         var clock = Stopwatch.StartNew();
         long carried = 0;
+        var delayed = Latency > TimeSpan.Zero || Stall != null;
+        var line = new ConcurrentQueue<(TimeSpan Due, byte[] Bytes)>();
+        var queued = new SemaphoreSlim(0);
+        if (delayed) _ = DelayLine(line, queued, to);
         try
         {
             while (!_stop.IsCancellationRequested)
             {
+                if (Fault() == FlowFault.Hold)
+                {
+                    await Task.Delay(50, _stop.Token).ConfigureAwait(false);
+                    continue;
+                }
                 var n = await from.ReadAsync(buffer, 0, buffer.Length, _stop.Token).ConfigureAwait(false);
                 if (n == 0) break;
-                await to.WriteAsync(buffer, 0, n, _stop.Token).ConfigureAwait(false);
+                if (up && Interlocked.Add(ref flow.UpBytes, n) >= Interlocked.Read(ref flow.ArmedAt))
+                {
+                    flow.Up = flow.ArmedUp;
+                    flow.Down = flow.ArmedDown;
+                }
+                if (Fault() != FlowFault.None) continue;
+                if (delayed)
+                {
+                    line.Enqueue((_clock.Elapsed + Latency, buffer.Take(n).ToArray()));
+                    queued.Release();
+                }
+                else await to.WriteAsync(buffer, 0, n, _stop.Token).ConfigureAwait(false);
+                if (_bytesPerSecond <= 0) continue;
                 carried += n;
                 // Paced against the link's cumulative schedule: a pause for nothing to carry is not credit to burst.
                 var due = TimeSpan.FromSeconds((double)carried / _bytesPerSecond);
@@ -130,8 +219,31 @@ public sealed class ThrottledProxy : IDisposable
             }
         }
         catch { /* either side gone, or stopped */ }
-        try { a.Close(); } catch { }
-        try { b.Close(); } catch { }
+        // A dead direction carries no end of stream either: the far side never learns.
+        if (Fault() != FlowFault.None) return;
+        try { flow.Inbound.Close(); } catch { }
+        try { flow.Outbound.Close(); } catch { }
+    }
+
+    private async Task DelayLine(ConcurrentQueue<(TimeSpan Due, byte[] Bytes)> line, SemaphoreSlim queued, NetworkStream to)
+    {
+        try
+        {
+            while (!_stop.IsCancellationRequested)
+            {
+                await queued.WaitAsync(_stop.Token).ConfigureAwait(false);
+                if (!line.TryDequeue(out var item)) continue;
+                var wait = item.Due - _clock.Elapsed;
+                if (wait > TimeSpan.Zero) await Task.Delay(wait, _stop.Token).ConfigureAwait(false);
+                if (Stall is { } stall)
+                {
+                    var into = TimeSpan.FromTicks(_clock.Elapsed.Ticks % stall.Every.Ticks);
+                    if (into < stall.Length) await Task.Delay(stall.Length - into, _stop.Token).ConfigureAwait(false);
+                }
+                await to.WriteAsync(item.Bytes, 0, item.Bytes.Length, _stop.Token).ConfigureAwait(false);
+            }
+        }
+        catch { /* either side gone, or stopped */ }
     }
 
     public void Dispose()
@@ -140,6 +252,18 @@ public sealed class ThrottledProxy : IDisposable
         try { _listener.Stop(); } catch { }
         foreach (var c in _clients) { try { c.Close(); } catch { } }
     }
+}
+
+/// <summary>One socket a relay accepted. Times on the relay's clock.</summary>
+public sealed class RelayConnection
+{
+    public TimeSpan AcceptedAt;
+    public TimeSpan LastPingAt;
+    public TimeSpan? EndedAt;
+    public string? End;
+    public TimeSpan? PingAgeAtEnd;
+    /// <summary>This dial landed while the socket before it still looked live.</summary>
+    public bool ReplacedOld;
 }
 
 /// <summary>A relay on <see cref="HttpListener"/>: accepts the bridge's WebSocket, announces chunks (when told to),
@@ -161,6 +285,8 @@ public sealed class HttpListenerRelay : IDisposable
     private readonly Dictionary<string, TimeSpan> _firstChunkAt = new Dictionary<string, TimeSpan>();
     private readonly TaskCompletionSource<bool> _hello = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
     private WebSocket? _socket;
+    private RelayConnection? _current;
+    private TimeSpan? _lastChunk;
     private TimeSpan _lastMessage;
     private TimeSpan _helloAt;
 
@@ -195,6 +321,13 @@ public sealed class HttpListenerRelay : IDisposable
     public int LargestMessage { get; private set; }
 
     public Task Hello => _hello.Task;
+    /// <summary>Every socket this relay accepted, oldest first: how each ended, as a relay's own close log has it.</summary>
+    public List<RelayConnection> Connections { get; } = new List<RelayConnection>();
+    public int ProgressFrames { get; private set; }
+    /// <summary>When the relay's chunk-stall rule would have closed: a partial answer with no chunk for <see cref="ChunkStallLimit"/>.
+    /// Recorded, not acted on.</summary>
+    public TimeSpan? ChunkStallWouldFireAt { get; private set; }
+    public TimeSpan ChunkStallLimit { get; set; } = TimeSpan.MaxValue;
 
     private async Task AcceptLoop()
     {
@@ -210,12 +343,42 @@ public sealed class HttpListenerRelay : IDisposable
                 continue;
             }
             var accepted = await context.AcceptWebSocketAsync(null).ConfigureAwait(false);
+            RelayConnection record;
+            var replacedOld = false;
+            lock (_gate)
+            {
+                var old = _current;
+                if (old != null && old.End == null)
+                {
+                    // A redial landing while the old socket still looks live: the relay replaces it.
+                    replacedOld = true;
+                    old.End = "replaced";
+                    old.EndedAt = _clock.Elapsed;
+                    old.PingAgeAtEnd = _clock.Elapsed - old.LastPingAt;
+                }
+                record = new RelayConnection { AcceptedAt = _clock.Elapsed, LastPingAt = _clock.Elapsed, ReplacedOld = replacedOld };
+                Connections.Add(record);
+                _current = record;
+            }
+            var replaced = _socket;
             _socket = accepted.WebSocket;
-            _ = Receive(accepted.WebSocket);
+            if (replacedOld) { try { replaced?.Abort(); } catch { } }
+            _ = Receive(accepted.WebSocket, record);
         }
     }
 
-    private async Task Receive(WebSocket socket)
+    private void Ended(RelayConnection record, string how)
+    {
+        lock (_gate)
+        {
+            if (record.End != null) return;
+            record.End = how;
+            record.EndedAt = _clock.Elapsed;
+            record.PingAgeAtEnd = _clock.Elapsed - record.LastPingAt;
+        }
+    }
+
+    private async Task Receive(WebSocket socket, RelayConnection record)
     {
         var buffer = new byte[64 * 1024];
         try
@@ -227,16 +390,27 @@ public sealed class HttpListenerRelay : IDisposable
                 do
                 {
                     result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), _stop.Token).ConfigureAwait(false);
-                    if (result.MessageType == WebSocketMessageType.Close) return;
+                    if (result.MessageType == WebSocketMessageType.Close)
+                    {
+                        Ended(record, "close " + (int?)result.CloseStatus);
+                        return;
+                    }
                     message.Write(buffer, 0, result.Count);
                 } while (!result.EndOfMessage);
                 var bytes = message.ToArray();
                 Arrived(bytes.Length);
                 if (result.MessageType == WebSocketMessageType.Binary) await OnChunk(bytes).ConfigureAwait(false);
-                else await OnText(Encoding.UTF8.GetString(bytes)).ConfigureAwait(false);
+                else
+                {
+                    var text = Encoding.UTF8.GetString(bytes);
+                    if (text == RelayFrames.Ping) lock (_gate) record.LastPingAt = _clock.Elapsed;
+                    await OnText(text).ConfigureAwait(false);
+                }
             }
         }
         catch { /* the socket ended */ }
+        // No Close frame came: what a relay's log calls 1006.
+        Ended(record, "1006");
     }
 
     private void Arrived(int length)
@@ -261,6 +435,7 @@ public sealed class HttpListenerRelay : IDisposable
             _hello.TrySetResult(true);
             return;
         }
+        if (root.TryGetProperty("progress", out _)) lock (_gate) ProgressFrames++;
         if (text == RelayFrames.Ping) { await Send(RelayFrames.Pong).ConfigureAwait(false); return; }
         if (root.TryGetProperty("id", out var id) && (root.TryGetProperty("result", out _) || root.TryGetProperty("error", out _)))
             TerminalOf(id.GetString()!).TrySetResult(Encoding.UTF8.GetBytes(text));
@@ -282,6 +457,7 @@ public sealed class HttpListenerRelay : IDisposable
         lock (_gate)
         {
             BinaryMessages++;
+            _lastChunk = _clock.Elapsed;
             if (!_firstChunkAt.ContainsKey(id)) _firstChunkAt[id] = _clock.Elapsed;
             try { whole = _check.Add(message); }
             catch (RelayChunkCheck.Invalid e)
@@ -292,7 +468,11 @@ public sealed class HttpListenerRelay : IDisposable
                 return;
             }
         }
-        if (whole != null) TerminalOf(id).TrySetResult(whole);
+        if (whole != null)
+        {
+            lock (_gate) _lastChunk = null;
+            TerminalOf(id).TrySetResult(whole);
+        }
     }
 
     private TaskCompletionSource<byte[]> TerminalOf(string id)
@@ -333,12 +513,20 @@ public sealed class HttpListenerRelay : IDisposable
         {
             try { await Task.Delay(100, _stop.Token).ConfigureAwait(false); } catch { return; }
             TimeSpan silent, helloAt;
-            lock (_gate) { helloAt = _helloAt; silent = _clock.Elapsed - _lastMessage; }
+            lock (_gate)
+            {
+                helloAt = _helloAt;
+                silent = _clock.Elapsed - _lastMessage;
+                if (ChunkStallWouldFireAt == null && _lastChunk is { } chunk && _clock.Elapsed - chunk > ChunkStallLimit)
+                    ChunkStallWouldFireAt = _clock.Elapsed;
+            }
             if (helloAt == TimeSpan.Zero || ClosedForSilenceAt != null || silent <= _silenceLimit) continue;
             lock (_gate) if (silent > LongestSilence) LongestSilence = silent;
             ClosedForSilenceAt = _clock.Elapsed - helloAt;
             var socket = _socket;
             if (socket == null) continue;
+            var record = _current;
+            if (record != null) Ended(record, "relay silence close 1011");
             await _sendLock.WaitAsync().ConfigureAwait(false);
             try { await socket.CloseOutputAsync((WebSocketCloseStatus)1011, "silent past the limit", CancellationToken.None).ConfigureAwait(false); }
             catch { }

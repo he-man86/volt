@@ -25,6 +25,7 @@
          relay. Compiled here (net10, the TwinCAT worker's runtime) and in the CODESYS suite (net48, the in-proc host's). -->
     <Compile Include="..\shared\RelayRealSocketTests.cs" Link="RelayRealSocketTests.cs" />
     <Compile Include="..\shared\RelayChunkCheck.cs" Link="RelayChunkCheck.cs" />
+    <Compile Include="..\shared\RelayFaultTests.cs" Link="RelayFaultTests.cs" />
     <Using Include="Volt.Tests.Shared" />
   </ItemGroup>
 </Project>
