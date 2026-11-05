@@ -361,7 +361,7 @@ namespace Volt.Ide.Codesys
             // stored `Eno` flag (`Box.ShowsEno`, network-text-st 1c), independent of EN — census 1.6 found 40 enabled comparisons with none.
             var outputNames = Names(n, "OutputParams");
             var hasEno = Box.ShowsEno(NwlInterop.Get(n, "Eno") as bool?, outputNames, CodesysDriver.Row.Display, type);
-            if (!hasEno && instance is null && CallsAnOperator(n) && SlotIsEmpty(n, type, 0))
+            if (instance is null && CallsAnOperator(n) && SlotIsEmpty(n, type, hasEno ? 1 : 0))
                 throw BoxRefusals.EmptyOperatorOutput(CodesysDriver.Row.Display, type);
             if (NwlInterop.Get(n, "ContainsExtensibleInputs") is true)
                 throw BoxRefusals.ExtensibleInputs(CodesysDriver.Row.Display, type);

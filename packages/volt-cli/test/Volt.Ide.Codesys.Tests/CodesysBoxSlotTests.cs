@@ -218,4 +218,25 @@ public class CodesysBoxSlotTests
 
         Assert.Equal(BoxRefusals.ExtensibleInputsMarker, Refused(box).Reason);
     }
+
+    /// <summary>AN OPERATOR BOX SHOWING ENO WHOSE VALUE SLOT HOLDS AN EMPTY OPERAND has no target either: the same run answers "The
+    /// assignment target is not specified." It pulled as <c>AND(EN := go, a, b).ENO;</c>, which a push builds with no value slot.</summary>
+    [Fact]
+    public void An_operator_box_showing_ENO_with_an_empty_value_slot_is_refused_by_name()
+    {
+        var box = new Nwl.BoxTreeBox
+        {
+            BoxType = "AND",
+            CallType = Nwl.Operator.And,
+            En = true,
+            Eno = true,
+            InputItemList = new object[] { Nwl.Leaf("go"), Nwl.Leaf("a"), Nwl.Leaf("b") },
+            InputParams = new Nwl.ParamList { Names = new[] { "EN" }, Types = new[] { "BOOL" } },
+            OutputParams = new Nwl.ParamList { Names = new[] { "ENO", "" }, Types = new[] { "BOOL", "BOOL" } },
+        };
+        box.Outputs.AppendOutputItem(null!);
+        box.Outputs.AppendOutputItem(new Nwl.Operand { OperandExpr = "" });
+
+        Assert.Equal(BoxRefusals.EmptyOperatorOutputMarker, Refused(box).Reason);
+    }
 }
