@@ -14,7 +14,7 @@ import { describe, expect, beforeAll, setDefaultTimeout } from "bun:test"
 import { id, fid, requireHealthy, VENDOR, BASE } from "../harness"
 import { itGapped, PLATFORM_GAPS } from "../lib/platform"
 import { expectRoundTrip } from "../lib/roundtrip"
-import { removeItem } from "../lib/workspace"
+import { createItem, removeItem } from "../lib/workspace"
 import { runCalled } from "../lib/codesys-run"
 
 const it = itGapped(PLATFORM_GAPS.graphicalWrite)
@@ -61,6 +61,20 @@ async function run(program: string): Promise<{ i: number; j: number; k: number; 
 describe.skipIf(VENDOR !== "codesys")(`graphical / an Execute box Volt writes runs, ld-fbd-coverage 2R.6a (${BASE})`, () => {
 	beforeAll(async () => {
 		await requireHealthy()
+	})
+
+	/** One push, no second one behind it: `expectRoundTrip` below pushes the same bytes again, and that second commit is what
+	 *  made the ST run, so it hid a box that ran on no first push (openspec nwl-box-storage-map). */
+	it("an Execute box runs after the one push that wrote it", async () => {
+		try {
+			await removeItem(ITEM)
+			await createItem(ITEM, source(7))
+			const once = await run(NAME)
+			expect(once.k, `the ST ran after one push: ${once.seen}`).toBe(7)
+			expect(once.j, `the ENO-read box's ST ran after one push: ${once.seen}`).toBeGreaterThan(0)
+		} finally {
+			await removeItem(ITEM)
+		}
 	})
 
 	it("a top-level Execute box and one read through its ENO run their ST — created, and after an edit", async () => {

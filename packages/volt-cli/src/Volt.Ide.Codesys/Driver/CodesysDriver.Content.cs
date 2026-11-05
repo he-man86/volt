@@ -356,12 +356,20 @@ public sealed partial class CodesysDriver
     /// <summary>A graphical body into <paramref name="node"/>, inside one modify transaction — on a fresh network body
     /// aspect first when <paramref name="newBodyAspect"/> names one (a body that changes language, D7), so a write that
     /// fails rolls the swap back with it.</summary>
-    private void WriteGraph(object node, NetworkBody graph, NetworkScope scope, string? newBodyAspect = null) =>
+    private void WriteGraph(object node, NetworkBody graph, NetworkScope scope, string? newBodyAspect = null)
+    {
         _om.ModifyObject(node, iobj =>
         {
             if (newBodyAspect != null) CodesysObjectModel.PutNewBodyAspect(iobj, newBodyAspect);
             CodesysNetworkWriter.Write(iobj, graph, scope);
         });
+        // AN EXECUTE BOX RUNS ONLY FROM ITS SECOND COMMIT (measured live, openspec nwl-box-storage-map; ld-fbd-coverage 2R.6a): the
+        // commit that builds it stores its ST, and the language model hands the compiler an empty snippet until the object is
+        // committed again, so the box builds clean and its code never runs.
+        if (graph.Networks.Any(n => n.Trees.Any(HoldsExecuteBox))) _om.ModifyObject(node, _ => { });
+    }
+
+    private static bool HoldsExecuteBox(Node n) => n is Box { StCode: not null } || n.Children().Any(HoldsExecuteBox);
 
     /// <summary>The body aspect to put on <paramref name="node"/> before its body is written — when the pushed body
     /// changes language (ST ⇄ LD/FBD) against the aspect the IDE holds — or null when it does not (openspec
