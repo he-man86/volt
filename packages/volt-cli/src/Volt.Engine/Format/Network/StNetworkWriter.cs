@@ -742,6 +742,9 @@ public static class StNetworkWriter
                 // empty name (`AND(a, NOT := b)`), and unmarked it is its value alone.
                 if (p.Formal is null)
                 {
+                    // The IDE drops it (live CODESYS 3.5.21.40, openspec nwl-box-storage-map): shown, the text would pass a pin the run does not.
+                    if (b.Instance is not null || signature is { Shape: CalleeShape.Program })
+                        throw Unspellable("a pin by position on an FB or a PROGRAM", $"the '{b.Type}' box holds an input with no name, which the IDE does not pass.");
                     args.Add(p.Flags.IsNone ? value : PinMarks(b, null, p.Flags) + ":= " + value);
                     continue;
                 }

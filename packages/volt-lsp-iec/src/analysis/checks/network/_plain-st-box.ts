@@ -30,6 +30,7 @@ export function checkBox(call: CallExpr, member: string | undefined, consumed: b
   const type = fb?.kind === "function_block" ? fb.name : head
   const at = call.callee.span
   const signature = box.signature
+  for (const m of misleadingBox(box, head)) emit(out, m.span, CODE, m.message)
   if (signature === undefined && (box.instance !== undefined || call.callee.kind === "ident_expr")) {
     // a callee no declaration in reach states: each of these reads as a box flag or the callee's own pin, which only the
     // declaration tells (the bridge's reader, network-text-one-to-one F9)
@@ -41,7 +42,6 @@ export function checkBox(call: CallExpr, member: string | undefined, consumed: b
     return
   }
   if (declaresOut(signature)) emit(out, at, CODE, `${type} declares VAR_OUTPUT OUT, which also names its value: the text cannot tell the two apart`)
-  for (const m of misleadingBox(box, head)) emit(out, m.span, CODE, m.message)
   if (signature !== undefined && !declaresEn(signature)) {
     const enAgain = box.pins.find((a) => !a.output && a.param?.name.toUpperCase() === "EN")
     if (enAgain !== undefined)

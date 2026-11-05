@@ -1090,3 +1090,66 @@ instance t2 Fx
 t2(IN := a, q2 => k, q2 => m);
 === refused
 network-plain-st the call t2 wires q2 => twice
+
+#### fb-pin-by-position — an FB's box passes only named pins: t2(a, i) builds and calls t2()
+=== scope
+fb Fx a n => q1 q2
+instance t2 Fx
+=== text
+%LANGUAGE FBD
+%NETWORK
+t2(a, i);
+=== refused
+network-plain-st the call t2 passes a pin by position
+
+#### fb-pin-by-position-read — read as well as called
+=== scope
+fb Fx a n => q1 q2
+instance t2 Fx
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := t2(a, i).q1;
+=== refused
+network-plain-st the call t2 passes a pin by position
+
+#### fb-pin-by-position-mixed — named and positional
+=== scope
+fb Fx a n => q1 q2
+instance t2 Fx
+=== text
+%LANGUAGE FBD
+%NETWORK
+t2(a, n := i);
+=== refused
+network-plain-st the call t2 passes a pin by position
+
+#### fb-pin-by-position-no-signature — an instance is an FB whether or not a declaration states its pins
+=== scope
+instance t1 TON
+=== text
+%LANGUAGE FBD
+%NETWORK
+t1(a);
+=== refused
+network-plain-st the call t1 passes a pin by position
+
+#### program-pin-by-position — p(a, i) builds and calls p()
+=== scope
+program p a n => q1 q2
+=== text
+%LANGUAGE FBD
+%NETWORK
+p(a, i);
+=== refused
+network-plain-st the call p passes a pin by position
+
+#### program-pin-by-position-read — x := p(a, i).q1 compiles to x := p.q1, the program not called at all
+=== scope
+program p a n => q1 q2
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := p(a, i).q1;
+=== refused
+network-plain-st the call p passes a pin by position

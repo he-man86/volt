@@ -159,6 +159,11 @@ describe("what the lowering refuses, by name", () => {
       ["network-box", "the call MOVE wires OUT => twice: the IDE writes no second target. Two targets are a chain, x := y := MOVE(…)"],
     ]))
 
+  test("a pin by position on an FB: the IDE drops it, so nothing runs it passed", () =>
+    expect(codes("x, a : BOOL; c1 : FB_C;", "%NETWORK\nc1(a);\n", COUNTER)).toEqual([
+      ["network-box", "the call c1 passes a pin by position: the box of an FB or a PROGRAM passes only named pins, and the IDE drops the rest. Name it, c1(<pin> := value)"],
+    ]))
+
   test("an enabled box other than a comparison read inside a tree", () =>
     expect(codes("x : BOOL; i : INT; c : BOOL;", "%NETWORK\nx := EQ(ADD(EN := c, i, 1), 2);\n")).toEqual([
       ["network-box", "the enabled ADD box is read by its value other than as an assignment's whole value"],

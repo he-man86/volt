@@ -149,6 +149,11 @@ export function boxMember(e: MemberExpr, scope: Scope, project: Scope): { box: N
  */
 export function misleadingBox(box: NetworkBox, head: string): { span: Span; message: string }[] {
   const out: { span: Span; message: string }[] = []
+  if (box.instance !== undefined || box.signature?.shape === "program") {
+    const positional = box.pins.find((a) => !a.output && a.param === undefined)
+    if (positional !== undefined)
+      out.push({ span: positional.span, message: `the call ${head} passes a pin by position: the box of an FB or a PROGRAM passes only named pins, and the IDE drops the rest. Name it, ${head}(<pin> := value)` })
+  }
   const wired = new Set<string>()
   for (const a of box.call.args) {
     if (!a.output || a.param === undefined) continue

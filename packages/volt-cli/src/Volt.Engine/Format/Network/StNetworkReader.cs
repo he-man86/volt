@@ -1299,6 +1299,11 @@ public static class StNetworkReader
                 inputs.Add(new Input(a.Formal, Expr(a.Value!), MarkFlags(a.Marks, c.Line)));
             }
 
+            // AN FB'S OR A PROGRAM'S BOX PASSES ONLY NAMED PINS (live CODESYS 3.5.21.40, openspec nwl-box-storage-map): `t2(a, i)`
+            // stores no names and builds as `t2()`, `x := p(a, i).q` as `x := p.q` with the program not called. A FUNCTION is
+            // given its names by the push (`NetworkDerivation`).
+            if ((instance is not null || signature is { Shape: CalleeShape.Program }) && inputs.Any(i => i.Formal is null))
+                throw Error(c.Line, $"the call {c.Head} passes a pin by position: the box of an FB or a PROGRAM passes only named pins, and the IDE drops the rest. Name it, {c.Head}(<pin> := value)");
             // ONE OUTPUT, ONE TARGET (live CODESYS 3.5.21.40, openspec nwl-box-storage-map): the IDE writes no second target.
             if (outputs.GroupBy(o => o.Formal ?? StNetworkWriter.ResultPin, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1) is { } twice)
                 throw Error(c.Line, $"the call {c.Head} wires {twice.Key} => twice: the IDE writes no second target. Two targets are a chain, x := y := {c.Head}(…)");

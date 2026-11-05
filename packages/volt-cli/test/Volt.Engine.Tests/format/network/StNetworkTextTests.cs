@@ -378,6 +378,16 @@ public class StNetworkTextTests
                         Set(Op("and", L("a"), L("b")), T("y"))),
             "%LANGUAGE FBD\n%NETWORK\nMOVE(EN := c, 7, ENO => lamp, OUT => x).ENO;\ny := and(a, b);\n");
 
+    /// <summary>A stored FB box holding an input with no name (live CODESYS 3.5.21.40, CallType None): the IDE does not pass it, so
+    /// the pull refuses it.</summary>
+    [Fact]
+    public void A_pin_by_position_on_an_FB_is_not_spelled()
+    {
+        var scope = new NetworkScope(new[] { "a" }, Array.Empty<string>(), new Dictionary<string, string> { ["t2"] = "FB" });
+        var pulled = StNetworkWriter.WritePulled(Fbd1(Fb("t2", new[] { In(L("a")) })), scope);
+        Assert.Contains("%UNSUPPORTED \"a pin by position on an FB or a PROGRAM\"", pulled);
+    }
+
     /// <summary>A stored operator holding two variables (live CODESYS 3.5.21.40): the second is never written, so the pull refuses it.</summary>
     [Fact]
     public void One_output_on_two_targets_is_not_spelled()
