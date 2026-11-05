@@ -207,6 +207,8 @@ public class CodesysRootMainOutputTests
         var box = tree as Nwl.BoxTreeBox ?? (Nwl.BoxTreeBox)((Nwl.BoxTreeAssign)tree).RValue!;
         Assert.Equal(names.Length == 0 ? Array.Empty<string>() : names.Split(','), Names(box));
         Assert.Equal(slots.Split(',').Select(s => s == "~" ? null : s == "_" ? "" : s).ToArray(), Slots(box));
+        // The insert's CallType: with the fresh None a consumed PROGRAM is not called, and builds (the same run).
+        Assert.Equal(Nwl.Operator.Program, box.CallType);
     }
 
     /// <summary>A push builds a program box read past its first output: the stored form builds and runs (the same run), as an

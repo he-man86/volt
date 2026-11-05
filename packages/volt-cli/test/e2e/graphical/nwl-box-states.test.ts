@@ -90,6 +90,27 @@ describe.skipIf(VENDOR !== "codesys")(`graphical / stored box states, nwl-box-st
 		expect(different.slice(0, 30)).toEqual([])
 	})
 
+	it("a PROGRAM box only something reads is called: no root box beside it calls it for them", async () => {
+		await requireHealthy()
+		const P = id("bsQ")
+		const pFile = fid("bsQ")
+		const H = id("bsI")
+		const hFile = fid("bsI")
+		const declared = `PROGRAM ${P}\nVAR_INPUT\n\ta : BOOL;\n\tn : INT;\nEND_VAR\nVAR_OUTPUT\n\tq1 : BOOL;\n\tq2 : INT;\nEND_VAR\n%LANGUAGE ST\nq1 := a;\nq2 := n + 1;\n\nEND_PROGRAM\n`
+		const holder = `PROGRAM ${H}\nVAR\n\ta : BOOL := TRUE;\n\tx : BOOL;\n\ti : INT := 5;\nEND_VAR\n%LANGUAGE FBD\n%NETWORK\nx := ${P}(a := a, n := i).q1;\n\nEND_PROGRAM\n`
+		await removeItem(hFile)
+		await removeItem(pFile)
+		await createItem(pFile, declared)
+		try {
+			await createItem(hFile, holder)
+			const values = await runCalled([H], [`${H}.x`])
+			expect(values[`${H}.x`]).toBe("TRUE")
+		} finally {
+			await removeItem(hFile)
+			await removeItem(pFile)
+		}
+	})
+
 	it("a PROGRAM box a push stores builds and runs as the editor's box does", async () => {
 		await requireHealthy()
 		const P = id("bsP")

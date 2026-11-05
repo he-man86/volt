@@ -430,11 +430,15 @@ namespace Volt.Ide.Codesys
                         // reload, but not a FUNCTION's or a METHOD's: measured live (SP21, simulation, design "2R.4"),
                         // Volt's box without it answers "The assignment source is incorrect." (the input names alone too),
                         // the CallType without the names "Function 'AwF' requires exactly '1' inputs", both run as drawn.
-                        // An FB call, a PROGRAM call and a conversion run the same with the fresh None, so the scope names
-                        // no callee for them and the vendor keeps its own.
+                        // An FB call and a conversion run the same with the fresh None, so the scope names no callee for
+                        // them and the vendor keeps its own.
                         var callee = b.Instance is null && b.StCode is null ? _scope.Callee(b.Type) : null;
                         if (callee is not null) NwlInterop.SetEnum(box, "CallType", callee.CallType);
+                        // A PROGRAM: with the fresh None a box something reads is not called at all, `x := p(a := a).q` compiled to
+                        // `x := p.q` and an enabled one wrote no output, and it builds (live CODESYS 3.5.21.40, openspec
+                        // nwl-box-storage-map). The editor's insert stores Program, and with it each runs as it reads.
                         var program = b.Instance is null && b.StCode is null && _scope.Signature(b.Type)?.Shape == CalleeShape.Program;
+                        if (program) NwlInterop.SetEnum(box, "CallType", "Program");
 
                         // Everything else the READER models on a box — an FB call's instance, an embedded output,
                         // an EN pin — is set through the member the reader reads, so the two cannot drift -
