@@ -64,8 +64,8 @@ public class OutputMemberTests
         Assert.False(StNetworkGate.SameBody(Text, Text.Replace("w1(EN", "w1( EN"), thin));
     }
 
-    /// <summary>A function read through a VAR_OUTPUT is spelled (<c>.Q</c>), and the push refuses it by name until its
-    /// build is measured (1.2: the null-slot route is an FB's; 0 in the corpora).</summary>
+    /// <summary>A function read through a VAR_OUTPUT is spelled (<c>.Q</c>). CODESYS builds it, the editor's Set Output drawing it
+    /// (live 3.5.21.40, openspec nwl-box-storage-map); a driver with no measured build (TwinCAT) refuses it by name.</summary>
     [Fact]
     public void A_function_read_through_a_VAR_OUTPUT_is_refused_by_name_at_a_push()
     {
@@ -74,6 +74,7 @@ public class OutputMemberTests
         Assert.True(gate.Ok, string.Join("\n", gate.Diagnostics.Select(d => d.Message)));
         var ex = Assert.Throws<NetworkTextException>(() => NetworkPairing.RefuseUnbuildableBoxes("TwinCAT", gate.Body!.Networks[0], scope));
         Assert.Contains("a function box read by a VAR_OUTPUT has no measured build", ex.Message);
+        NetworkPairing.RefuseUnbuildableBoxes("CODESYS", gate.Body!.Networks[0], scope, movedPinBuilds: true);
         // …and its value, `.OUT`, is built.
         var value = StNetworkGate.Validate("%LANGUAGE FBD\n%NETWORK\nq := g(v).OUT;\n", scope);
         NetworkPairing.RefuseUnbuildableBoxes("TwinCAT", value.Body!.Networks[0], scope);
@@ -110,7 +111,7 @@ public class OutputMemberTests
         Assert.True(moved.Ok, string.Join("\n", moved.Diagnostics.Select(d => d.Message)));
         var ex = Assert.Throws<NetworkTextException>(() => NetworkPairing.RefuseUnbuildableBoxes("TwinCAT", moved.Body!.Networks[0], scope));
         Assert.Contains("has no measured build", ex.Message);
-        NetworkPairing.RefuseUnbuildableBoxes("CODESYS", moved.Body!.Networks[0], scope, programMovedPinBuilds: true);
+        NetworkPairing.RefuseUnbuildableBoxes("CODESYS", moved.Body!.Networks[0], scope, movedPinBuilds: true);
     }
 
     /// <summary>The writer refuses a model its text would read back as another box (review 2a, finding 7): with the callee

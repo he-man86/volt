@@ -28,7 +28,8 @@ public class CodesysCalleeDerivationTests
     {
         ["AwF"] = "FUNCTION AwF : INT\nVAR_INPUT\n\ti : INT;\nEND_VAR",
         ["F_split"] = "FUNCTION F_split : INT\nVAR_INPUT\n\tsource : INT;\nEND_VAR\nVAR_OUTPUT\n\tdoubled : INT;\nEND_VAR",
-        ["FB_M"] = "FUNCTION_BLOCK FB_M\nVAR_INPUT\n\trun : BOOL;\nEND_VAR",
+        ["F_read"] = "FUNCTION F_read : INT\nVAR_INPUT\n\tsource : INT;\nEND_VAR\nVAR_OUTPUT\n\tdone : BOOL;\n\ttwice : INT;\nEND_VAR",
+        ["FB_M"] ="FUNCTION_BLOCK FB_M\nVAR_INPUT\n\trun : BOOL;\nEND_VAR",
         ["P_Sub"] = "PROGRAM P_Sub\nVAR_INPUT\n\tgo : BOOL;\nEND_VAR",
     };
 
@@ -85,6 +86,22 @@ public class CodesysCalleeDerivationTests
         var slots = box.Outputs.List;
         Assert.Null(slots[0]);                                        // the result: the vendor's null, read by the coil
         Assert.Equal("y", ((Nwl.Operand)slots[1]!).OperandExpr);      // the named pin in its own slot
+    }
+
+    /// <summary>A FUNCTION read through a VAR_OUTPUT, its value on OUT: the box the editor's Set Output leaves, the null on the
+    /// output read and the variable in the result slot. Live CODESYS 3.5.21.40: <c>y := F(n := i, OUT => k).q;</c> and
+    /// <c>F(n := i, OUT => k).q;</c> write k and read q (openspec nwl-box-storage-map).</summary>
+    [Theory]
+    [InlineData("x := F_read(v, OUT => y).done;")]
+    [InlineData("F_read(v, OUT => y).done;")]
+    public void A_function_read_through_a_VAR_OUTPUT_holds_its_value_in_the_result_slot(string statement)
+    {
+        var box = Built(statement);
+        Assert.Equal(Nwl.Operator.Function, box.CallType);
+        Assert.Equal(new[] { "   ", "done", "twice" }, OutputNames(box));
+        var slots = box.Outputs.List;
+        Assert.Equal("y", ((Nwl.Operand)slots[0]!).OperandExpr);
+        Assert.Null(slots[1]);
     }
 
     /// <summary>An unwired VAR_OUTPUT is drawn too: the editor lists every one (RuntimeGuard, 4 of 4).</summary>

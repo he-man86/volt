@@ -126,8 +126,8 @@ namespace Volt.Ide.Codesys
                     $"'{box.Type}' — the slot the consumer reads is the null at that output's position (v2-measurements #12), " +
                     "and Volt does not guess it. Refusing to rebuild this network; a network whose text is unchanged is kept " +
                     "as the IDE holds it. The IDE can edit this network.");
-            // A box whose callee no declaration in reach states, and a function read through a VAR_OUTPUT (network-output-member).
-            NetworkPairing.RefuseUnbuildableBoxes(CodesysDriver.Row.Display, model, scope, programMovedPinBuilds: true);
+            // A box whose callee no declaration in reach states.
+            NetworkPairing.RefuseUnbuildableBoxes(CodesysDriver.Row.Display, model, scope, movedPinBuilds: true);
         }
 
         private static IEnumerable<Node> Walk(Node n) => new[] { n }.Concat(n.Children().SelectMany(Walk));

@@ -123,6 +123,21 @@ q := g(a).Q;
 NETWORK
   (:= q (g a conn:1))
 
+#### function-value-and-its-output-read — OUT => in the result slot, the null on the output read: the editor's Set Output
+=== scope
+function g IN => Q
+=== text
+%LANGUAGE FBD
+%NETWORK
+q := g(a, OUT => v).Q;
+%NETWORK
+g(a, OUT => v).Q;
+=== model
+NETWORK
+  (:= q (g a =>0:v conn:1))
+NETWORK
+  (g a =>0:v conn:1)
+
 #### declared-en-and-eno — a callee declaring EN and ENO: EN := and .ENO are its own pins, no flag shown
 === scope
 instance w1 WSM

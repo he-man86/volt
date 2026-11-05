@@ -198,10 +198,13 @@ public static class NetworkDerivation
     /// declaration order, wired or not (97 + 6 + 2 boxes); with EN the ENO echo and then the outputs, no result pin (6 + 1
     /// + 1). Null for any other callee (a METHOD: the text's own pins build it, measured to run), and for a box with a
     /// POSITIONAL output pin (<c>=&gt; y</c>): the text places that one by its own slot order, which no drawn function box
-    /// was measured holding — its slots stay the text's. The '   ' pin builds and runs on a box carrying
-    /// <c>CallType Function</c> (measured live; without the CallType it is "no component", N37).</summary>
+    /// was measured holding — its slots stay the text's. The exception is a box read through a <c>VAR_OUTPUT</c> with no ENO:
+    /// its one positional pin is <c>OUT =&gt;</c>, in the result slot, the box the editor's Set Output leaves (openspec
+    /// nwl-box-storage-map). The '   ' pin builds and runs on a box carrying <c>CallType Function</c> (measured live; without
+    /// the CallType it is "no component", N37).</summary>
     public static IReadOnlyList<string>? OutputNames(Box box, Callee callee, bool eno) =>
-        callee.CallType == Callee.FunctionCallType && callee.Outputs is { } outputs && box.Outputs.All(o => o.Formal is not null)
+        callee.CallType == Callee.FunctionCallType && callee.Outputs is { } outputs &&
+        (box.Outputs.All(o => o.Formal is not null) || (!eno && box.ConnectedSlot is > 0))
             ? new[] { eno ? Box.EnoPin : NetworkMembers.FunctionResult }.Concat(outputs).ToList()
             : null;
 }
