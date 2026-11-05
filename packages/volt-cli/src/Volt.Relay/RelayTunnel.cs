@@ -324,7 +324,7 @@ namespace Volt.Relay
             using (var socket = _socketFactory())
             {
                 conn.Socket = socket;
-                await socket.ConnectAsync(new Uri(_config.Url), _config.Token, stopping).ConfigureAwait(false);
+                await DialAsync(socket, stopping).ConfigureAwait(false);
                 // The socket is open; the relay has accepted nothing yet. "connected" is logged on its first frame.
                 conn.ConnectedUtc = DateTime.UtcNow;
 
@@ -358,6 +358,29 @@ namespace Volt.Relay
                     }
                 }
             }
+        }
+
+        /// <summary>The dial, bounded by the silence limit. A path that takes the TCP connection and never answers the
+        /// upgrade leaves a platform dial pending for ever, and no heartbeat runs yet to notice: the bridge would stay off
+        /// the relay until its process restarts, the path long healed.</summary>
+        private async Task DialAsync(IRelaySocket socket, CancellationToken stopping)
+        {
+            var dial = socket.ConnectAsync(new Uri(_config.Url), _config.Token, stopping);
+            using (var bound = CancellationTokenSource.CreateLinkedTokenSource(stopping))
+            {
+                var first = await Task.WhenAny(dial, Task.Delay(_silenceLimit, bound.Token)).ConfigureAwait(false);
+                bound.Cancel();
+                if (first != dial)
+                {
+                    stopping.ThrowIfCancellationRequested();
+                    // Observed, so the abort's fault on the pending dial is not an unobserved exception.
+                    _ = dial.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
+                    try { socket.Abort(); } catch { /* going anyway */ }
+                    throw new TimeoutException("the upgrade did not complete within " +
+                        _silenceLimit.TotalSeconds.ToString(CultureInfo.InvariantCulture) + "s");
+                }
+            }
+            await dial.ConfigureAwait(false);
         }
 
         /// <summary>Returns the relay's close; null when the token ended the loop instead.</summary>

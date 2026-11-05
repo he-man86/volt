@@ -325,6 +325,9 @@ answers it, which the relay discards.
   large messages without resetting the flow) is named in a WARN line — `a <N>-byte frame did not go out within 60s —
   the connection to the relay stalls; dropping it` — and the socket is dropped and redialed. Without the bound the
   stalled send held the one send slot for ever and the heartbeat (and its watchdog) waited behind it, silently.
+- A dial is bounded by the same **60 s**: an upgrade with no answer by then ends the dial as a failed one
+  (`could not connect (TimeoutException): the upgrade did not complete within 60s`) and the next dial follows the
+  ordinary backoff.
 
 A request in flight when the socket drops **is abandoned**. The bridge does not re-run it and does not answer
 it on the new connection. The relay fails it to its own caller. This is safe to retry by design: `ifVersion`

@@ -418,7 +418,7 @@ public class WireVocabularyTests
     private static readonly Dictionary<string, int> BelowTheWire = At(
         ("Volt.Wire/PipeAcl.cs", 6),             // the security descriptor, the bind, the token, the SID read and spelled (Win32Exception ×5), the name held by another user
         ("Volt.Wire/ProcessElevation.cs", 1),    // this process's own token elevation (the connector, the CLI)
-        ("Volt.Relay/RelayTunnel.cs", 1));       // a frame that did not go out within the silence limit
+        ("Volt.Relay/RelayTunnel.cs", 2));       // a frame that did not go out within the silence limit; an upgrade with no answer (the reconnect loop names it as a failed dial)
 
     [Fact]
     public void No_throw_is_uncoded()
