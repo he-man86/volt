@@ -115,7 +115,7 @@ parts inside its `()`, and the flow is each call's return.
 **Open, decided from the assign map:**
 
 - Several targets on one assign, and a coil inside a rung: nested, each returning its value
-  (`ASSIGN(ASSIGN(a, Q => x), Q_INVERTED => y)`, `y := AND(ASSIGN(a, Q => x), b)`), or the targets as a list in one call.
+  (`ASSIGN(ASSIGN(a, Q => x), Q_INVERTED => y)`, `ASSIGN(AND(ASSIGN(a, Q => x), b), Q => y)`), or the targets as a list in one call.
   Nesting holds only if a chain is one assign with a list of targets and no assign nests in an assign's value.
 - What `BoxTreeTerminator` stores (140 in the recording) and whether it is an `ASSIGN` or its own call.
 - `???` as `OPERAND('???')`, or kept.
