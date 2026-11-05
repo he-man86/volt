@@ -101,12 +101,23 @@ parts inside its `()`, and the flow is each call's return.
 - A project POU, variable or pin with one of these names (`INVERT`, `RISING`, `FALLING`, `ASSIGN`, `<pin>_INVERTED`,
   `<pin>_SET`, `<pin>_RESET`) is refused by name.
 
+- Every coil, jump and return is an `ASSIGN`, one target too, because NWL stores each as one assign node (`BoxTreeAssign`: a
+  value, its targets, its own mark). The target is an output; its mark is in the output's name:
+  ```
+  ASSIGN(a, Q => y);
+  ASSIGN(a, Q_SET => y);
+  ASSIGN(RISING(a), Q_INVERTED => y);
+  ASSIGN(a, Q => JMP.l);
+  ASSIGN(a, Q => RETURN);
+  ```
+  `y := a;`, `y S= a;`, `y R= a;`, `JMP.l := a;` and `RETURN := a;` are no network text.
+
 **Open, decided from the assign map:**
 
-- Coils as `ASSIGN`, each returning its value, so a chain nests and a target's mark is its output name:
-  `ASSIGN(ASSIGN(a, Q => x), Q_INVERTED => y)`; a mid-rung coil `y := AND(ASSIGN(a, Q => x), b)`; a jump and the return as
-  targets `Q => JMP.l`, `Q => RETURN`. Holds only if a chain is one assign with a list of targets and no assign nests in an
-  assign's value. Whether one plain coil keeps `y := a;`, `y S= a;`, `y R= a;` is the owner's choice then.
+- Several targets on one assign, and a coil inside a rung: nested, each returning its value
+  (`ASSIGN(ASSIGN(a, Q => x), Q_INVERTED => y)`, `y := AND(ASSIGN(a, Q => x), b)`), or the targets as a list in one call.
+  Nesting holds only if a chain is one assign with a list of targets and no assign nests in an assign's value.
+- What `BoxTreeTerminator` stores (140 in the recording) and whether it is an `ASSIGN` or its own call.
 - `???` as `OPERAND('???')`, or kept.
 - `INVERT` on a value that is not BOOL: what it runs as.
 - A function showing EN and no ENO: refused if only a direct write makes it.
