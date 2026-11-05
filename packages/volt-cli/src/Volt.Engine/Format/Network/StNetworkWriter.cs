@@ -687,6 +687,9 @@ public static class StNetworkWriter
                 if (signature is { DeclaresEno: false } && b.Members?[NetworkMembers.OutputNames]?.AsTexts is { Count: > 0 } held &&
                     string.Equals(held[0], Box.EnoPin, StringComparison.OrdinalIgnoreCase))
                     throw Unspellable("an ENO output on a box showing no ENO", $"the '{b.Type}' box holds an output slot named ENO, shows no ENO, and '{b.Type}' declares none.");
+                // It writes its reader and no `OUT =>` (live CODESYS 3.5.21.40, openspec nwl-box-storage-map).
+                if (consumed && b.Instance is null && signature is { Shape: not CalleeShape.Program } && b.ConnectedSlot is null or 0 && b.Outputs.Any(o => o.Formal is null))
+                    throw Unspellable("a box read by its value with a target on it", $"the '{b.Type}' box is read by its value and holds a target for it as well.");
                 member = consumed || b.ConnectedSlot is > 0 || b.MainOutputName is not null ? DataMember(b, signature) : "";
             }
             if (string.Equals(b.Type, NetworkSpelling.NotBox, StringComparison.OrdinalIgnoreCase) && b.Enable is null &&

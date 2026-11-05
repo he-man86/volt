@@ -31,7 +31,7 @@ export function checkBox(call: CallExpr, member: string | undefined, consumed: b
   const at = call.callee.span
   const signature = box.signature
   const eno = member !== undefined && member.toUpperCase() === "ENO" && !declaresEno(signature)
-  for (const m of misleadingBox(box, head, eno)) emit(out, m.span, CODE, m.message)
+  for (const m of misleadingBox(box, head, { eno, consumed, member })) emit(out, m.span, CODE, m.message)
   if (signature === undefined && (box.instance !== undefined || call.callee.kind === "ident_expr")) {
     // a callee no declaration in reach states: each of these reads as a box flag or the callee's own pin, which only the
     // declaration tells (the bridge's reader, network-text-one-to-one F9)

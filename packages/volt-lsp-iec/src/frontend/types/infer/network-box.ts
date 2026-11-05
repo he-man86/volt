@@ -145,11 +145,17 @@ export function boxMember(e: MemberExpr, scope: Scope, project: Scope): { box: N
 /**
  * WHAT A BOX'S TEXT CLAIMS AND ITS RUN DOES NOT DO (live CODESYS 3.5.21.40, openspec nwl-box-storage-map), in the bridge
  * reader's words (`StNetworkReader` `CallBox`): the network check refuses each, and neither lowering nor the twin runs a
- * meaning the text does not have. `head` is the call's head as written, `eno` the box closed by its shown `.ENO`.
+ * meaning the text does not have. `head` is the call's head as written; `at` where it stands: closed by its shown `.ENO`,
+ * read by a consumer, and the member closing it.
  */
-export function misleadingBox(box: NetworkBox, head: string, eno: boolean): { span: Span; message: string }[] {
+export function misleadingBox(box: NetworkBox, head: string, at: { eno: boolean; consumed: boolean; member: string | undefined }): { span: Span; message: string }[] {
   const out: { span: Span; message: string }[] = []
-  if (eno && box.signature === OPERATOR && !box.call.args.some((a) => a.output && a.param?.name.toUpperCase() === VALUE))
+  const { eno } = at
+  const value = box.call.args.find((a) => a.output && a.param?.name.toUpperCase() === VALUE)
+  const readByValue = at.consumed && !eno && (at.member === undefined || at.member.toUpperCase() === VALUE)
+  if (readByValue && value !== undefined && box.instance === undefined && box.signature !== undefined && box.signature.shape !== "program")
+    out.push({ span: value.span, message: `the box ${head} is read by its value and wires OUT =>: the IDE writes no second target. Two targets are a chain, x := y := ${head}(…)` })
+  if (eno && box.signature === OPERATOR && value === undefined)
     out.push({ span: box.call.span, message: `the operator box ${head} is closed by .ENO and wires its value nowhere. Wire it, ${head}(…, OUT => v).ENO` })
   if (box.instance !== undefined || box.signature?.shape === "program") {
     const positional = box.pins.find((a) => !a.output && a.param === undefined)

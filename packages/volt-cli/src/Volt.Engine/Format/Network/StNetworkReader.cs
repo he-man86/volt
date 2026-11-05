@@ -1320,6 +1320,9 @@ public static class StNetworkReader
                 throw Error(c.Line, $"the call {c.Head} wires {twice.Key} => twice: the IDE writes no second target. Two targets are a chain, x := y := {c.Head}(…)");
 
             var (hasEno, connected, byName) = Member(c, type, instance is not null, signature, consumed, declaresEno);
+            // A BOX READ BY ITS VALUE WRITES ITS READER AND NO `OUT =>` (live CODESYS 3.5.21.40, openspec nwl-box-storage-map).
+            if (consumed && !hasEno && instance is null && signature is { Shape: not CalleeShape.Program } && connected is null or 0 && outputs.Any(o => o.Formal is null))
+                throw Error(c.Line, $"the box {c.Head} is read by its value and wires OUT =>: the IDE writes no second target. Two targets are a chain, x := y := {c.Head}(…)");
             // AN OPERATOR CLOSED BY .ENO NEEDS ITS VALUE WIRED (live CODESYS 3.5.21.40, openspec nwl-box-storage-map): it does not
             // build, and a user FUNCTION does. `y := GT(EN := go, i, j, OUT => v).ENO` builds and runs.
             if (hasEno && NetworkSpelling.IsOperator(signature) && !outputs.Any(o => o.Formal is null))

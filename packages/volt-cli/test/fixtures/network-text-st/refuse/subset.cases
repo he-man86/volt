@@ -1267,3 +1267,29 @@ network-plain-st an edge mark on the output
 MOVE(a, RISING OUT => x);
 === refused
 network-plain-st an edge mark on the output
+
+#### value-read-and-out-target — the box's reader is written and OUT => is not (live CODESYS 3.5.21.40)
+=== text
+%LANGUAGE FBD
+%NETWORK
+k := ADD(i, j, OUT => m);
+=== refused
+network-plain-st the box ADD is read by its value and wires OUT =>
+
+#### value-read-and-out-target-function
+=== scope
+function f IN =>
+=== text
+%LANGUAGE FBD
+%NETWORK
+k := f(IN := i, OUT => m);
+=== refused
+network-plain-st the box f is read by its value and wires OUT =>
+
+#### value-read-and-out-target-enabled — an enabled comparison the same
+=== text
+%LANGUAGE FBD
+%NETWORK
+x := GT(EN := go, i, j, OUT => z);
+=== refused
+network-plain-st the box GT is read by its value and wires OUT =>

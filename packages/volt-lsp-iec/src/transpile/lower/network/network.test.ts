@@ -174,6 +174,11 @@ describe("what the lowering refuses, by name", () => {
       ["network-box", "the operator box GT is closed by .ENO and wires its value nowhere. Wire it, GT(…, OUT => v).ENO"],
     ]))
 
+  test("a box read by its value with OUT => on it: the IDE writes no second target", () =>
+    expect(codes("k, m, i, j : INT;", "%NETWORK\nk := ADD(i, j, OUT => m);\n")).toEqual([
+      ["network-box", "the box ADD is read by its value and wires OUT =>: the IDE writes no second target. Two targets are a chain, x := y := ADD(…)"],
+    ]))
+
   test("an enabled box other than a comparison read inside a tree", () =>
     expect(codes("x : BOOL; i : INT; c : BOOL;", "%NETWORK\nx := EQ(ADD(EN := c, i, 1), 2);\n")).toEqual([
       ["network-box", "the enabled ADD box is read by its value other than as an assignment's whole value"],

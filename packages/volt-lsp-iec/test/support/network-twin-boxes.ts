@@ -159,15 +159,15 @@ export abstract class BoxTwinner {
   }
 
   /** A box whose text claims what its run does not do has no twin (`misleadingBox`). */
-  protected refuseMisleading(box: NetworkBox, eno: boolean): void {
-    const [first] = misleadingBox(box, this.name(box), eno)
+  protected refuseMisleading(box: NetworkBox, at: { eno: boolean; consumed: boolean; member: string | undefined }): void {
+    const [first] = misleadingBox(box, this.name(box), at)
     if (first !== undefined) throw new TwinRefusal(first.message)
   }
 
   /** A box read where it stands (`member` the name closing its call). */
   protected boxRead(box: NetworkBox, member: string | undefined, pre: string[]): string {
     const eno = member !== undefined && member.toUpperCase() === "ENO" && !declaresEno(box.signature)
-    this.refuseMisleading(box, eno)
+    this.refuseMisleading(box, { eno, consumed: true, member })
     if (box.instance !== undefined) {
       const read = eno ? undefined : member ?? box.signature?.outputs[0]
       if (!eno && read === undefined) throw new TwinRefusal(`the ${this.name(box)} box is read, and no declaration names its output`)
