@@ -152,12 +152,12 @@ describe(`graphical / create shapes (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ti : INT;\n\tn : INT;\n\tx : BOOL;\nEND_VAR\n` +
-			`%LANGUAGE FBD\n%NETWORK\nx := ${fn}(IN := i, OUT => n).ENO;\n\nEND_PROGRAM\n`
+			`%LANGUAGE FBD\n%NETWORK\n${fn}(IN := i, OUT => n).ENO;\n\nEND_PROGRAM\n`
 		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
 		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
 
 		const v1 = await pull(item)
-		expect(v1.sourceText, "the box lost its ENO").toContain(`x := ${fn}(IN := i, OUT => n).ENO;`)
+		expect(v1.sourceText, "the box lost its ENO").toContain(`${fn}(IN := i, OUT => n).ENO;`)
 
 		const refs = await bridge.refs()
 		const again = await pushOps([{ op: "set", name: item, sourceText: v1.sourceText, ifVersion: refs.items[item] }])

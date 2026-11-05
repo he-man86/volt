@@ -1302,7 +1302,7 @@ function f IN =>
 %NETWORK
 f(IN := i, OUT => k);
 === refused
-network-plain-st the FUNCTION box f wires OUT => at a root
+network-plain-st the function box f wires OUT => at a root
 
 #### function-out-at-a-root-enabled
 === scope
@@ -1312,7 +1312,7 @@ function f IN =>
 %NETWORK
 f(EN := go, IN := i, OUT => k);
 === refused
-network-plain-st the FUNCTION box f wires OUT => at a root
+network-plain-st the function box f wires OUT => at a root
 
 #### function-out-at-a-root-beside-an-output
 === scope
@@ -1322,7 +1322,7 @@ function f IN => q
 %NETWORK
 f(IN := i, OUT => k, q => m);
 === refused
-network-plain-st the FUNCTION box f wires OUT => at a root
+network-plain-st the function box f wires OUT => at a root
 
 #### out-target-on-a-program — a program declares no OUT: the variable lands past its names, or on its first output
 === scope

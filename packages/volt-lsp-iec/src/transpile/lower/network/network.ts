@@ -147,8 +147,7 @@ class Networker extends BoxLowerer {
         // its targets hold when disabled (1.4)
         const box = s.value.kind === "call" ? this.box(s.value) : undefined
         const first = s.marks?.[0]
-        // an edge on a coil runs as if unmarked (live CODESYS 3.5.21.40, openspec nwl-box-storage-map): the text says otherwise
-        if (first?.some((m) => m !== "NOT")) throw new NetworkRefusal("an edge mark on the coil: the IDE runs it unmarked. The edge is on the value, y := RISING(a)")
+        this.refuseCoilEdge(first)
         if (box !== undefined && box.instance === undefined && box.enable !== undefined && !COMPARISON.has(this.name(box).toUpperCase())) {
           if (first !== undefined || s.itemMarks !== undefined || this.sharing.has(s))
             throw new NetworkRefusal(`the enabled ${this.name(box)} box's value with a marked coil or a jump on it`)
@@ -253,9 +252,7 @@ class Networker extends BoxLowerer {
       this.enabled(box, pre, false, eno)
       return pre
     }
-    // measured 2.3: CODESYS does not compile a root box showing ENO without EN (`rcc_network_eno_function_without_en_root`)
     if (eno) throw new NetworkRefusal(`the ${this.name(box)} box at a root shows ENO without EN, which CODESYS does not compile`, NOT_COMPILED)
-    // a function box at the root: its value to the targets its `OUT =>` names
     const result = box.pins.find((a) => a.output && a.param?.name.toUpperCase() === "OUT")
     if (result !== undefined) {
       const value = this.boxValue(box, box.pins.filter((a) => a !== result), pre)
@@ -338,9 +335,7 @@ class Networker extends BoxLowerer {
   /** A value under the assignment item's marks (`y := NOT := a`, `y := RISING := a`). */
   private marked(marks: readonly string[] | undefined, value: Expr, span: Span, pre: Statement[]): Expr {
     if (marks === undefined) return value
-    // an edge stacked on NOT runs the NOT and no edge (live CODESYS 3.5.21.40, openspec nwl-box-storage-map)
-    if (marks.includes("NOT") && marks.some((m) => m !== "NOT"))
-      throw new NetworkRefusal(`${marks.find((m) => m !== "NOT")} NOT before one receiver: the IDE runs the NOT and no edge. The edge of the negated value is RISING(NOT a)`)
+    this.refuseStackedMarks(marks)
     const negated = marks.includes("NOT") ? not(value, span) : value
     const edge = marks.find((m) => m === "RISING" || m === "FALLING")
     return edge === undefined ? negated : this.edgeOf(edge === "RISING", negated, span, pre)

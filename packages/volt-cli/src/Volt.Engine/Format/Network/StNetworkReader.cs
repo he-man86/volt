@@ -1314,7 +1314,7 @@ public static class StNetworkReader
             // stores no names and builds as `t2()`, `x := p(a, i).q` as `x := p.q` with the program not called. A FUNCTION is
             // given its names by the push (`NetworkDerivation`).
             if ((instance is not null || signature is { Shape: CalleeShape.Program }) && inputs.Any(i => i.Formal is null))
-                throw Error(c.Line, $"the call {c.Head} passes a pin by position: the box of an FB or a PROGRAM passes only named pins, and the IDE drops the rest. Name it, {c.Head}(<pin> := value)");
+                throw Error(c.Line, $"the call {c.Head} passes a pin by position: the box of an FB or a program passes only named pins, and the IDE drops the rest. Name it, {c.Head}(<pin> := value)");
             // A VARIABLE ON THE ENO PIN IS NEVER WRITTEN (live CODESYS 3.5.21.40, openspec nwl-box-storage-map), on an operator, a
             // FUNCTION, an FB alike, and a FUNCTION's `OUT =>` beside it is not written either. ENO is read as a coil's value.
             if (signature is not null && !declaresEno && outputs.Any(o => Is(o.Formal, Box.EnoPin)))
@@ -1333,7 +1333,7 @@ public static class StNetworkReader
             // A FUNCTION'S `OUT =>` AT A ROOT IS WRITTEN ONLY CLOSED BY .ENO (live CODESYS 3.5.21.40, openspec nwl-box-storage-map); with
             // EN shown and no ENO the IDE faults on the box.
             if (!consumed && !hasEno && signature is { Shape: CalleeShape.Function } && !NetworkSpelling.IsOperator(signature) && connected is null && outputs.Any(o => o.Formal is null))
-                throw Error(c.Line, $"the FUNCTION box {c.Head} wires OUT => at a root: the IDE does not write it. Read its value, x := {c.Head}(…)");
+                throw Error(c.Line, $"the function box {c.Head} wires OUT => at a root: the IDE does not write it. Read its value, x := {c.Head}(…)");
             // `OUT =>` ON AN FB OR A PROGRAM THAT DECLARES NONE lands past its names or on its first output (same measurement).
             if (signature is { Shape: CalleeShape.Block or CalleeShape.Program } && !signature.Outputs.Any(o => Is(o, StNetworkWriter.ResultPin)) &&
                 outputs.Any(o => (o.Formal is null || Is(o.Formal, StNetworkWriter.ResultPin)) && o.Target != Box.UnnamedInstance))

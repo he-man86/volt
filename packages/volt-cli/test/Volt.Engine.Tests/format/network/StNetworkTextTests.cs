@@ -400,7 +400,7 @@ public class StNetworkTextTests
     {
         var scope = new NetworkScope(new[] { "a" }, Array.Empty<string>(), new Dictionary<string, string> { ["t2"] = "FB" });
         var pulled = StNetworkWriter.WritePulled(Fbd1(Fb("t2", new[] { In(L("a")) })), scope);
-        Assert.Contains("%UNSUPPORTED \"a pin by position on an FB or a PROGRAM\"", pulled);
+        Assert.Contains("%UNSUPPORTED \"a pin by position on an FB or a program\"", pulled);
     }
 
     /// <summary>A stored operator holding two variables (live CODESYS 3.5.21.40): the second is never written, so the pull refuses it.</summary>

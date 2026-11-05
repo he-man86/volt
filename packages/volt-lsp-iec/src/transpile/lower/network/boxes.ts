@@ -52,6 +52,17 @@ export abstract class BoxLowerer {
     return networkBox(c, this.scope, this.project)
   }
 
+  /** An edge on a coil runs as if unmarked (live CODESYS 3.5.21.40, openspec nwl-box-storage-map): the text says otherwise. */
+  protected refuseCoilEdge(marks: readonly string[] | undefined): void {
+    if (marks?.some((m) => m !== "NOT")) throw new NetworkRefusal("an edge mark on the coil: the IDE runs it unmarked. The edge is on the value, y := RISING(a)")
+  }
+
+  /** An edge stacked on NOT runs the NOT and no edge (live CODESYS 3.5.21.40, openspec nwl-box-storage-map). */
+  protected refuseStackedMarks(marks: readonly string[]): void {
+    if (marks.includes("NOT") && marks.some((m) => m !== "NOT"))
+      throw new NetworkRefusal(`${marks.find((m) => m !== "NOT")} NOT before one receiver: the IDE runs the NOT and no edge. The edge of the negated value is RISING(NOT a)`)
+  }
+
   /** A box whose text claims what its run does not do has no run to lower to (`misleadingBox`). */
   protected refuseMisleading(box: NetworkBox, at: { eno: boolean; consumed: boolean; member: string | undefined }): void {
     const [first] = misleadingBox(box, this.name(box), at)

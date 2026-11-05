@@ -180,7 +180,7 @@ export function misleadingBox(box: NetworkBox, head: string, at: { eno: boolean;
   if (readByValue && value !== undefined && box.instance === undefined && box.signature !== undefined && box.signature.shape !== "program")
     out.push({ span: value.span, message: `the box ${head} is read by its value and wires OUT =>: the IDE writes no second target. Two targets are a chain, x := y := ${head}(…)` })
   if (!at.consumed && !eno && at.member === undefined && value !== undefined && box.signature?.shape === "function" && box.signature !== OPERATOR && !declaresOut(box.signature))
-    out.push({ span: value.span, message: `the FUNCTION box ${head} wires OUT => at a root: the IDE does not write it. Read its value, x := ${head}(…)` })
+    out.push({ span: value.span, message: `the function box ${head} wires OUT => at a root: the IDE does not write it. Read its value, x := ${head}(…)` })
   if (value !== undefined && (box.signature?.shape === "block" || box.signature?.shape === "program") && !box.signature.outputs.some((o) => o.toUpperCase() === VALUE) &&
       !(value.value?.kind === "ident_expr" && value.value.name === UNNAMED))
     out.push({ span: value.span, message: `the call ${head} wires OUT =>, and ${head} declares no output OUT: the IDE does not write it` })
@@ -191,7 +191,7 @@ export function misleadingBox(box: NetworkBox, head: string, at: { eno: boolean;
   if (box.instance !== undefined || box.signature?.shape === "program") {
     const positional = box.pins.find((a) => !a.output && a.param === undefined)
     if (positional !== undefined)
-      out.push({ span: positional.span, message: `the call ${head} passes a pin by position: the box of an FB or a PROGRAM passes only named pins, and the IDE drops the rest. Name it, ${head}(<pin> := value)` })
+      out.push({ span: positional.span, message: `the call ${head} passes a pin by position: the box of an FB or a program passes only named pins, and the IDE drops the rest. Name it, ${head}(<pin> := value)` })
   }
   if (box.signature !== undefined && !declaresEno(box.signature)) {
     const pin = box.call.args.find((a) => a.output && a.param?.name.toUpperCase() === "ENO")

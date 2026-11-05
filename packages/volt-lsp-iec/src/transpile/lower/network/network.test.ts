@@ -172,7 +172,7 @@ describe("what the lowering refuses, by name", () => {
 
   test("a FUNCTION's OUT => at a root: the IDE does not write it", () =>
     expect(codes("k, i : INT;", "%NETWORK\nf(n := i, OUT => k);\n", "FUNCTION f : INT\nVAR_INPUT n : INT; END_VAR\n%LANGUAGE ST\nf := n;\nEND_FUNCTION\n")).toEqual([
-      ["network-box", "the FUNCTION box f wires OUT => at a root: the IDE does not write it. Read its value, x := f(…)"],
+      ["network-box", "the function box f wires OUT => at a root: the IDE does not write it. Read its value, x := f(…)"],
     ]))
 
   test("one output wired to two targets: the IDE writes no second one, so nothing runs a meaning the text does not have", () =>
@@ -182,7 +182,7 @@ describe("what the lowering refuses, by name", () => {
 
   test("a pin by position on an FB: the IDE drops it, so nothing runs it passed", () =>
     expect(codes("x, a : BOOL; c1 : FB_C;", "%NETWORK\nc1(a);\n", COUNTER)).toEqual([
-      ["network-box", "the call c1 passes a pin by position: the box of an FB or a PROGRAM passes only named pins, and the IDE drops the rest. Name it, c1(<pin> := value)"],
+      ["network-box", "the call c1 passes a pin by position: the box of an FB or a program passes only named pins, and the IDE drops the rest. Name it, c1(<pin> := value)"],
     ]))
 
   test("a variable on the ENO pin: the IDE never writes it, so nothing runs it written", () =>
