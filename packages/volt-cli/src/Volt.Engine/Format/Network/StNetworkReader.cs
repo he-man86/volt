@@ -1313,6 +1313,10 @@ public static class StNetworkReader
                 throw Error(c.Line, $"the call {c.Head} wires {twice.Key} => twice: the IDE writes no second target. Two targets are a chain, x := y := {c.Head}(…)");
 
             var (hasEno, connected, byName) = Member(c, type, instance is not null, signature, consumed, declaresEno);
+            // AN OPERATOR CLOSED BY .ENO NEEDS ITS VALUE WIRED (live CODESYS 3.5.21.40, openspec nwl-box-storage-map): it does not
+            // build, and a user FUNCTION does. `y := GT(EN := go, i, j, OUT => v).ENO` builds and runs.
+            if (hasEno && NetworkSpelling.IsOperator(signature) && !outputs.Any(o => o.Formal is null))
+                throw Error(c.Line, $"the operator box {c.Head} is closed by .ENO and wires its value nowhere. Wire it, {c.Head}(…, OUT => v).ENO");
             var eno = hasEno ? 0 : (int?)null;
             var next = 0;
             var outs = new List<Output>();

@@ -671,6 +671,9 @@ public static class StNetworkWriter
                 // enabled MOVE showing ENO, built read at its value slot, is held by the IDE read by its ENO.
                 if ((consumed || b.ConnectedSlot is > 0) && !NetworkSpelling.ConnectedByEno(b))
                     throw Unspellable("a box showing ENO read by another output", $"the '{b.Type}' box shows ENO and is read at slot {Slot(b.ConnectedSlot)}, not its ENO.");
+                // It does not build (live CODESYS 3.5.21.40, openspec nwl-box-storage-map), and the reader refuses its text.
+                if (NetworkSpelling.IsOperator(signature) && !b.Outputs.Any(o => o.Formal is null))
+                    throw Unspellable("an operator box closed by ENO with its value wired nowhere", $"the '{b.Type}' box shows ENO and holds no target for its value.");
                 member = "." + Box.EnoPin;
             }
             else

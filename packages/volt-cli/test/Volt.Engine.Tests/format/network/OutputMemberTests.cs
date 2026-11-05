@@ -84,7 +84,7 @@ public class OutputMemberTests
     /// the LSP reads it (review 2a, finding 1).</summary>
     [Theory]
     [InlineData("LIMIT(EN := a, MN := 0, IN := v, MX := 100, OUT => q).ENO;")]
-    [InlineData("ok := INT_TO_BOOL(EN := a, v).ENO;")]
+    [InlineData("ok := INT_TO_BOOL(EN := a, v, OUT => q).ENO;")]
     public void An_IEC_operator_box_states_its_pins_so_a_push_builds_it_with_EN_and_ENO(string line)
     {
         var scope = Scope();

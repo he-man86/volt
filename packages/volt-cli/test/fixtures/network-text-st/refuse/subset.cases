@@ -1174,3 +1174,35 @@ instance t2 Fx
 t2(EN := c, a := a, ENO => z).ENO;
 === refused
 network-plain-st the IDE never writes a variable on the ENO pin
+
+#### operator-eno-value-nowhere — a comparison read through ENO with its value wired nowhere does not build, and the next pull refused it
+=== text
+%LANGUAGE FBD
+%NETWORK
+y := GT(EN := c, i, j).ENO;
+=== refused
+network-plain-st the operator box GT is closed by .ENO and wires its value nowhere
+
+#### operator-eno-value-nowhere-and — AND answers an implicit variable no text holds
+=== text
+%LANGUAGE LD
+%NETWORK
+y := AND(EN := c, a, b).ENO;
+=== refused
+network-plain-st the operator box AND is closed by .ENO and wires its value nowhere
+
+#### operator-eno-value-nowhere-root — at a root as where it is read
+=== text
+%LANGUAGE FBD
+%NETWORK
+MOVE(EN := c, i).ENO;
+=== refused
+network-plain-st the operator box MOVE is closed by .ENO and wires its value nowhere
+
+#### operator-eno-value-nowhere-no-en — with no EN too
+=== text
+%LANGUAGE FBD
+%NETWORK
+y := GT(i, j).ENO;
+=== refused
+network-plain-st the operator box GT is closed by .ENO and wires its value nowhere

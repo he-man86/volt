@@ -242,7 +242,7 @@ class Networker extends BoxLowerer {
     }
     const box = this.box(c)
     if (box === undefined) return [...pre, { kind: "call_stmt", call: this.callOf(c, c.args, pre), span: c.span }]
-    this.refuseMisleading(box)
+    this.refuseMisleading(box, eno)
     if (box.instance !== undefined) {
       this.fb(box, eno && box.enable === undefined, undefined, pre) // a root's ENO: read by nothing
       return pre

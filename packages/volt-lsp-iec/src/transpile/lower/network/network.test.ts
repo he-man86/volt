@@ -169,6 +169,11 @@ describe("what the lowering refuses, by name", () => {
       ["network-box", "the call MOVE wires ENO =>: the IDE never writes a variable on the ENO pin. ENO is read where its call is closed, v := MOVE(…).ENO"],
     ]))
 
+  test("an operator closed by ENO with its value wired nowhere: CODESYS does not build it", () =>
+    expect(codes("c, y : BOOL; i, j : INT;", "%NETWORK\ny := GT(EN := c, i, j).ENO;\n")).toEqual([
+      ["network-box", "the operator box GT is closed by .ENO and wires its value nowhere. Wire it, GT(…, OUT => v).ENO"],
+    ]))
+
   test("an enabled box other than a comparison read inside a tree", () =>
     expect(codes("x : BOOL; i : INT; c : BOOL;", "%NETWORK\nx := EQ(ADD(EN := c, i, 1), 2);\n")).toEqual([
       ["network-box", "the enabled ADD box is read by its value other than as an assignment's whole value"],

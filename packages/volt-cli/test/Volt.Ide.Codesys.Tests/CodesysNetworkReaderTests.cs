@@ -1068,9 +1068,10 @@ public class CodesysNetworkReaderTests
     // result, unnamed — the IDE's own form — and an ENO echo first where the box has one.
     [InlineData("MAX", false, new[] { "" }, 0, "n := MAX(a, b);")]
     [InlineData("ADD", false, new[] { "" }, 0, "n := ADD(a, b);")]
-    // Read through its ENO: the call returning ENO (whether the IDE builds it is the build's to say: X3, 3c).
-    [InlineData("AND", true, new[] { "ENO" }, 0, "n := AND(EN := c, a, b).ENO;")]
-    [InlineData("MOVE", true, new[] { "ENO", "" }, 0, "n := MOVE(EN := c, a, b).ENO;")]
+    // Read through its ENO with its value wired nowhere: the IDE does not build it (live CODESYS 3.5.21.40, openspec
+    // nwl-box-storage-map), and the writer refuses it by name.
+    [InlineData("AND", true, new[] { "ENO" }, 0, null)]
+    [InlineData("MOVE", true, new[] { "ENO", "" }, 0, null)]
     // An enabled box with no ENO in its list is read by a slot the text cannot state: refused by name.
     [InlineData("MOVE", true, new string[0], null, null)]
     public void A_consumed_box_Volt_built_is_connected_as_the_compiler_reads_it(

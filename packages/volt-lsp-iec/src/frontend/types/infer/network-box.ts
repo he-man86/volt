@@ -145,19 +145,21 @@ export function boxMember(e: MemberExpr, scope: Scope, project: Scope): { box: N
 /**
  * WHAT A BOX'S TEXT CLAIMS AND ITS RUN DOES NOT DO (live CODESYS 3.5.21.40, openspec nwl-box-storage-map), in the bridge
  * reader's words (`StNetworkReader` `CallBox`): the network check refuses each, and neither lowering nor the twin runs a
- * meaning the text does not have. `head` is the call's head as written.
+ * meaning the text does not have. `head` is the call's head as written, `eno` the box closed by its shown `.ENO`.
  */
-export function misleadingBox(box: NetworkBox, head: string): { span: Span; message: string }[] {
+export function misleadingBox(box: NetworkBox, head: string, eno: boolean): { span: Span; message: string }[] {
   const out: { span: Span; message: string }[] = []
+  if (eno && box.signature === OPERATOR && !box.call.args.some((a) => a.output && a.param?.name.toUpperCase() === VALUE))
+    out.push({ span: box.call.span, message: `the operator box ${head} is closed by .ENO and wires its value nowhere. Wire it, ${head}(…, OUT => v).ENO` })
   if (box.instance !== undefined || box.signature?.shape === "program") {
     const positional = box.pins.find((a) => !a.output && a.param === undefined)
     if (positional !== undefined)
       out.push({ span: positional.span, message: `the call ${head} passes a pin by position: the box of an FB or a PROGRAM passes only named pins, and the IDE drops the rest. Name it, ${head}(<pin> := value)` })
   }
   if (box.signature !== undefined && !declaresEno(box.signature)) {
-    const eno = box.call.args.find((a) => a.output && a.param?.name.toUpperCase() === "ENO")
-    if (eno !== undefined)
-      out.push({ span: eno.span, message: `the call ${head} wires ENO =>: the IDE never writes a variable on the ENO pin. ENO is read where its call is closed, v := ${head}(…).ENO` })
+    const pin = box.call.args.find((a) => a.output && a.param?.name.toUpperCase() === "ENO")
+    if (pin !== undefined)
+      out.push({ span: pin.span, message: `the call ${head} wires ENO =>: the IDE never writes a variable on the ENO pin. ENO is read where its call is closed, v := ${head}(…).ENO` })
   }
   const wired = new Set<string>()
   for (const a of box.call.args) {

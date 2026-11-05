@@ -235,7 +235,7 @@ class Twinner extends BoxTwinner {
     if (head?.toUpperCase() === "EXECUTE") return this.execute(call, pre)
     const box = this.box(call)
     if (box === undefined) return [this.callText(call, call.args, pre) + ";"]
-    this.refuseMisleading(box)
+    this.refuseMisleading(box, eno)
     if (box.instance !== undefined) {
       this.fb(box, eno && box.enable === undefined, undefined, pre) // a root's ENO: read by nothing
       return pre.splice(0)

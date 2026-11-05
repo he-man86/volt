@@ -21323,7 +21323,7 @@ null
 "code": "__ENO := go; IF __ENO THEN __Imp := (a AND b); END_IF; __Imp := __ENO;",
 "layout": "e4b3853ced"
 },
-"pull": "AND(EN := go, a, b).ENO;"
+"pull": "%UNSUPPORTED \u0022an operator box closed by ENO with its value wired nowhere\u0022 #7db2b649"
 },
 {
 "id": "0407",
@@ -21372,7 +21372,7 @@ null
 "code": "__ENO := go; IF __ENO THEN __Imp := (a AND b); END_IF; __Imp := __ENO;",
 "layout": "87e35e14c6"
 },
-"pull": "AND(EN := go, a, b).ENO;"
+"pull": "%UNSUPPORTED \u0022an operator box closed by ENO with its value wired nowhere\u0022 #7db2b649"
 },
 {
 "id": "0408",
@@ -21419,7 +21419,7 @@ null
 "code": "__ENO := go; IF __ENO THEN __Imp := (a AND b); END_IF; __Imp := __ENO;",
 "layout": "fcfb9c696d"
 },
-"pull": "AND(EN := go, a, b).ENO;"
+"pull": "%UNSUPPORTED \u0022an operator box closed by ENO with its value wired nowhere\u0022 #7db2b649"
 },
 {
 "id": "0409",
@@ -21731,7 +21731,7 @@ null
 "code": "__ENO := go; IF __ENO THEN __Imp := (a AND b); END_IF; y := __ENO;",
 "layout": "d531825726"
 },
-"pull": "y := AND(EN := go, a, b).ENO;"
+"pull": "%UNSUPPORTED \u0022an operator box closed by ENO with its value wired nowhere\u0022 #1efb3d91"
 },
 {
 "id": "0415",
@@ -21783,7 +21783,7 @@ null
 "code": "__ENO := go; IF __ENO THEN __Imp := (a AND b); END_IF; y := __ENO;",
 "layout": "486e2566d2"
 },
-"pull": "y := AND(EN := go, a, b).ENO;"
+"pull": "%UNSUPPORTED \u0022an operator box closed by ENO with its value wired nowhere\u0022 #1efb3d91"
 },
 {
 "id": "0416",
@@ -21833,7 +21833,7 @@ null
 "code": "__ENO := go; IF __ENO THEN __Imp := (a AND b); END_IF; y := __ENO;",
 "layout": "f3f47e0d97"
 },
-"pull": "y := AND(EN := go, a, b).ENO;"
+"pull": "%UNSUPPORTED \u0022an operator box closed by ENO with its value wired nowhere\u0022 #1efb3d91"
 },
 {
 "id": "0417",
@@ -22145,7 +22145,7 @@ null
 "layout": "06481f8e0d",
 "afterReopen": true
 },
-"pull": "AND(EN := go, a, b).ENO;"
+"pull": "%UNSUPPORTED \u0022an operator box closed by ENO with its value wired nowhere\u0022 #7db2b649"
 },
 {
 "id": "0423",
@@ -22195,7 +22195,7 @@ null
 "layout": "3dfc6c6b20",
 "afterReopen": true
 },
-"pull": "AND(EN := go, a, b).ENO;"
+"pull": "%UNSUPPORTED \u0022an operator box closed by ENO with its value wired nowhere\u0022 #7db2b649"
 },
 {
 "id": "0424",
@@ -22243,7 +22243,7 @@ null
 "layout": "b13b60809c",
 "afterReopen": true
 },
-"pull": "AND(EN := go, a, b).ENO;"
+"pull": "%UNSUPPORTED \u0022an operator box closed by ENO with its value wired nowhere\u0022 #7db2b649"
 },
 {
 "id": "0425",
@@ -22560,7 +22560,7 @@ null
 "layout": "6fec678a0e",
 "afterReopen": true
 },
-"pull": "y := AND(EN := go, a, b).ENO;"
+"pull": "%UNSUPPORTED \u0022an operator box closed by ENO with its value wired nowhere\u0022 #1efb3d91"
 },
 {
 "id": "0431",
@@ -22613,7 +22613,7 @@ null
 "layout": "54bbda2944",
 "afterReopen": true
 },
-"pull": "y := AND(EN := go, a, b).ENO;"
+"pull": "%UNSUPPORTED \u0022an operator box closed by ENO with its value wired nowhere\u0022 #1efb3d91"
 },
 {
 "id": "0432",
@@ -22664,7 +22664,7 @@ null
 "layout": "3b6cc14b61",
 "afterReopen": true
 },
-"pull": "y := AND(EN := go, a, b).ENO;"
+"pull": "%UNSUPPORTED \u0022an operator box closed by ENO with its value wired nowhere\u0022 #1efb3d91"
 },
 {
 "id": "0433",
@@ -22968,7 +22968,7 @@ null
 "code": "__ENO := go; IF __ENO THEN __Imp := i; END_IF; __Imp := __ENO;",
 "layout": "b557513b3b"
 },
-"pull": "MOVE(EN := go, i).ENO;"
+"pull": "%UNSUPPORTED \u0022an operator box closed by ENO with its value wired nowhere\u0022 #767ae692"
 },
 {
 "id": "0439",
@@ -23018,7 +23018,7 @@ null
 "code": "__ENO := go; IF __ENO THEN __Imp := i; END_IF; __Imp := __ENO;",
 "layout": "34f87e6aff"
 },
-"pull": "MOVE(EN := go, i).ENO;"
+"pull": "%UNSUPPORTED \u0022an operator box closed by ENO with its value wired nowhere\u0022 #767ae692"
 },
 {
 "id": "0440",
@@ -23066,7 +23066,7 @@ null
 "code": "__ENO := go; IF __ENO THEN __Imp := i; END_IF; __Imp := __ENO;",
 "layout": "48ba5d4b13"
 },
-"pull": "MOVE(EN := go, i).ENO;"
+"pull": "%UNSUPPORTED \u0022an operator box closed by ENO with its value wired nowhere\u0022 #767ae692"
 },
 {
 "id": "0441",
@@ -23423,7 +23423,7 @@ null
 "code": "__ENO := go; IF __ENO THEN __Imp := i; END_IF; y := __ENO;",
 "layout": "e73a6c7eab"
 },
-"pull": "y := MOVE(EN := go, i).ENO;"
+"pull": "%UNSUPPORTED \u0022an operator box closed by ENO with its value wired nowhere\u0022 #ec76a7ea"
 },
 {
 "id": "0448",
@@ -23474,7 +23474,7 @@ null
 "code": "__ENO := go; IF __ENO THEN __Imp := i; END_IF; y := __ENO;",
 "layout": "67a5a033bb"
 },
-"pull": "y := MOVE(EN := go, i).ENO;"
+"pull": "%UNSUPPORTED \u0022an operator box closed by ENO with its value wired nowhere\u0022 #ec76a7ea"
 },
 {
 "id": "0449",
@@ -23523,7 +23523,7 @@ null
 "code": "__ENO := go; IF __ENO THEN __Imp := i; END_IF; y := __ENO;",
 "layout": "0d0450c923"
 },
-"pull": "y := MOVE(EN := go, i).ENO;"
+"pull": "%UNSUPPORTED \u0022an operator box closed by ENO with its value wired nowhere\u0022 #ec76a7ea"
 },
 {
 "id": "0450",
@@ -23882,7 +23882,7 @@ null
 "layout": "ac08abc95a",
 "afterReopen": true
 },
-"pull": "MOVE(EN := go, i).ENO;"
+"pull": "%UNSUPPORTED \u0022an operator box closed by ENO with its value wired nowhere\u0022 #767ae692"
 },
 {
 "id": "0457",
@@ -23933,7 +23933,7 @@ null
 "layout": "65dada5171",
 "afterReopen": true
 },
-"pull": "MOVE(EN := go, i).ENO;"
+"pull": "%UNSUPPORTED \u0022an operator box closed by ENO with its value wired nowhere\u0022 #767ae692"
 },
 {
 "id": "0458",
@@ -23982,7 +23982,7 @@ null
 "layout": "7b5e310d43",
 "afterReopen": true
 },
-"pull": "MOVE(EN := go, i).ENO;"
+"pull": "%UNSUPPORTED \u0022an operator box closed by ENO with its value wired nowhere\u0022 #767ae692"
 },
 {
 "id": "0459",
@@ -24345,7 +24345,7 @@ null
 "layout": "c49741d39d",
 "afterReopen": true
 },
-"pull": "y := MOVE(EN := go, i).ENO;"
+"pull": "%UNSUPPORTED \u0022an operator box closed by ENO with its value wired nowhere\u0022 #ec76a7ea"
 },
 {
 "id": "0466",
@@ -24397,7 +24397,7 @@ null
 "layout": "f5f7ed8170",
 "afterReopen": true
 },
-"pull": "y := MOVE(EN := go, i).ENO;"
+"pull": "%UNSUPPORTED \u0022an operator box closed by ENO with its value wired nowhere\u0022 #ec76a7ea"
 },
 {
 "id": "0467",
@@ -24447,7 +24447,7 @@ null
 "layout": "7116d51ae9",
 "afterReopen": true
 },
-"pull": "y := MOVE(EN := go, i).ENO;"
+"pull": "%UNSUPPORTED \u0022an operator box closed by ENO with its value wired nowhere\u0022 #ec76a7ea"
 },
 {
 "id": "0468",
@@ -28905,7 +28905,7 @@ null
 "code": "__ENO := go; IF __ENO THEN __Imp := (i + j); END_IF; __Imp := __ENO;",
 "layout": "4041cdb737"
 },
-"pull": "ADD(EN := go, i, j).ENO;"
+"pull": "%UNSUPPORTED \u0022an operator box closed by ENO with its value wired nowhere\u0022 #0118471b"
 },
 {
 "id": "0566",
@@ -29163,7 +29163,7 @@ null
 "code": "__ENO := go; IF __ENO THEN __Imp := (i + j); END_IF; y := __ENO;",
 "layout": "5870415c0c"
 },
-"pull": "y := ADD(EN := go, i, j).ENO;"
+"pull": "%UNSUPPORTED \u0022an operator box closed by ENO with its value wired nowhere\u0022 #b82ebbb7"
 },
 {
 "id": "0571",
@@ -29424,7 +29424,7 @@ null
 "layout": "052d775a8b",
 "afterReopen": true
 },
-"pull": "ADD(EN := go, i, j).ENO;"
+"pull": "%UNSUPPORTED \u0022an operator box closed by ENO with its value wired nowhere\u0022 #0118471b"
 },
 {
 "id": "0576",
@@ -29686,7 +29686,7 @@ null
 "layout": "7d30676bd6",
 "afterReopen": true
 },
-"pull": "y := ADD(EN := go, i, j).ENO;"
+"pull": "%UNSUPPORTED \u0022an operator box closed by ENO with its value wired nowhere\u0022 #b82ebbb7"
 },
 {
 "id": "0581",

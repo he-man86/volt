@@ -55,8 +55,8 @@ export abstract class BoxLowerer {
   }
 
   /** A box whose text claims what its run does not do has no run to lower to (`misleadingBox`). */
-  protected refuseMisleading(box: NetworkBox): void {
-    const [first] = misleadingBox(box, this.name(box))
+  protected refuseMisleading(box: NetworkBox, eno: boolean): void {
+    const [first] = misleadingBox(box, this.name(box), eno)
     if (first !== undefined) throw new NetworkRefusal(first.message)
   }
 
@@ -165,8 +165,8 @@ export abstract class BoxLowerer {
 
   /** A box read where it stands (`name` the member closing its call). */
   protected boxRead(box: NetworkBox, name: string | undefined, pre: Statement[]): Expr {
-    this.refuseMisleading(box)
     const eno = name !== undefined && name.toUpperCase() === "ENO" && !declaresEno(box.signature)
+    this.refuseMisleading(box, eno)
     if (box.instance !== undefined) {
       const read = eno ? undefined : name ?? box.signature?.outputs[0]
       if (!eno && read === undefined) throw new NetworkRefusal(`the ${this.name(box)} box is read, and no declaration names its output`)

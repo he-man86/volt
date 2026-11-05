@@ -70,6 +70,9 @@ internal static class NetworkSpelling
     public static CalleeSignature? SignatureOf(Box b, NetworkScope scope) =>
         b.StCode is not null ? null : SignatureOf(b.Type, b.Instance is not null, scope);
 
+    /// <summary>Whether <paramref name="signature"/> is an operator's, not a declared callee's.</summary>
+    public static bool IsOperator(CalleeSignature? signature) => ReferenceEquals(signature, OperatorSignature);
+
     /// <summary>Whether a box type is an IEC operator the compiler provides — the keyword boxes, MOVE and NOT, and every
     /// other one (LIMIT, SEL, the shifts, the conversions, …, <see cref="NetworkMembers.IsOperatorType"/>): a name no
     /// declaration makes, whose pins are the operator's (as the LSP reads every builtin, <c>network-box.ts</c>).</summary>
