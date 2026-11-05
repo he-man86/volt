@@ -3,8 +3,8 @@
 ## 1. Finish the first map
 
 - [ ] 1.1 `nwl-box-storage-map`: finish, review, push.
-- [ ] 1.2 Move its rows to the row format (design.md) as a committed data file.
-- [ ] 1.3 The completeness gate: a test reads the census and fails on a member or option with no row.
+- [x] 1.2 Move its rows to the row format (design.md) as a committed data file.
+- [x] 1.3 The completeness gate: a test reads the census and fails on a member or option with no row.
 
 ## 2. Map the rest of NWL on CODESYS SP21
 

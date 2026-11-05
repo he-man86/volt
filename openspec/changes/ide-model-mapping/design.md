@@ -19,7 +19,7 @@ Every IDE, every model, in this order:
 | `option` | The stored value or state |
 | `source` | `census`, `editor` or `created` |
 | `picture`, `code`, `run`, `persists` | `same`, `differs`, `not-measured`; `faults` where the IDE raises an error on it |
-| `status` | `spelled`, `refused-inert`, `refused-fault`, `cannot-store`, `not-measured` |
+| `status` | `spelled`, `lost-inert` (held, no text and no refusal: a pull shows another state's text, nothing runs apart), `refused-inert`, `refused-gap` (refused, changes the code or the run, no text), `refused-fault`, `cannot-store`, `not-measured` |
 | `text` | The spelling or the refusal's wording |
 | `fixture` | The test that pins it |
 
