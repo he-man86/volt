@@ -66,7 +66,7 @@ import { emit, SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.
 import { calleeText, checkBox } from "./_plain-st-box.js"
 import { checkWires, CODE } from "./_plain-st-wires.js"
 import { checkComments, checkLines, checkNumbering, checkStrings } from "./_plain-st-lines.js"
-import { checkCoilMarks, checkControlMarks, checkItemMarks, checkMarkOrder, checkPinMarks, checkValueNot } from "./_plain-st-marks.js"
+import { checkCoilMarks, checkControlMarks, checkItemMarks, checkMarkOrder, checkPinMarks, checkTreeMarks, checkValueNot } from "./_plain-st-marks.js"
 
 
 /** The statements a network may not hold, by their ST keyword. */
@@ -286,7 +286,10 @@ function checkExprs(stmt: Statement, scope: Scope | undefined, boxes: Scope | un
       // NOT before an OPERAND marks that operand, a contact
       const operandText = x.kind === "unary" && x.operand.kind === "paren" && network.operands.some((o) => x.operand.span.start < o.start && x.operand.span.end > o.end)
       if (x.kind === "unary" && x.op.toUpperCase() === "NOT" && !operandText) checkValueNot(x.operand, x.span, wires, out)
-      if ((x.kind === "assign_expr" || x.kind === "call") && x.marks !== undefined) checkMarkOrder(x.marks, x.span, out)
+      if ((x.kind === "assign_expr" || x.kind === "call") && x.marks !== undefined) {
+        checkMarkOrder(x.marks, x.span, out)
+        checkTreeMarks(x, out)
+      }
       if (x.kind === "call") for (const a of x.args) if (a.marks !== undefined) checkPinMarks(x, a, out)
       if (x.kind === "call") checkCall(x, scope, wires, out)
       if (x.kind === "call" && calleeText(x).toUpperCase() === EXECUTE) return checkExecute(x, closer.get(x), x !== root, scope, network.executes, out)

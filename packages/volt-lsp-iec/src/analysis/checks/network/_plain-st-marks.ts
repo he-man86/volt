@@ -61,8 +61,18 @@ export function checkItemMarks(statements: Statement[], items: readonly { words:
 export function checkControlMarks(s: Extract<Statement, { kind: "jmp" | "return" }>, out: DiagnosticItem[]): void {
   if (s.marks === undefined) return
   checkMarkOrder(s.marks, s.span, out)
+  if (s.kind === "jmp") refuseEdge(s.marks, s.span, "jump", "JMP.l := RISING(a)", out)
+  else refuseEdge(s.marks, s.span, "return", "RETURN := RISING(a)", out)
   if (s.sharesValue === true)
     emit(out, s.span, CODE, "a marked coil inside a chain: every target receives the rung's power flow, and a chained assignment would hand the marked value on")
+}
+
+/** An edge mark on a coil, a jump, the return or an output runs as if unmarked (live CODESYS 3.5.21.40, openspec
+ *  nwl-box-storage-map); the edge is on the value. */
+function refuseEdge(marks: readonly string[], span: Span, what: "coil" | "jump" | "return" | "output", value: string, out: DiagnosticItem[]): void {
+  if (!marks.includes("RISING") && !marks.includes("FALLING")) return
+  const runs = what === "output" ? "writes" : "runs"
+  emit(out, span, CODE, `an edge mark on the ${what}: the IDE ${runs} it unmarked. The edge is on the value, ${value}`)
 }
 
 /** THE MARKS BEFORE ONE RECEIVER, outermost first: the edge outside the negation (the IDE negates first, N17), each once. */
@@ -81,9 +91,18 @@ export function checkMarkOrder(marks: readonly string[], span: Span, out: Diagno
   }
 }
 
+/** A mark on a coil or a jump standing in a tree (`y := (RISING x := a) AND b`, `(RISING JMP.l := a)`). */
+export function checkTreeMarks(x: CallExpr | Extract<Expr, { kind: "assign_expr" }>, out: DiagnosticItem[]): void {
+  const head = x.kind === "call" ? ownHead(x) : undefined
+  if (x.kind === "assign_expr") refuseEdge(x.marks!, x.span, "coil", "y := RISING(a)", out)
+  else if (head === "JMP") refuseEdge(x.marks!, x.span, "jump", "JMP.l := RISING(a)", out)
+  else if (head === "RETURN") refuseEdge(x.marks!, x.span, "return", "RETURN := RISING(a)", out)
+}
+
 /** A pin's, EN's or an output's own marks: in order, and on no branch's feed (a Parallel holds no flag). */
 export function checkPinMarks(call: CallExpr, a: CallArg, out: DiagnosticItem[]): void {
   checkMarkOrder(a.marks!, a.span, out)
+  if (a.output) refuseEdge(a.marks!, a.span, "output", `y := RISING(${calleeText(call)}(…))`, out)
   if (ownHead(call)?.startsWith("BRANCH") === true) emit(out, a.span, CODE, `a mark on the branch's ${a.param?.name ?? "pin"}: a branch holds none`)
 }
 
@@ -97,6 +116,7 @@ export function checkCoilMarks(stmt: Extract<Statement, { kind: "assign" }>, wir
     if (m === undefined) return
     const t = targets[i]!
     checkMarkOrder(m, t.span, out)
+    refuseEdge(m, t.span, "coil", "y := RISING(a)", out)
     if (m.includes("NOT") && (ops[i] === "S=" || ops[i] === "R="))
       emit(out, t.span, CODE, `NOT ${calleeText({ kind: "call", callee: t, args: [], span: t.span })} ${ops[i]}: a negated set or reset coil is no coil of its own (the reset coil is R=)`)
     if (t.kind === "ident_expr" && wires.has(t.name.toLowerCase()))

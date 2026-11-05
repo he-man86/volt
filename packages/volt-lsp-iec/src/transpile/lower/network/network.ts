@@ -147,6 +147,8 @@ class Networker extends BoxLowerer {
         // its targets hold when disabled (1.4)
         const box = s.value.kind === "call" ? this.box(s.value) : undefined
         const first = s.marks?.[0]
+        // an edge on a coil runs as if unmarked (live CODESYS 3.5.21.40, openspec nwl-box-storage-map): the text says otherwise
+        if (first?.some((m) => m !== "NOT")) throw new NetworkRefusal("an edge mark on the coil: the IDE runs it unmarked. The edge is on the value, y := RISING(a)")
         if (box !== undefined && box.instance === undefined && box.enable !== undefined && !COMPARISON.has(this.name(box).toUpperCase())) {
           if (first !== undefined || s.itemMarks !== undefined || this.sharing.has(s))
             throw new NetworkRefusal(`the enabled ${this.name(box)} box's value with a marked coil or a jump on it`)
@@ -163,7 +165,7 @@ class Networker extends BoxLowerer {
           if (this.sharing.has(s)) this.shared = t
         }
         if (first === undefined) return [...pre, this.assign(s, value, pre)]
-        // every target receives the power flow, the first its own mark applied (a coil's edge runs as a plain coil)
+        // every target receives the power flow, the first its own mark applied
         const [next, ...rest] = s.chained ?? []
         const restOps = (s.chainOps ?? []).slice(1)
         const others: Statement[] = next === undefined ? [] : [this.assign({

@@ -37,6 +37,8 @@ public class SimAssistEditorTextsTests(Xunit.Abstractions.ITestOutputHelper outp
             "(a) an FB box read with no output named: a box with several outputs is closed by the one its consumer reads, t1(…).Q (network-output-member)"),
         ("is the body's w",
             "(c) the editor names wires out of order: wires are w1, w2, … across the body in the order the text first names them (network-text-st, wire numbering)"),
+        ("an edge mark on the coil",
+            "(c) the editor's edge command marks a coil: the IDE runs it unmarked, measured live (openspec nwl-box-storage-map); the edge is on the value, y := RISING(a)"),
         ("a bracket that groups nothing",
             "(c) the editor brackets one operand or a chain nothing tighter holds: a bracket groups a chain inside a tighter or the same chain"),
     };

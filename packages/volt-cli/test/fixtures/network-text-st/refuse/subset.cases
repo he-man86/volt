@@ -1206,3 +1206,64 @@ network-plain-st the operator box MOVE is closed by .ENO and wires its value now
 y := GT(i, j).ENO;
 === refused
 network-plain-st the operator box GT is closed by .ENO and wires its value nowhere
+
+#### coil-edge — the IDE runs RISING y := a as y := a (live CODESYS 3.5.21.40); the edge is on the value
+=== text
+%LANGUAGE LD
+%NETWORK
+RISING y := a;
+=== refused
+network-plain-st an edge mark on the coil
+
+#### coil-edge-falling-negated
+=== text
+%LANGUAGE LD
+%NETWORK
+FALLING NOT y := a;
+=== refused
+network-plain-st an edge mark on the coil
+
+#### coil-edge-set
+=== text
+%LANGUAGE LD
+%NETWORK
+RISING y S= a;
+=== refused
+network-plain-st an edge mark on the coil
+
+#### jump-edge — the IDE jumps on the level
+=== text
+%LANGUAGE LD
+%NETWORK
+RISING JMP.l := a;
+%NETWORK
+l:
+x := a;
+=== refused
+network-plain-st an edge mark on the jump
+
+#### return-edge — the IDE returns on the level
+=== text
+%LANGUAGE LD
+%NETWORK
+FALLING RETURN := a;
+=== refused
+network-plain-st an edge mark on the return
+
+#### output-edge — the IDE writes the output as it is
+=== scope
+instance t1 TON
+=== text
+%LANGUAGE FBD
+%NETWORK
+t1(IN := a, PT := T#1S, RISING Q => y);
+=== refused
+network-plain-st an edge mark on the output
+
+#### out-target-edge — the same on a value's target
+=== text
+%LANGUAGE FBD
+%NETWORK
+MOVE(a, RISING OUT => x);
+=== refused
+network-plain-st an edge mark on the output

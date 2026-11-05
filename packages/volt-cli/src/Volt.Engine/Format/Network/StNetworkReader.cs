@@ -1049,6 +1049,11 @@ public static class StNetworkReader
         private Operand Target(ATarget t, int line)
         {
             var marks = MarkFlags(t.Marks, line);
+            // AN EDGE MARK ON A COIL, A JUMP OR THE RETURN RUNS AS IF UNMARKED (live CODESYS 3.5.21.40, openspec nwl-box-storage-map).
+            if (marks.Rising || marks.Falling)
+                throw Error(line, t.Jump ? $"an edge mark on the jump: the IDE runs it unmarked. The edge is on the value, JMP.l := {StNetworkWriter.RisingHead}(a)"
+                    : t.Return ? $"an edge mark on the return: the IDE runs it unmarked. The edge is on the value, RETURN := {StNetworkWriter.RisingHead}(a)"
+                    : $"an edge mark on the coil: the IDE runs it unmarked. The edge is on the value, y := {StNetworkWriter.RisingHead}(a)");
             if (t.Jump || t.Return)
             {
                 var what = t.Jump ? "JMP." + t.Text : "RETURN";
@@ -1288,6 +1293,8 @@ public static class StNetworkReader
                     if (_net.IsWire(a.Target!))
                         throw Error(c.Line, $"the call {c.Head} wires its output {a.Formal} to the wire {a.Target}: a wire is defined by `{a.Target} := <box>`, its box closed by the output it reads");
                     // `OUT =>` is a function's value, each the next unnamed slot; on an FB call it is the FB's own output named OUT.
+                    if (MarkFlags(a.Marks, c.Line) is { Rising: true } or { Falling: true })
+                        throw Error(c.Line, $"an edge mark on the output: the IDE writes it unmarked. The edge is on the value, y := {StNetworkWriter.RisingHead}({c.Head}(…))");
                     outputs.Add((Is(a.Formal, StNetworkWriter.ResultPin) && instance is null ? null : a.Formal, a.Target!, MarkFlags(a.Marks, c.Line),
                         Comment(a.TargetComment, a.Target!, c.Line)));
                     continue;

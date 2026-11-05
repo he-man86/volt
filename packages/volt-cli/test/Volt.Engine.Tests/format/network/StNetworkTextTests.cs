@@ -246,9 +246,7 @@ public class StNetworkTextTests
     public void Each_mark_is_written_where_the_model_holds_it()
     {
         RoundTrips(Ld1(Set(Empty, T("y"))), "%LANGUAGE LD\n%NETWORK\ny := RAIL();\n");
-        RoundTrips(Ld1(Set(L("a"), T("y", Neg)), Set(L("a"), T("y", Rise)), Set(L("a"), T("y", Neg with { Falling = true })),
-                       Set(L("a"), T("y", SetBit with { Rising = true }))),
-            "%LANGUAGE LD\n%NETWORK\nNOT y := a;\nRISING y := a;\nFALLING NOT y := a;\nRISING y S= a;\n");
+        RoundTrips(Ld1(Set(L("a"), T("y", Neg))), "%LANGUAGE LD\n%NETWORK\nNOT y := a;\n");
         RoundTrips(Ld1(new Assign(L("a"), new[] { T("y", Neg), T("x") }, Flags.None)), "%LANGUAGE LD\n%NETWORK\nNOT y := x := a;\n");
         RoundTrips(Fbd1(Set(Op("AND", L("a"), L("b")) with { Flags = Neg, ConnectedSlot = 0 }, T("x"))),
             "%LANGUAGE FBD\n%NETWORK\nx := NOT AND(a, b);\n");
@@ -382,6 +380,17 @@ public class StNetworkTextTests
     {
         var body = Fbd1(Call("MOVE", new[] { In(L("7")) }, new[] { new Output("ENO", new Operand("lamp", IsLValue: true)), Out("x", 1) }, en: L("c"), eno: true, kind: CallKind.Operator));
         Assert.Contains("%UNSUPPORTED \"a variable on the ENO pin\"", StNetworkWriter.WritePulled(body, NetworkScope.Empty));
+    }
+
+    /// <summary>A stored edge on a coil, a jump or an output runs as if unmarked (live CODESYS 3.5.21.40): the pull refuses it.</summary>
+    [Fact]
+    public void An_edge_mark_with_no_run_is_not_spelled()
+    {
+        Assert.Contains("%UNSUPPORTED \"an edge mark on a coil\"", StNetworkWriter.WritePulled(Ld1(Set(L("a"), T("y", Rise))), NetworkScope.Empty));
+        Assert.Contains("%UNSUPPORTED \"an edge mark on a jump or a return\"",
+            StNetworkWriter.WritePulled(Ld1(new Assign(L("a"), new[] { T("l", JumpBit with { Rising = true }) }, JumpBit)), NetworkScope.Empty));
+        Assert.Contains("%UNSUPPORTED \"an edge mark on an output\"",
+            StNetworkWriter.WritePulled(Fbd1(Call("MOVE", new[] { In(L("a")) }, new[] { new Output(null, new Operand("x", IsLValue: true, Flags: Rise), 0) }, kind: CallKind.Operator)), NetworkScope.Empty));
     }
 
     /// <summary>A stored FB box holding an input with no name (live CODESYS 3.5.21.40, CallType None): the IDE does not pass it, so

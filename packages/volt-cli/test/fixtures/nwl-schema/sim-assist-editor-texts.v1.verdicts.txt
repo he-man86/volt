@@ -138,17 +138,17 @@
 138 accept
 139 accept
 140 accept
-141 accept
+141 refuse line 3: an edge mark on the coil: the IDE runs it unmarked. The edge is on the value, y := RISING(a)
 142 accept
 143 accept
 144 accept
-145 accept
+145 refuse line 3: an edge mark on the coil: the IDE runs it unmarked. The edge is on the value, y := RISING(a)
 146 accept
 147 accept
-148 accept
+148 refuse line 3: an edge mark on the coil: the IDE runs it unmarked. The edge is on the value, y := RISING(a)
 149 accept
 150 accept
-151 accept
+151 refuse line 3: an edge mark on the coil: the IDE runs it unmarked. The edge is on the value, y := RISING(a)
 152 accept
 153 accept
 154 accept
@@ -262,7 +262,7 @@
 262 accept
 263 accept
 264 accept
-265 accept
+265 refuse line 6: an edge mark on the coil: the IDE runs it unmarked. The edge is on the value, y := RISING(a)
 266 accept
 267 accept
 268 accept
@@ -301,7 +301,7 @@
 301 accept
 302 accept
 303 accept
-304 accept
+304 refuse line 7: an edge mark on the coil: the IDE runs it unmarked. The edge is on the value, y := RISING(a)
 305 accept
 306 accept
 307 accept
@@ -372,7 +372,7 @@
 372 accept
 373 accept
 374 accept
-375 accept
+375 refuse line 9: an edge mark on the coil: the IDE runs it unmarked. The edge is on the value, y := RISING(a)
 376 accept
 377 accept
 378 accept
@@ -486,7 +486,7 @@
 486 accept
 487 accept
 488 accept
-489 accept
+489 refuse line 14: an edge mark on the coil: the IDE runs it unmarked. The edge is on the value, y := RISING(a)
 490 accept
 491 accept
 492 accept
@@ -566,7 +566,7 @@
 566 accept
 567 accept
 568 accept
-569 accept
+569 refuse line 16: an edge mark on the coil: the IDE runs it unmarked. The edge is on the value, y := RISING(a)
 570 accept
 571 accept
 572 accept
@@ -618,7 +618,7 @@
 618 accept
 619 accept
 620 accept
-621 accept
+621 refuse line 18: an edge mark on the coil: the IDE runs it unmarked. The edge is on the value, y := RISING(a)
 622 accept
 623 accept
 624 accept
@@ -663,7 +663,7 @@
 663 accept
 664 accept
 665 accept
-666 accept
+666 refuse line 23: an edge mark on the coil: the IDE runs it unmarked. The edge is on the value, y := RISING(a)
 667 accept
 668 accept
 669 accept
@@ -860,7 +860,7 @@
 860 accept
 861 accept
 862 accept
-863 accept
+863 refuse line 3: an edge mark on the coil: the IDE runs it unmarked. The edge is on the value, y := RISING(a)
 864 accept
 865 accept
 866 accept
@@ -919,7 +919,7 @@
 919 accept
 920 accept
 921 accept
-922 accept
+922 refuse line 5: an edge mark on the coil: the IDE runs it unmarked. The edge is on the value, y := RISING(a)
 923 accept
 924 accept
 925 accept
@@ -966,7 +966,7 @@
 966 accept
 967 accept
 968 accept
-969 accept
+969 refuse line 7: an edge mark on the coil: the IDE runs it unmarked. The edge is on the value, y := RISING(a)
 970 accept
 971 accept
 972 accept
@@ -1000,7 +1000,7 @@
 1000 accept
 1001 accept
 1002 accept
-1003 accept
+1003 refuse line 9: an edge mark on the coil: the IDE runs it unmarked. The edge is on the value, y := RISING(a)
 1004 accept
 1005 accept
 1006 accept
@@ -1087,7 +1087,7 @@
 1087 accept
 1088 accept
 1089 accept
-1090 accept
+1090 refuse line 15: an edge mark on the coil: the IDE runs it unmarked. The edge is on the value, y := RISING(a)
 1091 accept
 1092 accept
 1093 accept
@@ -1117,7 +1117,7 @@
 1117 accept
 1118 accept
 1119 accept
-1120 accept
+1120 refuse line 16: an edge mark on the coil: the IDE runs it unmarked. The edge is on the value, y := RISING(a)
 1121 accept
 1122 accept
 1123 accept

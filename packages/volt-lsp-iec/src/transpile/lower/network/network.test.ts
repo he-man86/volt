@@ -50,10 +50,10 @@ describe("a network body lowers to what it runs", () => {
     expect(r.get("x")).toBe(false)
   })
 
-  test("a coil's edge mark runs as a plain coil (network-text-st 1.3)", () => {
-    const r = runner("a, y : BOOL;", "%NETWORK\nRISING y := a;\n")
-    expect(trace(r, "y", [{ a: true }, {}])).toEqual([true, true])
-  })
+  test("a coil's edge mark: the IDE runs it unmarked, so nothing runs an edge the text claims", () =>
+    expect(lowered("a, y : BOOL;", "%NETWORK\nRISING y := a;\n").diagnostics.map((d) => d.message)).toEqual([
+      "an edge mark on the coil: the IDE runs it unmarked. The edge is on the value, y := RISING(a)",
+    ]))
 
   test("a pin's and EN's NOT negate what the box reads", () => {
     const r = runner("a, c : BOOL; n : INT;", "%NETWORK\nMOVE(NOT EN := c, 1, OUT => n).ENO;\n", "", "FBD")

@@ -478,6 +478,8 @@ public static class StNetworkWriter
                 if (f.Jump && f.Return) throw Unspellable("a jump and a return on one target", $"the target '{t.Text}' carries {Describe(f)}.");
                 if (f.Set || f.Reset) throw Unspellable("a coil flag on a jump or a return", $"the target '{t.Text}' carries {Describe(f)}.");
                 if (t.Comment is not null) throw Unspellable("a comment on a jump or a return", $"the target '{t.Text}' carries a comment.");
+                // It runs as if unmarked (live CODESYS 3.5.21.40, openspec nwl-box-storage-map).
+                if (f.Rising ^ f.Falling) throw Unspellable("an edge mark on a jump or a return", $"the target '{t.Text}' carries {Describe(f)}.");
                 var marks = Marks(f with { Jump = false, Return = false }, $"the target '{t.Text}'");
                 if (f.Return)
                 {
@@ -490,6 +492,8 @@ public static class StNetworkWriter
             }
             if (f.Negated && (f.Set || f.Reset))
                 throw Unspellable("a negated set or reset coil", $"the coil '{t.Text}' carries {Describe(f)}.");
+            // It runs as if unmarked (live CODESYS 3.5.21.40, openspec nwl-box-storage-map).
+            if (f.Rising ^ f.Falling) throw Unspellable("an edge mark on a coil", $"the coil '{t.Text}' carries {Describe(f)}.");
             return Marks(f with { Negated = f.Negated && !f.Reset, Set = false, Reset = false }, $"the coil '{t.Text}'") +
                    Target(t) + (f.Reset ? " R= " : f.Set ? " S= " : " := ");
         }
@@ -769,6 +773,9 @@ public static class StNetworkWriter
             var next = 0;
             foreach (var o in b.Outputs)
             {
+                // It runs as if unmarked (live CODESYS 3.5.21.40, openspec nwl-box-storage-map).
+                if (o.Value.Flags is { Rising: true } or { Falling: true })
+                    throw Unspellable("an edge mark on an output", $"the '{b.Type}' box's output {o.Formal ?? ResultPin} carries {Describe(o.Value.Flags!)}.");
                 var marks = o.Value.Flags is { } of ? PinMarks(b, o.Formal ?? ResultPin, of) : "";
                 if (o.Formal is { } f)
                 {

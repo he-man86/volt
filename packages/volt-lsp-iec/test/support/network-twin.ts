@@ -32,8 +32,8 @@
  *   `RAIL()`                                     `TRUE`;
  *   `t1(NOT IN := a)`, `NOT EN := c`             the pin reads `(NOT a)`; an edge mark on a pin, any mark on an output,
  *                                                refused (unmeasured);
- *   `NOT y := x := a`                            every target receives the power flow, the first its mark applied (a
- *                                                coil's edge runs as a plain coil, 1.3): `t := a; x := t; y := (NOT t);`;
+ *   `NOT y := x := a`                            every target receives the power flow, the first its mark applied:
+ *                                                `t := a; x := t; y := (NOT t);`;
  *   `y := x := RISING NOT := a`                  the item's marks on the value every target receives, negation first;
  *   `a;`, `NOT t1(…);`, `RAIL();`                a value standing alone: a box runs, its marks of no effect; else nothing;
  *   `COMMENT(a, 'why')`                          `a` (the front-end reads the operand it wraps);
@@ -148,6 +148,8 @@ class Twinner extends BoxTwinner {
         // its targets hold when disabled (1.4)
         const box = s.value.kind === "call" ? this.box(s.value) : undefined
         const first = s.marks?.[0]
+        // an edge on a coil runs as if unmarked (live CODESYS 3.5.21.40, openspec nwl-box-storage-map): the text says otherwise
+        if (first?.some((m) => m !== "NOT")) throw new TwinRefusal("an edge mark on the coil: the IDE runs it unmarked. The edge is on the value, y := RISING(a)")
         if (box !== undefined && this.enabledValue(box) && !COMPARISON.has(this.name(box).toUpperCase())) {
           if (first !== undefined || s.itemMarks !== undefined || this.sharing.has(s))
             throw new TwinRefusal(`the enabled ${this.name(box)} box's value with a marked coil or a jump on it`)
@@ -165,7 +167,7 @@ class Twinner extends BoxTwinner {
           if (this.sharing.has(s)) this.shared = t
         }
         if (first === undefined) return [...pre, this.assign(s, value, pre)]
-        // every target receives the power flow, the first its own mark applied (a coil's edge runs as a plain coil)
+        // every target receives the power flow, the first its own mark applied
         const ops = [s.op ?? ":=", ...(s.chainOps ?? []).map((o) => o ?? ":=")]
         const rest = (s.chained ?? []).map((x, i) => `${this.expr(x, pre)} ${ops[i + 1]} ${value};`)
         return [...pre, ...rest, `${this.expr(s.target, pre)} ${ops[0]} ${first.includes("NOT") ? `(NOT ${value})` : value};`]

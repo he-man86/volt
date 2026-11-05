@@ -79,19 +79,9 @@ NETWORK
 %LANGUAGE LD
 %NETWORK
 NOT y := a;
-RISING y := a;
-FALLING y := a;
-RISING NOT y := a;
-RISING y S= a;
-FALLING y R= a;
 === model
 NETWORK
   (:= not:y a)
-  (:= rise:y a)
-  (:= fall:y a)
-  (:= rise:not:y a)
-  (:= S=rise:y a)
-  (:= R=fall:y a)
 
 #### chain-mark-outermost — a marked coil leads its chain: every target receives the power flow
 === text
@@ -109,11 +99,9 @@ instance t1 TON
 %LANGUAGE FBD
 %NETWORK
 t1(IN := a, PT := T#1S, NOT Q => x);
-t1(IN := a, PT := T#1S, RISING Q => y);
 === model
 NETWORK
   (TON@t1 IN=a PT=T#1S =>Q:not:x)
-  (TON@t1 IN=a PT=T#1S =>Q:rise:y)
 
 #### negated-box-output — NOT before a box read where it stands negates its output; NOT(…) is the NOT box
 === scope
