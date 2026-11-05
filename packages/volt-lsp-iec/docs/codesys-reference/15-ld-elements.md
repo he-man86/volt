@@ -57,7 +57,7 @@ PLCopenXML: `<contact negated="true">`.
 
 #### Rising-edge / falling-edge contacts
 
-Documented under the **Edge Detection** command (`Ctrl+E`): "The command inserts an edge detection before the selected box input or box output." The same command applies to contacts.
+Documented under the **Edge Detection** command (`Ctrl+E`): "The command inserts an edge detection before the selected box input or box output." The same command applies to contacts. Measured on 3.5.21.40: it is offered on a contact, a value operand, a BOOL box input, EN and the main connector, and disabled on a box output and a coil. The "box output" of that sentence is the main connector, the line from the box to its coil (`openspec/changes/nwl-box-storage-map/design.md`, "Marks as the editor draws them").
 
 - **Rising-edge contact** → passes `TRUE` for one cycle when the variable transitions from `FALSE` → `TRUE`. PLCopenXML: `<contact edge="rising">`.
 - **Falling-edge contact** → passes `TRUE` for one cycle when the variable transitions from `TRUE` → `FALSE`. PLCopenXML: `<contact edge="falling">`.
@@ -111,9 +111,7 @@ The **Set/Reset** command (`Ctrl+M`) cycles a selected coil through three states
 
 #### Rising-edge / falling-edge coils
 
-The Edge Detection command also applies to coil outputs — equivalent to wrapping the assignment in a one-cycle pulse.
-
-- PLCopenXML: `<coil edge="rising">` or `<coil edge="falling">`.
+The Edge Detection command is disabled on a coil (measured on 3.5.21.40, `TriggerCommand.Enabled`). What the editor draws is the edge on the main connector, the line into the coil, which fires the coil once: `y := RISING := a`. An edge flag stored on the coil itself draws `P` in LD and runs as a plain coil.
 
 **Related commands:** Insert Coil (`Ctrl+A`), Insert Set Coil, Insert Reset Coil, Set/Reset.
 

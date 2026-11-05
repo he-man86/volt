@@ -360,7 +360,7 @@ A form whose text claims what its run does not do. CODESYS 3.5.21.40 64-bit, FBD
 | `y := GT(i, j).ENO;`, `y := MOVE(i, OUT => k).ENO;` | **no build** "Missing EN pin" | operator rule, or the row above |
 | `y := t2(a := a, n := i).ENO;`, `y := P2(…).ENO;` | **no build** "'ENO' is no component" | row above |
 | `F0(n := i, OUT => k);`, `F1(…)`, `F2(p2 := i, p1 := j, OUT => k);` | builds, k never | `the function box … wires OUT => at a root` |
-| `F1(n := i, OUT => k, q3 => m);` | `m=7`, k never | same |
+| `F1(n := i, OUT => k, q3 => m);`, no output read | `m=7`, k never | same. Closed by `.q` it writes k: below |
 | `F0(EN := go, n := i, OUT => k);` | **the IDE faults on it**: dialog "Internal error while object … is providing language model information: Value cannot be null. Parameter name: expRValue" | same |
 | `P2(a := a, n := i, OUT => k);` | lands as `q1 => k`; **no build** by type | `declares no output OUT` |
 | `t2(a := a, n := i, OUT => k);` | the driver refused it, no output OUT | same, at the gate |
@@ -371,17 +371,84 @@ A form whose text claims what its run does not do. CODESYS 3.5.21.40 64-bit, FBD
 | `RISING JMP.l := a;`, `FALLING JMP.l := a;` | jumps every scan | `an edge mark on the jump` |
 | `RISING RETURN := a;`, `FALLING RETURN := a;` | returns every scan | `an edge mark on the return` |
 | `t2(a := a, n := i, RISING q1 => x);`, `FALLING` alike; `MOVE(a, RISING OUT => x);` | the level, `x=TRUE` | `an edge mark on the output` |
-| `k := c1(RISING NOT in := gf).n;`, `FALLING NOT`; `AND(a, RISING NOT := gf)`; `ADD(RISING NOT EN := gf, k, 1, OUT => k);`; `y := RISING NOT := gf;`; `RISING NOT y := gf;` | the NOT every scan, no edge | `RISING NOT before one receiver` |
+| `k := c1(RISING NOT in := gf).n;`, `FALLING NOT`; `AND(a, RISING NOT := gf)`; `ADD(RISING NOT EN := gf, k, 1, OUT => k);`; `RISING NOT y := gf;` | the NOT every scan, no edge | `RISING NOT before one receiver` |
+| `y := RISING NOT := a;` | NOT of the edge, 45/15 with `a` changing. This row used to read it as the NOT alone, from `gf` constant FALSE, where the two agree | same, reason corrected; below |
 | `k := SUB(IN2 := i, IN1 := j);` | `k=2`: `i - j` | `names its pin IN1 out of place` |
 | `x := GT(IN2 := j, IN1 := i);` | `x=FALSE`: `j > i` | same |
 | `k := LIMIT(MX := 3, IN := i, MN := 0);` | `k=0`: MN 3, MX 0 | same |
 | `k := SEL(IN1 := j, G := go, IN0 := i);` | **no build** by type: by position | same |
 
-A pull refuses each stored state by the writer's name: `one output wired to two targets`, `a box read by its value with a target on it`, `a pin by position on an FB or a program`, `a variable on the ENO pin`, `an operator box closed by ENO with its value wired nowhere`, `a box read through ENO with no EN`, `a function value wired at a root with no ENO`, `a variable on an output no declaration names`, `an edge mark on a coil`, `an edge mark on a jump or a return`, `an edge mark on an output`, `an edge stacked on a negation`, `an operator pin named out of place`. Pushed back unchanged it stays as the IDE holds it. None of them is in the six corpora, except that the TwinCAT archives hold `In1`-numbered SEL and MUX pins, which is why a number states an order and not a place.
+The editor's own form of each of these is under "Marks as the editor draws them", below. A pull refuses each stored state by the writer's name: `one output wired to two targets`, `a box read by its value with a target on it`, `a pin by position on an FB or a program`, `a variable on the ENO pin`, `an operator box closed by ENO with its value wired nowhere`, `a box read through ENO with no EN`, `a function value wired at a root with no ENO`, `a variable on an output no declaration names`, `an edge mark on a coil`, `an edge mark on a jump or a return`, `an edge mark on an output`, `an edge stacked on a negation`, `an operator pin named out of place`. Pushed back unchanged it stays as the IDE holds it. None of them is in the six corpora, except that the TwinCAT archives hold `In1`-numbered SEL and MUX pins, which is why a number states an order and not a place.
 
 **A push's PROGRAM box was not called where something read it.** On the fresh CallType `None`: `x := P2(a := a, n := i).q1;` `x=FALSE`, `y := P2(EN := go, a := a, n := i, q2 => k).ENO;` `y=TRUE k=0`, all building. A root box runs either way, which is what hid it. The editor's insert stores `Program`. Fixed test-first: the push stores it, and every row then runs as it reads, `x=TRUE`, `y=TRUE k=6`. TwinCAT's archive is unmeasured.
 
 **An enabled comparison's target, EN false.** Showing no ENO it is written FALSE: `z := TRUE;` then `GT(EN := gf, i, j, OUT => z);`, `z=FALSE`, and `x := GT(EN := gf, i, j);`, `x=FALSE`. Showing ENO it holds: `… OUT => z).ENO;`, at a root and read, `z=TRUE`. Any other operator holds in both. Lowering and the twin wrote FALSE in both; fixed.
+
+### Marks as the editor draws them
+
+Each command is the editor's own: `TriggerCommand` (Edge Detection), `NegateCommand`, `SetResetCommand`, `SetFBDOutputCommand`, its `Enabled` read on the focused cell, then its handler with its own selection arguments. 266 states, LD and FBD, built and run from a driver PROGRAM over 60 scans with `a` high 2 scans of 4, read as `scans TRUE / of them with a high`: level 30/30, NOT 30/0, rising 15/15, falling 15/0, NOT of rising 45/15, NOT of falling 45/30. LD and FBD agree on every row; a few FBD reads lost the window focus and answered disabled with nothing done, and the same form was read enabled on another state.
+
+| place, cell | Edge Detection | Negation | Set/Reset | stored | run | text today |
+|---|---|---|---|---|---|---|
+| contact or value operand | offered | offered | no | `BoxTreeOperand.Flags` | as marked | `RISING(a)`, `NOT a` |
+| main connector (the line into the coil, or from a box to it) | offered | offered | no | `BoxTreeAssign.Flags` | as marked | `y := RISING := a`, `y := NOT := a` |
+| the same, on a set or reset coil, a jump, the return | offered | offered | no | the same | as marked: S, R, the jump and the return fire once | `y S= RISING := a`, `JMP.l := RISING := a`, `RETURN := RISING := a` |
+| coil, S and R coil | **disabled** | offered | offered | the target operand: `Negation`, `Set`, both for R | NOT, S, R as marked | `NOT y := a`, `y S= a`, `y R= a` |
+| jump, return (`NWLExecutionControlCell`) | **disabled** | offered | no | the target operand | NOT as marked | `NOT JMP.l := a` |
+| box input pin, BOOL | offered | offered | no | `InputFlags[i]` | as marked | `t(RISING in := a)`, `AND(a, RISING := b)` |
+| box input pin, not known BOOL (INT, MOVE's value) | **disabled** | offered | no | | | |
+| EN | offered | offered | no | `InputFlags[0]` | as marked | `RISING EN := go` |
+| box main output, consumed | **disabled** | offered | no | `Box.Flags` | NOT as marked | `y := NOT t(…).q` |
+| box output with a variable | **disabled** | offered | **offered** | the output operand | NOT as marked; S holds, R clears | `NOT q2 => x`; S and R refused, `a coil flag on a pin` |
+
+The disabled handler on a coil, a jump, the return or an output throws (`Trigger` finds no flag set on an operand) and stores nothing. `RISING(t(…).q)`, on a box's own flags, has no command; it runs as it reads consumed, and has no effect at a root.
+
+**The picture.** A coil holding `Rtrig` draws `P` in LD and nothing in FBD, and runs as a plain coil: the structured generator reads only the target's `Negation2`. `27de989f3f`'s writer stored the edge there, an object the editor never produces. An edge on an output draws nothing in either: `BoxTreePainter` copies only `Negation` and `Set` to that connector. The reference notes' claim that the command applies to a coil and a box output (`15-ld-elements.md`, corrected) was the help page's wording; its "box output" is the main connector.
+
+**Two marks.** `Negate` clears the edge on a value and a pin, and `Trigger` clears the negation (`Reset = false` clears both low bits), so in either order the editor stores the last one alone. The one place it holds both is the main connector, edge first then Negation: `Negate` does not clear it there. Two places hold one each, and the run stacks them, inner first.
+
+| drawn | text | run |
+|---|---|---|
+| main R then N (coil, S, R, jump, return, a box) | **refused**, `an edge stacked on a negation` | NOT of the edge, 45/15; on a jump `z` 15/15. Both marks drawn |
+| main N then R | `y := RISING := a` | the edge: R cleared the NOT |
+| value N, main R | `y := RISING := NOT a` | 15/0 |
+| value R, main N | `y := NOT := RISING(a)` | 45/15: the run of the main stack, another picture |
+| value R, main R | `y := RISING := RISING(a)` | 15/15 |
+| coil N, main R or value R | `NOT y := RISING := a`, `NOT y := RISING(a)` | 45/15 |
+| value R, pin N | `t(NOT in := RISING(a))` | 45/15 |
+| value N, pin R | `t(RISING in := NOT a)` | 15/0 |
+| value R, pin R | `t(RISING in := RISING(a))` | 15/15 |
+| value N, pin N | `t(NOT in := NOT a)` | 30/30 |
+
+**Place against place.** The same mark on the pin, the value, the item or the coil runs alike alone (15/15 rising, 30/0 NOT) and draws apart: the triangle or circle sits on another connector, or `P`, `N`, `/` in the contact. The runs differ once two stack, per the table. So both a value and a receiver spelling state something the IDE holds: dropping either loses a picture, and a stack.
+
+**What a push stores.** Each state's pull pushed as a new POU, 112 forms (the push test hit its limit at 12 s a push on 300 POUs, so the FBD forms past the jump were not pushed, their LD twins were): the same pull and the same counts on all 112, none refused. Stored marks are the editor's. Two differences, neither in the run: an item holding a jump or a return also holds that bit on `BoxTreeAssign.Flags` (C13's cache; the editor stores it on the target only), and an enabled operator's input names are `['EN','','']` where the editor has `['EN']`.
+
+**Set Output** (`AllowSetOutput`: a non-main output with no EN shown; a PROGRAM offers none, its second slot holding the insert's null). `Common.ChangeBoxMainOutputIndex` moves the operand to the first null and a null to the slot.
+
+| drawn | stored | run | text |
+|---|---|---|---|
+| FUNCTION q,q3, Set Output on q3, k in the result slot | `['k',null,null,'']` | `k=6`, consumed `y=q=TRUE`: the first null is q, not the slot the command was given | `F(n := i, OUT => k).q;`, `y := F(n := i, OUT => k).q;` |
+| FB q1,q2, on q2 | `['x',null]` | `x=TRUE` | `t2(a := a, n := i, q1 => x).q2;` |
+
+**Each refusal against the editor.** "Cannot draw" is the command's `Enabled` or the absent cell, measured on that kind.
+
+| refused form | the editor |
+|---|---|
+| `RISING y := a`, S, R; `RISING JMP.l := a`; `RISING RETURN := a`; `RISING q => x`, `RISING OUT => x` | cannot draw. Kept. Its edge is the main connector, `y := RISING := a`, which runs once |
+| `y := RISING NOT := a`, jump and return alike | **draws it, and it runs NOT of the edge.** Kept as a text, its reason corrected: `RISING NOT` would read as the edge of NOT a, which is 15/0. Needs a spelling, for the owner |
+| `t1(RISING NOT IN := a)`, `AND(a, RISING NOT := b)`, `RISING NOT EN := c`, `RISING NOT y := a` | cannot draw: each command clears the other. Kept; the generator takes the NOT alone |
+| an S or R on a box output | **draws it, and it holds or clears.** Pull refused, `a coil flag on a pin`. Needs a spelling, for the owner |
+| `F0(n := i, OUT => k);`, a function with no VAR_OUTPUT | cannot draw: no output cell, the insert's two nulls. The drawn form is `k := F0(n := i);`. Kept |
+| `F1(n := i, OUT => k, q3 => m);`, no output read | cannot draw: every list holds a null. Kept. Closed by `.q` it is the Set Output form above, which a push **refused until this measurement**, `a function box read by a VAR_OUTPUT has no measured build`. Lifted on CODESYS: pushed, built, run, `k=6 m=7 y=TRUE`, `e2e function-output-read` |
+| `F0(EN := go, n := i, OUT => k);` | cannot draw: EN and ENO come together, the `AddEN` toggle off without an OEM setting. Kept |
+| `y := f(n := i).ENO`, no EN | cannot draw, as above. Kept |
+| `k := ADD(i, j, OUT => m)`, `x := GT(…, OUT => z)`, `k := MOVE(i, OUT => m)` | cannot draw: a plain operator holds `[null]`, no output cell, and an assignment over it is `k := ADD(i, j)`. MOVE always shows ENO. Kept |
+| `P2(…, OUT => k)`, `t2(…, OUT => k)` | cannot draw: its pins are the declared names. Kept |
+| `SUB(IN2 := i, IN1 := j)`, a pin out of place | cannot draw: an operator stores no pin names, `InputParams []`, EN alone where shown. Kept |
+| `ENO => z` | cannot draw: ENO's connector holds the null, `AllowSetOutput` false with EN shown. Kept |
+| `AND(EN := go, a, b).ENO;`, `y := GT(EN := go, i, j).ENO` | cannot draw: `OUT => ???` comes with the insert and an operator's output has `CanDelete` false; `???` does not build. Kept |
+| `t2(a, i);` | cannot draw: an FB's names come with the insert. Kept |
 
 ### What works
 
@@ -403,7 +470,8 @@ A pull refuses each stored state by the writer's name: `one output wired to two 
 | FB pins | `t2(a := a, n := i, q2 => k);`, in any order of the names | as named |
 | an edge, on a coil | `y := RISING(a);` or `y := RISING := a;` | once |
 | on a jump, a return | `JMP.l := RISING(a);`, `JMP.l := RISING := a;`, `RETURN := RISING(a);`, `RETURN := RISING := a;` | once |
-| on an output | `x := RISING(t2(a := a, n := i).q1);` | once |
+| on an output | `x := RISING := t2(a := a, n := i).q1;`, the editor's; `x := RISING(t2(a := a, n := i).q1);` | once |
+| a function's value and the output read | `y := F1(n := i, OUT => k, q3 => m).q;`, `F1(n := i, OUT => k).q;` | `k=6 m=7 y=TRUE` |
 | on a negated value | `RISING(NOT gf)`, `RISING(NOT t2(…).q1)` | once |
 
 ### Checked, runs as it reads
@@ -415,7 +483,7 @@ Not measured here: `F(EN := go, …, OUT => k);` past the first dialog, since th
 ## Not measured
 
 - A real extensible callee. The compiler's marker is `VarFlag.ImplicitParamsStruct`, and `PARAMS OF INT` parsed to a pin of type `ERROR`, so `ContainsExtensibleInputs` was set by hand only. The editor's own path through `SignatureAnalyzer` is read, not run.
-- Editor commands other than the insert (Update parameters, Remove unused pins, the EN/ENO toggle, Set output): read in the DLL, not driven.
+- Editor commands other than the insert, Edge Detection, Negation, Set/Reset and Set Output (Update parameters, Remove unused pins, a pin's delete): read in the DLL, not driven. The EN/ENO toggle is off without an OEM setting, its `Enabled` read false.
 - A METHOD or ACTION box: only as a wrong `CallType`.
 - A run with `go` false: EN gating is read from the structured code.
 - LD for the EN/ENO and member rows.
