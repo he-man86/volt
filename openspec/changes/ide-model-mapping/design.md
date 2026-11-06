@@ -134,9 +134,11 @@ parts inside its `()`, and the flow is each call's return.
   it as the operand text `???` (not null: null is an output with nothing drawn on it), and the IDE's build refuses it with
   `C0007 Expression expected instead of '?'` on its first `?`; the text keeps it and gives the same error, nothing is
   refused on push. On a jump's label it is a label no network holds, `C0117 No such label '???'` (assign-states#0496).
-  A slot past a FUNCTION's stored output names (lenze-mid's `[null,'???']` under names `[ENO]`) is drawn, compiled and run
-  as no slot, whatever it holds: `???` there has no text (lost-inert), a variable there is refused by name
-  (box-states#1099-1118).
+  A slot past a FUNCTION's or a PROGRAM's stored output names (lenze-mid's `[null,'???']` under names `[ENO]`) is drawn,
+  compiled and run as no slot, whatever it holds and whether a PROGRAM's box stores CallType Program or Function: `???`
+  there has no text (lost-inert), a variable there is refused by name (box-states#1099-1118, 1127-1132, 1138-1143). On an
+  FB the stored CallType decides: under FunctionBlock the slot builds and runs as none, under Function it is C0409 on the
+  slot's lazy variable (box-states#1133-1137, 1144-1148); not settled.
 - `INVERT` on a value that is not BOOL runs as the bitwise `NOT` (MOVE's value or pin, an FB's INT output). On a plain
   INT coil a mark on the value or the target is stored and not in the code, so it gets no text (lost-inert); only a
   mark on the line runs.

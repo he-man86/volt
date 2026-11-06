@@ -38,8 +38,8 @@ LD root `bmF2(EN := go, a := i, OUT => k);`: [null,'k','',''] / [null,'k',null,'
 FBD root `bmF2(a := i);`: [null,null,'',''] = [null,null,''] / [null,'',''] / ['','','']
 LD root `bmF2(a := i);`: [null,null,'',''] = [null,null,''] / [null,'',''] / ['','','']
 FBD root `bmFB2(a := a, n := i);`: [null,''] / [null,''] / [null,'']
-FBD root `bmP0(EN := go, a := a);`: [null,null] = [null] / []
-LD root `bmP0(EN := go, a := a);`: [null,null] = [null] / []
+FBD root `bmP0(EN := go, a := a);`: [null,null] = [null] = [null,'???'] / []
+LD root `bmP0(EN := go, a := a);`: [null,null] = [null] = [null,'???'] / []
 FBD root `bmP2(EN := go, a := a, n := i);`: [null,'',''] / [null,null,''] / [null,'',null] / [] / [null,''] = [null,''] eno=null
 LD root `bmP2(EN := go, a := a, n := i);`: [null,'',''] / [null,null,''] / [null,'',null] / []
 FBD root `bmP2(EN := go, a := a, n := i, q1 => ???);`: [null,'???',null,''] / [null,'???','']

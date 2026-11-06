@@ -786,7 +786,7 @@ public static class StNetworkWriter
             // An operator runs its pins by position, whatever their names say (live CODESYS 3.5.21.40, openspec nwl-box-storage-map).
             if (NetworkSpelling.IsOperator(signature) && NetworkSpelling.OperatorPinOutOfPlace(b.Type, b.Inputs.Select(i => i.Formal).ToList()) is { } pin)
                 throw Unspellable("an operator pin named out of place", $"the '{b.Type}' box holds its pin {pin} out of its place, and runs by position.");
-            // A slot past a FUNCTION's stored output names is no output (NetworkSpelling.PastStoredNames): an unmarked `???` there is
+            // A slot past a FUNCTION's or a PROGRAM's stored output names is no output (NetworkSpelling.PastStoredNames): an unmarked `???` there is
             // no text (lost-inert: an unchanged network keeps it); a variable is refused by name, since a rebuild would drop it with
             // no word.
             bool PastNames(Output o) => NetworkSpelling.PastStoredNames(b, signature, o);
@@ -818,8 +818,9 @@ public static class StNetworkWriter
                     args.Add(Received(OutputName(b, f, of, signature), of) + " => " + Target(o.Value));
                     continue;
                 }
-                // A slot past an FB's or a PROGRAM's names holding a variable is never written (live CODESYS 3.5.21.40). `???` there is
-                // not measured on an FB or a PROGRAM: the real project's (lenze-mid) are FUNCTION boxes, above.
+                // A slot past an FB's or a PROGRAM's names holding a variable is never written (live CODESYS 3.5.21.40). On an FB `???`
+                // there builds or not by the box's stored CallType, which this text does not hold (box-states 1133-1137, 1144-1148): not
+                // settled. A PROGRAM's past its stored names is above (NetworkSpelling.PastStoredNames).
                 if ((b.Instance is not null || signature is { Shape: CalleeShape.Program }) && o.Value.Text != Box.UnnamedInstance)
                     throw Unspellable("a variable on an output no declaration names", $"the '{b.Type}' box holds '{o.Value.Text}' on an output past its names.");
                 // Each `OUT =>` is the next unnamed output slot: ENO and the slot a consumer reads are skipped.

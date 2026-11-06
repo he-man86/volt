@@ -264,7 +264,7 @@ ASSIGN(w24, Q_RESET => db_CheckRegister.CheckRegisterError);
 %NETWORK "DONE NETWORK 38 (p4): Alarms dryer"
 ASSIGN(Alarms_V5_1_100(AlarmDB := Mach1_Alarms, iCond := Mach1_AuxData.IEC_TIMERS.TON_DryerSwitchedOff(IN := Mach1_AuxData.TrayfillerActive AND HMI_Var.Test_Prod AND INVERT(HMI_Var.Btn_DryerOn), PT := T#5S), iReset := Mach1.GenFlags.StartFlag, iAlm := Mach1_Alarms.Alm058, ioAction := Mach1.GenFlags.MinorAlarm), Q_SET => Mach1.GenFlags.StopDriveDirect);
 %NETWORK "TODO NETWORK 39: Analog setpoint feedforward dryer"
-SpeedCalculationDryer(EN := RAIL(), OUT => ???);
+SpeedCalculationDryer(EN := RAIL());
 %NETWORK "TODO NETWORK 40: Analog setpoint feedforward trayfiller"
 SpeedCalculationTrayfiller(EN := RAIL());
 %NETWORK "DONE NETWORK 41: Empty trayfiller"

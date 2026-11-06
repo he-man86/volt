@@ -147,10 +147,10 @@ public static class StNetworkOracle
                 Node? enable = null;
                 var enableFlags = b.EnableFlags;
                 if (b.Enable is { } en) (enable, enableFlags) = Placed(S(en), b.EnableFlags, item: false, fired);
-                // A FUNCTION's unmarked `???` past its stored output names is no output (box-states 1099-1118, lost-inert).
+                // A FUNCTION's or a PROGRAM's unmarked `???` past its stored output names is no output (box-states 1099-1118, 1127-1143, lost-inert).
                 var outputs = b.Outputs.Where(o => !(NetworkSpelling.PastStoredNames(b, NetworkSpelling.SignatureOf(b, scope), o)
                                                      && o.Value.Text == Box.UnnamedInstance && o.Value.Flags is null or { IsNone: true })).ToList();
-                if (outputs.Count != b.Outputs.Count) fired.Add("a function's ??? past its stored output names as no output");
+                if (outputs.Count != b.Outputs.Count) fired.Add("a function's or a program's ??? past its stored output names as no output");
                 // An FB box is the call of its instance (design "FB boxes: the instance is the call head"); a declared one
                 // carries its declaration's spelling of the type.
                 var type = b.Type;
