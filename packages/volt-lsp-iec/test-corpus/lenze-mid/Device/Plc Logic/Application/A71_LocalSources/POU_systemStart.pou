@@ -4,6 +4,6 @@ END_VAR
 
 %LANGUAGE LD
 %NETWORK
-LST_General.FirstCycle S= RAIL();
+ASSIGN(RAIL(), Q_SET => LST_General.FirstCycle);
 
 END_PROGRAM

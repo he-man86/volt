@@ -1,7 +1,8 @@
 /**
- * The network words (`network-words.ts`): what a plain-ST network body holds beyond ST — its `%` lines, the marks before a
- * receiver, `RAIL()` and the network's own boxes, the jump and the return as targets, the network's labels — coloured
- * (semantic tokens and `networkTokens`), offered (completion) and explained (hover), and never in a plain ST body.
+ * The network words (`network-words.ts`): what a plain-ST network body holds beyond ST — its `%` lines, `ASSIGN` and its
+ * outputs, the marks `INVERT`, `RISING`, `FALLING`, `RAIL()` and the network's own boxes, the jump and the return as
+ * targets, the network's labels — coloured (semantic tokens and `networkTokens`), offered (completion) and explained
+ * (hover), never resolved as symbols, and never in a plain ST body.
  */
 import { describe, expect, test } from "bun:test"
 import { parseSource } from "../../frontend/syntax/index.js"
@@ -19,19 +20,19 @@ END_VAR
 %NETWORK "first"
 %DISABLED
 l:
-NOT y := a;
-RISING NOT x := b;
-t1(RISING IN := a, PT := T#1S, NOT Q => c);
-MOVE(NOT EN := c, 1, OUT => n);
-x := RAIL();
-y := BRANCH(FEED := a, b, c);
-y := BRANCH_SHORTCIRCUIT(FEED := a, b, c);
+ASSIGN(a, Q_INVERTED => y);
+ASSIGN(INVERT(b), Q_SET => x, Q_RESET => y);
+t1(IN := RISING(a), PT := T#1S);
+MOVE(EN := INVERT(c), 1, OUT => n);
+ASSIGN(RAIL(), Q => x);
+ASSIGN(BRANCH(FEED := a, b, c), Q => y);
+ASSIGN(BRANCH_SHORTCIRCUIT(FEED := a, b, c), Q => y);
 EXECUTE(EN := a, 'n := n + 1;');
-x := RISING(a);
+ASSIGN(FALLING(a), Q => x);
 %NETWORK
 m:
-JMP.l := a;
-RETURN := RAIL();
+ASSIGN(a, Q => JMP.l);
+ASSIGN(RAIL(), Q => RETURN);
 `
 
 const PLAIN_ST = `PROGRAM Q
@@ -85,36 +86,37 @@ describe("semantic tokens of a network body", () => {
     expect(typeOf(src, '%UNSUPPORTED "a shape" #929f3675', "UNSUPPORTED")).toBe("keyword")
   })
 
-  test("a receiver's marks are keywords, stacked marks each, on a coil, a pin, EN and an output", () => {
-    expect(typeOf(NETWORK, "NOT y := a;", "NOT")).toBe("keyword")
-    expect(typeOf(NETWORK, "RISING NOT x := b;", "RISING")).toBe("keyword")
-    expect(typeOf(NETWORK, "RISING NOT x := b;", "NOT")).toBe("keyword")
-    expect(typeOf(NETWORK, "t1(RISING IN := a, PT := T#1S, NOT Q => c);", "RISING")).toBe("keyword")
-    expect(typeOf(NETWORK, "t1(RISING IN := a, PT := T#1S, NOT Q => c);", "NOT")).toBe("keyword")
-    expect(typeOf(NETWORK, "MOVE(NOT EN := c, 1, OUT => n);", "NOT")).toBe("keyword")
+  test("ASSIGN and the marks are functions, ASSIGN's outputs keywords: on a coil, a pin and EN", () => {
+    expect(typeOf(NETWORK, "ASSIGN(INVERT(b), Q_SET => x, Q_RESET => y);", "ASSIGN")).toBe("function")
+    expect(typeOf(NETWORK, "ASSIGN(INVERT(b), Q_SET => x, Q_RESET => y);", "INVERT")).toBe("function")
+    expect(typeOf(NETWORK, "ASSIGN(INVERT(b), Q_SET => x, Q_RESET => y);", "Q_SET")).toBe("keyword")
+    expect(typeOf(NETWORK, "ASSIGN(INVERT(b), Q_SET => x, Q_RESET => y);", "Q_RESET")).toBe("keyword")
+    expect(typeOf(NETWORK, "ASSIGN(a, Q_INVERTED => y);", "Q_INVERTED")).toBe("keyword")
+    expect(typeOf(NETWORK, "t1(IN := RISING(a), PT := T#1S);", "RISING")).toBe("function")
+    expect(typeOf(NETWORK, "MOVE(EN := INVERT(c), 1, OUT => n);", "INVERT")).toBe("function")
   })
 
   test("RAIL(), BRANCH, BRANCH_SHORTCIRCUIT, EXECUTE, OPERAND and a value's edge are functions", () => {
-    expect(typeOf(NETWORK, "x := RAIL();", "RAIL")).toBe("function")
-    expect(typeOf(NETWORK, "y := BRANCH(FEED := a, b, c);", "BRANCH")).toBe("function")
-    expect(typeOf(NETWORK, "y := BRANCH_SHORTCIRCUIT(FEED := a, b, c);", "BRANCH_SHORTCIRCUIT")).toBe("function")
+    expect(typeOf(NETWORK, "ASSIGN(RAIL(), Q => x);", "RAIL")).toBe("function")
+    expect(typeOf(NETWORK, "ASSIGN(BRANCH(FEED := a, b, c), Q => y);", "BRANCH")).toBe("function")
+    expect(typeOf(NETWORK, "ASSIGN(BRANCH_SHORTCIRCUIT(FEED := a, b, c), Q => y);", "BRANCH_SHORTCIRCUIT")).toBe("function")
     expect(typeOf(NETWORK, "EXECUTE(EN := a, 'n := n + 1;');", "EXECUTE")).toBe("function")
-    expect(typeOf(NETWORK, "x := RISING(a);", "RISING")).toBe("function")
-    const operand = NETWORK.replace("x := RAIL();", "x := OPERAND('a AND b');")
-    expect(typeOf(operand, "x := OPERAND('a AND b');", "OPERAND")).toBe("function")
+    expect(typeOf(NETWORK, "ASSIGN(FALLING(a), Q => x);", "FALLING")).toBe("function")
+    const operand = NETWORK.replace("ASSIGN(RAIL(), Q => x);", "ASSIGN(OPERAND('a AND b'), Q => x);")
+    expect(typeOf(operand, "ASSIGN(OPERAND('a AND b'), Q => x);", "OPERAND")).toBe("function")
   })
 
   test("JMP is a keyword and its label a label; RETURN as a target is a keyword; a network's label is a label", () => {
-    expect(typeOf(NETWORK, "JMP.l := a;", "JMP")).toBe("keyword")
-    expect(typeOf(NETWORK, "JMP.l := a;", "l")).toBe("label")
-    expect(typeOf(NETWORK, "RETURN := RAIL();", "RETURN")).toBe("keyword")
+    expect(typeOf(NETWORK, "ASSIGN(a, Q => JMP.l);", "JMP")).toBe("keyword")
+    expect(typeOf(NETWORK, "ASSIGN(a, Q => JMP.l);", "l")).toBe("label")
+    expect(typeOf(NETWORK, "ASSIGN(RAIL(), Q => RETURN);", "RETURN")).toBe("keyword")
     expect(typeOf(NETWORK, "l:", "l")).toBe("label")
     expect(typeOf(NETWORK, "m:", "m")).toBe("label")
   })
 
   test("the operands keep their own colour", () => {
-    expect(typeOf(NETWORK, "NOT y := a;", "y")).toBe("variable")
-    expect(typeOf(NETWORK, "x := RISING(a);", "a")).toBe("variable")
+    expect(typeOf(NETWORK, "ASSIGN(a, Q_INVERTED => y);", "y")).toBe("variable")
+    expect(typeOf(NETWORK, "ASSIGN(FALLING(a), Q => x);", "a")).toBe("variable")
   })
 
   test("in a plain ST body nothing is a network word: a name RAIL or RISING is the variable it is", () => {
@@ -131,10 +133,10 @@ describe("networkTokens — the classification the bundle exports", () => {
       const start = NETWORK.indexOf(from) + from.indexOf(word)
       return tokens.find((t) => t.start === start)
     }
-    expect(at("RAIL", "x := RAIL();")).toEqual({ start: NETWORK.indexOf("x := RAIL();") + 5, length: 4, kind: "function" })
-    expect(at("NOT", "NOT y := a;")?.kind).toBe("keyword")
-    expect(at("l", "JMP.l := a;")?.kind).toBe("label")
-    expect(at("y", "NOT y := a;")?.kind).toBe("variable")
+    expect(at("RAIL", "ASSIGN(RAIL(), Q => x);")).toEqual({ start: NETWORK.indexOf("ASSIGN(RAIL(), Q => x);") + 7, length: 4, kind: "function" })
+    expect(at("INVERT", "ASSIGN(INVERT(b), Q_SET => x, Q_RESET => y);")?.kind).toBe("function")
+    expect(at("l", "ASSIGN(a, Q => JMP.l);")?.kind).toBe("label")
+    expect(at("y", "ASSIGN(a, Q_INVERTED => y);")?.kind).toBe("variable")
     for (const t of tokens) expect(SEMANTIC_TOKEN_TYPES as readonly string[]).toContain(t.kind)
   })
 
@@ -151,27 +153,26 @@ describe("completion of the network words", () => {
     return completion(doc, project, offset).map((i) => i.label)
   }
 
-  test("before a receiver: the mark words", () => {
-    const labels = at(NETWORK.replace("NOT y := a;", "NOT y := a;\n|"), "|")
-    expect(labels).toEqual(expect.arrayContaining(["NOT", "RISING", "FALLING"]))
-    const pin = at(NETWORK.replace("PT := T#1S", "|PT := T#1S"), "|")
-    expect(pin).toEqual(expect.arrayContaining(["RISING", "FALLING"]))
+  test("where a value stands — a statement's start, a call's argument, a pin's value — ASSIGN, the marks, RAIL() and the boxes", () => {
+    const statement = at(NETWORK.replace("ASSIGN(a, Q_INVERTED => y);", "ASSIGN(a, Q_INVERTED => y);\n|"), "|")
+    expect(statement).toEqual(expect.arrayContaining(["ASSIGN", "INVERT", "RISING", "FALLING", "RAIL()", "BRANCH", "EXECUTE", "OPERAND"]))
+    const pin = at(NETWORK.replace("PT := T#1S", "PT := |T#1S"), "|")
+    expect(pin).toEqual(expect.arrayContaining(["INVERT", "RISING", "FALLING"]))
+    const value = at(NETWORK.replace("ASSIGN(RAIL(), Q => x);", "ASSIGN(|"), "|")
+    expect(value).toEqual(expect.arrayContaining(["RAIL()", "BRANCH", "BRANCH_SHORTCIRCUIT", "EXECUTE", "OPERAND", "INVERT"]))
+  })
+
+  test("in an ASSIGN's arguments past its value: its outputs", () => {
+    expect(at(NETWORK.replace("ASSIGN(a, Q_INVERTED => y);", "ASSIGN(a, |Q_INVERTED => y);"), "|")).toEqual(expect.arrayContaining(["Q", "Q_SET", "Q_RESET", "Q_INVERTED"]))
   })
 
   test("after JMP. only the labels of this body", () => {
-    expect(at(NETWORK.replace("JMP.l := a;", "JMP.| := a;"), "|").sort()).toEqual(["l", "m"])
-  })
-
-  test("where a value or a call can stand: RAIL() and the network's boxes", () => {
-    const value = at(NETWORK.replace("x := RAIL();", "x := |"), "|")
-    expect(value).toEqual(expect.arrayContaining(["RAIL()", "BRANCH", "BRANCH_SHORTCIRCUIT", "EXECUTE", "OPERAND"]))
-    const statement = at(NETWORK.replace("NOT y := a;", "NOT y := a;\n|"), "|")
-    expect(statement).toContain("EXECUTE")
+    expect(at(NETWORK.replace("ASSIGN(a, Q => JMP.l);", "ASSIGN(a, Q => JMP.|);"), "|").sort()).toEqual(["l", "m"])
   })
 
   test("never in a plain ST body", () => {
     const labels = at(PLAIN_ST.replace("x := NOT a;", "x := NOT a;\n|"), "|")
-    for (const w of ["RISING", "FALLING", "RAIL()", "BRANCH", "BRANCH_SHORTCIRCUIT", "EXECUTE", "OPERAND"]) expect(labels).not.toContain(w)
+    for (const w of ["ASSIGN", "INVERT", "RISING", "FALLING", "RAIL()", "BRANCH", "BRANCH_SHORTCIRCUIT", "EXECUTE", "OPERAND"]) expect(labels).not.toContain(w)
   })
 })
 
@@ -183,20 +184,20 @@ describe("hover on the network words: what each runs as, one line", () => {
   }
 
   test("RAIL() is the left rail", () => {
-    expect(hoverAt(NETWORK, "x := RAIL();", "RAIL")).toBe("the left rail: TRUE")
+    expect(hoverAt(NETWORK, "ASSIGN(RAIL(), Q => x);", "RAIL")).toBe("the left rail: TRUE")
   })
 
-  test("a mark names its receiver", () => {
-    expect(hoverAt(NETWORK, "t1(RISING IN := a", "RISING")).toBe("a rising-edge mark on the IN pin")
-    expect(hoverAt(NETWORK, "NOT Q => c", "NOT")).toBe("a negation mark on the output Q")
-    expect(hoverAt(NETWORK, "MOVE(NOT EN", "NOT")).toBe("a negation mark on EN")
-    expect(hoverAt(NETWORK, "NOT y := a;", "NOT")).toBe("a negation mark on the coil y")
+  test("a mark and an ASSIGN's output say what they run as", () => {
+    expect(hoverAt(NETWORK, "ASSIGN(INVERT(b)", "INVERT")).toBe("a negation of its value: NOT of it (bitwise on an integer)")
+    expect(hoverAt(NETWORK, "Q_SET => x", "Q_SET")).toBe("a set coil: the target is set TRUE while the value is TRUE")
+    expect(hoverAt(NETWORK, "Q_INVERTED => y", "Q_INVERTED")).toBe("a negated coil: the target receives NOT the value")
   })
 
   test("every other network word answers one line", () => {
     for (const [from, word] of [
-      ["%DISABLED", "DISABLED"], ['%NETWORK "first"', "NETWORK"], ["y := BRANCH(", "BRANCH"], ["BRANCH_SHORTCIRCUIT(", "BRANCH_SHORTCIRCUIT"],
-      ["EXECUTE(EN", "EXECUTE"], ["x := RISING(a)", "RISING"], ["JMP.l", "JMP"], ["JMP.l", "l"], ["RETURN := RAIL", "RETURN"], ["\nl:", "l"],
+      ["%DISABLED", "DISABLED"], ['%NETWORK "first"', "NETWORK"], ["ASSIGN(BRANCH(", "BRANCH"], ["BRANCH_SHORTCIRCUIT(", "BRANCH_SHORTCIRCUIT"],
+      ["EXECUTE(EN", "EXECUTE"], ["ASSIGN(FALLING(a)", "FALLING"], ["IN := RISING(a)", "RISING"], ["ASSIGN(a, Q_INVERTED", "ASSIGN"],
+      ["JMP.l", "JMP"], ["JMP.l", "l"], ["Q => RETURN", "RETURN"], ["\nl:", "l"],
     ] as const) {
       const text = hoverAt(NETWORK, from, word)
       expect([from, typeof text]).toEqual([from, "string"])
@@ -216,11 +217,9 @@ END_VAR
 %LANGUAGE LD
 %NETWORK
 l:
-y := x := RISING NOT := a;
-NOT JMP.l := c;
-NOT RETURN := b;
-y := COMMENT(a, 'why');
-NOT COMMENT(x, 'why') := c;
+ASSIGN(c, Q_INVERTED => JMP.l);
+ASSIGN(COMMENT(a, 'why'), Q => y);
+ASSIGN(c, Q_INVERTED => COMMENT(x, 'why'));
 t1(IN := COMMENT(b, 'in'), PT := T#1S, Q => COMMENT(y, 'out'));
 `
 
@@ -231,41 +230,39 @@ const hoverAt = (src: string, from: string, word: string) => {
   return (hover(doc, project, offsetOf(src, from, word))?.contents as { value: string } | undefined)?.value
 }
 
-test("the item's marks, a jump's and the return's marks are keywords, COMMENT a function", () => {
+test("COMMENT is a function, the operand it wraps the operand", () => {
   const kind = (from: string, word: string) => networkTokens(ITEMS).find((t) => t.start === offsetOf(ITEMS, from, word))?.kind
-  expect(kind("y := x := RISING NOT := a;", "RISING")).toBe("keyword")
-  expect(kind("y := x := RISING NOT := a;", "NOT")).toBe("keyword")
-  expect(kind("NOT JMP.l := c;", "NOT")).toBe("keyword")
-  expect(kind("NOT RETURN := b;", "NOT")).toBe("keyword")
-  expect(kind("y := COMMENT(a, 'why');", "COMMENT")).toBe("function")
-  expect(kind("y := COMMENT(a, 'why');", "a")).toBe("variable")
+  expect(kind("ASSIGN(COMMENT(a, 'why'), Q => y);", "COMMENT")).toBe("function")
+  expect(kind("ASSIGN(COMMENT(a, 'why'), Q => y);", "a")).toBe("variable")
+  expect(kind("ASSIGN(c, Q_INVERTED => JMP.l);", "Q_INVERTED")).toBe("keyword")
 })
 
-test("hover names what each mark stands on, and what COMMENT is", () => {
-  expect(hoverAt(ITEMS, "y := x := RISING NOT := a;", "NOT")).toBe("a negation mark on the assignment: the value every target receives")
-  expect(hoverAt(ITEMS, "y := x := RISING NOT := a;", "RISING")).toBe("a rising-edge mark on the assignment: the value every target receives")
-  expect(hoverAt(ITEMS, "NOT JMP.l := c;", "NOT")).toBe("a negation mark on the jump to l")
-  expect(hoverAt(ITEMS, "NOT RETURN := b;", "NOT")).toBe("a negation mark on the return")
-  expect(hoverAt(ITEMS, "NOT COMMENT(x, 'why') := c;", "NOT")).toBe("a negation mark on the coil x")
-  expect(hoverAt(ITEMS, "y := COMMENT(a, 'why');", "COMMENT")).toBe("an operand comment: the operand it wraps, the comment the engineer typed beside it")
+test("hover says what COMMENT is", () => {
+  expect(hoverAt(ITEMS, "ASSIGN(COMMENT(a, 'why'), Q => y);", "COMMENT")).toBe("an operand comment: the operand it wraps, the comment the engineer typed beside it")
 })
 
-test("COMMENT is offered where an operand stands: a value, a statement's start, an output's target", () => {
+test("COMMENT is offered where an operand stands: a value, a statement's start, an output's target, a pin", () => {
   const at = (src: string, marker: string) => {
     const offset = src.indexOf(marker)
     const { doc, project } = setup(src.replace(marker, ""))
     return completion(doc, project, offset).map((i) => i.label)
   }
-  expect(at(ITEMS.replace("y := COMMENT(a, 'why');", "y := |"), "|")).toEqual(expect.arrayContaining(["COMMENT", "RISING", "FALLING"]))
-  expect(at(ITEMS.replace("NOT RETURN := b;", "NOT RETURN := b;\n|"), "|")).toEqual(expect.arrayContaining(["COMMENT", "RAIL()", "BRANCH"]))
+  expect(at(ITEMS.replace("ASSIGN(COMMENT(a, 'why'), Q => y);", "ASSIGN(|"), "|")).toEqual(expect.arrayContaining(["COMMENT", "RISING", "FALLING"]))
+  expect(at(ITEMS.replace("ASSIGN(c, Q_INVERTED => JMP.l);", "ASSIGN(c, Q_INVERTED => JMP.l);\n|"), "|")).toEqual(expect.arrayContaining(["COMMENT", "RAIL()", "BRANCH"]))
   expect(at(ITEMS.replace("Q => COMMENT(y, 'out')", "Q => |"), "|")).toContain("COMMENT")
-  expect(at(ITEMS.replace("IN := COMMENT(b, 'in')", "IN := |"), "|")).not.toContain("RISING")
+  expect(at(ITEMS.replace("IN := COMMENT(b, 'in')", "IN := |"), "|")).toEqual(expect.arrayContaining(["COMMENT", "INVERT", "RISING"]))
 })
 
 test("the operand a comment wraps navigates as the operand: its definition, its every occurrence", () => {
   const { doc, project } = setup(ITEMS)
-  const def = definition(doc, project, offsetOf(ITEMS, "y := COMMENT(a, 'why');", "a,"))
+  const def = definition(doc, project, offsetOf(ITEMS, "ASSIGN(COMMENT(a, 'why')", "a,"))
   expect(def?.range.start.line).toBe(2)
-  const highlights = documentHighlights(doc, project, offsetOf(ITEMS, "NOT COMMENT(x, 'why')", "x,")) ?? []
-  expect(highlights.map((r) => ITEMS.split("\n")[r.start.line]!.slice(r.start.character, r.end.character))).toEqual(["x", "x", "x"])
+  const highlights = documentHighlights(doc, project, offsetOf(ITEMS, "COMMENT(x, 'why')", "x,")) ?? []
+  expect(highlights.map((r) => ITEMS.split("\n")[r.start.line]!.slice(r.start.character, r.end.character))).toEqual(["x", "x"])
+})
+
+test("INVERT, RISING, FALLING and ASSIGN are no symbols: navigation finds nothing, and nothing is undefined", () => {
+  const { doc, project } = setup(NETWORK)
+  for (const [from, word] of [["ASSIGN(INVERT(b)", "ASSIGN"], ["ASSIGN(INVERT(b)", "INVERT"], ["IN := RISING(a)", "RISING"], ["Q_SET => x", "Q_SET"]] as const)
+    expect([word, definition(doc, project, offsetOf(NETWORK, from, word))]).toEqual([word, undefined])
 })

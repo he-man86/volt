@@ -255,5 +255,5 @@ function rootInstance(lw: Lowering, unit: Extract<TopLevel, { kind: "function_bl
 
 /** The POU's own body refused (`bodyOf`): a POU with no IR, the refusal its one diagnostic. */
 function refusedBody(lowering: Lowering, unit: TopLevel, refusal: BodyRefusal): LoweredPou {
-  return { diagnostics: [lowerDiagnostic(refusal.code, refusal.message, unit.span, lowering.uri)] }
+  return { diagnostics: [lowerDiagnostic(refusal.code, refusal.message, refusal.span ?? unit.span, lowering.uri)] }
 }

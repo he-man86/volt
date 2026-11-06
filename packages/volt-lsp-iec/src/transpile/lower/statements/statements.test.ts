@@ -53,13 +53,13 @@ describe("lower — JMP and labels", () => {
 
   test("a network body jumps across its networks (`nt_jmp_over_network`, `nt_coil_written_before_jump`, `nt_return_on_value`)", () => {
     const net = (body: string, vars: string) => `PROGRAM P\nVAR\n${vars}\nEND_VAR\n%LANGUAGE LD\n${body}\nEND_PROGRAM\n`
-    const over = run(ir(net("%NETWORK\nJMP.skip := a;\n%NETWORK\nx := TRUE;\n%NETWORK\nskip:\ny := TRUE;\n%NETWORK\nJMP.skip2 := b;\n%NETWORK\nz := TRUE;\n%NETWORK\nskip2:\nw := TRUE;", "a : BOOL := TRUE; b : BOOL; x : BOOL; y : BOOL; z : BOOL; w : BOOL;"), "P"))
+    const over = run(ir(net("%NETWORK\nASSIGN(a, Q => JMP.skip);\n%NETWORK\nASSIGN(TRUE, Q => x);\n%NETWORK\nskip:\nASSIGN(TRUE, Q => y);\n%NETWORK\nASSIGN(b, Q => JMP.skip2);\n%NETWORK\nASSIGN(TRUE, Q => z);\n%NETWORK\nskip2:\nASSIGN(TRUE, Q => w);", "a : BOOL := TRUE; b : BOOL; x : BOOL; y : BOOL; z : BOOL; w : BOOL;"), "P"))
     over.scan()
     expect(["x", "y", "z", "w"].map((v) => over.get(v))).toEqual([false, true, true, true])
-    const coil = run(ir(net("%NETWORK\ny := JMP.skip := a;\n%NETWORK\nx := TRUE;\n%NETWORK\nskip:\nz := TRUE;", "a : BOOL := TRUE; y : BOOL; x : BOOL; z : BOOL;"), "P"))
+    const coil = run(ir(net("%NETWORK\nASSIGN(a, Q => y, Q => JMP.skip);\n%NETWORK\nASSIGN(TRUE, Q => x);\n%NETWORK\nskip:\nASSIGN(TRUE, Q => z);", "a : BOOL := TRUE; y : BOOL; x : BOOL; z : BOOL;"), "P"))
     coil.scan()
     expect(["y", "x", "z"].map((v) => coil.get(v))).toEqual([true, false, true])
-    const ret = run(ir(net("%NETWORK\ny := TRUE;\n%NETWORK\nRETURN := a;\n%NETWORK\nx := TRUE;", "a : BOOL := TRUE; y : BOOL; x : BOOL;"), "P"))
+    const ret = run(ir(net("%NETWORK\nASSIGN(TRUE, Q => y);\n%NETWORK\nASSIGN(a, Q => RETURN);\n%NETWORK\nASSIGN(TRUE, Q => x);", "a : BOOL := TRUE; y : BOOL; x : BOOL;"), "P"))
     ret.scan()
     expect(["y", "x"].map((v) => ret.get(v))).toEqual([true, false])
   })

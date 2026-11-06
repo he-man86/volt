@@ -1,41 +1,33 @@
 /**
- * A PLAIN-ST NETWORK BODY AS THE ST STATEMENTS IT RUNS AS (openspec network-text-lowering; the spelling is
- * `docs/network-text.html`'s): every box by its rule (`boxes.ts`), the network's own elements here —
+ * A PLAIN-ST NETWORK BODY AS THE ST STATEMENTS IT RUNS AS (openspec network-text-lowering, network-language "What it runs
+ * as"): every box by its rule (`boxes.ts`), the network's own elements here —
  *
- *   `EXECUTE(EN := e, '<ST>')`                `IF e THEN <its ST> END_IF`; read where it stands, its ENO, which is its EN;
- *   `BRANCH(FEED := f, b1, b2)`               `f AND (b1 OR b2)`: every branch runs;
- *   `BRANCH_SHORTCIRCUIT(FEED := f, b1, b2)`  a branch holding a box runs, with the calls it reads, unless the feed and a
- *                                             box-free branch are both TRUE: `IF NOT (f AND free) THEN … END_IF`;
- *   `RISING(x)`, `FALLING(x)`                 an `R_TRIG` / `F_TRIG` called with x where its tree is evaluated, read by Q;
- *   `RAIL()`                                  `TRUE`;
- *   `NOT y := x := a`                         every target receives the power flow, the first its mark applied:
- *                                             `x := a; y := NOT a` (`RISING y`, `FALLING y`: a coil's edge runs as a
- *                                             plain coil, measured, network-text-st 1.3);
- *   `y := x := RISING := a`                   the item's marks mark the value every target receives, negation first;
- *   `a;`, `NOT t1(…);`, `RAIL();`             a value standing alone: a box runs, its marks of no effect; else nothing;
- *   `COMMENT(a, 'why')`                       `a` (the front-end reads the operand it wraps);
- *   `JMP.l := v`, `RETURN := v`               `IF v THEN JMP l; END_IF` / `IF v THEN RETURN; END_IF` (`NOT JMP.l`: on NOT v); beside coils
- *                                             (`y := JMP.l := v`) the value held in a temp, the coils written, then the
- *                                             jump; in a tree its value held in a temp, the jump taken where the tree is
- *                                             evaluated;
- *   a wire                                    a variable of its definition's type kept across scans — read before its
- *                                             definition, the previous scan's value (scan 1: the recording,
- *                                             `nt_wire_read_before_definition_scan*`);
- *   a `%DISABLED` network                     nothing: CODESYS compiles none of it (its code is no statement).
+ *   `EXECUTE(EN := e, '<ST>')`               `IF e THEN <its ST> END_IF`; read where it stands, its ENO, which is its EN;
+ *   `BRANCH(FEED := f, b1, b2)`              `f AND (b1 OR b2)`; `BRANCH_SHORTCIRCUIT` runs a branch holding a box, with
+ *                                            the calls it reads, unless the feed and a box-free branch are both TRUE;
+ *   `RISING(x)`, `FALLING(x)`, `INVERT(x)`   an `R_TRIG` / `F_TRIG` called where its tree is evaluated, read by Q; `NOT x`
+ *                                            (bitwise on an integer); stacked, innermost first. `RAIL()` is `TRUE`;
+ *   `ASSIGN(v, Q => x, Q_SET => y)`          every target receives v in list order, each its own mark (`Q_RESET` the reset,
+ *                                            `Q_INVERTED` NOT v); in a tree v held in a temp, written, handed on;
+ *   `Q => JMP.l`, `Q => RETURN`              `IF v THEN JMP l; END_IF` / `IF v THEN RETURN; END_IF` (`Q_INVERTED`: on NOT v),
+ *                                            after the coils of its ASSIGN; in a tree, taken where the tree is evaluated;
+ *   a value standing alone                   a box runs, what it hands on read by nothing; anything else runs nothing;
+ *   a wire                                   a variable of its definition's type kept across scans — read before its
+ *                                            definition, the previous scan's value (`nt_wire_read_before_definition_scan*`);
+ *   a `%DISABLED` network                    nothing: CODESYS compiles none of it.
  *
- * Everything else — contacts, coils, `S=`/`R=`, labels — is ST as it stands. The hidden state (wires,
- * ENO temps, edge detectors) is named `__nw<N>_<wire>`, `__nw<N>_eno<k>`, `__nw<N>_trig<k>` (`<N>` the network's 1-based
- * index in the body) behind `prefix`; the lowering declares it (`state.ts`). A box no rule writes is refused by name
- * (`NetworkRefusal`).
+ * The hidden state (wires, temps, edge detectors) is named `__nw<N>_<wire>`, `__nw<N>_eno<k>`, `__nw<N>_trig<k>` (`<N>` the
+ * network's 1-based index in the body) behind `prefix`; the lowering declares it (`state.ts`). Text the network check
+ * refuses (a mark word, a retired form) and a box no rule writes are refused by name (`NetworkRefusal`).
  */
-import { type BodySpan, type CallExpr, emptyPinMessage, type Expr, plainStText, type PlainStNetwork, type Span, type Statement, stmtExprs, walkExpr } from "../../../frontend/syntax/index.js"
+import { type BodySpan, type CallExpr, emptyPinMessage, type Expr, plainStText, type PlainStNetwork, retiredForms, type Span, type Statement, stmtExprs, walkExpr } from "../../../frontend/syntax/index.js"
 import { lookup, type Scope } from "../../../frontend/symbols/index.js"
 import { boxMember, elementaryRef, inferExprType, rootBox, type Type } from "../../../frontend/types/index.js"
-import { assign, binary, bool, call, ident, ifThen, member, NetworkRefusal, NOT_COMPILED, not } from "./ast.js"
-import { BoxLowerer, COMPARISON, isInfix } from "./boxes.js"
+import { assign, binary, bool, call, ident, ifThen, member, NetworkRefusal, not } from "./ast.js"
+import { BoxLowerer, coilWrite, COMPARISON, isInfix } from "./boxes.js"
 import { guardedCalls, guardedReadBy } from "./guarded.js"
 
-/** A variable the lowered network keeps: a wire or ENO temp (`type`), or an edge detector (`fb`). */
+/** A variable the lowered network keeps: a wire or a temp (`type`), or an edge detector (`fb`). */
 export type HiddenVar = { name: string; span: Span } & ({ type: Type } | { fb: "R_TRIG" | "F_TRIG" })
 
 export interface LoweredNetworks {
@@ -46,19 +38,24 @@ export interface LoweredNetworks {
 /** The ST statements `statements` (the body's, as compiled) run as, and the variables they keep. */
 export function lowerNetworks(body: BodySpan, statements: readonly Statement[], scope: Scope, project: Scope, prefix: string): LoweredNetworks {
   const text = plainStText(body)
+  // text that is no network text (a mark word, a `%` key the form does not have) runs as nothing the push writes
+  const [stray] = text.stray
+  if (stray !== undefined) throw new NetworkRefusal(stray.message, undefined, stray.span)
   const executes = text.networks.flatMap((n) => n.executes)
   const code = statements.filter((s) => !executes.some((x) => s.span.start >= x.code.start && s.span.start < x.code.end))
-  // a marked output has no measured run; a pin with no value is no network text
-  for (const s of code)
+  const wires = new Set(text.networks.flatMap((n) => n.wires.map((w) => w.name.toLowerCase())))
+  // a retired form is no network text; a pin with no value is none either
+  for (const s of code) {
+    const [retired] = retiredForms(s, wires)
+    if (retired !== undefined) throw new NetworkRefusal(retired.message, undefined, retired.span)
     for (const e of stmtExprs(s))
       walkExpr(e, (x) => {
-        const marked = x.kind === "call" ? x.args.find((a) => a.output && a.marks !== undefined) : undefined
-        if (marked !== undefined) throw new NetworkRefusal(`the mark on the output ${marked.param?.name ?? ""}: how a marked output runs is unmeasured`)
         const empty = x.kind === "call" ? x.args.map(emptyPinMessage).find((m) => m !== undefined) : undefined
         if (empty !== undefined) throw new NetworkRefusal(empty)
       })
+  }
   const n = new Networker(body, scope, project, prefix, statements, code)
-  // the items a jump or a return after them shares the value of (`y := JMP.l := v;`)
+  // the items a jump or a return after them shares the value of (`ASSIGN(v, Q => y, Q => JMP.l)`)
   code.forEach((s, i) => {
     const next = code[i + 1]
     if ((next?.kind === "jmp" || next?.kind === "return") && next.sharesValue === true && !((s.kind === "jmp" || s.kind === "return") && s.sharesValue === true))
@@ -122,7 +119,7 @@ class Networker extends BoxLowerer {
     for (const net of plainStText(this.body).networks)
       for (const w of net.wires) {
         const type = inferExprType({ kind: "ident_expr", name: w.name.toLowerCase(), span: w.span }, this.scope, this.project)
-        if (type.kind === "unknown") throw new NetworkRefusal(`the wire ${w.name.toLowerCase()} has no type lowering can declare`)
+        if (type.kind === "unknown") throw new NetworkRefusal(`the wire ${w.name.toLowerCase()} has no type lowering can declare`, undefined, w.span)
         out.push({ name: this.wires.get(net.index)!.get(w.name.toLowerCase())!, span: w.span, type })
       }
     return [...out, ...this.temps]
@@ -136,66 +133,72 @@ class Networker extends BoxLowerer {
   }
 
   protected temp(span: Span): Expr {
+    return this.typedTemp(span, elementaryRef("BOOL"))
+  }
+
+  protected typedTemp(span: Span, type: Type): Expr {
     const name = `${this.at(this.network!)}eno${++this.count().eno}`
-    this.temps.push({ name, span, type: elementaryRef("BOOL") })
+    this.temps.push({ name, span, type })
     return ident(name, span)
+  }
+
+  /** A temp of `value`'s type (`e` the expression it was lowered from). */
+  private valueTemp(e: Expr, span: Span): Expr {
+    const type = inferExprType(e, this.scope, this.project)
+    if (type.kind === "unknown") throw new NetworkRefusal(`the value of ${this.text(e.span)} has no type lowering can declare`)
+    return this.typedTemp(span, type)
   }
 
   statement(s: Statement): Statement[] {
     const pre: Statement[] = []
     switch (s.kind) {
       case "assign": {
-        // an enabled box other than a comparison, the assignment's whole value: the assignment runs only when enabled, and
-        // its targets hold when disabled (1.4)
-        const box = s.value.kind === "call" ? this.box(s.value) : undefined
-        const first = s.marks?.[0]
-        this.refuseCoilEdge(first)
+        const targets = [s.target, ...(s.chained ?? [])]
+        const ops = [s.op, ...(s.chainOps ?? [])]
+        const marked = s.marks?.some((m) => m !== undefined) === true
+        // an enabled box other than a comparison read by its value, the assignment's whole value: the assignment runs only
+        // when enabled, and its targets hold when disabled (1.4)
+        const read = s.value.kind === "member" && s.value.base.kind === "call" ? boxMember(s.value, this.scope, this.project) : undefined
+        const box = read !== undefined && !read.eno && read.name.toUpperCase() === "OUT" ? read.box : undefined
         if (box !== undefined && box.instance === undefined && box.enable !== undefined && !COMPARISON.has(this.name(box).toUpperCase())) {
-          if (first !== undefined || s.itemMarks !== undefined || this.sharing.has(s))
-            throw new NetworkRefusal(`the enabled ${this.name(box)} box's value with a marked coil or a jump on it`)
+          this.refuseMisleading(box, { consumed: true, member: read!.name })
+          if (marked || this.sharing.has(s)) throw new NetworkRefusal(`the enabled ${this.name(box)} box's value with a marked coil or a jump on it`)
           const cond = this.pin(box.enable, pre)
           const value = this.boxValue(box, box.pins.filter((a) => !a.output), pre)
           return [...pre, ifThen(cond, [this.assign(s, value, pre)], [], s.span)]
         }
-        // the item's marks mark the value every target receives (`y := x := NOT := a`)
-        let value = this.marked(s.itemMarks, this.expr(s.value, pre), s.span, pre)
-        if (first !== undefined || this.sharing.has(s)) {
-          const t = this.temp(s.span)
+        let value = this.expr(s.value, pre)
+        if (marked || this.sharing.has(s)) {
+          const t = this.valueTemp(s.value, s.span)
           pre.push(assign(t, value, s.span))
           value = t
           if (this.sharing.has(s)) this.shared = t
         }
-        if (first === undefined) return [...pre, this.assign(s, value, pre)]
-        // every target receives the power flow, the first its own mark applied
-        const [next, ...rest] = s.chained ?? []
-        const restOps = (s.chainOps ?? []).slice(1)
-        const others: Statement[] = next === undefined ? [] : [this.assign({
-          kind: "assign", target: next, value: s.value, span: s.span,
-          ...(s.chainOps?.[0] !== undefined ? { op: s.chainOps[0] } : {}),
-          ...(rest.length > 0 ? { chained: rest, chainOps: restOps } : {}),
-        }, value, pre)]
-        const marked: Statement = {
-          kind: "assign", target: this.expr(s.target, pre), value: first.includes("NOT") ? not(value, s.span) : value, span: s.span,
-          ...(s.op !== undefined ? { op: s.op } : {}),
-        }
-        return [...pre, ...others, marked]
+        if (!marked) return [...pre, this.assign(s, value, pre)]
+        // every target receives the value, in list order, each its own mark
+        const writes = targets.map((t, i) => {
+          const target = this.expr(t, pre)
+          if (s.marks?.[i]?.includes("NOT") === true) return coilWrite("NOT", target, value, s.span)
+          const op = ops[i]
+          return op === "S=" || op === "R=" ? coilWrite(op, target, value, s.span) : assign(target, value, s.span)
+        })
+        return [...pre, ...writes]
       }
       case "call_stmt":
       case "expr_stmt": {
-        // a value standing alone: a box consumed by nothing runs, its ENO read by nobody, the marks around it of no effect;
-        // any other value — an operand, contacts, a branch, the rail — is evaluated, what it runs kept, its value unread
+        // a value standing alone: a box consumed by nothing runs, its flow read by nobody, the marks around it of no
+        // effect; any other value — an operand, contacts, a branch, the rail — is evaluated, what it runs kept, its value
+        // unread
         const value = s.kind === "call_stmt" ? s.call : s.expr
         const root = rootBox(value)
         if (root === undefined) {
           this.expr(value, pre)
           return pre
         }
-        // closed by its shown ENO (an Execute box's is its one output), by its main slot's name, which runs as the call, or by nothing
         const execute = this.text(root.call.callee.span).toUpperCase() === "EXECUTE"
-        const closer = root.member === undefined || execute ? undefined : boxMember(root.member, this.scope, this.project)
-        if (root.member !== undefined && !execute && closer === undefined)
+        if (root.member !== undefined && !execute && boxMember(root.member, this.scope, this.project) === undefined)
           throw new NetworkRefusal(`the statement ${this.text(s.span)} in a network`)
-        return this.callStatement(root.call, closer?.eno === true, pre)
+        return this.callStatement(root.call, root.member?.member.name, pre)
       }
       case "empty":
         return []
@@ -204,10 +207,6 @@ class Networker extends BoxLowerer {
         return this.jumpStatement(s, pre)
       case "label":
         return [s]
-      case "if": {
-        const branch = s.branches[0]!
-        return [...pre, ifThen(this.expr(branch.cond, pre), [branch.body[0]!], [], s.span)]
-      }
       default:
         throw new NetworkRefusal(`a ${s.kind} statement in a network`)
     }
@@ -222,7 +221,7 @@ class Networker extends BoxLowerer {
       return [ifThen(this.jumpCond(s.marks, this.shared, s.span), [jump], [], s.span)]
     }
     if (s.value === undefined) return [s]
-    let cond = this.marked(s.itemMarks, this.expr(s.value, pre), s.span, pre)
+    let cond = this.expr(s.value, pre)
     if (this.sharing.has(s)) {
       const t = this.temp(s.span)
       pre.push(assign(t, cond, s.span))
@@ -233,35 +232,39 @@ class Networker extends BoxLowerer {
 
   /** `targets := value;`, the targets as the assignment spells them. */
   private assign(s: Extract<Statement, { kind: "assign" }>, value: Expr, pre: Statement[]): Statement {
-    return { ...s, target: this.expr(s.target, pre), ...(s.chained === undefined ? {} : { chained: s.chained.map((x) => this.expr(x, pre)) }), value }
+    const { assignHead: _head, marks: _marks, ...plain } = s
+    return { ...plain, target: this.expr(s.target, pre), ...(s.chained === undefined ? {} : { chained: s.chained.map((x) => this.expr(x, pre)) }), value }
   }
 
-  /** A box standing as a statement (`eno`: closed by `.ENO`): its outputs written, its ENO read by nobody. */
-  private callStatement(c: CallExpr, eno: boolean, pre: Statement[]): Statement[] {
+  /** A box standing as a statement (`member` the one closing its call): it runs, its flow read by nobody. */
+  private callStatement(c: CallExpr, closer: string | undefined, pre: Statement[]): Statement[] {
     const head = c.callee.kind === "ident_expr" ? c.callee.name.toUpperCase() : undefined
     if (head === "EXECUTE") {
+      if (closer !== undefined) throw new NetworkRefusal(`the Execute box is closed by .${closer}: its one output is its ENO, which flows on with no member`)
       const { cond, st } = this.execute(c, pre)
       return [...pre, ifThen(cond, st, [], c.span)]
     }
     const box = this.box(c)
     if (box === undefined) return [...pre, { kind: "call_stmt", call: this.callOf(c, c.args, pre), span: c.span }]
-    this.refuseMisleading(box, { eno, consumed: false, member: undefined })
+    this.refuseMisleading(box, { consumed: false, member: closer })
     if (box.instance !== undefined) {
-      this.fb(box, false, undefined, pre) // a root's ENO is read by nothing: with no EN it runs as the plain call (live CODESYS 3.5.21.40)
+      this.fb(box, false, undefined, pre) // a root's flow is read by nothing: with no EN it runs as the plain call (live CODESYS 3.5.21.40)
       return pre
     }
     if (box.enable !== undefined) {
-      this.enabled(box, pre, false, eno)
+      this.enabled(box, pre, false)
       return pre
     }
-    if (eno) throw new NetworkRefusal(`the ${this.name(box)} box at a root shows ENO without EN, which CODESYS does not compile`, NOT_COMPILED)
     const result = box.pins.find((a) => a.output && a.param?.name.toUpperCase() === "OUT")
     if (result !== undefined) {
-      const value = this.boxValue(box, box.pins.filter((a) => a !== result), pre)
-      return [...pre, assign(this.expr(result.value!, pre), value, c.span)]
+      const marked = this.markedOutputs(box, box.pins.filter((a) => a !== result), pre)
+      const value = this.plainValue(box, marked.args, pre)
+      const target = this.expr(result.value!, pre)
+      return [...pre, result.coil === undefined ? assign(target, value, c.span) : coilWrite(result.coil, target, value, c.span), ...marked.post]
     }
     if (isInfix(this.name(box))) return []
-    return [...pre, { kind: "call_stmt", call: this.callOf(box.st, box.pins, pre), span: c.span }]
+    const marked = this.markedOutputs(box, box.pins, pre)
+    return [...pre, { kind: "call_stmt", call: this.callOf(box.st, marked.args, pre), span: c.span }, ...marked.post]
   }
 
   /** The Execute box: its EN and its ST, the statements its CODE string holds (they follow the box's statement). */
@@ -309,16 +312,25 @@ class Networker extends BoxLowerer {
     return binary("AND", f, any(values), span)
   }
 
-  /** `(JMP.l := v)` / `(RETURN := v)` in a tree (read as the call `JMP(l, v)` / `RETURN(v)`): the value in a temp, the
-   *  jump taken on it, the temp handed on. */
+  /** A jump or the return in a tree (an ASSIGN's target, read as the call `JMP(l, v)` / `RETURN(v)`): the value in a temp,
+   *  the jump taken on it (its own mark applied), the temp handed on. */
   private control(c: CallExpr, upper: string, pre: Statement[]): Expr {
-    if (c.marks !== undefined || c.itemMarks !== undefined)
-      throw new NetworkRefusal(`the marked jump ${this.text(c.span)} in a tree: what a marked jump hands on is unmeasured`)
     const t = this.temp(c.span)
     const value = this.expr(c.args.at(-1)!.value!, pre)
     pre.push(assign(t, value, c.span))
     const jump: Statement = upper === "JMP" ? { kind: "jmp", target: c.args[0]!.value!, span: c.span } : { kind: "return", span: c.span }
-    pre.push(ifThen(t, [jump], [], c.span))
+    pre.push(ifThen(this.jumpCond(c.marks, t, c.span), [jump], [], c.span))
+    return t
+  }
+
+  /** A coil in a tree (an ASSIGN's target): the value in a temp, the target written with its own mark, the temp handed
+   *  on — the value the coil receives, unmarked. */
+  private coil(e: Extract<Expr, { kind: "assign_expr" }>, pre: Statement[]): Expr {
+    const value = this.expr(e.value, pre)
+    const t = this.valueTemp(e.value, e.span)
+    pre.push(assign(t, value, e.span))
+    const target = this.expr(e.target, pre)
+    pre.push(e.marks?.includes("NOT") === true ? coilWrite("NOT", target, t, e.span) : e.op !== undefined ? coilWrite(e.op, target, t, e.span) : assign(target, t, e.span))
     return t
   }
 
@@ -334,21 +346,9 @@ class Networker extends BoxLowerer {
     return member(ident(name, span), "Q", span)
   }
 
-  /** A value under the assignment item's marks (`y := NOT := a`, `y := RISING := a`). */
-  private marked(marks: readonly string[] | undefined, value: Expr, span: Span, pre: Statement[]): Expr {
-    if (marks === undefined) return value
-    this.refuseStackedMarks(marks)
-    const negated = marks.includes("NOT") ? not(value, span) : value
-    const edge = marks.find((m) => m === "RISING" || m === "FALLING")
-    return edge === undefined ? negated : this.edgeOf(edge === "RISING", negated, span, pre)
-  }
-
-  /** A jump's or the return's condition under its own marks: `NOT JMP.l := a` jumps when NOT a; an edge on a jump has no
-   *  measured run. */
+  /** A jump's or the return's condition under its own mark: `Q_INVERTED => JMP.l` jumps when NOT the value. */
   private jumpCond(marks: readonly string[] | undefined, cond: Expr, span: Span): Expr {
-    if (marks === undefined) return cond
-    if (marks.some((m) => m !== "NOT")) throw new NetworkRefusal(`the edge mark on the jump ${this.text(span)}: how a jump's edge runs is unmeasured`)
-    return not(cond, span)
+    return marks?.includes("NOT") === true ? not(cond, span) : cond
   }
 
   override expr(e: Expr, pre: Statement[]): Expr {
@@ -358,8 +358,6 @@ class Networker extends BoxLowerer {
         return wire === undefined ? e : ident(wire, e.span)
       }
       case "member": {
-        // the Execute box's `.ENO` is the box read where it stands, its ENO (F13)
-        if (e.base.kind === "call" && e.base.callee.kind === "ident_expr" && e.base.callee.name.toUpperCase() === "EXECUTE" && e.member.name.toUpperCase() === "ENO") return this.expr(e.base, pre)
         const m = e.base.kind === "call" ? boxMember(e, this.scope, this.project) : undefined
         if (m !== undefined) return this.boxRead(m.box, m.name, pre)
         return { ...e, base: this.expr(e.base, pre) }
@@ -377,6 +375,8 @@ class Networker extends BoxLowerer {
           pre.push(assign(eno, cond, e.span), ifThen(eno, st, [], e.span))
           return eno
         }
+        if ((upper === "ASSIGN" || upper === "INVERT") && lookup(this.scope, head!) === undefined)
+          throw new NetworkRefusal(`the call ${this.text(e.span)} is no ${upper} the text has`)
         const box = this.box(e)
         if (box !== undefined) return this.boxRead(box, undefined, pre)
         return this.callOf(e, e.args, pre)
@@ -388,9 +388,7 @@ class Networker extends BoxLowerer {
       case "paren":
         return { ...e, inner: this.expr(e.inner, pre) }
       case "assign_expr":
-        if (e.itemMarks !== undefined)
-          throw new NetworkRefusal(`the marked assignment ${this.text(e.span)} in a tree: what it hands on is unmeasured`)
-        return { ...e, target: this.expr(e.target, pre), value: this.expr(e.value, pre) }
+        return this.coil(e, pre)
       case "index":
         return { ...e, base: this.expr(e.base, pre), indices: e.indices.map((i) => this.expr(i, pre)) }
       case "deref":

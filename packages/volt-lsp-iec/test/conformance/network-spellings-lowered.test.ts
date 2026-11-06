@@ -19,41 +19,41 @@ const net = `PROGRAM P_Net
 ${inputs}${outputs}%LANGUAGE LD
 %NETWORK
 VAR w1 : ANY; END_VAR
-x6 := a AND w1;
+ASSIGN(a AND w1, Q => x6);
 w1 := b OR c;
-x7 := w1;
+ASSIGN(w1, Q => x7);
 %NETWORK
-y1 := MOVE(EN := c, i);
+ASSIGN(MOVE(EN := c, i).OUT, Q => y1);
 %NETWORK
 MOVE(EN := d, j, OUT => y2);
 %NETWORK
-x1 := a AND GT(EN := c, i, 3);
+ASSIGN(a AND GT(EN := c, i, 3).OUT, Q => x1);
 %NETWORK
-x3 := c1(EN := c, CU := a, PV := 5).Q;
+ASSIGN(c1(EN := c, CU := a, PV := 5).Q, Q => x3);
 %NETWORK
-x5 := FN_Inc(EN := TRUE, IN := i, OUT => y9).ENO;
+ASSIGN(FN_Inc(EN := TRUE, IN := i, OUT => y9), Q => x5);
 %NETWORK
-y10 := c2(CU := a, PV := 5).CV;
+ASSIGN(c2(CU := a, PV := 5).CV, Q => y10);
 %NETWORK
-MOVE(EN := c, c3(CU := b, PV := 3).CV, OUT => y11).ENO;
+MOVE(EN := c, c3(CU := b, PV := 3).CV, OUT => y11);
 %NETWORK
-c4(EN := c, CU := RISING(d), PV := 5, CV => y12).ENO;
+c4(EN := c, CU := RISING(d), PV := 5, CV => y12);
 %NETWORK
-lamp := b AND d;
-JMP.skip1 := b AND d;
+ASSIGN(b AND d, Q => lamp);
+ASSIGN(b AND d, Q => JMP.skip1);
 %NETWORK
-y4 := ADD(y4, 1);
+ASSIGN(ADD(y4, 1), Q => y4);
 %NETWORK
 skip1:
-x2 := (JMP.skip2 := c) AND d;
+ASSIGN(ASSIGN(c, Q => JMP.skip2) AND d, Q => x2);
 %NETWORK
-y5 := ADD(y5, 1);
+ASSIGN(ADD(y5, 1), Q => y5);
 %NETWORK
 skip2:
-y7 := ADD(y7, 1);
-RETURN := d AND NOT a;
+ASSIGN(ADD(y7, 1), Q => y7);
+ASSIGN(d AND INVERT(a), Q => RETURN);
 %NETWORK
-y6 := ADD(y6, 1);
+ASSIGN(ADD(y6, 1), Q => y6);
 END_PROGRAM
 `
 

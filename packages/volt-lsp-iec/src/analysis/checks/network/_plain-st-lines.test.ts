@@ -10,14 +10,14 @@ const ld = (body: string) => `PROGRAM P\nVAR\n\ta, b, x, y : BOOL;\nEND_VAR\n%LA
 const findings = (body: string) => networkDiags(ld(body)).filter((d) => d.code === "network-plain-st").map((d) => d.message)
 
 test("a title and a comment line spell only the writer's escapes", () => {
-  expect(findings('%NETWORK "a$$b $"c$" $R$L"\n// cost $$5$Lnext\nx := a;\n')).toEqual([])
-  expect(findings('%NETWORK ""\nx := a;\n')[0]).toContain("an empty title")
-  expect(findings('%NETWORK "a$Nb"\nx := a;\n')[0]).toContain("the escape '$N'")
-  expect(findings("%NETWORK\n// a$\"b\nx := a;\n")[0]).toContain("the escape '$\"'")
+  expect(findings('%NETWORK "a$$b $"c$" $R$L"\n// cost $$5$Lnext\nASSIGN(a, Q => x);\n')).toEqual([])
+  expect(findings('%NETWORK ""\nASSIGN(a, Q => x);\n')[0]).toContain("an empty title")
+  expect(findings('%NETWORK "a$Nb"\nASSIGN(a, Q => x);\n')[0]).toContain("the escape '$N'")
+  expect(findings("%NETWORK\n// a$\"b\nASSIGN(a, Q => x);\n")[0]).toContain("the escape '$\"'")
 })
 
 test("wires are w1, w2, … across the body, in the order the text first names them", () => {
-  const net = (w: string) => `VAR ${w} : ANY; END_VAR\n${w} := a AND b;\nx := ${w};\ny := ${w};\n`
+  const net = (w: string) => `VAR ${w} : ANY; END_VAR\n${w} := a AND b;\nASSIGN(${w}, Q => x);\nASSIGN(${w}, Q => y);\n`
   expect(findings(`%NETWORK\n${net("w1")}%NETWORK\n${net("w2")}`)).toEqual([])
   expect(findings(`%NETWORK\n${net("w1")}%NETWORK\n${net("w3")}`)[0]).toContain("the wire w3 is the body's w2")
 })

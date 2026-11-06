@@ -171,10 +171,11 @@ export interface CallExpr {
   kind: "call"
   callee: Expr
   args: CallArg[]
-  /** In a plain-ST network body, a jump or the return in a tree (`(NOT JMP.l := NOT := c)`, read as the call `JMP(l, c)`):
-   *  its own marks and its item's. */
+  /** In a plain-ST network body, a jump or the return as a target of an ASSIGN in a tree (`AND(ASSIGN(c, Q_INVERTED =>
+   *  JMP.l), d)`, read as the call `JMP(l, c)`): its own mark, `NOT` for `Q_INVERTED`. */
   marks?: readonly string[]
-  itemMarks?: readonly string[]
+  /** In a plain-ST network body, the `ASSIGN` this jump or return is a target of (`network/plain-st.ts`). */
+  assignHead?: Span
   span: Span
 }
 export interface CallArg {
@@ -182,10 +183,13 @@ export interface CallArg {
   param?: IdentExpr // `p := v` or `p => t`
   output: boolean // true for `=>`
   value?: Expr
-  /** In a plain-ST network body, the pin's own marks before its name (`NOT IN := a`, `NOT Q => x`), outermost first. */
-  marks?: readonly string[]
+  /** In a plain-ST network body, the mark an output's name carries (`Q_INVERTED => x`, `Q1_SET => k`), its `param` the
+   *  output it marks (`types` `infer/network-box.ts` reads it against the box's declaration). */
+  coil?: OutputMark
   span: Span
 }
+/** The mark an output's name carries in network text: `<pin>_INVERTED`, `<pin>_SET`, `<pin>_RESET`. */
+export type OutputMark = "INVERTED" | "SET" | "RESET"
 export interface ParenExpr {
   kind: "paren"
   inner: Expr
@@ -199,10 +203,10 @@ export interface AssignExpr {
   value: Expr
   /** `S=` / `R=`; undefined for `:=`. */
   op?: "S=" | "R="
-  /** In a plain-ST network body, the coil's own marks (`(NOT x := a)`), outermost first. */
+  /** In a plain-ST network body, the coil's own mark, `NOT` for `Q_INVERTED` (`ASSIGN(a, Q_INVERTED => x)`). */
   marks?: readonly string[]
-  /** In a plain-ST network body, the assignment item's own marks (`(y := NOT := a)`), outermost first. */
-  itemMarks?: readonly string[]
+  /** In a plain-ST network body, the `ASSIGN` this coil is a target of (`network/plain-st.ts`). */
+  assignHead?: Span
   span: Span
 }
 

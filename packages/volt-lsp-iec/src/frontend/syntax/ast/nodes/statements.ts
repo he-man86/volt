@@ -35,12 +35,12 @@ export interface Assignment {
    *  `a S= b R= c` compiles in CODESYS (conformance `set_reset_chained`) — so one `op` for the whole chain is not
    *  enough, and the formatter printing that one `op` for every link silently rewrote `R=` into `S=`. */
   chainOps?: ("S=" | "R=" | "REF=" | undefined)[]
-  /** In a plain-ST network body, each target's marks (`NOT`, `RISING`, `FALLING`, outermost first), parallel to
-   *  `[target, ...chained]` (`network/plain-st.ts`). */
+  /** In a plain-ST network body, each target's mark, `NOT` for `Q_INVERTED`, parallel to `[target, ...chained]`
+   *  (`network/plain-st.ts`). */
   marks?: readonly (readonly string[] | undefined)[]
-  /** In a plain-ST network body, the assignment ITEM's own marks, between its targets and its value (`y := NOT := a`),
-   *  outermost first: they mark the value every target receives. */
-  itemMarks?: readonly string[]
+  /** In a plain-ST network body, the `ASSIGN` these coils are the targets of (`ASSIGN(a, Q => x, Q_SET => y)`): every
+   *  target receives the value, each its own mark. */
+  assignHead?: Span
   span: Span
 }
 export interface CallStatement {
@@ -129,13 +129,13 @@ export interface RepeatStatement {
 }
 export interface ReturnStatement {
   kind: "return"
-  /** In a plain-ST network body, the value the return is on: `RETURN := value;` (`network/plain-st.ts`). */
+  /** In a plain-ST network body, the value the return is on: `ASSIGN(value, Q => RETURN);` (`network/plain-st.ts`). */
   value?: Expr
-  /** In a plain-ST network body, a return on the value of the item before it (`y := RETURN := v;`): written once. */
+  /** In a plain-ST network body, a return on the value of the target before it (`ASSIGN(v, Q => y, Q => RETURN);`). */
   sharesValue?: true
-  /** In a plain-ST network body, the return's own marks (`NOT RETURN := v;`) and its item's (`RETURN := NOT := v;`). */
+  /** In a plain-ST network body, the return's own mark, `NOT` for `Q_INVERTED`, and the `ASSIGN` it is a target of. */
   marks?: readonly string[]
-  itemMarks?: readonly string[]
+  assignHead?: Span
   span: Span
 }
 export interface ExitStatement {
@@ -158,13 +158,13 @@ export interface JmpStatement {
   /** The token the vendor took for the destination where no label stands — `JMP;` takes its `;` (`rec_jmp_without_label`);
    *  `target` is then the refused placeholder. The analysis words it (`checks/flow/jump-labels`). */
   refusedDestination?: string
-  /** In a plain-ST network body, the value the jump is on: `JMP.label := value;` (`network/plain-st.ts`). */
+  /** In a plain-ST network body, the value the jump is on: `ASSIGN(value, Q => JMP.label);` (`network/plain-st.ts`). */
   value?: Expr
-  /** In a plain-ST network body, a jump on the value of the item before it (`y := JMP.l := v;`): written once. */
+  /** In a plain-ST network body, a jump on the value of the target before it (`ASSIGN(v, Q => y, Q => JMP.l);`). */
   sharesValue?: true
-  /** In a plain-ST network body, the jump's own marks (`NOT JMP.l := v;`) and its item's (`JMP.l := NOT := v;`). */
+  /** In a plain-ST network body, the jump's own mark, `NOT` for `Q_INVERTED`, and the `ASSIGN` it is a target of. */
   marks?: readonly string[]
-  itemMarks?: readonly string[]
+  assignHead?: Span
   span: Span
 }
 /** A jump label `<name>:` at statement start (distinct from `:=` assignment and CASE labels). */

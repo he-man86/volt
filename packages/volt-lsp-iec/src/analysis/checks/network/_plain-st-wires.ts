@@ -1,9 +1,10 @@
 /**
- * THE WIRES OF A PLAIN-ST NETWORK BODY (openspec network-text-st 2.3, network-output-member; `_plain-st.ts`, the one
- * network check, holds the rest): a name its network declares `VAR w : ANY;` is defined once — `w := <box>` — and read by its
- * name any number of times, before its definition too; a box's output reaches no wire; an enabled box other than a comparison is read by its value only as a coil's value, however often its wire is
- * read (CODESYS: "A box with EN can be used for comparison operators only."). Refused by name, as the bridge's reader
- * refuses it (`StNetworkReader`).
+ * THE WIRES OF A PLAIN-ST NETWORK BODY (openspec network-text-st 2.3, network-language; `_plain-st.ts`, the one network
+ * check, holds the rest): a name its network declares `VAR w : ANY;` is defined once — `w := <box>` — and read by its name
+ * any number of times, before its definition too; no box's output and no ASSIGN's target is a wire; an enabled box other
+ * than a comparison is read by a data output (`X(EN := e, …).OUT`) only as a coil's value, however often its wire is read
+ * (CODESYS: "A box with EN can be used for comparison operators only."). Refused by name, as the bridge's reader refuses
+ * it (`StNetworkReader`).
  */
 import { type CallExpr, type Expr, type PlainStNetwork, type Span, type Statement, stmtExprs, walkExpr } from "../../../frontend/syntax/index.js"
 import { type Scope } from "../../../frontend/symbols/index.js"
@@ -64,17 +65,18 @@ function statementWires(
   const targets = new Set<Expr>()
   const assignValues = new Set<Expr>()
   let wireDefValue: Expr | undefined
-  if (stmt.kind === "assign" && stmt.op === undefined && (stmt.chained ?? []).length === 0 && isWire(stmt.target)) wireDefValue = stmt.value
+  const definition = stmt.kind === "assign" && stmt.assignHead === undefined && stmt.op === undefined && (stmt.chained ?? []).length === 0
+  if (definition && isWire(stmt.target)) wireDefValue = stmt.value
   else if (stmt.kind === "assign") assignValues.add(stmt.value)
   if (stmt.kind === "assign") {
-    if (stmt.op === undefined && (stmt.chained ?? []).length === 0) define(stmt.target)
+    if (definition) define(stmt.target)
     else for (const x of [stmt.target, ...(stmt.chained ?? [])])
-      if (isWire(x)) emit(out, x.span, CODE, `the wire ${(x as { name: string }).name} is assigned beside other targets or by S=/R=: a wire is defined alone`)
+      if (isWire(x)) emit(out, x.span, CODE, `the wire ${(x as { name: string }).name} as an ASSIGN target: a wire is defined alone, ${(x as { name: string }).name} := value`)
     targets.add(stmt.target)
     for (const c of stmt.chained ?? []) targets.add(c)
   }
-  // the calls closed by `.ENO`, the shown ENO: such a box hands on its ENO, not its value. A call closed by any other
-  // member (`.OUT`, `.Q`) is still read by a data output, and stands where its member does.
+  // the calls closed by no member, or by `.ENO`: a box showing EN hands on its ENO, not its value. A call closed by a data
+  // output (`.OUT`, `.Q`) is read by it, and stands where its member does.
   const closed = new Set<CallExpr>()
   const memberOf = new Map<CallExpr, Expr>()
   for (const e of stmtExprs(stmt))
@@ -83,11 +85,17 @@ function statementWires(
       memberOf.set(x.base, x)
       if (scope !== undefined && boxMember(x, scope, project)?.eno === true) closed.add(x.base)
     })
+  for (const e of stmtExprs(stmt))
+    walkExpr(e, (x) => {
+      if (x.kind === "call" && !memberOf.has(x)) closed.add(x)
+    })
   const at = (x: CallExpr): Expr => memberOf.get(x) ?? x
   for (const e of stmtExprs(stmt))
     walkExpr(e, (x) => {
       if (x.kind === "assign_expr") {
-        define(x.target)
+        // a wire defined where it is first read, `(w1 := value)`; an ASSIGN's coil on a wire is none
+        if (x.assignHead === undefined) define(x.target)
+        else if (isWire(x.target)) emit(out, x.target.span, CODE, `the wire ${(x.target as { name: string }).name} as an ASSIGN target: a wire is defined alone, ${(x.target as { name: string }).name} := value`)
         targets.add(x.target)
         if (!isWire(x.target)) assignValues.add(x.value)
       }
@@ -118,8 +126,8 @@ function emitEnabledValue(out: DiagnosticItem[], span: Span, name: string): void
   emit(out, span, CODE, `the enabled box ${name} is read by its value where it is no coil's value: a box with EN can be used for comparison operators only (CODESYS), and any other is read by its value only as a coil's value`)
 }
 
-/** Is `call` an enabled function box other than a comparison — `EN :=` its shown EN, no FB? Not closed by `.ENO`
- *  (`checkWires`), it is read by its value or a data output, which CODESYS reads only as a coil's value. */
+/** Is `call` an enabled function box other than a comparison — `EN :=` its shown EN, no FB? Closed by a data output
+ *  (`checkWires`), it is read by its value or a VAR_OUTPUT, which CODESYS reads only as a coil's value. */
 function enOnlyValue(call: CallExpr, scope: Scope | undefined, project: Scope): boolean {
   if (scope === undefined || COMPARISONS.has(calleeName(call).toUpperCase())) return false
   const box = networkBox(call, scope, project)

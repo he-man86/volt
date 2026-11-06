@@ -5,12 +5,15 @@
  */
 import type { CallArg, CallExpr, Expr, Span, Statement } from "../../../frontend/syntax/index.js"
 
-/** Why a network body is not lowered, by name: `invalid` where CODESYS does not compile it, `not-modelled` otherwise. */
+/** Why a network body is not lowered, by name: `invalid` where CODESYS does not compile it, `not-modelled` otherwise; at
+ *  the text it refuses where that is known (a wire, a mark word, a retired form), else at its unit. */
 export class NetworkRefusal extends Error {
   readonly code: "network-box" | "network-invalid"
-  constructor(message: string, kind: { code: "network-box" | "network-invalid" } = { code: "network-box" }) {
+  readonly span: Span | undefined
+  constructor(message: string, kind: { code: "network-box" | "network-invalid" } = { code: "network-box" }, span?: Span) {
     super(message)
     this.code = kind.code
+    this.span = span
   }
 }
 

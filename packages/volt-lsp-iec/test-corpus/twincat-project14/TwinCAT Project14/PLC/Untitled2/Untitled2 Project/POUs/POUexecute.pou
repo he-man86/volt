@@ -16,15 +16,15 @@ END_VAR
 %LANGUAGE LD
 %NETWORK
 EXECUTE(EN := TRUE, 'iCount:=icount+1;
-').ENO;
+');
 %NETWORK
-output := t1(IN := in1, PT := e1).Q;
+ASSIGN(t1(IN := in1, PT := e1), Q => output);
 %NETWORK
 VAR w1 : ANY; END_VAR
 w1 := b;
-out1 := AND(OR(a, w1), c);
-out2 := w1;
+ASSIGN(AND(OR(a, w1), c), Q => out1);
+ASSIGN(w1, Q => out2);
 %NETWORK
-output := t2(PT := e1).Q;
+ASSIGN(t2(PT := e1), Q => output);
 
 END_PROGRAM

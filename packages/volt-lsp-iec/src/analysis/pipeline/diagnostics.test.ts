@@ -12,7 +12,7 @@ const XOR_PROGRAM = (language: string, body: string) =>
   `PROGRAM Main\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tx : BOOL;\nEND_VAR\n%LANGUAGE ${language}\n${body}END_PROGRAM\n`
 
 test("computeDiagnostics reports a network body's network check once: an infix XOR is one network-plain-st", () => {
-  const src = XOR_PROGRAM("LD", "%NETWORK\nx := a XOR b;\n")
+  const src = XOR_PROGRAM("LD", "%NETWORK\nASSIGN(a XOR b, Q => x);\n")
   const network = diagnose(src).filter((d) => d.code === "network-plain-st")
   expect(network.map((d) => src.slice(d.span.start, d.span.end))).toEqual(["a XOR b"])
 })

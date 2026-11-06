@@ -1,17 +1,17 @@
 /**
- * PLAIN-ST NETWORK TEXT — an LD/FBD body as ST (openspec `network-text-st` 2.3; the bridge's `StNetworkWriter`): the ST
- * parser reads it, and Volt adds only `%` lines for what is not code. This module is the front-end's whole knowledge of
- * the form: which lines are Volt's, where each network stands, and the token stream the ST statement parser reads.
+ * PLAIN-ST NETWORK TEXT — an LD/FBD body as ST (openspec `network-language`; the bridge's `StNetworkWriter`): the stored
+ * NWL tree written as ST calls, each stored node one call whose flow is its return, read by the ST parser; Volt adds only
+ * `%` lines for what is not code. This module is the front-end's whole knowledge of the form: which lines are Volt's,
+ * where each network stands, the token stream the ST statement parser reads, and the statements a network's calls are.
  *
  * ```
  * %LANGUAGE LD
  * %NETWORK "Start the motor"
  * VAR w1 : ANY; END_VAR
  * // runs while auto is on
- * w1 := start AND NOT stop;
- * lamp := w1;
- * done := MOVE(EN := w1, 1, OUT => x).ENO;
- * hot := GT(temp, 80);
+ * w1 := start AND INVERT(stop);
+ * ASSIGN(w1, Q => lamp, Q_SET => seen);
+ * ASSIGN(MOVE(EN := w1, 1, OUT => x), Q => done);
  * ```
  *
  * THE STATEMENT TOKENS are the body's own tokens, with these readings applied:
@@ -22,33 +22,26 @@
  *    ST — the string decoded (`$'` a quote, `$$` a dollar), lexed, each token where it stands in the string — follows the
  *    statement the box stands in, so the ST engine reads it as the statements it is (the one place tokens stand out of
  *    source order: after their statement's `;`);
- *  - a RECEIVER'S MARKS — `NOT`, `RISING`, `FALLING` before a complete operand followed by `:=`, `S=`, `R=` or `=>` (a coil
- *    `NOT y := a;`, a pin `t1(NOT IN := a)`, an output `NOT Q => x`) — are trivia, each recorded on its receiver (`marks`,
- *    keyed by the receiver's first offset; `networkStatements` puts them on the AST); a mark word before anything else is
- *    the value's (`NOT a`), and one followed by `(` a call (`RISING(a)`, `NOT(a)`);
- *  - the ASSIGNMENT ITEM'S MARKS — mark words before an empty receiver, `y := NOT := a` — are trivia with their `:=`, recorded
- *    at that `:=` (`itemMarks`); `networkStatements` puts them on the assignment whose last target and value they stand
- *    between, and the network check refuses any standing elsewhere;
+ *  - a jump or the return as an ASSIGN's target (`Q => JMP.l`, `Q => RETURN`) reads its keyword as a name
+ *    (`receivers.ts`); a mark WORD before a name (`NOT a`, `NOT y := a`) is no text: refused, and read as trivia;
  *  - an OPERAND COMMENT, `COMMENT(a, 'why')`, reads as the operand it wraps (`comment-text.ts`);
- *  - a jump or the return as a TARGET (`JMP.l := v;`, `RETURN := v;`, marked as any receiver, `NOT JMP.l := v;`) reads its
- *    keyword as a name, so the ST parser reads an assignment; `networkStatements` reads it back as the jump or the return
- *    it is;
- *  - a VALUE STANDING ALONE is an item (`a;`, `NOT b;`, `NOT AND(a, b);`, `RAIL();`): the statement parser takes one where a
+ *  - a VALUE STANDING ALONE is an item (`a;`, `RAIL();`, a box whose flow ends): the statement parser takes one where a
  *    statement starts (`valueItemsOf`);
- *  - an operator box word heading a call (`GT(`, `ADD(`, `AND(`, `NOT(`, …: the ST lexer reads each as a keyword) where an operand starts is the call of
- *    that box — every box is a call — and after an operand it is the contact (`a AND b`). The same rule the bridge's
- *    reader keeps (`StNetworkReader`): position, never spacing.
+ *  - an operator box word heading a call (`GT(`, `ADD(`, `AND(`, `NOT(`, …: the ST lexer reads each as a keyword) where an
+ *    operand starts is the call of that box — every box is a call — and after an operand it is the contact (`a AND b`).
+ *    The same rule the bridge's reader keeps (`StNetworkReader`): position, never spacing.
+ *
+ * THE STATEMENTS the parse of these tokens is, each `ASSIGN` and `INVERT` read as what it is: `assign.ts`.
  */
-import type { BodySpan, CallArg, Expr, IdentExpr, Statement, StatementList } from "../ast/nodes/index.js"
-import { stmtExprs, walkExpr } from "../ast/walk.js"
+import type { BodySpan, CallArg } from "../ast/nodes/index.js"
 import { isTrivia, type Token } from "../lex/tokens.js"
 import type { Dialect } from "../lex/vocabulary.js"
 import { joinSpans, type Span } from "../span.js"
 import { isPlainStNetworkBody } from "../format/bodies.js"
 import { codeAt, joinCodeStrings, takeCode } from "./execute-code.js"
 import { isOperandHead, takeOperand } from "./operand-text.js"
-import { addLine, isWord, networkOf, percentKeyAt, percentLine, reached, takeWires, type NetworkState, type PlainStMarks, type PlainStNetwork } from "./network-lines.js"
-import { type ItemMarks, takeReceiverToken } from "./receivers.js"
+import { addLine, isWord, networkOf, percentKeyAt, percentLine, reached, takeWires, type NetworkState, type PlainStNetwork } from "./network-lines.js"
+import { takeReceiverToken } from "./receivers.js"
 import { isCommentHead, takeComment } from "./comment-text.js"
 import type { ValueItems } from "../parse/statements.js"
 
@@ -75,17 +68,9 @@ interface PlainStText {
   /** What the ST statement parser reads AS WRITTEN: every network's code, a disabled one's too — for the services that
    *  navigate the text, and the network check, which holds a disabled network to the subset. */
   sourceTokens: readonly Token[]
-  /** Text before the first `%NETWORK` line, or a `%` key the form does not have — reported by the network check. */
+  /** What the text does not have — text before the first `%NETWORK` line, a `%` key the form does not have, a mark word —
+   *  reported by the network check, and refused by the lowering. */
   stray: readonly { message: string; span: Span }[]
-  /** Each receiver's marks (a coil, a pin, EN, an output), by the receiver's first offset. */
-  marks: ReadonlyMap<number, PlainStMarks>
-  /** Each assignment item's marks (`y := NOT := a`), at the offset of their `:=` (`receivers.ts`). */
-  itemMarks: readonly ItemMarks[]
-}
-
-/** The item marks standing between `after` (the end of an assignment's last target) and `before` (its value's start). */
-function itemMarksBetween(items: readonly ItemMarks[], after: number, before: number): ItemMarks | undefined {
-  return items.find((m) => m.at >= after && m.at < before)
 }
 
 /** Where a value may stand alone as an item in `body`: a plain-ST network body's code, outside its Execute boxes' ST
@@ -97,79 +82,6 @@ export function valueItemsOf(body: BodySpan): ValueItems | undefined {
 }
 
 const cache = new WeakMap<BodySpan, PlainStText>()
-
-/** A jump target `JMP.l` (its label) or the return `RETURN` (no label) as the ST parser reads it; undefined for a coil. */
-function controlTarget(e: Expr): { jump: true; label: IdentExpr } | { jump: false } | undefined {
-  if (e.kind === "member" && e.base.kind === "ident_expr" && e.base.name.toUpperCase() === "JMP") return { jump: true, label: e.member }
-  if (e.kind === "ident_expr" && e.name.toUpperCase() === "RETURN") return { jump: false }
-  return undefined
-}
-
-/**
- * A NETWORK'S STATEMENTS AS THE ST THEY ARE: each receiver's marks put on the AST (`AssignStatement.marks`,
- * `AssignExpr.marks`, `CallArg.marks`); a jump and the return, TARGETS of an item, read as the ST statements they are — a
- * lone one a `JmpStatement` / `ReturnStatement` on the item's value, one beside coils (`y := JMP.l := v;`) the coils'
- * assignment followed by the jump on the SAME value (`sharesValue`, the value written once), and one in a tree
- * (`(JMP.l := c)`) the jump on its value handing it on (the call `JMP(l, c)` / `RETURN(c)` the types and the lowering read).
- */
-export function networkStatements(list: StatementList, text: Pick<PlainStText, "marks" | "itemMarks">): StatementList {
-  const markOf = (e: Expr | undefined) => (e === undefined ? undefined : text.marks.get(e.span.start)?.words)
-  const itemOf = (lastTarget: Expr, value: Expr) => itemMarksBetween(text.itemMarks, lastTarget.span.end, value.span.start)?.words
-  // in place: the parse is this body's own, made here
-  const tree = (e: Expr): void => walkExpr(e, (x) => {
-    if (x.kind === "call") for (const a of x.args) setMarks(a, markOf(a.param ?? (a.output ? undefined : a.value)))
-    if (x.kind !== "assign_expr") return
-    setMarks(x, markOf(x.target))
-    const item = itemOf(x.target, x.value)
-    if (item !== undefined) x.itemMarks = item
-    const control = controlTarget(x.target)
-    if (control === undefined) return
-    const callee: Expr = { kind: "ident_expr", name: control.jump ? "JMP" : "RETURN", span: x.target.span }
-    const args: CallArg[] = control.jump ? [{ kind: "call_arg", output: false, value: control.label, span: control.label.span }] : []
-    args.push({ kind: "call_arg", output: false, value: x.value, span: x.value.span })
-    const marks = x.marks
-    const node = x as unknown as Record<string, unknown>
-    for (const k of Object.keys(node)) if (k !== "span") delete node[k]
-    Object.assign(node, { kind: "call", callee, args, ...(marks !== undefined ? { marks } : {}), ...(item !== undefined ? { itemMarks: item } : {}) })
-  })
-  return list.flatMap((s): Statement[] => {
-    for (const e of stmtExprs(s)) tree(e)
-    if (s.kind !== "assign") return [s]
-    const targets = [s.target, ...(s.chained ?? [])]
-    const ops = [s.op, ...(s.chainOps ?? [])]
-    const targetMarks = targets.map(markOf)
-    const item = itemOf(targets.at(-1)!, s.value)
-    const itemMarks = item !== undefined ? { itemMarks: item } : {}
-    const coils = targets.map((t, i) => ({ t, op: ops[i], m: targetMarks[i] })).filter((x) => controlTarget(x.t) === undefined)
-    const controls = targets.map((t, i) => ({ t, m: targetMarks[i] })).filter((x) => controlTarget(x.t) !== undefined)
-    const marked = (xs: readonly (readonly string[] | undefined)[]) => (xs.some((m) => m !== undefined) ? { marks: xs } : {})
-    if (controls.length === 0) return [{ ...s, ...marked(targetMarks), ...itemMarks }]
-    const out: Statement[] = []
-    if (coils.length > 0) {
-      const [first, ...rest] = coils
-      out.push({
-        kind: "assign", target: first!.t, value: s.value, span: s.span,
-        ...(first!.op !== undefined ? { op: first!.op } : {}),
-        ...(rest.length > 0 ? { chained: rest.map((c) => c.t), chainOps: rest.map((c) => c.op) } : {}),
-        ...marked(coils.map((c) => c.m)),
-        ...itemMarks,
-      })
-    }
-    // the item's marks stand on the statement that holds the value: the coils', else the first jump's
-    controls.forEach(({ t, m }, i) => {
-      const c = controlTarget(t)!
-      const shares = out.length > 0 || i > 0
-      const value = shares ? { sharesValue: true as const } : { value: s.value, ...itemMarks }
-      const own = m !== undefined ? { marks: m } : {}
-      out.push(c.jump ? { kind: "jmp", target: c.label, ...value, ...own, span: t.span } : { kind: "return", ...value, ...own, span: t.span })
-    })
-    return out
-  })
-}
-
-function setMarks(node: { marks?: readonly string[] }, words: readonly string[] | undefined): void {
-  if (words !== undefined) node.marks = words
-}
 
 /** The tokens the ST statement parser reads of a body: its own, or a plain-ST network body's statement tokens — as
  *  compiled, or (`asWritten`) with its disabled networks' code in. */
@@ -189,8 +101,6 @@ export function plainStText(body: BodySpan): PlainStText {
 function read(lexed: readonly Token[], dialect: Dialect, unicodeIdentifiers: boolean): PlainStText {
   const { tokens, unclosed } = joinCodeStrings(lexed, dialect, unicodeIdentifiers)
   const out: Token[] = []
-  const marks = new Map<number, { words: string[]; span: Span }>()
-  const itemMarks: ItemMarks[] = []
   // the `,`, string and `)` of each operand comment, trivia when reached (`comment-text.ts`)
   const blank = new Set<number>()
   const networks: PlainStNetwork[] = []
@@ -249,13 +159,13 @@ function read(lexed: readonly Token[], dialect: Dialect, unicodeIdentifiers: boo
         continue
       }
     }
-    // a receiver's mark, the item's marks, an empty receiver name, a jump or the return as a target (`receivers.ts`)
-    if (cur !== undefined && takeReceiverToken(tokens, i, marks, itemMarks, stray, out)) continue
+    // a jump or the return as a target, a mark word, an empty receiver name (`receivers.ts`)
+    if (cur !== undefined && takeReceiverToken(tokens, i, stray, out)) continue
     out.push(isKeywordCallHead(tokens, i, out) ? { ...t, kind: "identifier", keyword: undefined } : t)
     if (t.kind === "punct" && t.text === ";" && calls.length === 0) flush()
   }
   close()
-  return { tokens, networks, statementTokens: compiled(out, networks), sourceTokens: out, stray, marks, itemMarks }
+  return { tokens, networks, statementTokens: compiled(out, networks), sourceTokens: out, stray }
 }
 
 /** An unnamed operand `???`, a token of an operand comment, or a token of a call — the index of the last token taken, or

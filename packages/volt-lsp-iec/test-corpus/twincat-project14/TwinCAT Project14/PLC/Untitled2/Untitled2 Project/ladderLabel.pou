@@ -5,7 +5,7 @@ END_VAR
 %LANGUAGE LD
 %NETWORK
 testLabel:
-coil := RAIL();
+ASSIGN(RAIL(), Q => coil);
 %NETWORK
 testLabe2:
 

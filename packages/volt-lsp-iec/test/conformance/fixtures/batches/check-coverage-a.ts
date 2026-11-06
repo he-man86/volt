@@ -86,7 +86,7 @@ export const CHECK_COVERAGE_TESTS_A: readonly LanguageTest[] = [
     fromDoc: "check-coverage",
     plcPrgVar: "inst_vgu : FB_LANG_cc_vg_undeclared;",
     plcPrgBody: "inst_vgu();",
-    source: `FUNCTION_BLOCK FB_LANG_cc_vg_undeclared\nVAR\n\tout : BOOL;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\nout := nope;\n\nEND_FUNCTION_BLOCK\n`,
+    source: `FUNCTION_BLOCK FB_LANG_cc_vg_undeclared\nVAR\n\tout : BOOL;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\nASSIGN(nope, Q => out);\n\nEND_FUNCTION_BLOCK\n`,
   },
   {
     name: "cc_vg_undefined_label",
@@ -101,7 +101,7 @@ export const CHECK_COVERAGE_TESTS_A: readonly LanguageTest[] = [
     fromDoc: "check-coverage",
     plcPrgVar: "inst_vgl : FB_LANG_cc_vg_label;",
     plcPrgBody: "inst_vgl();",
-    source: `FUNCTION_BLOCK FB_LANG_cc_vg_label\nVAR\n\tout : BOOL;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\nout := TRUE;\nJMP.Missing := RAIL();\n\nEND_FUNCTION_BLOCK\n`,
+    source: `FUNCTION_BLOCK FB_LANG_cc_vg_label\nVAR\n\tout : BOOL;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\nASSIGN(TRUE, Q => out);\nASSIGN(RAIL(), Q => JMP.Missing);\n\nEND_FUNCTION_BLOCK\n`,
   },
   // ── labels and jumps the IDE HOLDS and its build reports (census 1.15, DIALECT N19; openspec
   //    network-text-literal-nwl 5.6). None is a gate refusal, so each is the LSP's to say — with the build's words.
@@ -113,7 +113,7 @@ export const CHECK_COVERAGE_TESTS_A: readonly LanguageTest[] = [
     fromDoc: "check-coverage",
     plcPrgVar: "inst_vgd : FB_LANG_cc_vg_duplabel;",
     plcPrgBody: "inst_vgd();",
-    source: `FUNCTION_BLOCK FB_LANG_cc_vg_duplabel\nVAR\n\tout : BOOL;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\nJMP.Done := RAIL();\n%NETWORK\nDone:\nout := TRUE;\n%NETWORK\nDONE:\nout := FALSE;\n\nEND_FUNCTION_BLOCK\n`,
+    source: `FUNCTION_BLOCK FB_LANG_cc_vg_duplabel\nVAR\n\tout : BOOL;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\nASSIGN(RAIL(), Q => JMP.Done);\n%NETWORK\nDone:\nASSIGN(TRUE, Q => out);\n%NETWORK\nDONE:\nASSIGN(FALSE, Q => out);\n\nEND_FUNCTION_BLOCK\n`,
   },
   {
     name: "cc_vg_label_on_disabled_network",
@@ -123,7 +123,7 @@ export const CHECK_COVERAGE_TESTS_A: readonly LanguageTest[] = [
     fromDoc: "check-coverage",
     plcPrgVar: "inst_vgo : FB_LANG_cc_vg_offlabel;",
     plcPrgBody: "inst_vgo();",
-    source: `FUNCTION_BLOCK FB_LANG_cc_vg_offlabel\nVAR\n\tout : BOOL;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\nJMP.Done := RAIL();\n%NETWORK\n%DISABLED\nDone:\nout := TRUE;\n\nEND_FUNCTION_BLOCK\n`,
+    source: `FUNCTION_BLOCK FB_LANG_cc_vg_offlabel\nVAR\n\tout : BOOL;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\nASSIGN(RAIL(), Q => JMP.Done);\n%NETWORK\n%DISABLED\nDone:\nASSIGN(TRUE, Q => out);\n\nEND_FUNCTION_BLOCK\n`,
   },
   {
     name: "cc_vg_jump_in_disabled_network",
@@ -134,7 +134,7 @@ export const CHECK_COVERAGE_TESTS_A: readonly LanguageTest[] = [
     fromDoc: "check-coverage",
     plcPrgVar: "inst_vgj : FB_LANG_cc_vg_offjump;",
     plcPrgBody: "inst_vgj();",
-    source: `FUNCTION_BLOCK FB_LANG_cc_vg_offjump\nVAR\n\tout : BOOL;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\n%DISABLED\nJMP.Done := RAIL();\n%NETWORK\nDone:\nout := TRUE;\n\nEND_FUNCTION_BLOCK\n`,
+    source: `FUNCTION_BLOCK FB_LANG_cc_vg_offjump\nVAR\n\tout : BOOL;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\n%DISABLED\nASSIGN(RAIL(), Q => JMP.Done);\n%NETWORK\nDone:\nASSIGN(TRUE, Q => out);\n\nEND_FUNCTION_BLOCK\n`,
   },
   {
     name: "cc_vg_unreferenced_label",
@@ -145,7 +145,7 @@ export const CHECK_COVERAGE_TESTS_A: readonly LanguageTest[] = [
     fromDoc: "check-coverage",
     plcPrgVar: "inst_vgi : FB_LANG_cc_vg_idlelabel;",
     plcPrgBody: "inst_vgi();",
-    source: `FUNCTION_BLOCK FB_LANG_cc_vg_idlelabel\nVAR\n\tout : BOOL;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\nDone:\nout := TRUE;\n\nEND_FUNCTION_BLOCK\n`,
+    source: `FUNCTION_BLOCK FB_LANG_cc_vg_idlelabel\nVAR\n\tout : BOOL;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\nDone:\nASSIGN(TRUE, Q => out);\n\nEND_FUNCTION_BLOCK\n`,
   },
   {
     name: "cc_vg_unknown_member",
@@ -155,7 +155,7 @@ export const CHECK_COVERAGE_TESTS_A: readonly LanguageTest[] = [
     fromDoc: "check-coverage",
     plcPrgVar: "inst_vgm : FB_LANG_cc_vg_member;",
     plcPrgBody: "inst_vgm();",
-    source: `TYPE DUT_LANG_cc_vgm_pt :\nSTRUCT\n\tx : INT;\nEND_STRUCT\nEND_TYPE\n\nFUNCTION_BLOCK FB_LANG_cc_vg_member\nVAR\n\tp : DUT_LANG_cc_vgm_pt;\n\ty : INT;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\ny := p.nope;\n\nEND_FUNCTION_BLOCK\n`,
+    source: `TYPE DUT_LANG_cc_vgm_pt :\nSTRUCT\n\tx : INT;\nEND_STRUCT\nEND_TYPE\n\nFUNCTION_BLOCK FB_LANG_cc_vg_member\nVAR\n\tp : DUT_LANG_cc_vgm_pt;\n\ty : INT;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\nASSIGN(p.nope, Q => y);\n\nEND_FUNCTION_BLOCK\n`,
   },
   {
     name: "cc_vg_unknown_pin",

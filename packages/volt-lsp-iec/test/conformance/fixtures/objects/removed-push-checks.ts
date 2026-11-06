@@ -137,14 +137,14 @@ END_TYPE
     "FB_LANG_rcc_nw_g7",
     "an operand nothing declares (`g7`) — the build's undeclared identifier",
     "\tout : BOOL;",
-    "out := g7;",
+    "ASSIGN(g7, Q => out);",
   ),
   network(
     "rcc_network_located_wire_shape",
     "FB_LANG_rcc_nw_g5",
     "a located variable (`g5 AT %IX0.0 : BOOL;`), read in a network",
     "\tg5 AT %IX0.0 : BOOL;\n\tout : BOOL;",
-    "out := g5;",
+    "ASSIGN(g5, Q => out);",
   ),
 
   // ─── 1.5 — ENO on a box with no EN, read: refused by name (`eno-read-with-no-en`); at a ROOT, nothing reads the ENO ───
@@ -186,14 +186,14 @@ END_FUNCTION_BLOCK
     "FB_LANG_rcc_nw_late",
     "a wire defined after the network's first statement (2.7)",
     "\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\n\tlamp1 : BOOL;\n\tlamp2 : BOOL;",
-    "VAR w1 : ANY; END_VAR\nout := a;\nw1 := OR(a, b);\nlamp1 := w1;\nlamp2 := w1;",
+    "VAR w1 : ANY; END_VAR\nASSIGN(a, Q => out);\nw1 := OR(a, b);\nASSIGN(w1, Q => lamp1);\nASSIGN(w1, Q => lamp2);",
   ),
   network(
     "rcc_network_second_var_temp",
     "FB_LANG_rcc_nw_two_blocks",
     "two wires in one network, the second defined after the first's uses (2.7)",
     "\ta : BOOL;\n\tb : BOOL;\n\tc : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;\n\tout3 : BOOL;\n\tout4 : BOOL;",
-    "VAR w1 : ANY; w2 : ANY; END_VAR\nw1 := AND(a, b);\nout1 := w1;\nout2 := w1;\nw2 := OR(b, c);\nout3 := w2;\nout4 := w2;",
+    "VAR w1 : ANY; w2 : ANY; END_VAR\nw1 := AND(a, b);\nASSIGN(w1, Q => out1);\nASSIGN(w1, Q => out2);\nw2 := OR(b, c);\nASSIGN(w2, Q => out3);\nASSIGN(w2, Q => out4);",
   ),
 
   // ─── 2.1 — a retired `(* @volt-… *)` comment in a current-format POU ───

@@ -52,10 +52,11 @@ export function resolveBareName(scope: Scope, name: string): BareName {
 }
 
 /** The text's own elements, each a function returning BOOL: the parallel branch (`BRANCH(FEED := f, b1, b2)`, one per
- *  mode), the edge on a contact or a box (`RISING(x)`, `FALLING(x)`) and the rail (`RAIL()`). */
-export const NETWORK_ELEMENTS: ReadonlySet<string> = new Set(["BRANCH", "BRANCH_SHORTCIRCUIT", "RISING", "FALLING", "RAIL"])
+ *  mode), the edge (`RISING(x)`, `FALLING(x)`), the rail (`RAIL()`), and a mark `INVERT(x)` or a coil `ASSIGN(v, Q => y)`
+ *  whose form is wrong (one whose form is right is read as what it is, `syntax` `network/plain-st.ts`). */
+export const NETWORK_ELEMENTS: ReadonlySet<string> = new Set(["BRANCH", "BRANCH_SHORTCIRCUIT", "RISING", "FALLING", "RAIL", "INVERT", "ASSIGN"])
 
-/** The jump and the return in a tree (`(JMP.l := v)`, read as the call `JMP(l, v)` / `RETURN(v)`,
+/** The jump and the return in a tree (an ASSIGN's target, `ASSIGN(v, Q => JMP.l)`, read as the call `JMP(l, v)` / `RETURN(v)`,
  *  `network/plain-st.ts`): each hands its value on. */
 export const NETWORK_CONTROLS: ReadonlySet<string> = new Set(["JMP", "RETURN"])
 

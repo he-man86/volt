@@ -11,12 +11,6 @@ import type { PlainStComment } from "./comment-text.js"
 const PLAIN_ST_LINES: ReadonlySet<string> = new Set(["NETWORK", "DISABLED", "UNSUPPORTED"])
 
 
-/** The marks written before one receiver, outermost first, and where they stand. */
-export interface PlainStMarks {
-  words: readonly string[]
-  span: Span
-}
-
 interface PlainStWire {
   name: string
   span: Span

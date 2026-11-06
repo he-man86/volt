@@ -20,19 +20,19 @@ VAR_IN_OUT
 END_VAR
 %LANGUAGE LD
 %NETWORK
-MOVE(EN := RAIL(), OPERAND('UINT_TO_WORD(ioUDT.Control.AutoSpeed)'), OUT => oRefSpeed).ENO;
+MOVE(EN := RAIL(), OPERAND('UINT_TO_WORD(ioUDT.Control.AutoSpeed)'), OUT => oRefSpeed);
 %NETWORK
 VAR w1 : ANY; END_VAR
 w1 := TRUE;
-ioUDT.Status.Error := w1 AND iStatusWord.Bit3_Fault;
-ioUDT.Status.DriveReady := w1 AND NOT iStatusWord.Bit3_Fault AND iStatusWord.Bit0_ReadyForOperation;
+ASSIGN(w1 AND iStatusWord.Bit3_Fault, Q => ioUDT.Status.Error);
+ASSIGN(w1 AND INVERT(iStatusWord.Bit3_Fault) AND iStatusWord.Bit0_ReadyForOperation, Q => ioUDT.Status.DriveReady);
 %NETWORK
 VAR w2 : ANY; w3 : ANY; END_VAR
 w2 := TRUE;
-oControlWord.Bit4_RunForward := w2 AND ioUDT.Control.Enable AND ioUDT.Control.StartAuto;
+ASSIGN(w2 AND ioUDT.Control.Enable AND ioUDT.Control.StartAuto, Q => oControlWord.Bit4_RunForward);
 w3 := w2 AND ioUDT.Control.ResetError;
-oControlWord.Bit7_ResetFault := w3;
-ioUDT.Control.ResetError R= w3;
-oControlWord.Bit12_ReverseDirection := w2 AND ioUDT.Control.Reverse;
+ASSIGN(w3, Q => oControlWord.Bit7_ResetFault);
+ASSIGN(w3, Q_RESET => ioUDT.Control.ResetError);
+ASSIGN(w2 AND ioUDT.Control.Reverse, Q => oControlWord.Bit12_ReverseDirection);
 
 END_FUNCTION_BLOCK

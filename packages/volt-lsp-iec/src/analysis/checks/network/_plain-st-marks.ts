@@ -1,131 +1,109 @@
 /**
- * THE MARKS OF A PLAIN-ST NETWORK BODY, as the network check holds them (`_plain-st.ts`, the one network check, holds the
- * rest): the value mark NOT, and the marks before a receiver — a coil, a pin, EN, an output — each in the IDE's order, on
- * nothing that holds none. Refused by name, as the bridge's reader refuses each (`StNetworkReader`).
+ * THE MARKS AND THE RETIRED FORMS OF A PLAIN-ST NETWORK BODY, as the network check holds them (`_plain-st.ts`, the one
+ * network check, holds the rest), in the bridge reader's words (`StNetworkReader.Marked`). A mark on a value is a function
+ * nested in run order — `INVERT(a)` (read as the ST `NOT a`), `RISING(a)`, `FALLING(a)` — and the marks around a value go
+ * to the receiver it stands at as far as that holds them, the rest to the node itself:
+ *
+ *   the line into a coil (an ASSIGN's value)   a negation outside an edge, `INVERT(RISING(…))`;
+ *   a pin or EN                                one mark;
+ *   the node, a contact's operand or a box     an edge outside a negation, `RISING(INVERT(a))` — never a wire, a branch,
+ *                                              the rail, an ASSIGN or a contact group.
+ *
+ * What is left over is a stack deeper than the IDE stores. A statement written the retired way is refused naming its
+ * ASSIGN (`syntax` `network/retired.ts`).
  */
-import { type CallArg, type CallExpr, type Expr, type Span, type Statement, EXECUTE, stmtExprs, walkExpr, walkStatements } from "../../../frontend/syntax/index.js"
+import { type CallExpr, type Expr, retiredForms, type Statement } from "../../../frontend/syntax/index.js"
 import { NETWORK_ELEMENTS } from "../../../frontend/types/index.js"
 import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
-import { calleeText } from "./_plain-st-box.js"
 import { CODE } from "./_plain-st-wires.js"
 
-function isOperand(e: Expr): boolean {
-  return e.kind === "ident_expr" || e.kind === "literal" || e.kind === "member" || e.kind === "index" || e.kind === "deref" || e.kind === "global_expr"
+/** A statement written the retired way, refused naming the ASSIGN it is (`syntax` `network/retired.ts`). */
+export function checkRetiredForms(stmt: Statement, wires: ReadonlySet<string>, out: DiagnosticItem[]): void {
+  for (const r of retiredForms(stmt, wires)) emit(out, r.span, CODE, r.message)
 }
 
-/** The head of a call that is the text's own (an element, the Execute box, a jump or the return), else undefined. */
-function ownHead(e: Expr): string | undefined {
-  if (e.kind !== "call" || e.callee.kind !== "ident_expr") return undefined
-  const upper = e.callee.name.toUpperCase()
-  return NETWORK_ELEMENTS.has(upper) || upper === EXECUTE || upper === "JMP" || upper === "RETURN" ? upper : undefined
+type Receiver = "none" | "pin" | "item"
+
+/** The mark a node is (`INVERT` read as `NOT`), and what it marks; undefined for any other node. */
+function markOf(e: Expr): { mark: string; inner: Expr } | undefined {
+  if (e.kind === "unary" && e.op.toUpperCase() === "NOT") return { mark: "INVERT", inner: e.operand }
+  if (e.kind !== "call" || e.callee.kind !== "ident_expr" || e.args.length !== 1 || e.args[0]!.value === undefined) return undefined
+  const head = e.callee.name.toUpperCase()
+  const a = e.args[0]!
+  return (head === "RISING" || head === "FALLING") && !a.output && a.param === undefined ? { mark: head, inner: a.value! } : undefined
 }
 
-/** THE VALUE MARK NOT: before a contact (an operand, no wire) or a box read where it stands (its negated output, `NOT
- *  t1(…).Q`) — the bridge's reader's rule (`StNetworkReader`). Before an edge the order is reversed (the IDE negates
- *  first); before anything else the text has no such mark. */
-export function checkValueNot(operand: Expr, span: Span, wires: ReadonlySet<string>, out: DiagnosticItem[]): void {
-  const box = operand.kind === "member" && operand.base.kind === "call" ? operand.base : operand.kind === "call" ? operand : undefined
-  const head = box === undefined ? undefined : ownHead(box)
-  if (head === "RISING" || head === "FALLING")
-    return emit(out, span, CODE, "NOT before an edge: the IDE negates first, so the edge is written outside the negation, RISING(NOT a)")
-  if (box !== undefined && (head === undefined || head === EXECUTE)) return
-  if (box === undefined && isOperand(operand) && !(operand.kind === "ident_expr" && wires.has(operand.name.toLowerCase()))) return
-  emit(out, span, CODE, "NOT before a wire, a branch, a coil, the rail or another NOT: NOT marks a contact or a box read where it stands, and the NOT box is NOT(…)")
-}
-
-/** The assignment item's marks stand last in its chain, after its targets and right before its value — the bridge's
- *  reader's words. Item marks no assignment holds (`networkStatements`) stand anywhere else. */
-const ITEM_MARKS_PLACE = "the assignment item's marks stand last in its chain, after its targets and right before its value (y := NOT := a)"
-
-/** THE ASSIGNMENT ITEMS' MARKS (`y := NOT := a`): each where an assignment holds it, in order, on no wire's definition. */
-export function checkItemMarks(statements: Statement[], items: readonly { words: readonly string[]; span: Span }[], wires: ReadonlySet<string>, out: DiagnosticItem[]): void {
-  const held = new Set<readonly string[]>()
-  walkStatements(statements, (s) => {
-    if ((s.kind === "assign" || s.kind === "jmp" || s.kind === "return") && s.itemMarks !== undefined) {
-      held.add(s.itemMarks)
-      if (s.kind === "assign" && s.target.kind === "ident_expr" && wires.has(s.target.name.toLowerCase()))
-        emit(out, s.target.span, CODE, `a mark on the wire ${s.target.name}: a wire holds none, its producer or a consumer does`)
-    }
-    for (const e of stmtExprs(s)) walkExpr(e, (x) => {
-      if ((x.kind === "assign_expr" || x.kind === "call") && x.itemMarks !== undefined) held.add(x.itemMarks)
-    })
-  })
-  for (const m of items) {
-    if (!held.has(m.words)) emit(out, m.span, CODE, ITEM_MARKS_PLACE)
-    else checkMarkOrder(m.words, m.span, out)
+/** Each value of a network statement with its marks where its receiver holds them, and every value inside it. */
+export function checkMarks(stmt: Statement, wires: ReadonlySet<string>, out: DiagnosticItem[]): void {
+  const isWire = (e: Expr) => e.kind === "ident_expr" && wires.has(e.name.toLowerCase())
+  /** May the node `core` carry marks of its own: a contact's operand (no wire) or a box (no element, no contact group)? */
+  const holdsMarks = (core: Expr): boolean => {
+    if (core.kind === "ident_expr") return !isWire(core)
+    if (["literal", "index", "deref", "global_expr", "member"].includes(core.kind)) return true
+    if (core.kind !== "call") return false
+    if (core.callee.kind !== "ident_expr") return true
+    const head = core.callee.name.toUpperCase()
+    return !NETWORK_ELEMENTS.has(head) && head !== "JMP" && head !== "RETURN"
   }
-}
-
-/** A jump's or the return's own marks: in order, and first in its chain, as a coil's (`y := NOT JMP.l := a` hands the
- *  marked value on). */
-export function checkControlMarks(s: Extract<Statement, { kind: "jmp" | "return" }>, out: DiagnosticItem[]): void {
-  if (s.marks === undefined) return
-  checkMarkOrder(s.marks, s.span, out)
-  if (s.kind === "jmp") refuseEdge(s.marks, s.span, "jump", "JMP.l := RISING(a)", out)
-  else refuseEdge(s.marks, s.span, "return", "RETURN := RISING(a)", out)
-  if (s.sharesValue === true)
-    emit(out, s.span, CODE, "a marked coil inside a chain: every target receives the rung's power flow, and a chained assignment would hand the marked value on")
-}
-
-/** An edge mark on a coil, a jump, the return or an output runs as if unmarked (live CODESYS 3.5.21.40, openspec
- *  nwl-box-storage-map); the edge is on the value. */
-function refuseEdge(marks: readonly string[], span: Span, what: "coil" | "jump" | "return" | "output", value: string, out: DiagnosticItem[]): void {
-  if (!marks.includes("RISING") && !marks.includes("FALLING")) return
-  const runs = what === "output" ? "writes" : "runs"
-  emit(out, span, CODE, `an edge mark on the ${what}: the IDE ${runs} it unmarked. The edge is on the value, ${value}`)
-}
-
-/** THE MARKS BEFORE ONE RECEIVER, outermost first: the edge outside the negation (the IDE negates first, N17), each once. */
-export function checkMarkOrder(marks: readonly string[], span: Span, out: DiagnosticItem[]): void {
-  let negated = false
-  let edge = false
-  for (const m of marks) {
-    if (m === "NOT") {
-      if (negated) return emit(out, span, CODE, "NOT twice before one receiver")
-      negated = true
-      continue
+  const value = (e: Expr, receiver: Receiver): void => {
+    const marks: string[] = []
+    let core = e
+    for (let m = markOf(core); m !== undefined; m = markOf(core)) {
+      marks.push(m.mark)
+      core = m.inner
     }
-    if (edge) return emit(out, span, CODE, "two edges before one receiver")
-    if (negated) return emit(out, span, CODE, `NOT ${m}: the IDE negates first, so the edge is written outside the negation, ${m} NOT`)
-    edge = true
+    let k = 0
+    if (receiver === "item") {
+      if (marks[k] === "INVERT") k++
+      if (k < marks.length && marks[k] !== "INVERT") k++
+    } else if (receiver === "pin" && k < marks.length) k++
+    const held = k
+    if (k < marks.length && marks[k] !== "INVERT") k++
+    if (k < marks.length && marks[k] === "INVERT") k++
+    if (k < marks.length)
+      emit(out, e.span, CODE, `${marks.join("(")}(…): a stack of marks deeper than the IDE stores. A value's node holds an edge outside a negation, RISING(INVERT(a)), and its receiver: the line into a coil a negation outside an edge, a pin or EN one mark`)
+    else if (k > held && !holdsMarks(core))
+      emit(out, e.span, CODE, `${marks[k - 1]}(…) on a wire, a branch, the rail, an ASSIGN or a contact group: a mark is on a contact, a box, or a receiver`)
+    inside(core)
   }
-  // an edge stacked on NOT does not run as it reads (live CODESYS 3.5.21.40, openspec nwl-box-storage-map)
-  const stacked = marks.find((m) => m === "RISING" || m === "FALLING")
-  if (negated && stacked !== undefined)
-    emit(out, span, CODE, `${stacked} NOT before one receiver: on a pin or EN the IDE runs the NOT and no edge, on the assignment NOT of the edge. The edge of the negated value is RISING(NOT a)`)
-}
-
-/** A mark on a coil or a jump standing in a tree (`y := (RISING x := a) AND b`, `(RISING JMP.l := a)`). */
-export function checkTreeMarks(x: CallExpr | Extract<Expr, { kind: "assign_expr" }>, out: DiagnosticItem[]): void {
-  const head = x.kind === "call" ? ownHead(x) : undefined
-  if (x.kind === "assign_expr") refuseEdge(x.marks!, x.span, "coil", "y := RISING(a)", out)
-  else if (head === "JMP") refuseEdge(x.marks!, x.span, "jump", "JMP.l := RISING(a)", out)
-  else if (head === "RETURN") refuseEdge(x.marks!, x.span, "return", "RETURN := RISING(a)", out)
-}
-
-/** A pin's, EN's or an output's own marks: in order, and on no branch's feed (a Parallel holds no flag). */
-export function checkPinMarks(call: CallExpr, a: CallArg, out: DiagnosticItem[]): void {
-  checkMarkOrder(a.marks!, a.span, out)
-  if (a.output) refuseEdge(a.marks!, a.span, "output", `y := RISING(${calleeText(call)}(…))`, out)
-  if (ownHead(call)?.startsWith("BRANCH") === true) emit(out, a.span, CODE, `a mark on the branch's ${a.param?.name ?? "pin"}: a branch holds none`)
-}
-
-/** A coil's own marks: in order; `NOT` on no `S=` / `R=` coil (a negated set coil IS the reset coil); none on a wire; and a
- *  marked coil only first in its chain — every target receives the rung's power flow (measured), while a chained
- *  assignment hands its value on, and the two agree only there. */
-export function checkCoilMarks(stmt: Extract<Statement, { kind: "assign" }>, wires: ReadonlySet<string>, out: DiagnosticItem[]): void {
-  const targets = [stmt.target, ...(stmt.chained ?? [])]
-  const ops = [stmt.op, ...(stmt.chainOps ?? [])]
-  stmt.marks?.forEach((m, i) => {
-    if (m === undefined) return
-    const t = targets[i]!
-    checkMarkOrder(m, t.span, out)
-    refuseEdge(m, t.span, "coil", "y := RISING(a)", out)
-    if (m.includes("NOT") && (ops[i] === "S=" || ops[i] === "R="))
-      emit(out, t.span, CODE, `NOT ${calleeText({ kind: "call", callee: t, args: [], span: t.span })} ${ops[i]}: a negated set or reset coil is no coil of its own (the reset coil is R=)`)
-    if (t.kind === "ident_expr" && wires.has(t.name.toLowerCase()))
-      emit(out, t.span, CODE, `a mark on the wire ${t.name}: a wire holds none, its producer or a consumer does`)
-    if (i > 0)
-      emit(out, t.span, CODE, "a marked coil inside a chain: every target receives the rung's power flow, and a chained assignment would hand the marked value on")
-  })
+  const call = (c: CallExpr): void => {
+    const head = c.callee.kind === "ident_expr" ? c.callee.name.toUpperCase() : undefined
+    // a jump or the return in a tree (an ASSIGN's target): its value is the line into it
+    if (head === "JMP" || head === "RETURN") return value(c.args.at(-1)!.value!, "item")
+    // a box's pin or EN (an Execute box's EN too); a value an element (a branch, a malformed mark) holds at no receiver
+    const element = head !== undefined && NETWORK_ELEMENTS.has(head)
+    for (const a of c.args) if (a.value !== undefined && !a.output) value(a.value, element ? "none" : "pin")
+  }
+  const inside = (e: Expr): void => {
+    switch (e.kind) {
+      case "call":
+        return call(e)
+      case "member":
+        return e.base.kind === "call" ? call(e.base) : undefined
+      case "binary":
+        value(e.left, "none")
+        return value(e.right, "none")
+      case "paren":
+        return value(e.inner, "none")
+      case "unary":
+        return value(e.operand, "none")
+      case "assign_expr":
+        return value(e.value, e.assignHead !== undefined ? "item" : "none")
+      default:
+        return
+    }
+  }
+  switch (stmt.kind) {
+    case "assign":
+      return value(stmt.value, stmt.assignHead !== undefined ? "item" : "none")
+    case "jmp":
+    case "return":
+      return stmt.value === undefined ? undefined : value(stmt.value, "item")
+    case "call_stmt":
+      return value(stmt.call, "none")
+    case "expr_stmt":
+      return value(stmt.expr, "none")
+    default:
+      return
+  }
 }

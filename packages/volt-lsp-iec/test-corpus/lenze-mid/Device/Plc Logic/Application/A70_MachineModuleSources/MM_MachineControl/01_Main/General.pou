@@ -14,28 +14,28 @@ END_VAR
 
 %LANGUAGE LD
 %NETWORK
-GeneralProgramFlags(EN := TRUE).ENO;
+GeneralProgramFlags(EN := TRUE);
 %NETWORK
-fc_Information(EN := TRUE).ENO;
+fc_Information(EN := TRUE);
 %NETWORK
 WordConvertor_v2(ioSafetyStatusUDT := Mach1_Safety.Status, ioSafetyControlUDT := Mach1_Safety.Control);
 %NETWORK
 VAR w1 : ANY; END_VAR
-w1 := NOT HMI_Var.ForceOutputs;
-Mach1_MIDS(EN := w1).ENO;
-fc_Visualisation_HMI(EN := w1).ENO;
-SMC_BitsToBytes(EN := w1).ENO;
+w1 := INVERT(HMI_Var.ForceOutputs);
+Mach1_MIDS(EN := w1);
+fc_Visualisation_HMI(EN := w1);
+SMC_BitsToBytes(EN := w1);
 %NETWORK
-Status_ForceOutputs(EN := TRUE).ENO;
+Status_ForceOutputs(EN := TRUE);
 %NETWORK
-LST_General.FirstCycle R= RAIL();
+ASSIGN(RAIL(), Q_RESET => LST_General.FirstCycle);
 %NETWORK
-Bugs.checkconnection := BLINK_0(ENABLE := TRUE, TIMELOW := T#1S, TIMEHIGH := T#1S);
+ASSIGN(BLINK_0(ENABLE := TRUE, TIMELOW := T#1S, TIMEHIGH := T#1S), Q => Bugs.checkconnection);
 %NETWORK
-TON_0(IN := NOT Bugs.reportConnectionAlive, PT := T#2S);
+TON_0(IN := INVERT(Bugs.reportConnectionAlive), PT := T#2S);
 %NETWORK
 TON_1(IN := Bugs.reportConnectionAlive, PT := T#2S);
 %NETWORK
-Bugs.restart := TON_0.Q OR TON_1.Q;
+ASSIGN(TON_0.Q OR TON_1.Q, Q => Bugs.restart);
 
 END_PROGRAM

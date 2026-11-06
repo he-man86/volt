@@ -72,7 +72,7 @@ function collectBareRefs(root: Expr, emit: (ref: BareRef) => void, isStep: (acce
   collect(root)
 }
 
-/** The label of a network's jump in a tree, `(JMP.label := value)` read as the call `JMP(label, value)` (only a plain-ST network body has a call named JMP: the ST
+/** The label of a network's jump in a tree, `ASSIGN(value, Q => JMP.label)` read as the call `JMP(label, value)` (only a plain-ST network body has a call named JMP: the ST
  *  lexer reads the word as a keyword): a label, no value. */
 export function isJumpLabel(call: CallExpr, arg: Expr): boolean {
   return call.callee.kind === "ident_expr" && call.callee.name.toUpperCase() === "JMP" && call.args[0]?.value === arg && arg.kind === "ident_expr"
@@ -152,7 +152,7 @@ export function unresolvedMembers(exprs: Iterable<Expr>, scope: Scope, project: 
   for (const e of exprs) {
     walkExpr(e, (x) => {
       if (x.kind !== "member" || steps.has(x)) return
-      // the member closing a network box's call (`<box>.ENO`, `<box>.Q`): the network check's to judge (`types` `infer/network-box.ts`)
+      // the member closing a network box's call (`<box>.ET`, `<box>.OUT`): the network check's to judge (`types` `infer/network-box.ts`)
       if (boxMember(x, scope, project) !== undefined) return
       if (isSfcStepBase(x, scope, project)) {
         steps.add(x.base)

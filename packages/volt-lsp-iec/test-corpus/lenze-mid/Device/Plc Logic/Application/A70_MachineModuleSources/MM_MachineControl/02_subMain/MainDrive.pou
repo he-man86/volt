@@ -13,35 +13,35 @@ VAR_OUTPUT
 END_VAR
 %LANGUAGE LD
 %NETWORK "DONE NETWORK 1: Delay after doors closed"
-Mach1_AuxData.DelayAfterDoorsActuallyClosed := Mach1_AuxData.IEC_TIMERS.TON_DelayAfterDoorsClosed(IN := Mach1.GenFlags.DelayAfterEmergStop AND Mach1_Safety.Status.AllDoorsActuallyClosed AND Mach1_Safety.Status.DoorsOK, PT := T#150MS).Q;
+ASSIGN(Mach1_AuxData.IEC_TIMERS.TON_DelayAfterDoorsClosed(IN := Mach1.GenFlags.DelayAfterEmergStop AND Mach1_Safety.Status.AllDoorsActuallyClosed AND Mach1_Safety.Status.DoorsOK, PT := T#150MS), Q => Mach1_AuxData.DelayAfterDoorsActuallyClosed);
 %NETWORK "DONE NETWORK 2: Activating main drive"
 VAR w1 : ANY; w2 : ANY; w3 : ANY; w4 : ANY; END_VAR
 w1 := TRUE;
-MOVE(EN := w1, 0, OUT => tInt).ENO;
-Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper R= w1 AND NOT HMI_Var.Test_Prod;
-w2 := w1 AND Mach1.GenFlags.EnableMainDrive AND Mach1.GenFlags.ConditionsReadyForOperation AND NOT Mach1.GenFlags.StopDriveDirect AND Mach1_AuxData.AllDrivesInLock;
+MOVE(EN := w1, 0, OUT => tInt);
+ASSIGN(w1 AND INVERT(HMI_Var.Test_Prod), Q_RESET => Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper);
+w2 := w1 AND Mach1.GenFlags.EnableMainDrive AND Mach1.GenFlags.ConditionsReadyForOperation AND INVERT(Mach1.GenFlags.StopDriveDirect) AND Mach1_AuxData.AllDrivesInLock;
 w3 := w2 AND Mach1.GenFlags.RunAuto;
-tMainDriveRun := oMainDriveRun := Mach1_Safety.Control.RequestAutoSpeed := w3;
-MOVE(EN := BRANCH(FEED := w3, NOT Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper, LE(EN := Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper, Mach1_Data.AUTOSPEED, 40)) AND NOT HMI_Var.Btn_Cleaning, Mach1_Data.AUTOSPEED, OUT => tInt).ENO;
-MOVE(EN := GT(EN := w3 AND Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper, Mach1_Data.AUTOSPEED, 40) AND NOT HMI_Var.Btn_Cleaning, 30, OUT => tInt).ENO;
-MOVE(EN := w3 AND HMI_Var.Btn_Cleaning, 6, OUT => tInt).ENO;
+ASSIGN(w3, Q => tMainDriveRun, Q => oMainDriveRun, Q => Mach1_Safety.Control.RequestAutoSpeed);
+MOVE(EN := BRANCH(FEED := w3, INVERT(Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper), LE(EN := Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper, Mach1_Data.AUTOSPEED, 40).OUT) AND INVERT(HMI_Var.Btn_Cleaning), Mach1_Data.AUTOSPEED, OUT => tInt);
+MOVE(EN := GT(EN := w3 AND Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper, Mach1_Data.AUTOSPEED, 40).OUT AND INVERT(HMI_Var.Btn_Cleaning), 30, OUT => tInt);
+MOVE(EN := w3 AND HMI_Var.Btn_Cleaning, 6, OUT => tInt);
 w4 := w2 AND Mach1.GenFlags.RunMan;
-tMainDriveJog := oMainDriveJog := Mach1_Safety.Control.RequestManSpeed := w4;
-MOVE(EN := w4, Mach1_Data.MANUALSPEED, OUT => tInt).ENO;
+ASSIGN(w4, Q => tMainDriveJog, Q => oMainDriveJog, Q => Mach1_Safety.Control.RequestManSpeed);
+MOVE(EN := w4, Mach1_Data.MANUALSPEED, OUT => tInt);
 RPM_To_DriveSpeed(iEN := w1, iRPM := tInt, oDriveSpeed => Mach1_Data.Drives.MainDrive_VM.Control.DriveMasterSpeed);
 %NETWORK "DONE NETWORK 3 : DriveIsRunning flag"
 VAR w5 : ANY; END_VAR
 w5 := TRUE;
-Mach1.GenFlags.StopDriveDirect R= w5;
-Mach1.GenFlags.DriveIsRunning := w5 AND (tMainDriveRun OR tMainDriveJog);
-Mach1.GenFlags.DriveAtSpeed := Mach1_AuxData.IEC_TIMERS.TOFF_MainDriveAtProductionSpeed(IN := Mach1_AuxData.IEC_TIMERS.TON_MainDriveAtProductionSpeed(IN := w5 AND tMainDriveRun, PT := T#200MS).Q, PT := T#60MS).Q;
+ASSIGN(w5, Q_RESET => Mach1.GenFlags.StopDriveDirect);
+ASSIGN(w5 AND (tMainDriveRun OR tMainDriveJog), Q => Mach1.GenFlags.DriveIsRunning);
+ASSIGN(Mach1_AuxData.IEC_TIMERS.TOFF_MainDriveAtProductionSpeed(IN := Mach1_AuxData.IEC_TIMERS.TON_MainDriveAtProductionSpeed(IN := w5 AND tMainDriveRun, PT := T#200MS), PT := T#60MS), Q => Mach1.GenFlags.DriveAtSpeed);
 %NETWORK "DONE NETWORK 4: Alarm: Main drive blocked"
-Mach1.GenFlags.StopDriveDirect S= Alarms_V5_1_100(AlarmDB := Mach1_Alarms, iCond := LT(EN := Mach1_AuxData.IEC_TIMERS.TON_MainDriveBlocked(IN := oMainDriveRun, PT := T#12S).Q, HMI_Var.Mach1.ActualSpeed, 5), iReset := Mach1.GenFlags.StartFlag, iAlm := Mach1_Alarms.Alm040, ioAction := Mach1.GenFlags.MinorAlarm) AND Mach1_Alarms.Alm040;
+ASSIGN(Alarms_V5_1_100(AlarmDB := Mach1_Alarms, iCond := LT(EN := Mach1_AuxData.IEC_TIMERS.TON_MainDriveBlocked(IN := oMainDriveRun, PT := T#12S), HMI_Var.Mach1.ActualSpeed, 5).OUT, iReset := Mach1.GenFlags.StartFlag, iAlm := Mach1_Alarms.Alm040, ioAction := Mach1.GenFlags.MinorAlarm) AND Mach1_Alarms.Alm040, Q_SET => Mach1.GenFlags.StopDriveDirect);
 %NETWORK "DONE NETWORK 5: Manual brakerelease"
 %DISABLED
 VAR w6 : ANY; END_VAR
 w6 := TRUE;
-LST_InputsOutputs.Q101_0_REL_release_brake := w6 AND Mach1_Alarms.Alm001 AND HMI_Var.ReleaseBrake;
-HMI_Var.ReleaseBrake R= w6 AND (NOT Mach1_Alarms.Alm001 OR Mach1_Alarms.Alm001 AND NOT Mach1.GenFlags.StartFlag);
+ASSIGN(w6 AND Mach1_Alarms.Alm001 AND HMI_Var.ReleaseBrake, Q => LST_InputsOutputs.Q101_0_REL_release_brake);
+ASSIGN(w6 AND (INVERT(Mach1_Alarms.Alm001) OR Mach1_Alarms.Alm001 AND INVERT(Mach1.GenFlags.StartFlag)), Q_RESET => HMI_Var.ReleaseBrake);
 
 END_PROGRAM

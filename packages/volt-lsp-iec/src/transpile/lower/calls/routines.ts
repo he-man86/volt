@@ -240,7 +240,7 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
     const sections = ast.kind === "action" ? [] : ast.varSections
     // a body that does not lower is refused at the routine, in its own file — the cause is its, not the call's
     const parsed = bodyOf(lw, ast, ast.body, name)
-    if ("code" in parsed) return lw.bail(parsed.code, parsed.message, sym.span, sym.uri)
+    if ("code" in parsed) return lw.bail(parsed.code, parsed.message, parsed.span ?? sym.span, sym.uri)
     const kept = keptVariables(lw, sym, sections, frame, span)
     if (kept === undefined) return undefined
     // an ACTION's network state: fields of the instance it runs on (a METHOD's or FUNCTION's: its call's, below)

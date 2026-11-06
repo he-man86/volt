@@ -21,7 +21,7 @@ Q := IN;
 END_FUNCTION_BLOCK
 `
 
-/** The type of every expression `x := <expr>;` assigns to `probe…` in the network body of `code`, by the probe's name. */
+/** The type of every value a coil `ASSIGN(<expr>, Q => probe…)` writes in the network body of `code`, by the probe's name. */
 function probes(language: "LD" | "ST", code: string): Record<string, string> {
   const src = `${FB}PROGRAM P\nVAR\n\ta, b, c, p1, p2, p3, p4, p5, p6 : BOOL;\n\ti, j, n, q1, q2 : INT;\n\tt1 : FB_T;\n\td1 : TIME;\nEND_VAR\n%LANGUAGE ${language}\n${code}END_PROGRAM\n`
   const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
@@ -37,14 +37,16 @@ function probes(language: "LD" | "ST", code: string): Record<string, string> {
 }
 
 test("an operator box is the type its operands have under the operator: a comparison BOOL, an extensible ADD its meet", () => {
-  expect(probes("LD", "%NETWORK\np1 := GT(i, 3);\nq1 := ADD(i, j, n);\np2 := AND(a, NOT(b), XOR(a, c));\nq2 := MOD(i, 2);\n")).toEqual({
+  expect(probes("LD", "%NETWORK\nASSIGN(GT(i, 3), Q => p1);\nASSIGN(ADD(i, j, n), Q => q1);\nASSIGN(AND(a, NOT(b), XOR(a, c)), Q => p2);\nASSIGN(MOD(i, 2), Q => q2);\n")).toEqual({
     p1: "BOOL", q1: "INT", p2: "BOOL", q2: "INT",
   })
 })
 
-test("a box closed by .ENO is its ENO, a BOOL; with EN and no ENO its value; an FB by the output it names", () => {
-  expect(probes("LD", "%NETWORK\np1 := MOVE(EN := a, i, OUT => n).ENO;\np2 := GT(EN := a, i, j, OUT => p3).ENO;\nq1 := ADD(EN := a, i, j);\n" +
-    "p4 := t1(IN := a).Q;\nd1 := t1(IN := a).ET;\n")).toEqual({ p1: "BOOL", p2: "BOOL", q1: "INT", p4: "BOOL", d1: "TIME" })
+test("a box showing EN hands on its ENO, a BOOL; .OUT its value; an FB its first output, or the output it names", () => {
+  expect(probes("LD", "%NETWORK\nASSIGN(MOVE(EN := a, i, OUT => n), Q => p1);\nASSIGN(GT(EN := a, i, j, OUT => p3), Q => p2);\nASSIGN(ADD(EN := a, i, j).OUT, Q => q1);\n" +
+    "ASSIGN(t1(IN := a), Q => p4);\nASSIGN(t1(IN := a).ET, Q => d1);\nASSIGN(t1(EN := a, IN := b), Q => p5);\nASSIGN(INVERT(i), Q => q2);\n")).toEqual({
+    p1: "BOOL", p2: "BOOL", q1: "INT", p4: "BOOL", d1: "TIME", p5: "BOOL", q2: "UINT", // INVERT is NOT: on an INT, its UINT (`uop_not_*`)
+  })
 })
 
 test("a root box closed by .NAME is that output (network-text-one-to-one F3): a member of the box, typed as one read elsewhere", () => {
@@ -61,8 +63,8 @@ test("a root box closed by .NAME is that output (network-text-one-to-one F3): a 
 
 test("a wire is of its definition's type: an expression's, an FB output's, an enabled box's value, an ENO", () => {
   const code =
-    "%NETWORK\nVAR w1 : ANY; w2 : ANY; w3 : ANY; w4 : ANY; w5 : ANY; END_VAR\nw1 := ADD(i, j);\nq1 := w1;\nq2 := w1;\nw2 := t1(IN := a).Q;\np1 := w2;\nw3 := t1(IN := a).ET;\nd1 := w3;\n" +
-    "w4 := MOVE(EN := b, i);\nn := w4;\nw5 := MOVE(EN := b, i, OUT => n).ENO;\np1 := w5;\n"
+    "%NETWORK\nVAR w1 : ANY; w2 : ANY; w3 : ANY; w4 : ANY; w5 : ANY; END_VAR\nw1 := ADD(i, j);\nASSIGN(w1, Q => q1, Q => q2);\nw2 := t1(IN := a);\nASSIGN(w2, Q => p1);\nw3 := t1(IN := a).ET;\nASSIGN(w3, Q => d1);\n" +
+    "w4 := MOVE(EN := b, i).OUT;\nASSIGN(w4, Q => n);\nw5 := MOVE(EN := b, i, OUT => n);\nASSIGN(w5, Q => p1);\n"
   const parseResult = parseSource(`${FB}PROGRAM P\nVAR\n\ta, b, p1 : BOOL;\n\ti, j, n, q1, q2 : INT;\n\tt1 : FB_T;\n\td1 : TIME;\nEND_VAR\n%LANGUAGE LD\n${code}END_PROGRAM\n`, { networkText: true, unicodeIdentifiers: false }, "codesys")
   const project = build.buildSymbolTable([{ uri: "P.pou", parseResult, source: "" }], [], "codesys")
   const types: Record<string, string> = {}

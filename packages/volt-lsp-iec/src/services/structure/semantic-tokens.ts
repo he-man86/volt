@@ -46,7 +46,7 @@ export const SEMANTIC_TOKEN_TYPES = [
   // declares; volt-vscode declares it with `variable` as its super type, so a theme that knows nothing of it still
   // paints it as a variable. LAST, so every other type keeps its index.
   "wire",
-  // A network's label: its own (`l:`) and the one a jump names (`JMP.l := …`). A standard LSP type.
+  // A network's label: its own (`l:`) and the one a jump names (`Q => JMP.l`). A standard LSP type.
   "label",
 ] as const
 

@@ -20,7 +20,7 @@ END_VAR
 
 %LANGUAGE FBD
 %NETWORK
-out := OR(AND(a, b), c);
+ASSIGN(OR(AND(a, b), c), Q => out);
 
 END_FUNCTION_BLOCK
 `, `${doc}#elements`),
@@ -35,7 +35,7 @@ END_VAR
 
 %LANGUAGE FBD
 %NETWORK
-out := AND(a, b, c);
+ASSIGN(AND(a, b, c), Q => out);
 
 END_FUNCTION_BLOCK
 `, `${doc}#elements`),
@@ -51,9 +51,9 @@ END_VAR
 
 %LANGUAGE FBD
 %NETWORK
-sum := ADD(x, y, z);
+ASSIGN(ADD(x, y, z), Q => sum);
 %NETWORK
-rest := MOD(x, y);
+ASSIGN(MOD(x, y), Q => rest);
 
 END_FUNCTION_BLOCK
 `, `${doc}#elements`),
@@ -68,9 +68,9 @@ END_VAR
 
 %LANGUAGE FBD
 %NETWORK
-below := LT(x, y);
+ASSIGN(LT(x, y), Q => below);
 %NETWORK
-same := EQ(x, y);
+ASSIGN(EQ(x, y), Q => same);
 
 END_FUNCTION_BLOCK
 `, `${doc}#elements`),
@@ -88,8 +88,8 @@ END_VAR
 %NETWORK
 VAR w1 : ANY; END_VAR
 w1 := OR(a, b);
-out1 := w1;
-out2 := w1;
+ASSIGN(w1, Q => out1);
+ASSIGN(w1, Q => out2);
 
 END_FUNCTION_BLOCK
 `, `${doc}#wires`),
@@ -107,9 +107,9 @@ END_VAR
 %NETWORK
 VAR w1 : ANY; END_VAR
 w1 := a OR b;
-plain := w1;
-latched S= w1;
-cleared R= w1;
+ASSIGN(w1, Q => plain);
+ASSIGN(w1, Q_SET => latched);
+ASSIGN(w1, Q_RESET => cleared);
 
 END_FUNCTION_BLOCK
 `, `${doc}#elements`,
@@ -124,7 +124,7 @@ END_VAR
 
 %LANGUAGE FBD
 %NETWORK
-out := AND(a, NOT b);
+ASSIGN(AND(a, INVERT(b)), Q => out);
 
 END_FUNCTION_BLOCK
 `, `${doc}#elements`,
@@ -140,7 +140,7 @@ END_VAR
 
 %LANGUAGE FBD
 %NETWORK
-out := NOT(AND(a, b));
+ASSIGN(NOT(AND(a, b)), Q => out);
 
 END_FUNCTION_BLOCK
 `, `${doc}#elements`),
@@ -154,9 +154,9 @@ END_VAR
 
 %LANGUAGE LD
 %NETWORK
-up := RISING(clk);
+ASSIGN(RISING(clk), Q => up);
 %NETWORK
-down := FALLING(clk);
+ASSIGN(FALLING(clk), Q => down);
 
 END_FUNCTION_BLOCK
 `, `${doc}#elements`,
@@ -174,7 +174,7 @@ END_VAR
 %LANGUAGE FBD
 %NETWORK
 t1(IN := go, PT := pt);
-done := t1.Q;
+ASSIGN(t1.Q, Q => done);
 
 END_FUNCTION_BLOCK
 `, `${doc}#elements`),
@@ -199,7 +199,7 @@ END_VAR
 
 %LANGUAGE FBD
 %NETWORK
-next := F_NG_split(source := src, doubled => twice).OUT;
+ASSIGN(F_NG_split(source := src, doubled => twice), Q => next);
 
 END_FUNCTION_BLOCK
 `, `${doc}#outputs`,
@@ -232,11 +232,11 @@ END_VAR
 
 %LANGUAGE LD
 %NETWORK
-out := TRUE;
-JMP.Onwards := RAIL();
+ASSIGN(TRUE, Q => out);
+ASSIGN(RAIL(), Q => JMP.Onwards);
 %NETWORK
 Onwards:
-after := TRUE;
+ASSIGN(TRUE, Q => after);
 
 END_FUNCTION_BLOCK
 `, `${doc}#elements`,
@@ -251,15 +251,15 @@ END_VAR
 
 %LANGUAGE LD
 %NETWORK
-JMP.Tail := cond;
+ASSIGN(cond, Q => JMP.Tail);
 %NETWORK
-RETURN := cond;
+ASSIGN(cond, Q => RETURN);
 %NETWORK
 Tail:
-done := TRUE;
-RETURN := RAIL();
+ASSIGN(TRUE, Q => done);
+ASSIGN(RAIL(), Q => RETURN);
 %NETWORK
-later := TRUE;
+ASSIGN(TRUE, Q => later);
 
 END_FUNCTION_BLOCK
 `, `${doc}#elements`),
@@ -275,7 +275,7 @@ END_VAR
 %LANGUAGE FBD
 %NETWORK "the interlock"
 // both have to be true
-out := AND(a, b);
+ASSIGN(AND(a, b), Q => out);
 
 END_FUNCTION_BLOCK
 `, `${doc}#lines`),
@@ -290,9 +290,9 @@ END_VAR
 %LANGUAGE FBD
 %NETWORK
 %DISABLED
-out := nothingDeclaredWithThisName;
+ASSIGN(nothingDeclaredWithThisName, Q => out);
 %NETWORK
-live := a;
+ASSIGN(a, Q => live);
 
 END_FUNCTION_BLOCK
 `, `${doc}#lines`,
@@ -308,7 +308,7 @@ END_VAR
 
 %LANGUAGE FBD
 %NETWORK
-count := AND(a, b);
+ASSIGN(AND(a, b), Q => count);
 
 END_FUNCTION_BLOCK
 `, `${doc}#subset`,

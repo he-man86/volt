@@ -99,7 +99,7 @@ function identType(expr: Extract<Expr, { kind: "ident_expr" }>, scope: Scope, pr
 }
 
 function memberType(expr: Extract<Expr, { kind: "member" }>, scope: Scope, project: Scope): Type {
-  // the member closing a network box's call (`<box>.ENO`, `<box>.Q`, `network-call.ts`): only in a network body
+  // the member closing a network box's call (`<box>.ET`, `<box>.OUT`, `network-call.ts`): only in a network body
   const box = networkMemberType(expr, scope, project)
   if (box !== undefined) return box
   // CODESYS's PARTIAL ACCESS `d.%W0` is of the part it names: %X a BOOL, %B a BYTE, %W a WORD, %D a DWORD

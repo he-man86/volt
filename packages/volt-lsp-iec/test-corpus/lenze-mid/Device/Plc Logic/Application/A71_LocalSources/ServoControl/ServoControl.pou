@@ -37,68 +37,68 @@ END_VAR
 %LANGUAGE LD
 %NETWORK "Network 2 : Initialise with STATE HomePosNotOK"
 VAR w1 : ANY; END_VAR
-w1 := NOT STATE_Prehoming AND NOT STATE_HomePosNOK AND NOT STATE_HomePOSOK AND NOT STATE_WaitingForEnable AND NOT STATE_Synchronising;
-STATE_Prehoming R= w1;
-STATE_HomePosNOK R= w1;
-STATE_HomePOSOK R= w1;
-STATE_WaitingForEnable R= w1;
-STATE_Synchronising R= w1;
-STATE_HomePosNOK S= w1;
+w1 := INVERT(STATE_Prehoming) AND INVERT(STATE_HomePosNOK) AND INVERT(STATE_HomePOSOK) AND INVERT(STATE_WaitingForEnable) AND INVERT(STATE_Synchronising);
+ASSIGN(w1, Q_RESET => STATE_Prehoming);
+ASSIGN(w1, Q_RESET => STATE_HomePosNOK);
+ASSIGN(w1, Q_RESET => STATE_HomePOSOK);
+ASSIGN(w1, Q_RESET => STATE_WaitingForEnable);
+ASSIGN(w1, Q_RESET => STATE_Synchronising);
+ASSIGN(w1, Q_SET => STATE_HomePosNOK);
 %NETWORK "Network 3 : STATE: Prehoming "
-STATE_Prehoming S= STATE_HomePOSOK R= STATE_WaitingForEnable R= STATE_Synchronising R= (STATE_WaitingForEnable OR STATE_Synchronising) AND iServoStatus.DriveCommAlive AND Man_SetHomePos AND iServoStatus.HomingPosOK;
+ASSIGN((STATE_WaitingForEnable OR STATE_Synchronising) AND iServoStatus.DriveCommAlive AND Man_SetHomePos AND iServoStatus.HomingPosOK, Q_SET => STATE_Prehoming, Q_RESET => STATE_HomePOSOK, Q_RESET => STATE_WaitingForEnable, Q_RESET => STATE_Synchronising);
 %NETWORK "STATE: HomePos not OK"
-STATE_HomePosNOK S= STATE_Prehoming R= STATE_HomePOSOK R= STATE_WaitingForEnable R= STATE_Synchronising R= (STATE_Prehoming OR STATE_HomePOSOK OR STATE_WaitingForEnable OR STATE_Synchronising) AND iServoStatus.DriveCommAlive AND NOT iServoStatus.HomingPosOK;
+ASSIGN((STATE_Prehoming OR STATE_HomePOSOK OR STATE_WaitingForEnable OR STATE_Synchronising) AND iServoStatus.DriveCommAlive AND INVERT(iServoStatus.HomingPosOK), Q_SET => STATE_HomePosNOK, Q_RESET => STATE_Prehoming, Q_RESET => STATE_HomePOSOK, Q_RESET => STATE_WaitingForEnable, Q_RESET => STATE_Synchronising);
 %NETWORK "Network 5: STATE: HomePos OK"
-STATE_HomePOSOK S= STATE_HomePosNOK R= Man_SetHomePos R= STATE_HomePosNOK AND iServoStatus.DriveCommAlive AND iServoStatus.HomingPosOK;
+ASSIGN(STATE_HomePosNOK AND iServoStatus.DriveCommAlive AND iServoStatus.HomingPosOK, Q_SET => STATE_HomePOSOK, Q_RESET => STATE_HomePosNOK, Q_RESET => Man_SetHomePos);
 %NETWORK "Network 6 : STATE: WaitingForEnable"
-STATE_WaitingForEnable S= STATE_HomePOSOK R= STATE_Synchronising R= STATE_HomePOSOK OR STATE_Synchronising AND NOT ioUDT_ServoDrive.Control.SetDriveEnable;
+ASSIGN(STATE_HomePOSOK OR STATE_Synchronising AND INVERT(ioUDT_ServoDrive.Control.SetDriveEnable), Q_SET => STATE_WaitingForEnable, Q_RESET => STATE_HomePOSOK, Q_RESET => STATE_Synchronising);
 %NETWORK "DONE Network 7: STATE: Synchronising"
-STATE_Synchronising S= STATE_WaitingForEnable R= STATE_WaitingForEnable AND ioUDT_ServoDrive.Control.SetDriveEnable;
+ASSIGN(STATE_WaitingForEnable AND ioUDT_ServoDrive.Control.SetDriveEnable, Q_SET => STATE_Synchronising, Q_RESET => STATE_WaitingForEnable);
 %NETWORK "DONE Network 8: Activate set HomePos Cycle"
 VAR w2 : ANY; END_VAR
 w2 := OSP_SetHomnePos(CLK := ioUDT_ServoDrive.Control.StartSetHomePos AND ioUDT_ServoDrive.Status.DriveIsReady);
-Man_SetHomePos S= w2;
-ioUDT_ServoDrive.Control.StartSetHomePos R= w2;
+ASSIGN(w2, Q_SET => Man_SetHomePos);
+ASSIGN(w2, Q_RESET => ioUDT_ServoDrive.Control.StartSetHomePos);
 %NETWORK "DONE Network 9: Output: Activate Synchronise drive"
-oServoControl.ActivateCamming := STATE_Synchronising AND ioUDT_ServoDrive.Control.SetInSync;
+ASSIGN(STATE_Synchronising AND ioUDT_ServoDrive.Control.SetInSync, Q => oServoControl.ActivateCamming);
 %NETWORK "DONE Network 10: Reset HomePos in Servo drive"
-oServoControl.ResetHomePos := STATE_Prehoming AND Man_SetHomePos;
+ASSIGN(STATE_Prehoming AND Man_SetHomePos, Q => oServoControl.ResetHomePos);
 %NETWORK "DONE Network 11: Set HomePos in Servo drive"
-oServoControl.SetHomePos := STATE_HomePosNOK AND Man_SetHomePos AND iEnableHomeMovement AND ioUDT_ServoDrive.Status.DriveIsReady;
+ASSIGN(STATE_HomePosNOK AND Man_SetHomePos AND iEnableHomeMovement AND ioUDT_ServoDrive.Status.DriveIsReady, Q => oServoControl.SetHomePos);
 %NETWORK "DONE Network 11: Set HomePos in Servo drive"
-oServoControl.ReleaseBrake := ioUDT_ServoDrive.Control.SetBrakeRelease;
+ASSIGN(ioUDT_ServoDrive.Control.SetBrakeRelease, Q => oServoControl.ReleaseBrake);
 %NETWORK "TODO Network 16: Enable drive from software"
-oServoControl.Enable := ioUDT_ServoDrive.Control.SetDriveEnable AND iEnablePower;
+ASSIGN(ioUDT_ServoDrive.Control.SetDriveEnable AND iEnablePower, Q => oServoControl.Enable);
 %NETWORK "DONE Network 17: Reset error"
-oServoControl.ResetError := ioUDT_ServoDrive.Control.ResetError AND iFF100ms;
+ASSIGN(ioUDT_ServoDrive.Control.ResetError AND iFF100ms, Q => oServoControl.ResetError);
 %NETWORK "DONE Network 18: SelectBypassCAM"
-oServoControl.SelectBypassCAM := ioUDT_ServoDrive.Control.SelectBypassCAM;
+ASSIGN(ioUDT_ServoDrive.Control.SelectBypassCAM, Q => oServoControl.SelectBypassCAM);
 %NETWORK "DONE Network 19: Output: X-offset"
 EXECUTE(EN := RAIL(), 'ioUDT_ServoDrive.CAM.X_Offset_ToSlave := ioUDT_ServoDrive.CAM.X_Offset_FromMaster + ioUDT_ServoDrive.CAM.X_Offset_Recipe;
-oServoControl.XOffset := INT_TO_WORD(ioUDT_ServoDrive.CAM.X_Offset_Base + ioUDT_ServoDrive.CAM.X_Offset_ToSlave);').ENO;
+oServoControl.XOffset := INT_TO_WORD(ioUDT_ServoDrive.CAM.X_Offset_Base + ioUDT_ServoDrive.CAM.X_Offset_ToSlave);');
 %NETWORK "DONE Network 20: Scaling of the Y value"
 VAR w3 : ANY; END_VAR
 w3 := True;
-MOVE(EN := GE(EN := w3, ioUDT_ServoDrive.CAM.CamType, ctCurveIs0ToMax), 1000, OUT => oServoControl.YScale).ENO;
-ADD(EN := OR(GE(EN := w3, ioUDT_ServoDrive.CAM.CamType, ctCurveIs0To0), GE(EN := RAIL(), ioUDT_ServoDrive.CAM.CamType, ctCurveIsSpeed)), ioUDT_ServoDrive.CAM.Y_Scale_Base, ioUDT_ServoDrive.CAM.Y_Scale_Recipe, OUT => oServoControl.YScale).ENO;
+MOVE(EN := GE(EN := w3, ioUDT_ServoDrive.CAM.CamType, ctCurveIs0ToMax).OUT, 1000, OUT => oServoControl.YScale);
+ADD(EN := OR(GE(EN := w3, ioUDT_ServoDrive.CAM.CamType, ctCurveIs0To0).OUT, GE(EN := RAIL(), ioUDT_ServoDrive.CAM.CamType, ctCurveIsSpeed).OUT), ioUDT_ServoDrive.CAM.Y_Scale_Base, ioUDT_ServoDrive.CAM.Y_Scale_Recipe, OUT => oServoControl.YScale);
 %NETWORK "DONE Network 21: Y-offset"
-EXECUTE(EN := RAIL(), 'oServoControl.YOffset := INT_TO_WORD(ioUDT_ServoDrive.CAM.Y_Offset_Base + ioUDT_ServoDrive.CAM.Y_Offset_Recipe);').ENO;
+EXECUTE(EN := RAIL(), 'oServoControl.YOffset := INT_TO_WORD(ioUDT_ServoDrive.CAM.Y_Offset_Base + ioUDT_ServoDrive.CAM.Y_Offset_Recipe);');
 %NETWORK "TODO Network 22: Status inputs from drive"
 %NETWORK "TODO Network 23: SetOuput bits to drive"
 %NETWORK "DONE Network 24: Output to Program"
 VAR w4 : ANY; END_VAR
 w4 := True;
-ioUDT_ServoDrive.Status.DriveIsReady := w4 AND iServoStatus.ReadyForMotion;
-ioUDT_ServoDrive.Status.InSync := w4 AND iServoStatus.InSync;
-ioUDT_ServoDrive.Status.DriveTorqueError := w4 AND iServoStatus.TorqueLimit;
-ioUDT_ServoDrive.Status.DriveIsHomed := HomingDoneDelay(IN := w4 AND NOT STATE_Prehoming AND NOT STATE_HomePosNOK, PT := T#2S).Q;
+ASSIGN(w4 AND iServoStatus.ReadyForMotion, Q => ioUDT_ServoDrive.Status.DriveIsReady);
+ASSIGN(w4 AND iServoStatus.InSync, Q => ioUDT_ServoDrive.Status.InSync);
+ASSIGN(w4 AND iServoStatus.TorqueLimit, Q => ioUDT_ServoDrive.Status.DriveTorqueError);
+ASSIGN(HomingDoneDelay(IN := w4 AND INVERT(STATE_Prehoming) AND INVERT(STATE_HomePosNOK), PT := T#2S), Q => ioUDT_ServoDrive.Status.DriveIsHomed);
 %NETWORK "DONE Network 25: ActualXPos/Ypos"
-MOVE(EN := RAIL(), OPERAND('LREAL_TO_INT(iServoStatus.ActPos)'), OUT => ioUDT_ServoDrive.CAM.ActualYPos).ENO;
+MOVE(EN := RAIL(), OPERAND('LREAL_TO_INT(iServoStatus.ActPos)'), OUT => ioUDT_ServoDrive.CAM.ActualYPos);
 %NETWORK "DONE Network 26: ActualSpeed"
-MOVE(EN := RAIL(), OPERAND('LREAL_TO_INT(iServoStatus.ActSpeed)'), OUT => ioUDT_ServoDrive.CAM.ActualYSpeed).ENO;
+MOVE(EN := RAIL(), OPERAND('LREAL_TO_INT(iServoStatus.ActSpeed)'), OUT => ioUDT_ServoDrive.CAM.ActualYSpeed);
 %NETWORK
-MOVE(EN := RAIL(), ioUDT_ServoDrive.Control.TorqueLimit, OUT => oServoControl.TorqueLimit).ENO;
+MOVE(EN := RAIL(), ioUDT_ServoDrive.Control.TorqueLimit, OUT => oServoControl.TorqueLimit);
 %NETWORK "DONE Network 27: Reset ResetError in UDT"
-ioUDT_ServoDrive.Control.ResetError R= True AND ioUDT_ServoDrive.Status.DriveIsReady;
+ASSIGN(True AND ioUDT_ServoDrive.Status.DriveIsReady, Q_RESET => ioUDT_ServoDrive.Control.ResetError);
 
 END_FUNCTION_BLOCK

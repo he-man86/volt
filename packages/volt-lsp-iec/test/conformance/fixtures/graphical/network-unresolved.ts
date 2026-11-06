@@ -98,7 +98,7 @@ END_VAR
 
 %LANGUAGE LD
 %NETWORK
-??? := a;
+ASSIGN(a, Q => ???);
 
 END_FUNCTION_BLOCK
 `,
@@ -142,7 +142,7 @@ END_VAR
 
 %LANGUAGE FBD
 %NETWORK
-out := AND(???, a);
+ASSIGN(AND(???, a), Q => out);
 
 END_FUNCTION_BLOCK
 `,
@@ -185,7 +185,7 @@ END_VAR
 
 %LANGUAGE LD
 %NETWORK
-??? := PRG_LANG_network_unnamed_void_callee(EN := go).ENO;
+ASSIGN(PRG_LANG_network_unnamed_void_callee(EN := go), Q => ???);
 
 END_PROGRAM
 `,
@@ -221,7 +221,7 @@ END_VAR
 
 %LANGUAGE LD
 %NETWORK
-??? := FUN_LANG_network_unnamed_valued(EN := TRUE, a := a).ENO;
+ASSIGN(FUN_LANG_network_unnamed_valued(EN := TRUE, a := a), Q => ???);
 
 END_FUNCTION_BLOCK
 `,

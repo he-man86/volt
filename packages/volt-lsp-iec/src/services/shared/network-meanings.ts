@@ -21,6 +21,12 @@ export const NETWORK_MEANINGS = {
   COMMENT: "an operand comment: the operand it wraps, the comment the engineer typed beside it",
   RISING: "a rising edge of its value: an R_TRIG called with it, read by its Q",
   FALLING: "a falling edge of its value: an F_TRIG called with it, read by its Q",
+  INVERT: "a negation of its value: NOT of it (bitwise on an integer)",
+  ASSIGN: "coils, jumps and returns on one value: every target receives it, in order, each its own mark; it hands the value on",
+  Q: "a coil: the target receives the value",
+  Q_SET: "a set coil: the target is set TRUE while the value is TRUE",
+  Q_RESET: "a reset coil: the target is reset FALSE while the value is TRUE",
+  Q_INVERTED: "a negated coil: the target receives NOT the value",
   JMP: "a jump as a target: IF its value THEN JMP to the label END_IF",
   RETURN: "the return as a target: IF its value THEN RETURN END_IF",
 } as const satisfies Record<string, string>
@@ -30,31 +36,3 @@ export type NetworkForm = keyof typeof NETWORK_MEANINGS
 /** A label: the network's own (`l:`) or the one a jump names (`JMP.l`). */
 export const labelMeaning = (name: string, jump: boolean): string =>
   jump ? `the label ${name}: where the jump goes` : `the network's label ${name}: a jump's destination`
-
-const MARKS: Record<string, string> = { NOT: "a negation mark", RISING: "a rising-edge mark", FALLING: "a falling-edge mark" }
-
-/** What a mark stands before: a coil, a pin of a call (EN among them), an output a box hands on (`Q => x`), a jump
- *  (`NOT JMP.l :=`, its label the name), the return, or the assignment item (`y := NOT := a`). */
-export type MarkReceiver = { kind: "coil" | "pin" | "output" | "jump"; name: string } | { kind: "return" | "item" }
-
-/** A receiver's mark: `RISING IN :=` → "a rising-edge mark on the IN pin". */
-export function markMeaning(word: string, receiver: MarkReceiver): string {
-  return `${MARKS[word.toUpperCase()]} on ${receiverText(receiver)}`
-}
-
-function receiverText(receiver: MarkReceiver): string {
-  switch (receiver.kind) {
-    case "item":
-      return "the assignment: the value every target receives"
-    case "return":
-      return "the return"
-    case "jump":
-      return `the jump to ${receiver.name}`
-    case "coil":
-      return `the coil ${receiver.name}`
-    case "output":
-      return `the output ${receiver.name}`
-    default:
-      return receiver.name.toUpperCase() === "EN" ? "EN" : `the ${receiver.name} pin`
-  }
-}

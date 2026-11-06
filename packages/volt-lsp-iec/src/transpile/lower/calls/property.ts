@@ -41,7 +41,7 @@ export function propertyRoutine(lw: Lowering, frame: FbType, sym: RoutineSymbol,
     const unmeasured = part.varSections.find((s) => s.sectionKind !== "VAR" && s.sectionKind !== "VAR_TEMP")
     if (unmeasured !== undefined) return lw.bail(`routine-${unmeasured.sectionKind.toLowerCase()}`, `${name} has ${unmeasured.sectionKind}, not measured yet`, span)
     const parsed = bodyOf(lw, ast, part.body, name)
-    if ("code" in parsed) return lw.bail(parsed.code, parsed.message, sym.span, sym.uri)
+    if ("code" in parsed) return lw.bail(parsed.code, parsed.message, parsed.span ?? sym.span, sym.uri)
     const key = name.toUpperCase()
     const r = routineLowering(lw, scope, frame, sym.owner, key, name)
     const type = storageOf(r, r.resolve(ast.dataType), ast.dataType.span)

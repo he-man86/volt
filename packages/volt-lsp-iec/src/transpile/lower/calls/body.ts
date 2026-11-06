@@ -3,7 +3,7 @@
  * body written (`bodyOf`). Split from `routines.ts`, every body site's one pipeline.
  */
 import type { Lowering } from "../core/lowering.js"
-import { type BodySpan, isPlainStNetworkBody, isStBody, type StatementList, type TopLevel } from "../../../frontend/syntax/index.js"
+import { type BodySpan, isPlainStNetworkBody, isStBody, type Span, type StatementList, type TopLevel } from "../../../frontend/syntax/index.js"
 import { networkScope, scopeForUnit } from "../../../frontend/symbols/index.js"
 import { execBodyStatements } from "../conditions.js"
 import { type HiddenVar, type LoweredNetworks, lowerNetworks } from "../network/network.js"
@@ -31,6 +31,8 @@ function isBodylessLibrary(lw: Lowering, ast: object, statements: readonly unkno
 export interface BodyRefusal {
   code: "graphical-body" | "parse" | "pragma-undecided" | "call-library" | "network-box" | "network-invalid"
   message: string
+  /** Where in the body's file the refusal stands, where the text it refuses is known (a network's wire, …). */
+  span?: Span
 }
 
 /** A body as lowering runs it: its statements, and — a network body's — the variables they keep (`network/state.ts`). */
@@ -74,7 +76,7 @@ export function bodyOf(
   // hidden state named for the frame it runs in — an ACTION's, a base body's run by `SUPER^()`, after that body
   const owner = frame ?? (unit.kind === "action" ? unit.name.text : undefined)
   const lowered = networksOf(lw, unit, body, parsed.statements, owner === undefined ? "__nw" : `__nw_${owner}_`)
-  return lowered instanceof NetworkRefusal ? { code: lowered.code, message: lowered.message } : lowered
+  return lowered instanceof NetworkRefusal ? { code: lowered.code, message: lowered.message, ...(lowered.span !== undefined ? { span: lowered.span } : {}) } : lowered
 }
 
 /** One lowering of a network body per statement list and prefix: lowering keys maps on the nodes it lowers. */

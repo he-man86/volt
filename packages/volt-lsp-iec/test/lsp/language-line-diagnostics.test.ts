@@ -9,7 +9,7 @@ import { expect, test } from "bun:test"
 import type { Diagnostic } from "vscode-languageserver-protocol"
 import { CAPS, harness } from "./harness.js"
 
-const NETWORK = "%NETWORK\nout := a;"
+const NETWORK = "%NETWORK\nASSIGN(a, Q => out);"
 
 /** A function block whose body is `impl`; its %LANGUAGE line is line 6. */
 const fb = (impl: string): string =>
@@ -256,7 +256,7 @@ test("a property accessor with code and no %LANGUAGE line is the same diagnostic
 })
 
 test("a line-less ladder is not read as ST either", async () => {
-  const ds = await diagnostics(fb("%NETWORK\nout := a;"))
+  const ds = await diagnostics(fb("%NETWORK\nASSIGN(a, Q => out);"))
   expect(ds.filter((d) => /states no language/.test(text(d))).map((d) => d.range.start.line)).toEqual([KEYWORD_LINE])
 })
 

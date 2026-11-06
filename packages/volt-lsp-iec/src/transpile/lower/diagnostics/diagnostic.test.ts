@@ -27,7 +27,7 @@ const lowered = (main: string, files: File[]) => where(lowerSource(main, "Main",
 const FB_L: File = {
   uri: "FB_L.pou",
   source:
-    "FUNCTION_BLOCK FB_L\nVAR_INPUT\n\ti : BOOL;\n\tn : INT;\nEND_VAR\nVAR_OUTPUT\n\to : BOOL;\nEND_VAR\n%LANGUAGE FBD\n%NETWORK\no := EQ(ADD(EN := i, n, 1), 2);\nEND_FUNCTION_BLOCK\n",
+    "FUNCTION_BLOCK FB_L\nVAR_INPUT\n\ti : BOOL;\n\tn : INT;\nEND_VAR\nVAR_OUTPUT\n\to : BOOL;\nEND_VAR\n%LANGUAGE FBD\n%NETWORK\nASSIGN(EQ(ADD(EN := i, n, 1).OUT, 2), Q => o);\nEND_FUNCTION_BLOCK\n",
 }
 
 describe("the draft's repro: a reached LD/FBD POU whose body is refused", () => {

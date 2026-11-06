@@ -1,18 +1,17 @@
 /**
- * THE TYPES OF A PLAIN-ST NETWORK BODY'S OWN CALLS, MEMBERS AND WIRES (openspec network-text-st 2.3, network-output-member):
- * every box is a call (`network-box.ts`), and the LSP knows each one as it knows LIMIT — what it hands back, from what it is
- * given.
+ * THE TYPES OF A PLAIN-ST NETWORK BODY'S OWN CALLS, MEMBERS AND WIRES (openspec network-language rule 4): every box is a
+ * call (`network-box.ts`), and the LSP knows each one as it knows LIMIT — what it hands on, from what it is given. A box
+ * hands on its default output, its ENO where EN is shown:
  *
  *   `GT(i, 3)`, `ADD(i, j, k)`, `AND(a, b)`   the operator box: the type the same operands have in ST with the operator
- *                                             between them (`i + j + k`), so the arithmetic rules are the ST ones; with
- *                                             `EN :=` first the same, EN left out;
+ *                                             between them (`i + j + k`), so the arithmetic rules are the ST ones;
  *   `NOT(a)`                                  the NOT box: `NOT a`'s;
- *   `f(…)`, `f(EN := e, …)`                   a function box: the value `f(…)` has, EN left out;
- *   `r1(CLK := a)`              an FB box with one output: that output's type (`r1.Q`);
- *   `<box>.ENO`                               the shown ENO, a BOOL;
- *   `<box>.OUT`, `<box>.Q`                    a function's value, a VAR_OUTPUT's or an FB output's type (`t1.Q`);
+ *   `f(…)`                                    a function box: the value `f(…)` has;
+ *   `t1(IN := a)`                             an FB box: its first output's type (`t1.Q`);
+ *   `X(EN := e, …)`                           any box showing EN: its ENO, a BOOL;
+ *   `<box>.OUT`, `<box>.ET`                   a function's value, a VAR_OUTPUT's or an FB output's type (`t1.ET`);
  *   `EXECUTE(EN := e, '<ST>')`                the Execute box: its ENO, a BOOL (its ST string is no pin, `plain-st.ts`);
- *   `(JMP.label := value)`, `(RETURN := value)`  the jump and the return in a tree: the value they hand on;
+ *   a jump or the return in a tree            the value it hands on (`ASSIGN(c, Q => JMP.l)`, read as `JMP(l, c)`);
  *   a wire                                    its definition's: the expression assigned to it.
  *
  * Only inside a network body (`Scope.network`): in ST, `GT(i, 3)` is the vendor's syntax error, and stays one.
@@ -25,7 +24,7 @@ import { isNetworkBox, NETWORK_CONTROLS } from "../names.js"
 import { elementaryRef, UNKNOWN, type Type } from "../type.js"
 import { stCallReturnType } from "./builtin-call.js"
 import { inferExprType } from "./expr.js"
-import { boxMember, dataOutputs, networkBox, VALUE, type NetworkBox } from "./network-box.js"
+import { boxMember, dataOutputs, defaultFlow, networkBox, VALUE, type NetworkBox } from "./network-box.js"
 
 /** The ST operator each operator box is, by its box type. */
 const OPERATOR_OF: Readonly<Record<string, string>> = {
@@ -42,16 +41,27 @@ export function networkCallType(call: CallExpr, scope: Scope, project: Scope): T
   }
   if (name !== undefined && isNetworkBox(scope, name)) return elementaryRef("BOOL")
   const box = networkBox(call, scope, project)
-  return box === undefined ? undefined : boxValue(box, scope, project)
+  return box === undefined ? undefined : boxFlow(box, scope, project)
 }
 
-/** What a box hands on read by its value: an FB's one output, an operator's or a function's value. */
+/** What a box hands on read by no member: its ENO where EN is shown, else an FB's or a program's first output, an
+ *  operator's or a function's value. */
+function boxFlow(box: NetworkBox, scope: Scope, project: Scope): Type {
+  const flow = defaultFlow(box)
+  if (flow?.kind === "eno") return elementaryRef("BOOL")
+  if (flow?.kind === "none") return UNKNOWN
+  if (box.instance !== undefined) return flow?.kind === "output" ? memberOf(box.instance, flow.name, box.call, scope, project) : UNKNOWN
+  // a program's first output, read through its name (`p.q`)
+  if (flow?.kind === "output") return memberOf(box.call.callee, flow.name, box.call, scope, project)
+  return boxValue(box, scope, project)
+}
+
+/** What a function box hands on through its value: an operator's or a function's value. */
 function boxValue(box: NetworkBox, scope: Scope, project: Scope): Type {
-  if (box.instance !== undefined) {
-    const outputs = box.signature?.outputs
-    return outputs?.length === 1 ? memberOf(box.instance, outputs[0]!, box.call, scope, project) : UNKNOWN
-  }
   const upper = box.call.callee.kind === "ident_expr" ? box.call.callee.name.toUpperCase() : undefined
+  // `MOVE(x)`: the value it moves (an array's too, `w1 := MOVE(arr)`)
+  const moved = upper === "MOVE" ? positional(box.pins.filter((a) => !a.output)) : undefined
+  if (moved?.length === 1) return inferExprType(moved[0]!, scope, project)
   const values = upper !== undefined && (upper === "NOT" || OPERATOR_OF[upper] !== undefined) ? positional(box.pins) : undefined
   if (values !== undefined && upper === "NOT" && values.length === 1)
     return inferExprType({ kind: "unary", op: "NOT", operand: values[0]!, span: box.call.span }, scope, project)

@@ -6,9 +6,9 @@ END_VAR
 %NETWORK "DONE NETWORK 49: State of the machine"
 VAR w1 : ANY; w2 : ANY; END_VAR
 w1 := TRUE;
-MOVE(EN := w1 AND (Mach1.GenFlags.MajorAlarm OR Mach1.GenFlags.MinorAlarm), eStates.Aborted, OUT => GVL_OEE_Var.eStatus_States).ENO;
-w2 := w1 AND NOT Mach1.GenFlags.MajorAlarm AND NOT Mach1.GenFlags.MinorAlarm;
-MOVE(EN := w2 AND NOT Mach1.GenFlags.RunMan AND NOT Mach1.GenFlags.RunAuto, eStates.Stopped, OUT => GVL_OEE_Var.eStatus_States).ENO;
-MOVE(EN := w2 AND (Mach1.GenFlags.RunMan OR Mach1.GenFlags.RunAuto), eStates.Execute, OUT => GVL_OEE_Var.eStatus_States).ENO;
+MOVE(EN := w1 AND (Mach1.GenFlags.MajorAlarm OR Mach1.GenFlags.MinorAlarm), eStates.Aborted, OUT => GVL_OEE_Var.eStatus_States);
+w2 := w1 AND INVERT(Mach1.GenFlags.MajorAlarm) AND INVERT(Mach1.GenFlags.MinorAlarm);
+MOVE(EN := w2 AND INVERT(Mach1.GenFlags.RunMan) AND INVERT(Mach1.GenFlags.RunAuto), eStates.Stopped, OUT => GVL_OEE_Var.eStatus_States);
+MOVE(EN := w2 AND (Mach1.GenFlags.RunMan OR Mach1.GenFlags.RunAuto), eStates.Execute, OUT => GVL_OEE_Var.eStatus_States);
 
 END_PROGRAM

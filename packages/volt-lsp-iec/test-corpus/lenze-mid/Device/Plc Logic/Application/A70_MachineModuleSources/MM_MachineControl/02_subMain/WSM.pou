@@ -61,59 +61,59 @@ END_VAR
 %LANGUAGE LD
 %NETWORK "DONE Network 2: State: Initialise"
 VAR w1 : ANY; END_VAR
-w1 := iInit OR NOT iTest_Prod OR iCleaning OR ioManualStartSupply;
-stRestposition S= w1;
-stSupplyWrapper R= stWrapperPresent R= stNoWrapper R= stPhotocellWrapperFault R= w1;
+w1 := iInit OR INVERT(iTest_Prod) OR iCleaning OR ioManualStartSupply;
+ASSIGN(w1, Q_SET => stRestposition);
+ASSIGN(w1, Q_RESET => stSupplyWrapper, Q_RESET => stWrapperPresent, Q_RESET => stNoWrapper, Q_RESET => stPhotocellWrapperFault);
 %NETWORK "DONE Network 3: State: Restposition"
-stRestposition S= stWrapperPresent R= stOSN_TakeOverCycle(CLK := iTakeOverCycle) AND stWrapperPresent;
+ASSIGN(stOSN_TakeOverCycle(CLK := iTakeOverCycle) AND stWrapperPresent, Q_SET => stRestposition, Q_RESET => stWrapperPresent);
 %NETWORK "DONE Network 4: State: Supply wrapper"
-stSupplyWrapper S= stRestposition R= stNoWrapper R= stPhotocellWrapperFault R= ioManualStartSupply R= stRestposition AND (iTest_Prod AND NOT iCleaning AND iBunchPresent AND NOT iTakeOverCycle AND (iGenFlags.RunMan OR iGenFlags.RunAuto) OR ioManualStartSupply) OR stNoWrapper AND iGenFlags.StartFlag OR stPhotocellWrapperFault AND iGenFlags.StartFlag;
+ASSIGN(stRestposition AND (iTest_Prod AND INVERT(iCleaning) AND iBunchPresent AND INVERT(iTakeOverCycle) AND (iGenFlags.RunMan OR iGenFlags.RunAuto) OR ioManualStartSupply) OR stNoWrapper AND iGenFlags.StartFlag OR stPhotocellWrapperFault AND iGenFlags.StartFlag, Q_SET => stSupplyWrapper, Q_RESET => stRestposition, Q_RESET => stNoWrapper, Q_RESET => stPhotocellWrapperFault, Q_RESET => ioManualStartSupply);
 %NETWORK "DONE Network 5: State: Wrapper Present"
 VAR w2 : ANY; END_VAR
 w2 := iWrapperPresentForLeafCarrier AND stSupplyWrapper;
-stWrapperPresent S= w2;
-ADD(EN := w2, 1, HMI_Var.Mach1.PRDWrapCurrentCntr, OUT => HMI_Var.Mach1.PRDWrapCurrentCntr).ENO;
-ADD(EN := w2, 1, HMI_Var.Mach1.PRDWrapDayCounter, OUT => HMI_Var.Mach1.PRDWrapDayCounter).ENO;
-stSupplyWrapper R= w2;
+ASSIGN(w2, Q_SET => stWrapperPresent);
+ADD(EN := w2, 1, HMI_Var.Mach1.PRDWrapCurrentCntr, OUT => HMI_Var.Mach1.PRDWrapCurrentCntr);
+ADD(EN := w2, 1, HMI_Var.Mach1.PRDWrapDayCounter, OUT => HMI_Var.Mach1.PRDWrapDayCounter);
+ASSIGN(w2, Q_RESET => stSupplyWrapper);
 %NETWORK "DONE Network 6: State: No Wrapper"
-stNoWrapper S= stSupplyWrapper R= TMR_TimeOutSupply(IN := stSupplyWrapper AND stFeedForward, PT := iTimeOutSupplyWrapper).Q;
+ASSIGN(TMR_TimeOutSupply(IN := stSupplyWrapper AND stFeedForward, PT := iTimeOutSupplyWrapper), Q_SET => stNoWrapper, Q_RESET => stSupplyWrapper);
 %NETWORK "DONE Network 7: State: Photocell wrapper fault"
-stPhotocellWrapperFault S= stSupplyWrapper R= TMR_TimeOutPhotocell(IN := stSupplyWrapper AND stFeedForward AND iPhotocellWrapper, PT := T#10S).Q;
+ASSIGN(TMR_TimeOutPhotocell(IN := stSupplyWrapper AND stFeedForward AND iPhotocellWrapper, PT := T#10S), Q_SET => stPhotocellWrapperFault, Q_RESET => stSupplyWrapper);
 %NETWORK "DONE Network 8: Faults"
 VAR w3 : ANY; END_VAR
 w3 := True;
-oFaultWaitingForWrapper := w3 AND stSupplyWrapper AND iTakeOverCycle;
-oFaultNoWrapper := w3 AND stNoWrapper;
-oFaultPhotocellWrapper := w3 AND stPhotocellWrapperFault;
+ASSIGN(w3 AND stSupplyWrapper AND iTakeOverCycle, Q => oFaultWaitingForWrapper);
+ASSIGN(w3 AND stNoWrapper, Q => oFaultNoWrapper);
+ASSIGN(w3 AND stPhotocellWrapperFault, Q => oFaultPhotocellWrapper);
 %NETWORK "DONE Network 9: Ventilation motor"
-oVentilationMotor := iGenFlags.EnableAuxDrive AND iTest_Prod AND NOT iCleaning;
+ASSIGN(iGenFlags.EnableAuxDrive AND iTest_Prod AND INVERT(iCleaning), Q => oVentilationMotor);
 %NETWORK "DONE Network 10:"
 VAR w4 : ANY; END_VAR
-w4 := iGenFlags.EnableAuxDrive AND stSupplyWrapper AND NOT iGenFlags.StopFlag;
-stFeedForward := w4;
-oPositionMotor := w4;
+w4 := iGenFlags.EnableAuxDrive AND stSupplyWrapper AND INVERT(iGenFlags.StopFlag);
+ASSIGN(w4, Q => stFeedForward);
+ASSIGN(w4, Q => oPositionMotor);
 %NETWORK "DONE Network 11: Winding motor"
-oWindingMotor := iGenFlags.EnableAuxDrive AND NOT iGenFlags.StopFlag AND iTest_Prod AND NOT iCleaning;
+ASSIGN(iGenFlags.EnableAuxDrive AND INVERT(iGenFlags.StopFlag) AND iTest_Prod AND INVERT(iCleaning), Q => oWindingMotor);
 %NETWORK "DONE Network 12: Start spray cycle"
 VAR w5 : ANY; END_VAR
 w5 := stFeedForward;
-stSprayCycleActive S= stRePositionMotor(CLK := w5);
-stSprayCycleActive S= TMR_DelayContinuousSpraying(IN := w5, PT := iDelayContSpraying).Q;
+ASSIGN(stRePositionMotor(CLK := w5), Q_SET => stSprayCycleActive);
+ASSIGN(TMR_DelayContinuousSpraying(IN := w5, PT := iDelayContSpraying), Q_SET => stSprayCycleActive);
 %NETWORK "DONE Network 13: Timing spray cycle"
-stSprayCycleActive R= TMR_SprayTime(IN := stSprayCycleActive, PT := iSprayTime).Q AND NOT TMR_DelayContinuousSpraying.Q;
+ASSIGN(TMR_SprayTime(IN := stSprayCycleActive, PT := iSprayTime) AND INVERT(TMR_DelayContinuousSpraying.Q), Q_RESET => stSprayCycleActive);
 %NETWORK "DONE Network 14: Spraying valve"
-oSprayingValve := ioEnableSpraying AND stSprayCycleActive;
+ASSIGN(ioEnableSpraying AND stSprayCycleActive, Q => oSprayingValve);
 %NETWORK "DONE Network 15: Automatic trigger of water"
-ioEnableSpraying S= FALSE AND iGenFlags.EnablePneumEStop AND iWrapperPresentForLeafCarrier AND iTest_Prod AND NOT iCleaning;
+ASSIGN(FALSE AND iGenFlags.EnablePneumEStop AND iWrapperPresentForLeafCarrier AND iTest_Prod AND INVERT(iCleaning), Q_SET => ioEnableSpraying);
 %NETWORK "DONE Network 16: Water level control"
-oWaterLevelValve := ioEnableSpraying AND iWaterLevelSensor;
+ASSIGN(ioEnableSpraying AND iWaterLevelSensor, Q => oWaterLevelValve);
 %NETWORK "DONE Network 17: Manual spray cycle"
 VAR w6 : ANY; END_VAR
 w6 := iScreenForOperatorSettingsActivated;
-MOVE(EN := w6 AND iManualSprayCycleReset, 0, OUT => ioManualSprayCycleActualCount).ENO;
-stManualSprayCycleStarted := LT(EN := w6 AND iGenFlags.EnablePneumEStop AND (iManualSprayCycleStart OR stManualSprayCycleStarted) AND NOT iManualSprayCycleStop AND NOT iManualSprayCycleReset, ioManualSprayCycleActualCount, iMaxNumberOfSprayPulses);
-stSprayCycleActive S= ADD(EN := TMR_ManualSprayCycleIdle(IN := w6 AND stManualSprayCycleStarted AND NOT stSprayCycleActive, PT := T#300MS).Q, ioManualSprayCycleActualCount, 1, OUT => ioManualSprayCycleActualCount).ENO;
+MOVE(EN := w6 AND iManualSprayCycleReset, 0, OUT => ioManualSprayCycleActualCount);
+ASSIGN(LT(EN := w6 AND iGenFlags.EnablePneumEStop AND (iManualSprayCycleStart OR stManualSprayCycleStarted) AND INVERT(iManualSprayCycleStop) AND INVERT(iManualSprayCycleReset), ioManualSprayCycleActualCount, iMaxNumberOfSprayPulses).OUT, Q => stManualSprayCycleStarted);
+ASSIGN(ADD(EN := TMR_ManualSprayCycleIdle(IN := w6 AND stManualSprayCycleStarted AND INVERT(stSprayCycleActive), PT := T#300MS), ioManualSprayCycleActualCount, 1, OUT => ioManualSprayCycleActualCount), Q_SET => stSprayCycleActive);
 %NETWORK "DONE Network 18: SAVE RLO"
-ENO := EN;
+ASSIGN(EN, Q => ENO);
 
 END_FUNCTION_BLOCK

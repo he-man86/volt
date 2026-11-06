@@ -20,10 +20,10 @@ END_VAR
 
 %LANGUAGE LD
 %NETWORK
-tBool := GE(EN := RAIL(), iMachinePosition, iStartCam) AND NOT iResetFlag AND iEN;
+ASSIGN(GE(EN := RAIL(), iMachinePosition, iStartCam).OUT AND INVERT(iResetFlag) AND iEN, Q => tBool);
 %NETWORK
-fc_CamC_CP_Base := tbool AND NOT ioAuxOneShot;
+ASSIGN(tbool AND INVERT(ioAuxOneShot), Q => fc_CamC_CP_Base);
 %NETWORK
-ioAuxOneShot := tbool;
+ASSIGN(tbool, Q => ioAuxOneShot);
 
 END_FUNCTION

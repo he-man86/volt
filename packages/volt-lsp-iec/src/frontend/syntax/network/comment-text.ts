@@ -1,12 +1,13 @@
 /**
  * THE OPERAND COMMENT, `COMMENT(<operand>, '<the comment>')` (openspec nwl-schema-completeness-gate; the bridge's
  * `StNetworkReader.TryCommented` and its `COMMENT` element): one function wherever an operand stands — a value
- * `y := COMMENT(a, 'why')`, a coil `COMMENT(y, 'why') := a`, a pin `IN := COMMENT(a, 'why')`, an output target
- * `Q => COMMENT(x, 'why')`. It wraps the operand alone (a name, a literal, `???` or `OPERAND('…')`); the marks stand outside
- * it (`NOT COMMENT(a, 'why')`). Its string is IEC's escape: `$$`, `$'`, `$L`, `$R`, every other character as it stands.
+ * `ASSIGN(COMMENT(a, 'why'), Q => y)`, a coil `ASSIGN(a, Q => COMMENT(y, 'why'))`, a pin `IN := COMMENT(a, 'why')`, an
+ * output target `Q => COMMENT(x, 'why')`. It wraps the operand alone (a name, a literal, `???` or `OPERAND('…')`); the marks
+ * stand outside it (`INVERT(COMMENT(a, 'why'))`). Its string is IEC's escape: `$$`, `$'`, `$L`, `$R`, every other character
+ * as it stands.
  *
  * The statement tokens read it as the operand it wraps: the head, its brackets, the `,` and the string are trivia, so the
- * ST engine types, resolves and lowers the operand where it stands, and a mark before it marks that operand.
+ * ST engine types, resolves and lowers the operand where it stands, and a mark around it marks that operand.
  */
 import { isTrivia, type Token } from "../lex/tokens.js"
 import { joinSpans, type Span } from "../span.js"
@@ -14,7 +15,7 @@ import { joinSpans, type Span } from "../span.js"
 export const COMMENT = "COMMENT"
 
 const FORM = `${COMMENT} takes an operand and one string, ${COMMENT}(a, '<the comment>'), and names no output`
-const OPERAND_ONLY = `${COMMENT} wraps an operand, and the marks stand outside it: NOT ${COMMENT}(a, 'why'), RISING(${COMMENT}(a, 'why'))`
+const OPERAND_ONLY = `${COMMENT} wraps an operand, and the marks stand outside it: INVERT(${COMMENT}(a, 'why')), RISING(${COMMENT}(a, 'why'))`
 
 /** One operand comment as the text states it: the whole call, the operand it wraps, and its comment decoded. */
 export interface PlainStComment {

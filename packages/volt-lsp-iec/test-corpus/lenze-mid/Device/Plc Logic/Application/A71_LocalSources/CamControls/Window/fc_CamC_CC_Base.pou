@@ -13,6 +13,6 @@ END_VAR
 
 %LANGUAGE LD
 %NETWORK
-o_xCamControl := BRANCH_SHORTCIRCUIT(FEED := i_xEnable, LE(EN := GE(EN := LT(EN := RAIL(), i_intStartCam, i_intStopCam), i_lrMachinePosition, i_intStartCam), i_lrMachinePosition, i_intStopCam), BRANCH_SHORTCIRCUIT(FEED := GT(EN := RAIL(), i_intStartCam, i_intStopCam), GE(EN := RAIL(), i_lrMachinePosition, i_intStartCam), LE(EN := RAIL(), i_lrMachinePosition, i_intStopCam)));
+ASSIGN(BRANCH_SHORTCIRCUIT(FEED := i_xEnable, LE(EN := GE(EN := LT(EN := RAIL(), i_intStartCam, i_intStopCam).OUT, i_lrMachinePosition, i_intStartCam).OUT, i_lrMachinePosition, i_intStopCam).OUT, BRANCH_SHORTCIRCUIT(FEED := GT(EN := RAIL(), i_intStartCam, i_intStopCam).OUT, GE(EN := RAIL(), i_lrMachinePosition, i_intStartCam).OUT, LE(EN := RAIL(), i_lrMachinePosition, i_intStopCam).OUT)), Q => o_xCamControl);
 
 END_FUNCTION

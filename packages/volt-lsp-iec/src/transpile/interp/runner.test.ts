@@ -53,7 +53,7 @@ describe("a called program's variables by path", () => {
   })
 
   test("an LD program's network state reads by path, as the network view needs it", () => {
-    const LD = "PROGRAM Prog2\nVAR\n\ta : BOOL := TRUE;\n\tb : BOOL;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := a;\nb := w1;\nEND_PROGRAM\n"
+    const LD = "PROGRAM Prog2\nVAR\n\ta : BOOL := TRUE;\n\tb : BOOL;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := a;\nASSIGN(w1, Q => b);\nEND_PROGRAM\n"
     const r = runner(MAIN, [LD])
     r.scan()
     expect(r.get("Prog2.__nw1_w1")).toBe(true)

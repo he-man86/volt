@@ -32,18 +32,18 @@ export const CASES_G: readonly ExecCase[] = [
     name: "nt_jmp_over_network",
     language: "LD",
     vars: "a : BOOL := TRUE; b : BOOL; x : BOOL; y : BOOL; z : BOOL; w : BOOL;",
-    body: "%NETWORK\nJMP.skip := a;\n%NETWORK\nx := TRUE;\n%NETWORK\nskip:\ny := TRUE;\n%NETWORK\nJMP.skip2 := b;\n%NETWORK\nz := TRUE;\n%NETWORK\nskip2:\nw := TRUE;",
+    body: "%NETWORK\nASSIGN(a, Q => JMP.skip);\n%NETWORK\nASSIGN(TRUE, Q => x);\n%NETWORK\nskip:\nASSIGN(TRUE, Q => y);\n%NETWORK\nASSIGN(b, Q => JMP.skip2);\n%NETWORK\nASSIGN(TRUE, Q => z);\n%NETWORK\nskip2:\nASSIGN(TRUE, Q => w);",
   },
   {
     name: "nt_coil_written_before_jump",
     language: "LD",
     vars: "a : BOOL := TRUE; y : BOOL; x : BOOL; z : BOOL;",
-    body: "%NETWORK\ny := JMP.skip := a;\n%NETWORK\nx := TRUE;\n%NETWORK\nskip:\nz := TRUE;",
+    body: "%NETWORK\nASSIGN(a, Q => y, Q => JMP.skip);\n%NETWORK\nASSIGN(TRUE, Q => x);\n%NETWORK\nskip:\nASSIGN(TRUE, Q => z);",
   },
   {
     name: "nt_return_on_value",
     language: "LD",
     vars: "a : BOOL := TRUE; y : BOOL; x : BOOL;",
-    body: "%NETWORK\ny := TRUE;\n%NETWORK\nRETURN := a;\n%NETWORK\nx := TRUE;",
+    body: "%NETWORK\nASSIGN(TRUE, Q => y);\n%NETWORK\nASSIGN(a, Q => RETURN);\n%NETWORK\nASSIGN(TRUE, Q => x);",
   },
 ]

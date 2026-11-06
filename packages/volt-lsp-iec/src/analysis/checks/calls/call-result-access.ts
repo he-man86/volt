@@ -22,7 +22,7 @@ export function checkCallResultAccess(ctx: CheckContext, out: DiagnosticItem[]):
     const base =
       e.kind === "member" || e.kind === "index" ? e.base : e.kind === "call" ? e.callee : undefined
     if (base?.kind !== "call") return
-    // the member closing a network box's call (`<box>.ENO`, `<box>.Q`): the output the box hands on, no access
+    // the member closing a network box's call (`<box>.ET`, `<box>.OUT`): the output the box hands on, no access
     if (e.kind === "member" && boxMember(e, scope, ctx.project) !== undefined) return
     // an intrinsic's result: the parser ends the expression at its `.` — an index or a call on it is unmeasured
     if (base.callee.kind === "ident_expr" && base.callee.name.startsWith("__")) return

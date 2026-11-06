@@ -1,13 +1,13 @@
 /**
  * THE NETWORK WORDS — what a plain-ST network body holds beyond ST, each with its class and what it runs as: the words of
- * its `%` lines (`%LANGUAGE`, `%NETWORK`, `%DISABLED`, `%UNSUPPORTED`), a receiver's marks (`NOT y :=`, `t1(RISING IN :=`,
- * `NOT Q =>`, `NOT JMP.l :=`) and the assignment item's (`y := NOT := a`), `RAIL()` and the network's own boxes (`BRANCH`,
- * `BRANCH_SHORTCIRCUIT`, `EXECUTE`, `OPERAND`, `COMMENT`, a value's edge `RISING(a)`), the jump and the return as targets
- * (`JMP.l :=`, `RETURN :=`) and the network's labels (`l:`).
+ * its `%` lines (`%LANGUAGE`, `%NETWORK`, `%DISABLED`, `%UNSUPPORTED`), `RAIL()` and the network's own calls (`ASSIGN` and
+ * its outputs `Q`, `Q_SET`, `Q_RESET`, `Q_INVERTED`, the marks `INVERT`, `RISING`, `FALLING`, `BRANCH`,
+ * `BRANCH_SHORTCIRCUIT`, `EXECUTE`, `OPERAND`, `COMMENT`), the jump and the return as targets (`Q => JMP.l`,
+ * `Q => RETURN`) and the network's labels (`l:`). None of them is a symbol to resolve.
  *
- * Read off what the network-text front-end already produces (`plainStText`: its `%` lines and each receiver's marks;
- * `sourceStatements`: its labels) and the body's own tokens, so only a body the reader took as network text answers —
- * a variable named `rail` in an ST body stays a variable. Semantic tokens, completion and hover all read this one list.
+ * Read off what the network-text front-end already produces (`plainStText`: its `%` lines; `sourceStatements`: its labels)
+ * and the body's own tokens, so only a body the reader took as network text answers — a variable named `rail` in an ST
+ * body stays a variable. Semantic tokens, completion and hover all read this one list.
  */
 import {
   allUnits,
@@ -23,7 +23,7 @@ import {
   type Token,
   type TopLevel,
 } from "../../frontend/syntax/index.js"
-import { labelMeaning, markMeaning, NETWORK_MEANINGS, type MarkReceiver, type NetworkForm } from "./network-meanings.js"
+import { labelMeaning, NETWORK_MEANINGS, type NetworkForm } from "./network-meanings.js"
 
 /** The semantic-token class of a network word (a subset of the server's legend). */
 type NetworkWordKind = "keyword" | "function" | "label"
@@ -37,7 +37,10 @@ interface NetworkWord {
 }
 
 /** The boxes a network has that no declaration names: a word, then `(`. */
-const NETWORK_CALLS: readonly NetworkForm[] = ["RAIL", "BRANCH", "BRANCH_SHORTCIRCUIT", "EXECUTE", "OPERAND", "COMMENT", "RISING", "FALLING"]
+const NETWORK_CALLS: readonly NetworkForm[] = ["RAIL", "BRANCH", "BRANCH_SHORTCIRCUIT", "EXECUTE", "OPERAND", "COMMENT", "RISING", "FALLING", "INVERT", "ASSIGN"]
+
+/** ASSIGN's outputs, each a target's mark. */
+const ASSIGN_OUTPUTS: readonly NetworkForm[] = ["Q", "Q_SET", "Q_RESET", "Q_INVERTED"]
 
 /** The `%` lines of a network. */
 const PERCENT_LINES: readonly NetworkForm[] = ["NETWORK", "DISABLED", "UNSUPPORTED"]
@@ -103,52 +106,27 @@ function readWords(body: BodySpan): NetworkWord[] {
     if (s.kind === "label") add(s.name.span, "label", labelMeaning(s.name.text, false))
   })
   const tokens = body.tokens.filter((t) => !isTrivia(t.kind) && t.kind !== "eof")
-  const marked = [...text.marks.entries()]
-  // the calls open around each token: true for a call's `(`, false for a grouping one
-  const parens: boolean[] = []
+  // the calls open around each token: the head word of a call's `(`, undefined for a grouping one
+  const parens: (string | undefined)[] = []
   for (let i = 0; i < tokens.length; i++) {
     const t = tokens[i]!
     const word = t.text.toUpperCase()
     const next = tokens[i + 1]
-    if (t.kind === "punct" && t.text === "(") parens.push(isWordToken(tokens[i - 1]))
+    if (t.kind === "punct" && t.text === "(") parens.push(isWordToken(tokens[i - 1]) ? tokens[i - 1]!.text.toUpperCase() : undefined)
     else if (t.kind === "punct" && t.text === ")") parens.pop()
     else if (t.kind === "punct" && t.text === ";") parens.length = 0
     const call = isWordToken(t) && isPunct(next, "(") ? formIn(NETWORK_CALLS, word) : undefined
-    const mark = marked.find(([, m]) => m.span.start <= t.span.start && t.span.end <= m.span.end)
-    const item = text.itemMarks.find((m) => m.span.start <= t.span.start && t.span.end <= m.span.end)
-    if (item !== undefined && isWordToken(t)) add(t.span, "keyword", markMeaning(word, { kind: "item" }))
-    else if (mark !== undefined && isWordToken(t)) add(t.span, "keyword", markMeaning(word, receiverOf(tokens, i, mark[0], parens)))
-    else if (call !== undefined) form(t.span, "function", call)
+    const output = parens.at(-1) === "ASSIGN" && isWordToken(t) && isPunct(next, "=>") ? formIn(ASSIGN_OUTPUTS, word) : undefined
+    if (call !== undefined) form(t.span, "function", call)
+    else if (output !== undefined) form(t.span, "keyword", output)
     else if (t.kind === "keyword" && word === "JMP" && isPunct(next, ".")) {
       form(t.span, "keyword", "JMP")
       const label = tokens[i + 2]
       if (label?.kind === "identifier") add(label.span, "label", labelMeaning(label.text, true))
-    } else if (t.kind === "keyword" && word === "RETURN" && (isPunct(next, ":=") || isPunct(next, "S=") || isPunct(next, "R=")))
-      form(t.span, "keyword", "RETURN")
+    } else if (t.kind === "keyword" && word === "RETURN" && isPunct(tokens[i - 1], "=>")) form(t.span, "keyword", "RETURN")
   }
   return out.sort((a, b) => a.start - b.start)
 }
-
-/** The receiver the mark `tokens[at]` stands before (its first token at offset `receiverStart`): an output where `=>`
- *  follows it, a pin where the marks open a call's argument, else a coil. */
-function receiverOf(tokens: readonly Token[], at: number, receiverStart: number, parens: readonly boolean[]): MarkReceiver {
-  let r = at
-  while (tokens[r]!.span.start !== receiverStart) r++
-  const name = tokens[r]!.text
-  if (name.toUpperCase() === "RETURN") return { kind: "return" }
-  if (name.toUpperCase() === "JMP" && isPunct(tokens[r + 1], ".")) return { kind: "jump", name: tokens[r + 2]!.text }
-  let op = r + 1
-  while (op < tokens.length && !RECEIVER_OPERATORS.some((p) => isPunct(tokens[op], p))) op++
-  if (isPunct(tokens[op], "=>")) return { kind: "output", name }
-  // the token before the mark words opens a call's argument: the `(` of a call or a `,` inside one
-  let before = at - 1
-  while (before >= 0 && MARK_WORDS.has(tokens[before]!.text.toUpperCase())) before--
-  const opensArgument = isPunct(tokens[before], "(") || isPunct(tokens[before], ",")
-  return { kind: opensArgument && parens[parens.length - 1] === true ? "pin" : "coil", name }
-}
-
-const RECEIVER_OPERATORS = [":=", "S=", "R=", "=>"]
-const MARK_WORDS: ReadonlySet<string> = new Set(["NOT", "RISING", "FALLING"])
 
 const isWordToken = (t: Token | undefined): boolean => t !== undefined && (t.kind === "identifier" || t.kind === "keyword")
 const isPunct = (t: Token | undefined, text: string): boolean => t?.kind === "punct" && t.text.toUpperCase() === text

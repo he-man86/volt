@@ -20,15 +20,15 @@ function threeFb(name: string, statement: string): string {
 
 /** [fixture suffix, operator box, group statement]. */
 const THREE: readonly [string, string, string][] = [
-  ["sub", "SUB", "i := SUB(j, k, m);"],
-  ["div", "DIV", "i := DIV(j, k, m);"],
-  ["mod", "MOD", "i := MOD(j, k, m);"],
-  ["gt", "GT", "out := GT(j, k, m);"],
-  ["ge", "GE", "out := GE(j, k, m);"],
-  ["lt", "LT", "out := LT(j, k, m);"],
-  ["le", "LE", "out := LE(j, k, m);"],
-  ["eq", "EQ", "out := EQ(j, k, m);"],
-  ["ne", "NE", "out := NE(j, k, m);"],
+  ["sub", "SUB", "ASSIGN(SUB(j, k, m), Q => i);"],
+  ["div", "DIV", "ASSIGN(DIV(j, k, m), Q => i);"],
+  ["mod", "MOD", "ASSIGN(MOD(j, k, m), Q => i);"],
+  ["gt", "GT", "ASSIGN(GT(j, k, m), Q => out);"],
+  ["ge", "GE", "ASSIGN(GE(j, k, m), Q => out);"],
+  ["lt", "LT", "ASSIGN(LT(j, k, m), Q => out);"],
+  ["le", "LE", "ASSIGN(LE(j, k, m), Q => out);"],
+  ["eq", "EQ", "ASSIGN(EQ(j, k, m), Q => out);"],
+  ["ne", "NE", "ASSIGN(NE(j, k, m), Q => out);"],
 ]
 
 export const NETWORK_GRAPHICAL_TESTS_C: readonly LanguageTest[] = THREE.map(([suffix, box, statement]) => {

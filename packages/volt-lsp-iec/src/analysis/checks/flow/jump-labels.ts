@@ -6,7 +6,7 @@
  * Labels and JMPs are collected across the whole body (nested blocks included, via `walkStatements`). Matching
  * is case-insensitive (IEC identifiers).
  */
-import { stmtExprs, walkExpr, walkStatements, type Expr, type Span } from "../../../frontend/syntax/index.js"
+import { stmtExprs, UNNAMED, walkExpr, walkStatements, type Expr, type Span } from "../../../frontend/syntax/index.js"
 import { isJumpLabel } from "../../shared/resolution.js"
 import { bodiesThroughErrors } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
@@ -36,7 +36,7 @@ export function checkJumpLabels(ctx: CheckContext, out: DiagnosticItem[]): void 
       } else if (s.kind === "jmp") {
         jmps.push(s.target)
       }
-      // a network's jump inside a tree, `(JMP.label := value)`, read as the call `JMP(label, value)` (plain-ST network text)
+      // a network's jump inside a tree, `ASSIGN(value, Q => JMP.label)`, read as the call `JMP(label, value)` (plain-ST network text)
       for (const e of stmtExprs(s))
         walkExpr(e, (x) => {
           if (x.kind === "call" && x.args[0]?.value !== undefined && isJumpLabel(x, x.args[0].value)) jmps.push(x.args[0].value)
@@ -50,6 +50,8 @@ export function checkJumpLabels(ctx: CheckContext, out: DiagnosticItem[]): void 
     // C0117 (JMP to undeclared) / C0114 (JMP to a non-label), and record which labels are referenced.
     const referenced = new Set<string>()
     for (const target of jmps) {
+      // a network's jump the IDE holds unnamed, `JMP.???`: the build's own error on the `???` (the network check's)
+      if (target.kind === "ident_expr" && target.name === UNNAMED) continue
       if (target.kind === "ident_expr") {
         referenced.add(target.name.toUpperCase())
         // its fix: each near-miss label of the body (`qf_c0117_change`)
