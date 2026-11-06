@@ -122,16 +122,15 @@ parts inside its `()`, and the flow is each call's return.
   ASSIGN(ASSIGN(a, Q => x), Q => y);             // series coils: two nodes
   ASSIGN(AND(ASSIGN(a, Q => x), b), Q => y);     // a coil inside a rung
   ```
-  The compiler's code for all 495 authored assign states (2026-11-06; not yet run, no rows) agrees: a target list is
-  written in list order (`x := v; y := v`), and a mark on one coil of several stays on that coil
-  (`ASSIGN(a, Q_INVERTED => x, Q => y)` runs as `x := NOT(v); y := v`), also nested and mid-rung. A full stack runs
-  innermost first: `y := NOT(NOT(R_TRIG(R_TRIG(a))))`. To confirm by the run and the rows.
+  Measured by the run (assign map, 2026-11-06): a target list runs in list order; a mark on one coil of several acts on
+  that coil only, in all three shapes, and a mark on the line into the inner coil reaches both. A full stack runs
+  innermost first: `NOT(NOT(R_TRIG(R_TRIG(a))))`. Settled as written above.
 - `BoxTreeTerminator` is what LD stores as the value of a coil, S, R, jump or return with no contact in front; FBD stores
-  `???` there instead. Its text, and how it differs from `RAIL()`, after its build and run.
+  `???` there instead. It runs as always TRUE, like `RAIL()`, so its text is `RAIL()`: `ASSIGN(RAIL(), Q => y)`.
 - `???` as `OPERAND('???')`, or kept.
-- `INVERT` on a value that is not BOOL: the compiler's code is the bitwise `NOT` on MOVE's value or pin and on an FB's
-  INT output. On a plain INT coil a mark on the value or the target adds nothing to the code, only one on the line does:
-  if the store keeps that mark, it is a silent loss to check by pull.
+- `INVERT` on a value that is not BOOL runs as the bitwise `NOT` (MOVE's value or pin, an FB's INT output). On a plain
+  INT coil a mark on the value or the target is stored and not in the code, so it gets no text (lost-inert); only a
+  mark on the line runs.
 - An assign with a null target faults the IDE's language model; an assign with a null value cannot be saved. Both are
   refused by name.
 - A function showing EN and no ENO: refused if only a direct write makes it.
