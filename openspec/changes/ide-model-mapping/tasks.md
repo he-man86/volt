@@ -26,12 +26,15 @@
       Open (2026-11-06): `shapes.v2.coverage` holds nothing beyond the map (no uncovered state). No "census outcome table"
       exists in the repo apart from the map itself. The `vendor-facts` NWL rows (N24, N28–N38) measure the PUSHED form and
       TwinCAT, and the map has no pushed-form or TwinCAT rows: those facts have no row and need measuring as rows (or the
-      row format needs a pushed source) before they can move.
+      row format needs a pushed source) before they can move. The five LD/FBD states that had no row are rows now
+      (class-states 0582-0595, each LD and FBD, the editor's form, all `spelled`): a `SUPER^` call box with and without a
+      pin, two MOVE ENOs feeding one AND, `fbs[1](in := a)`, a network holding only a label (alone, and below a coil
+      network), `t()`.
 - [ ] 4.2 Fold what the shape e2e tests measure (`census-shapes`, `create-shapes`, `stored-shapes`, `uncovered-shapes`, `real-project-shapes`) into the map's tests, then delete them, each with its reason; delete `record-nwl-corpus.py`, `record-nwl-live.py`, `voltprobe.py` after confirming each is unused.
       Open (2026-11-06): `create-shapes`, `uncovered-shapes`, `real-project-shapes` and the report `e2e-graphical-coverage.ts`
-      deleted (each case is a map row). Kept: `census-shapes` (`SUPER^` has no row) and `stored-shapes` (two ENOs into one
-      box, an array element heading its call: no row) — both also hold the only live pins of TwinCAT's refusals of those
-      shapes (`TcUnmeasured`), until 6.1. The three scripts stay: `voltprobe.py` is imported by the `author-*-fixture.py`
+      deleted (each case is a map row). `census-shapes` and `stored-shapes` are covered on the CODESYS side since class-states
+      0582-0595 (`SUPER^`, two ENOs into one box, an array element heading its call), and kept: they hold the only live pins
+      of TwinCAT's refusals of those shapes (`TcUnmeasured`), until 6.1. The three scripts stay: `voltprobe.py` is imported by the `author-*-fixture.py`
       recorders and `vendor-facts.codesys.py`; the two `record-nwl-*.py` record the inputs of the NWL completeness oracles.
 - [x] 4.3 `scripts/README.md`, `CLAUDE.md` and `ARCHITECTURE.md` state the one source.
 - [ ] 4.4 Clean the previous attempts (owner, 2026-11-05), only after their facts are rows: delete `DIALECT.md`'s NWL rows that moved, its superseded rows and citations of deleted probes; rewrite the history notes in `ARCHITECTURE.md`, `CLAUDE.md`, `scripts/README.md` and `docs/driver.html` to the current state (a mistake worth remembering stays as its one-line rule); delete the network and NWL changes from `openspec/changes/archive`, which git keeps. The other archived changes and the vendor reference docs stay.

@@ -42,7 +42,7 @@ if (VENDOR === "codesys" && !served)
 /** The body lines of a pulled item from its `%LANGUAGE` line on, as the recording holds them. */
 function bodyLines(source: string): string {
 	const text = source.replace(/\r\n/g, "\n")
-	const body = text.slice(text.indexOf("%LANGUAGE")).replace(/\nEND_PROGRAM[\s\S]*$/, "")
+	const body = text.slice(text.indexOf("%LANGUAGE")).replace(/\nEND_(PROGRAM|FUNCTION_BLOCK)[\s\S]*$/, "")
 	return body.split("\n").filter((l) => l.trim().length > 0).join(" / ")
 }
 

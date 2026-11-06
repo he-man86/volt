@@ -32,11 +32,13 @@ public class CodesysClassStatesTests
 
     static readonly Lazy<JsonDocument> Recording = new(() => JsonDocument.Parse(File.ReadAllText(RecordingFile)));
 
-    static NetworkScope Scope(JsonElement root)
+    /// <summary>The scope a state's body is read in: the recording's holder, or the state's own <c>holder</c> where it states one.</summary>
+    static NetworkScope Scope(JsonElement root, JsonElement? state = null)
     {
         var callees = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var c in root.GetProperty("callees").EnumerateObject()) callees[c.Name] = c.Value.GetProperty("declaration").GetString()!;
-        var own = string.Format(root.GetProperty("holder").GetString()!.Replace("%s", "{0}"), "Holder");
+        var holder = state is { } st && st.TryGetProperty("holder", out var h) ? h : root.GetProperty("holder");
+        var own = string.Format(holder.GetString()!.Replace("%s", "{0}"), "Holder");
         return NetworkScope.FromDeclarations(own, n => callees.TryGetValue(n, out var d) ? d : null,
             () => Array.Empty<string>(), n => callees.ContainsKey(n) ? ItemKind.Kinds.Pou : null, Scopes.RefusedPouName, _ => null);
     }
@@ -180,7 +182,7 @@ public class CodesysClassStatesTests
         var states = root.GetProperty("states").EnumerateArray().ToList();
         var pulled = states.ToDictionary(s => s.GetProperty("id").GetString()!, s =>
         {
-            try { return Pulled(s, scope); }
+            try { return Pulled(s, s.TryGetProperty("holder", out _) ? Scope(root, s) : scope); }
             catch (Exception e) { return "THROWS " + e.GetType().Name + ": " + e.Message; }
         });
         if (Writing)
