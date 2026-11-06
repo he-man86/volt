@@ -67,6 +67,12 @@ describe("a network body lowers to what it runs", () => {
     expect(r.get("x")).toBe(true)
   })
 
+  test("a METHOD box hands on its value, as a function box does: of an instance, and the FB's own", () => {
+    const owner = "FUNCTION_BLOCK FB_O\nVAR\n\tbase : INT := 1;\nEND_VAR\nEND_FUNCTION_BLOCK\nMETHOD M_twice : INT\nVAR_INPUT\n\tk : INT;\nEND_VAR\nM_twice := k * 2 + base;\nEND_METHOD\n"
+    const r = runner("v, y : INT; o : FB_O;", "%NETWORK\nASSIGN(o.M_twice(k := v), Q => y);\n", owner, "FBD")
+    expect(trace(r, "y", [{ v: 3n }])).toEqual([7n])
+  })
+
   test("an edge is an edge detector __nw<N>_trig<k> called on every scan, read by its Q", () => {
     const r = runner("x, en, a : BOOL;", "%NETWORK\nASSIGN(en AND RISING(a), Q => x);\n", TRIGS)
     expect(trace(r, "x", [{ en: true, a: true }, {}, { a: false }, { a: true }])).toEqual([true, false, false, true])

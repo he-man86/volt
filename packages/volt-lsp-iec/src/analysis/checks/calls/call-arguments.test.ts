@@ -466,11 +466,11 @@ test("a default naming the callee's own CONSTANT is constant, though a global VA
   expect(messagesOf("codesys", gvl, fn, prg).filter((m) => m.includes("requires"))).toEqual([])
 })
 
-// network-output-member 2.3 (`rcc_network_eno_function_without_en_root`): `OUT => v` on a FUNCTION's box is the box's
-// value pin, not a VAR_OUTPUT — the ST call the box is takes no such argument, consumed or at a root.
+// network-output-member 2.3: `OUT => v` on a FUNCTION's box is the box's value pin, not a VAR_OUTPUT — the ST call
+// the box is takes no such argument, consumed or at a root.
 test("a FUNCTION box's value pin `OUT =>` is no named output of the function", () => {
   const fn = `FUNCTION F_inc : INT\nVAR_INPUT\n\ti : INT;\nEND_VAR\nF_inc := i + 1;\nEND_FUNCTION`
-  const net = `PROGRAM P\nVAR\n\tx : BOOL;\n\tn : INT;\nEND_VAR\n%LANGUAGE FBD\n%NETWORK\nx := F_inc(i := n, OUT => n).ENO;\n%NETWORK\nF_inc(i := n, OUT => n).ENO;\nEND_PROGRAM`
+  const net = `PROGRAM P\nVAR\n\tx : BOOL;\n\tn : INT;\nEND_VAR\n%LANGUAGE FBD\n%NETWORK\nASSIGN(F_inc(EN := x, i := n, OUT => n), Q => x);\n%NETWORK\nF_inc(EN := x, i := n, OUT => n);\nEND_PROGRAM`
   const c = codes(fn, net)
   expect(c).not.toContain("unknown-named-output")
   expect(c).not.toContain("unresolved-identifier")

@@ -3,7 +3,7 @@
  *
  * `openspec/changes/bridge-refusal-review` removed or narrowed the push's own judgements of code (§1 and §2): an ST
  * body shaped like network text (1.1), the identifier `implementation` (1.2), an undeclared wire-shaped name in a
- * network (1.3), `.ENO` on a box with no EN (1.5), a retired `(* @volt-… *)` comment in a current-format body (2.1),
+ * network (1.3), a retired `(* @volt-… *)` comment in a current-format body (2.1),
  * a member or property header with nothing after its name (2.4, 2.6), and the IEC/ASCII name check (3.1, now the
  * vendors' measured create rule). Each text reaches the IDE as written, so the build is what answers for it, and the
  * LSP owes the same answer on the same line (task 5.1/5.2; "What the LSP must pick up" in the proposal). An LSP-only
@@ -146,39 +146,6 @@ END_TYPE
     "\tg5 AT %IX0.0 : BOOL;\n\tout : BOOL;",
     "ASSIGN(g5, Q => out);",
   ),
-
-  // ─── 1.5 — ENO on a box with no EN, read: refused by name (`eno-read-with-no-en`); at a ROOT, nothing reads the ENO ───
-  {
-    name: "rcc_network_eno_function_without_en_root",
-    pouName: "FB_LANG_rcc_nw_eno_root",
-    kind: "function_block",
-    feature: "a user FUNCTION's box at a root showing ENO without EN",
-    fromDoc: doc,
-    source: `FUNCTION FUN_LANG_rcc_thrice : INT
-VAR_INPUT
-	a : INT;
-	b : INT;
-END_VAR
-FUN_LANG_rcc_thrice := a + b + b;
-END_FUNCTION
-
-FUNCTION_BLOCK FB_LANG_rcc_nw_eno_root
-VAR
-	a : INT;
-	b : INT;
-	y : INT;
-END_VAR
-
-%LANGUAGE FBD
-%NETWORK
-FUN_LANG_rcc_thrice(a := a, b := b, OUT => y).ENO;
-
-END_FUNCTION_BLOCK
-`,
-    plcPrgVar: "inst : FB_LANG_rcc_nw_eno_root;",
-    plcPrgBody: "inst();",
-    execSkip: NOT_ST,
-  },
 
   // ─── 2.7 — a wire is defined wherever in its network ───
   network(

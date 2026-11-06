@@ -29,7 +29,7 @@ export function retiredForms(stmt: Statement, wires: ReadonlySet<string>): { spa
   for (const e of stmtExprs(stmt))
     walkExpr(e, (x) => {
       // a wire defined where it is first read, `(w1 := value)`, is a wire's definition
-      const inlineWire = x.kind === "assign_expr" && x.op === undefined && isWire(x.target) && x.value.kind !== "assign_expr"
+      const inlineWire = x.kind === "assign_expr" && x.op === undefined && isWire(x.target) && (x.value.kind !== "assign_expr" || x.value.assignHead !== undefined)
       if (x.kind === "assign_expr" && x.assignHead === undefined && !inlineWire)
         out.push({ span: x.span, message: "(y := value) is no network text: a coil inside a value is ASSIGN(value, Q => y)" })
       // a jump or the return written in a tree the retired way, read as its call (`plain-st.ts`)

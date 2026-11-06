@@ -77,6 +77,11 @@ export function astKey(value: unknown): string {
       const out: Record<string, unknown> = {}
       for (const k of Object.keys(obj).sort()) {
         if (k === "span" || k === "tokens") continue
+        // an ASSIGN's head is a span too: where it stands is layout, THAT it stands is meaning (an ASSIGN, not a retired form)
+        if (k === "assignHead") {
+          out[k] = true
+          continue
+        }
         out[k] = norm(obj[k])
       }
       return out

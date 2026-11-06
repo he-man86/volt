@@ -65794,17 +65794,6 @@
         }
       ]
     },
-    "rcc_network_eno_function_without_en_root": {
-      "buildSuccess": false,
-      "durationMs": 1046,
-      "diagnostics": [
-        {
-          "severity": "error",
-          "message": "Type of lazy typed variable '__FB_LANG_rcc_nw_eno_root__ImpVar18' could not be resolved",
-          "line": 0
-        }
-      ]
-    },
     "dp_gvl_dotted": {
       "buildSuccess": true,
       "durationMs": 1012,

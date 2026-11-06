@@ -70521,17 +70521,6 @@
       "durationMs": 942,
       "diagnostics": []
     },
-    "rcc_network_eno_function_without_en_root": {
-      "buildSuccess": false,
-      "durationMs": 395,
-      "diagnostics": [
-        {
-          "severity": "error",
-          "message": "Type of Lazy-typed variable '__FB_LANG_rcc_nw_eno_root__ImpVar4' could not be resolved.",
-          "line": 0
-        }
-      ]
-    },
     "dp_gvl_dotted": {
       "buildSuccess": false,
       "durationMs": 482,

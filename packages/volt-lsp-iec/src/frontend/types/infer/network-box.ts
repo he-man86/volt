@@ -276,10 +276,12 @@ function signatureOf(call: CallExpr, instance: Expr | undefined, scope: Scope, p
     const callee = resolveCallee({ kind: "call", callee: unnamed ? call.callee : instance, args: [], span: call.span }, scope, project)
     return callee !== undefined && callee.sym.kind === "function_block" && callee.complete ? fromCallee(callee, "block") : undefined
   }
-  if (call.callee.kind !== "ident_expr") return undefined
-  if (lookup(scope, call.callee.name) === undefined && resolveBareName(scope, call.callee.name).kind === "builtin") return OPERATOR
+  if (call.callee.kind === "ident_expr" && lookup(scope, call.callee.name) === undefined && resolveBareName(scope, call.callee.name).kind === "builtin") return OPERATOR
   const callee = resolveCallee(call, scope, project)
   if (callee === undefined || !callee.complete) return undefined
+  // a METHOD's box hands on its value as a function's does (`ASSIGN(fbm.M(k := v), Q => y)`, `ng_m_method_call`)
+  if (callee.sym.kind === "method" || callee.sym.kind === "interface_method") return fromCallee(callee, "function")
+  if (call.callee.kind !== "ident_expr") return undefined
   return callee.sym.kind === "function" ? fromCallee(callee, "function") : callee.sym.kind === "program" ? fromCallee(callee, "program") : undefined
 }
 

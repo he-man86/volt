@@ -25,3 +25,8 @@ test("an enabled box other than a comparison is read by its value only as a coil
   // with no member a box showing EN hands on its ENO, which any box reads; an enabled comparison's value too
   expect(findings(ld("\tc, x : BOOL;\n\ti, j, k : INT;", "%NETWORK\nASSIGN(AND(c, ADD(EN := c, i, j, OUT => k), GT(EN := c, i, 3).OUT), Q => x);\n"))).toEqual([])
 })
+
+// a wire defined by a coil, as the writer pulls it (shapes.v2 `BoxTreeDemux.Input` holding a `BoxTreeAssign`)
+test("a wire defined by an ASSIGN is a wire's definition, not a coil inside a value", () => {
+  expect(findings(ld("\ta, y, z : BOOL;", "%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := ASSIGN(a, Q => z);\nASSIGN(w1, Q => y);\nASSIGN(w1, Q => z);\n"))).toEqual([])
+})
