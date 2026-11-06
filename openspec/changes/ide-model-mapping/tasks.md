@@ -31,7 +31,7 @@
       pin, two MOVE ENOs feeding one AND, `fbs[1](in := a)`, a network holding only a label (alone, and below a coil
       network), `t()`.
 - [ ] 4.2 Fold what the shape e2e tests measure (`census-shapes`, `create-shapes`, `stored-shapes`, `uncovered-shapes`, `real-project-shapes`) into the map's tests, then delete them, each with its reason; delete `record-nwl-corpus.py`, `record-nwl-live.py`, `voltprobe.py` after confirming each is unused.
-      Open (2026-11-06): `create-shapes`, `uncovered-shapes`, `real-project-shapes` and the report `e2e-graphical-coverage.ts`
+      Open (2026-11-06): `create-shapes`, `uncovered-shapes`, `real-project-shapes` and the graphical coverage report script
       deleted (each case is a map row). `census-shapes` and `stored-shapes` are covered on the CODESYS side since class-states
       0582-0595 (`SUPER^`, two ENOs into one box, an array element heading its call), and kept: they hold the only live pins
       of TwinCAT's refusals of those shapes (`TcUnmeasured`), until 6.1. The three scripts stay: `voltprobe.py` is imported by the `author-*-fixture.py`
