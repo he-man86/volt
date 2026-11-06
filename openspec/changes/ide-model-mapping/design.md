@@ -128,7 +128,9 @@ parts inside its `()`, and the flow is each call's return.
 - `BoxTreeTerminator` is what LD stores as the value of a coil, S, R, jump or return with no contact in front; FBD stores
   `???` there instead. It runs as always TRUE, like `RAIL()`, so its text is `RAIL()`: `ASSIGN(RAIL(), Q => y)`.
 - `???` (an empty operand, as the editor shows it) is written bare: `q1 => ???`. Not `'???'`, a STRING constant a user
-  can type, and not `OPERAND('???')`. Bare `???` is no ST name, number or string, so it means nothing else.
+  can type, and not `OPERAND('???')`. Bare `???` is no ST name, number or string, so it means nothing else. NWL stores
+  it as the operand text `???` (not null: null is an output with nothing drawn on it), and the IDE's build refuses it with
+  `C0007 Expression expected instead of '?'`; the text keeps it and gives the same error, nothing is refused on push.
 - `INVERT` on a value that is not BOOL runs as the bitwise `NOT` (MOVE's value or pin, an FB's INT output). On a plain
   INT coil a mark on the value or the target is stored and not in the code, so it gets no text (lost-inert); only a
   mark on the line runs.
