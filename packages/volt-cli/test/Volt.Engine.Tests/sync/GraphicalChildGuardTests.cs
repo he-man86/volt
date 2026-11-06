@@ -174,7 +174,7 @@ public class GraphicalChildGuardTests
                     Name = Name,
                     IfVersion = refs.Items[Name],
                     SourceText = $"{PouDecl}\n%LANGUAGE ST\nEND_FUNCTION_BLOCK\n\nMETHOD M : INT\nVAR\n\ta : BOOL;\n\tq : BOOL;\nEND_VAR\n" +
-                                 "%LANGUAGE FBD\n%NETWORK\nq := a;\nEND_METHOD\n",
+                                 "%LANGUAGE FBD\n%NETWORK\nASSIGN(a, Q => q);\nEND_METHOD\n",
                 },
             },
         });

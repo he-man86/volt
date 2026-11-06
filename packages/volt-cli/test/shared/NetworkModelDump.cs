@@ -23,6 +23,7 @@ namespace Volt.Tests.Shared;
 ///             a coil's target: [S=|R=][not:|rise:|fall:](name | jmp:L | ret)   (:= x1 jmp:Done c) · (:= S=rise:xe c)
 ///   split     (split 3 VALUE) · a reference #3
 ///   box       (TYPE[@inst] input… [=>slot:target | =>Formal:target]… [en:VALUE] [conn:N] [eno:1] [name:N])
+///             an output target's bits as stored: S=x set, S=not:x reset, not:x inverted
 ///             input: VALUE · Formal=VALUE · !Formal=VALUE (a negated pin) · /… \… (a rising / falling pin)
 ///             enable: en:VALUE · !en:VALUE /en: \en: (the EN pin's own modifier)
 ///   execute   (EXECUTE "st" [en:VALUE] [conn:N])
@@ -115,6 +116,7 @@ public static class NetworkModelDump
         }
         foreach (var o in b.Outputs)
             sb.Append(" =>").Append(o.Formal ?? o.Slot?.ToString(CultureInfo.InvariantCulture) ?? "?").Append(':')
+              .Append(o.Value.Flags is { Set: true } ? "S=" : "")
               .Append(Flagged(Commented(Operand(o.Value.Text), o.Value.Comment), o.Value.Flags ?? Flags.None));
         if (b.Enable is { } enable) sb.Append(' ').Append(Pin(b.EnableFlags)).Append("en:").Append(Node(enable));
         if (b.ConnectedSlot is { } conn) sb.Append(" conn:").Append(conn.ToString(CultureInfo.InvariantCulture));

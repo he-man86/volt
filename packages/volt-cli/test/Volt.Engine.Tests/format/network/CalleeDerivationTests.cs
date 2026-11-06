@@ -208,9 +208,9 @@ public class CalleeDerivationTests
     [Fact]
     public void The_gate_names_a_library_functions_positional_pin()
     {
-        var gate = StNetworkGate.Validate(Body("y := LEN(txt);"), WithLibraries(out _, "VAR\n\ty : INT;\n\ttxt : STRING;\nEND_VAR"));
+        var gate = StNetworkGate.Validate(Body("ASSIGN(LEN(txt), Q => y);"), WithLibraries(out _, "VAR\n\ty : INT;\n\ttxt : STRING;\nEND_VAR"));
         Assert.True(gate.Ok, string.Join("\n", gate.Diagnostics.Select(d => d.Message)));
-        Assert.Contains("y := LEN(STR := txt);", gate.Canonical);
+        Assert.Contains("ASSIGN(LEN(STR := txt), Q => y);", gate.Canonical);
     }
 
     /// <summary>A METHOD call box, `inst.M(…)` with `inst` an FB instance in scope: measured live, Volt's box compiles only
@@ -280,9 +280,9 @@ public class CalleeDerivationTests
     [Fact]
     public void The_gate_derives_the_names_and_its_canonical_text_spells_them()
     {
-        var gate = StNetworkGate.Validate(Body("y := AwF(v);"), Scope(Own2));
+        var gate = StNetworkGate.Validate(Body("ASSIGN(AwF(v), Q => y);"), Scope(Own2));
         Assert.True(gate.Ok);
-        Assert.Contains("y := AwF(i := v);", gate.Canonical);
+        Assert.Contains("ASSIGN(AwF(i := v), Q => y);", gate.Canonical);
         var box = (Box)((Assign)gate.Body!.Networks[0].Trees[0]).Value;
         Assert.Equal(new[] { "i" }, box.Inputs.Select(i => i.Formal));
     }
@@ -307,7 +307,7 @@ public class CalleeDerivationTests
     [Fact]
     public void A_body_with_nothing_to_derive_is_returned_as_read()
     {
-        var read = StNetworkReader.Read(Body("y := v;"), Scope(Own2));
+        var read = StNetworkReader.Read(Body("ASSIGN(v, Q => y);"), Scope(Own2));
         Assert.Same(read, NetworkDerivation.Derive(read, Scope(Own2)));
     }
 

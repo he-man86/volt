@@ -22,8 +22,8 @@ public class TcRailJumpTests
             .First(o => (string?)o.Attribute("t") == "NWLImplementationObject");
 
     [Theory]
-    [InlineData("jump_uncond", "JMP.L1 := RAIL();")]
-    [InlineData("return_uncond", "RETURN := RAIL();")]
+    [InlineData("jump_uncond", "ASSIGN(RAIL(), Q => JMP.L1);")]
+    [InlineData("return_uncond", "ASSIGN(RAIL(), Q => RETURN);")]
     public void The_empty_operand_of_an_unconditional_jump_is_read_as_the_rail_and_kept_on_push(string shape, string line)
     {
         var nwl = Nwl(shape);

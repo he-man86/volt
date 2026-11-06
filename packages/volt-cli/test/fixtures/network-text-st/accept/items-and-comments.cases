@@ -3,7 +3,7 @@
 %LANGUAGE LD
 %NETWORK
 a;
-NOT b;
+INVERT(b);
 RISING(c);
 === model
 NETWORK
@@ -15,7 +15,7 @@ NETWORK
 === text
 %LANGUAGE FBD
 %NETWORK
-NOT AND(a, b);
+INVERT(AND(a, b));
 === model
 NETWORK
   not:(AND a b)
@@ -51,8 +51,8 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-y := BRANCH(FEED := RAIL(), a, b);
-z := BRANCH(a, b);
+ASSIGN(BRANCH(FEED := RAIL(), a, b), Q => y);
+ASSIGN(BRANCH(a, b), Q => z);
 === model
 NETWORK
   (:= y (par seq _ a b))
@@ -62,9 +62,9 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-y := NOT := a;
+ASSIGN(INVERT(a), Q => y);
 %NETWORK
-y := x := NOT := a;
+ASSIGN(INVERT(a), Q => y, Q => x);
 === model
 NETWORK
   (:= y item:! a)
@@ -75,12 +75,12 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-y := NOT a;
-NOT y := a;
-y := NOT := a;
+ASSIGN(INVERT(a), Q => y);
+ASSIGN(a, Q_INVERTED => y);
+ASSIGN(INVERT(a), Q => y);
 === model
 NETWORK
-  (:= y not:a)
+  (:= y item:! a)
   (:= not:y a)
   (:= y item:! a)
 
@@ -89,8 +89,8 @@ NETWORK
 %LANGUAGE LD
 %NETWORK
 l:
-NOT JMP.l := c;
-NOT RETURN := a;
+ASSIGN(c, Q_INVERTED => JMP.l);
+ASSIGN(a, Q_INVERTED => RETURN);
 === model
 NETWORK label:l
   (:= not:jmp:l c)
@@ -100,20 +100,21 @@ NETWORK label:l
 === text
 %LANGUAGE LD
 %NETWORK
-y := NOT EXECUTE(EN := go, 'n := TRUE;').ENO;
+ASSIGN(INVERT(EXECUTE(EN := go, 'n := TRUE;')), Q => y);
 === model
 NETWORK
-  (:= y not:(EXECUTE "n := TRUE;" en:go conn:0 eno:1))
+  (:= y item:! (EXECUTE "n := TRUE;" en:go conn:0 eno:1))
 
 #### comment-everywhere — COMMENT wherever an operand stands: a value, a coil, a pin, an output
 === scope
 instance t1 TON
+fb TON IN PT => Q ET
 === text
 %LANGUAGE FBD
 %NETWORK
-y := COMMENT(a, 'why');
-COMMENT(y, 'why') := a;
-y := t1(IN := COMMENT(a, 'why'), PT := T#1S, Q => COMMENT(x, 'why')).ET;
+ASSIGN(COMMENT(a, 'why'), Q => y);
+ASSIGN(a, Q => COMMENT(y, 'why'));
+ASSIGN(t1(IN := COMMENT(a, 'why'), PT := T#1S, Q => COMMENT(x, 'why')).ET, Q => y);
 === model
 NETWORK
   (:= y (comment a "why"))
@@ -124,14 +125,14 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-y := NOT COMMENT(a, 'why');
-z := RISING(COMMENT(b, 'why'));
-NOT COMMENT(x, 'why') := c;
-COMMENT(q, 'why') S= c;
+ASSIGN(INVERT(COMMENT(a, 'why')), Q => y);
+ASSIGN(RISING(COMMENT(b, 'why')), Q => z);
+ASSIGN(c, Q_INVERTED => COMMENT(x, 'why'));
+ASSIGN(c, Q_SET => COMMENT(q, 'why'));
 === model
 NETWORK
-  (:= y not:(comment a "why"))
-  (:= z rise:(comment b "why"))
+  (:= y item:! (comment a "why"))
+  (:= z item:/ (comment b "why"))
   (:= not:(comment x "why") c)
   (:= S=(comment q "why") c)
 
@@ -139,7 +140,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-y := COMMENT(a, 'it$'s 5 $$$Lsecond line');
+ASSIGN(COMMENT(a, 'it$'s 5 $$$Lsecond line'), Q => y);
 === model
 NETWORK
   (:= y (comment a "it's 5 $\nsecond line"))

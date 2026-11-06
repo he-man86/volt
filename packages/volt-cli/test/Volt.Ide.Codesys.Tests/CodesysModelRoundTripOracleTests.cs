@@ -356,6 +356,7 @@ public class CodesysModelRoundTripOracleTests
         ["A_network_carrying_a_vendor_split_point_is_refused_by_name"] = "refused by the reader",
         ["An_execute_box_whose_snippet_has_no_document_throws"] = "refused by the reader",
         ["A_symbol_comment_archived_as_anything_but_a_string_is_refused_by_name"] = "refused by the reader: an archived SymbolComment that is not text",
+        ["A_network_compiled_from_its_il_lines_is_refused_by_name"] = "refused by the reader: a network the IDE compiles from its IL lines",
     };
 
     /// <summary>THE TRANSCRIPTION IS COMPLETE. The doubles above are copied by hand, because a double built inside
@@ -383,7 +384,8 @@ public class CodesysModelRoundTripOracleTests
     [Fact]
     public void Reader_double_tally() =>
         StNetworkOracle.AssertTally(Read.Value.SelectMany(kv => StNetworkOracle.CheckBody(kv.Key, kv.Value)).ToList(), "CODESYS reader doubles",
-            identical: 45, stored: 0, new Dictionary<string, int>(StringComparer.Ordinal)
+            // stored: a mark read at its receiver, a root box's ENO shown where its EN is (network-language rules 1, 4)
+            identical: 43, stored: 2, new Dictionary<string, int>(StringComparer.Ordinal)
             {
                 // an operator read through ENO with its value wired nowhere does not build (live CODESYS 3.5.21.40)
                 ["an operator box closed by ENO with its value wired nowhere"] = 2,

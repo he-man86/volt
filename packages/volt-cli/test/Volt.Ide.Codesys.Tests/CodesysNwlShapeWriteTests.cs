@@ -34,16 +34,16 @@ public class CodesysNwlShapeWriteTests
 
     [Theory]
     [InlineData("LD", "a;")]                                          // #1
-    [InlineData("FBD", "NOT AND(a, b);")]                             // #2
-    [InlineData("LD", "y := NOT := a;")]                              // #7a
-    [InlineData("LD", "y := x := RISING := a;")]                  // #7a, stacked, last in the chain
-    [InlineData("LD", "NOT JMP.l := a;")]                             // #8
+    [InlineData("FBD", "INVERT(AND(a, b));")]                             // #2
+    [InlineData("LD", "ASSIGN(INVERT(a), Q => y);")]                              // #7a
+    [InlineData("LD", "ASSIGN(RISING(a), Q => y, Q => x);")]                  // #7a, stacked, last in the chain
+    [InlineData("LD", "ASSIGN(a, Q_INVERTED => JMP.l);")]                             // #8
     [InlineData("LD", "BRANCH(FEED := start, a, b);")]                // #11
     [InlineData("LD", "RAIL();")]                                     // #12
-    [InlineData("LD", "y := NOT EXECUTE(EN := go, 'n := TRUE;').ENO;")] // #16
-    [InlineData("LD", "y := BRANCH(FEED := RAIL(), a, b);")]          // #18
-    [InlineData("LD", "y := NOT COMMENT(a, 'why');")]                 // a value's comment
-    [InlineData("LD", "COMMENT(y, 'it$'s $$5') S= a;")]               // a coil's
+    [InlineData("LD", "ASSIGN(INVERT(EXECUTE(EN := go, 'n := TRUE;')), Q => y);")] // #16
+    [InlineData("LD", "ASSIGN(BRANCH(FEED := RAIL(), a, b), Q => y);")]          // #18
+    [InlineData("LD", "ASSIGN(INVERT(COMMENT(a, 'why')), Q => y);")]                 // a value's comment
+    [InlineData("LD", "ASSIGN(a, Q_SET => COMMENT(y, 'it$'s $$5'));")]               // a coil's
     [InlineData("FBD", "MOVE(COMMENT(a, 'why'), OUT => COMMENT(x, 'why'));")] // a pin's and an output's
     public void A_spelled_shape_is_built_and_read_back_as_its_text(string language, string code) =>
         Assert.Equal($"%LANGUAGE {language}\n%NETWORK\n{code}\n", Rebuilt(language, code).Text);
@@ -51,7 +51,7 @@ public class CodesysNwlShapeWriteTests
     [Fact]
     public void The_operand_comment_is_stored_on_the_operand_and_the_item_mark_on_the_item()
     {
-        var (_, live) = Rebuilt("LD", "COMMENT(y, 'why') := NOT := a;");
+        var (_, live) = Rebuilt("LD", "ASSIGN(INVERT(a), Q => COMMENT(y, 'why'));");
         var assign = Assert.IsType<Nwl.BoxTreeAssign>(live.GetTree(live.NetworkItemCount - 1));
         Assert.Equal("why", Assert.IsType<Nwl.Operand>(Assert.Single(assign.Outputs.List)).Comment);
         Assert.True(Assert.IsType<Nwl.Flags>(assign.Flags).Negation);

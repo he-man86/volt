@@ -877,7 +877,7 @@ null,
 "layout": "db73e4d8c5",
 "afterReopen": true
 },
-"pull": "x := t2(a := a, n := i).q1;"
+"pull": "ASSIGN(t2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "0015",
@@ -928,7 +928,7 @@ null
 "code": "t2(a := a, n := i); k := t2.q2;",
 "layout": "cdecaf5c47"
 },
-"pull": "k := t2(a := a, n := i).q2;"
+"pull": "ASSIGN(t2(a := a, n := i).q2, Q =\u003E k);"
 },
 {
 "id": "0016",
@@ -979,7 +979,7 @@ null
 "code": "t2(a := a, n := i); x := t2.q1;",
 "layout": "7c012c1571"
 },
-"pull": "x := t2(a := a, n := i).q1;"
+"pull": "ASSIGN(t2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "0017",
@@ -1030,7 +1030,7 @@ null,
 "code": "t2(a := a, n := i); k := t2.q2; x := t2.q1;",
 "layout": "7ca669b7e5"
 },
-"pull": "x := t2(a := a, n := i, q2 =\u003E k).q1;"
+"pull": "ASSIGN(t2(a := a, n := i, q2 =\u003E k), Q =\u003E x);"
 },
 {
 "id": "0018",
@@ -1081,7 +1081,7 @@ null
 "code": "t2(a := a, n := i); x := t2.q1; k := t2.q2;",
 "layout": "753f09fc63"
 },
-"pull": "k := t2(a := a, n := i, q1 =\u003E x).q2;"
+"pull": "ASSIGN(t2(a := a, n := i, q1 =\u003E x).q2, Q =\u003E k);"
 },
 {
 "id": "0019",
@@ -1186,7 +1186,7 @@ null,
 "code": "t2(a := a, n := i); x := t2.q1;",
 "layout": "db73e4d8c5"
 },
-"pull": "x := t2(a := a, n := i).q1;"
+"pull": "ASSIGN(t2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "0021",
@@ -1238,7 +1238,7 @@ null,
 "code": "t2(a := a, n := i); x := t2.q1;",
 "layout": "7c012c1571"
 },
-"pull": "x := t2(a := a, n := i).q1;"
+"pull": "ASSIGN(t2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "0022",
@@ -1290,7 +1290,7 @@ null,
 "code": "t2(a := a, n := i); k := t2.q2;",
 "layout": "cdecaf5c47"
 },
-"pull": "k := t2(a := a, n := i).q2;"
+"pull": "ASSIGN(t2(a := a, n := i).q2, Q =\u003E k);"
 },
 {
 "id": "0023",
@@ -2019,7 +2019,7 @@ null,
 "layout": "42602a5cec",
 "afterReopen": true
 },
-"pull": "x := t2(a := a, n := i).q1;"
+"pull": "ASSIGN(t2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "0037",
@@ -2071,7 +2071,7 @@ null
 "layout": "edbe7baa7f",
 "afterReopen": true
 },
-"pull": "k := t2(a := a, n := i).q2;"
+"pull": "ASSIGN(t2(a := a, n := i).q2, Q =\u003E k);"
 },
 {
 "id": "0038",
@@ -2123,7 +2123,7 @@ null
 "layout": "974bf7cb27",
 "afterReopen": true
 },
-"pull": "x := t2(a := a, n := i).q1;"
+"pull": "ASSIGN(t2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "0039",
@@ -2175,7 +2175,7 @@ null,
 "layout": "77d837a1ab",
 "afterReopen": true
 },
-"pull": "x := t2(a := a, n := i, q2 =\u003E k).q1;"
+"pull": "ASSIGN(t2(a := a, n := i, q2 =\u003E k), Q =\u003E x);"
 },
 {
 "id": "0040",
@@ -2227,7 +2227,7 @@ null
 "layout": "fda5f62f4e",
 "afterReopen": true
 },
-"pull": "k := t2(a := a, n := i, q1 =\u003E x).q2;"
+"pull": "ASSIGN(t2(a := a, n := i, q1 =\u003E x).q2, Q =\u003E k);"
 },
 {
 "id": "0041",
@@ -2334,7 +2334,7 @@ null,
 "layout": "42602a5cec",
 "afterReopen": true
 },
-"pull": "x := t2(a := a, n := i).q1;"
+"pull": "ASSIGN(t2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "0043",
@@ -2387,7 +2387,7 @@ null,
 "layout": "974bf7cb27",
 "afterReopen": true
 },
-"pull": "x := t2(a := a, n := i).q1;"
+"pull": "ASSIGN(t2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "0044",
@@ -2440,7 +2440,7 @@ null,
 "layout": "edbe7baa7f",
 "afterReopen": true
 },
-"pull": "k := t2(a := a, n := i).q2;"
+"pull": "ASSIGN(t2(a := a, n := i).q2, Q =\u003E k);"
 },
 {
 "id": "0045",
@@ -2493,7 +2493,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN t2(a := a, n := i); END_IF; __Imp := __ENO;",
 "layout": "02cc180c30"
 },
-"pull": "t2(EN := go, a := a, n := i).ENO;"
+"pull": "t2(EN := go, a := a, n := i);"
 },
 {
 "id": "0046",
@@ -2548,7 +2548,7 @@ null
 "code": "__ENO := go; IF __ENO THEN t2(a := a, n := i); END_IF; __Imp := __ENO;",
 "layout": "267d6d0453"
 },
-"pull": "t2(EN := go, a := a, n := i).ENO;"
+"pull": "t2(EN := go, a := a, n := i);"
 },
 {
 "id": "0047",
@@ -2608,7 +2608,7 @@ null,
 "layout": "d522c96069",
 "afterReopen": true
 },
-"pull": "t2(EN := go, a := a, n := i, q1 =\u003E ???).ENO;"
+"pull": "t2(EN := go, a := a, n := i, q1 =\u003E ???);"
 },
 {
 "id": "0048",
@@ -2665,7 +2665,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN t2(a := a, n := i); END_IF; __Imp := __ENO;",
 "layout": "45a0eba53e"
 },
-"pull": "t2(EN := go, a := a, n := i).ENO;"
+"pull": "t2(EN := go, a := a, n := i);"
 },
 {
 "id": "0049",
@@ -2722,7 +2722,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN t2(a := a, n := i); END_IF; __Imp := __ENO;",
 "layout": "2d15dfa12f"
 },
-"pull": "t2(EN := go, a := a, n := i).ENO;"
+"pull": "t2(EN := go, a := a, n := i);"
 },
 {
 "id": "0050",
@@ -3072,7 +3072,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN t2(a := a, n := i); END_IF; __Imp := __ENO;",
 "layout": "2fa9c64697"
 },
-"pull": "t2(EN := go, a := a, n := i).ENO;"
+"pull": "t2(EN := go, a := a, n := i);"
 },
 {
 "id": "0056",
@@ -3129,7 +3129,7 @@ null
 "code": "__ENO := go; IF __ENO THEN t2(a := a, n := i); END_IF; __Imp := __ENO;",
 "layout": "1f8b378352"
 },
-"pull": "t2(EN := go, a := a, n := i).ENO;"
+"pull": "t2(EN := go, a := a, n := i);"
 },
 {
 "id": "0057",
@@ -3186,7 +3186,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN t2(a := a, n := i); x := t2.q1; k := t2.q2; END_IF; __Imp := __ENO;",
 "layout": "3cb953d0df"
 },
-"pull": "t2(EN := go, a := a, n := i, q1 =\u003E x, q2 =\u003E k).ENO;"
+"pull": "t2(EN := go, a := a, n := i, q1 =\u003E x, q2 =\u003E k);"
 },
 {
 "id": "0058",
@@ -3243,7 +3243,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN t2(a := a, n := i); k := t2.q2; END_IF; __Imp := __ENO;",
 "layout": "ac871006c1"
 },
-"pull": "t2(EN := go, a := a, n := i, q2 =\u003E k).ENO;"
+"pull": "t2(EN := go, a := a, n := i, q2 =\u003E k);"
 },
 {
 "id": "0059",
@@ -3410,7 +3410,7 @@ null
 "code": "__ENO := go; IF __ENO THEN t2(a := a, n := i); END_IF; y := __ENO;",
 "layout": "d9b7d0e2bf"
 },
-"pull": "y := t2(EN := go, a := a, n := i).ENO;"
+"pull": "ASSIGN(t2(EN := go, a := a, n := i), Q =\u003E y);"
 },
 {
 "id": "0062",
@@ -3470,7 +3470,7 @@ null,
 "layout": "5abae2e078",
 "afterReopen": true
 },
-"pull": "y := t2(EN := go, a := a, n := i, q1 =\u003E ???).ENO;"
+"pull": "ASSIGN(t2(EN := go, a := a, n := i, q1 =\u003E ???), Q =\u003E y);"
 },
 {
 "id": "0063",
@@ -3527,7 +3527,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN t2(a := a, n := i); END_IF; y := __ENO;",
 "layout": "0b75c06f24"
 },
-"pull": "y := t2(EN := go, a := a, n := i).ENO;"
+"pull": "ASSIGN(t2(EN := go, a := a, n := i), Q =\u003E y);"
 },
 {
 "id": "0064",
@@ -3940,7 +3940,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN t2(a := a, n := i); END_IF; y := __ENO;",
 "layout": "277460b651"
 },
-"pull": "y := t2(EN := go, a := a, n := i).ENO;"
+"pull": "ASSIGN(t2(EN := go, a := a, n := i), Q =\u003E y);"
 },
 {
 "id": "0071",
@@ -3997,7 +3997,7 @@ null
 "code": "__ENO := go; IF __ENO THEN t2(a := a, n := i); END_IF; y := __ENO;",
 "layout": "d96362ce28"
 },
-"pull": "y := t2(EN := go, a := a, n := i).ENO;"
+"pull": "ASSIGN(t2(EN := go, a := a, n := i), Q =\u003E y);"
 },
 {
 "id": "0072",
@@ -4054,7 +4054,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN t2(a := a, n := i); x := t2.q1; k := t2.q2; END_IF; y := __ENO;",
 "layout": "43e7ec9c64"
 },
-"pull": "y := t2(EN := go, a := a, n := i, q1 =\u003E x, q2 =\u003E k).ENO;"
+"pull": "ASSIGN(t2(EN := go, a := a, n := i, q1 =\u003E x, q2 =\u003E k), Q =\u003E y);"
 },
 {
 "id": "0073",
@@ -4111,7 +4111,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN t2(a := a, n := i); k := t2.q2; END_IF; y := __ENO;",
 "layout": "863931803b"
 },
-"pull": "y := t2(EN := go, a := a, n := i, q2 =\u003E k).ENO;"
+"pull": "ASSIGN(t2(EN := go, a := a, n := i, q2 =\u003E k), Q =\u003E y);"
 },
 {
 "id": "0074",
@@ -4224,7 +4224,7 @@ null,
 "layout": "7bd5d5fa8b",
 "afterReopen": true
 },
-"pull": "t2(EN := go, a := a, n := i).ENO;"
+"pull": "t2(EN := go, a := a, n := i);"
 },
 {
 "id": "0076",
@@ -4280,7 +4280,7 @@ null
 "layout": "3ff7dfb8ba",
 "afterReopen": true
 },
-"pull": "t2(EN := go, a := a, n := i).ENO;"
+"pull": "t2(EN := go, a := a, n := i);"
 },
 {
 "id": "0077",
@@ -4340,7 +4340,7 @@ null,
 "layout": "4e34a2a766",
 "afterReopen": true
 },
-"pull": "t2(EN := go, a := a, n := i, q1 =\u003E ???).ENO;"
+"pull": "t2(EN := go, a := a, n := i, q1 =\u003E ???);"
 },
 {
 "id": "0078",
@@ -4398,7 +4398,7 @@ null,
 "layout": "3e58ce5c98",
 "afterReopen": true
 },
-"pull": "t2(EN := go, a := a, n := i).ENO;"
+"pull": "t2(EN := go, a := a, n := i);"
 },
 {
 "id": "0079",
@@ -4456,7 +4456,7 @@ null,
 "layout": "728f1c9ab0",
 "afterReopen": true
 },
-"pull": "t2(EN := go, a := a, n := i).ENO;"
+"pull": "t2(EN := go, a := a, n := i);"
 },
 {
 "id": "0080",
@@ -4812,7 +4812,7 @@ null,
 "layout": "a572362bfa",
 "afterReopen": true
 },
-"pull": "t2(EN := go, a := a, n := i).ENO;"
+"pull": "t2(EN := go, a := a, n := i);"
 },
 {
 "id": "0086",
@@ -4870,7 +4870,7 @@ null
 "layout": "a9eb45dab6",
 "afterReopen": true
 },
-"pull": "t2(EN := go, a := a, n := i).ENO;"
+"pull": "t2(EN := go, a := a, n := i);"
 },
 {
 "id": "0087",
@@ -4928,7 +4928,7 @@ null,
 "layout": "13fa0743ce",
 "afterReopen": true
 },
-"pull": "t2(EN := go, a := a, n := i, q1 =\u003E x, q2 =\u003E k).ENO;"
+"pull": "t2(EN := go, a := a, n := i, q1 =\u003E x, q2 =\u003E k);"
 },
 {
 "id": "0088",
@@ -4986,7 +4986,7 @@ null,
 "layout": "aeeab36256",
 "afterReopen": true
 },
-"pull": "t2(EN := go, a := a, n := i, q2 =\u003E k).ENO;"
+"pull": "t2(EN := go, a := a, n := i, q2 =\u003E k);"
 },
 {
 "id": "0089",
@@ -5156,7 +5156,7 @@ null
 "layout": "bc549c626a",
 "afterReopen": true
 },
-"pull": "y := t2(EN := go, a := a, n := i).ENO;"
+"pull": "ASSIGN(t2(EN := go, a := a, n := i), Q =\u003E y);"
 },
 {
 "id": "0092",
@@ -5216,7 +5216,7 @@ null,
 "layout": "6bcd44e32f",
 "afterReopen": true
 },
-"pull": "y := t2(EN := go, a := a, n := i, q1 =\u003E ???).ENO;"
+"pull": "ASSIGN(t2(EN := go, a := a, n := i, q1 =\u003E ???), Q =\u003E y);"
 },
 {
 "id": "0093",
@@ -5274,7 +5274,7 @@ null,
 "layout": "6aeed52ea6",
 "afterReopen": true
 },
-"pull": "y := t2(EN := go, a := a, n := i).ENO;"
+"pull": "ASSIGN(t2(EN := go, a := a, n := i), Q =\u003E y);"
 },
 {
 "id": "0094",
@@ -5694,7 +5694,7 @@ null,
 "layout": "9611cf0ff8",
 "afterReopen": true
 },
-"pull": "y := t2(EN := go, a := a, n := i).ENO;"
+"pull": "ASSIGN(t2(EN := go, a := a, n := i), Q =\u003E y);"
 },
 {
 "id": "0101",
@@ -5752,7 +5752,7 @@ null
 "layout": "03ae731aeb",
 "afterReopen": true
 },
-"pull": "y := t2(EN := go, a := a, n := i).ENO;"
+"pull": "ASSIGN(t2(EN := go, a := a, n := i), Q =\u003E y);"
 },
 {
 "id": "0102",
@@ -5810,7 +5810,7 @@ null,
 "layout": "f93a82bed7",
 "afterReopen": true
 },
-"pull": "y := t2(EN := go, a := a, n := i, q1 =\u003E x, q2 =\u003E k).ENO;"
+"pull": "ASSIGN(t2(EN := go, a := a, n := i, q1 =\u003E x, q2 =\u003E k), Q =\u003E y);"
 },
 {
 "id": "0103",
@@ -5868,7 +5868,7 @@ null,
 "layout": "bfd41ca4fb",
 "afterReopen": true
 },
-"pull": "y := t2(EN := go, a := a, n := i, q2 =\u003E k).ENO;"
+"pull": "ASSIGN(t2(EN := go, a := a, n := i, q2 =\u003E k), Q =\u003E y);"
 },
 {
 "id": "0104",
@@ -6100,7 +6100,7 @@ null
 "code": "y := bmF0(a := a, b := b);",
 "layout": "a78c58965c"
 },
-"pull": "y := bmF0(a := a, b := b);"
+"pull": "ASSIGN(bmF0(a := a, b := b), Q =\u003E y);"
 },
 {
 "id": "0109",
@@ -6144,7 +6144,7 @@ null
 "code": "y := bmF0(a := a, b := b);",
 "layout": "3d3415fbda"
 },
-"pull": "y := bmF0(a := a, b := b);"
+"pull": "ASSIGN(bmF0(a := a, b := b), Q =\u003E y);"
 },
 {
 "id": "0110",
@@ -6188,7 +6188,7 @@ null
 "code": "y := bmF0(a := a, b := b);",
 "layout": "3d3415fbda"
 },
-"pull": "y := bmF0(a := a, b := b);"
+"pull": "ASSIGN(bmF0(a := a, b := b), Q =\u003E y);"
 },
 {
 "id": "0111",
@@ -6364,7 +6364,7 @@ null
 "layout": "f86940dba5",
 "afterReopen": true
 },
-"pull": "y := bmF0(a := a, b := b);"
+"pull": "ASSIGN(bmF0(a := a, b := b), Q =\u003E y);"
 },
 {
 "id": "0115",
@@ -6409,7 +6409,7 @@ null
 "layout": "eed8fc5816",
 "afterReopen": true
 },
-"pull": "y := bmF0(a := a, b := b);"
+"pull": "ASSIGN(bmF0(a := a, b := b), Q =\u003E y);"
 },
 {
 "id": "0116",
@@ -6454,7 +6454,7 @@ null
 "layout": "eed8fc5816",
 "afterReopen": true
 },
-"pull": "y := bmF0(a := a, b := b);"
+"pull": "ASSIGN(bmF0(a := a, b := b), Q =\u003E y);"
 },
 {
 "id": "0117",
@@ -6969,7 +6969,7 @@ null,
 "layout": "c18652ad58",
 "afterReopen": true
 },
-"pull": "k := bmF2(a := i).OUT;"
+"pull": "ASSIGN(bmF2(a := i), Q =\u003E k);"
 },
 {
 "id": "0127",
@@ -7020,7 +7020,7 @@ null,
 "code": "k := bmF2(a := i);",
 "layout": "af9157b79b"
 },
-"pull": "k := bmF2(a := i).OUT;"
+"pull": "ASSIGN(bmF2(a := i), Q =\u003E k);"
 },
 {
 "id": "0128",
@@ -7071,7 +7071,7 @@ null,
 "code": "k := bmF2(a := i);",
 "layout": "c18652ad58"
 },
-"pull": "k := bmF2(a := i).OUT;"
+"pull": "ASSIGN(bmF2(a := i), Q =\u003E k);"
 },
 {
 "id": "0129",
@@ -7124,7 +7124,7 @@ null,
 "code": "y := bmF2(a := i);",
 "layout": "09f85c56c3"
 },
-"pull": "y := bmF2(a := i).OUT;"
+"pull": "ASSIGN(bmF2(a := i), Q =\u003E y);"
 },
 {
 "id": "0130",
@@ -7175,7 +7175,7 @@ null,
 "code": "bmF2(a := i, q1 => __Imp_1); k := __Imp_1;",
 "layout": "b1a56132a6"
 },
-"pull": "k := bmF2(a := i).q1;"
+"pull": "ASSIGN(bmF2(a := i).q1, Q =\u003E k);"
 },
 {
 "id": "0131",
@@ -7226,7 +7226,7 @@ null
 "code": "bmF2(a := i, q2 => __Imp_2); y := __Imp_2;",
 "layout": "0a7d262a15"
 },
-"pull": "y := bmF2(a := i).q2;"
+"pull": "ASSIGN(bmF2(a := i).q2, Q =\u003E y);"
 },
 {
 "id": "0132",
@@ -7277,7 +7277,7 @@ null,
 "code": "k := bmF2(a := i, q1 => m, q2 => x);",
 "layout": "10110e59a1"
 },
-"pull": "k := bmF2(a := i, q1 =\u003E m, q2 =\u003E x).OUT;"
+"pull": "ASSIGN(bmF2(a := i, q1 =\u003E m, q2 =\u003E x), Q =\u003E k);"
 },
 {
 "id": "0133",
@@ -7329,7 +7329,7 @@ null,
 "code": "k := bmF2(a := i, q1 => m, q2 => x);",
 "layout": "10110e59a1"
 },
-"pull": "k := bmF2(a := i, q1 =\u003E m, q2 =\u003E x).OUT;"
+"pull": "ASSIGN(bmF2(a := i, q1 =\u003E m, q2 =\u003E x), Q =\u003E k);"
 },
 {
 "id": "0134",
@@ -7380,7 +7380,7 @@ null,
 "code": "k := bmF2(a := i, q1 => __Imp_1); k := __Imp_1;",
 "layout": "6b3d8a15ca"
 },
-"pull": "k := bmF2(a := i, OUT =\u003E k).q1;"
+"pull": "ASSIGN(bmF2(a := i, OUT =\u003E k).q1, Q =\u003E k);"
 },
 {
 "id": "0135",
@@ -7903,7 +7903,7 @@ null,
 "layout": "cff4e2ce05",
 "afterReopen": true
 },
-"pull": "k := bmF2(a := i).OUT;"
+"pull": "ASSIGN(bmF2(a := i), Q =\u003E k);"
 },
 {
 "id": "0145",
@@ -7955,7 +7955,7 @@ null,
 "layout": "ee67238df0",
 "afterReopen": true
 },
-"pull": "k := bmF2(a := i).OUT;"
+"pull": "ASSIGN(bmF2(a := i), Q =\u003E k);"
 },
 {
 "id": "0146",
@@ -8007,7 +8007,7 @@ null,
 "layout": "cff4e2ce05",
 "afterReopen": true
 },
-"pull": "k := bmF2(a := i).OUT;"
+"pull": "ASSIGN(bmF2(a := i), Q =\u003E k);"
 },
 {
 "id": "0147",
@@ -8061,7 +8061,7 @@ null,
 "layout": "47543a4c52",
 "afterReopen": true
 },
-"pull": "y := bmF2(a := i).OUT;"
+"pull": "ASSIGN(bmF2(a := i), Q =\u003E y);"
 },
 {
 "id": "0148",
@@ -8113,7 +8113,7 @@ null,
 "layout": "56d4417280",
 "afterReopen": true
 },
-"pull": "k := bmF2(a := i).q1;"
+"pull": "ASSIGN(bmF2(a := i).q1, Q =\u003E k);"
 },
 {
 "id": "0149",
@@ -8165,7 +8165,7 @@ null
 "layout": "1e6537f6f9",
 "afterReopen": true
 },
-"pull": "y := bmF2(a := i).q2;"
+"pull": "ASSIGN(bmF2(a := i).q2, Q =\u003E y);"
 },
 {
 "id": "0150",
@@ -8217,7 +8217,7 @@ null,
 "layout": "25c234ac2e",
 "afterReopen": true
 },
-"pull": "k := bmF2(a := i, q1 =\u003E m, q2 =\u003E x).OUT;"
+"pull": "ASSIGN(bmF2(a := i, q1 =\u003E m, q2 =\u003E x), Q =\u003E k);"
 },
 {
 "id": "0151",
@@ -8270,7 +8270,7 @@ null,
 "layout": "25c234ac2e",
 "afterReopen": true
 },
-"pull": "k := bmF2(a := i, q1 =\u003E m, q2 =\u003E x).OUT;"
+"pull": "ASSIGN(bmF2(a := i, q1 =\u003E m, q2 =\u003E x), Q =\u003E k);"
 },
 {
 "id": "0152",
@@ -8322,7 +8322,7 @@ null,
 "layout": "4e4a275528",
 "afterReopen": true
 },
-"pull": "k := bmF2(a := i, OUT =\u003E k).q1;"
+"pull": "ASSIGN(bmF2(a := i, OUT =\u003E k).q1, Q =\u003E k);"
 },
 {
 "id": "0153",
@@ -8384,7 +8384,7 @@ null,
 "layout": "72097301d6",
 "afterReopen": true
 },
-"pull": "bmF2(EN := go, a := i, OUT =\u003E ???).ENO;"
+"pull": "bmF2(EN := go, a := i, OUT =\u003E ???);"
 },
 {
 "id": "0154",
@@ -8441,7 +8441,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN bmF2(a := i); END_IF; __Imp := __ENO;",
 "layout": "ad50eb4f72"
 },
-"pull": "bmF2(EN := go, a := i).ENO;"
+"pull": "bmF2(EN := go, a := i);"
 },
 {
 "id": "0155",
@@ -8498,7 +8498,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN k := bmF2(a := i); END_IF; __Imp := __ENO;",
 "layout": "083f2b831b"
 },
-"pull": "bmF2(EN := go, a := i, OUT =\u003E k).ENO;"
+"pull": "bmF2(EN := go, a := i, OUT =\u003E k);"
 },
 {
 "id": "0156",
@@ -8558,7 +8558,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN !!!'ERROR'!!! := bmF2(a := i); END_IF; __Imp := __ENO;",
 "layout": "0281bf5558"
 },
-"pull": "bmF2(EN := go, a := i, OUT =\u003E ???).ENO;"
+"pull": "bmF2(EN := go, a := i, OUT =\u003E ???);"
 },
 {
 "id": "0157",
@@ -8732,7 +8732,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN k := bmF2(a := i); END_IF; __Imp := __ENO;",
 "layout": "60ce924a6f"
 },
-"pull": "bmF2(EN := go, a := i, OUT =\u003E k).ENO;"
+"pull": "bmF2(EN := go, a := i, OUT =\u003E k);"
 },
 {
 "id": "0160",
@@ -8789,7 +8789,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN k := bmF2(a := i, q1 => m, q2 => x); END_IF; __Imp := __ENO;",
 "layout": "cd825dce6d"
 },
-"pull": "bmF2(EN := go, a := i, OUT =\u003E k, q1 =\u003E m, q2 =\u003E x).ENO;"
+"pull": "bmF2(EN := go, a := i, OUT =\u003E k, q1 =\u003E m, q2 =\u003E x);"
 },
 {
 "id": "0161",
@@ -8851,7 +8851,7 @@ null,
 "layout": "a91df439f0",
 "afterReopen": true
 },
-"pull": "y := bmF2(EN := go, a := i, OUT =\u003E ???).ENO;"
+"pull": "ASSIGN(bmF2(EN := go, a := i, OUT =\u003E ???), Q =\u003E y);"
 },
 {
 "id": "0162",
@@ -8908,7 +8908,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN bmF2(a := i); END_IF; y := __ENO;",
 "layout": "73e99c3bc9"
 },
-"pull": "y := bmF2(EN := go, a := i).ENO;"
+"pull": "ASSIGN(bmF2(EN := go, a := i), Q =\u003E y);"
 },
 {
 "id": "0163",
@@ -8965,7 +8965,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN k := bmF2(a := i); END_IF; y := __ENO;",
 "layout": "fecc6431a4"
 },
-"pull": "y := bmF2(EN := go, a := i, OUT =\u003E k).ENO;"
+"pull": "ASSIGN(bmF2(EN := go, a := i, OUT =\u003E k), Q =\u003E y);"
 },
 {
 "id": "0164",
@@ -9025,7 +9025,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN !!!'ERROR'!!! := bmF2(a := i); END_IF; y := __ENO;",
 "layout": "b993b8892e"
 },
-"pull": "y := bmF2(EN := go, a := i, OUT =\u003E ???).ENO;"
+"pull": "ASSIGN(bmF2(EN := go, a := i, OUT =\u003E ???), Q =\u003E y);"
 },
 {
 "id": "0165",
@@ -9201,7 +9201,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN k := bmF2(a := i); END_IF; y := __ENO;",
 "layout": "0a64f9345d"
 },
-"pull": "y := bmF2(EN := go, a := i, OUT =\u003E k).ENO;"
+"pull": "ASSIGN(bmF2(EN := go, a := i, OUT =\u003E k), Q =\u003E y);"
 },
 {
 "id": "0168",
@@ -9258,7 +9258,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN k := bmF2(a := i, q1 => m, q2 => x); END_IF; y := __ENO;",
 "layout": "d03eb9424c"
 },
-"pull": "y := bmF2(EN := go, a := i, OUT =\u003E k, q1 =\u003E m, q2 =\u003E x).ENO;"
+"pull": "ASSIGN(bmF2(EN := go, a := i, OUT =\u003E k, q1 =\u003E m, q2 =\u003E x), Q =\u003E y);"
 },
 {
 "id": "0169",
@@ -9320,7 +9320,7 @@ null,
 "layout": "aa2890d15f",
 "afterReopen": true
 },
-"pull": "bmF2(EN := go, a := i, OUT =\u003E ???).ENO;"
+"pull": "bmF2(EN := go, a := i, OUT =\u003E ???);"
 },
 {
 "id": "0170",
@@ -9378,7 +9378,7 @@ null,
 "layout": "4ce910a421",
 "afterReopen": true
 },
-"pull": "bmF2(EN := go, a := i).ENO;"
+"pull": "bmF2(EN := go, a := i);"
 },
 {
 "id": "0171",
@@ -9436,7 +9436,7 @@ null,
 "layout": "3ad0ea7b93",
 "afterReopen": true
 },
-"pull": "bmF2(EN := go, a := i, OUT =\u003E k).ENO;"
+"pull": "bmF2(EN := go, a := i, OUT =\u003E k);"
 },
 {
 "id": "0172",
@@ -9497,7 +9497,7 @@ null,
 "layout": "54a68290f8",
 "afterReopen": true
 },
-"pull": "bmF2(EN := go, a := i, OUT =\u003E ???).ENO;"
+"pull": "bmF2(EN := go, a := i, OUT =\u003E ???);"
 },
 {
 "id": "0173",
@@ -9674,7 +9674,7 @@ null,
 "layout": "b971762f8b",
 "afterReopen": true
 },
-"pull": "bmF2(EN := go, a := i, OUT =\u003E k).ENO;"
+"pull": "bmF2(EN := go, a := i, OUT =\u003E k);"
 },
 {
 "id": "0176",
@@ -9732,7 +9732,7 @@ null,
 "layout": "90b3531923",
 "afterReopen": true
 },
-"pull": "bmF2(EN := go, a := i, OUT =\u003E k, q1 =\u003E m, q2 =\u003E x).ENO;"
+"pull": "bmF2(EN := go, a := i, OUT =\u003E k, q1 =\u003E m, q2 =\u003E x);"
 },
 {
 "id": "0177",
@@ -9794,7 +9794,7 @@ null,
 "layout": "12f44caeb2",
 "afterReopen": true
 },
-"pull": "y := bmF2(EN := go, a := i, OUT =\u003E ???).ENO;"
+"pull": "ASSIGN(bmF2(EN := go, a := i, OUT =\u003E ???), Q =\u003E y);"
 },
 {
 "id": "0178",
@@ -9852,7 +9852,7 @@ null,
 "layout": "9c1424f7b7",
 "afterReopen": true
 },
-"pull": "y := bmF2(EN := go, a := i).ENO;"
+"pull": "ASSIGN(bmF2(EN := go, a := i), Q =\u003E y);"
 },
 {
 "id": "0179",
@@ -9910,7 +9910,7 @@ null,
 "layout": "d152a5ee52",
 "afterReopen": true
 },
-"pull": "y := bmF2(EN := go, a := i, OUT =\u003E k).ENO;"
+"pull": "ASSIGN(bmF2(EN := go, a := i, OUT =\u003E k), Q =\u003E y);"
 },
 {
 "id": "0180",
@@ -9971,7 +9971,7 @@ null,
 "layout": "bf27e1a15c",
 "afterReopen": true
 },
-"pull": "y := bmF2(EN := go, a := i, OUT =\u003E ???).ENO;"
+"pull": "ASSIGN(bmF2(EN := go, a := i, OUT =\u003E ???), Q =\u003E y);"
 },
 {
 "id": "0181",
@@ -10150,7 +10150,7 @@ null,
 "layout": "34b6c18dc3",
 "afterReopen": true
 },
-"pull": "y := bmF2(EN := go, a := i, OUT =\u003E k).ENO;"
+"pull": "ASSIGN(bmF2(EN := go, a := i, OUT =\u003E k), Q =\u003E y);"
 },
 {
 "id": "0184",
@@ -10208,7 +10208,7 @@ null,
 "layout": "ea671bf957",
 "afterReopen": true
 },
-"pull": "y := bmF2(EN := go, a := i, OUT =\u003E k, q1 =\u003E m, q2 =\u003E x).ENO;"
+"pull": "ASSIGN(bmF2(EN := go, a := i, OUT =\u003E k, q1 =\u003E m, q2 =\u003E x), Q =\u003E y);"
 },
 {
 "id": "0185",
@@ -10503,7 +10503,7 @@ null
 "layout": "ad1364a8b4",
 "afterReopen": true
 },
-"pull": "y := bmF0(a := a, b := b);"
+"pull": "ASSIGN(bmF0(a := a, b := b), Q =\u003E y);"
 },
 {
 "id": "0191",
@@ -10551,7 +10551,7 @@ null
 "code": "y := bmF0(a := a, b := b);",
 "layout": "ad1364a8b4"
 },
-"pull": "y := bmF0(a := a, b := b);"
+"pull": "ASSIGN(bmF0(a := a, b := b), Q =\u003E y);"
 },
 {
 "id": "0192",
@@ -10599,7 +10599,7 @@ null
 "code": "y := bmF0(a := a, b := b);",
 "layout": "da02b5df69"
 },
-"pull": "y := bmF0(a := a, b := b);"
+"pull": "ASSIGN(bmF0(a := a, b := b), Q =\u003E y);"
 },
 {
 "id": "0193",
@@ -10995,7 +10995,7 @@ null
 "layout": "ece4d13f7c",
 "afterReopen": true
 },
-"pull": "y := bmF0(a := a, b := b);"
+"pull": "ASSIGN(bmF0(a := a, b := b), Q =\u003E y);"
 },
 {
 "id": "0201",
@@ -11044,7 +11044,7 @@ null
 "layout": "ece4d13f7c",
 "afterReopen": true
 },
-"pull": "y := bmF0(a := a, b := b);"
+"pull": "ASSIGN(bmF0(a := a, b := b), Q =\u003E y);"
 },
 {
 "id": "0202",
@@ -11093,7 +11093,7 @@ null
 "layout": "b831e3fea1",
 "afterReopen": true
 },
-"pull": "y := bmF0(a := a, b := b);"
+"pull": "ASSIGN(bmF0(a := a, b := b), Q =\u003E y);"
 },
 {
 "id": "0203",
@@ -11251,7 +11251,7 @@ null
 "layout": "79ef4bb017",
 "afterReopen": true
 },
-"pull": "bmF0(EN := go, a := a, b := b, OUT =\u003E ???).ENO;"
+"pull": "bmF0(EN := go, a := a, b := b, OUT =\u003E ???);"
 },
 {
 "id": "0206",
@@ -11308,7 +11308,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN !!!'ERROR'!!! := bmF0(a := a, b := b); END_IF; __Imp := __ENO;",
 "layout": "79ef4bb017"
 },
-"pull": "bmF0(EN := go, a := a, b := b, OUT =\u003E ???).ENO;"
+"pull": "bmF0(EN := go, a := a, b := b, OUT =\u003E ???);"
 },
 {
 "id": "0207",
@@ -11362,7 +11362,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN z := bmF0(a := a, b := b); END_IF; __Imp := __ENO;",
 "layout": "5b32ebe3f5"
 },
-"pull": "bmF0(EN := go, a := a, b := b, OUT =\u003E z).ENO;"
+"pull": "bmF0(EN := go, a := a, b := b, OUT =\u003E z);"
 },
 {
 "id": "0208",
@@ -11416,7 +11416,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN bmF0(a := a, b := b); END_IF; __Imp := __ENO;",
 "layout": "a2d32f66b7"
 },
-"pull": "bmF0(EN := go, a := a, b := b).ENO;"
+"pull": "bmF0(EN := go, a := a, b := b);"
 },
 {
 "id": "0209",
@@ -11529,7 +11529,7 @@ null
 "layout": "aef29507d9",
 "afterReopen": true
 },
-"pull": "y := bmF0(EN := go, a := a, b := b, OUT =\u003E ???).ENO;"
+"pull": "ASSIGN(bmF0(EN := go, a := a, b := b, OUT =\u003E ???), Q =\u003E y);"
 },
 {
 "id": "0211",
@@ -11586,7 +11586,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN !!!'ERROR'!!! := bmF0(a := a, b := b); END_IF; y := __ENO;",
 "layout": "aef29507d9"
 },
-"pull": "y := bmF0(EN := go, a := a, b := b, OUT =\u003E ???).ENO;"
+"pull": "ASSIGN(bmF0(EN := go, a := a, b := b, OUT =\u003E ???), Q =\u003E y);"
 },
 {
 "id": "0212",
@@ -11640,7 +11640,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN z := bmF0(a := a, b := b); END_IF; y := __ENO;",
 "layout": "424294148f"
 },
-"pull": "y := bmF0(EN := go, a := a, b := b, OUT =\u003E z).ENO;"
+"pull": "ASSIGN(bmF0(EN := go, a := a, b := b, OUT =\u003E z), Q =\u003E y);"
 },
 {
 "id": "0213",
@@ -11694,7 +11694,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN bmF0(a := a, b := b); END_IF; y := __ENO;",
 "layout": "a345ea6b79"
 },
-"pull": "y := bmF0(EN := go, a := a, b := b).ENO;"
+"pull": "ASSIGN(bmF0(EN := go, a := a, b := b), Q =\u003E y);"
 },
 {
 "id": "0214",
@@ -11807,7 +11807,7 @@ null
 "layout": "b1fe02bc94",
 "afterReopen": true
 },
-"pull": "bmF0(EN := go, a := a, b := b, OUT =\u003E ???).ENO;"
+"pull": "bmF0(EN := go, a := a, b := b, OUT =\u003E ???);"
 },
 {
 "id": "0216",
@@ -11865,7 +11865,7 @@ null,
 "layout": "b1fe02bc94",
 "afterReopen": true
 },
-"pull": "bmF0(EN := go, a := a, b := b, OUT =\u003E ???).ENO;"
+"pull": "bmF0(EN := go, a := a, b := b, OUT =\u003E ???);"
 },
 {
 "id": "0217",
@@ -11920,7 +11920,7 @@ null,
 "layout": "919bd82df7",
 "afterReopen": true
 },
-"pull": "bmF0(EN := go, a := a, b := b, OUT =\u003E z).ENO;"
+"pull": "bmF0(EN := go, a := a, b := b, OUT =\u003E z);"
 },
 {
 "id": "0218",
@@ -11975,7 +11975,7 @@ null,
 "layout": "616c837b17",
 "afterReopen": true
 },
-"pull": "bmF0(EN := go, a := a, b := b).ENO;"
+"pull": "bmF0(EN := go, a := a, b := b);"
 },
 {
 "id": "0219",
@@ -12089,7 +12089,7 @@ null
 "layout": "785cafcae6",
 "afterReopen": true
 },
-"pull": "y := bmF0(EN := go, a := a, b := b, OUT =\u003E ???).ENO;"
+"pull": "ASSIGN(bmF0(EN := go, a := a, b := b, OUT =\u003E ???), Q =\u003E y);"
 },
 {
 "id": "0221",
@@ -12147,7 +12147,7 @@ null,
 "layout": "785cafcae6",
 "afterReopen": true
 },
-"pull": "y := bmF0(EN := go, a := a, b := b, OUT =\u003E ???).ENO;"
+"pull": "ASSIGN(bmF0(EN := go, a := a, b := b, OUT =\u003E ???), Q =\u003E y);"
 },
 {
 "id": "0222",
@@ -12202,7 +12202,7 @@ null,
 "layout": "b38e912b47",
 "afterReopen": true
 },
-"pull": "y := bmF0(EN := go, a := a, b := b, OUT =\u003E z).ENO;"
+"pull": "ASSIGN(bmF0(EN := go, a := a, b := b, OUT =\u003E z), Q =\u003E y);"
 },
 {
 "id": "0223",
@@ -12257,7 +12257,7 @@ null,
 "layout": "eed0520b4d",
 "afterReopen": true
 },
-"pull": "y := bmF0(EN := go, a := a, b := b).ENO;"
+"pull": "ASSIGN(bmF0(EN := go, a := a, b := b), Q =\u003E y);"
 },
 {
 "id": "0224",
@@ -12979,7 +12979,7 @@ null,
 "layout": "f9e517cdcf",
 "afterReopen": true
 },
-"pull": "x := bmP2(a := a, n := i).q1;"
+"pull": "ASSIGN(bmP2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "0238",
@@ -13030,7 +13030,7 @@ null,
 "code": "bmP2(a := a, n := i); x := bmP2.q1;",
 "layout": "db808f6432"
 },
-"pull": "x := bmP2(a := a, n := i).q1;"
+"pull": "ASSIGN(bmP2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "0239",
@@ -13184,7 +13184,7 @@ null
 "code": "bmP2(a := a, n := i); k := bmP2.q2;",
 "layout": "803117d643"
 },
-"pull": "k := bmP2(a := a, n := i).q2;"
+"pull": "ASSIGN(bmP2(a := a, n := i).q2, Q =\u003E k);"
 },
 {
 "id": "0242",
@@ -13235,7 +13235,7 @@ null
 "code": "bmP2(a := a, n := i); x := bmP2.q1;",
 "layout": "f9e517cdcf"
 },
-"pull": "x := bmP2(a := a, n := i).q1;"
+"pull": "ASSIGN(bmP2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "0243",
@@ -13286,7 +13286,7 @@ null,
 "code": "bmP2(a := a, n := i, q2 => k); x := bmP2.q1;",
 "layout": "c8ae388ad2"
 },
-"pull": "x := bmP2(a := a, n := i, q2 =\u003E k).q1;"
+"pull": "ASSIGN(bmP2(a := a, n := i, q2 =\u003E k), Q =\u003E x);"
 },
 {
 "id": "0244",
@@ -13389,7 +13389,7 @@ null
 "code": "bmP2(a := a, n := i, q1 => x); k := bmP2.q2;",
 "layout": "14131e6952"
 },
-"pull": "k := bmP2(a := a, n := i, q1 =\u003E x).q2;"
+"pull": "ASSIGN(bmP2(a := a, n := i, q1 =\u003E x).q2, Q =\u003E k);"
 },
 {
 "id": "0246",
@@ -13548,7 +13548,7 @@ null,
 "code": "bmP2(a := a, n := i); k := bmP2.q2;",
 "layout": "803117d643"
 },
-"pull": "k := bmP2(a := a, n := i).q2;"
+"pull": "ASSIGN(bmP2(a := a, n := i).q2, Q =\u003E k);"
 },
 {
 "id": "0249",
@@ -14226,7 +14226,7 @@ null,
 "layout": "2e0b3303cd",
 "afterReopen": true
 },
-"pull": "x := bmP2(a := a, n := i).q1;"
+"pull": "ASSIGN(bmP2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "0262",
@@ -14278,7 +14278,7 @@ null,
 "layout": "1d76e8b661",
 "afterReopen": true
 },
-"pull": "x := bmP2(a := a, n := i).q1;"
+"pull": "ASSIGN(bmP2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "0263",
@@ -14435,7 +14435,7 @@ null
 "layout": "4680f630e1",
 "afterReopen": true
 },
-"pull": "k := bmP2(a := a, n := i).q2;"
+"pull": "ASSIGN(bmP2(a := a, n := i).q2, Q =\u003E k);"
 },
 {
 "id": "0266",
@@ -14487,7 +14487,7 @@ null
 "layout": "2e0b3303cd",
 "afterReopen": true
 },
-"pull": "x := bmP2(a := a, n := i).q1;"
+"pull": "ASSIGN(bmP2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "0267",
@@ -14539,7 +14539,7 @@ null,
 "layout": "8eb20dac80",
 "afterReopen": true
 },
-"pull": "x := bmP2(a := a, n := i, q2 =\u003E k).q1;"
+"pull": "ASSIGN(bmP2(a := a, n := i, q2 =\u003E k), Q =\u003E x);"
 },
 {
 "id": "0268",
@@ -14644,7 +14644,7 @@ null
 "layout": "3d0e6e353e",
 "afterReopen": true
 },
-"pull": "k := bmP2(a := a, n := i, q1 =\u003E x).q2;"
+"pull": "ASSIGN(bmP2(a := a, n := i, q1 =\u003E x).q2, Q =\u003E k);"
 },
 {
 "id": "0270",
@@ -14806,7 +14806,7 @@ null,
 "layout": "4680f630e1",
 "afterReopen": true
 },
-"pull": "k := bmP2(a := a, n := i).q2;"
+"pull": "ASSIGN(bmP2(a := a, n := i).q2, Q =\u003E k);"
 },
 {
 "id": "0273",
@@ -14867,7 +14867,7 @@ null,
 "layout": "e1bac7928d",
 "afterReopen": true
 },
-"pull": "bmP2(EN := go, a := a, n := i, q1 =\u003E ???).ENO;"
+"pull": "bmP2(EN := go, a := a, n := i, q1 =\u003E ???);"
 },
 {
 "id": "0274",
@@ -14926,7 +14926,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN bmP2(a := a, n := i, q1 => !!!'ERROR'!!!); END_IF; __Imp := __ENO;",
 "layout": "25e76be964"
 },
-"pull": "bmP2(EN := go, a := a, n := i, q1 =\u003E ???).ENO;"
+"pull": "bmP2(EN := go, a := a, n := i, q1 =\u003E ???);"
 },
 {
 "id": "0275",
@@ -14983,7 +14983,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN bmP2(a := a, n := i); END_IF; __Imp := __ENO;",
 "layout": "8a36b41a0e"
 },
-"pull": "bmP2(EN := go, a := a, n := i).ENO;"
+"pull": "bmP2(EN := go, a := a, n := i);"
 },
 {
 "id": "0276",
@@ -15040,7 +15040,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN bmP2(a := a, n := i, q1 => x, q2 => k); END_IF; __Imp := __ENO;",
 "layout": "7658a51937"
 },
-"pull": "bmP2(EN := go, a := a, n := i, q1 =\u003E x, q2 =\u003E k).ENO;"
+"pull": "bmP2(EN := go, a := a, n := i, q1 =\u003E x, q2 =\u003E k);"
 },
 {
 "id": "0277",
@@ -15097,7 +15097,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN bmP2(a := a, n := i, q2 => k); END_IF; __Imp := __ENO;",
 "layout": "fd922c435d"
 },
-"pull": "bmP2(EN := go, a := a, n := i, q2 =\u003E k).ENO;"
+"pull": "bmP2(EN := go, a := a, n := i, q2 =\u003E k);"
 },
 {
 "id": "0278",
@@ -15270,7 +15270,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN bmP2(a := a, n := i); END_IF; __Imp := __ENO;",
 "layout": "b64059db34"
 },
-"pull": "bmP2(EN := go, a := a, n := i).ENO;"
+"pull": "bmP2(EN := go, a := a, n := i);"
 },
 {
 "id": "0281",
@@ -15327,7 +15327,7 @@ null
 "code": "__ENO := go; IF __ENO THEN bmP2(a := a, n := i); END_IF; __Imp := __ENO;",
 "layout": "563533fe60"
 },
-"pull": "bmP2(EN := go, a := a, n := i).ENO;"
+"pull": "bmP2(EN := go, a := a, n := i);"
 },
 {
 "id": "0282",
@@ -15380,7 +15380,7 @@ null
 "code": "__ENO := go; IF __ENO THEN bmP2(a := a, n := i); END_IF; __Imp := __ENO;",
 "layout": "67d241ed76"
 },
-"pull": "bmP2(EN := go, a := a, n := i).ENO;"
+"pull": "bmP2(EN := go, a := a, n := i);"
 },
 {
 "id": "0283",
@@ -15441,7 +15441,7 @@ null,
 "layout": "b6d2787512",
 "afterReopen": true
 },
-"pull": "y := bmP2(EN := go, a := a, n := i, q1 =\u003E ???).ENO;"
+"pull": "ASSIGN(bmP2(EN := go, a := a, n := i, q1 =\u003E ???), Q =\u003E y);"
 },
 {
 "id": "0284",
@@ -15500,7 +15500,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN bmP2(a := a, n := i, q1 => !!!'ERROR'!!!); END_IF; y := __ENO;",
 "layout": "098c6cfe6d"
 },
-"pull": "y := bmP2(EN := go, a := a, n := i, q1 =\u003E ???).ENO;"
+"pull": "ASSIGN(bmP2(EN := go, a := a, n := i, q1 =\u003E ???), Q =\u003E y);"
 },
 {
 "id": "0285",
@@ -15557,7 +15557,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN bmP2(a := a, n := i); END_IF; y := __ENO;",
 "layout": "eecf2b92b5"
 },
-"pull": "y := bmP2(EN := go, a := a, n := i).ENO;"
+"pull": "ASSIGN(bmP2(EN := go, a := a, n := i), Q =\u003E y);"
 },
 {
 "id": "0286",
@@ -15614,7 +15614,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN bmP2(a := a, n := i, q1 => x, q2 => k); END_IF; y := __ENO;",
 "layout": "e052481359"
 },
-"pull": "y := bmP2(EN := go, a := a, n := i, q1 =\u003E x, q2 =\u003E k).ENO;"
+"pull": "ASSIGN(bmP2(EN := go, a := a, n := i, q1 =\u003E x, q2 =\u003E k), Q =\u003E y);"
 },
 {
 "id": "0287",
@@ -15671,7 +15671,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN bmP2(a := a, n := i, q2 => k); END_IF; y := __ENO;",
 "layout": "b1657926cd"
 },
-"pull": "y := bmP2(EN := go, a := a, n := i, q2 =\u003E k).ENO;"
+"pull": "ASSIGN(bmP2(EN := go, a := a, n := i, q2 =\u003E k), Q =\u003E y);"
 },
 {
 "id": "0288",
@@ -15846,7 +15846,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN bmP2(a := a, n := i); END_IF; y := __ENO;",
 "layout": "34c0691a38"
 },
-"pull": "y := bmP2(EN := go, a := a, n := i).ENO;"
+"pull": "ASSIGN(bmP2(EN := go, a := a, n := i), Q =\u003E y);"
 },
 {
 "id": "0291",
@@ -15903,7 +15903,7 @@ null
 "code": "__ENO := go; IF __ENO THEN bmP2(a := a, n := i); END_IF; y := __ENO;",
 "layout": "f2c5331352"
 },
-"pull": "y := bmP2(EN := go, a := a, n := i).ENO;"
+"pull": "ASSIGN(bmP2(EN := go, a := a, n := i), Q =\u003E y);"
 },
 {
 "id": "0292",
@@ -16019,7 +16019,7 @@ null,
 "layout": "9c0a1179f9",
 "afterReopen": true
 },
-"pull": "bmP2(EN := go, a := a, n := i, q1 =\u003E ???).ENO;"
+"pull": "bmP2(EN := go, a := a, n := i, q1 =\u003E ???);"
 },
 {
 "id": "0294",
@@ -16079,7 +16079,7 @@ null,
 "layout": "eced0cf392",
 "afterReopen": true
 },
-"pull": "bmP2(EN := go, a := a, n := i, q1 =\u003E ???).ENO;"
+"pull": "bmP2(EN := go, a := a, n := i, q1 =\u003E ???);"
 },
 {
 "id": "0295",
@@ -16137,7 +16137,7 @@ null,
 "layout": "3db1d8423b",
 "afterReopen": true
 },
-"pull": "bmP2(EN := go, a := a, n := i).ENO;"
+"pull": "bmP2(EN := go, a := a, n := i);"
 },
 {
 "id": "0296",
@@ -16195,7 +16195,7 @@ null,
 "layout": "b8c5a71fa8",
 "afterReopen": true
 },
-"pull": "bmP2(EN := go, a := a, n := i, q1 =\u003E x, q2 =\u003E k).ENO;"
+"pull": "bmP2(EN := go, a := a, n := i, q1 =\u003E x, q2 =\u003E k);"
 },
 {
 "id": "0297",
@@ -16253,7 +16253,7 @@ null,
 "layout": "e15962de99",
 "afterReopen": true
 },
-"pull": "bmP2(EN := go, a := a, n := i, q2 =\u003E k).ENO;"
+"pull": "bmP2(EN := go, a := a, n := i, q2 =\u003E k);"
 },
 {
 "id": "0298",
@@ -16429,7 +16429,7 @@ null,
 "layout": "e9c63be823",
 "afterReopen": true
 },
-"pull": "bmP2(EN := go, a := a, n := i).ENO;"
+"pull": "bmP2(EN := go, a := a, n := i);"
 },
 {
 "id": "0301",
@@ -16487,7 +16487,7 @@ null
 "layout": "28bc3f09a4",
 "afterReopen": true
 },
-"pull": "bmP2(EN := go, a := a, n := i).ENO;"
+"pull": "bmP2(EN := go, a := a, n := i);"
 },
 {
 "id": "0302",
@@ -16541,7 +16541,7 @@ null
 "layout": "948ba41756",
 "afterReopen": true
 },
-"pull": "bmP2(EN := go, a := a, n := i).ENO;"
+"pull": "bmP2(EN := go, a := a, n := i);"
 },
 {
 "id": "0303",
@@ -16602,7 +16602,7 @@ null,
 "layout": "2eeca03015",
 "afterReopen": true
 },
-"pull": "y := bmP2(EN := go, a := a, n := i, q1 =\u003E ???).ENO;"
+"pull": "ASSIGN(bmP2(EN := go, a := a, n := i, q1 =\u003E ???), Q =\u003E y);"
 },
 {
 "id": "0304",
@@ -16662,7 +16662,7 @@ null,
 "layout": "24e0b87924",
 "afterReopen": true
 },
-"pull": "y := bmP2(EN := go, a := a, n := i, q1 =\u003E ???).ENO;"
+"pull": "ASSIGN(bmP2(EN := go, a := a, n := i, q1 =\u003E ???), Q =\u003E y);"
 },
 {
 "id": "0305",
@@ -16720,7 +16720,7 @@ null,
 "layout": "b333a96691",
 "afterReopen": true
 },
-"pull": "y := bmP2(EN := go, a := a, n := i).ENO;"
+"pull": "ASSIGN(bmP2(EN := go, a := a, n := i), Q =\u003E y);"
 },
 {
 "id": "0306",
@@ -16778,7 +16778,7 @@ null,
 "layout": "c6bde7d5c2",
 "afterReopen": true
 },
-"pull": "y := bmP2(EN := go, a := a, n := i, q1 =\u003E x, q2 =\u003E k).ENO;"
+"pull": "ASSIGN(bmP2(EN := go, a := a, n := i, q1 =\u003E x, q2 =\u003E k), Q =\u003E y);"
 },
 {
 "id": "0307",
@@ -16836,7 +16836,7 @@ null,
 "layout": "297e9991f3",
 "afterReopen": true
 },
-"pull": "y := bmP2(EN := go, a := a, n := i, q2 =\u003E k).ENO;"
+"pull": "ASSIGN(bmP2(EN := go, a := a, n := i, q2 =\u003E k), Q =\u003E y);"
 },
 {
 "id": "0308",
@@ -17014,7 +17014,7 @@ null,
 "layout": "addebb890e",
 "afterReopen": true
 },
-"pull": "y := bmP2(EN := go, a := a, n := i).ENO;"
+"pull": "ASSIGN(bmP2(EN := go, a := a, n := i), Q =\u003E y);"
 },
 {
 "id": "0311",
@@ -17072,7 +17072,7 @@ null
 "layout": "fd594f1002",
 "afterReopen": true
 },
-"pull": "y := bmP2(EN := go, a := a, n := i).ENO;"
+"pull": "ASSIGN(bmP2(EN := go, a := a, n := i), Q =\u003E y);"
 },
 {
 "id": "0312",
@@ -17856,7 +17856,7 @@ null
 "layout": "ec550d42aa",
 "afterReopen": true
 },
-"pull": "bmP0(EN := go, a := a).ENO;"
+"pull": "bmP0(EN := go, a := a);"
 },
 {
 "id": "0330",
@@ -17904,7 +17904,7 @@ null
 "code": "__ENO := go; IF __ENO THEN bmP0(a := a); END_IF; __Imp := __ENO;",
 "layout": "ec550d42aa"
 },
-"pull": "bmP0(EN := go, a := a).ENO;"
+"pull": "bmP0(EN := go, a := a);"
 },
 {
 "id": "0331",
@@ -17950,7 +17950,7 @@ null
 "code": "__ENO := go; IF __ENO THEN bmP0(a := a); END_IF; __Imp := __ENO;",
 "layout": "8cbefa396b"
 },
-"pull": "bmP0(EN := go, a := a).ENO;"
+"pull": "bmP0(EN := go, a := a);"
 },
 {
 "id": "0332",
@@ -18000,7 +18000,7 @@ null
 "layout": "3b8a539253",
 "afterReopen": true
 },
-"pull": "y := bmP0(EN := go, a := a).ENO;"
+"pull": "ASSIGN(bmP0(EN := go, a := a), Q =\u003E y);"
 },
 {
 "id": "0333",
@@ -18048,7 +18048,7 @@ null
 "code": "__ENO := go; IF __ENO THEN bmP0(a := a); END_IF; y := __ENO;",
 "layout": "3b8a539253"
 },
-"pull": "y := bmP0(EN := go, a := a).ENO;"
+"pull": "ASSIGN(bmP0(EN := go, a := a), Q =\u003E y);"
 },
 {
 "id": "0334",
@@ -18146,7 +18146,7 @@ null
 "layout": "dd62d2737b",
 "afterReopen": true
 },
-"pull": "bmP0(EN := go, a := a).ENO;"
+"pull": "bmP0(EN := go, a := a);"
 },
 {
 "id": "0336",
@@ -18195,7 +18195,7 @@ null
 "layout": "dd62d2737b",
 "afterReopen": true
 },
-"pull": "bmP0(EN := go, a := a).ENO;"
+"pull": "bmP0(EN := go, a := a);"
 },
 {
 "id": "0337",
@@ -18242,7 +18242,7 @@ null
 "layout": "805ed16980",
 "afterReopen": true
 },
-"pull": "bmP0(EN := go, a := a).ENO;"
+"pull": "bmP0(EN := go, a := a);"
 },
 {
 "id": "0338",
@@ -18292,7 +18292,7 @@ null
 "layout": "9e581ec493",
 "afterReopen": true
 },
-"pull": "y := bmP0(EN := go, a := a).ENO;"
+"pull": "ASSIGN(bmP0(EN := go, a := a), Q =\u003E y);"
 },
 {
 "id": "0339",
@@ -18341,7 +18341,7 @@ null
 "layout": "9e581ec493",
 "afterReopen": true
 },
-"pull": "y := bmP0(EN := go, a := a).ENO;"
+"pull": "ASSIGN(bmP0(EN := go, a := a), Q =\u003E y);"
 },
 {
 "id": "0340",
@@ -18943,7 +18943,7 @@ null
 "layout": "18a0d5b7ec",
 "afterReopen": true
 },
-"pull": "t0(EN := go, a := a).ENO;"
+"pull": "t0(EN := go, a := a);"
 },
 {
 "id": "0354",
@@ -18989,7 +18989,7 @@ null
 "code": "__ENO := go; IF __ENO THEN t0(a := a); END_IF; __Imp := __ENO;",
 "layout": "111bff8054"
 },
-"pull": "t0(EN := go, a := a).ENO;"
+"pull": "t0(EN := go, a := a);"
 },
 {
 "id": "0355",
@@ -19085,7 +19085,7 @@ null
 "code": "__ENO := go; IF __ENO THEN t0(a := a); END_IF; __Imp := __ENO;",
 "layout": "000f742edb"
 },
-"pull": "t0(EN := go, a := a).ENO;"
+"pull": "t0(EN := go, a := a);"
 },
 {
 "id": "0357",
@@ -19134,7 +19134,7 @@ null
 "layout": "36e6a558e7",
 "afterReopen": true
 },
-"pull": "y := t0(EN := go, a := a).ENO;"
+"pull": "ASSIGN(t0(EN := go, a := a), Q =\u003E y);"
 },
 {
 "id": "0358",
@@ -19331,7 +19331,7 @@ null
 "layout": "acfb0a3338",
 "afterReopen": true
 },
-"pull": "t0(EN := go, a := a).ENO;"
+"pull": "t0(EN := go, a := a);"
 },
 {
 "id": "0362",
@@ -19378,7 +19378,7 @@ null
 "layout": "f83658b5fe",
 "afterReopen": true
 },
-"pull": "t0(EN := go, a := a).ENO;"
+"pull": "t0(EN := go, a := a);"
 },
 {
 "id": "0363",
@@ -19476,7 +19476,7 @@ null
 "layout": "cf69df482a",
 "afterReopen": true
 },
-"pull": "t0(EN := go, a := a).ENO;"
+"pull": "t0(EN := go, a := a);"
 },
 {
 "id": "0365",
@@ -19525,7 +19525,7 @@ null
 "layout": "118aa64b91",
 "afterReopen": true
 },
-"pull": "y := t0(EN := go, a := a).ENO;"
+"pull": "ASSIGN(t0(EN := go, a := a), Q =\u003E y);"
 },
 {
 "id": "0366",
@@ -19979,7 +19979,7 @@ null
 "layout": "b75c1e58a3",
 "afterReopen": true
 },
-"pull": "y := AND(a, b);"
+"pull": "ASSIGN(AND(a, b), Q =\u003E y);"
 },
 {
 "id": "0376",
@@ -20019,7 +20019,7 @@ null
 "code": "y := (a AND b);",
 "layout": "b75c1e58a3"
 },
-"pull": "y := AND(a, b);"
+"pull": "ASSIGN(AND(a, b), Q =\u003E y);"
 },
 {
 "id": "0377",
@@ -20191,7 +20191,7 @@ null
 "code": "y := (a AND b);",
 "layout": "b75c1e58a3"
 },
-"pull": "y := AND(a, b, OUT =\u003E z);"
+"pull": "ASSIGN(AND(a, b, OUT =\u003E z), Q =\u003E y);"
 },
 {
 "id": "0381",
@@ -20499,7 +20499,7 @@ null
 "layout": "eabef276ce",
 "afterReopen": true
 },
-"pull": "y := AND(a, b);"
+"pull": "ASSIGN(AND(a, b), Q =\u003E y);"
 },
 {
 "id": "0388",
@@ -20540,7 +20540,7 @@ null
 "layout": "eabef276ce",
 "afterReopen": true
 },
-"pull": "y := AND(a, b);"
+"pull": "ASSIGN(AND(a, b), Q =\u003E y);"
 },
 {
 "id": "0389",
@@ -20716,7 +20716,7 @@ null
 "layout": "e037e1a2d2",
 "afterReopen": true
 },
-"pull": "y := AND(a, b, OUT =\u003E z);"
+"pull": "ASSIGN(AND(a, b, OUT =\u003E z), Q =\u003E y);"
 },
 {
 "id": "0393",
@@ -20826,7 +20826,7 @@ null
 "code": "y := (a AND b);",
 "layout": "b75c1e58a3"
 },
-"pull": "y := a AND b;"
+"pull": "ASSIGN(a AND b, Q =\u003E y);"
 },
 {
 "id": "0396",
@@ -20864,7 +20864,7 @@ null
 "code": "y := (a AND b);",
 "layout": "b75c1e58a3"
 },
-"pull": "y := a AND b;"
+"pull": "ASSIGN(a AND b, Q =\u003E y);"
 },
 {
 "id": "0397",
@@ -20977,7 +20977,7 @@ null
 "layout": "eabef276ce",
 "afterReopen": true
 },
-"pull": "y := a AND b;"
+"pull": "ASSIGN(a AND b, Q =\u003E y);"
 },
 {
 "id": "0400",
@@ -21016,7 +21016,7 @@ null
 "layout": "83dced75b8",
 "afterReopen": true
 },
-"pull": "y := a AND b;"
+"pull": "ASSIGN(a AND b, Q =\u003E y);"
 },
 {
 "id": "0401",
@@ -21069,7 +21069,7 @@ null,
 "layout": "7d51fd0877",
 "afterReopen": true
 },
-"pull": "AND(EN := go, a, b, OUT =\u003E ???).ENO;"
+"pull": "AND(EN := go, a, b, OUT =\u003E ???);"
 },
 {
 "id": "0402",
@@ -21171,7 +21171,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN y := (a AND b); END_IF; __Imp := __ENO;",
 "layout": "1853f2e31f"
 },
-"pull": "AND(EN := go, a, b, OUT =\u003E y).ENO;"
+"pull": "AND(EN := go, a, b, OUT =\u003E y);"
 },
 {
 "id": "0404",
@@ -21472,7 +21472,7 @@ null,
 "layout": "8f24394c37",
 "afterReopen": true
 },
-"pull": "y := AND(EN := go, a, b, OUT =\u003E ???).ENO;"
+"pull": "ASSIGN(AND(EN := go, a, b, OUT =\u003E ???), Q =\u003E y);"
 },
 {
 "id": "0410",
@@ -21574,7 +21574,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN y := (a AND b); END_IF; y := __ENO;",
 "layout": "7e1fb3295d"
 },
-"pull": "y := AND(EN := go, a, b, OUT =\u003E y).ENO;"
+"pull": "ASSIGN(AND(EN := go, a, b, OUT =\u003E y), Q =\u003E y);"
 },
 {
 "id": "0412",
@@ -21886,7 +21886,7 @@ null,
 "layout": "0374985a00",
 "afterReopen": true
 },
-"pull": "AND(EN := go, a, b, OUT =\u003E ???).ENO;"
+"pull": "AND(EN := go, a, b, OUT =\u003E ???);"
 },
 {
 "id": "0418",
@@ -21990,7 +21990,7 @@ null,
 "layout": "813e8fccc3",
 "afterReopen": true
 },
-"pull": "AND(EN := go, a, b, OUT =\u003E y).ENO;"
+"pull": "AND(EN := go, a, b, OUT =\u003E y);"
 },
 {
 "id": "0420",
@@ -22296,7 +22296,7 @@ null,
 "layout": "d5484f2fe8",
 "afterReopen": true
 },
-"pull": "y := AND(EN := go, a, b, OUT =\u003E ???).ENO;"
+"pull": "ASSIGN(AND(EN := go, a, b, OUT =\u003E ???), Q =\u003E y);"
 },
 {
 "id": "0426",
@@ -22400,7 +22400,7 @@ null,
 "layout": "bd0302dfb4",
 "afterReopen": true
 },
-"pull": "y := AND(EN := go, a, b, OUT =\u003E y).ENO;"
+"pull": "ASSIGN(AND(EN := go, a, b, OUT =\u003E y), Q =\u003E y);"
 },
 {
 "id": "0428",
@@ -22716,7 +22716,7 @@ null,
 "layout": "e290db3721",
 "afterReopen": true
 },
-"pull": "MOVE(EN := go, i, OUT =\u003E ???).ENO;"
+"pull": "MOVE(EN := go, i, OUT =\u003E ???);"
 },
 {
 "id": "0434",
@@ -22765,7 +22765,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN k := i; END_IF; __Imp := __ENO;",
 "layout": "d4ef00140f"
 },
-"pull": "MOVE(EN := go, i, OUT =\u003E k).ENO;"
+"pull": "MOVE(EN := go, i, OUT =\u003E k);"
 },
 {
 "id": "0435",
@@ -23168,7 +23168,7 @@ null,
 "layout": "e19f9dc006",
 "afterReopen": true
 },
-"pull": "y := MOVE(EN := go, i, OUT =\u003E ???).ENO;"
+"pull": "ASSIGN(MOVE(EN := go, i, OUT =\u003E ???), Q =\u003E y);"
 },
 {
 "id": "0443",
@@ -23217,7 +23217,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN k := i; END_IF; y := __ENO;",
 "layout": "9bab7ba1cd"
 },
-"pull": "y := MOVE(EN := go, i, OUT =\u003E k).ENO;"
+"pull": "ASSIGN(MOVE(EN := go, i, OUT =\u003E k), Q =\u003E y);"
 },
 {
 "id": "0444",
@@ -23625,7 +23625,7 @@ null,
 "layout": "7f7ac2087a",
 "afterReopen": true
 },
-"pull": "MOVE(EN := go, i, OUT =\u003E ???).ENO;"
+"pull": "MOVE(EN := go, i, OUT =\u003E ???);"
 },
 {
 "id": "0452",
@@ -23675,7 +23675,7 @@ null,
 "layout": "b21eaa73a6",
 "afterReopen": true
 },
-"pull": "MOVE(EN := go, i, OUT =\u003E k).ENO;"
+"pull": "MOVE(EN := go, i, OUT =\u003E k);"
 },
 {
 "id": "0453",
@@ -24085,7 +24085,7 @@ null,
 "layout": "ab84524a10",
 "afterReopen": true
 },
-"pull": "y := MOVE(EN := go, i, OUT =\u003E ???).ENO;"
+"pull": "ASSIGN(MOVE(EN := go, i, OUT =\u003E ???), Q =\u003E y);"
 },
 {
 "id": "0461",
@@ -24135,7 +24135,7 @@ null,
 "layout": "6a20293001",
 "afterReopen": true
 },
-"pull": "y := MOVE(EN := go, i, OUT =\u003E k).ENO;"
+"pull": "ASSIGN(MOVE(EN := go, i, OUT =\u003E k), Q =\u003E y);"
 },
 {
 "id": "0462",
@@ -24838,7 +24838,7 @@ null
 "code": "k := i;",
 "layout": "e7707fa648"
 },
-"pull": "k := MOVE(i);"
+"pull": "ASSIGN(MOVE(i), Q =\u003E k);"
 },
 {
 "id": "0477",
@@ -25051,7 +25051,7 @@ null,
 "code": "y := i;",
 "layout": "c05c9e2513"
 },
-"pull": "y := MOVE(i);"
+"pull": "ASSIGN(MOVE(i), Q =\u003E y);"
 },
 {
 "id": "0482",
@@ -25443,7 +25443,7 @@ null
 "layout": "9c4953615b",
 "afterReopen": true
 },
-"pull": "k := MOVE(i);"
+"pull": "ASSIGN(MOVE(i), Q =\u003E k);"
 },
 {
 "id": "0491",
@@ -25661,7 +25661,7 @@ null,
 "layout": "6be886986c",
 "afterReopen": true
 },
-"pull": "y := MOVE(i);"
+"pull": "ASSIGN(MOVE(i), Q =\u003E y);"
 },
 {
 "id": "0496",
@@ -26045,7 +26045,7 @@ null
 "code": "y := (go AND (i > j));",
 "layout": "7f18371b28"
 },
-"pull": "y := GT(EN := go, i, j);"
+"pull": "ASSIGN(GT(EN := go, i, j).OUT, Q =\u003E y);"
 },
 {
 "id": "0504",
@@ -26542,7 +26542,7 @@ null
 "layout": "568ac1c277",
 "afterReopen": true
 },
-"pull": "y := GT(i, j);"
+"pull": "ASSIGN(GT(i, j), Q =\u003E y);"
 },
 {
 "id": "0515",
@@ -26582,7 +26582,7 @@ null
 "code": "y := (i > j);",
 "layout": "568ac1c277"
 },
-"pull": "y := GT(i, j);"
+"pull": "ASSIGN(GT(i, j), Q =\u003E y);"
 },
 {
 "id": "0516",
@@ -26975,7 +26975,7 @@ null
 "layout": "eb3a0accd1",
 "afterReopen": true
 },
-"pull": "y := GT(i, j);"
+"pull": "ASSIGN(GT(i, j), Q =\u003E y);"
 },
 {
 "id": "0525",
@@ -27016,7 +27016,7 @@ null
 "layout": "eb3a0accd1",
 "afterReopen": true
 },
-"pull": "y := GT(i, j);"
+"pull": "ASSIGN(GT(i, j), Q =\u003E y);"
 },
 {
 "id": "0526",
@@ -27201,7 +27201,7 @@ null,
 "layout": "1ccecf90dd",
 "afterReopen": true
 },
-"pull": "GT(EN := go, i, j, OUT =\u003E ???).ENO;"
+"pull": "GT(EN := go, i, j, OUT =\u003E ???);"
 },
 {
 "id": "0530",
@@ -27251,7 +27251,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN z := (i > j); END_IF; __Imp := __ENO;",
 "layout": "1a294e1df9"
 },
-"pull": "GT(EN := go, i, j, OUT =\u003E z).ENO;"
+"pull": "GT(EN := go, i, j, OUT =\u003E z);"
 },
 {
 "id": "0531",
@@ -27356,7 +27356,7 @@ null,
 "layout": "39ffc4f837",
 "afterReopen": true
 },
-"pull": "y := GT(EN := go, i, j, OUT =\u003E ???).ENO;"
+"pull": "ASSIGN(GT(EN := go, i, j, OUT =\u003E ???), Q =\u003E y);"
 },
 {
 "id": "0533",
@@ -27406,7 +27406,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN z := (i > j); END_IF; y := __ENO;",
 "layout": "af5e0334cf"
 },
-"pull": "y := GT(EN := go, i, j, OUT =\u003E z).ENO;"
+"pull": "ASSIGN(GT(EN := go, i, j, OUT =\u003E z), Q =\u003E y);"
 },
 {
 "id": "0534",
@@ -27511,7 +27511,7 @@ null,
 "layout": "09725e85c4",
 "afterReopen": true
 },
-"pull": "GT(EN := go, i, j, OUT =\u003E ???).ENO;"
+"pull": "GT(EN := go, i, j, OUT =\u003E ???);"
 },
 {
 "id": "0536",
@@ -27562,7 +27562,7 @@ null,
 "layout": "b6870cca32",
 "afterReopen": true
 },
-"pull": "GT(EN := go, i, j, OUT =\u003E z).ENO;"
+"pull": "GT(EN := go, i, j, OUT =\u003E z);"
 },
 {
 "id": "0537",
@@ -27668,7 +27668,7 @@ null,
 "layout": "4d2df6b019",
 "afterReopen": true
 },
-"pull": "y := GT(EN := go, i, j, OUT =\u003E ???).ENO;"
+"pull": "ASSIGN(GT(EN := go, i, j, OUT =\u003E ???), Q =\u003E y);"
 },
 {
 "id": "0539",
@@ -27719,7 +27719,7 @@ null,
 "layout": "b10c15d5e1",
 "afterReopen": true
 },
-"pull": "y := GT(EN := go, i, j, OUT =\u003E z).ENO;"
+"pull": "ASSIGN(GT(EN := go, i, j, OUT =\u003E z), Q =\u003E y);"
 },
 {
 "id": "0540",
@@ -28032,7 +28032,7 @@ null
 "layout": "9ca5a0436b",
 "afterReopen": true
 },
-"pull": "k := ADD(i, j);"
+"pull": "ASSIGN(ADD(i, j), Q =\u003E k);"
 },
 {
 "id": "0547",
@@ -28074,7 +28074,7 @@ null
 "code": "y := (i + j);",
 "layout": "45ed643a1e"
 },
-"pull": "y := ADD(i, j);"
+"pull": "ASSIGN(ADD(i, j), Q =\u003E y);"
 },
 {
 "id": "0548",
@@ -28470,7 +28470,7 @@ null
 "layout": "dbfed56efb",
 "afterReopen": true
 },
-"pull": "k := ADD(i, j);"
+"pull": "ASSIGN(ADD(i, j), Q =\u003E k);"
 },
 {
 "id": "0557",
@@ -28513,7 +28513,7 @@ null
 "layout": "8649f60112",
 "afterReopen": true
 },
-"pull": "y := ADD(i, j);"
+"pull": "ASSIGN(ADD(i, j), Q =\u003E y);"
 },
 {
 "id": "0558",
@@ -28701,7 +28701,7 @@ null,
 "layout": "d204b47c70",
 "afterReopen": true
 },
-"pull": "ADD(EN := go, i, j, OUT =\u003E ???).ENO;"
+"pull": "ADD(EN := go, i, j, OUT =\u003E ???);"
 },
 {
 "id": "0562",
@@ -28751,7 +28751,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN k := (i + j); END_IF; __Imp := __ENO;",
 "layout": "28c577847a"
 },
-"pull": "ADD(EN := go, i, j, OUT =\u003E k).ENO;"
+"pull": "ADD(EN := go, i, j, OUT =\u003E k);"
 },
 {
 "id": "0563",
@@ -28958,7 +28958,7 @@ null,
 "layout": "626bf01298",
 "afterReopen": true
 },
-"pull": "y := ADD(EN := go, i, j, OUT =\u003E ???).ENO;"
+"pull": "ASSIGN(ADD(EN := go, i, j, OUT =\u003E ???), Q =\u003E y);"
 },
 {
 "id": "0567",
@@ -29008,7 +29008,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN k := (i + j); END_IF; y := __ENO;",
 "layout": "0c979ad351"
 },
-"pull": "y := ADD(EN := go, i, j, OUT =\u003E k).ENO;"
+"pull": "ASSIGN(ADD(EN := go, i, j, OUT =\u003E k), Q =\u003E y);"
 },
 {
 "id": "0568",
@@ -29216,7 +29216,7 @@ null,
 "layout": "c9f37704c6",
 "afterReopen": true
 },
-"pull": "ADD(EN := go, i, j, OUT =\u003E ???).ENO;"
+"pull": "ADD(EN := go, i, j, OUT =\u003E ???);"
 },
 {
 "id": "0572",
@@ -29267,7 +29267,7 @@ null,
 "layout": "3c9e3e7735",
 "afterReopen": true
 },
-"pull": "ADD(EN := go, i, j, OUT =\u003E k).ENO;"
+"pull": "ADD(EN := go, i, j, OUT =\u003E k);"
 },
 {
 "id": "0573",
@@ -29477,7 +29477,7 @@ null,
 "layout": "bb2dc77910",
 "afterReopen": true
 },
-"pull": "y := ADD(EN := go, i, j, OUT =\u003E ???).ENO;"
+"pull": "ASSIGN(ADD(EN := go, i, j, OUT =\u003E ???), Q =\u003E y);"
 },
 {
 "id": "0577",
@@ -29528,7 +29528,7 @@ null,
 "layout": "0c7bf0ee51",
 "afterReopen": true
 },
-"pull": "y := ADD(EN := go, i, j, OUT =\u003E k).ENO;"
+"pull": "ASSIGN(ADD(EN := go, i, j, OUT =\u003E k), Q =\u003E y);"
 },
 {
 "id": "0578",
@@ -29850,7 +29850,7 @@ null
 "layout": "14b9964a8f",
 "afterReopen": true
 },
-"pull": "y := NOT(a);"
+"pull": "ASSIGN(NOT(a), Q =\u003E y);"
 },
 {
 "id": "0585",
@@ -29889,7 +29889,7 @@ null
 "code": "y := NOT(a);",
 "layout": "14b9964a8f"
 },
-"pull": "y := NOT(a);"
+"pull": "ASSIGN(NOT(a), Q =\u003E y);"
 },
 {
 "id": "0586",
@@ -30096,7 +30096,7 @@ null
 "layout": "251833be0c",
 "afterReopen": true
 },
-"pull": "y := NOT(a);"
+"pull": "ASSIGN(NOT(a), Q =\u003E y);"
 },
 {
 "id": "0591",
@@ -30136,7 +30136,7 @@ null
 "layout": "251833be0c",
 "afterReopen": true
 },
-"pull": "y := NOT(a);"
+"pull": "ASSIGN(NOT(a), Q =\u003E y);"
 },
 {
 "id": "0592",
@@ -31228,7 +31228,7 @@ null,
 "code": "__EN := go; IF __EN THEN t2(a := a, n := i); x := t2.q1; END_IF;",
 "layout": "c96aa3b0a6"
 },
-"pull": "x := t2(EN := go, a := a, n := i).q1;"
+"pull": "ASSIGN(t2(EN := go, a := a, n := i).q1, Q =\u003E x);"
 },
 {
 "id": "0611",
@@ -31336,7 +31336,7 @@ null,
 "code": "__EN := go; IF __EN THEN t2(a := a, n := i); x := t2.q1; END_IF;",
 "layout": "c96aa3b0a6"
 },
-"pull": "x := t2(EN := go, a := a, n := i).q1;"
+"pull": "ASSIGN(t2(EN := go, a := a, n := i).q1, Q =\u003E x);"
 },
 {
 "id": "0613",
@@ -31606,7 +31606,7 @@ null,
 "code": "t2(a := a, n := i);",
 "layout": "fc5629f7c6"
 },
-"pull": "t2(a := a, n := i).ENO;"
+"pull": "t2(a := a, n := i);"
 },
 {
 "id": "0618",
@@ -31717,7 +31717,7 @@ null,
 "code": "t2(a := a, n := i);",
 "layout": "fc5629f7c6"
 },
-"pull": "t2(a := a, n := i).ENO;"
+"pull": "t2(a := a, n := i);"
 },
 {
 "id": "0620",
@@ -32098,7 +32098,7 @@ null,
 "code": "t2(a := a, n := i); x := t2.q1;",
 "layout": "42602a5cec"
 },
-"pull": "x := t2(a := a, n := i).q1;"
+"pull": "ASSIGN(t2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "0627",
@@ -33010,7 +33010,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN bmF0(a := a, b := b); END_IF; __Imp := __ENO;",
 "layout": "616c837b17"
 },
-"pull": "%UNSUPPORTED \u0022a pin named EN its callee does not declare\u0022 #43670364"
+"pull": "%UNSUPPORTED \u0022a function box showing ENO and no EN\u0022 #43670364"
 },
 {
 "id": "0644",
@@ -33120,7 +33120,7 @@ null,
 "code": "bmF0(EN := go, a := a, b := b);",
 "layout": "3643ed5aec"
 },
-"pull": "%UNSUPPORTED \u0022a pin named EN its callee does not declare\u0022 #43670364"
+"pull": "%UNSUPPORTED \u0022a function box showing ENO and no EN\u0022 #43670364"
 },
 {
 "id": "0646",
@@ -33388,7 +33388,7 @@ null
 "code": "__EN := go; IF __EN THEN __Imp := bmF0(a := a, b := b); y := __Imp; END_IF;",
 "layout": "7f1eddd200"
 },
-"pull": "y := bmF0(EN := go, a := a, b := b);"
+"pull": "ASSIGN(bmF0(EN := go, a := a, b := b).OUT, Q =\u003E y);"
 },
 {
 "id": "0651",
@@ -33490,7 +33490,7 @@ null
 "code": "__EN := go; IF __EN THEN __Imp := bmF0(a := a, b := b); y := __Imp; END_IF;",
 "layout": "7f1eddd200"
 },
-"pull": "y := bmF0(EN := go, a := a, b := b);"
+"pull": "ASSIGN(bmF0(EN := go, a := a, b := b).OUT, Q =\u003E y);"
 },
 {
 "id": "0653",
@@ -33747,7 +33747,7 @@ null,
 "code": "bmF0(a := a, b := b);",
 "layout": "5fede1feac"
 },
-"pull": "bmF0(a := a, b := b).ENO;"
+"pull": "%UNSUPPORTED \u0022a function box showing ENO and no EN\u0022 #566dbdb6"
 },
 {
 "id": "0658",
@@ -33853,7 +33853,7 @@ null,
 "code": "bmF0(a := a, b := b);",
 "layout": "5fede1feac"
 },
-"pull": "bmF0(a := a, b := b).ENO;"
+"pull": "%UNSUPPORTED \u0022a function box showing ENO and no EN\u0022 #566dbdb6"
 },
 {
 "id": "0660",
@@ -34214,7 +34214,7 @@ null
 "code": "y := bmF0(a := a, b := b);",
 "layout": "ece4d13f7c"
 },
-"pull": "y := bmF0(a := a, b := b);"
+"pull": "ASSIGN(bmF0(a := a, b := b), Q =\u003E y);"
 },
 {
 "id": "0667",
@@ -35560,7 +35560,7 @@ null,
 "code": "__EN := go; IF __EN THEN bmP2(a := a, n := i); x := bmP2.q1; END_IF;",
 "layout": "cdd683fc48"
 },
-"pull": "x := bmP2(EN := go, a := a, n := i).q1;"
+"pull": "ASSIGN(bmP2(EN := go, a := a, n := i).q1, Q =\u003E x);"
 },
 {
 "id": "0691",
@@ -35668,7 +35668,7 @@ null,
 "code": "__EN := go; IF __EN THEN bmP2(a := a, n := i); x := bmP2.q1; END_IF;",
 "layout": "cdd683fc48"
 },
-"pull": "x := bmP2(EN := go, a := a, n := i).q1;"
+"pull": "ASSIGN(bmP2(EN := go, a := a, n := i).q1, Q =\u003E x);"
 },
 {
 "id": "0693",
@@ -35938,7 +35938,7 @@ null,
 "code": "bmP2(a := a, n := i);",
 "layout": "f961d339cc"
 },
-"pull": "bmP2(a := a, n := i).ENO;"
+"pull": "bmP2(a := a, n := i);"
 },
 {
 "id": "0698",
@@ -36049,7 +36049,7 @@ null,
 "code": "bmP2(a := a, n := i);",
 "layout": "f961d339cc"
 },
-"pull": "bmP2(a := a, n := i).ENO;"
+"pull": "bmP2(a := a, n := i);"
 },
 {
 "id": "0700",
@@ -36430,7 +36430,7 @@ null,
 "code": "bmP2(a := a, n := i); x := bmP2.q1;",
 "layout": "1d76e8b661"
 },
-"pull": "x := bmP2(a := a, n := i).q1;"
+"pull": "ASSIGN(bmP2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "0707",
@@ -37661,7 +37661,7 @@ null
 "code": "__EN := go; IF __EN THEN __Imp := (a AND b); y := __Imp; END_IF;",
 "layout": "3b6cc14b61"
 },
-"pull": "y := AND(EN := go, a, b);"
+"pull": "ASSIGN(AND(EN := go, a, b).OUT, Q =\u003E y);"
 },
 {
 "id": "0731",
@@ -37755,7 +37755,7 @@ null
 "code": "__EN := go; IF __EN THEN __Imp := (a AND b); y := __Imp; END_IF;",
 "layout": "3b6cc14b61"
 },
-"pull": "y := AND(EN := go, a, b);"
+"pull": "ASSIGN(AND(EN := go, a, b).OUT, Q =\u003E y);"
 },
 {
 "id": "0733",
@@ -38407,7 +38407,7 @@ null
 "code": "y := (a AND b);",
 "layout": "eabef276ce"
 },
-"pull": "y := AND(a, b);"
+"pull": "ASSIGN(AND(a, b), Q =\u003E y);"
 },
 {
 "id": "0747",
@@ -39227,7 +39227,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN k := i; END_IF; __Imp := __ENO;",
 "layout": "b21eaa73a6"
 },
-"pull": "%UNSUPPORTED \u0022a pin named EN its callee does not declare\u0022 #ae2846d6"
+"pull": "%UNSUPPORTED \u0022a function box showing ENO and no EN\u0022 #ae2846d6"
 },
 {
 "id": "0764",
@@ -39328,7 +39328,7 @@ null,
 "code": "; k := go;",
 "layout": "0b1fcfa502"
 },
-"pull": "%UNSUPPORTED \u0022a pin named EN its callee does not declare\u0022 #ae2846d6"
+"pull": "%UNSUPPORTED \u0022a function box showing ENO and no EN\u0022 #ae2846d6"
 },
 {
 "id": "0766",
@@ -39575,7 +39575,7 @@ null
 "code": "__EN := go; IF __EN THEN __Imp := i; k := __Imp; END_IF;",
 "layout": "b0eff77d9b"
 },
-"pull": "k := MOVE(EN := go, i);"
+"pull": "ASSIGN(MOVE(EN := go, i).OUT, Q =\u003E k);"
 },
 {
 "id": "0771",
@@ -39667,7 +39667,7 @@ null
 "code": "__EN := go; IF __EN THEN __Imp := i; k := __Imp; END_IF;",
 "layout": "b0eff77d9b"
 },
-"pull": "k := MOVE(EN := go, i);"
+"pull": "ASSIGN(MOVE(EN := go, i).OUT, Q =\u003E k);"
 },
 {
 "id": "0773",
@@ -39897,7 +39897,7 @@ null,
 "code": "; k := i;",
 "layout": "839c11c515"
 },
-"pull": "MOVE(i, OUT =\u003E k).ENO;"
+"pull": "%UNSUPPORTED \u0022a function box showing ENO and no EN\u0022 #cc648894"
 },
 {
 "id": "0778",
@@ -39990,7 +39990,7 @@ null,
 "code": "; k := i;",
 "layout": "839c11c515"
 },
-"pull": "MOVE(i, OUT =\u003E k).ENO;"
+"pull": "%UNSUPPORTED \u0022a function box showing ENO and no EN\u0022 #cc648894"
 },
 {
 "id": "0780",
@@ -40305,7 +40305,7 @@ null
 "code": "k := i;",
 "layout": "9c4953615b"
 },
-"pull": "k := MOVE(i);"
+"pull": "ASSIGN(MOVE(i), Q =\u003E k);"
 },
 {
 "id": "0787",
@@ -41317,7 +41317,7 @@ null
 "code": "y := (go AND (i > j));",
 "layout": "671a01d8c0"
 },
-"pull": "y := GT(EN := go, i, j);"
+"pull": "ASSIGN(GT(EN := go, i, j).OUT, Q =\u003E y);"
 },
 {
 "id": "0807",
@@ -41411,7 +41411,7 @@ null
 "code": "y := (go AND (i > j));",
 "layout": "671a01d8c0"
 },
-"pull": "y := GT(EN := go, i, j);"
+"pull": "ASSIGN(GT(EN := go, i, j).OUT, Q =\u003E y);"
 },
 {
 "id": "0809",
@@ -42063,7 +42063,7 @@ null
 "code": "y := (i > j);",
 "layout": "eb3a0accd1"
 },
-"pull": "y := GT(i, j);"
+"pull": "ASSIGN(GT(i, j), Q =\u003E y);"
 },
 {
 "id": "0823",
@@ -42380,7 +42380,7 @@ null,
 "code": "t2(a := a, n := i);",
 "layout": "c0ceeb08ff"
 },
-"pull": "NOT t2(a := a, n := i);"
+"pull": "INVERT(t2(a := a, n := i));"
 },
 {
 "id": "0830",
@@ -42433,7 +42433,7 @@ null,
 "code": "t2(a := a, n := i); x := NOT(t2.q1);",
 "layout": "42602a5cec"
 },
-"pull": "x := NOT t2(a := a, n := i).q1;"
+"pull": "ASSIGN(INVERT(t2(a := a, n := i)), Q =\u003E x);"
 },
 {
 "id": "0831",
@@ -42484,7 +42484,7 @@ null
 "code": "bmF0(a := a, b := b);",
 "layout": "80d2124e69"
 },
-"pull": "NOT bmF0(a := a, b := b);"
+"pull": "INVERT(bmF0(a := a, b := b));"
 },
 {
 "id": "0832",
@@ -42535,7 +42535,7 @@ null
 "code": "y := NOT(bmF0(a := a, b := b));",
 "layout": "ece4d13f7c"
 },
-"pull": "y := NOT bmF0(a := a, b := b);"
+"pull": "ASSIGN(INVERT(bmF0(a := a, b := b)), Q =\u003E y);"
 },
 {
 "id": "0833",
@@ -42589,7 +42589,7 @@ null,
 "code": "bmP2(a := a, n := i);",
 "layout": "51511fd49f"
 },
-"pull": "NOT bmP2(a := a, n := i);"
+"pull": "INVERT(bmP2(a := a, n := i));"
 },
 {
 "id": "0834",
@@ -42643,7 +42643,7 @@ null,
 "code": "bmP2(a := a, n := i); x := NOT(bmP2.q1);",
 "layout": "2e0b3303cd"
 },
-"pull": "x := NOT bmP2(a := a, n := i).q1;"
+"pull": "ASSIGN(INVERT(bmP2(a := a, n := i)), Q =\u003E x);"
 },
 {
 "id": "0835",
@@ -42687,7 +42687,7 @@ null
 "code": "__Imp := NOT((a AND b));",
 "layout": "4d1ce2cf8b"
 },
-"pull": "NOT AND(a, b);"
+"pull": "INVERT(AND(a, b));"
 },
 {
 "id": "0836",
@@ -42731,7 +42731,7 @@ null
 "code": "y := NOT((a AND b));",
 "layout": "eabef276ce"
 },
-"pull": "y := NOT AND(a, b);"
+"pull": "ASSIGN(INVERT(AND(a, b)), Q =\u003E y);"
 },
 {
 "id": "0837",
@@ -42782,7 +42782,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN k := i; END_IF; __Imp := NOT(__ENO);",
 "layout": "b21eaa73a6"
 },
-"pull": "NOT MOVE(EN := go, i, OUT =\u003E k).ENO;"
+"pull": "INVERT(MOVE(EN := go, i, OUT =\u003E k));"
 },
 {
 "id": "0838",
@@ -42833,7 +42833,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN k := i; END_IF; y := NOT(__ENO);",
 "layout": "6a20293001"
 },
-"pull": "y := NOT MOVE(EN := go, i, OUT =\u003E k).ENO;"
+"pull": "ASSIGN(INVERT(MOVE(EN := go, i, OUT =\u003E k)), Q =\u003E y);"
 },
 {
 "id": "0839",
@@ -44973,7 +44973,7 @@ null,
 "code": "t2(a := a, n := i); __RT20(CLK := t2.q1); x := __RT20.Q;",
 "layout": "42602a5cec"
 },
-"pull": "x := RISING(t2(a := a, n := i).q1);"
+"pull": "ASSIGN(RISING(t2(a := a, n := i)), Q =\u003E x);"
 },
 {
 "id": "0881",
@@ -45075,7 +45075,7 @@ null
 "code": "__RT20(CLK := bmF0(a := a, b := b)); y := __RT20.Q;",
 "layout": "ece4d13f7c"
 },
-"pull": "y := RISING(bmF0(a := a, b := b));"
+"pull": "ASSIGN(RISING(bmF0(a := a, b := b)), Q =\u003E y);"
 },
 {
 "id": "0883",
@@ -45183,7 +45183,7 @@ null,
 "code": "bmP2(a := a, n := i); __RT20(CLK := bmP2.q1); x := __RT20.Q;",
 "layout": "2e0b3303cd"
 },
-"pull": "x := RISING(bmP2(a := a, n := i).q1);"
+"pull": "ASSIGN(RISING(bmP2(a := a, n := i)), Q =\u003E x);"
 },
 {
 "id": "0885",
@@ -45271,7 +45271,7 @@ null
 "code": "__RT20(CLK := (a AND b)); y := __RT20.Q;",
 "layout": "eabef276ce"
 },
-"pull": "y := RISING(AND(a, b));"
+"pull": "ASSIGN(RISING(AND(a, b)), Q =\u003E y);"
 },
 {
 "id": "0887",
@@ -45324,7 +45324,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN k := i; END_IF; __Imp := __ENO; __RT20(CLK := i);",
 "layout": "b21eaa73a6"
 },
-"pull": "RISING(MOVE(EN := go, i, OUT =\u003E k).ENO);"
+"pull": "RISING(MOVE(EN := go, i, OUT =\u003E k));"
 },
 {
 "id": "0888",
@@ -45375,7 +45375,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN k := i; END_IF; __RT20(CLK := __ENO); y := __RT20.Q;",
 "layout": "6a20293001"
 },
-"pull": "y := RISING(MOVE(EN := go, i, OUT =\u003E k).ENO);"
+"pull": "ASSIGN(RISING(MOVE(EN := go, i, OUT =\u003E k)), Q =\u003E y);"
 },
 {
 "id": "0889",
@@ -45481,7 +45481,7 @@ null,
 "code": "t2(a := a, n := i); __FT20(CLK := t2.q1); x := __FT20.Q;",
 "layout": "42602a5cec"
 },
-"pull": "x := FALLING(t2(a := a, n := i).q1);"
+"pull": "ASSIGN(FALLING(t2(a := a, n := i)), Q =\u003E x);"
 },
 {
 "id": "0891",
@@ -45583,7 +45583,7 @@ null
 "code": "__FT20(CLK := bmF0(a := a, b := b)); y := __FT20.Q;",
 "layout": "ece4d13f7c"
 },
-"pull": "y := FALLING(bmF0(a := a, b := b));"
+"pull": "ASSIGN(FALLING(bmF0(a := a, b := b)), Q =\u003E y);"
 },
 {
 "id": "0893",
@@ -45691,7 +45691,7 @@ null,
 "code": "bmP2(a := a, n := i); __FT20(CLK := bmP2.q1); x := __FT20.Q;",
 "layout": "2e0b3303cd"
 },
-"pull": "x := FALLING(bmP2(a := a, n := i).q1);"
+"pull": "ASSIGN(FALLING(bmP2(a := a, n := i)), Q =\u003E x);"
 },
 {
 "id": "0895",
@@ -45779,7 +45779,7 @@ null
 "code": "__FT20(CLK := (a AND b)); y := __FT20.Q;",
 "layout": "eabef276ce"
 },
-"pull": "y := FALLING(AND(a, b));"
+"pull": "ASSIGN(FALLING(AND(a, b)), Q =\u003E y);"
 },
 {
 "id": "0897",
@@ -45832,7 +45832,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN k := i; END_IF; __Imp := __ENO; __FT20(CLK := i);",
 "layout": "b21eaa73a6"
 },
-"pull": "FALLING(MOVE(EN := go, i, OUT =\u003E k).ENO);"
+"pull": "FALLING(MOVE(EN := go, i, OUT =\u003E k));"
 },
 {
 "id": "0898",
@@ -45883,7 +45883,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN k := i; END_IF; __FT20(CLK := __ENO); y := __FT20.Q;",
 "layout": "6a20293001"
 },
-"pull": "y := FALLING(MOVE(EN := go, i, OUT =\u003E k).ENO);"
+"pull": "ASSIGN(FALLING(MOVE(EN := go, i, OUT =\u003E k)), Q =\u003E y);"
 },
 {
 "id": "0899",
@@ -46507,7 +46507,7 @@ null,
 "code": "t2(a := a, n := i); x := t2.q1;",
 "layout": "42602a5cec"
 },
-"pull": "x := t2(a := a, n := i).q1;"
+"pull": "ASSIGN(t2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "0911",
@@ -46609,7 +46609,7 @@ null
 "code": "y := bmF0(a := a, b := b);",
 "layout": "ece4d13f7c"
 },
-"pull": "y := bmF0(a := a, b := b);"
+"pull": "ASSIGN(bmF0(a := a, b := b), Q =\u003E y);"
 },
 {
 "id": "0913",
@@ -46717,7 +46717,7 @@ null,
 "code": "bmP2(a := a, n := i); x := bmP2.q1;",
 "layout": "2e0b3303cd"
 },
-"pull": "x := bmP2(a := a, n := i).q1;"
+"pull": "ASSIGN(bmP2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "0915",
@@ -46805,7 +46805,7 @@ null
 "code": "y := (a AND b);",
 "layout": "eabef276ce"
 },
-"pull": "y := AND(a, b);"
+"pull": "ASSIGN(AND(a, b), Q =\u003E y);"
 },
 {
 "id": "0917",
@@ -46856,7 +46856,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN k := i; END_IF; __Imp := __ENO;",
 "layout": "b21eaa73a6"
 },
-"pull": "MOVE(EN := go, i, OUT =\u003E k).ENO;"
+"pull": "MOVE(EN := go, i, OUT =\u003E k);"
 },
 {
 "id": "0918",
@@ -46907,7 +46907,7 @@ null,
 "code": "__ENO := go; IF __ENO THEN k := i; END_IF; y := __ENO;",
 "layout": "6a20293001"
 },
-"pull": "y := MOVE(EN := go, i, OUT =\u003E k).ENO;"
+"pull": "ASSIGN(MOVE(EN := go, i, OUT =\u003E k), Q =\u003E y);"
 },
 {
 "id": "0919",
@@ -46991,7 +46991,7 @@ null
 "code": "y := (!!!'ERROR'!!! AND !!!'ERROR'!!!).;",
 "layout": "eabef276ce"
 },
-"pull": "y := AND(a, b);"
+"pull": "ASSIGN(AND(a, b), Q =\u003E y);"
 },
 {
 "id": "0921",
@@ -47075,7 +47075,7 @@ null
 "code": "y := (a AND b);",
 "layout": "eabef276ce"
 },
-"pull": "y := AND(a, b);"
+"pull": "ASSIGN(AND(a, b), Q =\u003E y);"
 },
 {
 "id": "0923",
@@ -47159,7 +47159,7 @@ null
 "code": "y := (!!!'ERROR'!!! AND !!!'ERROR'!!!)();",
 "layout": "eabef276ce"
 },
-"pull": "y := AND(a, b);"
+"pull": "ASSIGN(AND(a, b), Q =\u003E y);"
 },
 {
 "id": "0925",
@@ -47243,7 +47243,7 @@ null
 "code": "y := (a AND b);",
 "layout": "eabef276ce"
 },
-"pull": "y := AND(a, b);"
+"pull": "ASSIGN(AND(a, b), Q =\u003E y);"
 },
 {
 "id": "0927",
@@ -47327,7 +47327,7 @@ null
 "code": "(!!!'ERROR'!!! AND !!!'ERROR'!!!)(); y := (!!!'ERROR'!!! AND !!!'ERROR'!!!).;",
 "layout": "eabef276ce"
 },
-"pull": "y := AND(a, b);"
+"pull": "ASSIGN(AND(a, b), Q =\u003E y);"
 },
 {
 "id": "0929",
@@ -47411,7 +47411,7 @@ null
 "code": "(!!!'ERROR'!!! AND !!!'ERROR'!!!)(); y := (!!!'ERROR'!!! AND !!!'ERROR'!!!).;",
 "layout": "eabef276ce"
 },
-"pull": "y := AND(a, b);"
+"pull": "ASSIGN(AND(a, b), Q =\u003E y);"
 },
 {
 "id": "0931",
@@ -47495,7 +47495,7 @@ null
 "code": "(!!!'ERROR'!!! AND !!!'ERROR'!!!)( => __Imp); y := __Imp;",
 "layout": "eabef276ce"
 },
-"pull": "y := AND(a, b);"
+"pull": "ASSIGN(AND(a, b), Q =\u003E y);"
 },
 {
 "id": "0933",
@@ -47596,7 +47596,7 @@ null
 "code": "y := bmF0. ;",
 "layout": "ece4d13f7c"
 },
-"pull": "y := bmF0(a := a, b := b);"
+"pull": "ASSIGN(bmF0(a := a, b := b), Q =\u003E y);"
 },
 {
 "id": "0935",
@@ -47697,7 +47697,7 @@ null
 "code": "y := bmF0. ;",
 "layout": "ece4d13f7c"
 },
-"pull": "y := bmF0(a := a, b := b);"
+"pull": "ASSIGN(bmF0(a := a, b := b), Q =\u003E y);"
 },
 {
 "id": "0937",
@@ -47798,7 +47798,7 @@ null
 "code": "bmF0(a := a, b := b); y := bmF0. ;",
 "layout": "ece4d13f7c"
 },
-"pull": "y := bmF0(a := a, b := b);"
+"pull": "ASSIGN(bmF0(a := a, b := b), Q =\u003E y);"
 },
 {
 "id": "0939",
@@ -48002,7 +48002,7 @@ null
 "code": "bmF0(a := a, b := b, => __Imp); y := __Imp;",
 "layout": "ece4d13f7c"
 },
-"pull": "y := bmF0(a := a, b := b);"
+"pull": "ASSIGN(bmF0(a := a, b := b), Q =\u003E y);"
 },
 {
 "id": "0943",
@@ -48205,7 +48205,7 @@ null,
 "code": "t2(a := a, n := i); x := t2.q1;",
 "layout": "42602a5cec"
 },
-"pull": "x := t2(a := a, n := i).q1;"
+"pull": "ASSIGN(t2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "0947",
@@ -48307,7 +48307,7 @@ null,
 "code": "t2(a := a, n := i, q1 => __Imp, q2 => __Imp_1); __Imp := __Imp; x := __Imp;",
 "layout": "42602a5cec"
 },
-"pull": "x := t2(a := a, n := i).q1;"
+"pull": "ASSIGN(t2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "0949",
@@ -48409,7 +48409,7 @@ null,
 "code": "t2(a := a, n := i); x := t2.q1;",
 "layout": "42602a5cec"
 },
-"pull": "x := t2(a := a, n := i).q1;"
+"pull": "ASSIGN(t2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "0951",
@@ -48511,7 +48511,7 @@ null,
 "code": "t2(a := a, n := i); x := t2.q1;",
 "layout": "42602a5cec"
 },
-"pull": "x := t2(a := a, n := i).q1;"
+"pull": "ASSIGN(t2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "0953",
@@ -48619,7 +48619,7 @@ null,
 "code": "t2.bmFB2(a := a, n := i, q1 => __Imp, q2 => __Imp_1); __Imp := __Imp; x := __Imp;",
 "layout": "42602a5cec"
 },
-"pull": "x := t2(a := a, n := i).q1;"
+"pull": "ASSIGN(t2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "0955",
@@ -48727,7 +48727,7 @@ null,
 "code": "t2.bmFB2(a := a, n := i); x := t2.q1;",
 "layout": "42602a5cec"
 },
-"pull": "x := t2(a := a, n := i).q1;"
+"pull": "ASSIGN(t2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "0957",
@@ -48831,7 +48831,7 @@ null,
 "code": "x := bmP2.q1;",
 "layout": "2e0b3303cd"
 },
-"pull": "x := bmP2(a := a, n := i).q1;"
+"pull": "ASSIGN(bmP2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "0959",
@@ -48935,7 +48935,7 @@ null,
 "code": "bmP2(a := a, n := i, q1 => __Imp); x := __Imp;",
 "layout": "2e0b3303cd"
 },
-"pull": "x := bmP2(a := a, n := i).q1;"
+"pull": "ASSIGN(bmP2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "0961",
@@ -49039,7 +49039,7 @@ null,
 "code": "x := bmP2.q1;",
 "layout": "2e0b3303cd"
 },
-"pull": "x := bmP2(a := a, n := i).q1;"
+"pull": "ASSIGN(bmP2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "0963",
@@ -49251,7 +49251,7 @@ null,
 "code": "bmP2(a := a, n := i, q1 => __Imp); x := __Imp;",
 "layout": "2e0b3303cd"
 },
-"pull": "x := bmP2(a := a, n := i).q1;"
+"pull": "ASSIGN(bmP2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "0967",
@@ -49439,7 +49439,7 @@ null
 "code": "y := (!!!'ERROR'!!! AND !!!'ERROR'!!!).;",
 "layout": "eabef276ce"
 },
-"pull": "y := AND(a, b);"
+"pull": "ASSIGN(AND(a, b), Q =\u003E y);"
 },
 {
 "id": "0971",
@@ -49537,7 +49537,7 @@ null
 "code": "y := bmF0(a := a, b := b);",
 "layout": "515bba5855"
 },
-"pull": "y := bmF0(a := a, b := b);"
+"pull": "ASSIGN(bmF0(a := a, b := b), Q =\u003E y);"
 },
 {
 "id": "0973",
@@ -49641,7 +49641,7 @@ null,
 "code": "bmP2(a := a, n := i); x := bmP2.q1;",
 "layout": "5d9521d7ad"
 },
-"pull": "x := bmP2(a := a, n := i).q1;"
+"pull": "ASSIGN(bmP2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "0975",
@@ -49725,7 +49725,7 @@ null
 "code": "!!!'ERROR'!!!(); y := !!!'ERROR'!!!.;",
 "layout": "eabef276ce"
 },
-"pull": "y := AND(a, b);"
+"pull": "ASSIGN(AND(a, b), Q =\u003E y);"
 },
 {
 "id": "0977",
@@ -50028,7 +50028,7 @@ null
 "code": "!!!'ERROR'!!!(); y := !!!'ERROR'!!!.;",
 "layout": "eabef276ce"
 },
-"pull": "y := AND(a, b);"
+"pull": "ASSIGN(AND(a, b), Q =\u003E y);"
 },
 {
 "id": "0983",
@@ -50335,7 +50335,7 @@ null
 "code": "t2(); y := t2.;",
 "layout": "eabef276ce"
 },
-"pull": "y := AND(a, b);"
+"pull": "ASSIGN(AND(a, b), Q =\u003E y);"
 },
 {
 "id": "0989",
@@ -50656,7 +50656,7 @@ null,
 "code": "x := bmFB2.q1;",
 "layout": "fa649a5162"
 },
-"pull": "x := bmFB2(a := a, n := i);"
+"pull": "ASSIGN(bmFB2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "0995",
@@ -50762,7 +50762,7 @@ null,
 "code": "x := bmFB2.q1;",
 "layout": "383579a03e"
 },
-"pull": "x := bmFB2(a := a, n := i);"
+"pull": "ASSIGN(bmFB2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "0997",
@@ -50986,7 +50986,7 @@ null,
 "code": "!!!'ERROR'!!!(a := a, n := i); x := !!!'ERROR'!!!.q1;",
 "layout": "44704a37db"
 },
-"pull": "x := bmFB2(a := a, n := i).q1;"
+"pull": "ASSIGN(bmFB2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "1001",
@@ -51292,7 +51292,7 @@ null
 "code": "y := bmF0(a := a, b := b);",
 "layout": "ece4d13f7c"
 },
-"pull": "y := bmF0(a := a, b := b);"
+"pull": "ASSIGN(bmF0(a := a, b := b), Q =\u003E y);"
 },
 {
 "id": "1007",
@@ -51676,7 +51676,7 @@ null
 "code": "y := bmF0(b := a, a := b);",
 "layout": "77823c40b7"
 },
-"pull": "y := bmF0(b := a, a := b);"
+"pull": "ASSIGN(bmF0(b := a, a := b), Q =\u003E y);"
 },
 {
 "id": "1015",
@@ -51774,7 +51774,7 @@ null
 "code": "y := bmF0(a := a, b := b);",
 "layout": "ece4d13f7c"
 },
-"pull": "y := bmF0(a := a, b := b);"
+"pull": "ASSIGN(bmF0(a := a, b := b), Q =\u003E y);"
 },
 {
 "id": "1017",
@@ -51872,7 +51872,7 @@ null
 "code": "y := bmF0(a := a, b := b);",
 "layout": "4e674bf376"
 },
-"pull": "y := bmF0(a := a, b := b);"
+"pull": "ASSIGN(bmF0(a := a, b := b), Q =\u003E y);"
 },
 {
 "id": "1019",
@@ -51970,7 +51970,7 @@ null
 "code": "y := bmf0(a := a, b := b);",
 "layout": "cd4b27e75b"
 },
-"pull": "y := bmf0(a := a, b := b);"
+"pull": "ASSIGN(bmf0(a := a, b := b), Q =\u003E y);"
 },
 {
 "id": "1021",
@@ -52180,7 +52180,7 @@ null,
 "code": "t2(a := a, n := i); x := t2.q1;",
 "layout": "42602a5cec"
 },
-"pull": "x := t2(a := a, n := i).q1;"
+"pull": "ASSIGN(t2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "1025",
@@ -52578,7 +52578,7 @@ null,
 "code": "t2(n := a, a := i); x := t2.q1;",
 "layout": "0741b7bcb3"
 },
-"pull": "x := t2(n := a, a := i).q1;"
+"pull": "ASSIGN(t2(n := a, a := i), Q =\u003E x);"
 },
 {
 "id": "1033",
@@ -52680,7 +52680,7 @@ null,
 "code": "t2(a := a, n := i); x := t2.q1;",
 "layout": "42602a5cec"
 },
-"pull": "x := t2(a := a, n := i).q1;"
+"pull": "ASSIGN(t2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "1035",
@@ -52782,7 +52782,7 @@ null,
 "code": "t2(a := a, n := i); x := t2.q1;",
 "layout": "4e674bf376"
 },
-"pull": "x := t2(a := a, n := i).q1;"
+"pull": "ASSIGN(t2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "1037",
@@ -52884,7 +52884,7 @@ null,
 "code": "t2(a := a, n := i); x := t2.q1;",
 "layout": "54f3e23db0"
 },
-"pull": "x := t2(a := a, n := i).q1;"
+"pull": "ASSIGN(t2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "1039",
@@ -53098,7 +53098,7 @@ null,
 "code": "bmP2(a := a, n := i); x := bmP2.q1;",
 "layout": "2e0b3303cd"
 },
-"pull": "x := bmP2(a := a, n := i).q1;"
+"pull": "ASSIGN(bmP2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "1043",
@@ -53504,7 +53504,7 @@ null,
 "code": "bmP2(n := a, a := i); x := bmP2.q1;",
 "layout": "80464b2d04"
 },
-"pull": "x := bmP2(n := a, a := i).q1;"
+"pull": "ASSIGN(bmP2(n := a, a := i), Q =\u003E x);"
 },
 {
 "id": "1051",
@@ -53608,7 +53608,7 @@ null,
 "code": "bmP2(a := a, n := i); x := bmP2.q1;",
 "layout": "2e0b3303cd"
 },
-"pull": "x := bmP2(a := a, n := i).q1;"
+"pull": "ASSIGN(bmP2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "1053",
@@ -53712,7 +53712,7 @@ null,
 "code": "bmP2(a := a, n := i); x := bmP2.q1;",
 "layout": "4e674bf376"
 },
-"pull": "x := bmP2(a := a, n := i).q1;"
+"pull": "ASSIGN(bmP2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "1055",
@@ -53816,7 +53816,7 @@ null,
 "code": "bmp2(a := a, n := i); x := bmp2.q1;",
 "layout": "73919a0cba"
 },
-"pull": "x := bmp2(a := a, n := i).q1;"
+"pull": "ASSIGN(bmp2(a := a, n := i), Q =\u003E x);"
 },
 {
 "id": "1057",
@@ -53984,7 +53984,7 @@ null
 "code": "y := (a AND b);",
 "layout": "4e674bf376"
 },
-"pull": "y := AND(a, b);"
+"pull": "ASSIGN(AND(a, b), Q =\u003E y);"
 },
 {
 "id": "1061",
@@ -54080,7 +54080,7 @@ null
 "code": "y := (a AND b);",
 "layout": "745eee96e9"
 },
-"pull": "y := AND(IN1 := a, IN2 := b);"
+"pull": "ASSIGN(AND(IN1 := a, IN2 := b), Q =\u003E y);"
 },
 {
 "id": "1063",
@@ -54182,7 +54182,7 @@ null
 "code": "k := SEL(a, i, j);",
 "layout": "723a5286ce"
 },
-"pull": "k := SEL(G := a, IN0 := i, IN1 := j);"
+"pull": "ASSIGN(SEL(G := a, IN0 := i, IN1 := j), Q =\u003E k);"
 },
 {
 "id": "1065",
@@ -54266,7 +54266,7 @@ null
 "code": "y := (a AND b);",
 "layout": "07694c3289"
 },
-"pull": "y := and(a, b);"
+"pull": "ASSIGN(and(a, b), Q =\u003E y);"
 },
 {
 "id": "1067",
@@ -54312,7 +54312,7 @@ null
 "layout": "8d97abbbe1",
 "afterReopen": true
 },
-"pull": "EXECUTE(EN := go, \u0027m := 1;\u0027).ENO;"
+"pull": "EXECUTE(EN := go, \u0027m := 1;\u0027);"
 },
 {
 "id": "1068",
@@ -54356,7 +54356,7 @@ null
 "layout": "37413a1c60",
 "afterReopen": true
 },
-"pull": "EXECUTE(EN := go, \u0027m := 1;\u0027).ENO;"
+"pull": "EXECUTE(EN := go, \u0027m := 1;\u0027);"
 },
 {
 "id": "1069",
@@ -54403,7 +54403,7 @@ null,
 "layout": "8d97abbbe1",
 "afterReopen": true
 },
-"pull": "EXECUTE(EN := go, \u0027m := 1;\u0027).ENO;"
+"pull": "EXECUTE(EN := go, \u0027m := 1;\u0027);"
 },
 {
 "id": "1070",
@@ -54495,7 +54495,7 @@ null
 "layout": "70e141f44a",
 "afterReopen": true
 },
-"pull": "y := EXECUTE(EN := go, \u0027m := 1;\u0027).ENO;"
+"pull": "ASSIGN(EXECUTE(EN := go, \u0027m := 1;\u0027), Q =\u003E y);"
 },
 {
 "id": "1072",
@@ -54539,7 +54539,7 @@ null
 "layout": "6146d0b180",
 "afterReopen": true
 },
-"pull": "y := EXECUTE(EN := go, \u0027m := 1;\u0027).ENO;"
+"pull": "ASSIGN(EXECUTE(EN := go, \u0027m := 1;\u0027), Q =\u003E y);"
 },
 {
 "id": "1073",
@@ -54586,7 +54586,7 @@ null,
 "layout": "70e141f44a",
 "afterReopen": true
 },
-"pull": "y := EXECUTE(EN := go, \u0027m := 1;\u0027).ENO;"
+"pull": "ASSIGN(EXECUTE(EN := go, \u0027m := 1;\u0027), Q =\u003E y);"
 },
 {
 "id": "1074",
@@ -55230,7 +55230,7 @@ null
 "layout": "83723aa731",
 "afterReopen": true
 },
-"pull": "EXECUTE(\u0027m := 1;\u0027).ENO;"
+"pull": "EXECUTE(\u0027m := 1;\u0027);"
 },
 {
 "id": "1088",
@@ -55272,7 +55272,7 @@ null
 "layout": "b1e9838888",
 "afterReopen": true
 },
-"pull": "y := EXECUTE(\u0027m := 1;\u0027).ENO;"
+"pull": "ASSIGN(EXECUTE(\u0027m := 1;\u0027), Q =\u003E y);"
 },
 {
 "id": "1089",
@@ -55392,7 +55392,7 @@ null
 "layout": "447ca4092d",
 "afterReopen": true
 },
-"pull": "EXECUTE(EN := go, \u0027m := 1;\u0027).ENO;"
+"pull": "EXECUTE(EN := go, \u0027m := 1;\u0027);"
 },
 {
 "id": "1092",
@@ -55438,7 +55438,7 @@ null
 "layout": "a5e891ab54",
 "afterReopen": true
 },
-"pull": "y := EXECUTE(EN := go, \u0027m := 1;\u0027).ENO;"
+"pull": "ASSIGN(EXECUTE(EN := go, \u0027m := 1;\u0027), Q =\u003E y);"
 },
 {
 "id": "1093",
@@ -55671,7 +55671,7 @@ null
 "layout": "8d97abbbe1",
 "afterReopen": true
 },
-"pull": "EXECUTE(EN := go, \u0027m := 1;\u0027).ENO;"
+"pull": "EXECUTE(EN := go, \u0027m := 1;\u0027);"
 },
 {
 "id": "1098",
@@ -55717,7 +55717,7 @@ null
 "layout": "70e141f44a",
 "afterReopen": true
 },
-"pull": "y := EXECUTE(EN := go, \u0027m := 1;\u0027).ENO;"
+"pull": "ASSIGN(EXECUTE(EN := go, \u0027m := 1;\u0027), Q =\u003E y);"
 }
 ]
 }

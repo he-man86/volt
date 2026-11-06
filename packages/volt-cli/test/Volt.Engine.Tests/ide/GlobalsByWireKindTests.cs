@@ -72,7 +72,7 @@ public class GlobalsByWireKindTests
     public void A_body_in_a_push_sees_each_pushed_gvl_as_a_global_list()
     {
         var ide = new FakeIde(FakeIde.Item.TextualPou("Caller", "FUNCTION_BLOCK Caller\nVAR\n\tn : INT;\nEND_VAR",
-            "%LANGUAGE FBD\n%NETWORK\nn := 1;"));
+            "%LANGUAGE FBD\n%NETWORK\nASSIGN(1, Q => n);"));
         var refs = RefsService.Handle(ide);
         var resp = BoundWrite.Push(ide, new PushRequest
         {
@@ -82,7 +82,7 @@ public class GlobalsByWireKindTests
                 new SetItemOp
                 {
                     Name = "Caller.pou", IfVersion = refs.Items["Caller.pou"],
-                    SourceText = "FUNCTION_BLOCK Caller\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE FBD\n%NETWORK\nn := 2;\nEND_FUNCTION_BLOCK\n",
+                    SourceText = "FUNCTION_BLOCK Caller\nVAR\n\tn : INT;\nEND_VAR\n%LANGUAGE FBD\n%NETWORK\nASSIGN(2, Q => n);\nEND_FUNCTION_BLOCK\n",
                 },
                 new SetItemOp { Name = "Variable_Configuration.gvl", SourceText = VarConfig + "\n" },
                 new SetItemOp { Name = "Line.gvl", SourceText = Broken + "\n" },

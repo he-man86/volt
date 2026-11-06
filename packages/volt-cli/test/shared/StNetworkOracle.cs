@@ -55,7 +55,7 @@ public static class StNetworkOracle
         if (NetworkModelEquality.FirstDifference(want, got) is null) return new(source, index, Identical, "", Array.Empty<string>(), null, text);
 
         var members = new SortedSet<string>(StringComparer.Ordinal);
-        var spelled = new NetworkBody(language, body.Networks.Select(n => n with { Trees = n.Trees.Select(t => Spelled(t, members, scope, root: true)).ToList() }).ToList());
+        var spelled = new NetworkBody(language, body.Networks.Select(n => n with { Trees = n.Trees.Select(t => Spelled(t, members, scope, language, root: true)).ToList() }).ToList());
         var d = NetworkModelEquality.FirstDifference(Canonical(NetworkTextFacts.Carried(spelled)), got);
         if (d is null) return new(source, index, Stored, "", members.ToList(), null, text);
         return new(source, index, Gap, "diff: " + Category(d), members.ToList(), d + "\n" + text, text);
@@ -116,12 +116,18 @@ public static class StNetworkOracle
 
     /// <summary>design.md "Stored members, not spelled": the tree as the text spells it. Each rule that changes the tree
     /// names itself in <paramref name="fired"/>.</summary>
-    public static Node Spelled(Node n, ISet<string> fired, NetworkScope scope, bool root = false)
+    public static Node Spelled(Node n, ISet<string> fired, NetworkScope scope, BodyLanguage language, bool root = false)
     {
-        Node S(Node x) => Spelled(x, fired, scope);
+        Node S(Node x) => Spelled(x, fired, scope, language);
         switch (n)
         {
-            case Assign a: return a with { Value = S(a.Value) };
+            case Assign a:
+            {
+                // network-language rule 1: the marks of the line into the coil and of its value read as one stack, the outer ones
+                // on the line (its negation outside its edge), the rest on the value's node.
+                var (value, line) = Placed(S(a.Value), a.Flags with { Jump = false, Return = false }, item: true, fired);
+                return a with { Value = value, Flags = line with { Jump = a.Flags.Jump, Return = a.Flags.Return } };
+            }
             case Demux d: return d.Input is null ? d : new Demux(d.VarId, S(d.Input));
             case Parallel p:
                 return new Parallel(p.Input is null ? null : S(p.Input), p.Branches.Select(S).ToList(), p.Mode);
@@ -131,8 +137,16 @@ public static class StNetworkOracle
                 var kept = b.Inputs.Where(i => !(b.Instance is not null && i.Formal is not null && i.Flags.IsNone
                                                  && i.Value is Leaf { Operand.Text.Length: 0, Flags.IsNone: true })).ToList();
                 if (kept.Count != b.Inputs.Count) fired.Add("an unconnected FB input as the pin left out");
-                var inputs = kept.Select(i => i with { Value = S(i.Value) }).ToList();
-                var enable = b.Enable is null ? null : S(b.Enable);
+                var contact = IsContact(b, language);
+                var inputs = kept.Select(i =>
+                {
+                    if (contact) return i with { Value = S(i.Value) };
+                    var (value, pin) = Placed(S(i.Value), i.Flags, item: false, fired);
+                    return i with { Value = value, Flags = pin };
+                }).ToList();
+                Node? enable = null;
+                var enableFlags = b.EnableFlags;
+                if (b.Enable is { } en) (enable, enableFlags) = Placed(S(en), b.EnableFlags, item: false, fired);
                 var outputs = b.Outputs.ToList();
                 // An FB box is the call of its instance (design "FB boxes: the instance is the call head"); a declared one
                 // carries its declaration's spelling of the type.
@@ -144,10 +158,85 @@ public static class StNetworkOracle
                     fired.Add("an FB type spelled as its declaration");
                     type = declared;
                 }
-                return b with { Type = type, Instance = instance, Inputs = inputs, Enable = enable, Outputs = outputs };
+                // network-language rule 4: at a root nothing reads the flow, so whether ENO is shown is not in the text; it is shown
+                // where EN is, but on a function or an operator wiring no value (with ENO it does not build), and always on the
+                // Execute box, whose one output it is.
+                // network-language rule 4: an FB read by its first output with no EN states no member, so the name it is read by is
+                // its declaration's, in the declaration's case.
+                var mainName = b.MainOutputName;
+                if (!root && b.Instance is not null && b.Enable is null && mainName is not null &&
+                    NetworkSpelling.SignatureOf(b, scope) is { Outputs.Count: > 0 } fbSignature &&
+                    string.Equals(fbSignature.Outputs[0], mainName, StringComparison.OrdinalIgnoreCase) && fbSignature.Outputs[0] != mainName)
+                {
+                    fired.Add("an FB's first output in its declaration's case");
+                    mainName = fbSignature.Outputs[0];
+                }
+                var hasEno = b.HasEnoOutput;
+                if (root && !NetworkSpelling.ConnectedByEno(b) && b.ConnectedSlot is not > 0 && b.MainOutputName is null)
+                {
+                    var signature = NetworkSpelling.SignatureOf(b, scope);
+                    var shown = b.StCode is not null || b.Enable is not null && (signature is not { Shape: CalleeShape.Function } || b.Outputs.Any(o => o.Formal is null));
+                    if (shown != hasEno)
+                    {
+                        fired.Add("a root box's ENO shown where its EN is");
+                        hasEno = shown;
+                    }
+                }
+                return b with { Type = type, Instance = instance, Inputs = inputs, Enable = enable, Outputs = outputs, HasEnoOutput = hasEno, MainOutputName = mainName }
+                    with { EnableFlags = enableFlags };
             }
             default: return n;
         }
+    }
+
+    /// <summary>A contact, as the writer spells one infix: an AND/OR box with no output, no pin of its own and no formal, the IDE storing
+    /// no output name (with none stated, any in LD).</summary>
+    static bool IsContact(Box b, BodyLanguage language) =>
+        b.Type is "AND" or "OR" && b.Instance is null && b.Enable is null && b.StCode is null && b.Outputs.Count == 0 && b.Inputs.Count >= 2 &&
+        b.Inputs.All(p => p.Flags.IsNone && p.Formal is null) &&
+        (b.Members?[NetworkMembers.OutputNames] is { } names ? names.AsTexts.Count == 0 : language == BodyLanguage.Ld);
+
+    /// <summary>
+    /// network-language rule 1, stated in the oracle's own code: the marks of a receiver (<paramref name="item"/>: the line into a coil,
+    /// its negation outside its edge; else a pin or EN, one mark) and of the node it receives (a contact's operand or a box, its edge
+    /// outside its negation) are one stack, outermost first. The text spells the stack, so it is read back with the receiver taking
+    /// the outer marks as far as it holds them, and the node the rest.
+    /// </summary>
+    static (Node Value, Flags Receiver) Placed(Node value, Flags receiver, bool item, ISet<string> fired)
+    {
+        var own = value is Leaf or Box ? value.Flags : Flags.None;
+        if (receiver.IsNone && own.IsNone) return (value, receiver);
+        var stack = new List<char>();
+        void Edge(Flags f) { if (f.Rising) stack.Add('R'); if (f.Falling) stack.Add('F'); }
+        if (item) { if (receiver.Negated) stack.Add('N'); Edge(receiver); }
+        else { if (receiver.Negated) stack.Add('N'); Edge(receiver); }
+        Edge(own);
+        if (own.Negated) stack.Add('N');
+        // a stack no position holds as written (two edges, an edge stacked on a pin's negation) stays as it is: the writer refuses it
+        if (stack.Count(c => c != 'N') > 2 || (receiver.Rising && receiver.Falling) || (own.Rising && own.Falling) ||
+            !item && !receiver.IsNone && receiver.Negated && (receiver.Rising || receiver.Falling))
+            return (value, receiver);
+        var k = 0;
+        var line = receiver with { Negated = false, Rising = false, Falling = false };
+        if (item)
+        {
+            if (k < stack.Count && stack[k] == 'N') { line = line with { Negated = true }; k++; }
+            if (k < stack.Count && stack[k] != 'N') { line = line with { Rising = stack[k] == 'R', Falling = stack[k] == 'F' }; k++; }
+        }
+        else if (k < stack.Count)
+        {
+            line = stack[k] == 'N' ? line with { Negated = true } : line with { Rising = stack[k] == 'R', Falling = stack[k] == 'F' };
+            k++;
+        }
+        var node = Flags.None;
+        if (k < stack.Count && stack[k] != 'N') { node = node with { Rising = stack[k] == 'R', Falling = stack[k] == 'F' }; k++; }
+        if (k < stack.Count && stack[k] == 'N') { node = node with { Negated = true }; k++; }
+        if (k < stack.Count || value is not (Leaf or Box) && !node.IsNone) return (value, receiver);
+        var placed = value is Leaf l ? l with { Flags = own with { Negated = node.Negated, Rising = node.Rising, Falling = node.Falling } }
+            : value is Box b ? b with { Flags = own with { Negated = node.Negated, Rising = node.Rising, Falling = node.Falling } }
+            : value;
+        if (line != receiver || !placed.Flags.Equals(value.Flags)) fired.Add("a mark read at its receiver");
+        return (placed, line);
     }
 
     // ── the report ─────────────────────────────────────────────────────────────────────────────────────────────

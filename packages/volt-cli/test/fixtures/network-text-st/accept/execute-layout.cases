@@ -5,7 +5,7 @@
 EXECUTE('x := 1;');
 === model
 NETWORK
-  (EXECUTE "x := 1;")
+  (EXECUTE "x := 1;" eno:1)
 
 #### execute-enabled
 === text
@@ -15,13 +15,13 @@ EXECUTE(EN := TRUE, 'iCount:=icount+1;
 ');
 === model
 NETWORK
-  (EXECUTE "iCount:=icount+1;\n" en:TRUE)
+  (EXECUTE "iCount:=icount+1;\n" en:TRUE eno:1)
 
 #### execute-read-through-eno — an Execute box read through its ENO, its one output
 === text
 %LANGUAGE LD
 %NETWORK
-done := EXECUTE(EN := go, 'i := i + 1;').ENO;
+ASSIGN(EXECUTE(EN := go, 'i := i + 1;'), Q => done);
 === model
 NETWORK
   (:= done (EXECUTE "i := i + 1;" en:go conn:0 eno:1))
@@ -30,7 +30,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-lamp := MOVE(EN := EXECUTE(EN := go, 'i := i + 1;').ENO, 1, OUT => t).ENO;
+ASSIGN(MOVE(EN := EXECUTE(EN := go, 'i := i + 1;'), 1, OUT => t), Q => lamp);
 === model
 NETWORK
   (:= lamp (MOVE 1 =>1:t en:(EXECUTE "i := i + 1;" en:go conn:0 eno:1) conn:0 eno:1))
@@ -39,8 +39,8 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-x := EXECUTE(EN := go, 'i := 1;').ENO AND d;
-y := BRANCH(FEED := EXECUTE(EN := go, 'j := 1;').ENO, d, e);
+ASSIGN(EXECUTE(EN := go, 'i := 1;') AND d, Q => x);
+ASSIGN(BRANCH(FEED := EXECUTE(EN := go, 'j := 1;'), d, e), Q => y);
 === model
 NETWORK
   (:= x (AND (EXECUTE "i := 1;" en:go conn:0 eno:1) d))
@@ -51,9 +51,9 @@ NETWORK
 %LANGUAGE LD
 %NETWORK
 VAR w1 : ANY; END_VAR
-w1 := EXECUTE(EN := go, 'i := 1;').ENO;
-x := w1;
-y := w1 AND d;
+w1 := EXECUTE(EN := go, 'i := 1;');
+ASSIGN(w1, Q => x);
+ASSIGN(w1 AND d, Q => y);
 === model
 NETWORK
   (split 1 (EXECUTE "i := 1;" en:go conn:0 eno:1))
@@ -67,7 +67,7 @@ NETWORK
 EXECUTE('s := $'a$$Nb$'; // `x`');
 === model
 NETWORK
-  (EXECUTE "s := 'a$Nb'; // `x`")
+  (EXECUTE "s := 'a$Nb'; // `x`" eno:1)
 
 #### execute-lines-are-its-code — a line of the code that opens with % or // is the box's ST, no line of the text
 === text
@@ -78,7 +78,7 @@ EXECUTE(EN := go, '// count
 	n := n + 1;');
 === model
 NETWORK
-  (EXECUTE "// count\n%QX0.1 := TRUE;\n\tn := n + 1;" en:go)
+  (EXECUTE "// count\n%QX0.1 := TRUE;\n\tn := n + 1;" en:go eno:1)
 
 #### execute-empty — an Execute box with no ST is the empty string
 === text
@@ -87,21 +87,21 @@ NETWORK
 EXECUTE('');
 === model
 NETWORK
-  (EXECUTE "")
+  (EXECUTE "" eno:1)
 
 #### execute-en-eno — the Execute box shows EN and ENO as every box does: EN :=, .ENO, each kept on its own
 === text
 %LANGUAGE LD
 %NETWORK
 EXECUTE('a := 1;');
-EXECUTE('a := 1;').ENO;
+EXECUTE('a := 1;');
 EXECUTE(EN := go, 'a := 1;');
-EXECUTE(EN := go, 'a := 1;').ENO;
+EXECUTE(EN := go, 'a := 1;');
 === model
 NETWORK
-  (EXECUTE "a := 1;")
   (EXECUTE "a := 1;" eno:1)
-  (EXECUTE "a := 1;" en:go)
+  (EXECUTE "a := 1;" eno:1)
+  (EXECUTE "a := 1;" en:go eno:1)
   (EXECUTE "a := 1;" en:go eno:1)
 
 #### layout-free
@@ -110,8 +110,8 @@ NETWORK
 %NETWORK
 VAR w1 : ANY; w2 : ANY; END_VAR
 w1 := TRUE;
-w2 := w1 AND enable AND ready AND NOT stop;
-x := f(IN1 := a, IN2 := b);
+w2 := w1 AND enable AND ready AND INVERT(stop);
+ASSIGN(f(IN1 := a, IN2 := b), Q => x);
 === model
 NETWORK
   (split 1 TRUE)
@@ -122,8 +122,8 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-x := a;
-y := b AND c;
+ASSIGN(a, Q => x);
+ASSIGN(b AND c, Q => y);
 === model
 NETWORK
   (:= x a)

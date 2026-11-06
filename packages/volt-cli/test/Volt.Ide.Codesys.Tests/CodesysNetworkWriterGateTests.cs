@@ -523,8 +523,8 @@ public class CodesysCoilFlagTests
     /// now (below), and these rows are the consumed shapes that build: an enabled MOVE read by its ENO, and a function
     /// without EN read by its main output.</summary>
     [Theory]
-    [InlineData("x := MOVE(EN := c, a, OUT => sv).ENO;", true)]
-    [InlineData("n := LIMIT(a, b, n);", false)]
+    [InlineData("ASSIGN(MOVE(EN := c, a, OUT => sv), Q => x);", true)]
+    [InlineData("ASSIGN(LIMIT(a, b, n), Q => n);", false)]
     public void The_ENO_slot_is_written_for_the_box_that_has_one_not_for_every_enabled_box(string statement, bool eno)
     {
         var (model, scope) = Pushed(statement);
@@ -576,7 +576,7 @@ public class CodesysCoilFlagTests
         Assert.NotEmpty(NetworkSpelling.Comparisons);
         foreach (var op in NetworkSpelling.Comparisons)
         {
-            var (model, scope) = Pushed($"x := {op}(EN := c, a, b);");
+            var (model, scope) = Pushed($"ASSIGN({op}(EN := c, a, b).OUT, Q => x);");
             var live = Different();
             CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, BodyLanguage.Fbd, scope);
             var cmp = Assert.IsType<Nwl.BoxTreeBox>(Assert.IsType<Nwl.BoxTreeAssign>(live.GetTree(live.NetworkItemCount - 1)).RValue);
@@ -594,7 +594,7 @@ public class CodesysCoilFlagTests
     [Theory]
     [InlineData("MOVE(EN := c, a, OUT => sv);")]
     [InlineData("GT(EN := c, a, b, OUT => x);")]
-    [InlineData("lamp := MOVE(EN := c, a, OUT => sv).ENO;")]
+    [InlineData("ASSIGN(MOVE(EN := c, a, OUT => sv), Q => lamp);")]
     public void A_consumer_the_built_box_reads_as_written_is_built(string statement)
     {
         var (model, scope) = Pushed(statement);
@@ -613,7 +613,7 @@ public class CodesysCoilFlagTests
     [Fact]
     public void A_wire_is_written_under_the_models_VarId_verbatim()
     {
-        var (read, scope) = Pushed("VAR w1 : ANY; END_VAR\nw1 := AND(x, lamp);\nx := w1;\nlamp := w1;");
+        var (read, scope) = Pushed("VAR w1 : ANY; END_VAR\nw1 := AND(x, lamp);\nASSIGN(w1, Q => x);\nASSIGN(w1, Q => lamp);");
         // the text numbers a network's wires 1, 2, …; the model a pull read carries the vendor's VarId, here 28
         var model = read with { Trees = read.Trees.Select(t => VarIdAs28(t)).ToList() };
         Assert.Equal(28, Assert.IsType<Demux>(model.Trees[0]).VarId);
@@ -640,7 +640,7 @@ public class CodesysCoilFlagTests
     [Fact]
     public void A_data_split_a_push_built_reads_back_as_written_and_pushes_again()
     {
-        var (model, scope) = Pushed("VAR w1 : ANY; END_VAR\nw1 := ADD(a, b);\nn := w1;\nsv := w1;");
+        var (model, scope) = Pushed("VAR w1 : ANY; END_VAR\nw1 := ADD(a, b);\nASSIGN(w1, Q => n);\nASSIGN(w1, Q => sv);");
         var live = Different();
 
         CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, BodyLanguage.Fbd, scope);

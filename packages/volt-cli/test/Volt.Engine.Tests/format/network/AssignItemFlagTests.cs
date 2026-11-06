@@ -30,6 +30,6 @@ public class AssignItemFlagTests
     public void An_item_jump_its_target_carries_is_the_jump()
     {
         var body = Ld1(new Assign(L("a"), new[] { T("l", JumpBit) }, JumpBit));
-        Assert.Equal("%LANGUAGE LD\n%NETWORK\nJMP.l := a;\n", StNetworkWriter.Write(body, NetworkModelScopes.ScopeOf(body)));
+        Assert.Equal("%LANGUAGE LD\n%NETWORK\nASSIGN(a, Q => JMP.l);\n", StNetworkWriter.Write(body, NetworkModelScopes.ScopeOf(body)));
     }
 }

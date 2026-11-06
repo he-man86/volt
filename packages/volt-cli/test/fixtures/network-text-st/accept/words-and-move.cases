@@ -2,7 +2,7 @@
 === text
 %LANGUAGE FBD
 %NETWORK
-x := ADD(a, b);
+ASSIGN(ADD(a, b), Q => x);
 === model
 NETWORK
   (:= x (ADD a b conn:0))
@@ -11,20 +11,20 @@ NETWORK
 === text
 %LANGUAGE FBD
 %NETWORK
-b1 := AND(a, b);
-b2 := OR(a, b);
-b3 := XOR(a, b);
-i1 := ADD(i, j);
-i2 := SUB(i, j);
-i3 := MUL(i, j);
-i4 := DIV(i, j);
-i5 := MOD(i, j);
-c1 := GT(i, j);
-c2 := GE(i, j);
-c3 := EQ(i, j);
-c4 := NE(i, j);
-c5 := LE(i, j);
-c6 := LT(i, j);
+ASSIGN(AND(a, b), Q => b1);
+ASSIGN(OR(a, b), Q => b2);
+ASSIGN(XOR(a, b), Q => b3);
+ASSIGN(ADD(i, j), Q => i1);
+ASSIGN(SUB(i, j), Q => i2);
+ASSIGN(MUL(i, j), Q => i3);
+ASSIGN(DIV(i, j), Q => i4);
+ASSIGN(MOD(i, j), Q => i5);
+ASSIGN(GT(i, j), Q => c1);
+ASSIGN(GE(i, j), Q => c2);
+ASSIGN(EQ(i, j), Q => c3);
+ASSIGN(NE(i, j), Q => c4);
+ASSIGN(LE(i, j), Q => c5);
+ASSIGN(LT(i, j), Q => c6);
 === model
 NETWORK
   (:= b1 (AND a b))
@@ -46,7 +46,7 @@ NETWORK
 === text
 %LANGUAGE FBD
 %NETWORK
-x := ADD(a, b, c);
+ASSIGN(ADD(a, b, c), Q => x);
 === model
 NETWORK
   (:= x (ADD a b c conn:0))
@@ -55,20 +55,20 @@ NETWORK
 === text
 %LANGUAGE FBD
 %NETWORK
-x := ADD(a, ADD(b, c));
-y := MUL(ADD(a, b), c);
-lamp := AND(start, OR(a, b), NOT stop);
+ASSIGN(ADD(a, ADD(b, c)), Q => x);
+ASSIGN(MUL(ADD(a, b), c), Q => y);
+ASSIGN(AND(start, OR(a, b), INVERT(stop)), Q => lamp);
 === model
 NETWORK
   (:= x (ADD a (ADD b c conn:0) conn:0))
   (:= y (MUL (ADD a b conn:0) c conn:0))
-  (:= lamp (AND start (OR a b) not:stop))
+  (:= lamp (AND start (OR a b) !stop))
 
 #### and-nine-inputs — AND and OR take as many inputs as drawn
 === text
 %LANGUAGE LD
 %NETWORK
-q := a AND b AND c AND d AND e AND f AND g AND h AND i;
+ASSIGN(a AND b AND c AND d AND e AND f AND g AND h AND i, Q => q);
 === model
 NETWORK
   (:= q (AND a b c d e f g h i))
@@ -86,7 +86,7 @@ NETWORK
 === text
 %LANGUAGE FBD
 %NETWORK
-x := and(a, b);
+ASSIGN(and(a, b), Q => x);
 === model
 NETWORK
   (:= x (and a b))
@@ -95,8 +95,8 @@ NETWORK
 === text
 %LANGUAGE FBD
 %NETWORK
-x := MUL(TRUE, m, 6);
-y := ADD(a, TRUE, c);
+ASSIGN(MUL(TRUE, m, 6), Q => x);
+ASSIGN(ADD(a, TRUE, c), Q => y);
 === model
 NETWORK
   (:= x (MUL TRUE m 6 conn:0))
@@ -106,18 +106,18 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-x := NOT(a AND b);
-y := RISING(a AND b);
+ASSIGN(NOT(a AND b), Q => x);
+ASSIGN(RISING(a AND b), Q => y);
 === model
 NETWORK
   (:= x (NOT (AND a b)))
-  (:= y rise:(AND a b))
+  (:= y item:/ (AND a b))
 
 #### word-operand-call
 === text
 %LANGUAGE FBD
 %NETWORK
-x := ADD(a, f(IN := b));
+ASSIGN(ADD(a, f(IN := b)), Q => x);
 === model
 NETWORK
   (:= x (ADD a (f IN=b conn:0) conn:0))
@@ -129,7 +129,7 @@ fb TON IN PT => Q ET
 === text
 %LANGUAGE LD
 %NETWORK
-q := t1(IN := a AND b, PT := T#1S).Q;
+ASSIGN(t1(IN := a AND b, PT := T#1S), Q => q);
 === model
 NETWORK
   (:= q (TON@t1 IN=(AND a b) PT=T#1S name:Q))
@@ -147,7 +147,7 @@ NETWORK
 === text
 %LANGUAGE FBD
 %NETWORK
-a := MOVE(b);
+ASSIGN(MOVE(b), Q => a);
 === model
 NETWORK
   (:= a (MOVE b conn:0))
@@ -156,7 +156,7 @@ NETWORK
 === text
 %LANGUAGE FBD
 %NETWORK
-a := b;
+ASSIGN(b, Q => a);
 === model
 NETWORK
   (:= a b)
@@ -183,7 +183,7 @@ NETWORK
 === text
 %LANGUAGE FBD
 %NETWORK
-x := NOT(a);
+ASSIGN(NOT(a), Q => x);
 === model
 NETWORK
   (:= x (NOT a))
@@ -192,7 +192,7 @@ NETWORK
 === text
 %LANGUAGE FBD
 %NETWORK
-x := NOT(TRUE);
+ASSIGN(NOT(TRUE), Q => x);
 === model
 NETWORK
   (:= x (NOT TRUE))
@@ -201,19 +201,19 @@ NETWORK
 === text
 %LANGUAGE FBD
 %NETWORK
-x := AND(a, b, NOT c);
+ASSIGN(AND(a, b, INVERT(c)), Q => x);
 === model
 NETWORK
-  (:= x (AND a b not:c))
+  (:= x (AND a b !c))
 
 #### rising-pin-call-form — an edge on an operator's pin, before the pin's name
 === text
 %LANGUAGE LD
 %NETWORK
-x := AND(RISING(c), one);
+ASSIGN(AND(RISING(c), one), Q => x);
 === model
 NETWORK
-  (:= x (AND rise:c one))
+  (:= x (AND /c one))
 
 #### edge-and-negation-on-a-pin
 === scope
@@ -221,7 +221,7 @@ instance t1 TON
 === text
 %LANGUAGE LD
 %NETWORK
-t1(IN := RISING(NOT v), PT := T#1S);
+t1(IN := RISING(INVERT(v)), PT := T#1S);
 === model
 NETWORK
-  (TON@t1 IN=rise:not:v PT=T#1S)
+  (TON@t1 /IN=not:v PT=T#1S)

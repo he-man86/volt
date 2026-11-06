@@ -35,18 +35,18 @@ public class NwlShapeSpellingTests
 
     [Fact] // #2
     public void A_negated_root_box_is_NOT_before_its_call() =>
-        RoundTrips(Fbd1(Op("AND", L("a"), L("b")) with { Flags = Neg, ConnectedSlot = null }), "%LANGUAGE FBD\n%NETWORK\nNOT AND(a, b);\n");
+        RoundTrips(Fbd1(Op("AND", L("a"), L("b")) with { Flags = Neg, ConnectedSlot = null }), "%LANGUAGE FBD\n%NETWORK\nINVERT(AND(a, b));\n");
 
     [Fact] // #7a
     public void A_negated_assign_item_is_NOT_before_an_empty_receiver_last_in_its_chain()
     {
-        RoundTrips(Ld1(new Assign(L("a"), new[] { T("y") }, Neg)), "%LANGUAGE LD\n%NETWORK\ny := NOT := a;\n");
-        RoundTrips(Ld1(new Assign(L("a"), new[] { T("y"), T("x") }, Neg)), "%LANGUAGE LD\n%NETWORK\ny := x := NOT := a;\n");
+        RoundTrips(Ld1(new Assign(L("a"), new[] { T("y") }, Neg)), "%LANGUAGE LD\n%NETWORK\nASSIGN(INVERT(a), Q => y);\n");
+        RoundTrips(Ld1(new Assign(L("a"), new[] { T("y"), T("x") }, Neg)), "%LANGUAGE LD\n%NETWORK\nASSIGN(INVERT(a), Q => y, Q => x);\n");
     }
 
     [Fact] // #8
     public void A_negated_jump_is_NOT_before_its_target() =>
-        RoundTrips(Ld1(new Assign(L("a"), new[] { T("l", JumpBit with { Negated = true }) }, JumpBit)), "%LANGUAGE LD\n%NETWORK\nNOT JMP.l := a;\n");
+        RoundTrips(Ld1(new Assign(L("a"), new[] { T("l", JumpBit with { Negated = true }) }, JumpBit)), "%LANGUAGE LD\n%NETWORK\nASSIGN(a, Q_INVERTED => JMP.l);\n");
 
     [Fact] // #11
     public void A_root_branch_is_its_call_standing_alone() =>
@@ -58,22 +58,22 @@ public class NwlShapeSpellingTests
         RoundTrips(Ld1(Empty), "%LANGUAGE LD\n%NETWORK\nRAIL();\n");
 
     [Fact] // #16
-    public void A_negated_Execute_ENO_is_NOT_before_its_call() =>
-        RoundTrips(Ld1(Set(Exec("n := TRUE;", en: L("go"), connected: 0) with { Flags = Neg }, T("y"))),
-            "%LANGUAGE LD\n%NETWORK\ny := NOT EXECUTE(EN := go, 'n := TRUE;').ENO;\n");
+    public void A_negated_Execute_ENO_is_INVERT_around_its_call() =>
+        RoundTrips(Ld1(new Assign(Exec("n := TRUE;", en: L("go"), connected: 0), new[] { T("y") }, Neg)),
+            "%LANGUAGE LD\n%NETWORK\nASSIGN(INVERT(EXECUTE(EN := go, 'n := TRUE;')), Q => y);\n");
 
     [Fact] // #18
     public void A_rail_fed_branch_is_FEED_RAIL() =>
         RoundTrips(Ld1(Set(new Volt.Engine.Format.Network.Parallel(Empty, new Node[] { L("a"), L("b") }, ParallelMode.Sequential), T("y"))),
-            "%LANGUAGE LD\n%NETWORK\ny := BRANCH(FEED := RAIL(), a, b);\n");
+            "%LANGUAGE LD\n%NETWORK\nASSIGN(BRANCH(FEED := RAIL(), a, b), Q => y);\n");
 
     [Fact]
     public void The_operand_comment_is_COMMENT_on_a_value_a_coil_a_pin_and_an_output()
     {
-        RoundTrips(Ld1(Set(new Leaf(C(new Operand("a"), "why"), Flags.None), T("y"))), "%LANGUAGE LD\n%NETWORK\ny := COMMENT(a, 'why');\n");
-        RoundTrips(Ld1(Set(L("a"), C(T("y", Neg), "why"))), "%LANGUAGE LD\n%NETWORK\nNOT COMMENT(y, 'why') := a;\n");
+        RoundTrips(Ld1(Set(new Leaf(C(new Operand("a"), "why"), Flags.None), T("y"))), "%LANGUAGE LD\n%NETWORK\nASSIGN(COMMENT(a, 'why'), Q => y);\n");
+        RoundTrips(Ld1(Set(L("a"), C(T("y", Neg), "why"))), "%LANGUAGE LD\n%NETWORK\nASSIGN(a, Q_INVERTED => COMMENT(y, 'why'));\n");
         RoundTrips(Fbd1(Set(Call("F1", new[] { In(new Leaf(C(new Operand("a"), "it's"), Flags.None), "IN1") }, connected: 0), T("y"))),
-            "%LANGUAGE FBD\n%NETWORK\ny := F1(IN1 := COMMENT(a, 'it$'s'));\n");
+            "%LANGUAGE FBD\n%NETWORK\nASSIGN(F1(IN1 := COMMENT(a, 'it$'s')), Q => y);\n");
         RoundTrips(Fbd1(Call("MOVE", new[] { In(L("a")) }, new[] { new Output(null, C(new Operand("x", IsLValue: true), "why"), 0) })),
             "%LANGUAGE FBD\n%NETWORK\nMOVE(a, OUT => COMMENT(x, 'why'));\n");
     }

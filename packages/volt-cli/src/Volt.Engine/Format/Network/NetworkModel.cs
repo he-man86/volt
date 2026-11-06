@@ -315,8 +315,8 @@ public static class UnheldFlags
                 $"{vendor}: {what} carries a modifier, and the IDE holds none there (DIALECT N20). Edit this network in the IDE.");
     }
 
-    /// <summary>A bit on an Assign ITEM the text has no position for (the writer's refusal): the item takes a receiver's
-    /// marks (<c>y := NOT := a</c>) and carries its targets' jump and return, and a Set bit, or a jump or return no target
+    /// <summary>A bit on an Assign ITEM the text has no position for (the writer's refusal): the item takes the marks of the line
+    /// into its coils (<c>ASSIGN(INVERT(a), Q =&gt; y)</c>) and carries its targets' jump and return, and a Set bit, or a jump or return no target
     /// carries, is inert in the IDE (nwl-schema-completeness-gate #7b).</summary>
     public const string AssignItemMarker = "a flag on an Assign item";
 }
@@ -544,7 +544,7 @@ public static class CallKinds
 /// against the named booleans on <c>IFlags</c> rather than inferred from a bit pattern.
 ///
 /// <para><b><see cref="Jump"/> and <see cref="Return"/> are flags here, not statement kinds</b>, and that is a
-/// correction. It is tempting to promote them — network text spells them as targets, <c>JMP.name := v;</c> and <c>RETURN := v;</c>,
+/// correction. It is tempting to promote them — network text spells them as targets, <c>ASSIGN(v, Q =&gt; JMP.name)</c> and <c>ASSIGN(v, Q =&gt; RETURN)</c>,
 /// so they LOOK like statements — but the IDEs model them as modifiers on an item, and the jump target is the
 /// destination network's <see cref="Network.Label"/>. Promoting them would be re-interpreting the vendor's
 /// model to suit a rendering.</para>

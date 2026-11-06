@@ -100,9 +100,9 @@ public class CodesysNetworkPairingTests
     {
         var (impl, nets) = Live(Rung("o1", "a"), Rung("o2", "b"), Rung("o3", "c"), Rung("o4", "d"));
         Write(impl, Pushed(impl, t => t
-            .Replace(Net("o2 := b;"), Net("o5 := e;") + Net("o2 := b;"))
-            .Replace(Net("o3 := c;"), "")
-            .Replace("o4 := d;", "o4 := e;")));
+            .Replace(Net("ASSIGN(b, Q => o2);"), Net("ASSIGN(e, Q => o5);") + Net("ASSIGN(b, Q => o2);"))
+            .Replace(Net("ASSIGN(c, Q => o3);"), "")
+            .Replace("ASSIGN(d, Q => o4);", "ASSIGN(e, Q => o4);")));
 
         Assert.Equal(4, impl.NetworkList.Count);
         Assert.Same(nets[0], impl.NetworkList[0]);
@@ -112,7 +112,7 @@ public class CodesysNetworkPairingTests
         Assert.DoesNotContain(impl.NetworkList[1], nets);
         Assert.Equal(new[] { "RemoveNetwork(3)", "InsertNetwork(1)" }, impl.Calls);
         var after = StNetworkWriter.WritePulled(CodesysNetworkReader.ReadShown(impl, BodyLanguage.Fbd), NetworkScope.Empty);
-        Assert.Equal("%LANGUAGE FBD\n" + Net("o1 := a;") + Net("o5 := e;") + Net("o2 := b;") + Net("o4 := e;"), after);
+        Assert.Equal("%LANGUAGE FBD\n" + Net("ASSIGN(a, Q => o1);") + Net("ASSIGN(e, Q => o5);") + Net("ASSIGN(b, Q => o2);") + Net("ASSIGN(e, Q => o4);"), after);
     }
 
     /// <summary>S4 is spelled `.xErrorActive` on pull, and an UNCHANGED S4 network is kept — even when a network is
@@ -124,8 +124,8 @@ public class CodesysNetworkPairingTests
         var pushed = Pushed(impl, t =>
         {
             // The call's connection is the member closing it, `.name` (network-output-member).
-            Assert.Contains("fbCap(xEnable := src).xErrorActive;", t);
-            return t.Replace("%LANGUAGE FBD\n", "%LANGUAGE FBD\n" + Net("o5 := e;"));
+            Assert.Contains("ASSIGN(fbCap(xEnable := src).xErrorActive, Q => ", t);
+            return t.Replace("%LANGUAGE FBD\n", "%LANGUAGE FBD\n" + Net("ASSIGN(e, Q => o5);"));
         });
         Write(impl, pushed);
 
@@ -141,7 +141,7 @@ public class CodesysNetworkPairingTests
     public void A_changed_S4_network_is_refused_naming_the_network_and_the_output()
     {
         var (impl, nets) = Live(Rung("o1", "a"), S4Rung());
-        var pushed = Pushed(impl, t => t.Replace("xEnable := src", "xEnable := a").Replace("o1 := a;", "o1 := b;"));
+        var pushed = Pushed(impl, t => t.Replace("xEnable := src", "xEnable := a").Replace("ASSIGN(a, Q => o1);", "ASSIGN(b, Q => o1);"));
 
         var ex = Assert.Throws<Volt.Engine.BridgeException>(() => Write(impl, pushed));
         Assert.Equal(Volt.Contracts.BridgeErrorCodes.Unsupported, ex.ErrorCode);
@@ -161,7 +161,7 @@ public class CodesysNetworkPairingTests
         var shown = Pushed(impl, t =>
         {
             Assert.Matches("%NETWORK\n%UNSUPPORTED \"a coil flag on a pin\" #[0-9a-f]{8}\n", t);
-            return t.Replace("o1 := a;", "o1 := b;");
+            return t.Replace("ASSIGN(a, Q => o1);", "ASSIGN(b, Q => o1);");
         });
         Write(impl, shown);
         Assert.Same(nets[0], impl.NetworkList[0]);
@@ -189,7 +189,7 @@ public class CodesysNetworkPairingTests
         var commented = new Nwl.BoxTreeAssign { RValue = new Nwl.BoxTreeOperand { Operand = new Nwl.Operand { OperandExpr = "a", StoredSymbolComment = "c" } } };
         commented.Outputs.List.Add(new Nwl.Operand { OperandExpr = "o1", IsLValue = true });
         var (impl, nets) = Live(commented, Rung("o2", "b"));
-        var pushed = Pushed(impl, t => "%LANGUAGE FBD\n" + Net("o2 := b;") + Net(edited ? "o1 := c;" : "o1 := a;"));
+        var pushed = Pushed(impl, t => "%LANGUAGE FBD\n" + Net("ASSIGN(b, Q => o2);") + Net(edited ? "ASSIGN(c, Q => o1);" : "ASSIGN(a, Q => o1);"));
 
         var ex = Assert.Throws<NetworkTextException>(() => Write(impl, pushed));
         Assert.Equal(ConflictCodes.NetworkUnsupported, ex.Code);
@@ -203,7 +203,7 @@ public class CodesysNetworkPairingTests
     /// <summary>Gate 1b-4, review finding 2: an UNSUPPORTED network whose line is replaced by trees under the same header
     /// (or emptied) was paired as an in-place rebuild that removed every item — content Volt never showed. Refused.</summary>
     [Theory]
-    [InlineData("y := a;")]
+    [InlineData("ASSIGN(a, Q => y);")]
     [InlineData("")]
     public void An_UNSUPPORTED_line_replaced_under_its_header_is_refused(string replacement)
     {

@@ -95,7 +95,7 @@ public class TcSharedFormatTests
         var body = pou.Body!;
 
         Assert.StartsWith("%LANGUAGE LD\n", body);
-        Assert.Contains("%NETWORK\ntestLabel:\ncoil := TRUE;", body);
+        Assert.Contains("%NETWORK\ntestLabel:\nASSIGN(TRUE, Q => coil);", body);
         Assert.EndsWith("%NETWORK\ntestLabe2:", body.TrimEnd());
 
         // Throws NetworkTextException naming the refusal if it would not read.

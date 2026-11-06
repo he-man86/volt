@@ -47,7 +47,7 @@ public class TcCalleeDerivationTests
     [Fact]
     public void A_positional_function_call_is_built_with_the_function_call_type_and_its_input_names()
     {
-        var box = Built("y := AwF(v);");
+        var box = Built("ASSIGN(AwF(v), Q => y);");
         Assert.Equal("Function", CallType(box));
         Assert.Equal(new[] { "i" }, Names(box, "InputParam"));
         Assert.Equal(new[] { "   " }, Names(box, "OutputParam"));   // the result pin, as drawn
@@ -56,7 +56,7 @@ public class TcCalleeDerivationTests
     [Fact]
     public void A_function_call_with_an_output_pin_gets_them_too()
     {
-        var box = Built("twice := F_split(v, doubled => y).OUT;");
+        var box = Built("ASSIGN(F_split(v, doubled => y), Q => twice);");
         Assert.Equal("Function", CallType(box));
         Assert.Equal(new[] { "source" }, Names(box, "InputParam"));
         Assert.Equal(new[] { "   ", "doubled" }, Names(box, "OutputParam"));
@@ -67,21 +67,12 @@ public class TcCalleeDerivationTests
 
     [Fact]
     public void An_unwired_output_is_listed_too() =>
-        Assert.Equal(new[] { "   ", "doubled" }, Names(Built("twice := F_split(v).OUT;"), "OutputParam"));
-
-    /// <summary>ENO SHOWN WITHOUT EN (DIALECT N16: the flags are independent; network-output-member 2.3): the box shows its
-    /// ENO and reads back read through it. Built only under an enable, the flag was dropped and the next pull lost `.ENO`.</summary>
-    [Fact]
-    public void A_box_showing_its_ENO_without_EN_is_built_showing_it()
-    {
-        var box = Built("AwF(v).ENO;");
-        Assert.True(TcNetworkReader.HasEno(box));
-    }
+        Assert.Equal(new[] { "   ", "doubled" }, Names(Built("ASSIGN(F_split(v), Q => twice);"), "OutputParam"));
 
     [Fact]
     public void A_method_call_is_built_with_the_method_call_type()
     {
-        var box = Built("x := fbm.Start(run := go);");
+        var box = Built("ASSIGN(fbm.Start(run := go), Q => x);");
         Assert.Equal("Method", CallType(box));
         Assert.Equal(new[] { "run" }, Names(box, "InputParam"));
     }
@@ -90,8 +81,8 @@ public class TcCalleeDerivationTests
     /// corpus, <see cref="TcArchiveBuilder.Operators"/>).</summary>
     [Theory]
     [InlineData("fbm(run := go);", "FunctionBlock")]
-    [InlineData("y := TO_INT(v);", "Conversion")]
-    [InlineData("y := ADD(v, 1);", "Add")]
+    [InlineData("ASSIGN(TO_INT(v), Q => y);", "Conversion")]
+    [InlineData("ASSIGN(ADD(v, 1), Q => y);", "Add")]
     public void Every_other_call_keeps_the_call_type_TwinCAT_stores(string statement, string callType) =>
         Assert.Equal(callType, CallType(Built(statement)));
 }

@@ -29,7 +29,7 @@ namespace Volt.Engine.Tests;
 public class AccessorPreflightTests
 {
     /// <summary>Canonical FBD — what a pull produces, and what the gate accepts unchanged.</summary>
-    private const string Canonical = "%LANGUAGE FBD\n%NETWORK\nout := a;";
+    private const string Canonical = "%LANGUAGE FBD\n%NETWORK\nASSIGN(a, Q => out);";
 
     /// <summary>A network the reader refuses: a statement without its <c>;</c> (NETWORK_PARSE). This probe was a body in
     /// a non-canonical spelling, refused NETWORK_NOT_CANONICAL; canonical form is no refusal any more (openspec

@@ -82,11 +82,11 @@ public class FakeAccessorWriteTests
     {
         var ide = new FakeIde { RematerializeAs = held => held + "\n(* vendor *)" };
 
-        var created = Create(ide, "FB_P.pou", Fb("%LANGUAGE FBD\n%NETWORK\nout  :=   a;"));
+        var created = Create(ide, "FB_P.pou", Fb("%LANGUAGE FBD\n%NETWORK\nASSIGN(a, Q => out);"));
         Assert.True(created.Landed(), Why(created));
 
         var fetched = Fetch(ide, "FB_P.pou");
-        Assert.Contains("%NETWORK\nout := a;\n(* vendor *)\nEND_GET", fetched);
+        Assert.Contains("%NETWORK\nASSIGN(a, Q => out);\n(* vendor *)\nEND_GET", fetched);
         Assert.DoesNotContain("out  :=   a;", fetched);
     }
 

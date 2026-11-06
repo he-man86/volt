@@ -99,7 +99,7 @@ internal static class TcUnmeasured
             var on = f.Jump ? $"the jump to '{t.Text}'" : f.Return || a.Flags.Return && a.Targets.Count == 1 ? "RETURN" : $"'{t.Text}'";
             if (f.Rising || f.Falling) return $"an edge coil on {on}";
             if (f.Negated && !f.Reset) return $"a negated coil on {on}";
-            if ((f.Jump || f.Return || a.Flags.Jump || a.Flags.Return) && (f.Set || f.Reset)) return "a jump or a return with S= or R=";
+            if ((f.Jump || f.Return || a.Flags.Jump || a.Flags.Return) && (f.Set || f.Reset)) return "a set or reset jump or return";
         }
         return null;
     }

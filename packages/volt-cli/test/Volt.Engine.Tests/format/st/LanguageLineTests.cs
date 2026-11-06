@@ -184,7 +184,7 @@ public class LanguageLineTests
     [Theory]
     [InlineData("x := 1;")]
     [InlineData("")]
-    [InlineData("%LANGUAGE LD\n%NETWORK\nx := 1;")]
+    [InlineData("%LANGUAGE LD\n%NETWORK\nASSIGN(1, Q => x);")]
     public void Any_other_body_is_written_as_it_is(string body) => Assert.Equal(body, PropertyLines.Written(body));
 
     // ── the writer states it on every kind that has a body, the reader splits on it ──────────────────
@@ -684,7 +684,7 @@ public class LanguageLineTests
     /// carries no line, so a <c>%LANGUAGE</c> line in its text would be read back as one.</summary>
     [Theory]
     [InlineData("%LANGUAGE LD UNSUPPORTED", "%LANGUAGE LD UNSUPPORTED")]
-    [InlineData("%LANGUAGE LD\n%NETWORK\nx := 1;", "%LANGUAGE LD")]
+    [InlineData("%LANGUAGE LD\n%NETWORK\nASSIGN(1, Q => x);", "%LANGUAGE LD")]
     [InlineData("x := 1;\n%LANGUAGE st", "%LANGUAGE st")]
     [InlineData("x := 1;\n%LANGUAGE", "%LANGUAGE")]
     public void An_ST_body_with_a_LANGUAGE_line_is_refused_naming_the_line(string body, string line)

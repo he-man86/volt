@@ -68,7 +68,7 @@ public class CodesysCalleeDerivationTests
     [Fact]
     public void A_positional_function_call_is_built_with_the_function_call_type_and_its_input_names()
     {
-        var box = Built("y := AwF(v);");
+        var box = Built("ASSIGN(AwF(v), Q => y);");
         Assert.Equal(Nwl.Operator.Function, box.CallType);
         Assert.Equal(new[] { "i" }, InputNames(box));
         Assert.Equal(new[] { "   " }, OutputNames(box));   // the result pin, as drawn
@@ -79,7 +79,7 @@ public class CodesysCalleeDerivationTests
     [Fact]
     public void A_function_call_with_an_output_pin_gets_them_too()
     {
-        var box = Built("twice := F_split(v, doubled => y).OUT;");
+        var box = Built("ASSIGN(F_split(v, doubled => y), Q => twice);");
         Assert.Equal(Nwl.Operator.Function, box.CallType);
         Assert.Equal(new[] { "source" }, InputNames(box));
         Assert.Equal(new[] { "   ", "doubled" }, OutputNames(box));
@@ -92,7 +92,7 @@ public class CodesysCalleeDerivationTests
     /// output read and the variable in the result slot. Live CODESYS 3.5.21.40: <c>y := F(n := i, OUT => k).q;</c> and
     /// <c>F(n := i, OUT => k).q;</c> write k and read q (openspec nwl-box-storage-map).</summary>
     [Theory]
-    [InlineData("x := F_read(v, OUT => y).done;")]
+    [InlineData("ASSIGN(F_read(v, OUT => y).done, Q => x);")]
     [InlineData("F_read(v, OUT => y).done;")]
     public void A_function_read_through_a_VAR_OUTPUT_holds_its_value_in_the_result_slot(string statement)
     {
@@ -107,14 +107,14 @@ public class CodesysCalleeDerivationTests
     /// <summary>An unwired VAR_OUTPUT is drawn too: the editor lists every one (RuntimeGuard, 4 of 4).</summary>
     [Fact]
     public void An_unwired_output_is_listed_too() =>
-        Assert.Equal(new[] { "   ", "doubled" }, OutputNames(Built("twice := F_split(v).OUT;")));
+        Assert.Equal(new[] { "   ", "doubled" }, OutputNames(Built("ASSIGN(F_split(v), Q => twice);")));
 
     /// <summary>ld-fbd-coverage 2R.4b: a LIBRARY function's box, positional or named, is built as the editor draws it —
     /// CallType Function, its input named, the result pin — from the IDE's library signature. Without it CODESYS answers
     /// "The assignment source is incorrect." (`ng_m_library_function`, `…_named`; bakon-nano's REPLACE/DELETE).</summary>
     [Theory]
-    [InlineData("y := LEN(txt);")]
-    [InlineData("y := LEN(STR := txt);")]
+    [InlineData("ASSIGN(LEN(txt), Q => y);")]
+    [InlineData("ASSIGN(LEN(STR := txt), Q => y);")]
     public void A_library_function_call_is_built_with_the_function_call_type_and_its_input_names(string statement)
     {
         var box = Built(statement);
@@ -126,7 +126,7 @@ public class CodesysCalleeDerivationTests
     [Fact]
     public void A_method_call_is_built_with_the_method_call_type()
     {
-        var box = Built("x := fbm.Start(run := go);");
+        var box = Built("ASSIGN(fbm.Start(run := go), Q => x);");
         Assert.Equal(Nwl.Operator.Method, box.CallType);
         Assert.Equal(new[] { "run" }, InputNames(box));
     }
@@ -135,7 +135,7 @@ public class CodesysCalleeDerivationTests
     /// leaves them to the vendor.</summary>
     [Theory]
     [InlineData("fbm(run := go);")]
-    [InlineData("y := TO_INT(v);")]
+    [InlineData("ASSIGN(TO_INT(v), Q => y);")]
     public void Every_other_call_keeps_the_fresh_call_type(string statement) =>
         Assert.False(Built(statement).CallTypeSet);
 }

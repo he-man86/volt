@@ -87,7 +87,7 @@ public class NetworkScopeTests
     [Fact]
     public void A_wire_shaped_global_is_the_variable_not_an_undeclared_wire()
     {
-        var r = Gate(Src("out := g7;"), InMethod);
+        var r = Gate(Src("ASSIGN(g7, Q => out);"), InMethod);
 
         Assert.True(r.Ok, string.Join("\n", r.Diagnostics.Select(d => d.Code + " " + d.Message)));
         Assert.Equal("g7", Assert.IsType<Leaf>(Assert.IsType<Assign>(r.Body!.Networks[0].Trees[0]).Value).Operand.Text);
@@ -142,24 +142,24 @@ public class NetworkScopeTests
     // ── a POU named like a construct (task 3.6) ─────────────────────────────────────────────────
 
     /// <summary>The edge is the text's own function <c>RISING(x)</c>: with a FUNCTION named <c>RISING</c> in the
-    /// project, the text would mean two things, and the call is refused by name.</summary>
+    /// project, the text would mean two things, and the body is refused by name (network-language rule 9).</summary>
     [Fact]
     public void A_project_function_named_RISING_makes_the_edge_refused_by_name()
     {
         var scope = ScopeOf(SourceScopes.Scope(Method, Owner), withEdgeFunction: true);
-        var call = Gate(Src("out := RISING(x);"), scope);
+        var call = Gate(Src("ASSIGN(RISING(x), Q => out);"), scope);
         Assert.False(call.Ok);
-        Assert.Contains("names something declared in reach", call.Diagnostics[0].Message);
+        Assert.Contains("a POU or variable named INVERT, RISING, FALLING or ASSIGN", call.Diagnostics[0].Message);
     }
 
     /// <summary>…and the same text is the edge flag when no POU takes the name.</summary>
     [Fact]
     public void Without_such_a_POU_RISING_is_the_edge()
     {
-        var r = Gate(Src("out := RISING(x);"), InMethod);
+        var r = Gate(Src("ASSIGN(RISING(x), Q => out);"), InMethod);
 
         Assert.True(r.Ok);
-        Assert.True(Assert.IsType<Leaf>(Assert.IsType<Assign>(r.Body!.Networks[0].Trees[0]).Value).Flags.Rising);
+        Assert.True(Assert.IsType<Assign>(r.Body!.Networks[0].Trees[0]).Flags.Rising);
     }
 
     // ── review of section 3: the declarations a scope is built from ─────────────────────────────
@@ -379,7 +379,7 @@ public class NetworkScopeTests
         var scope = NetworkScope.FromDeclarations("FUNCTION_BLOCK FB\nVAR\n    k : INT;\n    x : INT;\n    out : INT;\nEND_VAR",
             _ => null, () => Array.Empty<string>(), Scopes.NoItem, Scopes.RefusedPouName, Scopes.NoLibrary);
 
-        var r = Gate(Src("out := k(x);"), scope);
+        var r = Gate(Src("ASSIGN(k(x), Q => out);"), scope);
 
         var box = Assert.IsType<Box>(Assert.IsType<Assign>(Assert.Single(r.Body!.Networks[0].Trees)).Value);
         Assert.Null(box.Instance);

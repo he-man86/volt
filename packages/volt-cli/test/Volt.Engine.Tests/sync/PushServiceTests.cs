@@ -438,7 +438,7 @@ public class PushServiceTests
         var items = new System.Collections.Generic.List<FakeIde.Item>
         {
             new("PLC_PRG", ItemKind.PlcPou, "", true, "PROGRAM PLC_PRG\nVAR\n  out : BOOL;\nEND_VAR",
-                "%LANGUAGE LD\n%NETWORK\nout := TRUE;", "LD", null),
+                "%LANGUAGE LD\n%NETWORK\nASSIGN(TRUE, Q => out);", "LD", null),
         };
         if (withGlobal) items.Add(FakeIde.Item.TextualPou("GVL_Main", "VAR_GLOBAL\n  W1 : BOOL;\nEND_VAR", ""));
         var ide = new FakeIde(items.ToArray());
@@ -449,7 +449,7 @@ public class PushServiceTests
             Name = "PLC_PRG.pou",
             IfVersion = v,
             SourceText = "PROGRAM PLC_PRG\nVAR\n  out : BOOL;\nEND_VAR\n%LANGUAGE LD\n" +
-                         "%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := TRUE;\nout := w1;\n\nEND_PROGRAM\n",
+                         "%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := TRUE;\nASSIGN(w1, Q => out);\n\nEND_PROGRAM\n",
         });
 
         if (!withGlobal)

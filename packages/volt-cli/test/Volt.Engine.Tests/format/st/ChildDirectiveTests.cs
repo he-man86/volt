@@ -33,7 +33,7 @@ public class ChildDirectiveTests
             Body: "",
             Members: new List<Member>
             {
-                Child("action", "BF01", "ACTION BF01", "%LANGUAGE FBD\n%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := a;\nout := w1;", "MFB01_Basic Functions"),
+                Child("action", "BF01", "ACTION BF01", "%LANGUAGE FBD\n%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := a;\nASSIGN(w1, Q => out);", "MFB01_Basic Functions"),
                 Child("action", "TA01", "ACTION TA01", "x := 1;", "Sub/Deep"),
             }, ObjectProperties.None);
 
@@ -54,7 +54,7 @@ public class ChildDirectiveTests
             "%NETWORK",
             "VAR w1 : ANY; END_VAR",
             "w1 := a;",
-            "out := w1;",
+            "ASSIGN(w1, Q => out);",
             "END_ACTION",
             "",
             "ACTION TA01",
@@ -74,7 +74,7 @@ public class ChildDirectiveTests
 
         var bf = split.Members.First(ch => ch.Name == "BF01");
         Assert.Equal("MFB01_Basic Functions", bf.Folder);
-        Assert.Equal("%LANGUAGE FBD\n%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := a;\nout := w1;", bf.Body);   // %FOLDER peeled off, the marker back in front
+        Assert.Equal("%LANGUAGE FBD\n%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := a;\nASSIGN(w1, Q => out);", bf.Body);   // %FOLDER peeled off, the marker back in front
         Assert.True(NetworkText.Is(bf.Body));
 
         var ta = split.Members.First(ch => ch.Name == "TA01");
@@ -101,8 +101,8 @@ public class ChildDirectiveTests
     }
 
     [Theory]
-    [InlineData("%LANGUAGE FBD\n%NETWORK\nout := i1;", "FBD", true)]   // editable: language on the marker
-    [InlineData("%LANGUAGE LD\n%NETWORK\nout := i1;", "LD", true)]
+    [InlineData("%LANGUAGE FBD\n%NETWORK\nASSIGN(i1, Q => out);", "FBD", true)]   // editable: language on the marker
+    [InlineData("%LANGUAGE LD\n%NETWORK\nASSIGN(i1, Q => out);", "LD", true)]
     [InlineData("%LANGUAGE LD", "LD", true)]   // a graphical body with no network is still one
     [InlineData("x := 1;", null, false)]      // textual ST — and read-only CFC/SFC (declaration-only) too: not a network-text body
     public void NetworkText_classifies_language_and_editability(string impl, string? lang, bool editable)
@@ -118,8 +118,8 @@ public class ChildDirectiveTests
     [Fact]
     public void An_ST_function_block_with_an_LD_method_and_an_FBD_getter()
     {
-        const string ld = "%LANGUAGE LD\n%NETWORK\nout := a;";
-        const string fbd = "%LANGUAGE FBD\n%NETWORK\nSpeed := a;";
+        const string ld = "%LANGUAGE LD\n%NETWORK\nASSIGN(a, Q => out);";
+        const string fbd = "%LANGUAGE FBD\n%NETWORK\nASSIGN(a, Q => Speed);";
         var pou = new ItemContent(
             Kind: ItemKind.Kinds.Pou,
             Declaration: "FUNCTION_BLOCK FB\nVAR\n  a : BOOL;\n  out : BOOL;\nEND_VAR",
@@ -147,14 +147,14 @@ public class ChildDirectiveTests
             "METHOD Run : BOOL",
             "%LANGUAGE LD",
             "%NETWORK",
-            "out := a;",
+            "ASSIGN(a, Q => out);",
             "END_METHOD",
             "",
             "PROPERTY Speed : BOOL",
             "GET",
             "%LANGUAGE FBD",
             "%NETWORK",
-            "Speed := a;",
+            "ASSIGN(a, Q => Speed);",
             "END_GET",
             "END_PROPERTY",
             ""), st);

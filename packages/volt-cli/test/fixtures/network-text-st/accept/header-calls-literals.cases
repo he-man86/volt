@@ -2,19 +2,19 @@
 === text
 %LANGUAGE FBD
 %NETWORK
-x := OPERAND('INT_TO_WORD(i)');
-y := ADD(OPERAND('a.b*10'), 1);
-z := NOT OPERAND('a OR b');
-w := OPERAND('s = $'x$'');
-v := RISING(OPERAND('a AND b'));
-u := OPERAND('t = $'$$$$$'');
+ASSIGN(OPERAND('INT_TO_WORD(i)'), Q => x);
+ASSIGN(ADD(OPERAND('a.b*10'), 1), Q => y);
+ASSIGN(INVERT(OPERAND('a OR b')), Q => z);
+ASSIGN(OPERAND('s = $'x$''), Q => w);
+ASSIGN(RISING(OPERAND('a AND b')), Q => v);
+ASSIGN(OPERAND('t = $'$$$$$''), Q => u);
 === model
 NETWORK
   (:= x `INT_TO_WORD(i)`)
   (:= y (ADD `a.b*10` 1 conn:0))
-  (:= z not:`a OR b`)
+  (:= z item:! `a OR b`)
   (:= w `s = 'x'`)
-  (:= v rise:`a AND b`)
+  (:= v item:/ `a AND b`)
   (:= u `t = '$$'`)
 
 #### header-order
@@ -23,7 +23,7 @@ NETWORK
 %NETWORK "Calc"
 %DISABLED
 Start:
-x := a;
+ASSIGN(a, Q => x);
 === model
 NETWORK label:Start disabled title:"Calc"
   (:= x a)
@@ -32,7 +32,7 @@ NETWORK label:Start disabled title:"Calc"
 === text
 %LANGUAGE LD
 %NETWORK "Calc $"A$" $$5 $R$L"
-x := a;
+ASSIGN(a, Q => x);
 === model
 NETWORK title:"Calc \"A\" $5 \r\n"
   (:= x a)
@@ -41,7 +41,7 @@ NETWORK title:"Calc \"A\" $5 \r\n"
 === text
 %LANGUAGE LD
 %NETWORK "a$R$Lb	c'd"
-x := a;
+ASSIGN(a, Q => x);
 === model
 NETWORK title:"a\r\nb\tc'd"
   (:= x a)
@@ -54,7 +54,7 @@ NETWORK title:"a\r\nb\tc'd"
 //   indented
 //
 // last
-x := a;
+ASSIGN(a, Q => x);
 === model
 NETWORK comment:"first line\r\n  indented\r\n\r\nlast"
   (:= x a)
@@ -65,7 +65,7 @@ NETWORK comment:"first line\r\n  indented\r\n\r\nlast"
 %NETWORK
 // only
 //
-x := a;
+ASSIGN(a, Q => x);
 === model
 NETWORK comment:"only\r\n"
   (:= x a)
@@ -75,7 +75,7 @@ NETWORK comment:"only\r\n"
 %LANGUAGE LD
 %NETWORK
 // cost $$5$Lnext$Rend
-x := a;
+ASSIGN(a, Q => x);
 === model
 NETWORK comment:"cost $5\nnext\rend"
   (:= x a)
@@ -111,7 +111,7 @@ fb TON IN PT => Q ET
 === text
 %LANGUAGE LD
 %NETWORK
-output := t2(IN := TRUE, PT := e1).Q;
+ASSIGN(t2(IN := TRUE, PT := e1), Q => output);
 === model
 NETWORK
   (:= output (TON@t2 IN=TRUE PT=e1 name:Q))
@@ -155,7 +155,7 @@ instance fbm FB_M
 === text
 %LANGUAGE FBD
 %NETWORK
-x := fbm.Visible(on := go);
+ASSIGN(fbm.Visible(on := go), Q => x);
 === model
 NETWORK
   (:= x (fbm.Visible on=go conn:0))
@@ -164,7 +164,7 @@ NETWORK
 === text
 %LANGUAGE FBD
 %NETWORK
-y := LIMIT(0, v, 100);
+ASSIGN(LIMIT(0, v, 100), Q => y);
 === model
 NETWORK
   (:= y (LIMIT 0 v 100 conn:0))
@@ -177,18 +177,18 @@ fb TON IN PT => Q ET
 === text
 %LANGUAGE FBD
 %NETWORK
-q := t1(IN := NOT v, PT := T#1S).Q;
-p := t2(IN := NOT v, PT := T#1S).Q;
+ASSIGN(t1(IN := INVERT(v), PT := T#1S), Q => q);
+ASSIGN(t2(IN := INVERT(v), PT := T#1S), Q => p);
 === model
 NETWORK
-  (:= q (TON@t1 IN=not:v PT=T#1S name:Q))
-  (:= p (TON@t2 IN=not:v PT=T#1S name:Q))
+  (:= q (TON@t1 !IN=v PT=T#1S name:Q))
+  (:= p (TON@t2 !IN=v PT=T#1S name:Q))
 
 #### negated-contact
 === text
 %LANGUAGE LD
 %NETWORK
-x := a AND NOT b;
+ASSIGN(a AND INVERT(b), Q => x);
 === model
 NETWORK
   (:= x (AND a not:b))
@@ -197,20 +197,20 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-a := RISING(x);
-b := FALLING(x);
-c := RISING(NOT x);
+ASSIGN(RISING(x), Q => a);
+ASSIGN(FALLING(x), Q => b);
+ASSIGN(RISING(INVERT(x)), Q => c);
 === model
 NETWORK
-  (:= a rise:x)
-  (:= b fall:x)
-  (:= c rise:not:x)
+  (:= a item:/ x)
+  (:= b item:\ x)
+  (:= c item:/ not:x)
 
 #### negated-call
 === text
 %LANGUAGE FBD
 %NETWORK
-x := NOT(f(IN := a));
+ASSIGN(NOT(f(IN := a)), Q => x);
 === model
 NETWORK
   (:= x (NOT (f IN=a conn:0)))
@@ -219,11 +219,11 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-sName := 'Recipes';
-n := -1;
-re := -1.5;
-t := T#1S;
-w := 16#FF;
+ASSIGN('Recipes', Q => sName);
+ASSIGN(-1, Q => n);
+ASSIGN(-1.5, Q => re);
+ASSIGN(T#1S, Q => t);
+ASSIGN(16#FF, Q => w);
 === model
 NETWORK
   (:= sName 'Recipes')
@@ -236,7 +236,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-MOVE(EN := go, DIV(DINT_TO_LREAL(pos), 10), OUT => target).ENO;
+MOVE(EN := go, DIV(DINT_TO_LREAL(pos), 10), OUT => target);
 === model
 NETWORK
   (MOVE (DIV (DINT_TO_LREAL pos conn:0) 10 conn:0) =>1:target en:go eno:1)
@@ -256,7 +256,7 @@ fb TON IN PT => Q ET
 === text
 %LANGUAGE LD
 %NETWORK
-q := ton1(IN := TRUE).Q;
+ASSIGN(ton1(IN := TRUE), Q => q);
 === model
 NETWORK
   (:= q (TON@ton1 IN=TRUE name:Q))
@@ -265,9 +265,9 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-y := ENO;
-EN := c;
-z := Branch AND ShortCircuit;
+ASSIGN(ENO, Q => y);
+ASSIGN(c, Q => EN);
+ASSIGN(Branch AND ShortCircuit, Q => z);
 === model
 NETWORK
   (:= y ENO)
@@ -296,7 +296,7 @@ NETWORK
 %LANGUAGE FBD
 %NETWORK "x"
 %DISABLED
-y := a;
+ASSIGN(a, Q => y);
 === model
 NETWORK disabled title:"x"
   (:= y a)

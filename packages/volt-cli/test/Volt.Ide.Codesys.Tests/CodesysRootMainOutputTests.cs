@@ -89,7 +89,7 @@ public class CodesysRootMainOutputTests
     [Fact]
     public void A_root_showing_ENO_stores_the_ENO_and_every_declared_output()
     {
-        var box = Root(Pushed("c2(EN := e, CU := a, PV := 5).ENO;"));
+        var box = Root(Pushed("c2(EN := e, CU := a, PV := 5);"));
         Assert.Equal(new[] { "ENO", "Q", "CV" }, Names(box));
         Assert.Equal(new[] { null, "", "" }, Slots(box));
     }
@@ -133,14 +133,14 @@ public class CodesysRootMainOutputTests
     public void A_stored_main_slot_past_the_first_pulls_as_its_name()
     {
         var text = StNetworkWriter.WritePulled(CodesysNetworkReader.ReadShown(Stored(1, "Q", "CV"), BodyLanguage.Fbd), Scope());
-        Assert.Contains("c2(CU := a).CV;\n", text);
+        Assert.Contains("c2(CU := a).CV;", text);
     }
 
     [Fact]
     public void A_stored_main_slot_0_pulls_with_no_closer()
     {
         var text = StNetworkWriter.WritePulled(CodesysNetworkReader.ReadShown(Stored(0, "Q", "CV"), BodyLanguage.Fbd), Scope());
-        Assert.Contains("c2(CU := a);\n", text);
+        Assert.Contains("c2(CU := a);", text);
     }
 
     /// <summary>The reader and a text read hold one model: an unchanged pull is no change for the push.</summary>
@@ -187,20 +187,20 @@ public class CodesysRootMainOutputTests
     /// source is incorrect."); both nulls build and run as the first one alone, and draw as the editor's box.</summary>
     [Theory]
     [InlineData("PRG_2(CU := a);", "Q,CV", "~,~,_")]
-    [InlineData("x := PRG_2(CU := a).Q;", "Q,CV", "~,~,_")]
-    [InlineData("n := PRG_2(CU := a).CV;", "Q,CV", "_,~,_")]
+    [InlineData("ASSIGN(PRG_2(CU := a), Q => x);", "Q,CV", "~,~,_")]
+    [InlineData("ASSIGN(PRG_2(CU := a).CV, Q => n);", "Q,CV", "_,~,_")]
     [InlineData("PRG_2(CU := a).CV;", "Q,CV", "_,~,_")]
     [InlineData("PRG_2(CU := a, CV => n);", "Q,CV", "~,n,_")]
     [InlineData("PRG_2(CU := a, Q => x, CV => n);", "Q,CV", "x,n,_")]
     [InlineData("PRG_2(CU := a, Q => x);", "Q,CV", "x,_,_")]
     [InlineData("PRG_1(CU := a);", "Q", "~,~")]
-    [InlineData("x := PRG_1(CU := a);", "Q", "~,~")]
+    [InlineData("ASSIGN(PRG_1(CU := a), Q => x);", "Q", "~,~")]
     [InlineData("PRG_0(CU := a);", "", "~")]
-    [InlineData("PRG_2(EN := e, CU := a).ENO;", "ENO,Q,CV", "~,_,~,_")]
-    [InlineData("x := PRG_2(EN := e, CU := a).ENO;", "ENO,Q,CV", "~,_,~,_")]
-    [InlineData("PRG_2(EN := e, CU := a, Q => x).ENO;", "ENO,Q,CV", "~,x,~,_")]
-    [InlineData("PRG_1(EN := e, CU := a).ENO;", "ENO,Q", "~,_,~")]
-    [InlineData("PRG_0(EN := e, CU := a).ENO;", "ENO", "~,~")]
+    [InlineData("PRG_2(EN := e, CU := a);", "ENO,Q,CV", "~,_,~,_")]
+    [InlineData("ASSIGN(PRG_2(EN := e, CU := a), Q => x);", "ENO,Q,CV", "~,_,~,_")]
+    [InlineData("PRG_2(EN := e, CU := a, Q => x);", "ENO,Q,CV", "~,x,~,_")]
+    [InlineData("PRG_1(EN := e, CU := a);", "ENO,Q", "~,_,~")]
+    [InlineData("PRG_0(EN := e, CU := a);", "ENO", "~,~")]
     public void A_program_box_stores_the_output_list_the_editor_inserts(string statement, string names, string slots)
     {
         var tree = ((Nwl.Network)Pushed(statement).NetworkList.Single()).GetTree(0)!;
@@ -216,7 +216,7 @@ public class CodesysRootMainOutputTests
     [Fact]
     public void A_program_box_read_past_its_first_output_builds_on_CODESYS()
     {
-        var box = (Nwl.BoxTreeBox)((Nwl.BoxTreeAssign)((Nwl.Network)Pushed("n := PRG_2(CU := a).CV;").NetworkList.Single()).GetTree(0)!).RValue!;
+        var box = (Nwl.BoxTreeBox)((Nwl.BoxTreeAssign)((Nwl.Network)Pushed("ASSIGN(PRG_2(CU := a).CV, Q => n);").NetworkList.Single()).GetTree(0)!).RValue!;
         Assert.Equal(1, box.Outputs.List.IndexOf(null!));
     }
 }

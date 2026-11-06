@@ -730,7 +730,7 @@ public class CodesysNetworkReaderTests
 
         // A negated pin spells its own mark, before its receiver's name: an unnamed pin's name is empty.
         var body = new NetworkBody(BodyLanguage.Fbd, new[] { read });
-        Assert.Contains("\nout := AND(a, NOT := xIsWarningInfo);\n",
+        Assert.Contains("ASSIGN(AND(a, INVERT(xIsWarningInfo)), Q => out);",
             StNetworkWriter.Write(body, Volt.Tests.Shared.NetworkModelScopes.ScopeOf(body)));
     }
 
@@ -959,7 +959,7 @@ public class CodesysNetworkReaderTests
         var body = CodesysNetworkReader.Read(Nwl.Body(assign), BodyLanguage.Ld);
         var text = StNetworkWriter.Write(body, NetworkScope.Empty);
 
-        Assert.Contains("RETURN := ioAxis.xVirtual;", text);
+        Assert.Contains("ASSIGN(ioAxis.xVirtual, Q => RETURN);", text);
         Assert.DoesNotContain("???", text);
     }
 
@@ -1085,8 +1085,8 @@ public class CodesysNetworkReaderTests
     [Theory]
     // The output names Volt builds an operator with (ld-fbd-coverage 2.3, NetworkMembers.DerivedOutputNames): its data
     // result, unnamed — the IDE's own form — and an ENO echo first where the box has one.
-    [InlineData("MAX", false, new[] { "" }, 0, "n := MAX(a, b);")]
-    [InlineData("ADD", false, new[] { "" }, 0, "n := ADD(a, b);")]
+    [InlineData("MAX", false, new[] { "" }, 0, "ASSIGN(MAX(a, b), Q => n);")]
+    [InlineData("ADD", false, new[] { "" }, 0, "ASSIGN(ADD(a, b), Q => n);")]
     // Read through its ENO with its value wired nowhere: the IDE does not build it (live CODESYS 3.5.21.40, openspec
     // nwl-box-storage-map), and the writer refuses it by name.
     [InlineData("AND", true, new[] { "ENO" }, 0, null)]
@@ -1145,7 +1145,7 @@ public class CodesysNetworkReaderTests
 
         var read = Assert.IsType<Box>(Assert.IsType<Demux>(body.Networks.Single().Trees[0]).Input);
         Assert.Equal(new[] { "INT" }, read.OutputTypes);
-        Assert.Contains("\nw1 := ADD(a, b);\n",
+        Assert.Contains("w1 := ADD(a, b);",
             StNetworkWriter.Write(body, Volt.Tests.Shared.NetworkModelScopes.ScopeOf(body)));
     }
     /// <summary>A NETWORK THAT REPORTS MORE ITEMS THAN IT HAS reads as the trees it really has — the phantom slot

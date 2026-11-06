@@ -227,7 +227,7 @@ internal sealed class TcArchiveBuilder
         // AN EXECUTE BOX HIDING ITS ENO (network-text-one-to-one F13) is a shape no TwinCAT archive was seen to hold: its member
         // list is unmeasured, so it is refused by name rather than built from a guess.
         if (b.StCode is not null && !eno)
-            throw Unbuildable("an Execute box that shows no ENO has no measured archive form; write it with .ENO.");
+            throw Unbuildable("an Execute box that shows no ENO has no measured archive form; show its EN, EXECUTE(EN := …, '…').");
         // A ROOT'S MAIN OUTPUT PAST ITS FIRST (network-text-one-to-one F3) is a null past slot 0 on a box nothing consumes: no
         // fixture and no corpus archive holds one, so it is refused by name rather than built from a guess.
         if (!consumed && b.ConnectedSlot is > 0)

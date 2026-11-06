@@ -21,7 +21,7 @@ namespace Volt.Engine.Tests;
 public class LanguageChangeGuardTests
 {
     const string Decl = "PROGRAM P\nVAR\n\ta : BOOL;\n\tq : BOOL;\nEND_VAR";
-    const string Fbd = "%LANGUAGE FBD\n%NETWORK\nq := a;";
+    const string Fbd = "%LANGUAGE FBD\n%NETWORK\nASSIGN(a, Q => q);";
 
     static ItemContent Pou(string? body, StatedLanguage? stated) =>
         new(ItemKind.Kinds.Pou, Decl, body, new List<Member>(), ObjectProperties.None, Stated: stated);

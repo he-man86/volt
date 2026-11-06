@@ -2,7 +2,7 @@
 === text
 %LANGUAGE FBD
 %NETWORK
-x := OPERAND('a');
+ASSIGN(OPERAND('a'), Q => x);
 === refused
 network-plain-st a plain operand is written as it stands
 
@@ -10,7 +10,7 @@ network-plain-st a plain operand is written as it stands
 === text
 %LANGUAGE FBD
 %NETWORK
-x := OPERAND(a);
+ASSIGN(OPERAND(a), Q => x);
 === refused
 network-plain-st OPERAND takes one string
 
@@ -18,7 +18,7 @@ network-plain-st OPERAND takes one string
 === text
 %LANGUAGE FBD
 %NETWORK
-x := OPERAND('a + 1', 'b');
+ASSIGN(OPERAND('a + 1', 'b'), Q => x);
 === refused
 network-plain-st OPERAND takes one string
 
@@ -26,7 +26,7 @@ network-plain-st OPERAND takes one string
 === text
 %LANGUAGE FBD
 %NETWORK
-x := OPERAND('a$N+ b');
+ASSIGN(OPERAND('a$N+ b'), Q => x);
 === refused
 network-plain-st the escape '$N'
 
@@ -34,7 +34,7 @@ network-plain-st the escape '$N'
 === text
 %LANGUAGE FBD
 %NETWORK
-x := OPERAND('');
+ASSIGN(OPERAND(''), Q => x);
 === refused
 network-plain-st OPERAND holds no text
 
@@ -89,121 +89,81 @@ IF a THEN x := b; END_IF;
 === refused
 network-plain-st holds no IF
 
-#### if-around-a-jump — a jump on a value is JMP.label := value
+#### if-around-a-jump — a jump on a value is ASSIGN(value, Q => JMP.label)
 === text
 %LANGUAGE LD
 %NETWORK
 l:
 IF a THEN JMP l; END_IF;
 === refused
-network-plain-st a jump on a value is JMP.label := value
+network-plain-st a jump on a value is ASSIGN(value, Q => JMP.label)
 
-#### jump-as-a-call — a jump is a target, JMP.label := value
+#### jump-as-a-call — a jump is a target of an ASSIGN
 === text
 %LANGUAGE LD
 %NETWORK
 l:
 JMP(l, c AND d);
 === refused
-network-plain-st a jump or a return is a target: JMP.label := value
+network-plain-st a jump or a return is a target of an ASSIGN
 
-#### jump-statement — a jump is a target, also on the rail
+#### jump-statement — a jump is a target of an ASSIGN, also on the rail
 === text
 %LANGUAGE LD
 %NETWORK
 l:
 JMP l;
 === refused
-network-plain-st a jump or a return is a target: JMP.label := value
+network-plain-st a jump or a return is a target of an ASSIGN
 
-#### return-statement — the return is a target, also on the rail
+#### return-statement — the return is a target of an ASSIGN, also on the rail
 === text
 %LANGUAGE LD
 %NETWORK
 RETURN;
 === refused
-network-plain-st a jump or a return is a target: JMP.label := value
+network-plain-st a jump or a return is a target of an ASSIGN
 
-#### jump-in-a-tree-as-a-call — a jump in a tree is a nested target, (JMP.label := value)
+#### jump-in-a-tree-as-a-call — a jump in a tree is a target of a nested ASSIGN
 === text
 %LANGUAGE LD
 %NETWORK
 l:
-y := JMP(l, c);
+ASSIGN(JMP(l, c), Q => y);
 === refused
-network-plain-st a jump or a return is a target: JMP.label := value
+network-plain-st a jump or a return is a target of an ASSIGN
 
-#### set-jump — a jump or a return takes :=
+#### set-jump — a jump or a return is no set or reset coil
 === text
 %LANGUAGE LD
 %NETWORK
-RETURN S= c;
+ASSIGN(c, Q_SET => RETURN);
 === refused
-network-plain-st RETURN S=: a jump or a return takes :=
-
-#### negated-set-coil — NOT on a set or reset coil names no coil of its own
-=== text
-%LANGUAGE LD
-%NETWORK
-NOT y S= a;
-=== refused
-network-plain-st a negated set or reset coil is no coil of its own
-
-#### marks-in-reverse-order — stacked, the edge stands outside the negation
-=== text
-%LANGUAGE LD
-%NETWORK
-NOT RISING y := a;
-=== refused
-network-plain-st the IDE negates first, so the edge is written outside the negation
-
-#### not-before-an-edge — stacked on a value, the edge stands outside the negation
-=== text
-%LANGUAGE LD
-%NETWORK
-x := NOT RISING(a);
-=== refused
-network-plain-st NOT before an edge: the IDE negates first
-
-#### edge-word-on-a-value — a value's edge is the call RISING(…)
-=== text
-%LANGUAGE LD
-%NETWORK
-x := RISING a;
-=== refused
-network-plain-st a value's edge is the call RISING(…) / FALLING(…)
-
-#### marked-coil-inside-a-chain — a marked coil leads its chain
-=== text
-%LANGUAGE LD
-%NETWORK
-y := NOT x := a;
-=== refused
-network-plain-st a marked coil inside a chain
+network-plain-st a jump or a return is no set or reset coil
 
 #### rail-with-a-value — the rail takes no value
 === text
 %LANGUAGE LD
 %NETWORK
-x := RAIL(a);
+ASSIGN(RAIL(a), Q => x);
 === refused
 network-plain-st the rail RAIL() takes no value
 
-#### mark-on-a-wire — a wire holds no mark
+#### mark-on-a-wire — a wire is no ASSIGN target
 === text
 %LANGUAGE LD
 %NETWORK
 VAR w1 : ANY; END_VAR
-NOT w1 := a;
-x := w1;
+ASSIGN(a, Q_INVERTED => w1);
+ASSIGN(w1, Q => x);
 === refused
-network-plain-st a mark on the wire w1
+network-plain-st a wire is defined alone
 
 #### infix-comparison — every box is a call
 === text
 %LANGUAGE FBD
 %NETWORK
-x := i > 3;
+ASSIGN(i > 3, Q => x);
 === refused
 network-plain-st every box is a call
 
@@ -211,7 +171,7 @@ network-plain-st every box is a call
 === text
 %LANGUAGE FBD
 %NETWORK
-n := i + j;
+ASSIGN(i + j, Q => n);
 === refused
 network-plain-st every box is a call
 
@@ -219,20 +179,9 @@ network-plain-st every box is a call
 === text
 %LANGUAGE LD
 %NETWORK
-x := a XOR b;
+ASSIGN(a XOR b, Q => x);
 === refused
 network-plain-st every box is a call
-
-#### not-before-a-wire — NOT marks a contact or a box read where it stands
-=== text
-%LANGUAGE LD
-%NETWORK
-VAR w1 : ANY; END_VAR
-w1 := AND(a, b);
-x := NOT w1;
-y := w1;
-=== refused
-network-plain-st NOT marks a contact or a box read where it stands
 
 #### block-comment — a network's comment is its // lines
 === text
@@ -246,9 +195,9 @@ network-plain-st (* comment
 === text
 %LANGUAGE LD
 %NETWORK
-x := a;
+ASSIGN(a, Q => x);
 // late
-y := b;
+ASSIGN(b, Q => y);
 === refused
 network-plain-st comment after the code starts
 
@@ -265,7 +214,7 @@ network-plain-st a pragma {
 === text
 %LANGUAGE LD
 %NETWORK
-MOVE(1, EN := c, OUT => x).ENO;
+MOVE(1, EN := c, OUT => x);
 === refused
 network-plain-st stands first
 
@@ -274,8 +223,8 @@ network-plain-st stands first
 %LANGUAGE LD
 %NETWORK
 VAR w1 : ANY; END_VAR
-MOVE(EN := c, 1, OUT => w1).ENO;
-y := w1;
+MOVE(EN := c, 1, OUT => w1);
+ASSIGN(w1, Q => y);
 === refused
 network-plain-st a wire is defined by
 
@@ -301,7 +250,7 @@ t1(IN := a, PT := T#1S).X;
 === refused
 network-plain-st names no output of TON
 
-#### root-names-its-one-output — a box with one output names none, at a root too
+#### root-names-its-one-output — a root names no first output
 === scope
 instance r1 R_TRIG
 fb R_TRIG CLK => Q
@@ -310,7 +259,7 @@ fb R_TRIG CLK => Q
 %NETWORK
 r1(CLK := a).Q;
 === refused
-network-plain-st a box with one output names none
+network-plain-st a root with no closer is its first output
 
 #### root-function-names-its-value — a function's value is its first output
 === scope
@@ -330,8 +279,8 @@ name w1
 %NETWORK
 VAR w1 : ANY; END_VAR
 w1 := a AND b;
-x := w1;
-y := w1;
+ASSIGN(w1, Q => x);
+ASSIGN(w1, Q => y);
 === refused
 network-plain-st declared in reach
 
@@ -341,8 +290,8 @@ network-plain-st declared in reach
 %NETWORK
 VAR w1 : ANY; w1 : ANY; END_VAR
 w1 := a AND b;
-x := w1;
-y := w1;
+ASSIGN(w1, Q => x);
+ASSIGN(w1, Q => y);
 === refused
 network-plain-st is named twice
 
@@ -352,13 +301,13 @@ network-plain-st is named twice
 %NETWORK
 VAR w1 : ANY; END_VAR
 w1 := a AND b;
-x := w1;
-y := w1;
+ASSIGN(w1, Q => x);
+ASSIGN(w1, Q => y);
 %NETWORK
 VAR w1 : ANY; END_VAR
 w1 := c;
-u := w1;
-v := w1;
+ASSIGN(w1, Q => u);
+ASSIGN(w1, Q => v);
 === refused
 network-plain-st named on an earlier network too
 
@@ -368,8 +317,8 @@ network-plain-st named on an earlier network too
 %NETWORK
 VAR split1 : ANY; END_VAR
 split1 := a AND b;
-x := split1;
-y := split1;
+ASSIGN(split1, Q => x);
+ASSIGN(split1, Q => y);
 === refused
 network-plain-st a wire is w<n>
 
@@ -380,8 +329,8 @@ network-plain-st a wire is w<n>
 VAR w1 : ANY; END_VAR
 w1 := a;
 w1 := b;
-x := w1;
-y := w1;
+ASSIGN(w1, Q => x);
+ASSIGN(w1, Q => y);
 === refused
 network-plain-st is defined twice
 
@@ -390,9 +339,9 @@ network-plain-st is defined twice
 %LANGUAGE LD
 %NETWORK
 VAR w1 : ANY; END_VAR
-x := w1 := a;
-y := w1;
-z := w1;
+ASSIGN(a, Q => x, Q => w1);
+ASSIGN(w1, Q => y);
+ASSIGN(w1, Q => z);
 === refused
 network-plain-st a wire is defined alone
 
@@ -401,7 +350,7 @@ network-plain-st a wire is defined alone
 %LANGUAGE LD
 %NETWORK
 VAR w1 : ANY; END_VAR
-x := a;
+ASSIGN(a, Q => x);
 === refused
 network-plain-st is named and never defined
 
@@ -411,10 +360,10 @@ network-plain-st is named and never defined
 %NETWORK
 VAR w1 : ANY; END_VAR
 w1 := a AND b;
-x := w1;
-y := w1;
+ASSIGN(w1, Q => x);
+ASSIGN(w1, Q => y);
 %NETWORK
-z := w1;
+ASSIGN(w1, Q => z);
 === refused
 network-plain-st is read outside its network
 
@@ -422,9 +371,9 @@ network-plain-st is read outside its network
 === text
 %LANGUAGE LD
 %NETWORK
-x := a;
+ASSIGN(a, Q => x);
 l2:
-y := b;
+ASSIGN(b, Q => y);
 === refused
 network-plain-st a label stands first in its network
 
@@ -435,8 +384,8 @@ network-plain-st a label stands first in its network
 VAR w1 : ANY; END_VAR
 %DISABLED
 w1 := a AND b;
-x := w1;
-y := w1;
+ASSIGN(w1, Q => x);
+ASSIGN(w1, Q => y);
 === refused
 network-plain-st a network's % lines stand first
 
@@ -445,7 +394,7 @@ network-plain-st a network's % lines stand first
 %LANGUAGE LD
 %NETWORK
 %COLOR red
-x := a;
+ASSIGN(a, Q => x);
 === refused
 network-plain-st a network holds no such line
 
@@ -454,7 +403,7 @@ network-plain-st a network holds no such line
 %LANGUAGE LD
 %NETWORK
 %UNSUPPORTED "an edge contact" #0011aabb
-x := a;
+ASSIGN(a, Q => x);
 === refused
 network-plain-st holds nothing else
 
@@ -470,7 +419,7 @@ network-plain-st the line is %UNSUPPORTED
 === text
 %LANGUAGE LD
 %NETWORK Start motor
-x := a;
+ASSIGN(a, Q => x);
 === refused
 network-plain-st a network title is one
 
@@ -478,7 +427,7 @@ network-plain-st a network title is one
 === text
 %LANGUAGE LD
 %NETWORK ""
-x := a;
+ASSIGN(a, Q => x);
 === refused
 network-plain-st an empty title
 
@@ -486,7 +435,7 @@ network-plain-st an empty title
 === text
 %LANGUAGE LD
 %NETWORK "a$Nb"
-x := a;
+ASSIGN(a, Q => x);
 === refused
 network-plain-st the escape '$N'
 
@@ -494,7 +443,7 @@ network-plain-st the escape '$N'
 === text
 %LANGUAGE LD
 %NETWORK "a$'b"
-x := a;
+ASSIGN(a, Q => x);
 === refused
 network-plain-st the escape '$''
 
@@ -502,7 +451,7 @@ network-plain-st the escape '$''
 === text
 %LANGUAGE LD
 %NETWORK "a$lb"
-x := a;
+ASSIGN(a, Q => x);
 === refused
 network-plain-st the escape '$l'
 
@@ -510,7 +459,7 @@ network-plain-st the escape '$l'
 === text
 %LANGUAGE LD
 %NETWORK "a$Tb"
-x := a;
+ASSIGN(a, Q => x);
 === refused
 network-plain-st the escape '$T'
 
@@ -519,7 +468,7 @@ network-plain-st the escape '$T'
 %LANGUAGE LD
 %NETWORK
 // a$Nb
-x := a;
+ASSIGN(a, Q => x);
 === refused
 network-plain-st the escape '$N'
 
@@ -528,7 +477,7 @@ network-plain-st the escape '$N'
 %LANGUAGE LD
 %NETWORK
 // a$"b
-x := a;
+ASSIGN(a, Q => x);
 === refused
 network-plain-st the escape '$"'
 
@@ -570,8 +519,8 @@ network-plain-st the escape '$N' in the Execute box's ST
 === text
 %LANGUAGE LD
 %NETWORK
-x := MOVE('a
-b');
+ASSIGN(MOVE('a
+b'), Q => x);
 === refused
 network-plain-st a string across a line
 
@@ -633,8 +582,8 @@ pou f
 === text
 %LANGUAGE LD
 %NETWORK
-x := f(CODE := 'a
-b');
+ASSIGN(f(CODE := 'a
+b'), Q => x);
 === refused
 network-plain-st a string across a line
 
@@ -642,7 +591,7 @@ network-plain-st a string across a line
 === text
 %LANGUAGE FBD
 %NETWORK
-x := Execute(IN := b);
+ASSIGN(Execute(IN := b), Q => x);
 === refused
 network-plain-st the Execute box takes EN := first where it shows EN, then its ST as one string '<ST>'
 
@@ -652,7 +601,7 @@ network-plain-st the Execute box takes EN := first where it shows EN, then its S
 %NETWORK
 VAR w1 : ANY; END_VAR
 l:
-JMP.l := AND(EN := c, a, b);
+ASSIGN(AND(EN := c, a, b).OUT, Q => JMP.l);
 === refused
 network-plain-st comparison operators only
 
@@ -661,9 +610,9 @@ network-plain-st comparison operators only
 %LANGUAGE FBD
 %NETWORK
 VAR w2 : ANY; END_VAR
-y := MUL((w2 := ADD(EN := c, i, j)), 2);
-z := w2;
-v := w2;
+ASSIGN(MUL((w2 := ADD(EN := c, i, j).OUT), 2), Q => y);
+ASSIGN(w2, Q => z);
+ASSIGN(w2, Q => v);
 === refused
 network-plain-st comparison operators only
 
@@ -671,7 +620,7 @@ network-plain-st comparison operators only
 === text
 %LANGUAGE LD
 %NETWORK
-x := BRANCH(FEED := a, b, IN := c);
+ASSIGN(BRANCH(FEED := a, b, IN := c), Q => x);
 === refused
 network-plain-st then its branches, positional
 
@@ -679,26 +628,15 @@ network-plain-st then its branches, positional
 === text
 %LANGUAGE LD
 %NETWORK
-x := BRANCH(FEED := a);
+ASSIGN(BRANCH(FEED := a), Q => x);
 === refused
 network-plain-st holds no branch
-
-#### edge-over-a-wire — an edge is on a contact or a box
-=== text
-%LANGUAGE LD
-%NETWORK
-VAR w1 : ANY; END_VAR
-w1 := AND(a, b);
-x := RISING(w1);
-y := w1;
-=== refused
-network-plain-st an edge is on a contact or on a box read where it stands
 
 #### edge-with-two-values — an edge takes one value
 === text
 %LANGUAGE LD
 %NETWORK
-x := FALLING(a, b);
+ASSIGN(FALLING(a, b), Q => x);
 === refused
 network-plain-st takes one value, positional
 
@@ -706,22 +644,22 @@ network-plain-st takes one value, positional
 === text
 %LANGUAGE LD
 %NETWORK
-x := RISING(a);
+ASSIGN(RISING(a), Q => x);
 === scope
 pou RISING
 === refused
 network-plain-st declared in reach
 
-#### member-on-one-output — a box with one output names none: the member has no alternative
+#### member-on-one-output — the default output flows on with no member
 === scope
 instance r1 R_TRIG
 fb R_TRIG CLK => Q
 === text
 %LANGUAGE FBD
 %NETWORK
-x := r1(CLK := a).Q;
+ASSIGN(r1(CLK := a).Q, Q => x);
 === refused
-network-plain-st a box with one output names none
+network-plain-st its default output
 
 #### value-to-a-wire — a box's value reaches a wire as the wire's definition, `w := <box>`
 === text
@@ -729,7 +667,7 @@ network-plain-st a box with one output names none
 %NETWORK
 VAR w1 : ANY; END_VAR
 GT(EN := c, i, 3, OUT => w1);
-x := w1;
+ASSIGN(w1, Q => x);
 === refused
 network-plain-st a wire is defined by
 
@@ -737,7 +675,7 @@ network-plain-st a wire is defined by
 === text
 %LANGUAGE FBD
 %NETWORK
-y := MUL(ADD(EN := c, i, j), 2);
+ASSIGN(MUL(ADD(EN := c, i, j).OUT, 2), Q => y);
 === refused
 network-plain-st comparison operators only
 
@@ -746,9 +684,9 @@ network-plain-st comparison operators only
 %LANGUAGE FBD
 %NETWORK
 VAR w1 : ANY; END_VAR
-w1 := ADD(EN := c, i, j);
-x := MUL(w1, 2);
-y := w1;
+w1 := ADD(EN := c, i, j).OUT;
+ASSIGN(MUL(w1, 2), Q => x);
+ASSIGN(w1, Q => y);
 === refused
 network-plain-st comparison operators only
 
@@ -759,30 +697,19 @@ fb TON IN PT => Q ET
 === text
 %LANGUAGE FBD
 %NETWORK
-x := t1(IN := a, PT := T#1S).Done;
+ASSIGN(t1(IN := a, PT := T#1S).Done, Q => x);
 === refused
 network-plain-st names no output of TON
 
-#### several-outputs-no-member — a consumed box whose callee declares several outputs names the one its consumer reads
-=== scope
-instance t1 TON
-fb TON IN PT => Q ET
-=== text
-%LANGUAGE FBD
-%NETWORK
-x := t1(IN := a, PT := T#1S);
-=== refused
-network-plain-st names no output: TON has 2
-
-#### out-on-a-function-without-outputs — .OUT on a function with no VAR_OUTPUT has no alternative
+#### out-on-a-function-without-outputs — a function's value is its default output: no .OUT
 === scope
 function f IN =>
 === text
 %LANGUAGE FBD
 %NETWORK
-x := f(IN := a).OUT;
+ASSIGN(f(IN := a).OUT, Q => x);
 === refused
-network-plain-st a box with one output names none
+network-plain-st its default output
 
 #### function-declaring-out — a function declaring VAR_OUTPUT OUT: OUT would name its value and that output both
 === scope
@@ -790,17 +717,17 @@ function g IN => OUT
 === text
 %LANGUAGE FBD
 %NETWORK
-x := g(IN := a);
+ASSIGN(g(IN := a), Q => x);
 === refused
 network-plain-st declares VAR_OUTPUT OUT
 
-#### operator-member-on-one-output — an IEC operator box (LIMIT) has one output: its call names none
+#### operator-member-on-one-output — an IEC operator box's value is its default output: no .OUT
 === text
 %LANGUAGE FBD
 %NETWORK
-x := LIMIT(0, v, 100).OUT;
+ASSIGN(LIMIT(0, v, 100).OUT, Q => x);
 === refused
-network-plain-st a box with one output names none
+network-plain-st its default output
 
 #### operator-en-not-first — EN := on an IEC operator box (LIMIT) stands first: it is the shown EN
 === text
@@ -824,35 +751,17 @@ function g IN => Q
 === text
 %LANGUAGE FBD
 %NETWORK
-x := MUL(g(EN := c, a).OUT, 2);
+ASSIGN(MUL(g(EN := c, a).OUT, 2), Q => x);
 === refused
 network-plain-st comparison operators only
-
-#### execute-read-by-no-eno — the Execute box's one output is its ENO: read, its call is closed by .ENO
-=== text
-%LANGUAGE LD
-%NETWORK
-x := EXECUTE(EN := a, 'k := 1;');
-=== refused
-network-plain-st its one output is its ENO
 
 #### execute-closed-by-another-member — the Execute box has no output but its ENO
 === text
 %LANGUAGE LD
 %NETWORK
-x := EXECUTE(EN := a, 'k := 1;').Q;
+ASSIGN(EXECUTE(EN := a, 'k := 1;').Q, Q => x);
 === refused
 network-plain-st its one output is its ENO
-
-#### program-several-outputs-no-member — a consumed program box with several outputs names the one its consumer reads
-=== scope
-program p IN => Q1 Q2
-=== text
-%LANGUAGE FBD
-%NETWORK
-x := p(IN := a);
-=== refused
-network-plain-st names no output: p has 2
 
 #### wires-not-any — a wire is declared : ANY, its type its definition's
 === text
@@ -860,8 +769,8 @@ network-plain-st names no output: p has 2
 %NETWORK
 VAR w1 : BOOL; END_VAR
 w1 := a AND b;
-x := w1;
-y := w1;
+ASSIGN(w1, Q => x);
+ASSIGN(w1, Q => y);
 === refused
 network-plain-st a wire is declared : ANY
 
@@ -872,8 +781,8 @@ network-plain-st a wire is declared : ANY
 // start
 VAR w1 : ANY; END_VAR
 w1 := a AND b;
-x := w1;
-y := w1;
+ASSIGN(w1, Q => x);
+ASSIGN(w1, Q => y);
 === refused
 network-plain-st its wires are declared after its % lines, before its comment
 
@@ -895,10 +804,10 @@ network-plain-st a network's wires are declared on one line
 %LANGUAGE LD
 %NETWORK
 VAR w1, w2 : ANY; END_VAR
-w1 := a AND b;
+ASSIGN(a AND b, Q => w1);
 w2 := a OR b;
-x := w1 AND w2;
-y := w1 OR w2;
+ASSIGN(w1 AND w2, Q => x);
+ASSIGN(w1 OR w2, Q => y);
 === refused
 network-plain-st a network's wires are declared on one line
 
@@ -907,19 +816,19 @@ network-plain-st a network's wires are declared on one line
 %LANGUAGE LD
 %NETWORK
 %WIRES w1
-w1 := a AND b;
-x := w1;
-y := w1;
+ASSIGN(a AND b, Q => w1);
+ASSIGN(w1, Q => x);
+ASSIGN(w1, Q => y);
 === refused
 network-plain-st a network holds no such line
 
-#### empty-name-unmarked — an unmarked pin with no name is its value alone
+#### empty-name-unmarked — a pin with no name is its value alone
 === text
 %LANGUAGE FBD
 %NETWORK
-x := AND(a, := b);
+ASSIGN(AND(a, := b), Q => x);
 === refused
-network-plain-st an empty pin name with no mark
+network-plain-st an empty pin name
 
 #### wire-numbered-per-network — a body's wires are numbered across its networks
 === text
@@ -927,13 +836,13 @@ network-plain-st an empty pin name with no mark
 %NETWORK
 VAR w1 : ANY; END_VAR
 w1 := a AND b;
-x := w1;
-y := w1;
+ASSIGN(w1, Q => x);
+ASSIGN(w1, Q => y);
 %NETWORK
 VAR w3 : ANY; END_VAR
 w3 := a OR b;
-x := w3;
-y := w3;
+ASSIGN(w3, Q => x);
+ASSIGN(w3, Q => y);
 === refused
 network-plain-st the wire w3 is the body's w2
 
@@ -943,8 +852,8 @@ network-plain-st the wire w3 is the body's w2
 %NETWORK
 VAR w2 : ANY; END_VAR
 w2 := a AND b;
-x := w2;
-y := w2;
+ASSIGN(w2, Q => x);
+ASSIGN(w2, Q => y);
 === refused
 network-plain-st the wire w2 is the body's w1
 
@@ -955,8 +864,8 @@ network-plain-st the wire w2 is the body's w1
 VAR w1 : ANY; w2 : ANY; END_VAR
 w2 := a OR b;
 w1 := a AND b;
-x := w1 AND w2;
-y := w1 OR w2;
+ASSIGN(w1 AND w2, Q => x);
+ASSIGN(w1 OR w2, Q => y);
 === refused
 network-plain-st the wire w2 is the body's w1
 
@@ -964,17 +873,17 @@ network-plain-st the wire w2 is the body's w1
 === text
 %LANGUAGE FBD
 %NETWORK
-y := h(EN := c, a);
+ASSIGN(h(EN := c, a), Q => y);
 === refused
 network-plain-st no declaration in reach states
 
-#### unstated-eno — .ENO on a callee no declaration states is the shown ENO or its own output ENO
+#### unstated-eno — .ENO is no network text
 === text
 %LANGUAGE FBD
 %NETWORK
-y := h(a).ENO;
+ASSIGN(h(a).ENO, Q => y);
 === refused
-network-plain-st no declaration in reach states
+network-plain-st .ENO is no network text
 
 #### unstated-eno-target — ENO => on a callee no declaration states
 === text
@@ -992,43 +901,11 @@ h(a, OUT => y);
 === refused
 network-plain-st no declaration in reach states
 
-#### item-marks-first — the assignment item's marks stand last in its chain
-=== text
-%LANGUAGE LD
-%NETWORK
-NOT := y := a;
-=== refused
-network-plain-st the assignment item's marks stand last in its chain
-
-#### item-marks-inside — the assignment item's marks stand right before the value
-=== text
-%LANGUAGE LD
-%NETWORK
-y := NOT := x := a;
-=== refused
-network-plain-st the assignment item's marks stand last in its chain
-
-#### item-marks-grouped — a grouping bracket is no call: an empty receiver name stands only in a call's arguments
-=== text
-%LANGUAGE LD
-%NETWORK
-x := (NOT := y := a) AND b;
-=== refused
-network-plain-st the assignment item's marks stand last in its chain
-
-#### item-marks-grouped-after-contact — after an operand an operator word is the contact, and its bracket groups
-=== text
-%LANGUAGE LD
-%NETWORK
-x := b AND (NOT := y := a);
-=== refused
-network-plain-st the assignment item's marks stand last in its chain
-
 #### comment-empty — no comment is the plain operand
 === text
 %LANGUAGE LD
 %NETWORK
-y := COMMENT(a, '');
+ASSIGN(COMMENT(a, ''), Q => y);
 === refused
 network-plain-st an empty comment is the plain operand
 
@@ -1036,7 +913,7 @@ network-plain-st an empty comment is the plain operand
 === text
 %LANGUAGE LD
 %NETWORK
-y := COMMENT(NOT a, 'why');
+ASSIGN(COMMENT(INVERT(a), 'why'), Q => y);
 === refused
 network-plain-st the marks stand outside it
 
@@ -1044,7 +921,7 @@ network-plain-st the marks stand outside it
 === text
 %LANGUAGE LD
 %NETWORK
-y := COMMENT(a, b);
+ASSIGN(COMMENT(a, b), Q => y);
 === refused
 network-plain-st takes an operand and one string
 
@@ -1052,7 +929,7 @@ network-plain-st takes an operand and one string
 === text
 %LANGUAGE LD
 %NETWORK
-y := COMMENT(a, 'x$N');
+ASSIGN(COMMENT(a, 'x$N'), Q => y);
 === refused
 network-plain-st the escape '$N'
 
@@ -1068,7 +945,7 @@ network-plain-st the call MOVE wires OUT => twice
 === text
 %LANGUAGE FBD
 %NETWORK
-y := ADD(EN := c, i, 1, OUT => k, OUT => m).ENO;
+ASSIGN(ADD(EN := c, i, 1, OUT => k, OUT => m), Q => y);
 === refused
 network-plain-st the call ADD wires OUT => twice
 
@@ -1101,7 +978,7 @@ instance t2 Fx
 === text
 %LANGUAGE FBD
 %NETWORK
-x := t2(a, i).q1;
+ASSIGN(t2(a, i).q1, Q => x);
 === refused
 network-plain-st the call t2 passes a pin by position
 
@@ -1142,7 +1019,7 @@ program p a n => q1 q2
 === text
 %LANGUAGE FBD
 %NETWORK
-x := p(a, i).q1;
+ASSIGN(p(a, i).q1, Q => x);
 === refused
 network-plain-st the call p passes a pin by position
 
@@ -1150,7 +1027,7 @@ network-plain-st the call p passes a pin by position
 === text
 %LANGUAGE FBD
 %NETWORK
-MOVE(EN := c, 7, ENO => z, OUT => x).ENO;
+MOVE(EN := c, 7, ENO => z, OUT => x);
 === refused
 network-plain-st the IDE never writes a variable on the ENO pin
 
@@ -1160,7 +1037,7 @@ function f IN => q
 === text
 %LANGUAGE FBD
 %NETWORK
-f(EN := c, IN := a, ENO => z, OUT => k).ENO;
+f(EN := c, IN := a, ENO => z, OUT => k);
 === refused
 network-plain-st the IDE never writes a variable on the ENO pin
 
@@ -1171,7 +1048,7 @@ instance t2 Fx
 === text
 %LANGUAGE FBD
 %NETWORK
-t2(EN := c, a := a, ENO => z).ENO;
+t2(EN := c, a := a, ENO => z);
 === refused
 network-plain-st the IDE never writes a variable on the ENO pin
 
@@ -1179,100 +1056,42 @@ network-plain-st the IDE never writes a variable on the ENO pin
 === text
 %LANGUAGE FBD
 %NETWORK
-y := GT(EN := c, i, j).ENO;
+ASSIGN(GT(EN := c, i, j), Q => y);
 === refused
-network-plain-st the operator box GT is closed by .ENO and wires its value nowhere
+network-plain-st hands on its ENO and wires its value nowhere
 
 #### operator-eno-value-nowhere-and — AND answers an implicit variable no text holds
 === text
 %LANGUAGE LD
 %NETWORK
-y := AND(EN := c, a, b).ENO;
+ASSIGN(AND(EN := c, a, b), Q => y);
 === refused
-network-plain-st the operator box AND is closed by .ENO and wires its value nowhere
+network-plain-st hands on its ENO and wires its value nowhere
 
-#### operator-eno-value-nowhere-root — at a root as where it is read
-=== text
-%LANGUAGE FBD
-%NETWORK
-MOVE(EN := c, i).ENO;
-=== refused
-network-plain-st the operator box MOVE is closed by .ENO and wires its value nowhere
-
-#### operator-eno-value-nowhere-no-en — with no EN too
-=== text
-%LANGUAGE FBD
-%NETWORK
-y := GT(i, j).ENO;
-=== refused
-network-plain-st the operator box GT is closed by .ENO and wires its value nowhere
-
-#### coil-edge — the IDE runs RISING y := a as y := a (live CODESYS 3.5.21.40); the edge is on the value
+#### coil-edge — an edge on a coil cannot be drawn: no output names one
 === text
 %LANGUAGE LD
 %NETWORK
-RISING y := a;
+ASSIGN(a, Q_RISING => y);
 === refused
-network-plain-st an edge mark on the coil
+network-plain-st an edge is on the value
 
-#### coil-edge-falling-negated
+#### jump-edge — an edge on a jump cannot be drawn: no output names one
 === text
 %LANGUAGE LD
 %NETWORK
-FALLING NOT y := a;
-=== refused
-network-plain-st FALLING NOT before one receiver
-
-#### coil-edge-set
-=== text
-%LANGUAGE LD
-%NETWORK
-RISING y S= a;
-=== refused
-network-plain-st an edge mark on the coil
-
-#### jump-edge — the IDE jumps on the level
-=== text
-%LANGUAGE LD
-%NETWORK
-RISING JMP.l := a;
+ASSIGN(a, Q_RISING => JMP.l);
 %NETWORK
 l:
-x := a;
+ASSIGN(a, Q => x);
 === refused
-network-plain-st an edge mark on the jump
-
-#### return-edge — the IDE returns on the level
-=== text
-%LANGUAGE LD
-%NETWORK
-FALLING RETURN := a;
-=== refused
-network-plain-st an edge mark on the return
-
-#### output-edge — the IDE writes the output as it is
-=== scope
-instance t1 TON
-=== text
-%LANGUAGE FBD
-%NETWORK
-t1(IN := a, PT := T#1S, RISING Q => y);
-=== refused
-network-plain-st an edge mark on the output
-
-#### out-target-edge — the same on a value's target
-=== text
-%LANGUAGE FBD
-%NETWORK
-MOVE(a, RISING OUT => x);
-=== refused
-network-plain-st an edge mark on the output
+network-plain-st an edge is on the value
 
 #### value-read-and-out-target — the box's reader is written and OUT => is not (live CODESYS 3.5.21.40)
 === text
 %LANGUAGE FBD
 %NETWORK
-k := ADD(i, j, OUT => m);
+ASSIGN(ADD(i, j, OUT => m), Q => k);
 === refused
 network-plain-st the box ADD is read by its value and wires OUT =>
 
@@ -1282,7 +1101,7 @@ function f IN =>
 === text
 %LANGUAGE FBD
 %NETWORK
-k := f(IN := i, OUT => m);
+ASSIGN(f(IN := i, OUT => m), Q => k);
 === refused
 network-plain-st the box f is read by its value and wires OUT =>
 
@@ -1290,7 +1109,7 @@ network-plain-st the box f is read by its value and wires OUT =>
 === text
 %LANGUAGE FBD
 %NETWORK
-x := GT(EN := go, i, j, OUT => z);
+ASSIGN(GT(EN := go, i, j, OUT => z).OUT, Q => x);
 === refused
 network-plain-st the box GT is read by its value and wires OUT =>
 
@@ -1301,16 +1120,6 @@ function f IN =>
 %LANGUAGE FBD
 %NETWORK
 f(IN := i, OUT => k);
-=== refused
-network-plain-st the function box f wires OUT => at a root
-
-#### function-out-at-a-root-enabled
-=== scope
-function f IN =>
-=== text
-%LANGUAGE FBD
-%NETWORK
-f(EN := go, IN := i, OUT => k);
 === refused
 network-plain-st the function box f wires OUT => at a root
 
@@ -1345,21 +1154,11 @@ t2(a := a, OUT => k);
 === refused
 network-plain-st declares no output OUT
 
-#### eno-read-with-no-en — a FUNCTION's ENO with no EN is FALSE on every scan; every other callee does not build
-=== scope
-function f IN =>
-=== text
-%LANGUAGE FBD
-%NETWORK
-y := f(IN := a).ENO;
-=== refused
-network-plain-st is read through .ENO and shows no EN
-
 #### operator-pin-out-of-place — an operator runs by position, whatever its names say: SUB(IN2 := i, IN1 := j) is i - j (live CODESYS 3.5.21.40)
 === text
 %LANGUAGE FBD
 %NETWORK
-k := SUB(IN2 := i, IN1 := j);
+ASSIGN(SUB(IN2 := i, IN1 := j), Q => k);
 === refused
 network-plain-st the box SUB names its pin IN1 out of place
 
@@ -1367,7 +1166,7 @@ network-plain-st the box SUB names its pin IN1 out of place
 === text
 %LANGUAGE FBD
 %NETWORK
-k := LIMIT(MX := 3, IN := i, MN := 0);
+ASSIGN(LIMIT(MX := 3, IN := i, MN := 0), Q => k);
 === refused
 network-plain-st the box LIMIT names its pin MX out of place
 
@@ -1375,43 +1174,9 @@ network-plain-st the box LIMIT names its pin MX out of place
 === text
 %LANGUAGE FBD
 %NETWORK
-k := SEL(IN1 := j, G := go, IN0 := i);
+ASSIGN(SEL(IN1 := j, G := go, IN0 := i), Q => k);
 === refused
 network-plain-st the box SEL names its pin G out of place
-
-#### pin-marks-stacked — RISING NOT on a pin runs the NOT and no edge (live CODESYS 3.5.21.40); the value's own edge runs both
-=== scope
-instance t1 TON
-=== text
-%LANGUAGE FBD
-%NETWORK
-t1(RISING NOT IN := a, PT := T#1S);
-=== refused
-network-plain-st RISING NOT before one receiver
-
-#### unnamed-pin-marks-stacked
-=== text
-%LANGUAGE FBD
-%NETWORK
-x := AND(a, FALLING NOT := b);
-=== refused
-network-plain-st FALLING NOT before one receiver
-
-#### en-marks-stacked
-=== text
-%LANGUAGE FBD
-%NETWORK
-MOVE(RISING NOT EN := c, 1, OUT => n);
-=== refused
-network-plain-st RISING NOT before one receiver
-
-#### item-marks-stacked — the editor draws it, and it runs NOT of the edge (live CODESYS 3.5.21.40)
-=== text
-%LANGUAGE LD
-%NETWORK
-y := RISING NOT := a;
-=== refused
-network-plain-st on the assignment NOT of the edge
 
 #### empty-input-pin — an unconnected pin is left out, the rail is RAIL()
 === scope
@@ -1443,3 +1208,153 @@ t1(IN := a, PT := T#1S, ET => );
 === refused
 network-plain-st an output target at
 
+#### old-form-coil — y := a; is no network text: a coil is ASSIGN
+=== text
+%LANGUAGE LD
+%NETWORK
+y := a;
+=== refused
+network-plain-st a coil is ASSIGN(value, Q => y)
+
+#### old-form-set-coil — y S= a; is no network text
+=== text
+%LANGUAGE LD
+%NETWORK
+y S= a;
+=== refused
+network-plain-st a set coil is ASSIGN(value, Q_SET => y)
+
+#### old-form-reset-coil — y R= a; is no network text
+=== text
+%LANGUAGE LD
+%NETWORK
+y R= a;
+=== refused
+network-plain-st a reset coil is ASSIGN(value, Q_RESET => y)
+
+#### old-form-jump — JMP.l := a; is no network text
+=== text
+%LANGUAGE LD
+%NETWORK
+JMP.l := a;
+%NETWORK
+l:
+ASSIGN(a, Q => x);
+=== refused
+network-plain-st a jump or a return is a target of an ASSIGN
+
+#### old-form-return — RETURN := a; is no network text
+=== text
+%LANGUAGE LD
+%NETWORK
+RETURN := a;
+=== refused
+network-plain-st a jump or a return is a target of an ASSIGN
+
+#### old-form-nested-coil — (y := a) in a value is no network text
+=== text
+%LANGUAGE LD
+%NETWORK
+ASSIGN((y := a) AND b, Q => x);
+=== refused
+network-plain-st a coil inside a value is ASSIGN(value, Q => y)
+
+#### old-form-not — NOT a is no network text: a negation is INVERT(a)
+=== text
+%LANGUAGE LD
+%NETWORK
+ASSIGN(b AND NOT a, Q => x);
+=== refused
+network-plain-st a mark is a function around a value
+
+#### old-form-mark-word — a mark word before a receiver is no network text
+=== text
+%LANGUAGE LD
+%NETWORK
+NOT y := a;
+=== refused
+network-plain-st a mark is a function around a value
+
+#### old-form-pin-mark-word — a mark word before a pin is no network text
+=== scope
+instance t1 TON
+fb TON IN PT => Q ET
+=== text
+%LANGUAGE FBD
+%NETWORK
+t1(NOT IN := a, PT := T#1S);
+=== refused
+network-plain-st a mark before a pin
+
+#### old-form-eno — .ENO is no network text: ENO is the flow of a box showing EN
+=== text
+%LANGUAGE FBD
+%NETWORK
+ASSIGN(MOVE(EN := go, i, OUT => k).ENO, Q => y);
+=== refused
+network-plain-st .ENO is no network text
+
+#### mark-on-a-wire-in-a-contact — a contact holds a mark, a wire read none
+=== text
+%LANGUAGE LD
+%NETWORK
+VAR w1 : ANY; END_VAR
+w1 := AND(a, b);
+ASSIGN(INVERT(w1) AND c, Q => x);
+ASSIGN(w1, Q => y);
+=== refused
+network-plain-st on a wire, a branch
+
+#### mark-stack-too-deep — a stack deeper than the store holds
+=== text
+%LANGUAGE FBD
+%NETWORK
+f(IN := INVERT(INVERT(RISING(a))));
+=== refused
+network-plain-st a stack of marks deeper than the IDE stores
+
+#### mark-on-an-assign — an ASSIGN holds no mark of its own outside a receiver
+=== text
+%LANGUAGE LD
+%NETWORK
+ASSIGN(INVERT(ASSIGN(a, Q => x)) AND b, Q => y);
+=== refused
+network-plain-st a mark is on a contact, a box, or a receiver
+
+#### assign-output-unknown — an ASSIGN names its targets by Q and its marks
+=== text
+%LANGUAGE LD
+%NETWORK
+ASSIGN(a, OUT => y);
+=== refused
+network-plain-st its outputs are Q, Q_INVERTED, Q_SET and Q_RESET
+
+#### marked-output-ambiguous — rule 9: an output named both ways is refused
+=== scope
+function f2 IN => Q Q_SET
+=== text
+%LANGUAGE FBD
+%NETWORK
+f2(IN := a, Q_SET => x);
+=== refused
+network-plain-st an output named like a marked output of the same box
+
+#### marked-output-unstated — rule 9: a marked output on a callee no declaration states
+=== scope
+instance t9 T9
+=== text
+%LANGUAGE FBD
+%NETWORK
+t9(IN := a, Q_SET => x);
+=== refused
+network-plain-st an output named like a marked output of the same box
+
+#### reserved-name-invert — rule 9: a POU or variable named INVERT, RISING, FALLING or ASSIGN
+=== scope
+name INVERT
+=== text
+%LANGUAGE LD
+%NETWORK
+ASSIGN(a, Q => y);
+=== refused
+network-plain-st a POU or variable named INVERT, RISING, FALLING or ASSIGN

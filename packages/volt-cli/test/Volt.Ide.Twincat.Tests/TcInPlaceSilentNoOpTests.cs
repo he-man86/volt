@@ -36,7 +36,8 @@ public class TcInPlaceSilentNoOpTests
     {
         var before = Body(fixture);
         var pulled = TcNetworkReader.Read(Impl(before), language);
-        var text = TcText.Write(pulled);
+        // written and read against one scope, as a pull and a push are
+        var text = signatures is null ? TcText.Write(pulled) : TcText.Write(pulled, signatures);
         Assert.Contains(from, text);
         var model = TcText.Validate(text.Replace(from, to), signatures is null ? TcText.ScopeOf(pulled) : TcText.ScopeOf(pulled, signatures));
         Assert.NotEqual(TextOf(pulled), TextOf(model));
@@ -53,8 +54,8 @@ public class TcInPlaceSilentNoOpTests
     public void A_multi_output_assign_rewritten_as_a_wire_is_not_swallowed()
     {
         var (before, model) = Edited("MultiOutput.derived.TcPOU", BodyLanguage.Ld,
-            "%NETWORK\nxoutput := xoutput2 := xtest OR xtest2;",
-            "%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := xtest OR xtest2;\nxoutput := w1;\nxoutput2 := w1;");
+            "%NETWORK\nASSIGN(xtest OR xtest2, Q => xoutput, Q => xoutput2);",
+            "%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := xtest OR xtest2;\nASSIGN(w1, Q => xoutput);\nASSIGN(w1, Q => xoutput2);");
 
         Assert.Throws<UnsupportedException>(() => TcText.Apply(before, model));
     }
@@ -63,8 +64,8 @@ public class TcInPlaceSilentNoOpTests
     /// ENO — a connection and an ENO fact the text carries (task 3.10). The in-place write compared neither, so it wrote
     /// nothing.</summary>
     [Theory]
-    [InlineData("execute-box.TcPOU", BodyLanguage.Fbd, "t1(IN := TRUE, PT := T#5s).Q;", "t1(EN := TRUE, IN := TRUE, PT := T#5s).ENO;")]
-    [InlineData("ladder-demux.TcPOU", BodyLanguage.Ld, "t1(IN := in1, PT := e1).Q;", "t1(EN := TRUE, IN := in1, PT := e1).ENO;")]
+    [InlineData("execute-box.TcPOU", BodyLanguage.Fbd, "t1(IN := TRUE, PT := T#5s),", "t1(EN := TRUE, IN := TRUE, PT := T#5s),")]
+    [InlineData("ladder-demux.TcPOU", BodyLanguage.Ld, "t1(IN := in1, PT := e1),", "t1(EN := TRUE, IN := in1, PT := e1),")]
     public void A_consumer_moved_to_the_ENO_output_is_not_swallowed(string fixture, BodyLanguage language, string from, string to)
     {
         // TON as its library signature states it: a push reads its callee's declaration (network-output-member).

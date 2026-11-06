@@ -48,7 +48,7 @@ public class JumpDestinationTests
         var text = StNetworkWriter.Write(body, NetworkScope.Empty);
 
         // one item, its targets in stored order, the jump a target like the coil (network-rail-and-pin-negation), on the rail
-        Assert.Contains(jumpFirst ? "\nJMP.Onwards := out := RAIL();\n" : "\nout := JMP.Onwards := RAIL();\n", text);
+        Assert.Contains(jumpFirst ? "ASSIGN(RAIL(), Q => JMP.Onwards, Q => out);" : "ASSIGN(RAIL(), Q => out, Q => JMP.Onwards);", text);
         var read = StNetworkReader.Read(text, NetworkScope.Empty);
         var item = Assert.IsType<Assign>(Assert.Single(read.Networks[0].Trees));
         Assert.IsType<Terminator>(item.Value);
@@ -61,6 +61,6 @@ public class JumpDestinationTests
     {
         var text = StNetworkWriter.Write(Rung(("Onwards", true)), NetworkScope.Empty);
 
-        Assert.Contains("\nJMP.Onwards := RAIL();\n", text);
+        Assert.Contains("ASSIGN(RAIL(), Q => JMP.Onwards);", text);
     }
 }

@@ -4,7 +4,7 @@ program p =>
 === text
 %LANGUAGE LD
 %NETWORK
-p(EN := RAIL(), OUT => ???).ENO;
+p(EN := RAIL(), OUT => ???);
 === model
 NETWORK
   (p =>1:??? en:_ eno:1)
@@ -16,7 +16,7 @@ fb R_TRIG CLK => Q
 === text
 %LANGUAGE FBD
 %NETWORK
-x := AND(r1(CLK := a), b);
+ASSIGN(AND(r1(CLK := a), b), Q => x);
 === model
 NETWORK
   (:= x (AND (R_TRIG@r1 CLK=a name:Q) b))
@@ -28,7 +28,7 @@ fb TON IN PT => Q ET
 === text
 %LANGUAGE FBD
 %NETWORK
-t := t1(IN := a, PT := T#1S).ET;
+ASSIGN(t1(IN := a, PT := T#1S).ET, Q => t);
 === model
 NETWORK
   (:= t (TON@t1 IN=a PT=T#1S name:ET))
@@ -64,7 +64,7 @@ fb CTU CU PV => Q CV
 === text
 %LANGUAGE FBD
 %NETWORK
-NOT c2(CU := a, PV := 5).CV;
+INVERT(c2(CU := a, PV := 5).CV);
 === model
 NETWORK
   not:(CTU@c2 CU=a PV=5 name:CV)
@@ -107,7 +107,7 @@ function g IN => Q
 === text
 %LANGUAGE FBD
 %NETWORK
-q := g(a, Q => v).OUT;
+ASSIGN(g(a, Q => v), Q => q);
 === model
 NETWORK
   (:= q (g a =>Q:v conn:0))
@@ -118,7 +118,7 @@ function g IN => Q
 === text
 %LANGUAGE FBD
 %NETWORK
-q := g(a).Q;
+ASSIGN(g(a).Q, Q => q);
 === model
 NETWORK
   (:= q (g a conn:1))
@@ -129,7 +129,7 @@ function g IN => Q
 === text
 %LANGUAGE FBD
 %NETWORK
-q := g(a, OUT => v).Q;
+ASSIGN(g(a, OUT => v).Q, Q => q);
 %NETWORK
 g(a, OUT => v).Q;
 === model
@@ -145,7 +145,7 @@ fb WSM EN xOn => ENO xBusy
 === text
 %LANGUAGE FBD
 %NETWORK
-ok := w1(EN := TRUE, xOn := a).ENO;
+ASSIGN(w1(EN := TRUE, xOn := a), Q => ok);
 === model
 NETWORK
   (:= ok (WSM@w1 EN=TRUE xOn=a name:ENO))
@@ -157,7 +157,7 @@ fb TON IN PT => Q ET
 === text
 %LANGUAGE FBD
 %NETWORK
-x := AND(t1(EN := c, IN := a, PT := T#1S).ENO, b);
+ASSIGN(AND(t1(EN := c, IN := a, PT := T#1S), b), Q => x);
 === model
 NETWORK
   (:= x (AND (TON@t1 IN=a PT=T#1S en:c conn:0 eno:1) b))
@@ -168,8 +168,8 @@ instance t1 TON
 === text
 %LANGUAGE FBD
 %NETWORK
-x := t1(IN := a, PT := T#1S).Q;
-y := h(a, b);
+ASSIGN(t1(IN := a, PT := T#1S).Q, Q => x);
+ASSIGN(h(a, b), Q => y);
 === model
 NETWORK
   (:= x (TON@t1 IN=a PT=T#1S name:Q))
@@ -181,7 +181,7 @@ instance t1 TON
 === text
 %LANGUAGE FBD
 %NETWORK
-x := AND(t1(IN := a, PT := T#1S), b);
+ASSIGN(AND(t1(IN := a, PT := T#1S), b), Q => x);
 === model
 NETWORK
   (:= x (AND (TON@t1 IN=a PT=T#1S) b))
@@ -192,7 +192,7 @@ program p IN => Q
 === text
 %LANGUAGE FBD
 %NETWORK
-x := AND(p(IN := a), b);
+ASSIGN(AND(p(IN := a), b), Q => x);
 === model
 NETWORK
   (:= x (AND (p IN=a conn:0) b))
@@ -203,7 +203,30 @@ program p IN => Q1 Q2
 === text
 %LANGUAGE FBD
 %NETWORK
-x := p(IN := a).Q2;
+ASSIGN(p(IN := a).Q2, Q => x);
 === model
 NETWORK
   (:= x (p IN=a conn:1))
+
+#### several-outputs-no-member — a consumed FB with no member is read by its first output
+=== scope
+instance t1 TON
+fb TON IN PT => Q ET
+=== text
+%LANGUAGE FBD
+%NETWORK
+ASSIGN(t1(IN := a, PT := T#1S), Q => x);
+=== model
+NETWORK
+  (:= x (TON@t1 IN=a PT=T#1S name:Q))
+
+#### program-several-outputs-no-member — a consumed program with no member is read by its first output
+=== scope
+program p IN => Q1 Q2
+=== text
+%LANGUAGE FBD
+%NETWORK
+ASSIGN(p(IN := a), Q => x);
+=== model
+NETWORK
+  (:= x (p IN=a conn:0))

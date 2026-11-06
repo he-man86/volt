@@ -221,7 +221,7 @@ public class TcDrawnJumpTests
     {
         var pulled = TcNetworkReader.Read(Impl(), BodyLanguage.Ld);
 
-        Assert.StartsWith("%LANGUAGE LD\n%NETWORK\nowrods:\nJMP.owrods := out := RAIL();\n", TcText.Write(pulled));
+        Assert.StartsWith("%LANGUAGE LD\n%NETWORK\nowrods:\nASSIGN(RAIL(), Q => JMP.owrods, Q => out);\n", TcText.Write(pulled));
         Assert.Contains("\nowrods:\n", TcText.Write(pulled));
         var nwl = XDocument.Load(Fixtures.Path("tc-pou", "drawn-refused-shapes.TcPOU"), LoadOptions.PreserveWhitespace)
             .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting);

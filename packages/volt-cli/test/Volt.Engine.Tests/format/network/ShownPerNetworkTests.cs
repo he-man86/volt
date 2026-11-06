@@ -36,17 +36,17 @@ public class ShownPerNetworkTests
     public void An_FB_read_by_a_data_output_is_spelled_by_the_name_the_box_stores()
     {
         var model = One(Set(Capture(L("src")), T("out")));
-        Assert.Equal(FbdMarker + "%NETWORK\nout := fbCap(xEnable := src).xErrorActive;\n",
+        Assert.Equal(FbdMarker + "%NETWORK\nASSIGN(fbCap(xEnable := src).xErrorActive, Q => out);\n",
             StNetworkWriter.Write(model, Scope));
         var slot0 = Capture(L("src")) with { ConnectedSlot = 0, MainOutputName = "xBusy" };
-        Assert.Equal(FbdMarker + "%NETWORK\nout := fbCap(xEnable := src).xBusy;\n",
+        Assert.Equal(FbdMarker + "%NETWORK\nASSIGN(fbCap(xEnable := src).xBusy, Q => out);\n",
             StNetworkWriter.Write(One(Set(slot0, T("out"))), Scope));
     }
 
     [Fact]
     public void A_named_output_reads_back_as_the_name_and_no_slot()
     {
-        var read = StNetworkReader.Read(Src("out := fbCap(xEnable := src).xErrorActive;"), Scope);
+        var read = StNetworkReader.Read(Src("ASSIGN(fbCap(xEnable := src).xErrorActive, Q => out);"), Scope);
         var box = Assert.IsType<Box>(Assert.IsType<Assign>(read.Networks[0].Trees[0]).Value);
         Assert.Equal(("xErrorActive", (int?)null), (box.MainOutputName, box.ConnectedSlot));
         // The round-trip oracle: what the text carries of the vendor's box comes back.
@@ -72,7 +72,7 @@ public class ShownPerNetworkTests
             Refused(() => StNetworkWriter.Write(One(Set(Capture(L("src")) with { MainOutputName = null }, T("out"))), Scope)).Reason);
         // A named pin is the pin's own name.
         var named = Capture(L("src")) with { Outputs = new[] { Out("x", null, "xBusy") } };
-        Assert.Equal(FbdMarker + "%NETWORK\nout := fbCap(xEnable := src, xBusy => x).xErrorActive;\n",
+        Assert.Equal(FbdMarker + "%NETWORK\nASSIGN(fbCap(xEnable := src, xBusy => x).xErrorActive, Q => out);\n",
             StNetworkWriter.Write(One(Set(named, T("out"))), Scope));
     }
 
@@ -91,7 +91,7 @@ public class ShownPerNetworkTests
         Assert.Equal(
             LdMarker +
             $"%NETWORK \"Calc\"\n// why\n// it is\n%UNSUPPORTED \"a coil flag on a pin\" #{NetworkHash.Of(nested)}\nL1:\n" +
-            "%NETWORK\ndone := a;\n",
+            "%NETWORK\nASSIGN(a, Q => done);\n",
             StNetworkWriter.WritePulled(body, Scope));
         Assert.Equal("a coil flag on a pin", Refused(() => StNetworkWriter.Write(body, Scope)).Reason);
     }

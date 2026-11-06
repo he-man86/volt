@@ -2,10 +2,10 @@
 === text
 %LANGUAGE LD
 %NETWORK
-JMP.Done := a AND b;
+ASSIGN(a AND b, Q => JMP.Done);
 %NETWORK
 Done:
-x := TRUE;
+ASSIGN(TRUE, Q => x);
 === model
 NETWORK
   (jmp Done (AND a b))
@@ -16,10 +16,10 @@ NETWORK label:Done
 === text
 %LANGUAGE LD
 %NETWORK
-JMP.Done := RAIL();
+ASSIGN(RAIL(), Q => JMP.Done);
 %NETWORK
 Done:
-x := TRUE;
+ASSIGN(TRUE, Q => x);
 === model
 NETWORK
   (jmp Done _)
@@ -30,16 +30,16 @@ NETWORK label:Done
 === text
 %LANGUAGE LD
 %NETWORK
-RETURN := NOT xReady;
+ASSIGN(INVERT(xReady), Q => RETURN);
 === model
 NETWORK
-  (ret not:xReady)
+  (:= ret item:! xReady)
 
 #### return-rail
 === text
 %LANGUAGE LD
 %NETWORK
-RETURN := RAIL();
+ASSIGN(RAIL(), Q => RETURN);
 === model
 NETWORK
   (ret _)
@@ -48,10 +48,10 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-x1 := JMP.Done := x2 := RETURN := c;
+ASSIGN(c, Q => x1, Q => JMP.Done, Q => x2, Q => RETURN);
 %NETWORK
 Done:
-x := TRUE;
+ASSIGN(TRUE, Q => x);
 === model
 NETWORK
   (:= x1 jmp:Done x2 ret c)
@@ -64,10 +64,10 @@ instance t1 TON
 === text
 %LANGUAGE LD
 %NETWORK
-y := JMP.Done := t1(IN := c, PT := T#1S).Q;
+ASSIGN(t1(IN := c, PT := T#1S).Q, Q => y, Q => JMP.Done);
 %NETWORK
 Done:
-x := RAIL();
+ASSIGN(RAIL(), Q => x);
 === model
 NETWORK
   (:= y jmp:Done (TON@t1 IN=c PT=T#1S name:Q))
@@ -78,14 +78,14 @@ NETWORK label:Done
 === text
 %LANGUAGE LD
 %NETWORK
-JMP.L1 := c;
-JMP.L2 := c;
+ASSIGN(c, Q => JMP.L1);
+ASSIGN(c, Q => JMP.L2);
 %NETWORK
 L1:
-x := TRUE;
+ASSIGN(TRUE, Q => x);
 %NETWORK
 L2:
-y := TRUE;
+ASSIGN(TRUE, Q => y);
 === model
 NETWORK
   (jmp L1 c)
@@ -102,7 +102,7 @@ NETWORK label:L2
 %UNSUPPORTED "a coil flag on a jump or a return" #929f3675
 %NETWORK
 Done:
-x := TRUE;
+ASSIGN(TRUE, Q => x);
 === model
 NETWORK unsupported:"a coil flag on a jump or a return" hash:929f3675
 NETWORK label:Done
@@ -112,10 +112,10 @@ NETWORK label:Done
 === text
 %LANGUAGE LD
 %NETWORK
-y := (JMP.Done := c);
+ASSIGN(ASSIGN(c, Q => JMP.Done), Q => y);
 %NETWORK
 Done:
-x := TRUE;
+ASSIGN(TRUE, Q => x);
 === model
 NETWORK
   (:= y (jmp Done c))
@@ -126,7 +126,7 @@ NETWORK label:Done
 === text
 %LANGUAGE LD
 %NETWORK
-y := (x := a AND b);
+ASSIGN(ASSIGN(a AND b, Q => x), Q => y);
 === model
 NETWORK
   (:= y (:= x (AND a b)))
@@ -135,7 +135,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-y := x := a;
+ASSIGN(a, Q => y, Q => x);
 === model
 NETWORK
   (:= y x a)
@@ -144,9 +144,9 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-a := b S= c R= value;
-lamp S= lamp R= c;
-lamp R= lamp S= c;
+ASSIGN(value, Q => a, Q_SET => b, Q_RESET => c);
+ASSIGN(c, Q_SET => lamp, Q_RESET => lamp);
+ASSIGN(c, Q_RESET => lamp, Q_SET => lamp);
 === model
 NETWORK
   (:= a S=b R=c value)
@@ -157,7 +157,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-FirstCycle R= TRUE;
+ASSIGN(TRUE, Q_RESET => FirstCycle);
 === model
 NETWORK
   (:= R=FirstCycle TRUE)
@@ -166,32 +166,32 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-xn := NOT c;
+ASSIGN(INVERT(c), Q => xn);
 === model
 NETWORK
-  (:= xn not:c)
+  (:= xn item:! c)
 
 #### edge-coils
 === text
 %LANGUAGE LD
 %NETWORK
-xe := c;
-xf := c;
-xg := NOT c;
+ASSIGN(c, Q => xe);
+ASSIGN(c, Q => xf);
+ASSIGN(INVERT(c), Q => xg);
 === model
 NETWORK
   (:= xe c)
   (:= xf c)
-  (:= xg not:c)
+  (:= xg item:! c)
 
 #### negated-empty-value
 === text
 %LANGUAGE LD
 %NETWORK
-x := NOT TRUE;
+ASSIGN(INVERT(TRUE), Q => x);
 === model
 NETWORK
-  (:= x not:TRUE)
+  (:= x item:! TRUE)
 
 #### split-defined-and-read
 === text
@@ -200,8 +200,8 @@ NETWORK
 VAR w1 : ANY; w2 : ANY; END_VAR
 w1 := TRUE;
 w2 := w1 AND RunAuto;
-a := w2;
-b := w2 AND c;
+ASSIGN(w2, Q => a);
+ASSIGN(w2 AND c, Q => b);
 === model
 NETWORK
   (split 1 TRUE)
@@ -215,7 +215,7 @@ NETWORK
 %NETWORK
 VAR w1 : ANY; END_VAR
 w1 := ADD(a, b);
-x := w1;
+ASSIGN(w1, Q => x);
 === model
 NETWORK
   (split 1 (ADD a b conn:0))
@@ -227,7 +227,7 @@ NETWORK
 %NETWORK
 VAR w1 : ANY; END_VAR
 w1 := TRUE;
-MOVE(EN := w1, 0, OUT => t).ENO;
+MOVE(EN := w1, 0, OUT => t);
 === model
 NETWORK
   (split 1 TRUE)
@@ -241,8 +241,8 @@ name split1
 %NETWORK
 VAR w1 : ANY; END_VAR
 w1 := a;
-x := w1;
-split1 := w1;
+ASSIGN(w1, Q => x);
+ASSIGN(w1, Q => split1);
 === model
 NETWORK
   (split 1 a)
@@ -254,9 +254,9 @@ NETWORK
 %LANGUAGE LD
 %NETWORK
 VAR w1 : ANY; END_VAR
-x := w1;
+ASSIGN(w1, Q => x);
 w1 := a AND b;
-y := w1 AND c;
+ASSIGN(w1 AND c, Q => y);
 === model
 NETWORK
   (:= x #1)
@@ -268,9 +268,52 @@ NETWORK
 %LANGUAGE LD
 %NETWORK
 VAR w1 : ANY; END_VAR
-x := (w1 := a AND b);
-y := w1 AND c;
+ASSIGN((w1 := a AND b), Q => x);
+ASSIGN(w1 AND c, Q => y);
 === model
 NETWORK
   (:= x (split 1 (AND a b)))
   (:= y (AND #1 c))
+
+#### mixed-marks-in-a-target-list — each target of one ASSIGN holds its own mark, in stored order
+=== text
+%LANGUAGE LD
+%NETWORK
+ASSIGN(a, Q_SET => x, Q => y, Q_RESET => z, Q_INVERTED => w);
+=== model
+NETWORK
+  (:= S=x y R=z not:w a)
+
+#### series-coils — a coil drawn in series is an ASSIGN nested in the value
+=== text
+%LANGUAGE LD
+%NETWORK
+ASSIGN(ASSIGN(a, Q_INVERTED => x), Q => y);
+=== model
+NETWORK
+  (:= y (:= not:x a))
+
+#### jump-to-no-label — a jump drawn to no label is written as the editor shows it, ???
+=== text
+%LANGUAGE LD
+%NETWORK
+ASSIGN(a, Q => JMP.???);
+=== model
+NETWORK
+  (jmp ??? a)
+
+#### inverted-jump-and-return — a negated jump and a negated return
+=== text
+%LANGUAGE LD
+%NETWORK
+ASSIGN(a, Q_INVERTED => JMP.l);
+ASSIGN(b, Q_INVERTED => RETURN);
+%NETWORK
+l:
+ASSIGN(a, Q => x);
+=== model
+NETWORK
+  (:= not:jmp:l a)
+  (:= not:ret b)
+NETWORK label:l
+  (:= x a)

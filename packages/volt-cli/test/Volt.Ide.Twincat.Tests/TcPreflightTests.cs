@@ -40,7 +40,7 @@ public class TcPreflightTests
 
     /// <summary>A shape the native builder refuses (a parallel branch: TwinCAT never wrote one to build it from). It was a
     /// box output pin wired to a variable, which only the PLCopen import could not take.</summary>
-    private const string Unimportable = "out := BRANCH(FEED := go, a, b);";
+    private const string Unimportable = "ASSIGN(BRANCH(FEED := go, a, b), Q => out);";
 
     private static BodySite Method(string name) => new(name, ItemKind.Kinds.Method, null);
 
@@ -71,7 +71,7 @@ public class TcPreflightTests
     [Fact]
     public void A_model_it_can_express_passes()
     {
-        new BeckhoffDriver(new TcObjectModel()).ValidateSource(null, new[] { Body("out := a AND b;") });
+        new BeckhoffDriver(new TcObjectModel()).ValidateSource(null, new[] { Body("ASSIGN(a AND b, Q => out);") });
     }
 
     // ── 2.28: per body ─────────────────────────────────────────────────────────────────────────────

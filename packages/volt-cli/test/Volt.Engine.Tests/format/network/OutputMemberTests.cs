@@ -16,7 +16,7 @@ namespace Volt.Engine.Tests.Format.Network;
 /// </summary>
 public class OutputMemberTests
 {
-    const string Text = "%LANGUAGE FBD\n%NETWORK\nok := w1(EN := TRUE, xOn := a).ENO;\n";
+    const string Text = "%LANGUAGE FBD\n%NETWORK\nASSIGN(w1(EN := TRUE, xOn := a), Q => ok);\n";
 
     static NetworkScope Scope(IReadOnlyDictionary<string, CalleeSignature>? signatures = null) =>
         new(new[] { "ok", "a", "q", "v" }, Array.Empty<string>(), new Dictionary<string, string> { ["w1"] = "WSM" }, signatures: signatures);
@@ -70,13 +70,13 @@ public class OutputMemberTests
     public void A_function_read_through_a_VAR_OUTPUT_is_refused_by_name_at_a_push()
     {
         var scope = Scope(new Dictionary<string, CalleeSignature> { ["g"] = new(CalleeShape.Function, new[] { "IN" }, new[] { "Q" }) });
-        var gate = StNetworkGate.Validate("%LANGUAGE FBD\n%NETWORK\nq := g(v).Q;\n", scope);
+        var gate = StNetworkGate.Validate("%LANGUAGE FBD\n%NETWORK\nASSIGN(g(v).Q, Q => q);\n", scope);
         Assert.True(gate.Ok, string.Join("\n", gate.Diagnostics.Select(d => d.Message)));
         var ex = Assert.Throws<NetworkTextException>(() => NetworkPairing.RefuseUnbuildableBoxes("TwinCAT", gate.Body!.Networks[0], scope));
         Assert.Contains("a function box read by a VAR_OUTPUT has no measured build", ex.Message);
         NetworkPairing.RefuseUnbuildableBoxes("CODESYS", gate.Body!.Networks[0], scope, movedPinBuilds: true);
-        // …and its value, `.OUT`, is built.
-        var value = StNetworkGate.Validate("%LANGUAGE FBD\n%NETWORK\nq := g(v).OUT;\n", scope);
+        // …and its value, its flow, is built.
+        var value = StNetworkGate.Validate("%LANGUAGE FBD\n%NETWORK\nASSIGN(g(v), Q => q);\n", scope);
         NetworkPairing.RefuseUnbuildableBoxes("TwinCAT", value.Body!.Networks[0], scope);
     }
 
@@ -84,8 +84,8 @@ public class OutputMemberTests
     /// as an operator does — one value, no EN or ENO of its own — so an edited network showing its EN and ENO is built, as
     /// the LSP reads it (review 2a, finding 1).</summary>
     [Theory]
-    [InlineData("LIMIT(EN := a, MN := 0, IN := v, MX := 100, OUT => q).ENO;")]
-    [InlineData("ok := INT_TO_BOOL(EN := a, v, OUT => q).ENO;")]
+    [InlineData("LIMIT(EN := a, MN := 0, IN := v, MX := 100, OUT => q);")]
+    [InlineData("ASSIGN(INT_TO_BOOL(EN := a, v, OUT => q), Q => ok);")]
     public void An_IEC_operator_box_states_its_pins_so_a_push_builds_it_with_EN_and_ENO(string line)
     {
         var scope = Scope();
@@ -104,10 +104,10 @@ public class OutputMemberTests
     public void A_program_box_read_by_a_data_output_is_spelled_and_its_moved_pin_refused_at_a_push()
     {
         var scope = Scope(new Dictionary<string, CalleeSignature> { ["p"] = new(CalleeShape.Program, new[] { "IN" }, new[] { "Q1", "Q2" }) });
-        var first = StNetworkGate.Validate("%LANGUAGE FBD\n%NETWORK\nq := p(IN := v).Q1;\n", scope);
+        var first = StNetworkGate.Validate("%LANGUAGE FBD\n%NETWORK\nASSIGN(p(IN := v), Q => q);\n", scope);
         Assert.True(first.Ok, string.Join("\n", first.Diagnostics.Select(d => d.Message)));
         NetworkPairing.RefuseUnbuildableBoxes("CODESYS", first.Body!.Networks[0], scope);
-        var moved = StNetworkGate.Validate("%LANGUAGE FBD\n%NETWORK\nq := p(IN := v).Q2;\n", scope);
+        var moved = StNetworkGate.Validate("%LANGUAGE FBD\n%NETWORK\nASSIGN(p(IN := v).Q2, Q => q);\n", scope);
         Assert.True(moved.Ok, string.Join("\n", moved.Diagnostics.Select(d => d.Message)));
         var ex = Assert.Throws<NetworkTextException>(() => NetworkPairing.RefuseUnbuildableBoxes("TwinCAT", moved.Body!.Networks[0], scope));
         Assert.Contains("has no measured build", ex.Message);
@@ -117,8 +117,8 @@ public class OutputMemberTests
     /// <summary>The writer refuses a model its text would read back as another box (review 2a, finding 7): with the callee
     /// unstated, a first pin named EN reads back as the shown EN, and a read through an output named ENO as the shown ENO.</summary>
     [Theory]
-    [InlineData("ok := w1(EN := TRUE, xOn := a).xBusy;")]
-    [InlineData("ok := w1(xOn := a).ENO;")]
+    [InlineData("ASSIGN(w1(EN := TRUE, xOn := a).xBusy, Q => ok);")]
+    [InlineData("ASSIGN(w1(xOn := a), Q => ok);")]
     public void An_unstated_callee_s_own_EN_pin_or_ENO_output_is_unspellable(string line)
     {
         var stated = Scope(new Dictionary<string, CalleeSignature> { ["WSM"] = new(CalleeShape.Block, new[] { "EN", "xOn" }, new[] { "ENO", "xBusy" }) });

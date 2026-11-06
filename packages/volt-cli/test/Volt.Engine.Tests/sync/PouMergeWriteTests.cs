@@ -171,7 +171,7 @@ public class PouMergeWriteTests
     public void A_create_establishes_the_body_language_over_the_seed_CreateChild_laid_down()
     {
         var ide = new FakeIde();
-        PushOp(ide, new SetItemOp { Name = "VG_New.pou", SourceText = "PROGRAM VG_New\nVAR\n  c : BOOL;\n  y : BOOL;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\ny := c;\n\nEND_PROGRAM\n" });
+        PushOp(ide, new SetItemOp { Name = "VG_New.pou", SourceText = "PROGRAM VG_New\nVAR\n  c : BOOL;\n  y : BOOL;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\nASSIGN(c, Q => y);\n\nEND_PROGRAM\n" });
 
         Assert.Contains("%LANGUAGE LD\n%NETWORK", FakeIde.AllText(ide.WrittenContent["VG_New"]));
     }

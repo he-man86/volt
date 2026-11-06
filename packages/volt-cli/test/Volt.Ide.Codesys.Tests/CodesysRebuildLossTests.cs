@@ -100,7 +100,7 @@ public class CodesysRebuildLossTests
         var impl = Body(DrawnRung("x1", 10), DrawnRung("x2", 20), DrawnRung("x3", 30), DrawnRung("x4", 40),
             DrawnRung("x5", 50), DrawnRung("x6", 60));
 
-        var said = Push(impl, t => t.Replace("x6 := a AND b;", "x6 := a AND c;"));
+        var said = Push(impl, t => t.Replace("ASSIGN(a AND b, Q => x6);", "ASSIGN(a AND c, Q => x6);"));
 
         Assert.Contains(
             "CODESYS: network 6 is rebuilt from its text, which does not carry these stored values, and the rebuilt network " +
@@ -117,7 +117,7 @@ public class CodesysRebuildLossTests
         var impl = Body(DrawnRung("x1", 10), DrawnRung("x2", 20), DrawnRung("x3", 30), DrawnRung("x4", 40),
             DrawnRung("x5", 50), DrawnRung("x6", 60, negateB: true));
 
-        var said = Push(impl, t => t.Replace("x6 := a AND NOT b;", "x6 := c AND NOT b;"));
+        var said = Push(impl, t => t.Replace("ASSIGN(a AND INVERT(b), Q => x6);", "ASSIGN(c AND INVERT(b), Q => x6);"));
 
         Assert.Contains("does not hold them: Flags.Fixed ×2 (vendor-facts row nwl-flags-fixed), Operand.Boolean ×3", said);
     }
@@ -146,7 +146,7 @@ public class CodesysRebuildLossTests
         var impl = Body(DrawnRung("x1", 10), DrawnRung("x2", 20), DrawnRung("x3", 30), DrawnRung("x4", 40),
             DrawnRung("x5", 50), Rung("x6"));
 
-        var said = Push(impl, t => t.Replace("x6 :=", "x7 :="));
+        var said = Push(impl, t => t.Replace("Q => x6)", "Q => x7)"));
 
         Assert.DoesNotContain("OutputItemList.OutputItems", said);
     }
@@ -231,7 +231,7 @@ public class CodesysRebuildLossTests
         var impl = Body(DrawnRung("x1", 10), DrawnRung("x2", 20), DrawnRung("x3", 30), DrawnRung("x4", 40),
             DrawnRung("x5", 50), DrawnRung("x7", 70));
 
-        var said = Push(impl, t => t.Replace("%NETWORK\nx7 :=", "%NETWORK \"seven\"\nx7 :="));
+        var said = Push(impl, t => t.Replace("%NETWORK\nASSIGN(a AND b, Q => x7)", "%NETWORK \"seven\"\nASSIGN(a AND b, Q => x7)"));
 
         Assert.DoesNotContain("is rebuilt from its text", said);
         Assert.Equal("seven", ((Nwl.Network)impl.NetworkList[5]).Title);

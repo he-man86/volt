@@ -21,26 +21,26 @@ public class PushedTextTests
 
     /// <summary>A graphical body laid out otherwise is the same item; a changed token is not.</summary>
     [Theory]
-    [InlineData("out := a AND\n    b;", true)]
-    [InlineData("out := a OR b;", false)]
+    [InlineData("ASSIGN(a AND\n    b, Q => out);", true)]
+    [InlineData("ASSIGN(a OR b, Q => out);", false)]
     // A bracket around the whole value is no second spelling of the same program: one model has one text (owner
     // 2026-10-31, network-text-one-to-one), so the reader refuses it by name and the text is not the item. A box called
     // in the case it was typed is a box of that type, so `and(a, b)` is another element than the contacts.
-    [InlineData("out := (a AND b);", false)]
-    [InlineData("out := and(a, b);", false)]
+    [InlineData("ASSIGN((a AND b), Q => out);", false)]
+    [InlineData("ASSIGN(and(a, b), Q => out);", false)]
     public void A_graphical_body_is_compared_as_one_model(string statement, bool same)
     {
         static string Prg(string s) =>
             "PROGRAM P\nVAR\n  a, b, out : BOOL;\nEND_VAR\n%LANGUAGE LD\n%NETWORK\n" + s + "\nEND_PROGRAM\n";
-        Assert.Equal(same, PushedText.SameExceptLayout("P.pou", Prg("out := a AND b;"), Prg(statement)));
+        Assert.Equal(same, PushedText.SameExceptLayout("P.pou", Prg("ASSIGN(a AND b, Q => out);"), Prg(statement)));
     }
 
     /// <summary>A variable of an elementary type is no FB instance to the CLI either (review of
     /// <c>bridge-refusal-review</c> 4a): the comparison's scope takes the words BOTH vendors refuse as a POU name
     /// (<c>BothVendorsRefusedNames</c>), so a BOOL named <c>R_EDGE</c> is an operand like any other.</summary>
     [Theory]
-    [InlineData("out := R_EDGE AND b;", "out := R_EDGE AND\n    b;", true)]
-    [InlineData("out := R_EDGE AND b;", "out := R_EDGE OR b;", false)]
+    [InlineData("ASSIGN(R_EDGE AND b, Q => out);", "ASSIGN(R_EDGE AND\n    b, Q => out);", true)]
+    [InlineData("ASSIGN(R_EDGE AND b, Q => out);", "ASSIGN(R_EDGE OR b, Q => out);", false)]
     public void An_elementary_typed_variable_named_like_a_construct_is_no_instance(string x, string y, bool same)
     {
         static string Prg(string s) =>
@@ -99,13 +99,13 @@ public class PushedTextTests
     /// IDE change nobody made). A held pin with another VALUE, or a pin the text named held under another NAME, is
     /// another program.</summary>
     [Theory]
-    [InlineData("x := F(n);", "x := F(a := n);", true)]
-    [InlineData("x := F(n, m);", "x := F(a := n, b := m);", true)]
-    [InlineData("x := F(n, b := m);", "x := F(a := n, b := m);", true)]
-    [InlineData("x := F(n);", "x := F(a := m);", false)]
-    [InlineData("x := F(a := n);", "x := F(b := n);", false)]
-    [InlineData("x := F(n, b := m);", "x := F(a := n, c := m);", false)]
-    [InlineData("x := F(n);", "x := G(a := n);", false)]
+    [InlineData("ASSIGN(F(n), Q => x);", "ASSIGN(F(a := n), Q => x);", true)]
+    [InlineData("ASSIGN(F(n, m), Q => x);", "ASSIGN(F(a := n, b := m), Q => x);", true)]
+    [InlineData("ASSIGN(F(n, b := m), Q => x);", "ASSIGN(F(a := n, b := m), Q => x);", true)]
+    [InlineData("ASSIGN(F(n), Q => x);", "ASSIGN(F(a := m), Q => x);", false)]
+    [InlineData("ASSIGN(F(a := n), Q => x);", "ASSIGN(F(b := n), Q => x);", false)]
+    [InlineData("ASSIGN(F(n, b := m), Q => x);", "ASSIGN(F(a := n, c := m), Q => x);", false)]
+    [InlineData("ASSIGN(F(n), Q => x);", "ASSIGN(G(a := n), Q => x);", false)]
     public void A_positional_function_call_held_with_its_derived_names_is_the_same_item(string pushed, string held, bool same)
     {
         static string Prg(string s) =>

@@ -23,8 +23,8 @@ namespace Volt.Engine.Tests;
 public class PushValidatesOnceTests
 {
     private const string Decl = "FUNCTION_BLOCK FB_N\nVAR\n\ta : BOOL;\n\tq : BOOL;\nEND_VAR";
-    private const string Fbd = "%LANGUAGE FBD\n%NETWORK\nq := a;";
-    private const string FbdEdited = "%LANGUAGE FBD\n%NETWORK\nq := NOT a;";
+    private const string Fbd = "%LANGUAGE FBD\n%NETWORK\nASSIGN(a, Q => q);";
+    private const string FbdEdited = "%LANGUAGE FBD\n%NETWORK\nASSIGN(INVERT(a), Q => q);";
 
     private static string Source(string body, string method = "") =>
         Decl + "\n" + body + "\n\nEND_FUNCTION_BLOCK\n" + method;
@@ -42,7 +42,7 @@ public class PushValidatesOnceTests
     public void A_create_validates_each_network_body_once()
     {
         var ide = new FakeIde();
-        var method = "\nMETHOD M : BOOL\n" + FbdEdited.Replace("q := NOT a;", "M := TRUE;") + "\nEND_METHOD\n";
+        var method = "\nMETHOD M : BOOL\n" + FbdEdited.Replace("ASSIGN(INVERT(a), Q => q);", "ASSIGN(TRUE, Q => M);") + "\nEND_METHOD\n";
         var resp = Push(ide, _ => new SetItemOp { Name = "FB_N.pou", SourceText = Source(Fbd, method) });
 
         Assert.True(resp.Landed(), Reasons(resp));
@@ -58,7 +58,7 @@ public class PushValidatesOnceTests
 
         Assert.True(resp.Landed(), Reasons(resp));
         Assert.Single(ide.ScopesPushed);
-        Assert.Contains("q := NOT a;", ide.StoredImplementation("FB_N"));
+        Assert.Contains("ASSIGN(INVERT(a), Q => q);", ide.StoredImplementation("FB_N"));
     }
 
     /// <summary>A move+edit writes twice (before the move, and again after it, because a move can replace the item) —
@@ -75,7 +75,7 @@ public class PushValidatesOnceTests
         Assert.True(resp.Landed(), Reasons(resp));
         Assert.Single(ide.ScopesPushed);
         Assert.Equal(2, ide.Recorded.Count(r => r == "writecontent:FB_N"));
-        Assert.Contains("q := NOT a;", ide.StoredImplementation("FB_N"));
+        Assert.Contains("ASSIGN(INVERT(a), Q => q);", ide.StoredImplementation("FB_N"));
     }
 
     /// <summary>A write handed a network body with no model is Volt's bug, refused loud naming the site — the fake as

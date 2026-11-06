@@ -21,8 +21,8 @@ namespace Volt.Engine.Tests;
 /// </summary>
 public class DriverPreflightModelsTests
 {
-    private const string Fbd = "%LANGUAGE FBD\n%NETWORK\nout := a;";
-    private const string Ld = "%LANGUAGE LD\n%NETWORK\nout := a;";
+    private const string Fbd = "%LANGUAGE FBD\n%NETWORK\nASSIGN(a, Q => out);";
+    private const string Ld = "%LANGUAGE LD\n%NETWORK\nASSIGN(a, Q => out);";
 
     /// <summary>An FB whose own body, METHOD body and property GET are network text, and whose ACTION is ST.</summary>
     private static string Fb(string name) =>

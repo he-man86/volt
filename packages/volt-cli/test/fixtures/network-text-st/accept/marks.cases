@@ -2,8 +2,8 @@
 === text
 %LANGUAGE LD
 %NETWORK
-y := RAIL();
-x := TRUE;
+ASSIGN(RAIL(), Q => y);
+ASSIGN(TRUE, Q => x);
 === model
 NETWORK
   (:= y _)
@@ -17,8 +17,8 @@ instance t1 TON
 %NETWORK
 VAR w1 : ANY; END_VAR
 w1 := RAIL();
-y := t1(IN := RAIL(), PT := T#1S).Q;
-x := MOVE(EN := RAIL(), w1, OUT => n).ENO;
+ASSIGN(t1(IN := RAIL(), PT := T#1S).Q, Q => y);
+ASSIGN(MOVE(EN := RAIL(), w1, OUT => n), Q => x);
 === model
 NETWORK
   (split 1 _)
@@ -29,16 +29,16 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-a := RISING(x);
-b := FALLING(x);
-c := RISING(NOT x);
-d := NOT x;
+ASSIGN(RISING(x), Q => a);
+ASSIGN(FALLING(x), Q => b);
+ASSIGN(RISING(INVERT(x)), Q => c);
+ASSIGN(INVERT(x), Q => d);
 === model
 NETWORK
-  (:= a rise:x)
-  (:= b fall:x)
-  (:= c rise:not:x)
-  (:= d not:x)
+  (:= a item:/ x)
+  (:= b item:\ x)
+  (:= c item:/ not:x)
+  (:= d item:! x)
 
 #### pin-marks — a mark before a pin's name is the pin's own
 === scope
@@ -46,25 +46,25 @@ instance t1 TON
 === text
 %LANGUAGE FBD
 %NETWORK
-y := t1(NOT IN := a, PT := T#1S).Q;
+ASSIGN(t1(IN := INVERT(a), PT := T#1S).Q, Q => y);
 %NETWORK
-y := t1(RISING IN := a, PT := T#1S).Q;
+ASSIGN(t1(IN := RISING(a), PT := T#1S).Q, Q => y);
 %NETWORK
-y := t1(IN := NOT a, PT := T#1S).Q;
+ASSIGN(t1(IN := INVERT(a), PT := T#1S).Q, Q => y);
 === model
 NETWORK
   (:= y (TON@t1 !IN=a PT=T#1S name:Q))
 NETWORK
   (:= y (TON@t1 /IN=a PT=T#1S name:Q))
 NETWORK
-  (:= y (TON@t1 IN=not:a PT=T#1S name:Q))
+  (:= y (TON@t1 !IN=a PT=T#1S name:Q))
 
 #### en-marks — a mark before EN is the EN pin's own
 === text
 %LANGUAGE LD
 %NETWORK
-x := MOVE(NOT EN := c, 1, OUT => n).ENO;
-x := MOVE(RISING EN := c, 2, OUT => n).ENO;
+ASSIGN(MOVE(EN := INVERT(c), 1, OUT => n), Q => x);
+ASSIGN(MOVE(EN := RISING(c), 2, OUT => n), Q => x);
 === model
 NETWORK
   (:= x (MOVE 1 =>1:n !en:c conn:0 eno:1))
@@ -74,7 +74,7 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-NOT y := a;
+ASSIGN(a, Q_INVERTED => y);
 === model
 NETWORK
   (:= not:y a)
@@ -83,18 +83,19 @@ NETWORK
 === text
 %LANGUAGE LD
 %NETWORK
-NOT y := x := a;
+ASSIGN(a, Q_INVERTED => y, Q => x);
 === model
 NETWORK
   (:= not:y x a)
 
-#### output-marks — a mark before an output's name is the output's own
+#### output-marks — a mark on an output is in its name
 === scope
 instance t1 TON
+fb TON IN PT => Q ET
 === text
 %LANGUAGE FBD
 %NETWORK
-t1(IN := a, PT := T#1S, NOT Q => x);
+t1(IN := a, PT := T#1S, Q_INVERTED => x);
 === model
 NETWORK
   (TON@t1 IN=a PT=T#1S =>Q:not:x)
@@ -105,28 +106,28 @@ instance t1 TON
 === text
 %LANGUAGE FBD
 %NETWORK
-y := NOT t1(IN := a, PT := T#1S).Q;
-z := NOT AND(a, b);
-w := NOT(AND(a, b));
+ASSIGN(INVERT(t1(IN := a, PT := T#1S).Q), Q => y);
+ASSIGN(INVERT(AND(a, b)), Q => z);
+ASSIGN(NOT(AND(a, b)), Q => w);
 === model
 NETWORK
-  (:= y not:(TON@t1 IN=a PT=T#1S name:Q))
-  (:= z not:(AND a b))
+  (:= y item:! (TON@t1 IN=a PT=T#1S name:Q))
+  (:= z item:! (AND a b))
   (:= w (NOT (AND a b)))
 
 #### unnamed-pin-marks — a mark on a pin the IDE stores unnamed stands before an empty name
 === text
 %LANGUAGE FBD
 %NETWORK
-x := AND(a, NOT := b);
+ASSIGN(AND(a, INVERT(b)), Q => x);
 %NETWORK
-x := AND(a, RISING := b);
+ASSIGN(AND(a, RISING(b)), Q => x);
 %NETWORK
-x := AND(a, FALLING := b);
+ASSIGN(AND(a, FALLING(b)), Q => x);
 %NETWORK
-x := AND(NOT := a, b, NOT := c);
+ASSIGN(AND(INVERT(a), b, INVERT(c)), Q => x);
 %NETWORK
-x := AND(a, NOT b);
+ASSIGN(AND(a, INVERT(b)), Q => x);
 === model
 NETWORK
   (:= x (AND a !b))
@@ -137,13 +138,123 @@ NETWORK
 NETWORK
   (:= x (AND !a b !c))
 NETWORK
-  (:= x (AND a not:b))
+  (:= x (AND a !b))
 
 #### named-operator-pin — an operator pin the IDE stores named keeps its name
 === text
 %LANGUAGE FBD
 %NETWORK
-x := AND(a, NOT IN2 := b);
+ASSIGN(AND(a, IN2 := INVERT(b)), Q => x);
 === model
 NETWORK
   (:= x (AND a !IN2=b))
+
+#### not-before-an-edge — the line into a coil holds a negation outside an edge (NOT(R_TRIG(a)), measured)
+=== text
+%LANGUAGE LD
+%NETWORK
+ASSIGN(INVERT(RISING(a)), Q => x);
+=== model
+NETWORK
+  (:= x item:/! a)
+
+#### marked-coil-inside-a-chain — a mark on one coil of several acts on that coil only (measured)
+=== text
+%LANGUAGE LD
+%NETWORK
+ASSIGN(a, Q => y, Q_INVERTED => x);
+=== model
+NETWORK
+  (:= y not:x a)
+
+#### not-before-a-wire — a mark on a wire read stands on its receiver: the line into the coil
+=== text
+%LANGUAGE LD
+%NETWORK
+VAR w1 : ANY; END_VAR
+w1 := AND(a, b);
+ASSIGN(INVERT(w1), Q => x);
+ASSIGN(w1, Q => y);
+=== model
+NETWORK
+  (split 1 (AND a b))
+  (:= x item:! #1)
+  (:= y #1)
+
+#### edge-over-a-wire — an edge on a wire read stands on its receiver: the line into the coil
+=== text
+%LANGUAGE LD
+%NETWORK
+VAR w1 : ANY; END_VAR
+w1 := AND(a, b);
+ASSIGN(RISING(w1), Q => x);
+ASSIGN(w1, Q => y);
+=== model
+NETWORK
+  (split 1 (AND a b))
+  (:= x item:/ #1)
+  (:= y #1)
+
+#### pin-marks-stacked — a stack of marks on a pin: the outer one on the pin, the rest on its value
+=== scope
+instance t1 TON
+=== text
+%LANGUAGE FBD
+%NETWORK
+t1(IN := RISING(INVERT(a)), PT := T#1S);
+=== model
+NETWORK
+  (TON@t1 /IN=not:a PT=T#1S)
+
+#### unnamed-pin-marks-stacked — the same on a pin with no name
+=== text
+%LANGUAGE FBD
+%NETWORK
+ASSIGN(AND(a, FALLING(INVERT(b))), Q => x);
+=== model
+NETWORK
+  (:= x (AND a \not:b))
+
+#### en-marks-stacked — the same on EN
+=== text
+%LANGUAGE FBD
+%NETWORK
+MOVE(EN := RISING(INVERT(c)), 1, OUT => n);
+=== model
+NETWORK
+  (MOVE 1 =>1:n /en:not:c eno:1)
+
+#### item-marks-stacked — an edge outside a negation on the line into a coil: the edge on the line, the negation on the contact
+=== text
+%LANGUAGE LD
+%NETWORK
+ASSIGN(RISING(INVERT(a)), Q => y);
+=== model
+NETWORK
+  (:= y item:/ not:a)
+
+#### box-output-pin-marks — a mark on a box output pin is in its name
+=== scope
+instance t2 FB2
+fb FB2 IN => q1 q2
+=== text
+%LANGUAGE FBD
+%NETWORK
+t2(IN := a, q1_SET => x, q2_RESET => k);
+t2(IN := a, q1_INVERTED => y);
+=== model
+NETWORK
+  (FB2@t2 IN=a =>q1:S=x =>q2:S=not:k)
+  (FB2@t2 IN=a =>q1:not:y)
+
+#### marked-output-declared-as-named — an output the callee declares with a suffix is that output, unmarked
+=== scope
+instance t3 FB3
+fb FB3 IN => Q_SET
+=== text
+%LANGUAGE FBD
+%NETWORK
+t3(IN := a, Q_SET => x);
+=== model
+NETWORK
+  (FB3@t3 IN=a =>Q_SET:x)

@@ -33,7 +33,7 @@ public class LanguageLinePushTests
 {
     private const string Decl = "FUNCTION_BLOCK FB_Motor\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR";
     /// <summary>One network in network text: what an LD/FBD body states.</summary>
-    private const string Network = "%NETWORK\nout := a;";
+    private const string Network = "%NETWORK\nASSIGN(a, Q => out);";
 
     /// <summary>The motor with one method, <c>DoReset</c>, whose implementation is <paramref name="methodImpl"/> —
     /// its boundary line and body, exactly as they stand in the file.</summary>
@@ -115,7 +115,7 @@ public class LanguageLinePushTests
         var read = StNetworkReader.Read(body, NetworkScope.Empty);
         Assert.Equal(language == "LD" ? BodyLanguage.Ld : BodyLanguage.Fbd, read.Language);
         Assert.Single(read.Networks);
-        Assert.Contains("out := a;", body);
+        Assert.Contains("ASSIGN(a, Q => out);", body);
     }
 
     /// <summary>"Push strips the line, so the IDE never sees it" holds for EVERY <c>%LANGUAGE</c> line, not only the first.

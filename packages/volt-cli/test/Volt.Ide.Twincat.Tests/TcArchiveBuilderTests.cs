@@ -43,9 +43,9 @@ public sealed class TcArchiveBuilderTests(Xunit.Abstractions.ITestOutputHelper o
     /// assignment item is refused by name as every shape no TwinCAT build measured (a negated coil, a parallel branch).</summary>
     [Theory]
     [InlineData("a;")]
-    [InlineData("NOT AND(a, b);")]
+    [InlineData("INVERT(AND(a, b));")]
     [InlineData("RAIL();")]
-    [InlineData("COMMENT(y, 'it$'s') := COMMENT(a, 'why');")]
+    [InlineData("ASSIGN(COMMENT(a, 'why'), Q => COMMENT(y, 'it$'s'));")]
     [InlineData("MOVE(COMMENT(a, 'why'), OUT => COMMENT(x, 'why'));")]
     public void A_spelled_shape_builds_back_to_its_model(string code)
     {
@@ -59,7 +59,7 @@ public sealed class TcArchiveBuilderTests(Xunit.Abstractions.ITestOutputHelper o
     [Fact]
     public void A_mark_on_the_assignment_item_is_refused_by_name_as_unmeasured()
     {
-        var text = "%LANGUAGE LD\n%NETWORK\ny := NOT := a;\n";
+        var text = "%LANGUAGE LD\n%NETWORK\nASSIGN(INVERT(a), Q => y);\n";
         var scope = NetworkModelScopes.ScopeOf(StNetworkReader.Read(text, NetworkScope.Empty));
         Assert.Contains("a mark on the assignment item",
             Assert.Throws<NetworkTextException>(() => TcArchiveBuilder.Body(StNetworkReader.Read(text, scope), scope)).Message);
@@ -73,7 +73,10 @@ public sealed class TcArchiveBuilderTests(Xunit.Abstractions.ITestOutputHelper o
     {
         var text = "%LANGUAGE FBD\n%NETWORK\nEXECUTE(EN := go, 'n := 1;');\n";
         var scope = new NetworkScope(new[] { "go", "n" }, Array.Empty<string>(), new Dictionary<string, string>());
-        var e = Assert.Throws<NetworkTextException>(() => TcArchiveBuilder.Body(NetworkText.Validate(text, scope), scope));
+        // no text states it (the Execute box's ENO is shown by type, network-language rule 4): the model a vendor reader gives
+        var read = NetworkText.Validate(text, scope);
+        var hidden = read with { Networks = read.Networks.Select(n => n with { Trees = n.Trees.Select(t => (Node)(((Box)t) with { HasEnoOutput = false })).ToList() }).ToList() };
+        var e = Assert.Throws<NetworkTextException>(() => TcArchiveBuilder.Body(hidden, scope));
         Assert.Equal(Volt.Contracts.ConflictCodes.NetworkUnsupported, e.Code);
         Assert.Contains("an Execute box that shows no ENO", e.Message);
     }
@@ -180,28 +183,28 @@ public sealed class TcArchiveBuilderTests(Xunit.Abstractions.ITestOutputHelper o
     /// <c>test/e2e/graphical/native-writer.test.ts</c>.</summary>
     public static readonly (string Name, string Body)[] BeyondTheImport =
     {
-        ("single_consumer_branch", "%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := a AND b;\nout := w1;\n"),
-        ("fanout_two_coils", "%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := a AND b;\nout1 := w1;\nout2 := w1;\n"),
-        ("leaf_fed_split", "%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := a;\nout1 := w1;\nout2 := w1;\n"),
+        ("single_consumer_branch", "%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := a AND b;\nASSIGN(w1, Q => out);\n"),
+        ("fanout_two_coils", "%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := a AND b;\nASSIGN(w1, Q => out1);\nASSIGN(w1, Q => out2);\n"),
+        ("leaf_fed_split", "%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := a;\nASSIGN(w1, Q => out1);\nASSIGN(w1, Q => out2);\n"),
         ("unconnected_pin", "%NETWORK\nt1(PT := pt);\n"),
         ("pin_to_variable", "%NETWORK\nt1(IN := a, PT := pt, ET => el);\n"),
-        ("pin_to_variable_consumed", "%NETWORK\nout := t1(IN := a, PT := pt, ET => el).Q;\n"),
-        ("negated_input", "%NETWORK\nout := NOT a AND b;\n"),
-        ("set_coil", "%NETWORK\nout S= a;\n"),
-        ("reset_coil", "%NETWORK\nout R= a AND b;\n"),
-        ("rising_edge", "%NETWORK\nout := RISING(a) AND b;\n"),
-        ("execute", "%NETWORK\nEXECUTE(EN := go, 'n := n + 1;').ENO;\n"),
-        ("execute_consumed", "%NETWORK\nout := EXECUTE(EN := go, 'n := 1;').ENO;\n"),
-        ("multi_rung", "%NETWORK\nout1 := a AND b;\nout2 := c OR d;\nt1(IN := e, PT := pt);\n"),
-        ("assign_below_top", "%NETWORK\nt1(IN := (out := go), PT := pt);\n"),
-        ("jump_and_label", "%NETWORK\nJMP.L1 := a;\n%NETWORK\nL1:\nout := a OR b;\n"),
-        ("return_uncond", "%NETWORK\nout := a AND b;\n%NETWORK\nRETURN := RAIL();\n"),
-        ("unconnected_coil", "%NETWORK\nout := TRUE;\n"),
-        ("empty_network", "%NETWORK\nout := a AND b;\n%NETWORK\n"),
-        ("header", "%NETWORK \"a rung\"\n%DISABLED\n// two lines\n// of comment\nHere:\nout := a AND b;\n"),
-        ("enable_and", "%NETWORK\nAND(EN := go, a, b, OUT => out).ENO;\n"),
-        ("enable_move", "%NETWORK\nout := MOVE(EN := go, b, OUT => n).ENO;\n"),
-        ("function_named", "%NETWORK\nn := F_Custom(A := i1, B := i2);\n"),
+        ("pin_to_variable_consumed", "%NETWORK\nASSIGN(t1(IN := a, PT := pt, ET => el).Q, Q => out);\n"),
+        ("negated_input", "%NETWORK\nASSIGN(INVERT(a) AND b, Q => out);\n"),
+        ("set_coil", "%NETWORK\nASSIGN(a, Q_SET => out);\n"),
+        ("reset_coil", "%NETWORK\nASSIGN(a AND b, Q_RESET => out);\n"),
+        ("rising_edge", "%NETWORK\nASSIGN(RISING(a) AND b, Q => out);\n"),
+        ("execute", "%NETWORK\nEXECUTE(EN := go, 'n := n + 1;');\n"),
+        ("execute_consumed", "%NETWORK\nASSIGN(EXECUTE(EN := go, 'n := 1;'), Q => out);\n"),
+        ("multi_rung", "%NETWORK\nASSIGN(a AND b, Q => out1);\nASSIGN(c OR d, Q => out2);\nt1(IN := e, PT := pt);\n"),
+        ("assign_below_top", "%NETWORK\nt1(IN := ASSIGN(go, Q => out), PT := pt);\n"),
+        ("jump_and_label", "%NETWORK\nASSIGN(a, Q => JMP.L1);\n%NETWORK\nL1:\nASSIGN(a OR b, Q => out);\n"),
+        ("return_uncond", "%NETWORK\nASSIGN(a AND b, Q => out);\n%NETWORK\nASSIGN(RAIL(), Q => RETURN);\n"),
+        ("unconnected_coil", "%NETWORK\nASSIGN(TRUE, Q => out);\n"),
+        ("empty_network", "%NETWORK\nASSIGN(a AND b, Q => out);\n%NETWORK\n"),
+        ("header", "%NETWORK \"a rung\"\n%DISABLED\n// two lines\n// of comment\nHere:\nASSIGN(a AND b, Q => out);\n"),
+        ("enable_and", "%NETWORK\nAND(EN := go, a, b, OUT => out);\n"),
+        ("enable_move", "%NETWORK\nASSIGN(MOVE(EN := go, b, OUT => n), Q => out);\n"),
+        ("function_named", "%NETWORK\nASSIGN(F_Custom(A := i1, B := i2), Q => n);\n"),
     };
 
     /// <summary>The shapes the builder refuses, by the phrase of the reason.</summary>
@@ -354,7 +357,7 @@ public sealed class TcArchiveBuilderTests(Xunit.Abstractions.ITestOutputHelper o
     public void An_Execute_box_without_EN_builds_without_EN_and_reads_back_the_same()
     {
         var scope = new NetworkScope(new[] { "out", "a" }, Array.Empty<string>(), new Dictionary<string, string>());
-        const string text = "%LANGUAGE FBD\n%NETWORK\nEXECUTE('out := a;').ENO;\n";
+        const string text = "%LANGUAGE FBD\n%NETWORK\nEXECUTE('out := a;');\n";
         var back = ReadBack(TcArchiveBuilder.Body(NetworkText.Validate(text, scope), scope));
         Assert.Equal(text, StNetworkWriter.Write(back, scope));
     }

@@ -90,7 +90,7 @@ public class TcDemuxTests
         var text = TcText.Write(Read());
 
         Assert.Contains("VAR w1 : ANY; END_VAR\nw1 := b;\n", text);
-        Assert.Contains("out2 := w1;", text);          // one consumer
+        Assert.Contains("ASSIGN(w1, Q => out2);", text);          // one consumer
         Assert.Contains("OR(a, w1)", text);            // ...and the other, inside the OR box
     }
 
@@ -186,7 +186,7 @@ public class TcDemuxTests
 
         Assert.Null(TcText.Apply(archive, TcText.Validate(text, TcText.ScopeOf(pulled))));
 
-        var edited = System.Text.RegularExpressions.Regex.Replace(text, @"out2 := (w\d+);", "out := $1;");
+        var edited = System.Text.RegularExpressions.Regex.Replace(text, @"ASSIGN\((w\d+), Q => out2\);", "ASSIGN($1, Q => out);");
         Assert.NotEqual(text, edited);
         var written = TcText.Apply(archive, TcText.Validate(edited, TcText.ScopeOf(pulled)));
         Assert.NotNull(written);
@@ -213,7 +213,7 @@ public class TcDemuxTests
         var text = TcText.Write(pulled);
         Assert.DoesNotContain("'   '", text);
 
-        var edited = System.Text.RegularExpressions.Regex.Replace(text, @"out2 := (w\d+);", "out := $1;");
+        var edited = System.Text.RegularExpressions.Regex.Replace(text, @"ASSIGN\((w\d+), Q => out2\);", "ASSIGN($1, Q => out);");
         Assert.NotEqual(text, edited);
         var written = TcText.Apply(archive, TcText.Validate(edited, TcText.ScopeOf(pulled)));
         Assert.NotNull(written);

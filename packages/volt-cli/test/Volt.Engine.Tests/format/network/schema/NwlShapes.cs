@@ -106,10 +106,10 @@ public static class NwlShapes
         ("BoxTreeOperand", "a"),
         ("BoxTreeBox[operator]", "AND(a, b)"),
         ("BoxTreeBox[function]", "F1(IN1 := a, IN2 := b)"),
-        ("BoxTreeBox[fb]", "fb1(IN1 := a, IN2 := b).Q1"),
-        ("BoxTreeBox[en-eno]", "MOVE(EN := c, a, OUT => n).ENO"),
-        ("BoxTreeBox[execute]", "EXECUTE(EN := go, 'n := TRUE;').ENO"),
-        ("BoxTreeAssign", null),                     // a mid-rung coil, taken from `y := (z := a) AND b;`
+        ("BoxTreeBox[fb]", "fb1(IN1 := a, IN2 := b)"),
+        ("BoxTreeBox[en-eno]", "MOVE(EN := c, a, OUT => n)"),
+        ("BoxTreeBox[execute]", "EXECUTE(EN := go, 'n := TRUE;')"),
+        ("BoxTreeAssign", null),                     // a mid-rung coil, taken from `ASSIGN(ASSIGN(a, Q => z) AND b, Q => y);`
         ("BoxTreeDemux", null),                      // built: a wire defined here, read by another tree
         ("BoxTreeParallel[Sequential]", "BRANCH(FEED := start, a, b)"),
         ("BoxTreeParallel[BoxShortCircuit]", "BRANCH_SHORTCIRCUIT(FEED := start, a, b)"),
@@ -122,14 +122,14 @@ public static class NwlShapes
     static readonly (string Slot, string? Text)[] Slots =
     {
         ("Network.NetworkItems", null),              // the root: the class itself is the tree
-        ("BoxTreeAssign.RValue", "y := HOLE;"),
-        ("BoxTreeBox.InputItems[operator]", "y := AND(HOLE, b);"),
-        ("BoxTreeBox.InputItems[function]", "y := F1(IN1 := HOLE, IN2 := b);"),
-        ("BoxTreeBox.InputItems[fb]", "y := fb1(IN1 := HOLE, IN2 := b).Q1;"),
-        ("BoxTreeBox.InputItems[EN]", "y := MOVE(EN := HOLE, a, OUT => n).ENO;"),
-        ("BoxTreeDemux.Input", "VAR w1 : ANY; END_VAR\nw1 := HOLE;\ny := w1;\nz := w1;"),
-        ("BoxTreeParallel.Input", "y := BRANCH(FEED := HOLE, a, b);"),
-        ("BoxTreeParallel.Trees", "y := BRANCH(FEED := start, HOLE, b);"),
+        ("BoxTreeAssign.RValue", "ASSIGN(HOLE, Q => y);"),
+        ("BoxTreeBox.InputItems[operator]", "ASSIGN(AND(HOLE, b), Q => y);"),
+        ("BoxTreeBox.InputItems[function]", "ASSIGN(F1(IN1 := HOLE, IN2 := b), Q => y);"),
+        ("BoxTreeBox.InputItems[fb]", "ASSIGN(fb1(IN1 := HOLE, IN2 := b), Q => y);"),
+        ("BoxTreeBox.InputItems[EN]", "ASSIGN(MOVE(EN := HOLE, a, OUT => n), Q => y);"),
+        ("BoxTreeDemux.Input", "VAR w1 : ANY; END_VAR\nw1 := HOLE;\nASSIGN(w1, Q => y);\nASSIGN(w1, Q => z);"),
+        ("BoxTreeParallel.Input", "ASSIGN(BRANCH(FEED := HOLE, a, b), Q => y);"),
+        ("BoxTreeParallel.Trees", "ASSIGN(BRANCH(FEED := start, HOLE, b), Q => y);"),
         ("BoxTreeTerminator.Input", null),
         ("BoxTreeMux.Merger", null),
     };
@@ -236,11 +236,11 @@ public static class NwlShapes
 
     static Node Instance(string cls, List<Node> extra, bool root)
     {
-        Node Value(string expr) => ((Assign)Template("y := " + expr + ";", 0)[0]).Value;
+        Node Value(string expr) => ((Assign)Template("ASSIGN(" + expr + ", Q => y);", 0)[0]).Value;
         Node n = cls switch
         {
             "BoxTreeOperand" => new Leaf(new Operand("a", Flags: Flags.None), Flags.None),
-            "BoxTreeAssign" => ((Box)Value("(z := a) AND b")).Inputs.Select(i => i.Value).OfType<Assign>().Single(),
+            "BoxTreeAssign" => ((Box)Value("ASSIGN(a, Q => z) AND b")).Inputs.Select(i => i.Value).OfType<Assign>().Single(),
             "BoxTreeDemux" => new Demux(20, new Leaf(new Operand("a", Flags: Flags.None), Flags.None)),
             _ => Value(Classes.Single(c => c.Class == cls).Text!),
         };
