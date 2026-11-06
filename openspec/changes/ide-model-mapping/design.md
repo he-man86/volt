@@ -133,6 +133,8 @@ parts inside its `()`, and the flow is each call's return.
   mark on the line runs.
 - An assign with a null target faults the IDE's language model; an assign with a null value cannot be saved. Both are
   refused by name.
-- A function showing EN and no ENO: refused if only a direct write makes it.
+- A function showing EN and no ENO: only a direct write makes it (the editor shows EN and ENO together). Settled by the
+  map: a function keeps its text, `GT(EN := go, i, j);` with no target is a statement like any box whose flow ends; an FB
+  is refused, `an ENO output on a box showing no ENO`.
 
 **Parked by the owner:** comments on an operand.
