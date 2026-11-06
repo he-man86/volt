@@ -126,6 +126,16 @@ public class CodesysClassStatesTests
                 if (e.GetProperty("inputFlags").ValueKind != JsonValueKind.Null)
                     box.InputFlags = e.GetProperty("inputFlags").EnumerateArray().Select(f => (object)Flags(f)!).ToArray();
                 foreach (var o in outputs) box.Outputs.AppendOutputItem(o!);
+                // an Execute box's ST, as the editor's insert stored it (the IDE's getter answers ProvidesSTSnippet from the box type)
+                if (e.TryGetProperty("snippet", out var snippet))
+                {
+                    var st = new _3S.CoDeSys.STObject.STImplementationObject();
+                    Nwl.TextDocument.ThrowsAfterInsert = false;
+                    try { st.TextDocument.Insert(0, snippet.GetString()!); }
+                    finally { Nwl.TextDocument.ThrowsAfterInsert = true; }
+                    box.STSnippet = new Nwl.STSnippet { Snippet = st };
+                    box.ProvidesSTSnippetAnswer = true;
+                }
                 return box;
             }
             default:
@@ -197,19 +207,21 @@ public class CodesysClassStatesTests
     }
 
     /// <summary>Two states that build or run apart must never pull alike: a push of that text would be another program. Runs are
-    /// compared only between states the driver observed through the same variables (a run string names them).</summary>
+    /// compared only between states the driver observed through the same variables (a run string names them) and fed the same
+    /// <c>go</c> (TRUE, or FALSE throughout where <c>measured.go</c> is false).</summary>
     [Fact]
     public void No_two_states_that_build_or_run_apart_pull_alike()
     {
         var states = Recording.Value.RootElement.GetProperty("states").EnumerateArray()
             .Where(s => !s.GetProperty("pull").GetString()!.Contains("UNSUPPORTED", StringComparison.Ordinal) && s.GetProperty("measured").GetProperty("run").ValueKind != JsonValueKind.Null)
             .Select(s => (Id: s.GetProperty("id").GetString()!, Language: s.GetProperty("language").GetString()!, Pull: s.GetProperty("pull").GetString()!,
+                Go: !(s.GetProperty("measured").TryGetProperty("go", out var go) && go.ValueKind == JsonValueKind.False),
                 Outcome: s.GetProperty("measured").GetProperty("build").EnumerateArray().Any(m => m.GetString()!.Contains(" Error ", StringComparison.Ordinal))
                     ? "does not build" : "runs " + s.GetProperty("measured").GetProperty("run").GetString()))
             .ToList();
         static string Watched(string outcome) => string.Join(" ", System.Text.RegularExpressions.Regex.Matches(outcome, @"(\w+)=")
             .Cast<System.Text.RegularExpressions.Match>().Select(m => m.Groups[1].Value));
-        var apart = states.GroupBy(s => (s.Language, s.Pull))
+        var apart = states.GroupBy(s => (s.Language, s.Pull, s.Go))
             .Where(g => g.Select(s => s.Outcome == "does not build").Distinct().Count() > 1
                 || g.Where(s => s.Outcome != "does not build").GroupBy(s => Watched(s.Outcome)).Any(w => w.Select(s => s.Outcome).Distinct().Count() > 1))
             .Select(g => $"'{g.Key.Pull}' ({g.Key.Language}): " + string.Join(" | ", g.GroupBy(s => s.Outcome).Select(x => x.Key + " <- " + string.Join(" ", x.Select(s => s.Id)))));

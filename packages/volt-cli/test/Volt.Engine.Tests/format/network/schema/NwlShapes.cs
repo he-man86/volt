@@ -244,10 +244,12 @@ public static class NwlShapes
     {
         NwlShape Refused(string marker) => new(cls, slot, holder, bits, depth, lang, null, marker);
 
-        if (cls == "BoxTreeMux") return Refused(MuxMarker);
         var innerSlotName = innerSlot is null ? slot : innerSlot.Contains(":=", StringComparison.Ordinal) ? slot.Split('>')[1] : innerSlot;
-        if (innerSlotName is "BoxTreeMux.Merger") return Refused(MuxMarker);
+        // the reader refuses a terminator's input before it reaches what the input holds: a Mux under a rail pulls as the
+        // terminator's refusal (class-states 0540)
         if (innerSlotName is "BoxTreeTerminator.Input") return Refused(TerminatorInputMarker);
+        if (cls == "BoxTreeMux") return Refused(MuxMarker);
+        if (innerSlotName is "BoxTreeMux.Merger") return Refused(MuxMarker);
 
         var extra = new List<Node>();
         var node = Instance(cls, extra, root: depth == 1 && slot == "Network.NetworkItems");

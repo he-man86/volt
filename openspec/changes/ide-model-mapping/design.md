@@ -71,10 +71,22 @@ batch at once, because a modal dialog blocks the IDE and hides what follows. Eve
 - **A state resolves** to the map rows of that member whose option names that place or word, and, for a flag, whose first
   word is that value. Nothing else is matched: the rows are not rewritten for the shapes.
 - **The verdict.** A spelled shape with a state whose rows all refuse fails the gate: a pull would show text for a state
-  the map refuses. A refused shape needs its refusal's wording on a refused row; one whose refusal no row holds is listed.
+  the map refuses. A refused shape needs its refusal's wording on a refused row (a whole-body refusal stands as its
+  `%LANGUAGE … UNSUPPORTED` line); a shape with a state the object model cannot hold (every row of it `cannot-store`) is
+  one the IDE never stores and needs none. One whose refusal no row holds is listed.
   A refused shape whose states' rows all spell is listed too: the rows lack the context that refuses it.
 - **Not covered.** A state no row resolves is listed in `shapes.v2.coverage.txt` with the number of shapes it reaches. That
   list is the measurement queue for combinations; a state measured later becomes rows, and the list shrinks.
+- **The queue closed (2026-11-06).** 211 queued states, measured live as class-states 0146-0581 (each LD and FBD; a Mux
+  FBD only): every pairwise flag stack on a pin, the line, a box (AND, FB, FUNCTION, MOVE, EXECUTE), the terminator, an
+  FB instance, a box output, an operand and a coil target; the operand comments on an instance and an output; each class
+  in each slot (a box, parallel, assign, terminator, wire or Mux in a box pin, a parallel's feed or leg, a wire's
+  definition, under a rail; a non-box as a Mux's merger is `cannot-store`). Existing states are cited where they hold the
+  class in the slot (class-states 0106, 0125, 0126, 0128, 0143-0145; assign-states 0379-0380). Found: the reader refuses a
+  terminator's input before the Mux under it (0540), so the generator now names that refusal first; a terminator's input
+  is ignored by the compiler (refused-inert), a wire under a rail does not build. What stays listed, by design: the two
+  root Mux shapes (a root holds no slot state; every Mux is the reader's refusal, 0143-0145, 0536-0539), and the
+  refused shapes whose rows spell in another context (a Jump or Return bit on the line or target of a jump or return).
 
 ## What the 3.1 sweep found (2026-11-06)
 
@@ -87,7 +99,9 @@ batch at once, because a modal dialog blocks the IDE and hides what follows. Eve
 - The box-states offline twin read an unknown CallType as `And`; it now parses every stored member (Action, Sel added).
 - Root boxes now show a run: an FB's instance outputs and a PROGRAM's own outputs after the run (`observe`), equal across
   the EN/ENO forms and their spelled twins (box-states 0025, 0078, 0249, 0295, 0609, 0617, 0689, 0697, 1037, 1055). A
-  FUNCTION at a root that nothing reads (bmF0: 0649, 0208, 0218) has no effect a run can show.
+  FUNCTION at a root that nothing reads (bmF0: 0649, 0208, 0218) has no effect a run can show; one writing its VAR_IN_OUT
+  (edFv) runs once per call in the EN/ENO and the EN-only form, and not at all with EN false (class-states 0557-0564). EN
+  false is run for the root FB and PROGRAM too: nothing is called and no output written (class-states 0541-0556).
 - LD boxes with formal pins (`LIMIT(MN := 0, IN := v, MX := 100)`, `SEL(G := g, IN0 := a, IN1 := b)`) pull back, build
   and run as the FBD ones (e2e nwl-box-states). An FBD wire carrying an array (`w1 := MOVE(arr); ASSIGN(w1, Q => out);`)
   builds and runs; the lowering declares a wire of an array of elementary values.

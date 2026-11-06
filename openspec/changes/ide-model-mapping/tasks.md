@@ -11,7 +11,8 @@
 - [x] 2.1 Assign and operand, to the same depth.
 - [x] 2.2 Every other class in the census: branch, demux, terminator, network and the rest.
 - [x] 2.3 Combinations: `shapes.v2` runs against the map instead of beside it (design.md "Combinations against the map"; the
-      states no row covers are the queue in `shapes.v2.coverage.txt`).
+      states no row covers are the queue in `shapes.v2.coverage.txt`). The queue closed 2026-11-06: every state resolves
+      (class-states 0146-0581); design.md "The queue closed" names what stays listed and why.
 
 ## 3. Fix what the maps find
 

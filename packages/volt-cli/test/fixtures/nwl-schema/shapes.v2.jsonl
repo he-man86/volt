@@ -3818,7 +3818,7 @@
 {"language":"LD","depth":1,"slot":"BoxTreeTerminator.Input","class":"BoxTreeTerminator","holder":"BoxTreeTerminator.Flags","flags":"Jump+Ftrig","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"LD","depth":1,"slot":"BoxTreeTerminator.Input","class":"BoxTreeTerminator","holder":"BoxTreeTerminator.Flags","flags":"Return+Ftrig","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"LD","depth":1,"slot":"BoxTreeTerminator.Input","class":"BoxTreeTerminator","holder":"BoxTreeTerminator.Flags","flags":"Rtrig+Ftrig","outcome":"vendor-refused","reason":"a terminator with an input"}
-{"language":"LD","depth":1,"slot":"BoxTreeTerminator.Input","class":"BoxTreeMux","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
+{"language":"LD","depth":1,"slot":"BoxTreeTerminator.Input","class":"BoxTreeMux","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"LD","depth":1,"slot":"BoxTreeMux.Merger","class":"BoxTreeOperand","holder":"Operand.Flags","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
 {"language":"LD","depth":1,"slot":"BoxTreeMux.Merger","class":"BoxTreeOperand","holder":"Operand.Flags","flags":"Negation","outcome":"vendor-refused","reason":"an item with no network-text form"}
 {"language":"LD","depth":1,"slot":"BoxTreeMux.Merger","class":"BoxTreeOperand","holder":"Operand.Flags","flags":"Set","outcome":"vendor-refused","reason":"an item with no network-text form"}
@@ -4308,7 +4308,7 @@
 {"language":"LD","depth":2,"slot":"BoxTreeAssign.RValue>BoxTreeTerminator.Input","class":"BoxTreeParallel[Sequential]","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"LD","depth":2,"slot":"BoxTreeAssign.RValue>BoxTreeTerminator.Input","class":"BoxTreeParallel[BoxShortCircuit]","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"LD","depth":2,"slot":"BoxTreeAssign.RValue>BoxTreeTerminator.Input","class":"BoxTreeTerminator","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
-{"language":"LD","depth":2,"slot":"BoxTreeAssign.RValue>BoxTreeTerminator.Input","class":"BoxTreeMux","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
+{"language":"LD","depth":2,"slot":"BoxTreeAssign.RValue>BoxTreeTerminator.Input","class":"BoxTreeMux","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"LD","depth":2,"slot":"BoxTreeAssign.RValue>BoxTreeMux.Merger","class":"BoxTreeOperand","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
 {"language":"LD","depth":2,"slot":"BoxTreeAssign.RValue>BoxTreeMux.Merger","class":"BoxTreeBox[operator]","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
 {"language":"LD","depth":2,"slot":"BoxTreeAssign.RValue>BoxTreeMux.Merger","class":"BoxTreeBox[function]","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
@@ -4428,7 +4428,7 @@
 {"language":"LD","depth":2,"slot":"BoxTreeBox.InputItems[operator]>BoxTreeTerminator.Input","class":"BoxTreeParallel[Sequential]","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"LD","depth":2,"slot":"BoxTreeBox.InputItems[operator]>BoxTreeTerminator.Input","class":"BoxTreeParallel[BoxShortCircuit]","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"LD","depth":2,"slot":"BoxTreeBox.InputItems[operator]>BoxTreeTerminator.Input","class":"BoxTreeTerminator","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
-{"language":"LD","depth":2,"slot":"BoxTreeBox.InputItems[operator]>BoxTreeTerminator.Input","class":"BoxTreeMux","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
+{"language":"LD","depth":2,"slot":"BoxTreeBox.InputItems[operator]>BoxTreeTerminator.Input","class":"BoxTreeMux","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"LD","depth":2,"slot":"BoxTreeBox.InputItems[operator]>BoxTreeMux.Merger","class":"BoxTreeOperand","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
 {"language":"LD","depth":2,"slot":"BoxTreeBox.InputItems[operator]>BoxTreeMux.Merger","class":"BoxTreeBox[operator]","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
 {"language":"LD","depth":2,"slot":"BoxTreeBox.InputItems[operator]>BoxTreeMux.Merger","class":"BoxTreeBox[function]","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
@@ -4548,7 +4548,7 @@
 {"language":"LD","depth":2,"slot":"BoxTreeBox.InputItems[function]>BoxTreeTerminator.Input","class":"BoxTreeParallel[Sequential]","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"LD","depth":2,"slot":"BoxTreeBox.InputItems[function]>BoxTreeTerminator.Input","class":"BoxTreeParallel[BoxShortCircuit]","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"LD","depth":2,"slot":"BoxTreeBox.InputItems[function]>BoxTreeTerminator.Input","class":"BoxTreeTerminator","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
-{"language":"LD","depth":2,"slot":"BoxTreeBox.InputItems[function]>BoxTreeTerminator.Input","class":"BoxTreeMux","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
+{"language":"LD","depth":2,"slot":"BoxTreeBox.InputItems[function]>BoxTreeTerminator.Input","class":"BoxTreeMux","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"LD","depth":2,"slot":"BoxTreeBox.InputItems[function]>BoxTreeMux.Merger","class":"BoxTreeOperand","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
 {"language":"LD","depth":2,"slot":"BoxTreeBox.InputItems[function]>BoxTreeMux.Merger","class":"BoxTreeBox[operator]","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
 {"language":"LD","depth":2,"slot":"BoxTreeBox.InputItems[function]>BoxTreeMux.Merger","class":"BoxTreeBox[function]","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
@@ -4668,7 +4668,7 @@
 {"language":"LD","depth":2,"slot":"BoxTreeBox.InputItems[fb]>BoxTreeTerminator.Input","class":"BoxTreeParallel[Sequential]","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"LD","depth":2,"slot":"BoxTreeBox.InputItems[fb]>BoxTreeTerminator.Input","class":"BoxTreeParallel[BoxShortCircuit]","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"LD","depth":2,"slot":"BoxTreeBox.InputItems[fb]>BoxTreeTerminator.Input","class":"BoxTreeTerminator","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
-{"language":"LD","depth":2,"slot":"BoxTreeBox.InputItems[fb]>BoxTreeTerminator.Input","class":"BoxTreeMux","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
+{"language":"LD","depth":2,"slot":"BoxTreeBox.InputItems[fb]>BoxTreeTerminator.Input","class":"BoxTreeMux","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"LD","depth":2,"slot":"BoxTreeBox.InputItems[fb]>BoxTreeMux.Merger","class":"BoxTreeOperand","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
 {"language":"LD","depth":2,"slot":"BoxTreeBox.InputItems[fb]>BoxTreeMux.Merger","class":"BoxTreeBox[operator]","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
 {"language":"LD","depth":2,"slot":"BoxTreeBox.InputItems[fb]>BoxTreeMux.Merger","class":"BoxTreeBox[function]","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
@@ -4788,7 +4788,7 @@
 {"language":"LD","depth":2,"slot":"BoxTreeBox.InputItems[EN]>BoxTreeTerminator.Input","class":"BoxTreeParallel[Sequential]","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"LD","depth":2,"slot":"BoxTreeBox.InputItems[EN]>BoxTreeTerminator.Input","class":"BoxTreeParallel[BoxShortCircuit]","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"LD","depth":2,"slot":"BoxTreeBox.InputItems[EN]>BoxTreeTerminator.Input","class":"BoxTreeTerminator","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
-{"language":"LD","depth":2,"slot":"BoxTreeBox.InputItems[EN]>BoxTreeTerminator.Input","class":"BoxTreeMux","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
+{"language":"LD","depth":2,"slot":"BoxTreeBox.InputItems[EN]>BoxTreeTerminator.Input","class":"BoxTreeMux","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"LD","depth":2,"slot":"BoxTreeBox.InputItems[EN]>BoxTreeMux.Merger","class":"BoxTreeOperand","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
 {"language":"LD","depth":2,"slot":"BoxTreeBox.InputItems[EN]>BoxTreeMux.Merger","class":"BoxTreeBox[operator]","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
 {"language":"LD","depth":2,"slot":"BoxTreeBox.InputItems[EN]>BoxTreeMux.Merger","class":"BoxTreeBox[function]","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
@@ -4908,7 +4908,7 @@
 {"language":"LD","depth":2,"slot":"BoxTreeDemux.Input>BoxTreeTerminator.Input","class":"BoxTreeParallel[Sequential]","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"LD","depth":2,"slot":"BoxTreeDemux.Input>BoxTreeTerminator.Input","class":"BoxTreeParallel[BoxShortCircuit]","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"LD","depth":2,"slot":"BoxTreeDemux.Input>BoxTreeTerminator.Input","class":"BoxTreeTerminator","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
-{"language":"LD","depth":2,"slot":"BoxTreeDemux.Input>BoxTreeTerminator.Input","class":"BoxTreeMux","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
+{"language":"LD","depth":2,"slot":"BoxTreeDemux.Input>BoxTreeTerminator.Input","class":"BoxTreeMux","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"LD","depth":2,"slot":"BoxTreeDemux.Input>BoxTreeMux.Merger","class":"BoxTreeOperand","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
 {"language":"LD","depth":2,"slot":"BoxTreeDemux.Input>BoxTreeMux.Merger","class":"BoxTreeBox[operator]","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
 {"language":"LD","depth":2,"slot":"BoxTreeDemux.Input>BoxTreeMux.Merger","class":"BoxTreeBox[function]","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
@@ -5028,7 +5028,7 @@
 {"language":"LD","depth":2,"slot":"BoxTreeParallel.Input>BoxTreeTerminator.Input","class":"BoxTreeParallel[Sequential]","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"LD","depth":2,"slot":"BoxTreeParallel.Input>BoxTreeTerminator.Input","class":"BoxTreeParallel[BoxShortCircuit]","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"LD","depth":2,"slot":"BoxTreeParallel.Input>BoxTreeTerminator.Input","class":"BoxTreeTerminator","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
-{"language":"LD","depth":2,"slot":"BoxTreeParallel.Input>BoxTreeTerminator.Input","class":"BoxTreeMux","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
+{"language":"LD","depth":2,"slot":"BoxTreeParallel.Input>BoxTreeTerminator.Input","class":"BoxTreeMux","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"LD","depth":2,"slot":"BoxTreeParallel.Input>BoxTreeMux.Merger","class":"BoxTreeOperand","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
 {"language":"LD","depth":2,"slot":"BoxTreeParallel.Input>BoxTreeMux.Merger","class":"BoxTreeBox[operator]","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
 {"language":"LD","depth":2,"slot":"BoxTreeParallel.Input>BoxTreeMux.Merger","class":"BoxTreeBox[function]","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
@@ -5148,7 +5148,7 @@
 {"language":"LD","depth":2,"slot":"BoxTreeParallel.Trees>BoxTreeTerminator.Input","class":"BoxTreeParallel[Sequential]","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"LD","depth":2,"slot":"BoxTreeParallel.Trees>BoxTreeTerminator.Input","class":"BoxTreeParallel[BoxShortCircuit]","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"LD","depth":2,"slot":"BoxTreeParallel.Trees>BoxTreeTerminator.Input","class":"BoxTreeTerminator","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
-{"language":"LD","depth":2,"slot":"BoxTreeParallel.Trees>BoxTreeTerminator.Input","class":"BoxTreeMux","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
+{"language":"LD","depth":2,"slot":"BoxTreeParallel.Trees>BoxTreeTerminator.Input","class":"BoxTreeMux","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"LD","depth":2,"slot":"BoxTreeParallel.Trees>BoxTreeMux.Merger","class":"BoxTreeOperand","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
 {"language":"LD","depth":2,"slot":"BoxTreeParallel.Trees>BoxTreeMux.Merger","class":"BoxTreeBox[operator]","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
 {"language":"LD","depth":2,"slot":"BoxTreeParallel.Trees>BoxTreeMux.Merger","class":"BoxTreeBox[function]","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
@@ -8980,7 +8980,7 @@
 {"language":"FBD","depth":1,"slot":"BoxTreeTerminator.Input","class":"BoxTreeTerminator","holder":"BoxTreeTerminator.Flags","flags":"Jump+Ftrig","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"FBD","depth":1,"slot":"BoxTreeTerminator.Input","class":"BoxTreeTerminator","holder":"BoxTreeTerminator.Flags","flags":"Return+Ftrig","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"FBD","depth":1,"slot":"BoxTreeTerminator.Input","class":"BoxTreeTerminator","holder":"BoxTreeTerminator.Flags","flags":"Rtrig+Ftrig","outcome":"vendor-refused","reason":"a terminator with an input"}
-{"language":"FBD","depth":1,"slot":"BoxTreeTerminator.Input","class":"BoxTreeMux","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
+{"language":"FBD","depth":1,"slot":"BoxTreeTerminator.Input","class":"BoxTreeMux","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"FBD","depth":1,"slot":"BoxTreeMux.Merger","class":"BoxTreeOperand","holder":"Operand.Flags","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
 {"language":"FBD","depth":1,"slot":"BoxTreeMux.Merger","class":"BoxTreeOperand","holder":"Operand.Flags","flags":"Negation","outcome":"vendor-refused","reason":"an item with no network-text form"}
 {"language":"FBD","depth":1,"slot":"BoxTreeMux.Merger","class":"BoxTreeOperand","holder":"Operand.Flags","flags":"Set","outcome":"vendor-refused","reason":"an item with no network-text form"}
@@ -9470,7 +9470,7 @@
 {"language":"FBD","depth":2,"slot":"BoxTreeAssign.RValue>BoxTreeTerminator.Input","class":"BoxTreeParallel[Sequential]","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"FBD","depth":2,"slot":"BoxTreeAssign.RValue>BoxTreeTerminator.Input","class":"BoxTreeParallel[BoxShortCircuit]","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"FBD","depth":2,"slot":"BoxTreeAssign.RValue>BoxTreeTerminator.Input","class":"BoxTreeTerminator","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
-{"language":"FBD","depth":2,"slot":"BoxTreeAssign.RValue>BoxTreeTerminator.Input","class":"BoxTreeMux","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
+{"language":"FBD","depth":2,"slot":"BoxTreeAssign.RValue>BoxTreeTerminator.Input","class":"BoxTreeMux","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"FBD","depth":2,"slot":"BoxTreeAssign.RValue>BoxTreeMux.Merger","class":"BoxTreeOperand","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
 {"language":"FBD","depth":2,"slot":"BoxTreeAssign.RValue>BoxTreeMux.Merger","class":"BoxTreeBox[operator]","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
 {"language":"FBD","depth":2,"slot":"BoxTreeAssign.RValue>BoxTreeMux.Merger","class":"BoxTreeBox[function]","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
@@ -9590,7 +9590,7 @@
 {"language":"FBD","depth":2,"slot":"BoxTreeBox.InputItems[operator]>BoxTreeTerminator.Input","class":"BoxTreeParallel[Sequential]","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"FBD","depth":2,"slot":"BoxTreeBox.InputItems[operator]>BoxTreeTerminator.Input","class":"BoxTreeParallel[BoxShortCircuit]","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"FBD","depth":2,"slot":"BoxTreeBox.InputItems[operator]>BoxTreeTerminator.Input","class":"BoxTreeTerminator","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
-{"language":"FBD","depth":2,"slot":"BoxTreeBox.InputItems[operator]>BoxTreeTerminator.Input","class":"BoxTreeMux","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
+{"language":"FBD","depth":2,"slot":"BoxTreeBox.InputItems[operator]>BoxTreeTerminator.Input","class":"BoxTreeMux","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"FBD","depth":2,"slot":"BoxTreeBox.InputItems[operator]>BoxTreeMux.Merger","class":"BoxTreeOperand","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
 {"language":"FBD","depth":2,"slot":"BoxTreeBox.InputItems[operator]>BoxTreeMux.Merger","class":"BoxTreeBox[operator]","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
 {"language":"FBD","depth":2,"slot":"BoxTreeBox.InputItems[operator]>BoxTreeMux.Merger","class":"BoxTreeBox[function]","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
@@ -9710,7 +9710,7 @@
 {"language":"FBD","depth":2,"slot":"BoxTreeBox.InputItems[function]>BoxTreeTerminator.Input","class":"BoxTreeParallel[Sequential]","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"FBD","depth":2,"slot":"BoxTreeBox.InputItems[function]>BoxTreeTerminator.Input","class":"BoxTreeParallel[BoxShortCircuit]","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"FBD","depth":2,"slot":"BoxTreeBox.InputItems[function]>BoxTreeTerminator.Input","class":"BoxTreeTerminator","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
-{"language":"FBD","depth":2,"slot":"BoxTreeBox.InputItems[function]>BoxTreeTerminator.Input","class":"BoxTreeMux","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
+{"language":"FBD","depth":2,"slot":"BoxTreeBox.InputItems[function]>BoxTreeTerminator.Input","class":"BoxTreeMux","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"FBD","depth":2,"slot":"BoxTreeBox.InputItems[function]>BoxTreeMux.Merger","class":"BoxTreeOperand","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
 {"language":"FBD","depth":2,"slot":"BoxTreeBox.InputItems[function]>BoxTreeMux.Merger","class":"BoxTreeBox[operator]","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
 {"language":"FBD","depth":2,"slot":"BoxTreeBox.InputItems[function]>BoxTreeMux.Merger","class":"BoxTreeBox[function]","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
@@ -9830,7 +9830,7 @@
 {"language":"FBD","depth":2,"slot":"BoxTreeBox.InputItems[fb]>BoxTreeTerminator.Input","class":"BoxTreeParallel[Sequential]","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"FBD","depth":2,"slot":"BoxTreeBox.InputItems[fb]>BoxTreeTerminator.Input","class":"BoxTreeParallel[BoxShortCircuit]","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"FBD","depth":2,"slot":"BoxTreeBox.InputItems[fb]>BoxTreeTerminator.Input","class":"BoxTreeTerminator","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
-{"language":"FBD","depth":2,"slot":"BoxTreeBox.InputItems[fb]>BoxTreeTerminator.Input","class":"BoxTreeMux","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
+{"language":"FBD","depth":2,"slot":"BoxTreeBox.InputItems[fb]>BoxTreeTerminator.Input","class":"BoxTreeMux","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"FBD","depth":2,"slot":"BoxTreeBox.InputItems[fb]>BoxTreeMux.Merger","class":"BoxTreeOperand","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
 {"language":"FBD","depth":2,"slot":"BoxTreeBox.InputItems[fb]>BoxTreeMux.Merger","class":"BoxTreeBox[operator]","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
 {"language":"FBD","depth":2,"slot":"BoxTreeBox.InputItems[fb]>BoxTreeMux.Merger","class":"BoxTreeBox[function]","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
@@ -9950,7 +9950,7 @@
 {"language":"FBD","depth":2,"slot":"BoxTreeBox.InputItems[EN]>BoxTreeTerminator.Input","class":"BoxTreeParallel[Sequential]","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"FBD","depth":2,"slot":"BoxTreeBox.InputItems[EN]>BoxTreeTerminator.Input","class":"BoxTreeParallel[BoxShortCircuit]","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"FBD","depth":2,"slot":"BoxTreeBox.InputItems[EN]>BoxTreeTerminator.Input","class":"BoxTreeTerminator","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
-{"language":"FBD","depth":2,"slot":"BoxTreeBox.InputItems[EN]>BoxTreeTerminator.Input","class":"BoxTreeMux","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
+{"language":"FBD","depth":2,"slot":"BoxTreeBox.InputItems[EN]>BoxTreeTerminator.Input","class":"BoxTreeMux","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"FBD","depth":2,"slot":"BoxTreeBox.InputItems[EN]>BoxTreeMux.Merger","class":"BoxTreeOperand","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
 {"language":"FBD","depth":2,"slot":"BoxTreeBox.InputItems[EN]>BoxTreeMux.Merger","class":"BoxTreeBox[operator]","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
 {"language":"FBD","depth":2,"slot":"BoxTreeBox.InputItems[EN]>BoxTreeMux.Merger","class":"BoxTreeBox[function]","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
@@ -10070,7 +10070,7 @@
 {"language":"FBD","depth":2,"slot":"BoxTreeDemux.Input>BoxTreeTerminator.Input","class":"BoxTreeParallel[Sequential]","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"FBD","depth":2,"slot":"BoxTreeDemux.Input>BoxTreeTerminator.Input","class":"BoxTreeParallel[BoxShortCircuit]","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"FBD","depth":2,"slot":"BoxTreeDemux.Input>BoxTreeTerminator.Input","class":"BoxTreeTerminator","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
-{"language":"FBD","depth":2,"slot":"BoxTreeDemux.Input>BoxTreeTerminator.Input","class":"BoxTreeMux","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
+{"language":"FBD","depth":2,"slot":"BoxTreeDemux.Input>BoxTreeTerminator.Input","class":"BoxTreeMux","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"FBD","depth":2,"slot":"BoxTreeDemux.Input>BoxTreeMux.Merger","class":"BoxTreeOperand","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
 {"language":"FBD","depth":2,"slot":"BoxTreeDemux.Input>BoxTreeMux.Merger","class":"BoxTreeBox[operator]","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
 {"language":"FBD","depth":2,"slot":"BoxTreeDemux.Input>BoxTreeMux.Merger","class":"BoxTreeBox[function]","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
@@ -10190,7 +10190,7 @@
 {"language":"FBD","depth":2,"slot":"BoxTreeParallel.Input>BoxTreeTerminator.Input","class":"BoxTreeParallel[Sequential]","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"FBD","depth":2,"slot":"BoxTreeParallel.Input>BoxTreeTerminator.Input","class":"BoxTreeParallel[BoxShortCircuit]","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"FBD","depth":2,"slot":"BoxTreeParallel.Input>BoxTreeTerminator.Input","class":"BoxTreeTerminator","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
-{"language":"FBD","depth":2,"slot":"BoxTreeParallel.Input>BoxTreeTerminator.Input","class":"BoxTreeMux","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
+{"language":"FBD","depth":2,"slot":"BoxTreeParallel.Input>BoxTreeTerminator.Input","class":"BoxTreeMux","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"FBD","depth":2,"slot":"BoxTreeParallel.Input>BoxTreeMux.Merger","class":"BoxTreeOperand","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
 {"language":"FBD","depth":2,"slot":"BoxTreeParallel.Input>BoxTreeMux.Merger","class":"BoxTreeBox[operator]","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
 {"language":"FBD","depth":2,"slot":"BoxTreeParallel.Input>BoxTreeMux.Merger","class":"BoxTreeBox[function]","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
@@ -10310,7 +10310,7 @@
 {"language":"FBD","depth":2,"slot":"BoxTreeParallel.Trees>BoxTreeTerminator.Input","class":"BoxTreeParallel[Sequential]","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"FBD","depth":2,"slot":"BoxTreeParallel.Trees>BoxTreeTerminator.Input","class":"BoxTreeParallel[BoxShortCircuit]","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"FBD","depth":2,"slot":"BoxTreeParallel.Trees>BoxTreeTerminator.Input","class":"BoxTreeTerminator","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
-{"language":"FBD","depth":2,"slot":"BoxTreeParallel.Trees>BoxTreeTerminator.Input","class":"BoxTreeMux","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
+{"language":"FBD","depth":2,"slot":"BoxTreeParallel.Trees>BoxTreeTerminator.Input","class":"BoxTreeMux","holder":"","flags":"none","outcome":"vendor-refused","reason":"a terminator with an input"}
 {"language":"FBD","depth":2,"slot":"BoxTreeParallel.Trees>BoxTreeMux.Merger","class":"BoxTreeOperand","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
 {"language":"FBD","depth":2,"slot":"BoxTreeParallel.Trees>BoxTreeMux.Merger","class":"BoxTreeBox[operator]","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}
 {"language":"FBD","depth":2,"slot":"BoxTreeParallel.Trees>BoxTreeMux.Merger","class":"BoxTreeBox[function]","holder":"","flags":"none","outcome":"vendor-refused","reason":"an item with no network-text form"}

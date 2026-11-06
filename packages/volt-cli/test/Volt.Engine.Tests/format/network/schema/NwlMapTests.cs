@@ -145,9 +145,13 @@ public class NwlMapTests
         ["class-states"] = $"class-states.{NwlSchemaCensus.Version}.json",
     };
 
-    /// <summary>What a pull of a recorded state shows, as a row's text holds it: the text, or a refusal's wording alone.</summary>
-    static string AsText(string pull) =>
-        pull.StartsWith("%UNSUPPORTED \"", StringComparison.Ordinal) ? pull.Substring(14, pull.LastIndexOf('"') - 14) : pull;
+    /// <summary>What a pull of a recorded state shows, as a row's text holds it: the text, or a refusal's wording alone, also where
+    /// the recording's pull starts at the body's language line (class-states): a first statement refused, the rest of the body after it.</summary>
+    static string AsText(string pull)
+    {
+        var refused = System.Text.RegularExpressions.Regex.Match(pull, "^(%LANGUAGE [A-Z]+ / %NETWORK / )?%UNSUPPORTED \"([^\"]*)\" #[0-9a-f]+( / |$)");
+        return refused.Success ? refused.Groups[2].Value : pull;
+    }
 
     [Fact]
     public void Every_recorded_state_has_a_row_whose_text_is_its_pull()

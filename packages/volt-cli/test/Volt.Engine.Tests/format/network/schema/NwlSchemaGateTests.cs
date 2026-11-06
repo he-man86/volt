@@ -145,9 +145,11 @@ public class NwlSchemaGateTests
             var states = NwlShapes.States(o.Shape);
             var uncovered = states.Where(s => Rows(s).Count == 0).ToList();
             var refuses = states.FirstOrDefault(s => Rows(s).Count > 0 && !Rows(s).Any(Spells));
-            // a refusal of the whole body stands on its row as the body's line (`%LANGUAGE FBD UNSUPPORTED`)
+            // a refusal of the whole body stands on its row as the body's line (`%LANGUAGE FBD UNSUPPORTED`); a state the object
+            // model cannot hold (every row of it cannot-store) is a shape the IDE never stores, so it needs no refusal
             var mapped = o.Kind == Spelled || refusals.Contains(o.Reason!) ||
-                         states.Any(s => Rows(s).Any(r => Refusing.Contains(r.Status) && r.Text.Contains(" UNSUPPORTED", StringComparison.Ordinal)));
+                         states.Any(s => Rows(s).Any(r => Refusing.Contains(r.Status) && r.Text.Contains(" UNSUPPORTED", StringComparison.Ordinal))) ||
+                         states.Any(s => Rows(s).Count > 0 && Rows(s).All(r => r.Status == "cannot-store"));
             var rowsSpell = uncovered.Count == 0 && refuses is null;
             return new Verdict(o, uncovered, refuses, mapped, rowsSpell);
         }).ToList();
