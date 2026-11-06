@@ -8,7 +8,7 @@
 
 ## 2. Map the rest of NWL on CODESYS SP21
 
-- [ ] 2.1 Assign and operand, to the same depth.
+- [x] 2.1 Assign and operand, to the same depth.
 - [ ] 2.2 Every other class in the census: branch, demux, terminator, network and the rest.
 - [ ] 2.3 Combinations: `shapes.v2` runs against the map instead of beside it.
 

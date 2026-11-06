@@ -22,8 +22,7 @@ public class NwlMapTests
     /// <summary>The classes not mapped yet (tasks 2.1 and 2.2). Shrinks; never grows.</summary>
     static readonly string[] Pending =
     {
-        "BoxTreeAssign", "BoxTreeDemux", "BoxTreeMux", "BoxTreeOperand", "BoxTreeParallel", "BoxTreeTerminator", "Flags",
-        "ILStatement", "NWLImplementationObject", "Network", "Operand", "OutputItemList",
+        "BoxTreeDemux", "BoxTreeMux", "BoxTreeParallel", "ILStatement", "NWLImplementationObject", "Network",
     };
 
     static readonly string[] Statuses = { "spelled", "lost-inert", "refused-inert", "refused-gap", "refused-fault", "cannot-store", "not-measured" };
@@ -132,6 +131,7 @@ public class NwlMapTests
 
     sealed record State(string Id, string Pull);
 
+
     static (Dictionary<string, State> States, int Faults) Recording(string file)
     {
         using var doc = JsonDocument.Parse(File.ReadAllText(Path.Combine(Dir, file)));
@@ -144,6 +144,7 @@ public class NwlMapTests
     static readonly Dictionary<string, string> Recordings = new(StringComparer.Ordinal)
     {
         ["box-states"] = $"box-states.{NwlSchemaCensus.Version}.json",
+        ["assign-states"] = $"assign-states.{NwlSchemaCensus.Version}.json",
     };
 
     /// <summary>What a pull of a recorded state shows, as a row's text holds it: the text, or a refusal's wording alone.</summary>
