@@ -373,3 +373,14 @@ function endsOperand(t: Token): boolean {
   if (t.kind === "keyword") return OPERAND_KEYWORDS.has(t.text.toUpperCase())
   return t.kind !== "unknown"
 }
+
+/** A pin, EN or output binding written with no value (`IN := ,`, `ET => )`) — no text the network form has: an
+ *  unconnected pin is left out, the rail is `RAIL()`. The bridge's reader refuses it as "an operand at …" (an input) and
+ *  "an output target at …" (an output); undefined where the binding holds a value. */
+export function emptyPinMessage(a: CallArg): string | undefined {
+  if (a.value !== undefined) return undefined
+  const pin = a.param?.name ?? "pin"
+  return a.output
+    ? `an output target at ${pin} =>: an unconnected output is left out`
+    : `an operand at ${pin} :=: an unconnected pin is left out, the rail is RAIL()`
+}

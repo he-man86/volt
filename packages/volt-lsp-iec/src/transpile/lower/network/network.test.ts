@@ -302,3 +302,16 @@ test("an operand comment is the operand it wraps: a value, a coil, a pin", () =>
   expect(trace(r, "y", [{ a: true }, { a: false }])).toEqual([true, false])
   expect([r.get("x"), r.get("c1.CV")]).toEqual([true, 1n])
 })
+
+describe("a pin with no value is refused, never thrown (openspec network-empty-pin-value)", () => {
+  const TON = "FUNCTION_BLOCK FB_T\nVAR_INPUT IN : BOOL; PT : TIME; END_VAR\nVAR_OUTPUT Q : BOOL; ET : TIME; END_VAR\n%LANGUAGE ST\nQ := IN;\nEND_FUNCTION_BLOCK\n"
+  for (const [body, message] of [
+    ["MOVE(EN := , 1, OUT => n);", "an operand at EN :=: an unconnected pin is left out, the rail is RAIL()"],
+    ["n := MOVE(EN := , 1);", "an operand at EN :=: an unconnected pin is left out, the rail is RAIL()"],
+    ["t1(IN := , PT := T#1S);", "an operand at IN :=: an unconnected pin is left out, the rail is RAIL()"],
+    ["t1(IN := a, PT := T#1S, ET => );", "an output target at ET =>: an unconnected output is left out"],
+  ] as const)
+    test(body, () => {
+      expect(lowered("a : BOOL;\nn : INT;\nt1 : FB_T;", `%NETWORK\n${body}\n`, TON, "FBD").diagnostics.map((d) => d.message)).toEqual([message])
+    })
+})

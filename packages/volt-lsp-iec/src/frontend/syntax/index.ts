@@ -107,5 +107,5 @@ export { compilerTypeText, dimText, exprText, initOperatorText, renderTypeExpr }
 
 // network text — an LD/FBD body as ST with `%` lines (`packages/volt-cli/docs/network-text.html`): its networks and
 // the statement tokens the ST parser reads
-export { closedString, EXECUTE, plainStText, UNNAMED, valueItemsOf, type PlainStExecute, type PlainStNetwork } from "./network/plain-st.js"
+export { closedString, emptyPinMessage, EXECUTE, plainStText, UNNAMED, valueItemsOf, type PlainStExecute, type PlainStNetwork } from "./network/plain-st.js"
 export { COMMENT, type PlainStComment } from "./network/comment-text.js"

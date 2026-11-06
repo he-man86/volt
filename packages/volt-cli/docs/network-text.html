@@ -128,7 +128,7 @@ EXECUTE('n := 0;');</pre>
 <h2 id="diagnostics">Errors</h2>
 <table>
   <tr><th>code</th><th>raised for</th><th>example</th></tr>
-  <tr><td class="name">NETWORK_PARSE</td><td>text a network may not hold, with its line</td><td><code>x := a XOR b;</code> — every box is a call; <code>y := COMMENT(a, '');</code> — no comment is the plain operand; <code>t1(IN := a).Q;</code> — a root closed by nothing has its first output as main</td></tr>
+  <tr><td class="name">NETWORK_PARSE</td><td>text a network may not hold, with its line</td><td><code>x := a XOR b;</code> — every box is a call; <code>y := COMMENT(a, '');</code> — no comment is the plain operand; <code>t1(IN := a).Q;</code> — a root closed by nothing has its first output as main; <code>t1(IN := , PT := pt);</code> — an unconnected pin is left out, the rail is <code>RAIL()</code></td></tr>
   <tr><td class="name">NETWORK_PARSE</td><td>a mark the IDE stores no model for</td><td><code>NOT y S= a;</code> <code>y := NOT x := a;</code> <code>NOT := y := a;</code></td></tr>
   <tr><td class="name">NETWORK_PARSE</td><td><code>EN :=</code>, <code>.ENO</code>, <code>ENO =></code>, <code>OUT =></code> or a type's call on a callee no declaration in reach states</td><td><code>y := h(EN := c, a);</code> with <code>h</code> declared nowhere</td></tr>
   <tr><td class="name">NETWORK_PARSE</td><td>a jump or a return not written as a target</td><td><code>JMP l;</code> <code>JMP(l, a);</code> <code>RETURN;</code></td></tr>

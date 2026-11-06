@@ -35,6 +35,7 @@
  * A `%DISABLED` network is held to the subset too (it is text a push writes), though nothing compiles it.
  */
 import {
+  emptyPinMessage,
   type BodySpan,
   type CallArg,
   type CallExpr,
@@ -291,6 +292,7 @@ function checkExprs(stmt: Statement, scope: Scope | undefined, boxes: Scope | un
         checkTreeMarks(x, out)
       }
       if (x.kind === "call") for (const a of x.args) if (a.marks !== undefined) checkPinMarks(x, a, out)
+      if (x.kind === "call") for (const a of x.args) { const empty = emptyPinMessage(a); if (empty !== undefined) emit(out, a.span, CODE, empty) }
       if (x.kind === "call") checkCall(x, scope, wires, out)
       if (x.kind === "call" && calleeText(x).toUpperCase() === EXECUTE) return checkExecute(x, closer.get(x), x !== root, scope, network.executes, out)
       if (x.kind === "call" && boxes !== undefined) checkBox(x, closer.get(x), x !== root, boxes, project, out)

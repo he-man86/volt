@@ -1412,3 +1412,34 @@ network-plain-st RISING NOT before one receiver
 y := RISING NOT := a;
 === refused
 network-plain-st on the assignment NOT of the edge
+
+#### empty-input-pin — an unconnected pin is left out, the rail is RAIL()
+=== scope
+instance t1 TON
+fb TON IN PT => Q ET
+=== text
+%LANGUAGE LD
+%NETWORK
+t1(IN := , PT := T#1S);
+=== refused
+network-plain-st an operand at
+
+#### empty-en-pin — an unconnected EN is left out
+=== text
+%LANGUAGE FBD
+%NETWORK
+MOVE(EN := , 1, OUT => n);
+=== refused
+network-plain-st an operand at
+
+#### empty-output-pin — an unconnected output is left out
+=== scope
+instance t1 TON
+fb TON IN PT => Q ET
+=== text
+%LANGUAGE LD
+%NETWORK
+t1(IN := a, PT := T#1S, ET => );
+=== refused
+network-plain-st an output target at
+

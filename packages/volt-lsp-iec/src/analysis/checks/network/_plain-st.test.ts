@@ -219,3 +219,7 @@ test("COMMENT is the text's own: declared in reach, it is refused as RAIL and OP
   const src = ld("\ta, y, COMMENT : BOOL;", "%NETWORK\ny := COMMENT(a, 'why');\n")
   expect(networkDiags(src).map((d) => d.message)).toContain("the call COMMENT names something declared in reach, which the text reads as its own operand comment")
 })
+
+test("an assignment with no value is the ST parser's error in a network too (openspec network-empty-pin-value)", () => {
+  expect(diagnose(ld("\ty : BOOL;", "%NETWORK\ny := ;\n")).map((d) => d.message)).toEqual(["Expression expected instead of ';'"])
+})

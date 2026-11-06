@@ -28,7 +28,7 @@
  * index in the body) behind `prefix`; the lowering declares it (`state.ts`). A box no rule writes is refused by name
  * (`NetworkRefusal`).
  */
-import { type BodySpan, type CallExpr, type Expr, plainStText, type PlainStNetwork, type Span, type Statement, stmtExprs, walkExpr } from "../../../frontend/syntax/index.js"
+import { type BodySpan, type CallExpr, emptyPinMessage, type Expr, plainStText, type PlainStNetwork, type Span, type Statement, stmtExprs, walkExpr } from "../../../frontend/syntax/index.js"
 import { lookup, type Scope } from "../../../frontend/symbols/index.js"
 import { boxMember, elementaryRef, inferExprType, rootBox, type Type } from "../../../frontend/types/index.js"
 import { assign, binary, bool, call, ident, ifThen, member, NetworkRefusal, NOT_COMPILED, not } from "./ast.js"
@@ -48,12 +48,14 @@ export function lowerNetworks(body: BodySpan, statements: readonly Statement[], 
   const text = plainStText(body)
   const executes = text.networks.flatMap((n) => n.executes)
   const code = statements.filter((s) => !executes.some((x) => s.span.start >= x.code.start && s.span.start < x.code.end))
-  // a marked output has no measured run
+  // a marked output has no measured run; a pin with no value is no network text
   for (const s of code)
     for (const e of stmtExprs(s))
       walkExpr(e, (x) => {
         const marked = x.kind === "call" ? x.args.find((a) => a.output && a.marks !== undefined) : undefined
         if (marked !== undefined) throw new NetworkRefusal(`the mark on the output ${marked.param?.name ?? ""}: how a marked output runs is unmeasured`)
+        const empty = x.kind === "call" ? x.args.map(emptyPinMessage).find((m) => m !== undefined) : undefined
+        if (empty !== undefined) throw new NetworkRefusal(empty)
       })
   const n = new Networker(body, scope, project, prefix, statements, code)
   // the items a jump or a return after them shares the value of (`y := JMP.l := v;`)
