@@ -268,6 +268,25 @@ public class StNetworkTextTests
         Refused(Ld1(Set(new Terminator(Neg), T("y"))), "a modifier on the rail");
     }
 
+    /// <summary>ENO flows only where EN is shown (network-language rule 4), so a function or an operator box showing ENO
+    /// and no EN has no text: at a root (box-states 0657, a function; 0777, MOVE with its value wired) and read through its
+    /// ENO. The IDE does not build either ("Missing EN pin").</summary>
+    [Fact]
+    public void A_function_or_operator_showing_ENO_without_EN_is_refused_by_name()
+    {
+        var signatures = new System.Collections.Generic.Dictionary<string, CalleeSignature>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["f"] = new(CalleeShape.Function, new[] { "IN" }, Array.Empty<string>()),
+        };
+        void Refused(NetworkBody body, string reason) =>
+            Assert.Equal(reason, Assert.Throws<StNetworkUnspellableException>(() =>
+                StNetworkWriter.Write(body, NetworkModelScopes.ScopeOf(body, signatures: signatures))).Reason);
+        Refused(Ld1(Call("f", new[] { In(L("a"), "IN") }, eno: true)), "a function box showing ENO and no EN");
+        Refused(Fbd1(Call("MOVE", new[] { In(L("a")) }, new[] { Out("k", 1) }, eno: true, kind: CallKind.Operator)),
+            "a function box showing ENO and no EN");
+        Refused(Fbd1(Set(Call("f", new[] { In(L("a"), "IN") }, connected: 0, eno: true), T("y"))), "a box read through ENO with no EN");
+    }
+
     [Fact]
     public void A_mid_rung_coil_is_an_assignment_expression() =>
         RoundTrips(Ld1(Set(Op("AND", Set(L("a"), T("out")), L("b")), T("out2"))),

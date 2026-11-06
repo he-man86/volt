@@ -83,21 +83,21 @@ parts inside its `()`, and the flow is each call's return.
 
 - A mark on a value is a function, nested in run order: `INVERT(a)`, `RISING(a)`, `FALLING(a)`, `RISING(INVERT(a))`. This
   covers contacts, pins, EN, the line into a coil and a box's own output: `IN := RISING(a)`, `EN := INVERT(c)`,
-  `y := INVERT(t1(IN := a).Q)`. `INVERT`, not `NOT`: `NOT(a)` stays NWL's NOT box. A chain deeper than the store holds is
-  refused by name.
+  `ASSIGN(INVERT(t1(IN := a)), Q => y)`. `INVERT`, not `NOT`: `NOT(a)` stays NWL's NOT box. A chain deeper than the store
+  holds is refused by name.
 - A mark on a receiver is its output name: `Q_INVERTED => x`, `Q_SET => x`, `Q_RESET => x`. An edge on a receiver cannot be
   drawn and is refused.
 - A pin mark and a value mark that run alike read alike: a changed network is rebuilt to one drawing, the outer mark on the
   pin. An unchanged network keeps its own.
 - A box's default output flows on: ENO when EN is shown, otherwise its value; an FB's or a program's its first output. A dot
-  is written only when another output flows on: `x := t1(IN := a).Q2;`, a function after the editor's Set Output
-  `y := F(n := i, OUT => k).q;`. No `.ENO`, no `GT_EN`, no `ENO()`.
+  is written only when another output flows on: `ASSIGN(t1(IN := a).Q2, Q => x);`, a function after the editor's Set
+  Output `ASSIGN(F(n := i, OUT => k).q, Q => y);`. No `.ENO`, no `GT_EN`, no `ENO()`.
   ```
-  x := GT(a, b);
-  y := GT(EN := c, a, b, OUT => v);
+  ASSIGN(GT(a, b), Q => x);
+  ASSIGN(GT(EN := c, a, b, OUT => v), Q => y);
   ```
-- Kept as they are: wires (`VAR w1 : ANY;`, `w1 := …`), `RAIL()`, `BRANCH()`, `BRANCH_SHORTCIRCUIT()`, `EXECUTE()`,
-  `OPERAND()`, the `%` lines.
+- Kept as they are: wires (`VAR w1 : ANY;`, `w1 := …`, the one `:=` a network holds), `RAIL()`, `BRANCH()`,
+  `BRANCH_SHORTCIRCUIT()`, `EXECUTE()`, `OPERAND()`, the `%` lines.
 - A project POU, variable or pin with one of these names (`INVERT`, `RISING`, `FALLING`, `ASSIGN`, `<pin>_INVERTED`,
   `<pin>_SET`, `<pin>_RESET`) is refused by name.
 

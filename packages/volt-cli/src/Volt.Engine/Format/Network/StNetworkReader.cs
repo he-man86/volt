@@ -968,7 +968,7 @@ public static class StNetworkReader
                     // An enabled box other than a comparison is a wire's whole value only where every read of the wire is a
                     // coil's value.
                     if (a.Assign.Value is ACall valueCall && EnOnlyByValue(valueCall) is not null) _enabledValue[name] = valueCall.Head;
-                    return new Demux(VarId(name, s.Line), Marked(a.Assign.Value, Receiver.None, assignValue: true));
+                    return new Demux(VarId(name, s.Line), Marked(a.Assign.Value, assignValue: true));
                 }
                 case SEmpty: return new Leaf(new Operand(""), Flags.None);
                 case SCall c: return RootValue(c.Call);
@@ -979,7 +979,7 @@ public static class StNetworkReader
 
         /// <summary>A VALUE STANDING ALONE: as it stands in a tree, a box consumed by nothing with its marks around it
         /// (<c>INVERT(AND(a, b));</c>, <c>RISING(t1(…));</c>), an <c>ASSIGN</c>, any other value.</summary>
-        private Node RootValue(AExpr e) => Marked(e, Receiver.None, assignValue: false, root: true);
+        private Node RootValue(AExpr e) => Marked(e, assignValue: false, root: true);
 
         /// <summary>The receivers a value's marks go to, outermost first, as far as each holds them: the line into a coil
         /// (<see cref="Item"/>: <c>INVERT(RISING(·))</c>), a pin or EN (<see cref="Pin"/>: one mark), or none.</summary>
@@ -1029,12 +1029,8 @@ public static class StNetworkReader
             };
         }
 
-        private Node Marked(AExpr e, Receiver receiver, bool assignValue = false, bool root = false)
-        {
-            var node = Marked(e, receiver, out var held, assignValue, root);
-            if (!held.IsNone) throw new InvalidOperationException("a value standing at no receiver gave its marks to one");
-            return node;
-        }
+        /// <summary>A value standing at no receiver: every mark is its node's own (only an item or a pin holds one).</summary>
+        private Node Marked(AExpr e, bool assignValue = false, bool root = false) => Marked(e, Receiver.None, out _, assignValue, root);
 
         /// <summary>A contact group, infix <c>a AND b</c>: it holds no mark of its own.</summary>
         private static bool IsContactGroup(AExpr e) => e is ABin;
@@ -1139,7 +1135,7 @@ public static class StNetworkReader
                     return new Box(b.Type, null, CallKind.Operator, b.Operands.Select(o => new Input(null, Expr(o), Flags.None)).ToList(),
                         Array.Empty<Output>(), null, null, Flags.None, ConnectedSlot: NetworkSpelling.MainSlotOfCall(b.Type),
                         Members: StNetworkWriter.ElementMembers(b.Type, contact: true));
-                case AAssign a: return new Demux(VarId(a.Targets[0].Text, a.Line), Marked(a.Value, Receiver.None));
+                case AAssign a: return new Demux(VarId(a.Targets[0].Text, a.Line), Marked(a.Value));
                 case ACall c:
                     if (ElementHead(c.Head, c.Line) is { } element) return Element(c, element);
                     if (!assignValue && EnOnlyByValue(c) is not null) throw EnabledValueNotACoil(c.Line, c.Head);
@@ -1160,7 +1156,7 @@ public static class StNetworkReader
 
         /// <summary>The text's own elements: <c>OPERAND('…')</c>, <c>COMMENT(a, '…')</c>, the rail <c>RAIL()</c>, the parallel branch
         /// <c>BRANCH(FEED := f, b1, b2)</c> / <c>BRANCH_SHORTCIRCUIT(…)</c>, an <c>ASSIGN</c>, and a mark standing at no receiver
-        /// (<see cref="Marked(AExpr, Receiver, bool, bool)"/>).</summary>
+        /// (<see cref="Marked(AExpr, bool, bool)"/>).</summary>
         private Node Element(ACall c, string element)
         {
             if (element == StNetworkWriter.OperandHead)
@@ -1208,7 +1204,7 @@ public static class StNetworkReader
                 return new Parallel(feed, branches, element == StNetworkWriter.BranchHead ? ParallelMode.Sequential : ParallelMode.BoxShortCircuit);
             }
             if (element == StNetworkWriter.AssignHead) return AssignElement(c);
-            return Marked(c, Receiver.None);
+            return Marked(c);
         }
 
         /// <summary>The box type of an enabled FUNCTION box other than a comparison read by its value or a data output (it shows EN,

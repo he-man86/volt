@@ -205,7 +205,7 @@ public static class StNetworkWriter
 
     /// <summary>THE MARKS A NODE HOLDS (a contact's operand, a box's output), around its text: the edge outside the negation, the
     /// order the IDE runs them in (it negates first, N17): <c>RISING(INVERT(a))</c>.</summary>
-    internal static string NodeMarked(Flags f, string where, string inner)
+    private static string NodeMarked(Flags f, string where, string inner)
     {
         if (f.Rising && f.Falling) throw Unspellable("a rising and falling edge on one node", $"{where} carries both edges.");
         var text = f.Negated ? InvertHead + "(" + inner + ")" : inner;
@@ -214,7 +214,7 @@ public static class StNetworkWriter
 
     /// <summary>THE MARK A PIN OR EN HOLDS, around its value: one mark. An edge stacked on a negation there runs as the negation
     /// alone (live CODESYS 3.5.21.40, openspec nwl-box-storage-map), so it has no text.</summary>
-    internal static string PinMarked(Flags f, string where, string inner)
+    private static string PinMarked(Flags f, string where, string inner)
     {
         if (f.Jump || f.Return) throw Unspellable("a jump or return flag on a receiver", $"{where} carries {Describe(f)}.");
         if (f.Rising && f.Falling) throw Unspellable("a rising and falling edge on one node", $"{where} carries both edges.");
@@ -224,7 +224,7 @@ public static class StNetworkWriter
 
     /// <summary>THE MARKS THE LINE INTO A COIL HOLDS (the assignment item's flags), around its value: the negation outside the edge,
     /// the order the IDE runs them in there (<c>NOT(R_TRIG(a))</c>, measured): <c>INVERT(RISING(a))</c>.</summary>
-    internal static string ItemMarked(Flags f, string inner)
+    private static string ItemMarked(Flags f, string inner)
     {
         if (f.Rising && f.Falling) throw Unspellable("a rising and falling edge on one node", "the line into a coil carries both edges.");
         var text = f.Rising ? RisingHead + "(" + inner + ")" : f.Falling ? FallingHead + "(" + inner + ")" : inner;
