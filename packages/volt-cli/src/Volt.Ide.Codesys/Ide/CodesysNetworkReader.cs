@@ -54,6 +54,21 @@ namespace Volt.Ide.Codesys
         /// would use — a second, nearly-identical read here is how the two would drift.</summary>
         internal static Network ReadNetwork(object net, int order) => Header(net, order) with { Trees = ReadTrees(net, order) };
 
+        /// <summary>A NETWORK THE IDE COMPILES FROM ITS IL LINES IS NOT ITS TREES. <c>INetworkWithIL.ILActive</c> makes the code
+        /// generator hand the compiler the network's IL lines and never its trees (<c>NWLStructuredImplementationSnippetProvider</c>,
+        /// SP21), and the editor leaves the trees as they were when the IL was edited: measured (ide-model-mapping 2.2,
+        /// class-states), an IL operand edited from <c>a</c> to <c>b</c> runs <c>y := b</c> over trees still holding <c>y := a</c>,
+        /// and an active network with no IL lines runs nothing. Read from the trees, both pulled as <c>y := a;</c>: another
+        /// program. IL is a language Volt does not read, so such a network is refused by name. The member is required: a network
+        /// that does not state it is refused by <see cref="NwlInterop.RequireBool"/>, never read as a tree network.</summary>
+        private static void RefuseIl(object net)
+        {
+            if (NwlInterop.RequireBool(net, "ILActive"))
+                throw new Volt.Engine.Format.Body.UnrepresentableBodyException("a network compiled from IL lines",
+                    "CODESYS: the network is compiled from its IL lines, not from its graphical trees, and IL is a language " +
+                    "network text does not read. Edit it in the IDE.");
+        }
+
         /// <summary>The header as the model states it — each member REQUIRED: every recorded network answers a string for
         /// Title, Label and Comment (388 of 388, <c>""</c> where there is none, which reads as none) and a boolean for
         /// OutCommented. A null was read as "no title", an absent OutCommented as enabled.</summary>
@@ -67,6 +82,7 @@ namespace Volt.Ide.Codesys
 
         private static List<Node> ReadTrees(object net, int order)
         {
+            RefuseIl(net);
             var trees = new List<Node>();
             var count = NwlInterop.RequireInt(net, "NetworkItemCount");
             for (int i = 0; i < count; i++)

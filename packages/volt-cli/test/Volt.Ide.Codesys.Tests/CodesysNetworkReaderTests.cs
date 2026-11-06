@@ -290,6 +290,24 @@ public class CodesysNetworkReaderTests
         Assert.Null(target.Comment);
     }
 
+    /// <summary>A NETWORK THE IDE COMPILES FROM ITS IL LINES IS REFUSED BY NAME, NOT READ FROM ITS TREES. Measured on SP21
+    /// (ide-model-mapping 2.2, <c>class-states.3.5.21.40.json</c>): with <c>ILActive</c> the compiler is handed the IL lines and
+    /// never the trees, so IL edited to <c>LD b</c> ran <c>y := b</c> over trees holding <c>y := a</c>, and an active network
+    /// with no IL lines ran nothing; both pulled as <c>y := a;</c>. The network shows its UNSUPPORTED line, header kept.</summary>
+    [Fact]
+    public void A_network_compiled_from_its_il_lines_is_refused_by_name()
+    {
+        var assign = new Nwl.BoxTreeAssign { RValue = new Nwl.BoxTreeOperand { Operand = new Nwl.Operand { OperandExpr = "a" } } };
+        assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "y" });
+        var net = new Nwl.Network { Title = "t", ILActive = true }.With(assign);
+
+        var ex = Assert.Throws<UnrepresentableBodyException>(() => CodesysNetworkReader.ReadNetwork(net, 0));
+        Assert.Equal("a network compiled from IL lines", ex.Reason);
+        var shown = CodesysNetworkReader.ReadNetworkShown(net, 0);
+        Assert.Equal("a network compiled from IL lines", shown.Unsupported);
+        Assert.Equal("t", shown.Title);
+    }
+
     /// <summary>A SYMBOL COMMENT IS READ FROM THE ARCHIVE — THE VENDOR'S PROPERTY ANSWERS THE SENTINEL.
     ///
     /// <para>Recorded on SP21 (openspec <c>ld-fbd-coverage</c> 1b.3, <c>scripts/record-nwl-corpus.py</c>,
@@ -405,6 +423,7 @@ public class CodesysNetworkReaderTests
         public string Label { get; set; } = "";
         public string Comment { get; set; } = "";
         public bool OutCommented { get; set; }
+        public bool ILActive { get; set; }
         public object? GetTree(int i) => null;
         public object? GetSplitPoint(int i) => null;
     }

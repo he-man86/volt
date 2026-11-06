@@ -56,6 +56,9 @@ internal static class Nwl
         public string Comment { get; set; } = "";
         public bool OutCommented { get; set; }
 
+        /// <summary><c>INetworkWithIL.ILActive</c>: the network compiles from its IL lines, not its trees (measured, ide-model-mapping 2.2).</summary>
+        public bool ILActive { get; set; }
+
         /// <summary>Report MORE items than there are trees — the measured vendor quirk the reader guards
         /// against: "a network reported 2 with one tree, the second slot being an item the IDE had dropped".
         ///
@@ -270,6 +273,16 @@ internal static class Nwl
         public object? Input { get; set; }
         public object? Flags { get; set; } = new Flags();
         public void SetInputTree(int index, object tree) => Input = tree;
+    }
+
+    /// <summary>The vendor's <c>BoxTreeMux</c>: a reference to an output of a merger box, which no editor command makes (measured,
+    /// ide-model-mapping 2.2). Held so a recorded state can stand over the doubles; the reader has no arm for it.</summary>
+    internal sealed class BoxTreeMux
+    {
+        public long Id { get; set; } = -1;
+        public int VarId { get; set; }
+        public int InputIndex { get; set; }
+        public object? Merger { get; set; }
     }
 
     /// <summary>A call or operator.
