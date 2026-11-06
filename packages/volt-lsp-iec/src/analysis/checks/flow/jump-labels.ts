@@ -50,8 +50,8 @@ export function checkJumpLabels(ctx: CheckContext, out: DiagnosticItem[]): void 
     // C0117 (JMP to undeclared) / C0114 (JMP to a non-label), and record which labels are referenced.
     const referenced = new Set<string>()
     for (const target of jmps) {
-      // a network's jump the IDE holds unnamed, `JMP.???`: the build's own error on the `???` (the network check's)
-      if (target.kind === "ident_expr" && target.name === UNNAMED) continue
+      // a network's jump the IDE holds unnamed, `JMP.???`, names no label too: "No such label '???'" (live CODESYS 3.5.21.40,
+      // assign-states#0496,0497)
       if (target.kind === "ident_expr") {
         referenced.add(target.name.toUpperCase())
         // its fix: each near-miss label of the body (`qf_c0117_change`)

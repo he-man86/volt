@@ -51,7 +51,14 @@ export function outputTypeError(
   out: DiagnosticItem[],
   warn = false,
 ): void {
-  const src = checkable(resolveTypeExpr(outputType, ctx.project, 0, ctx.project, ctx.uri))
+  storeTypeError(resolveTypeExpr(outputType, ctx.project, 0, ctx.project, ctx.uri), target, scope, ctx, out, warn)
+}
+
+/** An output of `type` stored into `target` (`outputTypeError`, the type already resolved): a network box's value stored
+ *  through `OUT =>` too, which converts as an assignment does — "Implicit conversion … change of sign" a warning, a
+ *  narrowing "Cannot convert type" an error, on the target (live CODESYS 3.5.21.40, box-states#1119-1126). */
+export function storeTypeError(type: Type, target: Expr, scope: Scope, ctx: CheckContext, out: DiagnosticItem[], warn = false): void {
+  const src = checkable(type)
   if (src === undefined) return
   const dst = checkableType(target, scope, ctx.project)
   if (dst === undefined) return

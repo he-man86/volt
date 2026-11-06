@@ -157,32 +157,33 @@ test("??? in every operand position is an identifier ??? with its span, and ever
   expect(new Set(unnamed)).toEqual(new Set(["???"]))
 })
 
-test("an unnamed operand is the build's pair at the ???, in each vendor's words, and nothing else in its statement", () => {
+test("an unnamed operand is the build's pair on the ???'s first ?, in each vendor's words, and nothing else in its statement", () => {
+  // the build places both on the operand at offset 0, length 1 (live CODESYS 3.5.21.40, assign-states#0442,0443)
   const src = ld("\ta, x : BOOL;", "%NETWORK\nASSIGN(??? AND a, Q => x);\n")
   const at = src.indexOf("???")
   expect(diagnose(src).map((d) => [d.message, d.span.start, d.span.end])).toEqual([
-    ["Expression expected instead of '?'", at, at + 3],
-    ["Unexpected token '?' found", at, at + 3],
+    ["Expression expected instead of '?'", at, at + 1],
+    ["Unexpected token '?' found", at, at + 1],
   ])
   expect(diagnose(src, "twincat").map((d) => d.message)).toEqual(["Expression expected instead of '?'", "Unexpected Token '?' found"])
   // a box input, positional and named: the same pair at each; the coil its own message, and an operator's value
   // (`MOVE(…, OUT => ???)`) the coil's too (box-states#0433)
-  const pair = ["Expression expected instead of '?'@???", "Unexpected token '?' found@???"]
+  const pair = ["Expression expected instead of '?'@?", "Unexpected token '?' found@?"]
   const target = "The assignment target is not specified.@???"
   expect(diagnose(unnamedSrc).map((d) => `${d.message}@${unnamedSrc.slice(d.span.start, d.span.end)}`).sort()).toEqual(
     [...pair, ...pair, ...pair, target, target].sort(),
   )
 })
 
-test("??? on an FB's declared output and on a jump's label is C0007 alone, on the ???; a function's value the pair (box-states#0047,0153)", () => {
+test("??? on an FB's declared output is C0007 alone, a function's value the pair, on its first ? (box-states#0047,0153,0205); a jump's label names no label (assign-states#0496,0497)", () => {
   const fn = `FUNCTION F2 : BOOL\nVAR_INPUT\n\ta : BOOL;\nEND_VAR\nVAR_OUTPUT\n\tq1 : BOOL;\nEND_VAR\n%LANGUAGE ST\nF2 := a;\nEND_FUNCTION\n`
   const src = `${fn}${ld("\ta, go : BOOL;\n\tt1 : FB_T;", "%NETWORK\nt1(EN := go, IN := a, Q => ???);\n%NETWORK\nF2(EN := go, a := a, OUT => ???);\n%NETWORK\nASSIGN(a, Q => JMP.???);\n")}`
   const at = (from: string) => src.indexOf("???", src.indexOf(from))
   expect(diagnose(src).map((d) => [d.message, d.span.start, d.span.end])).toEqual([
-    ["Expression expected instead of '?'", at("Q => ???"), at("Q => ???") + 3],
-    ["Expression expected instead of '?'", at("OUT => ???"), at("OUT => ???") + 3],
-    ["Unexpected token '?' found", at("OUT => ???"), at("OUT => ???") + 3],
-    ["Expression expected instead of '?'", at("JMP.???"), at("JMP.???") + 3],
+    ["No such label '???' within the scope of the JMP statement", at("JMP.???"), at("JMP.???") + 3],
+    ["Expression expected instead of '?'", at("Q => ???"), at("Q => ???") + 1],
+    ["Expression expected instead of '?'", at("OUT => ???"), at("OUT => ???") + 1],
+    ["Unexpected token '?' found", at("OUT => ???"), at("OUT => ???") + 1],
   ])
 })
 
@@ -240,5 +241,32 @@ test("a wire's definition with no value is the ST parser's error in a network to
   expect(diagnose(ld("\ty : BOOL;", "%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := ;\nASSIGN(w1, Q => y);\n")).map((d) => d.message)).toEqual([
     "Expression expected instead of ';'",
     "the wire w1 is named and never defined",
+  ])
+})
+
+test("a box's output store converts as an assignment does: a change of sign warns, a narrowing does not build, on the target (box-states#1119-1126)", () => {
+  const fn = `FUNCTION F2 : INT\nVAR_INPUT\n\ta : INT;\nEND_VAR\nVAR_OUTPUT\n\tq1 : INT;\nEND_VAR\n%LANGUAGE ST\nF2 := a;\nq1 := a + 1;\nEND_FUNCTION\n`
+  const at = (src: string, from: string) => src.indexOf(from.slice(from.indexOf("=> ") + 3), src.indexOf(from))
+  const body = [
+    "MOVE(EN := go, i, OUT => u);",
+    "MOVE(EN := go, dd, OUT => k);",
+    "MOVE(EN := go, w, OUT => k);",
+    "MOVE(i, OUT => u);",
+    "MOVE(dd, OUT => k);",
+    "F2(EN := go, a := i, OUT => u);",
+    "F2(EN := go, a := i, OUT => k, q1 => u);",
+    "F2(EN := go, a := i, OUT => sv);",
+  ]
+  const src = `${fn}${ld("\tgo : BOOL;\n\ti, k : INT;\n\tu : UINT;\n\tw : UINT := 5;\n\tdd : DINT;\n\tsv : SINT;", body.map((s) => `%NETWORK\n${s}\n`).join(""))}`
+  const sign = "Implicit conversion from signed Type 'INT' to unsigned Type 'UINT' : Possible change of sign"
+  expect(diagnose(src).map((d) => [d.severity, d.message, d.span.start, d.span.end])).toEqual([
+    ["warning", sign, at(src, body[0]!), at(src, body[0]!) + 1],
+    ["error", "Cannot convert type 'DINT' to type 'INT'", at(src, body[1]!), at(src, body[1]!) + 1],
+    ["warning", "Implicit conversion from unsigned Type 'UINT' to signed Type 'INT' : Possible change of sign", at(src, body[2]!), at(src, body[2]!) + 1],
+    ["warning", sign, at(src, body[3]!), at(src, body[3]!) + 1],
+    ["error", "Cannot convert type 'DINT' to type 'INT'", at(src, body[4]!), at(src, body[4]!) + 1],
+    ["warning", sign, at(src, body[5]!), at(src, body[5]!) + 1],
+    ["warning", sign, src.indexOf("u", src.indexOf("q1 => u")) , src.indexOf("u", src.indexOf("q1 => u")) + 1],
+    ["error", "Cannot convert type 'INT' to type 'SINT'", at(src, body[7]!), at(src, body[7]!) + 2],
   ])
 })

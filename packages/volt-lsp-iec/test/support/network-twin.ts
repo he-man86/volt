@@ -37,8 +37,9 @@
  *   `COMMENT(a, 'why')`                          `a` (the front-end reads the operand it wraps);
  *   `Q => JMP.l`, `Q => RETURN`                  `IF v THEN JMP l; END_IF;` / `IF v THEN RETURN; END_IF;`
  *                                                (`Q_INVERTED`: on `(NOT v)`); beside coils the value held in a temp, the
- *                                                coils written, then the jump; in a tree its value held in a temp, the
- *                                                jump taken where the tree is evaluated;
+ *                                                jump taken in its place in the list, the coils after it not written when it
+ *                                                is; in a tree its value held in a temp, the jump taken where the tree is
+ *                                                evaluated;
  *   a wire                                       a VAR of its definition's type (`types` `network-call.ts`), kept across
  *                                                scans: read before its definition, the previous scan's value (2.3);
  *                                                renamed into the twin's own names (`vtw<k>_w1`), as is every ENO;
@@ -57,6 +58,7 @@ import {
   walkExpr,
 } from "../../src/frontend/syntax/index.js"
 import { lookup, type Scope } from "../../src/frontend/symbols/index.js"
+import { sharedValues } from "../../src/transpile/lower/network/sharing.js"
 import { boxMember, inferExprType, renderType, rootBox } from "../../src/frontend/types/index.js"
 import { BoxTwinner, coilWrite, COMPARISON, INFIX, TwinRefusal } from "./network-twin-boxes.js"
 import { type AssignStatement, guardedCalls, guardedReadBy, valueReads } from "./network-twin-reads.js"
@@ -76,15 +78,11 @@ export function twinOf(body: BodySpan, statements: readonly Statement[], scope: 
   const skip = plainStText(body).networks.flatMap((n) => n.executes)
   const code = statements.filter((s) => skip.find((x) => s.span.start >= x.code.start && s.span.start < x.code.end) === undefined)
   const t = new Twinner(body, scope, project, source, `vtw${k}_`, guardedCalls(body, code, valueReads(body, code)))
-  // the items a jump or a return after them shares the value of (`y := JMP.l := v;`)
-  code.forEach((s, i) => {
-    const next = code[i + 1]
-    if ((next?.kind === "jmp" || next?.kind === "return") && next.sharesValue === true && !((s.kind === "jmp" || s.kind === "return") && s.sharesValue === true))
-      t.sharing.add(s)
-  })
+  // the items a jump or a return after them shares the value of, and the jumps between an ASSIGN's coils (`sharing.ts`)
+  t.plan = sharedValues(code)
   const lines: string[] = []
   for (const s of code) {
-    if (t.guarded.has(s)) continue // written inside its short-circuit branch's guard
+    if (t.guarded.has(s) || t.plan.placed.has(s)) continue // written inside its short-circuit branch's guard, or between its ASSIGN's coils
     lines.push(...t.statement(s))
   }
   return { code: lines.join("\n"), declarations: t.declarations(), wires: t.wireDeclarations() }
@@ -92,8 +90,8 @@ export function twinOf(body: BodySpan, statements: readonly Statement[], scope: 
 
 class Twinner extends BoxTwinner {
   private readonly wires = new Map<string, string>()
-  /** The items whose value a jump or a return after them shares, and the temp the last one's value is held in. */
-  readonly sharing = new Set<Statement>()
+  /** What a jump or a return shares the value of (`sharing.ts`), and the temp the last one's value is held in. */
+  plan: ReturnType<typeof sharedValues> = { sharing: new Set(), between: new Map(), placed: new Set() }
   private shared: string | undefined
   /** The edge detectors a `RISING(x)` / `FALLING(x)` runs on: `name : R_TRIG;`, one per edge. */
   private readonly trigs: string[] = []
@@ -144,26 +142,26 @@ class Twinner extends BoxTwinner {
         const box = read !== undefined && !read.eno && read.name.toUpperCase() === "OUT" ? this.box(read.box.call) : undefined
         if (box !== undefined && box.instance === undefined && box.enable !== undefined && !COMPARISON.has(this.name(box).toUpperCase())) {
           this.refuseMisleading(box, { consumed: true, member: read!.name })
-          if (marked || this.sharing.has(s)) throw new TwinRefusal(`the enabled ${this.name(box)} box's value with a marked coil or a jump on it`)
+          if (marked || this.plan.sharing.has(s)) throw new TwinRefusal(`the enabled ${this.name(box)} box's value with a marked coil or a jump on it`)
           const cond = this.pin(box.enable!, pre)
           const value = this.boxValue(box, box.pins.filter((a) => !a.output), pre)
           const text = this.assign(s, value, pre)
           return [...pre, `IF ${cond} THEN\n\t${text}\nEND_IF;`]
         }
         let value = this.expr(s.value, pre)
-        if (marked || this.sharing.has(s)) {
+        if (marked || this.plan.sharing.has(s)) {
           const t = this.temp()
           pre.push(`${t} := ${value};`)
           value = t
-          if (this.sharing.has(s)) this.shared = t
+          if (this.plan.sharing.has(s)) this.shared = t
         }
-        if (!marked) return [...pre, this.assign(s, value, pre)]
-        // every target receives the value, in list order, each its own mark
-        return [...pre, ...targets.map((x, i) => {
-          const target = this.expr(x, pre)
-          if (s.marks?.[i]?.includes("NOT") === true) return coilWrite("NOT", target, value)
-          return `${target} ${ops[i]} ${value};`
-        })]
+        const between = this.plan.between.get(s) ?? []
+        if (!marked && between.length === 0) return [...pre, this.assign(s, value, pre)]
+        // every target receives the value, in list order, each its own mark; a jump or a return between them taken in its place
+        return [...pre, ...targets.flatMap((x, i) => [
+          ...between.filter((j) => j.coilsBefore === i).flatMap((j) => this.statement(j)),
+          s.marks?.[i]?.includes("NOT") === true ? coilWrite("NOT", this.expr(x, pre), value) : `${this.expr(x, pre)} ${ops[i]} ${value};`,
+        ])]
       }
       case "call_stmt":
       case "expr_stmt": {
@@ -192,7 +190,7 @@ class Twinner extends BoxTwinner {
         }
         if (s.value === undefined) throw new TwinRefusal(`the jump ${this.text(s)} on no value`)
         let cond = this.expr(s.value, pre)
-        if (this.sharing.has(s)) {
+        if (this.plan.sharing.has(s)) {
           const t = this.temp()
           pre.push(`${t} := ${cond};`)
           cond = this.shared = t

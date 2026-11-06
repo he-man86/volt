@@ -110,9 +110,8 @@ function desugar(e: Expr): void {
     const parts = assignParts(call)
     if (parts === undefined) continue
     const head = call.callee.span
-    // the coils written first, then the jump or the return taken: in a tree as standing (`assignStatements`)
-    const ordered = [...parts.targets.filter((t) => t.control === undefined), ...parts.targets.filter((t) => t.control !== undefined)]
-    const tree = ordered.reduce<Expr>((value, t) => {
+    // the targets in list order, the first innermost: a jump or the return taken in its place (`assignStatements`)
+    const tree = parts.targets.reduce<Expr>((value, t) => {
       const marks = t.marks !== undefined ? { marks: t.marks } : {}
       if (t.control !== undefined) return controlCall(t.control, t.expr.span, value, call.span, { assignHead: head, ...marks })
       return { kind: "assign_expr", target: t.expr, value, span: call.span, assignHead: head, ...(t.op !== undefined ? { op: t.op } : {}), ...marks }
@@ -122,8 +121,9 @@ function desugar(e: Expr): void {
 }
 
 /** A statement-level ASSIGN as the ST it is: the assignment of its coils (in list order, each its own operator and mark),
- *  then each jump or return on the same value, in list order — a jump stored between coils taken after them all, as the
- *  lowering has always run a target list. */
+ *  then each jump or return on the same value, in list order, each knowing how many coils stand before it: the IDE runs
+ *  the list in its order, so a jump stored between coils is taken there and the coils after it are not written when it is
+ *  (live CODESYS 3.5.21.40, assign-states#0490-0493). */
 function assignStatements(call: CallExpr, parts: { value: Expr; targets: AssignTarget[] }): Statement[] {
   const head = call.callee.span
   const coils = parts.targets.filter((t) => t.control === undefined)
@@ -141,7 +141,8 @@ function assignStatements(call: CallExpr, parts: { value: Expr; targets: AssignT
   }
   controls.forEach((t, i) => {
     const c = t.control!
-    const value = out.length > 0 || i > 0 ? { sharesValue: true as const } : { value: parts.value }
+    const before = parts.targets.slice(0, parts.targets.indexOf(t)).filter((x) => x.control === undefined).length
+    const value = out.length > 0 || i > 0 ? { sharesValue: true as const, coilsBefore: before } : { value: parts.value }
     const own = { assignHead: head, ...(t.marks !== undefined ? { marks: t.marks } : {}) }
     out.push(c.jump ? { kind: "jmp", target: c.label, ...value, ...own, span: t.expr.span } : { kind: "return", ...value, ...own, span: t.expr.span })
   })

@@ -133,6 +133,9 @@ export interface ReturnStatement {
   value?: Expr
   /** In a plain-ST network body, a return on the value of the target before it (`ASSIGN(v, Q => y, Q => RETURN);`). */
   sharesValue?: true
+  /** With `sharesValue`, how many of the ASSIGN's coils its target list holds before the return: it is taken there, and the
+   *  coils after it are not written when it is (`ASSIGN(v, Q => x, Q => RETURN, Q => y);`). */
+  coilsBefore?: number
   /** In a plain-ST network body, the return's own mark, `NOT` for `Q_INVERTED`, and the `ASSIGN` it is a target of. */
   marks?: readonly string[]
   assignHead?: Span
@@ -162,6 +165,9 @@ export interface JmpStatement {
   value?: Expr
   /** In a plain-ST network body, a jump on the value of the target before it (`ASSIGN(v, Q => y, Q => JMP.l);`). */
   sharesValue?: true
+  /** With `sharesValue`, how many of the ASSIGN's coils its target list holds before the jump: it is taken there, and the
+   *  coils after it are not written when it is (`ASSIGN(v, Q => x, Q => JMP.l, Q => y);`, assign-states#0490-0493). */
+  coilsBefore?: number
   /** In a plain-ST network body, the jump's own mark, `NOT` for `Q_INVERTED`, and the `ASSIGN` it is a target of. */
   marks?: readonly string[]
   assignHead?: Span

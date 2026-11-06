@@ -19,8 +19,10 @@
  * ponytail: no too-few check — the only spec requirement about omission is the negative "don't flag it".
  */
 import {
+  UNNAMED,
   walkAllExprs,
   type CallArg,
+  type MemberExpr,
   type Span,
   type TopLevel,
   type TypeExpr,
@@ -31,14 +33,17 @@ import {
   type CalleeInfo,
   constancyOf,
   networkBox,
+  inferExprType,
   resolveCallee,
   takesNoPositionalArguments,
+  VALUE,
+  type NetworkBox,
 } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { emit, SOURCE, withFixes, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import { changeToFixes } from "../../shared/near-miss.js"
 import { bindableMember } from "../../shared/resolution.js"
-import { argTypeError, outputTypeError } from "./_argument-types.js"
+import { argTypeError, outputTypeError, storeTypeError } from "./_argument-types.js"
 import { checkInOutBindings, checkMissingInOuts, countsInOuts } from "./_in-out-arguments.js"
 
 export function checkCallArguments(ctx: CheckContext, out: DiagnosticItem[]): void {
@@ -46,7 +51,9 @@ export function checkCallArguments(ctx: CheckContext, out: DiagnosticItem[]): vo
     walkAllExprs(statements, (x) => {
       if (x.kind !== "call") return
       // a network box: the call its callee takes (an FB's its instance's), its shown EN left out (`types` `infer/network-box.ts`)
-      const e = networkBox(x, scope, ctx.project)?.st ?? x
+      const box = networkBox(x, scope, ctx.project)
+      if (box !== undefined) checkValueStore(box, scope, ctx, out)
+      const e = box?.st ?? x
       const callee = resolveCallee(e, scope, ctx.project)
       if (callee === undefined) return // unresolved callee → skip (zero-FP)
       // A library FB's or method's materialized signature is lossy — inheritance is flattened, inputs may vanish — so its
@@ -56,6 +63,16 @@ export function checkCallArguments(ctx: CheckContext, out: DiagnosticItem[]): vo
       checkCall(e.args, e.callee.span, callee, scope, ctx, out)
     })
   }
+}
+
+/** A function's or an operator's value stored through `OUT => v` (`MOVE(EN := c, i, OUT => u)`): the store converts as an
+ *  assignment does, the warning included (box-states#1119-1126). A marked store and the unnamed `???` are other checks'. */
+function checkValueStore(box: NetworkBox, scope: Scope, ctx: CheckContext, out: DiagnosticItem[]): void {
+  if (box.instance !== undefined || box.signature?.shape !== "function") return
+  const pin = box.pins.find((a) => a.output && a.coil === undefined && a.param?.name.toUpperCase() === VALUE)
+  if (pin?.value === undefined || (pin.value.kind === "ident_expr" && pin.value.name === UNNAMED)) return
+  const read: MemberExpr = { kind: "member", base: box.call, member: { kind: "ident_expr", name: VALUE, span: pin.param!.span }, span: box.call.span }
+  storeTypeError(inferExprType(read, scope, ctx.project), pin.value, scope, ctx, out, true)
 }
 
 /** One call's arguments against its resolved callee, concern by concern — in the order the findings are reported. */

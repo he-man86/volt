@@ -10,7 +10,7 @@
  *   `ASSIGN(v, Q => x, Q_SET => y)`          every target receives v in list order, each its own mark (`Q_RESET` the reset,
  *                                            `Q_INVERTED` NOT v); in a tree v held in a temp, written, handed on;
  *   `Q => JMP.l`, `Q => RETURN`              `IF v THEN JMP l; END_IF` / `IF v THEN RETURN; END_IF` (`Q_INVERTED`: on NOT v),
- *                                            after the coils of its ASSIGN; in a tree, taken where the tree is evaluated;
+ *                                            in its place in the ASSIGN's list (`sharing.ts`); in a tree, where it is evaluated;
  *   a value standing alone                   a box runs, what it hands on read by nothing; anything else runs nothing;
  *   a wire                                   a variable of its definition's type kept across scans — read before its
  *                                            definition, the previous scan's value (`nt_wire_read_before_definition_scan*`);
@@ -26,6 +26,7 @@ import { boxMember, elementaryRef, inferExprType, rootBox, type Type } from "../
 import { assign, binary, bool, call, ident, ifThen, member, NetworkRefusal, not } from "./ast.js"
 import { BoxLowerer, coilWrite, COMPARISON, isInfix } from "./boxes.js"
 import { guardedCalls, guardedReadBy } from "./guarded.js"
+import { sharedValues } from "./sharing.js"
 
 /** A variable the lowered network keeps: a wire or a temp (`type`), or an edge detector (`fb`). */
 export type HiddenVar = { name: string; span: Span } & ({ type: Type } | { fb: "R_TRIG" | "F_TRIG" })
@@ -55,12 +56,6 @@ export function lowerNetworks(body: BodySpan, statements: readonly Statement[], 
       })
   }
   const n = new Networker(body, scope, project, prefix, statements, code)
-  // the items a jump or a return after them shares the value of (`ASSIGN(v, Q => y, Q => JMP.l)`)
-  code.forEach((s, i) => {
-    const next = code[i + 1]
-    if ((next?.kind === "jmp" || next?.kind === "return") && next.sharesValue === true && !((s.kind === "jmp" || s.kind === "return") && s.sharesValue === true))
-      n.sharing.add(s)
-  })
   const out: Statement[] = []
   for (const s of code) {
     if (n.guarded.has(s)) continue // lowered inside its short-circuit branch's guard
@@ -77,8 +72,7 @@ class Networker extends BoxLowerer {
   private readonly counts = new Map<number, { eno: number; trig: number }>()
   private network: PlainStNetwork | undefined
   readonly guarded: Set<Statement>
-  /** The items whose value a jump or a return after them shares, and the temp the last one's value is held in. */
-  readonly sharing = new Set<Statement>()
+  /** The temp the value a jump or a return shares is held in (`plan`, `sharing.ts`). */
   private shared: Expr | undefined
   private readonly guardedByWire: ReadonlyMap<string, Statement>
 
@@ -89,6 +83,7 @@ class Networker extends BoxLowerer {
     private readonly prefix: string,
     private readonly all: readonly Statement[],
     code: readonly Statement[],
+    private readonly plan = sharedValues(code),
   ) {
     super(body, scope, project)
     const names = new Set<string>()
@@ -162,25 +157,26 @@ class Networker extends BoxLowerer {
         const box = read !== undefined && !read.eno && read.name.toUpperCase() === "OUT" ? read.box : undefined
         if (box !== undefined && box.instance === undefined && box.enable !== undefined && !COMPARISON.has(this.name(box).toUpperCase())) {
           this.refuseMisleading(box, { consumed: true, member: read!.name })
-          if (marked || this.sharing.has(s)) throw new NetworkRefusal(`the enabled ${this.name(box)} box's value with a marked coil or a jump on it`)
+          if (marked || this.plan.sharing.has(s)) throw new NetworkRefusal(`the enabled ${this.name(box)} box's value with a marked coil or a jump on it`)
           const cond = this.pin(box.enable, pre)
           const value = this.boxValue(box, box.pins.filter((a) => !a.output), pre)
           return [...pre, ifThen(cond, [this.assign(s, value, pre)], [], s.span)]
         }
         let value = this.expr(s.value, pre)
-        if (marked || this.sharing.has(s)) {
+        if (marked || this.plan.sharing.has(s)) {
           const t = this.valueTemp(s.value, s.span)
           pre.push(assign(t, value, s.span))
           value = t
-          if (this.sharing.has(s)) this.shared = t
+          if (this.plan.sharing.has(s)) this.shared = t
         }
-        if (!marked) return [...pre, this.assign(s, value, pre)]
-        // every target receives the value, in list order, each its own mark
-        const writes = targets.map((t, i) => {
+        const between = this.plan.between.get(s) ?? []
+        if (!marked && between.length === 0) return [...pre, this.assign(s, value, pre)]
+        // every target receives the value, in list order, each its own mark; a jump or a return between them taken in its place
+        const writes = targets.flatMap((t, i) => {
+          const jumps = between.filter((j) => j.coilsBefore === i).flatMap((j) => this.jumpStatement(j, pre))
           const target = this.expr(t, pre)
-          if (s.marks?.[i]?.includes("NOT") === true) return coilWrite("NOT", target, value, s.span)
-          const op = ops[i]
-          return op === "S=" || op === "R=" ? coilWrite(op, target, value, s.span) : assign(target, value, s.span)
+          const op = s.marks?.[i]?.includes("NOT") === true ? "NOT" : ops[i]
+          return [...jumps, op === "NOT" || op === "S=" || op === "R=" ? coilWrite(op, target, value, s.span) : assign(target, value, s.span)]
         })
         return [...pre, ...writes]
       }
@@ -204,6 +200,7 @@ class Networker extends BoxLowerer {
         return []
       case "jmp":
       case "return":
+        if (this.plan.placed.has(s)) return [] // lowered between its ASSIGN's coils
         return this.jumpStatement(s, pre)
       case "label":
         return [s]
@@ -222,7 +219,7 @@ class Networker extends BoxLowerer {
     }
     if (s.value === undefined) return [s]
     let cond = this.expr(s.value, pre)
-    if (this.sharing.has(s)) {
+    if (this.plan.sharing.has(s)) {
       const t = this.temp(s.span)
       pre.push(assign(t, cond, s.span))
       cond = this.shared = t

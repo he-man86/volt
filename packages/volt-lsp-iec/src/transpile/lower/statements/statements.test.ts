@@ -63,4 +63,18 @@ describe("lower — JMP and labels", () => {
     ret.scan()
     expect(["y", "x"].map((v) => ret.get(v))).toEqual([true, false])
   })
+
+  test("a target list runs in list order, a jump in it taken in its place: the targets after it are not written (assign-states#0490-0493)", () => {
+    const net = (body: string) =>
+      `PROGRAM P\nVAR\na : BOOL := TRUE; x : BOOL; y : BOOL; z : BOOL; c : BOOL;\nEND_VAR\n%LANGUAGE LD\n${body}\n%NETWORK\nASSIGN(TRUE, Q => z);\n%NETWORK\nl:\nASSIGN(TRUE, Q => c);\nEND_PROGRAM\n`
+    const between = run(ir(net("%NETWORK\nASSIGN(a, Q => x, Q => JMP.l, Q => y);"), "P"))
+    between.scan()
+    expect(["x", "y", "z", "c"].map((v) => between.get(v))).toEqual([true, false, false, true])
+    const first = run(ir(net("%NETWORK\nASSIGN(a, Q => JMP.l, Q => x, Q => y);"), "P"))
+    first.scan()
+    expect(["x", "y", "z", "c"].map((v) => first.get(v))).toEqual([false, false, false, true])
+    const last = run(ir(net("%NETWORK\nASSIGN(a, Q => x, Q => y, Q => JMP.l);"), "P"))
+    last.scan()
+    expect(["x", "y", "z", "c"].map((v) => last.get(v))).toEqual([true, true, false, true])
+  })
 })

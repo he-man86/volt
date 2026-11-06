@@ -104,10 +104,12 @@ export function networkDiagnostics(parseResult: ParseResult, project: Scope): Di
  *  - an FB box with no instance (`TON(IN := a);`, the call of its type): the build reads the instance `???` as text — the
  *    two errors of the marker, the instance error over the marker, the marker's first again — at the call's head;
  *  - `???` as an operand, or on a function's value `OUT => ???`: the build reads it as text, "Expression expected instead
- *    of '?'" (the ST parser's, here too) and "Unexpected token '?' found"; on an operator's (`MOVE(i, OUT => ???)`) the
- *    coil's own error, "The assignment target is not specified." (box-states#0433,0529);
- *  - `???` on an output a block or a program declares (`t2(q1 => ???)`) and on a jump's label (`JMP.???`): the first of
- *    those alone, "Expression expected instead of '?'" (C0007), on the `???`;
+ *    of '?'" (the ST parser's, here too) and "Unexpected token '?' found", both on its first `?` (the operand at offset 0,
+ *    length 1: assign-states#0442, box-states#0205); on an operator's (`MOVE(i, OUT => ???)`) the coil's own error, "The
+ *    assignment target is not specified." (box-states#0433,0529);
+ *  - `???` on an output a block or a program declares (`t2(q1 => ???)`): the first of those alone, "Expression expected
+ *    instead of '?'" (C0007), on its first `?`;
+ *  - `???` on a jump's label (`JMP.???`): no label the body holds, C0117, the label check's (assign-states#0496) — nothing here;
  *  - `???` on the unnamed slot the IDE stores past a block's or a program's declared outputs (`p(OUT => ???)`): an output
  *    nothing is wired to, which the build compiles clean (lenze-mid's recorded build, its `Mach1_MIDS` and `AHWF`
  *    boxes) — nothing.
@@ -115,6 +117,7 @@ export function networkDiagnostics(parseResult: ParseResult, project: Scope): Di
 function checkUnnamed(body: BodySpan, scope: Scope | undefined, project: Scope, dialect: ParseResult["dialect"], out: DiagnosticItem[]): void {
   const tc = dialect === "twincat"
   const error = (span: Span, message: string) => out.push({ severity: "error", span, source: SOURCE, code: UNNAMED_CODE, message })
+  const parse = (span: Span, message: string) => error({ ...span, end: span.start + 1 }, message) // on the `?` the parser stopped at
   const target = (t: Expr) => {
     if (t.kind === "ident_expr" && t.name === UNNAMED) error(t.span, tc ? "Assignment target not specified" : "The assignment target is not specified.")
   }
@@ -129,17 +132,14 @@ function checkUnnamed(body: BodySpan, scope: Scope | undefined, project: Scope, 
       handled.add(t.span.start)
     }
     if (stmt.kind === "jmp" && isUnnamed(stmt.target)) {
-      error(stmt.target.span, marker)
       handled.add(stmt.target.span.start)
     }
     for (const e of stmtExprs(stmt))
       walkExpr(e, (x) => {
         if (x.kind === "assign_expr") target(x.target)
         if (x.kind === "assign_expr") handled.add(x.target.span.start)
-        if (x.kind === "call" && x.callee.kind === "ident_expr" && x.callee.name.toUpperCase() === "JMP" && isUnnamed(x.args[0]?.value)) {
-          error(x.args[0]!.value!.span, marker)
+        if (x.kind === "call" && x.callee.kind === "ident_expr" && x.callee.name.toUpperCase() === "JMP" && isUnnamed(x.args[0]?.value))
           handled.add(x.args[0]!.value!.span.start)
-        }
         const box = x.kind === "call" && scope !== undefined ? networkBox(x, scope, project) : undefined
         if (x.kind === "call")
           for (const a of x.args) {
@@ -148,11 +148,11 @@ function checkUnnamed(body: BodySpan, scope: Scope | undefined, project: Scope, 
             const name = a.param?.name.toUpperCase()
             const declared = box?.signature?.outputs.some((o) => o.toUpperCase() === name) === true
             const fnValue = name === VALUE && box?.signature?.shape === "function" && box.instance === undefined
-            if (declared) error(a.value.span, marker)
+            if (declared) parse(a.value.span, marker)
             else if (fnValue && isOperatorBox(box!)) target(a.value)
             else if (fnValue) {
-              error(a.value.span, marker)
-              error(a.value.span, unexpected)
+              parse(a.value.span, marker)
+              parse(a.value.span, unexpected)
             }
           }
         if (x.kind === "call" && box?.instance?.kind === "ident_expr" && box.instance.name === UNNAMED)
@@ -163,8 +163,8 @@ function checkUnnamed(body: BodySpan, scope: Scope | undefined, project: Scope, 
   // every other `???` is an operand (a contact, a box input): the marker read as text
   for (const t of plainStText(body).sourceTokens)
     if (t.kind === "identifier" && t.text === UNNAMED && !handled.has(t.span.start)) {
-      error(t.span, marker)
-      error(t.span, unexpected)
+      parse(t.span, marker)
+      parse(t.span, unexpected)
     }
 }
 
