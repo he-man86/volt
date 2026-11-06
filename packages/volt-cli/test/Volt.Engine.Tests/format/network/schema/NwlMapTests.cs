@@ -20,10 +20,7 @@ namespace Volt.Engine.Tests.Format.Network.Schema;
 public class NwlMapTests
 {
     /// <summary>The classes not mapped yet (tasks 2.1 and 2.2). Shrinks; never grows.</summary>
-    static readonly string[] Pending =
-    {
-        "BoxTreeDemux", "BoxTreeMux", "BoxTreeParallel", "ILStatement", "NWLImplementationObject", "Network",
-    };
+    static readonly string[] Pending = Array.Empty<string>();
 
     static readonly string[] Statuses = { "spelled", "lost-inert", "refused-inert", "refused-gap", "refused-fault", "cannot-store", "not-measured" };
     static readonly string[] Cells = { "same", "differs", "not-measured", "faults" };
@@ -145,6 +142,7 @@ public class NwlMapTests
     {
         ["box-states"] = $"box-states.{NwlSchemaCensus.Version}.json",
         ["assign-states"] = $"assign-states.{NwlSchemaCensus.Version}.json",
+        ["class-states"] = $"class-states.{NwlSchemaCensus.Version}.json",
     };
 
     /// <summary>What a pull of a recorded state shows, as a row's text holds it: the text, or a refusal's wording alone.</summary>
