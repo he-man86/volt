@@ -138,7 +138,8 @@ parts inside its `()`, and the flow is each call's return.
   compiled and run as no slot, whatever it holds and whether a PROGRAM's box stores CallType Program or Function: `???`
   there has no text (lost-inert), a variable there is refused by name (box-states#1099-1118, 1127-1132, 1138-1143). On an
   FB the stored CallType decides: under FunctionBlock the slot builds and runs as none, under Function it is C0409 on the
-  slot's lazy variable (box-states#1133-1137, 1144-1148); not settled.
+  slot's lazy variable (box-states#1133-1137, 1144-1148), so that state is refused by name: an FB box storing call type
+  Function with an output past its names.
 - `INVERT` on a value that is not BOOL runs as the bitwise `NOT` (MOVE's value or pin, an FB's INT output). On a plain
   INT coil a mark on the value or the target is stored and not in the code, so it gets no text (lost-inert); only a
   mark on the line runs.

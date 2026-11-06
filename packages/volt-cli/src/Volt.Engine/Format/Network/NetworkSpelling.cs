@@ -78,7 +78,7 @@ internal static class NetworkSpelling
     /// nothing there (live CODESYS 3.5.21.40: box-states 1099-1118, lenze-mid's FUNCTION boxes on a callee whose stored names are
     /// only ENO; box-states 1127-1132 and 1138-1143, a PROGRAM's, whether the box stores CallType Program or Function, as
     /// lenze-mid's SpeedCalculationDryer and SideCorrection boxes do). Not an FB's: there the slot builds or not by the stored
-    /// CallType (box-states 1133-1137, 1144-1148).</summary>
+    /// CallType (box-states 1133-1137, 1144-1148; refused by the reader under CallType Function).</summary>
     public static bool PastStoredNames(Box b, CalleeSignature? signature, Output o) =>
         b.Instance is null && signature is { Shape: CalleeShape.Function or CalleeShape.Program } && !IsOperator(signature) && o.Formal is null &&
         b.Members?[NetworkMembers.OutputNames]?.AsTexts is { } names && o.Slot >= names.Count;

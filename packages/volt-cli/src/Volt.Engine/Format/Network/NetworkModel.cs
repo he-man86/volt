@@ -337,6 +337,7 @@ public static class BoxRefusals
     public const string ExtensibleInputsMarker = "a box storing extensible inputs";
     public const string UnnamedCallInputMarker = "a call box input past its pin names";
     public const string OperatorSecondNullMarker = "an operator box holding a second null";
+    public const string FbFunctionCallPastNamesMarker = "an FB box storing call type Function with an output past its names";
     /// <summary>An Execute box whose ST snippet the reader cannot read — raised by both vendor readers and answered by
     /// TwinCAT's archive pre-scan too, so the pull names it in one wording whichever way it was found.</summary>
     public const string UnreadableExecuteMarker = "an Execute box whose ST cannot be read";
@@ -382,6 +383,14 @@ public static class BoxRefusals
         new(ExtensibleInputsMarker,
             $"{vendor}: the '{boxType}' box stores extensible inputs, so the IDE calls it without its pin names, and the text has " +
             "no form for that. Edit this network in the IDE.");
+
+    /// <summary>An FB box storing CallType Function with an output item past its stored output names: the build fails with C0409 on
+    /// the slot's lazy variable, while the same box under the editor's CallType FunctionBlock builds and runs as none (live CODESYS
+    /// 3.5.21.40, box-states 1133-1137, 1144-1148). The text holds no CallType, so it would show the box that builds.</summary>
+    public static Volt.Engine.Format.Body.UnrepresentableBodyException FbFunctionCallPastNames(string vendor, string boxType, int slot) =>
+        new(FbFunctionCallPastNamesMarker,
+            $"{vendor}: the '{boxType}' box stores call type Function and holds output {slot} past its output names, which the IDE does " +
+            "not build. Volt refuses to show it as the box that builds. Edit this network in the IDE.");
 
     /// <summary>A resolved FB, PROGRAM or FUNCTION box holding an input past its pin names: the IDE does not pass it, so the text would
     /// state a pin the program does not have (live CODESYS 3.5.21.40, openspec nwl-box-storage-map).</summary>

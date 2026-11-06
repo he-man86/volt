@@ -57510,7 +57510,7 @@ null,
 },
 {
 "id": "1133",
-"kind": "calltype FB=Function",
+"kind": "FB0on",
 "language": "LD",
 "position": "root",
 "live": true,
@@ -57558,11 +57558,11 @@ null,
 "layout": "18a0d5b7ec",
 "afterReopen": true
 },
-"pull": "t0(EN := go, a := a, OUT =\u003E ???);"
+"pull": "%UNSUPPORTED \u0022an FB box storing call type Function with an output past its names\u0022 #381aa6ba"
 },
 {
 "id": "1134",
-"kind": "calltype FB=Function",
+"kind": "FB0on",
 "language": "LD",
 "position": "root",
 "live": true,
@@ -57611,7 +57611,7 @@ null
 },
 {
 "id": "1135",
-"kind": "calltype FB=Function",
+"kind": "FB0on",
 "language": "LD",
 "position": "root",
 "live": true,
@@ -57659,7 +57659,7 @@ null,
 "layout": "18a0d5b7ec",
 "afterReopen": true
 },
-"pull": "%UNSUPPORTED \u0022a variable on an output no declaration names\u0022 #5b254532"
+"pull": "%UNSUPPORTED \u0022an FB box storing call type Function with an output past its names\u0022 #381aa6ba"
 },
 {
 "id": "1136",
@@ -58062,7 +58062,7 @@ null,
 },
 {
 "id": "1144",
-"kind": "calltype FB=Function",
+"kind": "FB0on",
 "language": "FBD",
 "position": "root",
 "live": true,
@@ -58110,11 +58110,11 @@ null,
 "layout": "acfb0a3338",
 "afterReopen": true
 },
-"pull": "t0(EN := go, a := a, OUT =\u003E ???);"
+"pull": "%UNSUPPORTED \u0022an FB box storing call type Function with an output past its names\u0022 #381aa6ba"
 },
 {
 "id": "1145",
-"kind": "calltype FB=Function",
+"kind": "FB0on",
 "language": "FBD",
 "position": "root",
 "live": true,
@@ -58163,7 +58163,7 @@ null
 },
 {
 "id": "1146",
-"kind": "calltype FB=Function",
+"kind": "FB0on",
 "language": "FBD",
 "position": "root",
 "live": true,
@@ -58211,7 +58211,7 @@ null,
 "layout": "acfb0a3338",
 "afterReopen": true
 },
-"pull": "%UNSUPPORTED \u0022a variable on an output no declaration names\u0022 #5b254532"
+"pull": "%UNSUPPORTED \u0022an FB box storing call type Function with an output past its names\u0022 #381aa6ba"
 },
 {
 "id": "1147",

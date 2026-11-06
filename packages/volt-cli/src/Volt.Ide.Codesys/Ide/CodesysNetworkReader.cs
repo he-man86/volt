@@ -386,6 +386,9 @@ namespace Volt.Ide.Codesys
                 throw BoxRefusals.EmptyOperatorOutput(CodesysDriver.Row.Display, type);
             if (!hasEno && instance is null && CallsAnOperator(n) && OutputSlots(n, type).Count(s => s is null) > 1)
                 throw BoxRefusals.OperatorSecondNull(CodesysDriver.Row.Display, type);
+            if (instance is not null && NwlInterop.Get(n, "CallType")?.ToString() == "Function" &&
+                OutputSlots(n, type).Select((held, slot) => (held, slot)).FirstOrDefault(s => s.slot >= outputNames.Count && s.held is not null) is { held: not null } past)
+                throw BoxRefusals.FbFunctionCallPastNames(CodesysDriver.Row.Display, type, past.slot);
             if (NwlInterop.Get(n, "ContainsExtensibleInputs") is true)
                 throw BoxRefusals.ExtensibleInputs(CodesysDriver.Row.Display, type);
             var stored = NwlInterop.Get(n, "MainOutputIndex") as int?;

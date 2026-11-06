@@ -819,8 +819,9 @@ public static class StNetworkWriter
                     continue;
                 }
                 // A slot past an FB's or a PROGRAM's names holding a variable is never written (live CODESYS 3.5.21.40). On an FB `???`
-                // there builds or not by the box's stored CallType, which this text does not hold (box-states 1133-1137, 1144-1148): not
-                // settled. A PROGRAM's past its stored names is above (NetworkSpelling.PastStoredNames).
+                // there builds under the editor's CallType FunctionBlock; under a stored CallType Function the reader refuses the box
+                // (BoxRefusals.FbFunctionCallPastNames, box-states 1133-1137, 1144-1148). A PROGRAM's past its stored names is above
+                // (NetworkSpelling.PastStoredNames).
                 if ((b.Instance is not null || signature is { Shape: CalleeShape.Program }) && o.Value.Text != Box.UnnamedInstance)
                     throw Unspellable("a variable on an output no declaration names", $"the '{b.Type}' box holds '{o.Value.Text}' on an output past its names.");
                 // Each `OUT =>` is the next unnamed output slot: ENO and the slot a consumer reads are skipped.
