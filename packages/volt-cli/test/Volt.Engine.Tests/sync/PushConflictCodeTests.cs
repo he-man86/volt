@@ -226,7 +226,7 @@ public class PushConflictCodeTests
     /// written, carrying nothing to tell it apart from "pull and retry". The code is the throw's own (an
     /// <c>UnsupportedException</c> here), never read off the exception's type (wire-final-shape step 3c).</para>
     ///
-    /// <para>Found by the LIVE suite, not this one — `create-shapes.test.ts` on TwinCAT — after the offline
+    /// <para>Found by the LIVE suite on TwinCAT, not this one — after the offline
     /// tier had been green through several rounds of exactly this work. The fake has no vendor importer to
     /// refuse anything, so the whole class was invisible here.</para></summary>
     [Fact]

@@ -61,7 +61,7 @@ describe(`graphical / the ??? marker (${BASE})`, () => {
 		// reason: nothing graphical ever ran. Seven of these assertions were proving that a text blob survives a
 		// push, and the two that failed were the only honest signal in the file — they asked for a graphical
 		// refusal from a body the graphical path never saw. Every other suite in this folder already writes it
-		// the right way (`create-shapes`, `fanout`, `comments`, `graphical-kinds`).
+		// the right way (`fanout`, `comments`, `graphical-kinds`).
 		const src = `PROGRAM ${name}\nVAR\n${vars}END_VAR\n%LANGUAGE ${lang}\n${body}\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])

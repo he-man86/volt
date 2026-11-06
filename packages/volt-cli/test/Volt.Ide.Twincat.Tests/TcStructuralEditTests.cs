@@ -258,8 +258,7 @@ public class TcStructuralEditTests
 
     /// <summary>AN UNWIRED PIN THE IMPORT BUILT READS AS THE EMPTY SLOT IT IS. <c>importer-unwired.TcPOU</c> is real XAE
     /// output of <c>n := MUL(, m, 6);</c> and <c>t1(IN := , PT := );</c>: the import holds each unconnected pin as an
-    /// operand with no text, where CODESYS holds a terminator, and it came back <c>(`` * m * 6)</c> (found live,
-    /// <c>real-project-shapes.test.ts</c>). Read as the model's one "unconnected", and pushed back unchanged.</summary>
+    /// operand with no text, where CODESYS holds a terminator, and it came back <c>(`` * m * 6)</c> (found live). Read as the model's one "unconnected", and pushed back unchanged.</summary>
     [Fact]
     public void An_unwired_pin_the_import_built_reads_as_the_empty_slot_and_pushes_back_unchanged()
     {

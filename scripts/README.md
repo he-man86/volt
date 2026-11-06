@@ -163,8 +163,12 @@ Volt deploys one thing — the static site at `packages/volt-web` — and it nee
 
 | Script | Home |
 |---|---|
-| `build-cli.ps1` (publish the toolchain), `ide.ps1` (CODESYS dev loop, through the shipped host), `run_pipe_production.py`, and the **live-IDE probes** — each mapped in its own `README.md` there | `packages/volt-cli/scripts/` |
+| `build-cli.ps1` (publish the toolchain), `ide.ps1` (CODESYS dev loop, through the shipped host), `run_pipe_production.py`, and the **live-IDE recorders** — each mapped in its own `README.md` there | `packages/volt-cli/scripts/` |
 | LSP corpus/conformance recorders + oracles | `packages/volt-lsp-iec/scripts/` |
+
+What CODESYS 3.5.21.40 stores, builds and runs in LD/FBD has one source: the NWL map,
+`packages/volt-cli/test/fixtures/nwl-schema/map.3.5.21.40.json` (gated by `NwlMapTests` and `NwlSchemaGateTests`). A new
+fact there is a new row with its fixture, never a new probe script.
 
 The installer itself lives at **`installer/`** — `Volt.iss` plus a `README.md` documenting every location Volt
 writes on disk.

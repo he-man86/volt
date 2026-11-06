@@ -60,7 +60,7 @@ END_FUNCTION_BLOCK
 	 * (`probe-view-switch.py (deleted; git show 5312b799fe:packages/volt-cli/scripts/probe-view-switch.py)`). This is the same through the shipped push: both Parallels (fed `BoxShortCircuit`,
 	 * unfed `Sequential` under an AND) pull back unchanged under the flipped line, the project builds, and the flip back
 	 * restores the LD text. CODESYS only: TwinCAT has never been seen to write a Parallel, so its native builder has no
-	 * member list to build one from and refuses it by name (DIALECT N42, `real-project-shapes.test.ts`).
+	 * member list to build one from and refuses it by name (DIALECT N42).
 	 */
 	it.skipIf(VENDOR === "twincat")("an LD body holding a PARALLEL flips to FBD and back, unchanged, and builds", async () => {
 		const name = id("view_flip_par")

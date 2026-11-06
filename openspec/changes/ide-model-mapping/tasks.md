@@ -23,9 +23,21 @@
 ## 4. One source of truth
 
 - [ ] 4.1 (`nwl-facts-rerecord` archived 2026-11-06 as superseded by this task.) Fold in what `vendor-facts.*`, `shapes.v2.coverage`, the census outcome table and the DIALECT rows on NWL hold, then close `nwl-facts-rerecord`.
+      Open (2026-11-06): `shapes.v2.coverage` holds nothing beyond the map (no uncovered state). No "census outcome table"
+      exists in the repo apart from the map itself. The `vendor-facts` NWL rows (N24, N28–N38) measure the PUSHED form and
+      TwinCAT, and the map has no pushed-form or TwinCAT rows: those facts have no row and need measuring as rows (or the
+      row format needs a pushed source) before they can move.
 - [ ] 4.2 Fold what the shape e2e tests measure (`census-shapes`, `create-shapes`, `stored-shapes`, `uncovered-shapes`, `real-project-shapes`) into the map's tests, then delete them, each with its reason; delete `record-nwl-corpus.py`, `record-nwl-live.py`, `voltprobe.py` after confirming each is unused.
-- [ ] 4.3 `scripts/README.md`, `CLAUDE.md` and `ARCHITECTURE.md` state the one source.
+      Open (2026-11-06): `create-shapes`, `uncovered-shapes`, `real-project-shapes` and the report `e2e-graphical-coverage.ts`
+      deleted (each case is a map row). Kept: `census-shapes` (`SUPER^` has no row) and `stored-shapes` (two ENOs into one
+      box, an array element heading its call: no row) — both also hold the only live pins of TwinCAT's refusals of those
+      shapes (`TcUnmeasured`), until 6.1. The three scripts stay: `voltprobe.py` is imported by the `author-*-fixture.py`
+      recorders and `vendor-facts.codesys.py`; the two `record-nwl-*.py` record the inputs of the NWL completeness oracles.
+- [x] 4.3 `scripts/README.md`, `CLAUDE.md` and `ARCHITECTURE.md` state the one source.
 - [ ] 4.4 Clean the previous attempts (owner, 2026-11-05), only after their facts are rows: delete `DIALECT.md`'s NWL rows that moved, its superseded rows and citations of deleted probes; rewrite the history notes in `ARCHITECTURE.md`, `CLAUDE.md`, `scripts/README.md` and `docs/driver.html` to the current state (a mistake worth remembering stays as its one-line rule); delete the network and NWL changes from `openspec/changes/archive`, which git keeps. The other archived changes and the vendor reference docs stay.
+      Open (2026-11-06): N43 and D30 deleted, the deleted-probe citations gone, the map named in N21/C18. The other NWL rows
+      (N13–N42) each hold a TwinCAT half, a pushed-form fact or a Volt-code fact the CODESYS map has no row for. The archived
+      network/NWL change folders are not deleted yet.
 
 ## 5. The final language for NWL
 

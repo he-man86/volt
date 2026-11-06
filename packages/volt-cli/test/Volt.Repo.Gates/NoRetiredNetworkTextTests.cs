@@ -71,7 +71,6 @@ public class NoRetiredNetworkTextTests
         ("packages/volt-cli/docs/network-text.html", Array.Empty<string>()),
         ("packages/volt-cli/test/fixtures/network-text-st/accept", new[] { ".cases" }),
         ("packages/volt-cli/test/e2e", new[] { ".ts" }),
-        ("packages/volt-cli/scripts/e2e-graphical-coverage.ts", Array.Empty<string>()),
         ("packages/volt-lsp-iec/test-corpus", new[] { ".pou" }),
         ("packages/volt-vscode/src", new[] { ".test.ts" }),
         ("openspec/changes", new[] { ".md" }),
