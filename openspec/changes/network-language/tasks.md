@@ -1,6 +1,6 @@
 ## 1. Decide
 
-- [ ] 1.1 The owner and Sim-Assist agree the proposal, including the one open call (the 2 unbuildable editor rows).
+- [x] 1.1 The owner and Sim-Assist agree the proposal, including the one open call (the 2 unbuildable editor rows).
 
 ## 2. Build (after 1.1)
 

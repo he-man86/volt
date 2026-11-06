@@ -1,4 +1,4 @@
-> PROPOSAL to the owner and Sim-Assist (ide-model-mapping 5.1, 2026-11-06). Not built. Every rule cites the map rows it
+> DECIDED by the owner with Sim-Assist (ide-model-mapping 5.1, 2026-11-06); being built. Every rule cites the map rows it
 > rests on: `packages/volt-cli/test/fixtures/nwl-schema/map.3.5.21.40.json` (1963 rows, CODESYS 3.5.21.40), `fixture` =
 > `<recording>#<state ids>`.
 
@@ -45,7 +45,7 @@ coil only; stacked marks run innermost first (CODESYS's code for a full stack: `
   273 census options no measured state stores.
 - IL: 6 editor rows (IL edits) stay `%LANGUAGE IL UNSUPPORTED`, as IL is unsupported product-wide.
 - 2 editor rows the IDE itself cannot build (a program or FB with no outputs read as a value, box-states#0317,0325,
-  #0344,0350) stay refused (Sim-Assist's advice; unlike `???`, no user fills them in later). Owner's call.
+  #0344,0350) stay refused (owner, 2026-11-06; unlike `???`, no user fills them in later).
 
 The network text only ever lives in an LD or FBD body. Converting a POU to ST is CODESYS's own command and gives plain
 ST, so `ASSIGN`, `INVERT`, `RAIL()` and `BRANCH()` never reach an ST POU.
