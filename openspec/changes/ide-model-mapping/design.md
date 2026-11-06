@@ -127,7 +127,8 @@ parts inside its `()`, and the flow is each call's return.
   innermost first: `NOT(NOT(R_TRIG(R_TRIG(a))))`. Settled as written above.
 - `BoxTreeTerminator` is what LD stores as the value of a coil, S, R, jump or return with no contact in front; FBD stores
   `???` there instead. It runs as always TRUE, like `RAIL()`, so its text is `RAIL()`: `ASSIGN(RAIL(), Q => y)`.
-- `???` as `OPERAND('???')`, or kept.
+- `???` (an empty operand, as the editor shows it) is written bare: `q1 => ???`. Not `'???'`, a STRING constant a user
+  can type, and not `OPERAND('???')`. Bare `???` is no ST name, number or string, so it means nothing else.
 - `INVERT` on a value that is not BOOL runs as the bitwise `NOT` (MOVE's value or pin, an FB's INT output). On a plain
   INT coil a mark on the value or the target is stored and not in the code, so it gets no text (lost-inert); only a
   mark on the line runs.
