@@ -44,6 +44,11 @@ describe("a network body lowers to what it runs", () => {
     expect(trace(r, "x", [{}])).toEqual([true])
   })
 
+  test("a label opening the network its ASSIGN stands in: the ASSIGN still runs (class-states 0592-0595)", () => {
+    const r = runner("a, y : BOOL;", "%NETWORK\nl:\nASSIGN(a, Q => y);\n")
+    expect(trace(r, "y", [{ a: true }, { a: false }])).toEqual([true, false])
+  })
+
   test("an enabled box read by its value under a coil holds the coil when disabled (1.4)", () => {
     const r = runner("y : INT := 5; k : INT := 7; c : BOOL;", "%NETWORK\nASSIGN(MOVE(EN := c, k).OUT, Q => y);\n", "", "FBD")
     expect(trace(r, "y", [{}, { c: true }, { c: false, k: 9n }])).toEqual([5n, 7n, 7n])
