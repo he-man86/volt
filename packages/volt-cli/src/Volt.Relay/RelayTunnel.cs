@@ -27,11 +27,12 @@ namespace Volt.Relay
     /// <see cref="BridgeErrorCodes"/>, and progress/result frames are forwarded verbatim.</para></summary>
     public sealed class RelayTunnel : IDisposable
     {
-        // 25s ping / 60s silence, per the protocol. The watchdog is deliberately far longer than the ping: it is
-        // there to notice a socket that is open but dead (a NAT or proxy that dropped the flow without an RST —
-        // the common failure for a long-lived outbound connection through corporate kit), not to police latency.
-        private static readonly TimeSpan DefaultPingEvery = TimeSpan.FromSeconds(25);
-        private static readonly TimeSpan DefaultSilenceLimit = TimeSpan.FromSeconds(60);
+        // 10s ping / 25s silence, per the protocol. The watchdog runs on the ping tick, so a dead or stalled socket is
+        // noticed 25-35 s after the relay's last frame. The field (2026-11-05) showed sockets dropped without a close and
+        // downstream frames held 53 s and ~61 s on a live WebSocket; at 25 s / 60 s that was noticed only 60-85 s in.
+        // Measured: this pair ends a failure at +26 s instead of +65 s and still carries a 2 KB/s link.
+        private static readonly TimeSpan DefaultPingEvery = TimeSpan.FromSeconds(10);
+        private static readonly TimeSpan DefaultSilenceLimit = TimeSpan.FromSeconds(25);
         private readonly TimeSpan _pingEvery;
         private readonly TimeSpan _silenceLimit;
 

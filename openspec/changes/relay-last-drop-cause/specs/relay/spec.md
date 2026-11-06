@@ -5,7 +5,7 @@ A bridge's `hello` after a lost connection SHALL carry `lastDrop` with a fixed c
 call in flight if any, and how long the redial took. It SHALL hold no exception text.
 
 #### Scenario: the watchdog dropped the connection
-- **WHEN** the bridge aborts a socket after 60 s with no inbound frame, and then redials
+- **WHEN** the bridge aborts a socket after 25 s with no inbound frame, and then redials
 - **THEN** its next `hello` carries `lastDrop.cause` = `watchdog_silence`
 
 #### Scenario: a first connection

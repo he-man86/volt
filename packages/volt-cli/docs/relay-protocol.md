@@ -44,7 +44,7 @@ and is the only party that can.
 
 A relay MAY reject the upgrade (401/403). A relay MUST NOT require any other header: the bridge sends none,
 and a `ClientWebSocket` running inside an IDE's scripting host is not a browser. The socket's own WebSocket
-keep-alive interval is 25 s, matching the protocol's heartbeat below.
+keep-alive interval is 10 s, matching the protocol's heartbeat below.
 
 ### Handshake
 
@@ -184,17 +184,17 @@ clamped to **16–256 KiB**, starting at 16 KiB. From a cold start W at most dou
 **Delivery.** A chunked answer is delivered at its LAST ack. An ack for a chunk that is not awaiting one is a WARN;
 an ack for a chunk of a [cancelled](#cancel) answer that went out before the cancel is expected and ignored.
 
-- On each heartbeat tick (25 s), a chunk unacked for more than **60 s** drops the socket, 60–85 s after it went.
+- On each heartbeat tick (10 s), a chunk unacked for more than **25 s** drops the socket, 25–35 s after it went.
 - A chunk whose send fails drops the socket: the relay learns from the socket ending that the answer will not
   complete, and discards what it holds.
-- Every chunk send is under the same 60 s send bound as a frame (see [Liveness](#liveness)).
+- Every chunk send is under the same 25 s send bound as a frame (see [Liveness](#liveness)).
 
 The relay, receiving: it reassembles per id and answers a broken set (a seq > 0 without seq 0, a gap, a duplicate,
 more than `count` chunks, an inflate error, a CRC32, ISIZE or length mismatch) to its caller as `INTERNAL_ERROR`, never
 silently. It checks the gzip trailer itself: the set's last 8 bytes are CRC32 of what inflated and ISIZE = `bytes`.
 A runtime's gzip reader is not trusted with the trailer: Node's `DecompressionStream` accepts a second member, and
 .NET's `GZipStream` accepts a missing trailer. The bridge checks it the same way (the refusals below). Before any work it refuses `count` × `maxBytes` over 32 MiB and `bytes` over 64 MiB, and it inflates no
-further than `bytes`. A chunk is traffic for its 60 s silence limit.
+further than `bytes`. A chunk is traffic for its 25 s silence limit.
 
 ### Relay → bridge: a large request
 
@@ -300,7 +300,7 @@ with a read's cancel depends on where the read is:
 | --- | --- |
 | queued (taken, its pipe call not started) | never starts it |
 | running on the pipe | lets the IDE call finish (it never interrupts the IDE), then sends nothing for the id, progress included |
-| streaming its answer as chunks | sends no chunk after the one in flight; its unacked chunks stop counting against the window and the 60 s ack limit, so other ids are not held |
+| streaming its answer as chunks | sends no chunk after the one in flight; its unacked chunks stop counting against the window and the 25 s ack limit, so other ids are not held |
 | unknown, finished, or its whole answer already going out | ignores the cancel (a Debug line) |
 
 A cancelled read gets no terminal frame: the relay asked for none. Its terminal log line says `cancelled`.
@@ -314,19 +314,19 @@ answers it, which the relay discards.
 
 ## Liveness
 
-- The bridge sends the constant text frame `{"volt":"ping"}` every **25 s**. It never varies, so a hosted relay
+- The bridge sends the constant text frame `{"volt":"ping"}` every **10 s**. It never varies, so a hosted relay
   can answer it at its edge (an exact-match auto-response) without waking whatever owns the connection.
 - A relay SHOULD answer with the constant `{"volt":"pong"}`. The bridge correlates nothing: the pong exists
   only to be traffic. Any message from the relay counts, a chunk or an ack included; the bridge's acks are traffic
   for the relay the same way.
-- On each 25 s tick, if the bridge has had **no frame from the relay for more than 60 s**, it drops the socket
-  (no close handshake) and reconnects. Silence is therefore noticed 60–85 s after the last frame.
-- Every send is bounded by the same **60 s**. A frame that has not gone out by then (a network that stops carrying
-  large messages without resetting the flow) is named in a WARN line — `a <N>-byte frame did not go out within 60s —
+- On each 10 s tick, if the bridge has had **no frame from the relay for more than 25 s**, it drops the socket
+  (no close handshake) and reconnects. Silence is therefore noticed 25–35 s after the last frame.
+- Every send is bounded by the same **25 s**. A frame that has not gone out by then (a network that stops carrying
+  large messages without resetting the flow) is named in a WARN line — `a <N>-byte frame did not go out within 25s —
   the connection to the relay stalls; dropping it` — and the socket is dropped and redialed. Without the bound the
   stalled send held the one send slot for ever and the heartbeat (and its watchdog) waited behind it, silently.
-- A dial is bounded by the same **60 s**: an upgrade with no answer by then ends the dial as a failed one
-  (`could not connect (TimeoutException): the upgrade did not complete within 60s`) and the next dial follows the
+- A dial is bounded by the same **25 s**: an upgrade with no answer by then ends the dial as a failed one
+  (`could not connect (TimeoutException): the upgrade did not complete within 25s`) and the next dial follows the
   ordinary backoff.
 
 A request in flight when the socket drops **is abandoned**. The bridge does not re-run it and does not answer
@@ -354,9 +354,9 @@ counted message was handed to the operating system, not proven delivered.
 | Close **1008** with a reason | ERROR: `the relay refused this bridge (1008 "<reason>").` When the reason contains `protocol`, it adds: `This bridge speaks relay protocol 1 (release <volt>); the relay serves another. If this is not the latest bridge, download it; if it is, the service has not updated yet and nothing on this machine needs changing.` It does not guess which side is older: an un-redeployed relay refuses a newer bridge with the words an updated one uses for an older bridge. It ends `Trying again in 60 minutes.` | after **1 hour** (+ up to 1 s jitter) |
 | Close with any other status (1000, 1001, 1011, …) | INFO: `the relay closed the connection: <status> "<description>"` | ordinary backoff |
 | No close at all (1006: the flow died, the relay restarted) | WARN: `dropped without a close (<exception>): <message>` | ordinary backoff |
-| The silence watchdog dropped it | WARN: `the watchdog dropped it (no frame for 60s)` (the watchdog also logs its own WARN line the moment it fires) | ordinary backoff |
-| A send stalled | WARN: `a send stalled (a <N>-byte frame did not go out within 60s)` (after its own WARN line) | ordinary backoff |
-| A chunk was not acked | WARN: `a chunk was not acked (chunk <k> of <id> within 60s)` (after its own WARN line) | ordinary backoff |
+| The silence watchdog dropped it | WARN: `the watchdog dropped it (no frame for 25s)` (the watchdog also logs its own WARN line the moment it fires) | ordinary backoff |
+| A send stalled | WARN: `a send stalled (a <N>-byte frame did not go out within 25s)` (after its own WARN line) | ordinary backoff |
+| A chunk was not acked | WARN: `a chunk was not acked (chunk <k> of <id> within 25s)` (after its own WARN line) | ordinary backoff |
 | A chunk could not be sent | WARN: `a chunk could not be sent (chunk <k> of <id>: <exception>)` (after its own WARN line) | ordinary backoff |
 | The heartbeat task died | WARN: `the heartbeat died (<exception>): <message>` (after its own ERROR line with the whole exception) | ordinary backoff |
 | The chunk sender died | WARN: `the chunk sender died (<exception>): <message>` (after its own ERROR line with the whole exception) | ordinary backoff |
@@ -469,7 +469,7 @@ relay: ignoring a malformed frame — the relay's announcement …          (cha
 relay: ignoring a second chunk announcement — the connection keeps chunking at most <n> B per message
 relay: an ack for nothing — chunk <k> of <id> is not awaiting an ack
 relay: ignoring a malformed frame — an ack …
-relay: chunk <k> of <id> was not acked within 60s — the relay stopped acking; dropping the socket
+relay: chunk <k> of <id> was not acked within 25s — the relay stopped acking; dropping the socket
 relay: chunk <k> of <id> could not be sent (<Type>: <message>) — the relay cannot complete <id>; dropping the socket
 relay: refusing chunked request <id> — <reason>; answered BAD_REQUEST, nothing was run
 relay: ignoring chunk <k> of <id> — it arrived after <id> was reassembled on this connection

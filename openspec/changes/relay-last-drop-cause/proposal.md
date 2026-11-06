@@ -25,13 +25,16 @@ What is known, 2 to 5 Nov, CODESYS 3.5.21.40, bridge 0.1.18312:
   (`watchdog_silence`, `send_stalled`, `chunk_unacked`, `no_close:<ExceptionType>`, `dial_timeout`), never exception text, which is
   localized. `dialMs` is what the redial took. Protocol stays 1: the relay ignores an unknown hello member (read in its `onHello`).
 - PLC Assist adds the field to its `hello` log line and deploys. Its owner's decision.
+- Shorter limits (owner's go, 2026-11-06, after PLC Assist saw two drops without a close, at 1290 s and 1803 s, and
+  downstream frames held 53 s and ~61 s on one live WebSocket): ping 10 s, silence 25 s (also the send and dial bound and
+  the chunk-ack limit; the socket keep-alive follows the ping). Measured: a failure ends at +26 s, not +65 s, and 2 KB/s
+  still passes; the cost is that a 25 s pause becomes a drop and the link floor rises to about 655 B/s. Pinned by
+  `RelayFaultTests.A_downstream_held_53_s_then_resumed_…` at the tunnel's own defaults.
 - Ships with the next bridge release, not alone: a new bridge makes every customer re-download.
 
 ## Not in this change
 
-- Shorter limits (ping 10 s, silence 25 s). Measured: a failure ends at +26 s, not +65 s, and 2 KB/s still passes, but a 25 s pause
-  becomes a drop and the link floor rises to about 655 B/s. Decide on real causes.
-- A shorter dial bound or a longer ride-through wait: same reason.
+- A longer ride-through wait: decide on real causes.
 
 ## Impact
 

@@ -17,8 +17,8 @@ namespace Volt.Tests.Shared;
 /// the TCP connections open and stops carrying bytes, against a relay that records what its own close log would.
 ///
 /// <para>Time decides the diagnosis here, so every case runs at any of three timings, chosen by
-/// <c>VOLT_RELAY_FAULT_TIMING</c>: <c>scaled</c> (the default, a few seconds, what the suite runs), <c>real</c> (the
-/// protocol's own 25 s / 60 s: the tunnel gets no injected limit at all) and <c>fast</c> (10 s / 25 s, a candidate).</para>
+/// <c>VOLT_RELAY_FAULT_TIMING</c>: <c>scaled</c> (the default, a few seconds, what the suite runs) and <c>real</c> (the
+/// protocol's own 10 s / 25 s: the tunnel gets no injected limit at all).</para>
 ///
 /// <para>What a proxy cannot show: a real dead path also drops the bridge's TCP segments, so its OS retransmits and gives
 /// up by itself. Here the proxy's OS acks every byte, so only the tunnel's own limits can end the connection.</para></summary>
@@ -44,18 +44,14 @@ public class RelayFaultTests
         switch (name)
         {
             case "real":
-                return new Timing { Name = name, PingEvery = TimeSpan.FromSeconds(25), SilenceLimit = TimeSpan.FromSeconds(60),
+                return new Timing { Name = name, PingEvery = TimeSpan.FromSeconds(10), SilenceLimit = TimeSpan.FromSeconds(25),
                     RelaySilence = TimeSpan.FromSeconds(60), ChunkStall = TimeSpan.FromSeconds(60) };
-            case "fast":
-                return new Timing { Name = name, Ping = TimeSpan.FromSeconds(10), Silence = TimeSpan.FromSeconds(25),
-                    PingEvery = TimeSpan.FromSeconds(10), SilenceLimit = TimeSpan.FromSeconds(25),
-                    RelaySilence = TimeSpan.FromSeconds(25), ChunkStall = TimeSpan.FromSeconds(60) };
             case "scaled":
                 return new Timing { Name = name, Ping = TimeSpan.FromSeconds(1.25), Silence = TimeSpan.FromSeconds(3),
                     PingEvery = TimeSpan.FromSeconds(1.25), SilenceLimit = TimeSpan.FromSeconds(3),
                     RelaySilence = TimeSpan.FromSeconds(3), ChunkStall = TimeSpan.FromSeconds(3) };
             default:
-                throw new ArgumentException("VOLT_RELAY_FAULT_TIMING is scaled, real or fast, not " + name);
+                throw new ArgumentException("VOLT_RELAY_FAULT_TIMING is scaled or real, not " + name);
         }
     }
 
@@ -209,7 +205,7 @@ public class RelayFaultTests
         public RealTimingTheory()
         {
             if ((Environment.GetEnvironmentVariable("VOLT_RELAY_FAULT_TIMING") ?? "scaled") == "scaled")
-                Skip = "300 s; set VOLT_RELAY_FAULT_TIMING to real or fast";
+                Skip = "300 s; set VOLT_RELAY_FAULT_TIMING to real";
         }
     }
 
@@ -319,5 +315,65 @@ public class RelayFaultTests
         // Not that the answer arrived: a pause longer than the window's 5 s rate span holds it at its floor, 16 KiB a cycle
         // (real timing, 30 s in 48 s: ~10 min for 195 KiB). Slow is allowed; no limit may read it as dead.
         Assert.True(first.End == null, "no blackhole, and the connection ended: " + first.End + "\n" + string.Join("\n", lines));
+    }
+
+    /// <summary>DOWNSTREAM DELAYED, THEN RESUMES, at the tunnel's OWN defaults (nothing injected): the field's stalled
+    /// socket (PLC Assist, 2026-11-05: relay-to-bridge frames held 53 s and ~61 s on one live WebSocket while other HTTP to
+    /// the relay worked). The tunnel must drop the socket within its silence limit plus one ping tick and redial, and the
+    /// request in flight on it is abandoned by name — never answered late on the new connection, never left hanging.</summary>
+    [Fact]
+    public async Task A_downstream_held_53_s_then_resumed_is_dropped_within_silence_plus_one_tick_and_the_in_flight_request_is_abandoned_by_name()
+    {
+        // The defaults this pins: ping 10 s, silence 25 s. Detection lands at most a tick after the limit.
+        var bound = TimeSpan.FromSeconds(25 + 10 + 2);
+        var pipe = "volt.test.relay.fault." + Guid.NewGuid().ToString("N");
+        var release = new ManualResetEventSlim(false);
+        using var bridge = new PipeServer(pipe, (request, emit) =>
+        {
+            if (request.Op != Ops.Fetch) return new { ok = true };
+            // In flight across the stall: answers only after the old socket is gone.
+            release.Wait(TimeSpan.FromSeconds(90));
+            return new { items = Array.Empty<object>() };
+        });
+        bridge.Start();
+
+        // The relay itself never closes for silence here: only the bridge's own watchdog may end the connection.
+        using var relay = new HttpListenerRelay(true, TimeSpan.FromSeconds(300));
+        using var proxy = new ThrottledProxy(relay.Port, 0);
+        var lines = new ConcurrentQueue<string>();
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        using var tunnel = new RelayTunnel(
+            RelaySidecar.Parse("{\"url\":\"ws://localhost:" + proxy.Port + "/bridge\",\"token\":\"t\"}", "test"),
+            pipe, "codesys", "0.0.0-test", socketFactory: null, reconnectDelay: null,
+            log: (level, message) => lines.Enqueue(clock.Elapsed.TotalSeconds.ToString("F1", CultureInfo.InvariantCulture) + " [" + level + "] " + message));
+        tunnel.Start();
+        Assert.True(await Task.WhenAny(relay.Hello, Task.Delay(10_000)) == relay.Hello, "no hello:\n" + string.Join("\n", lines));
+
+        await relay.Request("r1", Ops.Fetch);
+        await Task.Delay(500);
+        // Downstream stops being read: the relay's frames wait in the OS buffers and arrive late, nothing is lost.
+        var heldAt = DateTime.UtcNow;
+        proxy.Blackhole(FlowFault.None, FlowFault.Hold);
+
+        while (DateTime.UtcNow - heldAt < bound && relay.Connections.Count < 2) await Task.Delay(50);
+        var detectedIn = DateTime.UtcNow - heldAt;
+        Assert.True(relay.Connections.Count >= 2,
+            "no redial within " + bound.TotalSeconds + "s of the hold:\n" + string.Join("\n", lines));
+
+        // The drop names the request it abandoned.
+        Assert.Contains(lines, l => l.Contains("no frame for 25s") );
+        Assert.Contains(lines, l => l.Contains("ended") && l.Contains("in flight: r1"));
+
+        // The path resumes at the field's 53 s; then the bridge finishes the read.
+        var resumeIn = TimeSpan.FromSeconds(53) - (DateTime.UtcNow - heldAt);
+        if (resumeIn > TimeSpan.Zero) await Task.Delay(resumeIn);
+        proxy.Blackhole(FlowFault.None, FlowFault.None);
+        release.Set();
+        await Task.Delay(3000);
+
+        _output.WriteLine("detected and redialed " + detectedIn.TotalSeconds.ToString("F1", CultureInfo.InvariantCulture) + "s after the hold");
+        foreach (var line in lines.Where(l => l.Contains("[Warn]") || l.Contains("ended"))) _output.WriteLine("  " + line);
+        // Abandoned, not replayed: the late answer never reaches the relay on the new connection.
+        Assert.False(relay.Terminal("r1").IsCompleted, "r1 was answered after its connection was dropped:\n" + string.Join("\n", lines));
     }
 }

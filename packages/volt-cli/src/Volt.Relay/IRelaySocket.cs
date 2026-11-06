@@ -55,7 +55,7 @@ namespace Volt.Relay
 
             // 25s is the protocol's own ping cadence. Setting it here too means the framework's keepalive and
             // ours agree rather than fighting.
-            _socket.Options.KeepAliveInterval = TimeSpan.FromSeconds(25);
+            _socket.Options.KeepAliveInterval = TimeSpan.FromSeconds(10);
 
             await _socket.ConnectAsync(url, cancellation).ConfigureAwait(false);
         }
