@@ -26,7 +26,7 @@
  *     arith                  1789     1788
  *     control                 197      184
  *     aggregate               176      176
- *     call                    451      451
+ *     call                    452      452
  *     indirect                493      492
  *
  *   surviving lints (a lint listed here is work, not policy — 12 allowed ones are named with their reasons)
@@ -54,7 +54,7 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         3903
+ *     agree         3904
  *     disagree         0
  *     not-run        261
  *       not-run: no elementary variable to seed or compare      105
@@ -72,10 +72,10 @@
  *       agree,   5/6 unanswered (the interpreter's loop guard): tr_27_loop_cap_repeat_1000001
  *       agree,   5/6 unanswered (the interpreter's loop guard): tr_27_loop_cap_while_5000000
  *
- *   pedantic — 2378 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *   pedantic — 2379 clippy::pedantic + clippy::perf findings; the ten most frequent
  *     clippy::cast_possible_truncation          985
  *     clippy::cast_sign_loss                    733
- *     clippy::cast_possible_wrap                326
+ *     clippy::cast_possible_wrap                327
  *     clippy::pub_underscore_fields             141
  *     clippy::struct_excessive_bools             75
  *     clippy::cast_precision_loss                31
@@ -96,7 +96,7 @@
  *     tr_a10_string_to_dint_underscore_sign_edges   10.8
  *     tr_a10_string_to_int_literal_forms            10.8
  *
- *   shape — 2105 distinct emission shapes over 4164 lowered fixtures, 2331 distinct constructs.
+ *   shape — 2105 distinct emission shapes over 4165 lowered fixtures, 2331 distinct constructs.
  *   20 constructs carry a review note (`NOTES`): 39 fixtures are improvable, 24 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  *   Notes per owning task (openspec transpile-restructure; a merged note counts once under each owner of its items;
@@ -3644,7 +3644,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   ng_m_interface_method: { evidence: "unaskable", tier: "indirect", rust: "compiles", lints: ["clippy::match_single_binding", "clippy::redundant_closure_call"], pedantic: 0, edge: "agree", size: 1.7, shape: "41cd155181" },
   ng_m_library_function: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 1, edge: "agree", size: 2.6, shape: "8ebb7e9a16" },
   ng_m_library_function_named: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 1, edge: "agree", size: 2.6, shape: "8ebb7e9a16" },
-  ng_m_library_function_qualified: { evidence: "unaskable" },
+  ng_m_library_function_qualified: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 1, edge: "agree", size: 2.6, shape: "8ebb7e9a16" },
   ng_m_library_function_qualified_eno: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 2, edge: "agree", size: 3, shape: "00e83ccfdd" },
   ng_m_method_call: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 0, edge: "agree", size: 2.1, shape: "5374978f7a" },
   ng_m_method_positional: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 0, edge: "agree", size: 2.1, shape: "5374978f7a" },

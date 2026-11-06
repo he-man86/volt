@@ -3,9 +3,10 @@
  * The corpus gate (`test/corpus/corpus-twins.test.ts`) builds the twins; these pin WHAT a twin runs where 1.3 / 1.4 and the
  * assign map measured it.
  */
-import { expect, test } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import { parseSource } from "../../src/frontend/syntax/index.js"
 import { build } from "../../src/frontend/symbols/index.js"
+import { lowerSource } from "../../src/transpile/index.js"
 import { twinFile } from "./network-twin-file.js"
 
 function twin(decls: string, body: string, before = ""): { source: string; refused: string[] } {
@@ -155,3 +156,31 @@ test("INVERT around an Execute box's ENO, and the operand comment as the operand
   expect(t.refused).toEqual([])
   expect(code(t.source)).toBe("vtw1_eno1 := go;\nIF vtw1_eno1 THEN\nn := n + 1;\nEND_IF;\ny := (NOT vtw1_eno1);\nvtw1_eno2 := a;\nx := (NOT vtw1_eno2);")
 })
+
+// A twin is ST the transpiler lowers too (`test/corpus/corpus-network-lowering.test.ts` lowers it beside the network): an
+// assignment inside a value is no ST it lowers, so a coil in a tree and a wire defined where it is first read are written
+// before the tree, as the lowering runs them (`network.ts` coil): the value, the target written, the value read
+describe("an assignment inside a value is written before the tree that reads it", () => {
+  const vars = "\ta, b, c, x, y, z : BOOL;\n\tn : INT;"
+  for (const [what, body, st] of [
+    ["a coil in a rung", "ASSIGN(ASSIGN(a, Q => x) AND b, Q => y);", "vtw1_eno1 := a;\nx := vtw1_eno1;\ny := (vtw1_eno1 AND b);"],
+    ["series coils", "ASSIGN(ASSIGN(a, Q => x), Q => y);", "vtw1_eno1 := a;\nx := vtw1_eno1;\ny := vtw1_eno1;"],
+    ["a set coil in a rung", "ASSIGN(ASSIGN(a, Q_SET => x) AND b, Q => y);", "vtw1_eno1 := a;\nIF vtw1_eno1 THEN x := TRUE; END_IF;\ny := (vtw1_eno1 AND b);"],
+    ["a coil at a box's EN", "MOVE(EN := ASSIGN(c, Q => z), 1, OUT => n);", "vtw1_eno1 := c;\nz := vtw1_eno1;\nIF vtw1_eno1 THEN\n\tn := 1;\nEND_IF;"],
+    ["a wire defined by an ASSIGN", "VAR w1 : ANY; END_VAR\nw1 := ASSIGN(a, Q => z);\nASSIGN(w1 AND b, Q => y);", "vtw1_eno1 := a;\nz := vtw1_eno1;\nvtw1_w1 := vtw1_eno1;\ny := (vtw1_w1 AND b);"],
+    ["a wire's inline definition", "VAR w1 : ANY; END_VAR\nASSIGN((w1 := a AND b) AND c, Q => x);\nASSIGN(w1, Q => y);", "vtw1_w1 := (a AND b);\nx := ((vtw1_w1) AND c);\ny := vtw1_w1;"],
+  ] as const)
+    test(what, () => {
+      const t = twin(vars, `%NETWORK\n${body}\n`)
+      expect(t.refused).toEqual([])
+      expect(code(t.source)).toBe(st)
+      expect(lowerSource(t.source, "P").diagnostics.map((d) => d.message)).toEqual([])
+    })
+})
+
+test("a coil inside a value written as an ST assignment, `(y := a)`, is no network text: the twin refuses it by name", () => {
+  const t = twin("\ta, b, x, y : BOOL;", "%NETWORK\nASSIGN((x := a) AND b, Q => y);\n")
+  expect(t.refused).toHaveLength(1)
+  expect(t.refused[0]).toContain("(x := a)")
+})
+

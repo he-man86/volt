@@ -30,8 +30,9 @@
  *   `RAIL()`                                     `TRUE`;
  *   `ASSIGN(v, Q => x, Q_INVERTED => y)`         every target receives the value, in list order, each its own mark:
  *                                                unmarked the ST chain `x := y := v;`, marked `t := v; x := t;
- *                                                y := (NOT t);`; in a tree the inline assignment `(x := v)`, a negated
- *                                                coil the value in a temp handed on;
+ *                                                y := (NOT t);`; in a tree the value in a temp, the target written
+ *                                                with its mark, the temp handed on (a wire defined
+ *                                                there, `(w1 := v)`, the wire written and read);
  *   `a;`, `RAIL();`, a box whose flow ends       a value standing alone: a box runs; else nothing;
  *   `COMMENT(a, 'why')`                          `a` (the front-end reads the operand it wraps);
  *   `Q => JMP.l`, `Q => RETURN`                  `IF v THEN JMP l; END_IF;` / `IF v THEN RETURN; END_IF;`
@@ -320,10 +321,24 @@ class Twinner extends BoxTwinner {
     return marks?.includes("NOT") === true ? `(NOT ${cond})` : cond
   }
 
-  /** An unmarked inline assignment, its value one too where it is (series coils, one ST chain). */
-  private inline(e: Extract<Expr, { kind: "assign_expr" }>, pre: string[]): string {
-    const v = e.value.kind === "assign_expr" && e.value.marks?.includes("NOT") !== true ? this.inline(e.value, pre) : this.expr(e.value, pre)
-    return `(${this.expr(e.target, pre)} ${e.op ?? ":="} ${v})`
+  /**
+   * An assignment inside a value, written before the tree that reads it, as the lowering runs it (`network.ts` coil): a
+   * coil (an ASSIGN's target) its value in a temp, the target written with its own mark, the temp handed on; a wire defined
+   * where it is first read, `(w1 := value)`, the wire written and read. Any other is no network text (`retired.ts`).
+   */
+  private assignment(e: Extract<Expr, { kind: "assign_expr" }>, pre: string[]): string {
+    const wire = e.assignHead === undefined && e.op === undefined && e.target.kind === "ident_expr" ? this.wires.get(e.target.name.toLowerCase()) : undefined
+    if (wire !== undefined) {
+      pre.push(`${wire} := ${this.expr(e.value, pre)};`)
+      return wire
+    }
+    if (e.assignHead === undefined)
+      throw new TwinRefusal(`the assignment (${this.text(e)}) inside a value: a coil inside a value is ASSIGN(value, Q => y), and only a wire is defined there, (w1 := value)`)
+    const t = this.typedTemp(e.value)
+    pre.push(`${t} := ${this.expr(e.value, pre)};`)
+    const target = this.expr(e.target, pre)
+    pre.push(e.marks?.includes("NOT") === true ? coilWrite("NOT", target, t) : e.op !== undefined ? coilWrite(e.op, target, t) : `${target} := ${t};`)
+    return t
   }
 
   override expr(e: Expr, pre: string[]): string {
@@ -353,14 +368,8 @@ class Twinner extends BoxTwinner {
         return `(${e.op} ${this.expr(e.operand, pre)})`
       case "paren":
         return `(${this.expr(e.inner, pre)})`
-      case "assign_expr": {
-        // the inline assignment in its brackets, a series of them one chain (`((x := (y := v)))`)
-        if (e.marks?.includes("NOT") !== true) return `(${this.inline(e, pre)})`
-        // a negated coil in a tree hands on the value it receives, unmarked: the value in a temp
-        const t = this.typedTemp(e.value)
-        pre.push(`${t} := ${this.expr(e.value, pre)};`, coilWrite("NOT", this.expr(e.target, pre), t))
-        return t
-      }
+      case "assign_expr":
+        return this.assignment(e, pre)
       default:
         return this.text(e)
     }

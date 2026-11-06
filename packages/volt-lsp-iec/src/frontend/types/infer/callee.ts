@@ -36,6 +36,10 @@ export interface CalleeInfo {
    *  `paramNames` are COMPLETE. When false (an unresolved or library base), a consumer must not treat a
    *  count/unknown-name as an error — inherited params it can't see may cover it. */
   complete: boolean
+  /** True iff every base of the EXTENDS chain resolved to an FB declaration, with no cycle — a library base included:
+   *  every pin the FB and its bases declare is in reach (what a network box reads, `network-box.ts`), though a library
+   *  base still leaves `complete` false for the call-argument checks. */
+  linked: boolean
 }
 
 /**
@@ -49,7 +53,7 @@ export function resolveCallee(call: CallExpr, scope: Scope, project: Scope): Cal
   const sym = resolveMemberChain(call.callee, scope, project)
   // Direct callable — a function/method/program declares its own var sections (no inheritance).
   const direct = (sym?.ast as Partial<Method> | undefined)?.varSections
-  if (sym !== undefined && Array.isArray(direct)) return calleeInfo(sym, direct, true, undefined)
+  if (sym !== undefined && Array.isArray(direct)) return calleeInfo(sym, direct, true, true, undefined)
   // Instance call — the callee is an FB instance; gather the FB declaration's sections plus every base's via the
   // EXTENDS chain (so inherited inputs count and resolve), and carry the member scope for property-name binding. The
   // instance is known by its TYPE, which a variable has and so do the callees no symbol names: an array element
@@ -61,7 +65,7 @@ export function resolveCallee(call: CallExpr, scope: Scope, project: Scope): Cal
     const fbSym = lookupLocal(t.scope.parent, t.name).find((s) => s.kind === "function_block")
     if (fbSym !== undefined && (fbSym.ast as { kind: string }).kind === "function_block") {
       const chain = fbChainSections(t.scope)
-      return calleeInfo(fbSym, chain.sections, chain.complete, t.scope)
+      return calleeInfo(fbSym, chain.sections, chain.complete, chain.linked, t.scope)
     }
   }
   return undefined
@@ -75,17 +79,19 @@ export function resolveCallee(call: CallExpr, scope: Scope, project: Scope): Cal
  * or a base from a referenced library (whose flattened signature can't be trusted for arity) — the chain is cut at the
  * first such base.
  */
-function fbChainSections(fbScope: Scope): { sections: VarSection[]; complete: boolean } {
+function fbChainSections(fbScope: Scope): { sections: VarSection[]; complete: boolean; linked: boolean } {
   const chain = extendsChain(fbScope) // base-first
   // a chain whose most basic scope still HAS a base stopped where it closed on itself — a cycle the FB is on, or one its
   // chain runs into (X → A → B → A), which `extendsCycle(fbScope)` does not report (it finds only a path back to X)
-  let complete = !hasUnresolvedBase(fbScope) && extendsCycle(fbScope) === undefined && chain[0]?.baseScope === undefined
+  const closed = !hasUnresolvedBase(fbScope) && extendsCycle(fbScope) === undefined && chain[0]?.baseScope === undefined
+  const symOf = (s: Scope) => (s.parent === undefined ? undefined : lookupLocal(s.parent, s.name).find((x) => x.declarationSpan === s.span))
+  const linked = closed && chain.every((s) => symOf(s)?.ast.kind === "function_block")
+  let complete = closed
   const sections: VarSection[] = []
   // from the FB outward, so a library BASE (`isLibrarySymbol` normalizes the `%20` the live server sends) cuts it
   const kept: (readonly VarSection[])[] = []
   for (let i = chain.length - 1; i >= 0; i--) {
-    const s = chain[i]!
-    const sym = s.parent === undefined ? undefined : lookupLocal(s.parent, s.name).find((x) => x.declarationSpan === s.span)
+    const sym = symOf(chain[i]!)
     if (sym === undefined || (i < chain.length - 1 && isLibrarySymbol(sym)) || sym.ast.kind !== "function_block") {
       complete = false
       break
@@ -93,7 +99,7 @@ function fbChainSections(fbScope: Scope): { sections: VarSection[]; complete: bo
     kept.push(sym.ast.varSections)
   }
   for (let i = kept.length - 1; i >= 0; i--) sections.push(...kept[i]!)
-  return { sections, complete }
+  return { sections, complete, linked }
 }
 
 /** The sections a POSITIONAL argument binds into, in declaration order: VAR_INPUT and VAR_IN_OUT. A VAR_OUTPUT declared
@@ -113,6 +119,7 @@ function calleeInfo(
   sym: Symbol,
   sections: readonly VarSection[],
   complete: boolean,
+  linked: boolean,
   scope: Scope | undefined,
 ): CalleeInfo {
   const paramNames = new Set<string>()
@@ -145,5 +152,5 @@ function calleeInfo(
   // …and neither does a PROGRAM: `P(5)` is "Assignment to input missing for parameter '5' in call of 'P'"
   // (`dt_program_called_positionally`, CODESYS 2026-10-03; rule DT9).
   const arity = takesNoPositionalArguments(sym) ? 0 : positional.length
-  return { sym, params, positional, positionalArity: arity, paramNames, scope, complete }
+  return { sym, params, positional, positionalArity: arity, paramNames, scope, complete, linked }
 }

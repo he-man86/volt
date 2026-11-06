@@ -393,3 +393,37 @@ describe("a pin with no value is refused, never thrown (openspec network-empty-p
       expect(lowered("a : BOOL;\nn : INT;\nt1 : FB_T;", `%NETWORK\n${body}\n`, TON, "FBD").diagnostics.map((d) => d.message)).toEqual([message])
     })
 })
+
+test("a library function's box named through its namespace hands on its value, as the bare one does", () => {
+  const len = { uri: "Library Manager/Standard/LEN.pou", source: "FUNCTION LEN : INT\nVAR_INPUT\n\tSTR : STRING(255);\nEND_VAR\n%LANGUAGE ST\nLEN := 3;\nEND_FUNCTION\n" }
+  const manifest = { uri: "Library Manager/Standard/Standard.library", source: "LIBRARY Standard\nNAMESPACE Standard\nRESOLUTION Standard, 3.5.15.0 (System)\n" }
+  const { pou, diagnostics } = lowerSource(
+    "PROGRAM P\nVAR\ny : INT;\ntxt : STRING;\nEND_VAR\n%LANGUAGE FBD\n%NETWORK\nASSIGN(Standard.LEN(txt), Q => y);\nEND_PROGRAM\n", "P", [len, manifest])
+  expect(diagnostics).toEqual([])
+  const r = run(pou!)
+  r.scan()
+  expect(r.get("y")).toBe(3n)
+})
+
+describe("an FB box's first output counts its inherited outputs first, as its box lists them", () => {
+  const BASE = "FUNCTION_BLOCK FB_Base\nVAR_OUTPUT\n\tq0 : BOOL := TRUE;\nEND_VAR\n%LANGUAGE ST\n;\nEND_FUNCTION_BLOCK\n"
+  const DERIVED = "FUNCTION_BLOCK FB_Derived EXTENDS FB_Base\nVAR_INPUT\n\tgo : BOOL;\nEND_VAR\nVAR_OUTPUT\n\tq1 : BOOL;\nEND_VAR\n%LANGUAGE ST\nq1 := go;\nEND_FUNCTION_BLOCK\n"
+  const body = "%NETWORK\nASSIGN(d(go := FALSE), Q => y);\n"
+
+  test("a project FB: its base's output", () => {
+    const r = runner("y : BOOL; d : FB_Derived;", body, BASE + DERIVED, "FBD")
+    expect(trace(r, "y", [{}])).toEqual([true])
+  })
+
+  test("a library FB whose base is the library's own (lenze-mid's L_MC1P_ChangeMachineData EXTENDS L_MC1P_Template)", () => {
+    const lib = [
+      { uri: "Library Manager/Lib/FB_Base.pou", source: BASE },
+      { uri: "Library Manager/Lib/FB_Derived.pou", source: DERIVED },
+    ]
+    const { pou, diagnostics } = lowerSource(`PROGRAM P\nVAR\ny : BOOL;\nd : FB_Derived;\nEND_VAR\n%LANGUAGE FBD\n${body}END_PROGRAM\n`, "P", lib)
+    expect(diagnostics).toEqual([])
+    const r = run(pou!)
+    r.scan()
+    expect(r.get("y")).toBe(true)
+  })
+})

@@ -10,7 +10,7 @@ import { describe, expect, test } from "bun:test"
 import { join } from "node:path"
 import { parseDocument, type TopLevel } from "../../src/frontend/syntax/index.js"
 import { scopeForUnit } from "../../src/frontend/symbols/index.js"
-import { lowerUnit, run, type Runner } from "../../src/transpile/index.js"
+import { LoopGuardError, lowerUnit, run, type Runner } from "../../src/transpile/index.js"
 import type { IrPou, IrSlot } from "../../src/transpile/ir/index.js"
 import { twinProject } from "../support/network-twin-project.js"
 import { corpusVendor, loweringProject, parseProject } from "./support/project.js"
@@ -19,11 +19,11 @@ import { CORPUS, hasCorpus, isRunnable, projectDirs } from "./support/walk.js"
 const SCANS = 12
 
 /** Per project, the POUs holding a network body that both lower and run (compared) and that both refuse by the same
- *  codes — exact, so the comparison cannot quietly reach fewer (measured 2026-10-31). */
+ *  codes — exact, so the comparison cannot quietly reach fewer (measured 2026-11-06). */
 const REACHED: Readonly<Record<string, { compared: number; refused: number }>> = {
   "awa-palletizer": { compared: 0, refused: 1 },
   "bakon-nano": { compared: 0, refused: 1 },
-  "lenze-mid": { compared: 13, refused: 20 },
+  "lenze-mid": { compared: 16, refused: 17 },
   pro2193: { compared: 0, refused: 2 },
   "twincat-project14": { compared: 2, refused: 0 },
 }
@@ -66,7 +66,15 @@ function traces(pou: IrPou, driven: readonly { path: string; type: string }[], r
       const v = stimulus(d.type, scan, i)
       if (v !== undefined) r.set(d.path, v)
     })
-    r.scan()
+    try {
+      r.scan()
+    } catch (error) {
+      // a runtime fault stops the task (`semantics/faults.ts`, a RangeError): the run ends there, the fault its last scan's
+      // text, which the other run must reach at the same scan; the harness's loop guard and an interpreter crash are thrown
+      if (error instanceof LoopGuardError || !(error instanceof RangeError)) throw error
+      out.push(`fault: ${error.message}`)
+      break
+    }
     out.push(read.map((p) => `${p}=${String(r.get(p))}`).join(" "))
   }
   return out

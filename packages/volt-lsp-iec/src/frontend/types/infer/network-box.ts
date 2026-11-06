@@ -18,7 +18,7 @@
  * the type the call names), a function's or a program's own sections, an operator's (one value, no pin of its own named EN
  * or ENO). A callee nothing in reach declares has no signature, and its call is read as written.
  */
-import { lookup, lookupLocal, visibleNames, type Scope } from "../../symbols/index.js"
+import { extendsChain, lookup, lookupLocal, type Scope } from "../../symbols/index.js"
 import { type CallArg, type CallExpr, type Expr, type MemberExpr, type OutputMark, type Span, UNNAMED, type VarSection } from "../../syntax/index.js"
 import { NETWORK_CONTROLS, NETWORK_ELEMENTS, resolveBareName } from "../names.js"
 import { resolveCallee, type CalleeInfo } from "./callee.js"
@@ -274,14 +274,15 @@ function signatureOf(call: CallExpr, instance: Expr | undefined, scope: Scope, p
     // the FB the instance is, with what it inherits; the unnamed instance (`???`) by the type the call names
     const unnamed = instance.kind === "ident_expr" && instance.name === UNNAMED
     const callee = resolveCallee({ kind: "call", callee: unnamed ? call.callee : instance, args: [], span: call.span }, scope, project)
-    return callee !== undefined && callee.sym.kind === "function_block" && callee.complete ? fromCallee(callee, "block") : undefined
+    // every base resolved, a library's own among them (lenze-mid's L_MC1P_ChangeMachineData EXTENDS L_MC1P_Template)
+    return callee !== undefined && callee.sym.kind === "function_block" && callee.linked ? fromCallee(callee, "block") : undefined
   }
   if (call.callee.kind === "ident_expr" && lookup(scope, call.callee.name) === undefined && resolveBareName(scope, call.callee.name).kind === "builtin") return OPERATOR
   const callee = resolveCallee(call, scope, project)
   if (callee === undefined || !callee.complete) return undefined
   // a METHOD's box hands on its value as a function's does (`ASSIGN(fbm.M(k := v), Q => y)`, `ng_m_method_call`)
   if (callee.sym.kind === "method" || callee.sym.kind === "interface_method") return fromCallee(callee, "function")
-  if (call.callee.kind !== "ident_expr") return undefined
+  // a function or a program by its name, or through its library's namespace (`Standard.LEN(txt)`, the same callee)
   return callee.sym.kind === "function" ? fromCallee(callee, "function") : callee.sym.kind === "program" ? fromCallee(callee, "program") : undefined
 }
 
@@ -289,10 +290,13 @@ function fromCallee(callee: CalleeInfo, shape: BoxSignature["shape"]): BoxSignat
   const inputs = new Set<string>()
   const outputs: string[] = []
   if (callee.scope !== undefined)
-    for (const sym of visibleNames(callee.scope, false)) {
-      if (sym.varSection === "VAR_INPUT" || sym.varSection === "VAR_IN_OUT") inputs.add(sym.name.toLowerCase())
-      if (sym.varSection === "VAR_OUTPUT" && !outputs.some((o) => o.toLowerCase() === sym.name.toLowerCase())) outputs.push(sym.name)
-    }
+    // base-first, as the box lists its pins: an inherited output before the FB's own (the bridge's `NetworkScope.InheritedPins`)
+    for (const level of extendsChain(callee.scope))
+      for (const list of level.symbols.values())
+        for (const sym of list) {
+          if (sym.varSection === "VAR_INPUT" || sym.varSection === "VAR_IN_OUT") inputs.add(sym.name.toLowerCase())
+          if (sym.varSection === "VAR_OUTPUT" && !outputs.some((o) => o.toLowerCase() === sym.name.toLowerCase())) outputs.push(sym.name)
+        }
   else
     for (const s of (callee.sym.ast as { varSections?: readonly VarSection[] }).varSections ?? [])
       for (const d of s.decls)

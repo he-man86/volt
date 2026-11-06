@@ -38,7 +38,6 @@ export function checkBox(call: CallExpr, member: string | undefined, consumed: b
   if (signature === undefined && (box.instance !== undefined || call.callee.kind === "ident_expr")) {
     // a callee no declaration in reach states: each of these reads as a box flag or the callee's own pin, which only the
     // declaration tells (the bridge's reader, network-text-one-to-one F9)
-    // (a callee named through a namespace, `Standard.LEN`, has no signature this side reads: it is not judged here)
     const output = box.pins.find((a) => a.output && ["ENO", "OUT"].includes(a.param?.name.toUpperCase() ?? ""))
     const what = box.enable !== undefined ? "EN :=" : output !== undefined ? `${output.param!.name} =>` : undefined
     if (what !== undefined)
