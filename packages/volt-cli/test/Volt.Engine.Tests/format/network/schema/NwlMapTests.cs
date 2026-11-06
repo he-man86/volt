@@ -27,9 +27,9 @@ public class NwlMapTests
     static readonly string[] Sources = { "census", "editor", "created" };
 
     static string Dir => Path.GetDirectoryName(NwlSchemaCensus.FixturePath)!;
-    static string MapPath => Path.Combine(Dir, $"map.{NwlSchemaCensus.Version}.json");
+    internal static string MapPath => Path.Combine(Dir, $"map.{NwlSchemaCensus.Version}.json");
 
-    sealed record Row(int Line, string Class, string Member, string Kind, string Option, string Source, string Picture, string Code,
+    internal sealed record Row(int Line, string Class, string Member, string Kind, string Option, string Source, string Picture, string Code,
         string Run, string Persists, string Status, string Text, string? Fixture)
     {
         /// <summary>The stored value the row is about: the option's first word (<c>true</c>, <c>null</c>, <c>Negation</c>, <c>None</c>).</summary>
@@ -37,7 +37,7 @@ public class NwlMapTests
         public override string ToString() => $"row {Line} {Class}.{Member} [{Kind}] {Option}";
     }
 
-    static readonly Lazy<List<Row>> Rows = new(() =>
+    internal static readonly Lazy<List<Row>> Rows = new(() =>
     {
         using var doc = JsonDocument.Parse(File.ReadAllText(MapPath));
         static string? S(JsonElement r, string n) => r.GetProperty(n).ValueKind == JsonValueKind.Null ? null : r.GetProperty(n).GetString();

@@ -184,6 +184,62 @@ public static class NwlShapes
         _ => new[] { "" },   // Demux, Parallel: the census gives them no Flags member; Mux: refused
     };
 
+    // ── the shape's states, as the map names them (openspec ide-model-mapping 2.3, design.md "Combinations") ──────
+
+    /// <summary>One state of a shape, as map rows name it: a member of the census, the place or class word its rows' option
+    /// names, and the stored value its rows' option starts with (null where the place alone names it: a slot, a comment).</summary>
+    public sealed record State(string Class, string Member, string Place, string? Value)
+    {
+        public override string ToString() => $"{Class}.{Member} {Place}" + (Value is null ? "" : $" = {Value}");
+    }
+
+    static readonly Dictionary<string, string> Places = new(StringComparer.Ordinal)
+    {
+        ["Operand.Flags"] = "on the operand", ["Operand.Flags[target]"] = "on the target", ["Operand.Flags[output]"] = "on the output",
+        ["Operand.Flags[instance]"] = "on the instance", ["BoxTreeBox.InputFlags"] = "on the pin", ["BoxTreeBox.InputFlags[EN]"] = "on the pin",
+        ["BoxTreeAssign.Flags"] = "on the line", ["BoxTreeTerminator.Flags"] = "on the terminator",
+        ["Operand.Comment"] = "on the value", ["Operand.Comment[target]"] = "on the coil", ["Operand.Comment[output]"] = "on the output",
+        ["Operand.Comment[instance]"] = "on the instance",
+    };
+
+    /// <summary>The box a box row names by its kind of callee: the generator's operator is AND, its en-eno box MOVE.</summary>
+    static readonly Dictionary<string, string> BoxWords = new(StringComparer.Ordinal)
+    {
+        ["operator"] = "AND", ["function"] = "FUNCTION", ["fb"] = "FB", ["en-eno"] = "MOVE", ["execute"] = "EXECUTE",
+    };
+
+    static readonly Dictionary<string, string> ClassWords = new(StringComparer.Ordinal)
+    {
+        ["BoxTreeOperand"] = "operand", ["BoxTreeAssign"] = "assign", ["BoxTreeTerminator"] = "terminator", ["BoxTreeBox"] = "box",
+        ["BoxTreeParallel"] = "parallel", ["BoxTreeDemux"] = "wire", ["BoxTreeMux"] = "mux",
+    };
+
+    static string Base(string cls) => cls.Split('[')[0];
+
+    /// <summary>The states a shape is made of: the flag value on its holder (none when no flag is set) and each class in each
+    /// slot it fills (a root holds none: the network is the slot).</summary>
+    public static IReadOnlyList<State> States(NwlShape s)
+    {
+        var states = new List<State>();
+        var member = s.Holder.Split('[')[0].Split('.');
+        if (IsComment(s.Holder))
+            states.Add(new State("Operand", "Comment", Places[s.Holder], null));
+        else if (s.Holder.Length > 0 && s.Bits != 0)
+        {
+            var place = s.Holder == "BoxTreeBox.Flags" ? "on " + BoxWords[s.Class[(s.Class.IndexOf('[') + 1)..^1]] : Places[s.Holder];
+            states.Add(new State(member[0], member[1], place, s.Flags));
+        }
+        var slots = s.Slot.Split('>');
+        for (var i = 0; i < slots.Length; i++)
+        {
+            if (slots[i] == "Network.NetworkItems") continue;
+            var placed = i + 1 < slots.Length ? Base(slots[i + 1].Split('.')[0]) : Base(s.Class);
+            var slot = slots[i].Split('[')[0].Split('.');
+            states.Add(new State(slot[0], slot[1], ClassWords[placed], null));
+        }
+        return states;
+    }
+
     static NwlShape Shape(BodyLanguage lang, int depth, string slot, string? outerText, string? innerSlot, string cls, string holder, int bits)
     {
         NwlShape Refused(string marker) => new(cls, slot, holder, bits, depth, lang, null, marker);

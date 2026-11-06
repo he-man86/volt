@@ -15,11 +15,11 @@ namespace Volt.Engine.Tests.Format.Network.Schema;
 /// THE NWL COMPLETENESS GATE (openspec <c>nwl-schema-completeness-gate</c> 2.2), both directions, over every shape
 /// <see cref="NwlShapes"/> generates from the schema census:
 /// <list type="bullet">
-/// <item>model → text → model is identical (<see cref="StNetworkOracle.Check"/>): a shape the writer spells reads back to
+/// <item>model â†’ text â†’ model is identical (<see cref="StNetworkOracle.Check"/>): a shape the writer spells reads back to
 /// itself, so two models never share a text;</item>
-/// <item>every shape has exactly one spelling or a refusal by name — the writer's (<c>%UNSUPPORTED</c>) or the CODESYS
+/// <item>every shape has exactly one spelling or a refusal by name â€” the writer's (<c>%UNSUPPORTED</c>) or the CODESYS
 /// reader's before any model; anything else fails, naming the shape;</item>
-/// <item>text → model → text over every spelled text and every production the reference shows
+/// <item>text â†’ model â†’ text over every spelled text and every production the reference shows
 /// (<c>docs/network-text.html</c>) finds no second spelling: a text that reads writes back as itself.</item>
 /// </list>
 /// The shapes are exported (2.3) to <c>test/fixtures/nwl-schema/shapes.v2.jsonl</c> with their class, slot, holder and flags,
@@ -113,6 +113,54 @@ public class NwlSchemaGateTests
                 $"the CODESYS reader raises no refusal named '{marker}'");
     }
 
+    // â”€â”€ the map's verdict (openspec ide-model-mapping 2.3, design.md "Combinations against the map") â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    static readonly string[] Refusing = { "refused-inert", "refused-gap", "refused-fault", "cannot-store" };
+    static bool Spells(NwlMapTests.Row r) => r.Status is "spelled" or "lost-inert";
+
+    /// <summary>The map rows a state resolves to: its member's rows whose option names its place (a flag's or a comment's,
+    /// <c>on the â€¦</c>) or its class word (a slot's), and whose first word is its value. A box in an assign's value is also
+    /// every box row stored <c>consumed</c>.</summary>
+    internal static IReadOnlyList<NwlMapTests.Row> Resolve(NwlShapes.State st)
+    {
+        var place = st.Place.StartsWith("on ", StringComparison.Ordinal);
+        bool Names(NwlMapTests.Row r) => place
+            ? r.Option.Contains(" " + st.Place, StringComparison.Ordinal) && (st.Value is null || r.Token == st.Value)
+            : r.Option.Contains(st.Place, StringComparison.OrdinalIgnoreCase);
+        var rows = NwlMapTests.Rows.Value.Where(r => r.Class == st.Class && r.Member == st.Member && Names(r));
+        if (st is { Class: "BoxTreeAssign", Member: "RValue", Place: "box" })
+            rows = rows.Concat(NwlMapTests.Rows.Value.Where(r => r.Class == "BoxTreeBox" && r.Option.Contains(" consumed", StringComparison.Ordinal)));
+        return rows.ToList();
+    }
+
+    internal sealed record Verdict(Outcome Outcome, IReadOnlyList<NwlShapes.State> Uncovered, NwlShapes.State? Refuses, bool RefusalMapped, bool RowsSpell);
+
+    static readonly Lazy<IReadOnlyList<Verdict>> Verdicts = new(() =>
+    {
+        var refusals = NwlMapTests.Rows.Value.Where(r => Refusing.Contains(r.Status)).Select(r => r.Text).ToHashSet(StringComparer.Ordinal);
+        var cache = new Dictionary<NwlShapes.State, IReadOnlyList<NwlMapTests.Row>>();
+        IReadOnlyList<NwlMapTests.Row> Rows(NwlShapes.State st) => cache.TryGetValue(st, out var r) ? r : cache[st] = Resolve(st);
+        return Outcomes.Value.Select(o =>
+        {
+            var states = NwlShapes.States(o.Shape);
+            var uncovered = states.Where(s => Rows(s).Count == 0).ToList();
+            var refuses = states.FirstOrDefault(s => Rows(s).Count > 0 && !Rows(s).Any(Spells));
+            // a refusal of the whole body stands on its row as the body's line (`%LANGUAGE FBD UNSUPPORTED`)
+            var mapped = o.Kind == Spelled || refusals.Contains(o.Reason!) ||
+                         states.Any(s => Rows(s).Any(r => Refusing.Contains(r.Status) && r.Text.Contains(" UNSUPPORTED", StringComparison.Ordinal)));
+            var rowsSpell = uncovered.Count == 0 && refuses is null;
+            return new Verdict(o, uncovered, refuses, mapped, rowsSpell);
+        }).ToList();
+    });
+
+    [Fact]
+    public void No_shape_is_spelled_where_the_map_refuses_it()
+    {
+        var bad = Verdicts.Value.Where(v => v.Outcome.Kind == Spelled && v.Refuses is not null)
+            .Select(v => $"{v.Outcome.Shape.Id}: spelled, and the map's rows for {v.Refuses} all refuse it").ToList();
+        Assert.True(bad.Count == 0, $"{bad.Count} shapes are spelled where the map refuses:\n" + string.Join("\n", bad.Take(25)));
+    }
+
     [Fact]
     public void The_exported_shapes_are_what_the_generator_gives()
     {
@@ -152,7 +200,7 @@ public class NwlSchemaGateTests
     {
         var sb = new StringBuilder();
         sb.Append($"# NWL shape coverage ({ExportVersion}), generated by NwlSchemaGateTests from census.{NwlSchemaCensus.Version}.json; {Regenerate}.\n");
-        sb.Append($"shapes: {all.Count} — spelled {all.Count(o => o.Kind == Spelled)}, refused by the writer {all.Count(o => o.Kind == WriterRefused)}, " +
+        sb.Append($"shapes: {all.Count} â€” spelled {all.Count(o => o.Kind == Spelled)}, refused by the writer {all.Count(o => o.Kind == WriterRefused)}, " +
                   $"refused by the CODESYS reader {all.Count(o => o.Kind == VendorRefused)}, gaps {all.Count(o => o.Kind == "gap")}\n");
         sb.Append($"distinct spelled texts: {all.Where(o => o.Kind == Spelled).Select(o => o.Text).Distinct().Count()}\n");
         foreach (var d in all.GroupBy(o => o.Shape.Depth).OrderBy(g => g.Key))
@@ -163,9 +211,23 @@ public class NwlSchemaGateTests
         sb.Append("\n## refusals (shapes)\n");
         foreach (var g in all.Where(o => o.Kind != Spelled).GroupBy(o => o.Kind + ": " + o.Reason).OrderByDescending(g => g.Count()).ThenBy(g => g.Key, StringComparer.Ordinal))
             sb.Append($"{g.Count(),6}  {g.Key}\n");
-        sb.Append("\n## per class × slot at depth 1 (spelled/refused/vendor-refused)\n");
+        sb.Append("\n## per class Ã— slot at depth 1 (spelled/refused/vendor-refused)\n");
         foreach (var g in all.Where(o => o.Shape.Depth == 1).GroupBy(o => o.Shape.Slot + "  " + o.Shape.Class).OrderBy(g => g.Key, StringComparer.Ordinal))
             sb.Append($"{g.Key}: {g.Count(o => o.Kind == Spelled)}/{g.Count(o => o.Kind == WriterRefused)}/{g.Count(o => o.Kind == VendorRefused)}\n");
+
+        var verdicts = Verdicts.Value;
+        sb.Append($"\n## against the map (map.{NwlSchemaCensus.Version}.json; openspec ide-model-mapping 2.3)\n");
+        sb.Append($"every state resolves to rows: {verdicts.Count(v => v.Uncovered.Count == 0)}; a state no row covers: {verdicts.Count(v => v.Uncovered.Count > 0)}; " +
+                  $"spelled where the map refuses: {verdicts.Count(v => v.Outcome.Kind == Spelled && v.Refuses is not null)}\n");
+        sb.Append("\n### refused, and no row holds the refusal (shapes)\n");
+        foreach (var g in verdicts.Where(v => !v.RefusalMapped).GroupBy(v => v.Outcome.Kind + ": " + v.Outcome.Reason).OrderByDescending(g => g.Count()).ThenBy(g => g.Key, StringComparer.Ordinal))
+            sb.Append($"{g.Count(),6}  {g.Key}\n");
+        sb.Append("\n### refused where every state's rows spell: the rows lack the context that refuses it (shapes)\n");
+        foreach (var g in verdicts.Where(v => v.Outcome.Kind != Spelled && v.RowsSpell).GroupBy(v => v.Outcome.Kind + ": " + v.Outcome.Reason).OrderByDescending(g => g.Count()).ThenBy(g => g.Key, StringComparer.Ordinal))
+            sb.Append($"{g.Count(),6}  {g.Key}\n");
+        sb.Append("\n### states no row covers: the measurement queue (shapes reaching each)\n");
+        foreach (var g in verdicts.SelectMany(v => v.Uncovered).GroupBy(s => s.ToString()).OrderByDescending(g => g.Count()).ThenBy(g => g.Key, StringComparer.Ordinal))
+            sb.Append($"{g.Count(),6}  {g.Key}\n");
         return sb.ToString();
     }
 
