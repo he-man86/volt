@@ -56,5 +56,5 @@
 ## 7. The guide
 
 - [ ] 7.1 A short guide in `packages/volt-cli/` with the method, the row format, the old patterns and the machine rules, written from what the NWL maps actually taught; correct design.md where they disagree.
-- [ ] 7.2 A real-project check at the end: pull and push the corpus projects, and any surprise becomes a new row and fixture.
+- [x] 7.2 A real-project check at the end: pull and push the corpus projects, and any surprise becomes a new row and fixture.
 - [ ] 7.3 Other IDEs: start from the guide when the owner picks one (design.md, "A new IDE").
