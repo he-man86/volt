@@ -59,6 +59,39 @@ covers what was run, and combinations cover what the shape generator reaches.
 A full measurement needs a quiet machine and free disk (other sessions' heavy work paused, disk checked), and a dialog stops a
 batch at once, because a modal dialog blocks the IDE and hides what follows. Every created object gets a unique id.
 
+## Combinations against the map (task 2.3, decided 2026-11-06)
+
+`shapes.v2` stays the generator of combinations; the map gives each shape its verdict.
+
+- **A shape is its states.** The flag value on its holder is one state: the holder's member, the place it names (`on the
+  operand`, `on the target`, `on the output`, `on the instance`, `on the pin`, `on the line`, `on the terminator`, a box's
+  `on AND|FUNCTION|FB|MOVE|EXECUTE`, a comment's `on the value|coil|output|instance`) and the value (`Negation+Rtrig`). Each
+  class in a slot is another: the slot's member and the class's word (`operand`, `assign`, `terminator`, `box`, `parallel`,
+  `wire`, `mux`); a box in an assign's value is also every box row stored `consumed`.
+- **A state resolves** to the map rows of that member whose option names that place or word, and, for a flag, whose first
+  word is that value. Nothing else is matched: the rows are not rewritten for the shapes.
+- **The verdict.** A spelled shape with a state whose rows all refuse fails the gate: a pull would show text for a state
+  the map refuses. A refused shape needs its refusal's wording on a refused row; one whose refusal no row holds is listed.
+  A refused shape whose states' rows all spell is listed too: the rows lack the context that refuses it.
+- **Not covered.** A state no row resolves is listed in `shapes.v2.coverage.txt` with the number of shapes it reaches. That
+  list is the measurement queue for combinations; a state measured later becomes rows, and the list shrinks.
+
+## What the 3.1 sweep found (2026-11-06)
+
+- **A stored CallType the IDE does not build** was `lost-inert` (box-states 0934-0944, 0953-0956, 0965-0968): a consumed
+  box whose CallType reads its value by an output's name, read at a function's result pin `'   '` (C0004), and a call
+  stored as Method or Action of a callee that is neither (C0409, C0035). Refused by name, one refusal for both: `a box
+  storing a call type its callee does not build`. The reader decides the first from the stored tree; the second needs the
+  callee, so the reader carries a stored Method/Action and the writer checks it against the scope's callee. Where the same
+  stored value builds (Action on a PROGRAM or a root FUNCTION) the refusal is refused-inert.
+- The box-states offline twin read an unknown CallType as `And`; it now parses every stored member (Action, Sel added).
+- Root boxes now show a run: an FB's instance outputs and a PROGRAM's own outputs after the run (`observe`), equal across
+  the EN/ENO forms and their spelled twins (box-states 0025, 0078, 0249, 0295, 0609, 0617, 0689, 0697, 1037, 1055). A
+  FUNCTION at a root that nothing reads (bmF0: 0649, 0208, 0218) has no effect a run can show.
+- LD boxes with formal pins (`LIMIT(MN := 0, IN := v, MX := 100)`, `SEL(G := g, IN0 := a, IN1 := b)`) pull back, build
+  and run as the FBD ones (e2e nwl-box-states). An FBD wire carrying an array (`w1 := MOVE(arr); ASSIGN(w1, Q => out);`)
+  builds and runs; the lowering declares a wire of an array of elementary values.
+
 ## A new IDE
 
 1. Find what plays NWL's part: the stored model, how to read it, how to create objects through the IDE, how to run the result.

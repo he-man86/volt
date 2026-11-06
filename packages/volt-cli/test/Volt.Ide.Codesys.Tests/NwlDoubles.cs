@@ -24,7 +24,7 @@ internal static class Nwl
     internal enum Operator
     {
         None, And, Or, Xor, Not, Move, Add, Sub, Mul, Div, Mod, Gt, Ge, Eq, Ne, Le, Lt,
-        Function, FunctionBlock, Program, Method, Conversion,
+        Function, FunctionBlock, Program, Method, Action, Conversion, Sel,
     }
 
     internal sealed class NWLImplementationObject

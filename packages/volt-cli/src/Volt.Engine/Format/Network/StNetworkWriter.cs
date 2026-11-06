@@ -647,6 +647,10 @@ public static class StNetworkWriter
         {
             if (IsExecute(b)) return ExecuteCall(b, consumed);
             var signature = NetworkSpelling.SignatureOf(b, _scope);
+            // A stored call of a member (Method, Action) builds only where the callee is one (live CODESYS 3.5.21.40, box-states
+            // 0941-0944, 0953-0956, 0965-0968; a METHOD's box measured 2R.4).
+            if (b.Members?[NetworkMembers.CallType]?.Scalar is { } call && _scope.Callee(b.Type)?.CallType != call)
+                throw Unspellable(BoxRefusals.UnbuiltCallTypeMarker, $"the '{b.Type}' box stores call type {call}, which the IDE does not build for '{b.Type}'.");
             if (signature is { DeclaresOut: true })
                 throw Unspellable("a function declaring an output OUT", $"'{b.Type}' declares VAR_OUTPUT OUT, which also names its value.");
             if (b.Enable is not null && signature is { DeclaresEn: true })

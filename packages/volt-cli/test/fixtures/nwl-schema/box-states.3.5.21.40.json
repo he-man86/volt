@@ -51,7 +51,7 @@
 "body": "io := TRUE;\n"
 }
 },
-"note": "One row per stored box state measured live (openspec nwl-box-storage-map): the members as stored, then what the IDE made of it: build messages, the values a simulation run wrote (only those off their initial value), the compiler's language model, the editor's layout hash. `pull` is what Volt shows. Regenerate pull with VOLT_WRITE_BOX_STATES=1 dotnet test test/Volt.Ide.Codesys.Tests --filter CodesysBoxStatesTests.",
+"note": "One row per stored box state measured live (openspec nwl-box-storage-map): the members as stored, then what the IDE made of it: build messages, the values a simulation run wrote (only those off their initial value), the compiler's language model, the editor's layout hash. `observe` names what a root box's callee shows of its call where no holder variable does (`%s.t2.q1`, or a callee's own `bmP2.q1`, read with the state's program run alone), and `measured.observed` its values after the run. `pull` is what Volt shows. Regenerate pull with VOLT_WRITE_BOX_STATES=1 dotnet test test/Volt.Ide.Codesys.Tests --filter CodesysBoxStatesTests.",
 "faults": [
 {
 "kind": "F2on",
@@ -1441,7 +1441,12 @@ null,
 "providesSnippet": false,
 "snippet": false,
 "target": null,
+"observe": [
+"%s.t2.q1",
+"%s.t2.q2"
+],
 "measured": {
+"observed": "t2.q1=TRUE t2.q2=INT#6",
 "build": [],
 "run": "",
 "code": "t2(a := a, n := i);",
@@ -4396,7 +4401,12 @@ null,
 "providesSnippet": false,
 "snippet": false,
 "target": null,
+"observe": [
+"%s.t2.q1",
+"%s.t2.q2"
+],
 "measured": {
+"observed": "t2.q1=TRUE t2.q2=INT#6",
 "build": [],
 "run": "",
 "code": "__ENO := go; IF __ENO THEN t2(a := a, n := i); END_IF; __Imp := __ENO;",
@@ -11374,7 +11384,7 @@ null,
 "kind": "F0on",
 "language": "LD",
 "position": "root",
-"live": false,
+"live": true,
 "insertAs": "bmF0",
 "insertEnEno": true,
 "boxType": "bmF0",
@@ -13599,7 +13609,12 @@ null,
 "providesSnippet": false,
 "snippet": false,
 "target": null,
+"observe": [
+"bmP2.q1",
+"bmP2.q2"
+],
 "measured": {
+"observed": "bmP2.q1=TRUE bmP2.q2=INT#6",
 "build": [],
 "run": "",
 "code": "bmP2(a := a, n := i);",
@@ -16135,7 +16150,12 @@ null,
 "providesSnippet": false,
 "snippet": false,
 "target": null,
+"observe": [
+"bmP2.q1",
+"bmP2.q2"
+],
 "measured": {
+"observed": "bmP2.q1=TRUE bmP2.q2=INT#6",
 "build": [],
 "run": "",
 "code": "__ENO := go; IF __ENO THEN bmP2(a := a, n := i); END_IF; __Imp := __ENO;",
@@ -31132,7 +31152,7 @@ null,
 "kind": "FB2 slots[EN] en=True eno=False",
 "language": "FBD",
 "position": "root",
-"live": false,
+"live": true,
 "insertAs": "bmFB2",
 "insertEnEno": false,
 "boxType": "bmFB2",
@@ -31173,7 +31193,12 @@ null,
 "providesSnippet": false,
 "snippet": false,
 "target": null,
+"observe": [
+"%s.t2.q1",
+"%s.t2.q2"
+],
 "measured": {
+"observed": "t2.q1=TRUE t2.q2=INT#6",
 "build": [],
 "run": "",
 "code": "__EN := go; IF __EN THEN t2(a := a, n := i); END_IF;",
@@ -31564,7 +31589,7 @@ null,
 "kind": "FB2 slots[ENO] en=False eno=True",
 "language": "FBD",
 "position": "root",
-"live": false,
+"live": true,
 "insertAs": "bmFB2",
 "insertEnEno": false,
 "boxType": "bmFB2",
@@ -31605,7 +31630,12 @@ null,
 "providesSnippet": false,
 "snippet": false,
 "target": null,
+"observe": [
+"%s.t2.q1",
+"%s.t2.q2"
+],
 "measured": {
+"observed": "t2.q1=TRUE t2.q2=INT#6",
 "build": [],
 "run": "",
 "code": "t2(a := a, n := i);",
@@ -33298,7 +33328,7 @@ null,
 "kind": "F0 slots[EN] en=True eno=False",
 "language": "FBD",
 "position": "root",
-"live": false,
+"live": true,
 "insertAs": "bmF0",
 "insertEnEno": false,
 "boxType": "bmF0",
@@ -35464,7 +35494,7 @@ null,
 "kind": "P2 slots[EN] en=True eno=False",
 "language": "FBD",
 "position": "root",
-"live": false,
+"live": true,
 "insertAs": "bmP2",
 "insertEnEno": false,
 "boxType": "bmP2",
@@ -35505,7 +35535,12 @@ null,
 "providesSnippet": false,
 "snippet": false,
 "target": null,
+"observe": [
+"bmP2.q1",
+"bmP2.q2"
+],
 "measured": {
+"observed": "bmP2.q1=TRUE bmP2.q2=INT#6",
 "build": [],
 "run": "",
 "code": "__EN := go; IF __EN THEN bmP2(a := a, n := i); END_IF;",
@@ -35896,7 +35931,7 @@ null,
 "kind": "P2 slots[ENO] en=False eno=True",
 "language": "FBD",
 "position": "root",
-"live": false,
+"live": true,
 "insertAs": "bmP2",
 "insertEnEno": false,
 "boxType": "bmP2",
@@ -35937,7 +35972,12 @@ null,
 "providesSnippet": false,
 "snippet": false,
 "target": null,
+"observe": [
+"bmP2.q1",
+"bmP2.q2"
+],
 "measured": {
+"observed": "bmP2.q1=TRUE bmP2.q2=INT#6",
 "build": [],
 "run": "",
 "code": "bmP2(a := a, n := i);",
@@ -42033,7 +42073,7 @@ null
 "kind": "GT slots[] en=None eno=None",
 "language": "FBD",
 "position": "consumed",
-"live": false,
+"live": true,
 "insertAs": "GT",
 "insertEnEno": false,
 "boxType": "GT",
@@ -47601,7 +47641,7 @@ null
 "code": "y := bmF0. ;",
 "layout": "ece4d13f7c"
 },
-"pull": "ASSIGN(bmF0(a := a, b := b), Q =\u003E y);"
+"pull": "%UNSUPPORTED \u0022a box storing a call type its callee does not build\u0022 #95f67071"
 },
 {
 "id": "0935",
@@ -47702,7 +47742,7 @@ null
 "code": "y := bmF0. ;",
 "layout": "ece4d13f7c"
 },
-"pull": "ASSIGN(bmF0(a := a, b := b), Q =\u003E y);"
+"pull": "%UNSUPPORTED \u0022a box storing a call type its callee does not build\u0022 #95f67071"
 },
 {
 "id": "0937",
@@ -47803,7 +47843,7 @@ null
 "code": "bmF0(a := a, b := b); y := bmF0. ;",
 "layout": "ece4d13f7c"
 },
-"pull": "ASSIGN(bmF0(a := a, b := b), Q =\u003E y);"
+"pull": "%UNSUPPORTED \u0022a box storing a call type its callee does not build\u0022 #95f67071"
 },
 {
 "id": "0939",
@@ -47956,7 +47996,7 @@ null
 "code": "bmF0(a := a, b := b, => __Imp);",
 "layout": "80d2124e69"
 },
-"pull": "bmF0(a := a, b := b);"
+"pull": "%UNSUPPORTED \u0022a box storing a call type its callee does not build\u0022 #546715ef"
 },
 {
 "id": "0942",
@@ -48007,7 +48047,7 @@ null
 "code": "bmF0(a := a, b := b, => __Imp); y := __Imp;",
 "layout": "ece4d13f7c"
 },
-"pull": "ASSIGN(bmF0(a := a, b := b), Q =\u003E y);"
+"pull": "%UNSUPPORTED \u0022a box storing a call type its callee does not build\u0022 #3cba2a55"
 },
 {
 "id": "0943",
@@ -48056,7 +48096,7 @@ null
 "code": "bmF0(a := a, b := b);",
 "layout": "80d2124e69"
 },
-"pull": "%UNSUPPORTED \u0022an operator box holding a second null\u0022 #a954d14f"
+"pull": "%UNSUPPORTED \u0022a box storing a call type its callee does not build\u0022 #546715ef"
 },
 {
 "id": "0944",
@@ -48108,7 +48148,7 @@ null
 "code": "bmF0(a := a, b := b); y := bmF0. ;",
 "layout": "ece4d13f7c"
 },
-"pull": "%UNSUPPORTED \u0022an operator box holding a second null\u0022 #a954d14f"
+"pull": "%UNSUPPORTED \u0022a box storing a call type its callee does not build\u0022 #95f67071"
 },
 {
 "id": "0945",
@@ -48570,7 +48610,7 @@ null,
 "code": "t2.bmFB2(a := a, n := i, q1 => __Imp, q2 => __Imp_1); __Imp := __Imp;",
 "layout": "c0ceeb08ff"
 },
-"pull": "t2(a := a, n := i);"
+"pull": "%UNSUPPORTED \u0022a box storing a call type its callee does not build\u0022 #eb54578b"
 },
 {
 "id": "0954",
@@ -48624,7 +48664,7 @@ null,
 "code": "t2.bmFB2(a := a, n := i, q1 => __Imp, q2 => __Imp_1); __Imp := __Imp; x := __Imp;",
 "layout": "42602a5cec"
 },
-"pull": "ASSIGN(t2(a := a, n := i), Q =\u003E x);"
+"pull": "%UNSUPPORTED \u0022a box storing a call type its callee does not build\u0022 #ef8a9dec"
 },
 {
 "id": "0955",
@@ -48678,7 +48718,7 @@ null,
 "code": "t2.bmFB2(a := a, n := i);",
 "layout": "c0ceeb08ff"
 },
-"pull": "t2(a := a, n := i);"
+"pull": "%UNSUPPORTED \u0022a box storing a call type its callee does not build\u0022 #eb54578b"
 },
 {
 "id": "0956",
@@ -48732,7 +48772,7 @@ null,
 "code": "t2.bmFB2(a := a, n := i); x := t2.q1;",
 "layout": "42602a5cec"
 },
-"pull": "ASSIGN(t2(a := a, n := i), Q =\u003E x);"
+"pull": "%UNSUPPORTED \u0022a box storing a call type its callee does not build\u0022 #ef8a9dec"
 },
 {
 "id": "0957",
@@ -49202,7 +49242,7 @@ null,
 "code": "bmP2(a := a, n := i, q1 => __Imp);",
 "layout": "51511fd49f"
 },
-"pull": "bmP2(a := a, n := i);"
+"pull": "%UNSUPPORTED \u0022a box storing a call type its callee does not build\u0022 #9e1495c0"
 },
 {
 "id": "0966",
@@ -49256,7 +49296,7 @@ null,
 "code": "bmP2(a := a, n := i, q1 => __Imp); x := __Imp;",
 "layout": "2e0b3303cd"
 },
-"pull": "ASSIGN(bmP2(a := a, n := i), Q =\u003E x);"
+"pull": "%UNSUPPORTED \u0022a box storing a call type its callee does not build\u0022 #0c6c6bf1"
 },
 {
 "id": "0967",
@@ -49308,7 +49348,7 @@ null,
 "code": "bmP2(a := a, n := i);",
 "layout": "51511fd49f"
 },
-"pull": "%UNSUPPORTED \u0022an operator box holding a second null\u0022 #a954d14f"
+"pull": "%UNSUPPORTED \u0022a box storing a call type its callee does not build\u0022 #9e1495c0"
 },
 {
 "id": "0968",
@@ -49360,7 +49400,7 @@ null,
 "code": "bmP2(a := a, n := i); x := bmP2.q1;",
 "layout": "2e0b3303cd"
 },
-"pull": "%UNSUPPORTED \u0022an operator box holding a second null\u0022 #a954d14f"
+"pull": "%UNSUPPORTED \u0022a box storing a call type its callee does not build\u0022 #0c6c6bf1"
 },
 {
 "id": "0969",
@@ -51884,7 +51924,7 @@ null
 "kind": "lowercase type FUNCTION",
 "language": "FBD",
 "position": "root",
-"live": false,
+"live": true,
 "insertAs": "bmf0",
 "insertEnEno": false,
 "boxType": "bmf0",
@@ -51933,7 +51973,7 @@ null
 "kind": "lowercase type FUNCTION",
 "language": "FBD",
 "position": "consumed",
-"live": false,
+"live": true,
 "insertAs": "bmf0",
 "insertEnEno": false,
 "boxType": "bmf0",
@@ -52794,7 +52834,7 @@ null,
 "kind": "lowercase type FB",
 "language": "FBD",
 "position": "root",
-"live": false,
+"live": true,
 "insertAs": "bmfb2",
 "insertEnEno": false,
 "boxType": "bmfb2",
@@ -52832,7 +52872,12 @@ null,
 "providesSnippet": false,
 "snippet": false,
 "target": null,
+"observe": [
+"%s.t2.q1",
+"%s.t2.q2"
+],
 "measured": {
+"observed": "t2.q1=TRUE t2.q2=INT#6",
 "build": [],
 "run": "",
 "code": "t2(a := a, n := i);",
@@ -52845,7 +52890,7 @@ null,
 "kind": "lowercase type FB",
 "language": "FBD",
 "position": "consumed",
-"live": false,
+"live": true,
 "insertAs": "bmfb2",
 "insertEnEno": false,
 "boxType": "bmfb2",
@@ -53724,7 +53769,7 @@ null,
 "kind": "lowercase type PROGRAM",
 "language": "FBD",
 "position": "root",
-"live": false,
+"live": true,
 "insertAs": "bmp2",
 "insertEnEno": false,
 "boxType": "bmp2",
@@ -53763,7 +53808,12 @@ null,
 "providesSnippet": false,
 "snippet": false,
 "target": null,
+"observe": [
+"bmP2.q1",
+"bmP2.q2"
+],
 "measured": {
+"observed": "bmP2.q1=TRUE bmP2.q2=INT#6",
 "build": [],
 "run": "",
 "code": "bmp2(a := a, n := i);",
@@ -53776,7 +53826,7 @@ null,
 "kind": "lowercase type PROGRAM",
 "language": "FBD",
 "position": "consumed",
-"live": false,
+"live": true,
 "insertAs": "bmp2",
 "insertEnEno": false,
 "boxType": "bmp2",
@@ -54092,7 +54142,7 @@ null
 "kind": "names named SEL",
 "language": "FBD",
 "position": "root",
-"live": false,
+"live": true,
 "insertAs": "SEL",
 "insertEnEno": false,
 "boxType": "SEL",
@@ -54143,7 +54193,7 @@ null
 "kind": "names named SEL",
 "language": "FBD",
 "position": "consumed",
-"live": false,
+"live": true,
 "insertAs": "SEL",
 "insertEnEno": false,
 "boxType": "SEL",

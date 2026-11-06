@@ -105,7 +105,7 @@ public class CodesysBoxStatesTests
         {
             BoxType = r.BoxType,
             Instance = new Nwl.Operand { OperandExpr = r.Instance! },
-            CallType = Enum.TryParse<Nwl.Operator>(r.CallType, out var call) ? call : Nwl.Operator.And,
+            CallType = (Nwl.Operator)Enum.Parse(typeof(Nwl.Operator), r.CallType),
             ContainsExtensibleInputs = r.Extensible,
             En = r.En,
             Eno = r.Eno,

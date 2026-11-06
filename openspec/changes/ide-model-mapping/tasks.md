@@ -1,4 +1,4 @@
-﻿> Plan, owner 2026-11-05: CODESYS SP21 first, then verify on TwinCAT, then other IDEs in the future. Each step is its own change where it is large.
+> Plan, owner 2026-11-05: CODESYS SP21 first, then verify on TwinCAT, then other IDEs in the future. Each step is its own change where it is large.
 
 ## 1. Finish the first map
 
@@ -10,11 +10,13 @@
 
 - [x] 2.1 Assign and operand, to the same depth.
 - [x] 2.2 Every other class in the census: branch, demux, terminator, network and the rest.
-- [ ] 2.3 Combinations: `shapes.v2` runs against the map instead of beside it.
+- [x] 2.3 Combinations: `shapes.v2` runs against the map instead of beside it (design.md "Combinations against the map"; the
+      states no row covers are the queue in `shapes.v2.coverage.txt`).
 
 ## 3. Fix what the maps find
 
-- [ ] 3.1 Everything silently lost first, then what changes the program and has no text. Carried in from the archived drafts, unmeasured: LD boxes with formal pins (`LIMIT(MN := 0, IN := v, MX := 100)`) store and run as FBD's; whether CODESYS compiles an array-typed FBD wire (`w1 := MOVE(arr); ASSIGN(w1, Q => out);`).
+- [x] 3.1 Everything silently lost first, then what changes the program and has no text. Carried in from the archived drafts, unmeasured: LD boxes with formal pins (`LIMIT(MN := 0, IN := v, MX := 100)`) store and run as FBD's; whether CODESYS compiles an array-typed FBD wire (`w1 := MOVE(arr); ASSIGN(w1, Q => out);`). Done 2026-11-06: design.md
+      "What the 3.1 sweep found".
 - [x] 3.2 The open network drafts that the maps settle (`network-empty-pin-value`, `network-function-formal-pins`, `network-lower-coil-in-and-box`, `network-lower-pin-edges-and-output-marks`, `network-unnamed-jump-label`).
 
 ## 4. One source of truth

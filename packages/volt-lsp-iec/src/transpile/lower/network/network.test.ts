@@ -211,9 +211,12 @@ describe("a built-in function box shows its pins by name and runs them by positi
       "%NETWORK\nASSIGN(LIMIT(MN := 0, IN := v, MX := 100), Q => y);\nASSIGN(SEL(G := g, IN0 := a, IN1 := b), Q => z);\n" +
       "ASSIGN(MUX(K := 1, IN0 := a, IN1 := b), Q => m);\nASSIGN(MIN(IN1 := a, IN2 := b), Q => n);\nASSIGN(MAX(IN1 := a, IN2 := b), Q => o);\n" +
       "ASSIGN(MOVE(IN := a), Q => p);\n"
-    const r = runner(vars, body, "", "FBD")
-    r.scan()
-    expect(["y", "z", "m", "n", "o", "p"].map((k) => r.get(k))).toEqual([100n, 3n, 9n, 3n, 9n, 3n])
+    // an LD body's box runs as the FBD one (measured live, CODESYS 3.5.21.40: e2e nwl-box-states, LIMIT and SEL)
+    for (const language of ["FBD", "LD"]) {
+      const r = runner(vars, body, "", language)
+      r.scan()
+      expect(["y", "z", "m", "n", "o", "p"].map((k) => r.get(k))).toEqual([100n, 3n, 9n, 3n, 9n, 3n])
+    }
   })
 
   test("a name the box has no pin of, or a pin given twice, is refused by name", () => {
@@ -230,8 +233,16 @@ describe("a built-in function box shows its pins by name and runs them by positi
     expect(st.diagnostics.map((d) => d.code)).toEqual(["call-named-args"])
   })
 
-  test("a wire lowering cannot declare is refused at the wire; MOVE(x) types its wire as x", () => {
-    const src = "PROGRAM P\nVAR\n\tarr, out : ARRAY[0..1] OF INT;\nEND_VAR\n%LANGUAGE FBD\n%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := MOVE(arr);\nASSIGN(w1, Q => out);\nEND_PROGRAM\n"
+  test("a wire carrying an array runs, typed by MOVE(x) as x (measured live, CODESYS 3.5.21.40: e2e nwl-box-states)", () => {
+    const r = runner("arr : ARRAY[0..1] OF INT := [3, 4];\nout : ARRAY[0..1] OF INT;", "%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := MOVE(arr);\nASSIGN(w1, Q => out);\n", "", "FBD")
+    r.scan()
+    expect([r.get("out[0]"), r.get("out[1]")]).toEqual([3n, 4n])
+  })
+
+  test("a wire lowering cannot declare is refused at the wire: an array of FB instances", () => {
+    const src =
+      "PROGRAM P\nVAR\n\tarr, out : ARRAY[0..1] OF FB_X;\nEND_VAR\n%LANGUAGE FBD\n%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := MOVE(arr);\nASSIGN(w1, Q => out);\nEND_PROGRAM\n" +
+      "FUNCTION_BLOCK FB_X\nVAR_INPUT i : INT; END_VAR\n%LANGUAGE ST\nEND_FUNCTION_BLOCK\n"
     const [d] = lowerSource(src, "P").diagnostics
     expect([d!.code, src.slice(d!.span.start, d!.span.end)]).toEqual(["network-wire-type", "w1"])
   })

@@ -113,6 +113,10 @@ public static class NetworkMembers
 {
     public const string OutputNames = "OutputParam.Names";
     public const string OutputTypes = "OutputParam.Types";
+    /// <summary>The stored <c>CallType</c> where it calls a member of what the box names (<c>Method</c>, <c>Action</c>): it builds only
+    /// where the callee is that member (<see cref="Callee.MethodCallType"/>), which only the writer's scope knows
+    /// (<see cref="BoxRefusals.UnbuiltCallType"/>).</summary>
+    public const string CallType = "CallType";
 
     /// <summary>The value a box holds: the stored one a vendor reader read, else the derivation.</summary>
     public static MemberValue Effective(Box b, BoxSite site, string member) => member switch

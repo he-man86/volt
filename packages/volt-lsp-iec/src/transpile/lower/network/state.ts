@@ -10,6 +10,7 @@ import { declareVars } from "../storage/declare.js"
 import { storageOf } from "../storage/layout.js"
 import { drain } from "../core/nested.js"
 import type { HiddenVar } from "./network.js"
+import type { Type } from "../../../frontend/types/index.js"
 
 /** A `VAR` section declaring `name : <type name>;`. */
 function section(name: Identifier, type: string, span: Span): VarSection {
@@ -41,9 +42,15 @@ export function declareNetworkState(lw: Lowering, hidden: readonly HiddenVar[]):
     if (lw.declared(h.name)) continue
     const name: Identifier = { kind: "identifier", text: h.name, span: h.span }
     if ("fb" in h) declareVars(lw, [section(name, h.fb, h.span)])
-    else if (h.type.kind === "elementary") lw.slot(name, storageOf(lw, h.type, h.span), "VAR")
+    // an array of elementary values is a wire CODESYS builds and runs (MOVE(arr) on a wire, live 3.5.21.40, e2e nwl-box-states)
+    else if (h.type.kind === "elementary" || elementaryArray(h.type)) lw.slot(name, storageOf(lw, h.type, h.span), "VAR")
     // a named type's variable starts as its declaration says (an enum's first value, a struct's field initializers)
     else if (h.type.kind === "enum" || h.type.kind === "struct" || h.type.kind === "function_block") declareVars(lw, [section(name, h.type.name, h.span)])
     else lw.bail("network-wire-type", `the wire ${h.name} is a ${h.type.kind}, which lowering does not declare`, h.span)
   }
+}
+
+/** An array whose elements, at every depth, are elementary: its variable starts at zero as an elementary one does. */
+function elementaryArray(t: Type): boolean {
+  return t.kind === "array" && (t.element.kind === "elementary" || elementaryArray(t.element))
 }

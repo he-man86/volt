@@ -338,6 +338,7 @@ public static class BoxRefusals
     public const string UnnamedCallInputMarker = "a call box input past its pin names";
     public const string OperatorSecondNullMarker = "an operator box holding a second null";
     public const string FbFunctionCallPastNamesMarker = "an FB box storing call type Function with an output past its names";
+    public const string UnbuiltCallTypeMarker = "a box storing a call type its callee does not build";
     /// <summary>An Execute box whose ST snippet the reader cannot read — raised by both vendor readers and answered by
     /// TwinCAT's archive pre-scan too, so the pull names it in one wording whichever way it was found.</summary>
     public const string UnreadableExecuteMarker = "an Execute box whose ST cannot be read";
@@ -391,6 +392,14 @@ public static class BoxRefusals
         new(FbFunctionCallPastNamesMarker,
             $"{vendor}: the '{boxType}' box stores call type Function and holds output {slot} past its output names, which the IDE does " +
             "not build. Volt refuses to show it as the box that builds. Edit this network in the IDE.");
+
+    /// <summary>A box whose stored CallType makes the IDE build a call its callee does not have (live CODESYS 3.5.21.40, box-states
+    /// 0934-0944, 0953-0956, 0965-0966): read by the name of a function's result pin ('   ', C0004 "is no component"), or called as a
+    /// method or an action of what is neither (C0409, C0035). The text holds no CallType, so it would show the call that builds.</summary>
+    public static Volt.Engine.Format.Body.UnrepresentableBodyException UnbuiltCallType(string vendor, string boxType, string callType) =>
+        new(UnbuiltCallTypeMarker,
+            $"{vendor}: the '{boxType}' box stores call type {callType}, which the IDE does not build for '{boxType}'. Volt refuses to show " +
+            "it as the call that builds. Edit this network in the IDE.");
 
     /// <summary>A resolved FB, PROGRAM or FUNCTION box holding an input past its pin names: the IDE does not pass it, so the text would
     /// state a pin the program does not have (live CODESYS 3.5.21.40, openspec nwl-box-storage-map).</summary>

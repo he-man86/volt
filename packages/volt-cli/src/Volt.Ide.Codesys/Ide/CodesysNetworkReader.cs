@@ -394,6 +394,12 @@ namespace Volt.Ide.Codesys
             var stored = NwlInterop.Get(n, "MainOutputIndex") as int?;
             if (consumed && stored is null && CallsWithNoValue(n) && !HoldsNull(n, type)) throw BoxRefusals.NoMainOutput(CodesysDriver.Row.Display, type);
             var mainOutput = stored ?? (consumed ? UnstoredMainOutput(type, enable is not null, hasEno, outputNames) : null);
+            // A consumed box whose CallType reads its value by an output's name, read at a function's result pin: the IDE reads
+            // `<box>.'   '`, C0004 (live CODESYS 3.5.21.40, box-states 0934, 0936, 0938, 0944).
+            var callType = NwlInterop.Get(n, "CallType")?.ToString();
+            if (consumed && callType is "None" or "FunctionBlock" or "Program" or "Action" && mainOutput is { } read &&
+                read < outputNames.Count && outputNames[read] == NetworkMembers.FunctionResult)
+                throw BoxRefusals.UnbuiltCallType(CodesysDriver.Row.Display, type, callType!);
             // A root's main slot is stated past its first: `.NAME`; its first is what a root with no closer is (F3).
             var connected = consumed || mainOutput is > 0 ? mainOutput : null;
 
@@ -416,7 +422,8 @@ namespace Volt.Ide.Codesys
                 MainOutputName: Box.NameOfConnectedOutput(instance is not null, connected, hasEno, outputNames),
                 // The stored output names whole (ld-fbd-coverage 2.3): S1's slot on a bit operator, a call's unconnected
                 // pins — the text spells them where they differ from what its own pins give.
-                Members: NwlMembers.Of((NetworkMembers.OutputNames, MemberValue.Texts(outputNames))))
+                Members: NwlMembers.Of((NetworkMembers.OutputNames, MemberValue.Texts(outputNames)),
+                    (NetworkMembers.CallType, callType is "Method" or "Action" ? MemberValue.Text(callType) : null)))
             { EnableFlags = enableFlags };
         }
 
