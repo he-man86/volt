@@ -142,7 +142,7 @@ for (const lang of ["FBD", "LD"]) {
 				const v1 = await fetchItem(full)
 				expect(v1.sourceText).toContain("out := a;")          // the parent's own body stayed TEXTUAL…
 				expect(networkLangs(v1.sourceText)).toEqual([lang])   // …and only the member is graphical
-				expect(v1.sourceText).toContain(`${coil} := `)
+				expect(v1.sourceText).toContain(`Q => ${coil});`)
 				expectNoOperandsLost(src[key](name), v1.sourceText)
 				await isFixedPoint(full, v1)
 				await ensureCompiles(name)
@@ -158,8 +158,8 @@ for (const lang of ["FBD", "LD"]) {
 			// TWO networks, one per accessor, each keeping its own coil. A splice that wrote both accessors from
 			// the same body would still show two networks — the coils are what tell them apart.
 			expect(networkLangs(v1.sourceText)).toEqual([lang, lang])
-			expect(v1.sourceText).toContain(`P_G := ${AND(lang, "a", "b")}`)     // the GET drives the property…
-			expect(v1.sourceText).toContain(`out := ${AND(lang, "P_G", "a")}`)   // …and the SET is driven by it
+			expect(v1.sourceText).toContain(`ASSIGN(${AND(lang, "a", "b")}, Q => P_G);`)     // the GET drives the property…
+			expect(v1.sourceText).toContain(`ASSIGN(${AND(lang, "P_G", "a")}, Q => out);`)   // …and the SET is driven by it
 			expectNoOperandsLost(src.property(name), v1.sourceText)
 			await isFixedPoint(full, v1)
 			await ensureCompiles(name)
