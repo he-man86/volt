@@ -113,12 +113,79 @@ EXECUTE('n := 0;');</pre>
   <code>_INVERTED</code>).</p>
 
 <h2 id="runs">What it runs as</h2>
+<p>Each text is a state CODESYS 3.5.21.40 built and ran; <i>run</i> names it.</p>
+<!-- GENERATED runs: test/package/network-runs.test.ts in volt-lsp-iec, VOLT_WRITE_DOCS=1 regenerates -->
 <table>
-  <tr><th>text</th><th>runs as</th></tr>
-  <tr><td class="name"><code>INVERT(i)</code>, <code>i</code> an INT</td><td>the bitwise NOT</td></tr>
-  <tr><td class="name"><code>ASSIGN(a, Q => x, Q_INVERTED => y)</code></td><td><code>x</code>, then <code>y</code>: a target list runs in list order, and a mark on one target acts on that target only</td></tr>
-  <tr><td class="name"><code>RISING(INVERT(a))</code></td><td>innermost first: the negation, then the edge</td></tr>
+  <tr><th>text</th><th>runs as</th><th>run</th></tr>
+  <tr><td class="name"><pre>ASSIGN(a, Q =&gt; y);</pre></td><td><pre class="st">y := a;</pre></td><td>assign-states#0001</td></tr>
+  <tr><td class="name"><pre>ASSIGN(a, Q_SET =&gt; y);</pre></td><td><pre class="st">y S= a;</pre></td><td>assign-states#0029</td></tr>
+  <tr><td class="name"><pre>ASSIGN(a, Q_RESET =&gt; y);</pre></td><td><pre class="st">y R= a;</pre></td><td>assign-states#0031</td></tr>
+  <tr><td class="name"><pre>ASSIGN(a, Q_INVERTED =&gt; y);</pre></td><td><pre class="st">VAR __nw1_eno1 : BOOL; END_VAR
+__nw1_eno1 := a;
+y := NOT __nw1_eno1;</pre></td><td>assign-states#0027</td></tr>
+  <tr><td class="name"><pre>ASSIGN(a, Q =&gt; x, Q_INVERTED =&gt; y);</pre></td><td><pre class="st">VAR __nw1_eno1 : BOOL; END_VAR
+__nw1_eno1 := a;
+x := __nw1_eno1;
+y := NOT __nw1_eno1;</pre></td><td>assign-states#0251</td></tr>
+  <tr><td class="name"><pre>ASSIGN(ASSIGN(a, Q =&gt; x), Q =&gt; y);</pre></td><td><pre class="st">VAR __nw1_eno1 : BOOL; END_VAR
+__nw1_eno1 := a;
+x := __nw1_eno1;
+y := __nw1_eno1;</pre></td><td>assign-states#0245</td></tr>
+  <tr><td class="name"><pre>ASSIGN(ASSIGN(a, Q =&gt; x) AND b, Q =&gt; y);</pre></td><td><pre class="st">VAR __nw1_eno1 : BOOL; END_VAR
+__nw1_eno1 := a;
+x := __nw1_eno1;
+y := __nw1_eno1 AND b;</pre></td><td>assign-states#0247</td></tr>
+  <tr><td class="name"><pre>ASSIGN(a, Q =&gt; JMP.l);
+ASSIGN(TRUE, Q =&gt; z);
+l:
+ASSIGN(TRUE, Q =&gt; c);</pre></td><td><pre class="st">IF a THEN
+    JMP l;
+END_IF;
+z := TRUE;
+l:
+c := TRUE;</pre></td><td>assign-states#0097</td></tr>
+  <tr><td class="name"><pre>ASSIGN(a, Q =&gt; RETURN);
+ASSIGN(TRUE, Q =&gt; z);</pre></td><td><pre class="st">IF a THEN
+    RETURN;
+END_IF;
+z := TRUE;</pre></td><td>assign-states#0117</td></tr>
+  <tr><td class="name"><pre>ASSIGN(RAIL(), Q =&gt; y);</pre></td><td><pre class="st">y := TRUE;</pre></td><td>assign-states#0299</td></tr>
+  <tr><td class="name"><pre>ASSIGN(a AND b, Q =&gt; y);</pre></td><td><pre class="st">y := a AND b;</pre></td><td>box-states#0395</td></tr>
+  <tr><td class="name"><pre>ASSIGN(BRANCH(a AND b, c), Q =&gt; y);</pre></td><td><pre class="st">y := TRUE AND (a AND b OR c);</pre></td><td>class-states#0109</td></tr>
+  <tr><td class="name"><pre>ASSIGN(BRANCH_SHORTCIRCUIT(t(in := a), c), Q =&gt; y);</pre></td><td><pre class="st">VAR __nw1_eno1 : BOOL; __nw1_eno2 : BOOL; __nw1_eno3 : BOOL; END_VAR
+__nw1_eno1 := TRUE;
+__nw1_eno2 := c;
+IF NOT (__nw1_eno1 AND __nw1_eno2) THEN
+    t(in := a);
+    __nw1_eno3 := t.q;
+END_IF;
+y := __nw1_eno1 AND (__nw1_eno2 OR __nw1_eno3);</pre></td><td>class-states#0110</td></tr>
+  <tr><td class="name"><pre>EXECUTE(EN := go, 'k := k + 1;');</pre></td><td><pre class="st">IF go THEN
+    k := k + 1;
+END_IF;</pre></td><td>class-states#0575</td></tr>
+  <tr><td class="name"><pre>ASSIGN(OPERAND('a AND b'), Q =&gt; y);</pre></td><td><pre class="st">y := (a AND b);</pre></td><td>assign-states#0443</td></tr>
+  <tr><td class="name"><pre>ASSIGN(COMMENT(a, 'note'), Q =&gt; y);</pre></td><td><pre class="st">y := a;</pre></td><td>assign-states#0459</td></tr>
+  <tr><td class="name"><pre>ASSIGN(INVERT(a), Q =&gt; y);</pre></td><td><pre class="st">y := NOT a;</pre></td><td>assign-states#0007</td></tr>
+  <tr><td class="name"><pre>ASSIGN(INVERT(i), Q =&gt; k);</pre></td><td><pre class="st">k := NOT i;</pre></td><td>assign-states#0200</td></tr>
+  <tr><td class="name"><pre>ASSIGN(RISING(a), Q =&gt; y);</pre></td><td><pre class="st">VAR __nw1_trig1 : R_TRIG; END_VAR
+__nw1_trig1(CLK := a);
+y := __nw1_trig1.Q;</pre></td><td>assign-states#0003</td></tr>
+  <tr><td class="name"><pre>ASSIGN(FALLING(a), Q =&gt; y);</pre></td><td><pre class="st">VAR __nw1_trig1 : F_TRIG; END_VAR
+__nw1_trig1(CLK := a);
+y := __nw1_trig1.Q;</pre></td><td>assign-states#0005</td></tr>
+  <tr><td class="name"><pre>ASSIGN(RISING(INVERT(a)), Q =&gt; y);</pre></td><td><pre class="st">VAR __nw1_trig1 : R_TRIG; END_VAR
+__nw1_trig1(CLK := NOT a);
+y := __nw1_trig1.Q;</pre></td><td>assign-states#0367</td></tr>
+  <tr><td class="name"><pre>VAR w1 : ANY; END_VAR
+w1 := a;
+ASSIGN(w1, Q =&gt; y);
+w1;</pre></td><td><pre class="st">VAR __nw1_w1 : BOOL; END_VAR
+__nw1_w1 := a;
+y := __nw1_w1;</pre></td><td>class-states#0129</td></tr>
+  <tr><td class="name"><pre>%DISABLED
+ASSIGN(a, Q =&gt; y);</pre></td><td><pre class="st"></pre></td><td>class-states#0003</td></tr>
 </table>
+<!-- /GENERATED runs -->
 
 <h2 id="diagnostics">Errors</h2>
 <table>

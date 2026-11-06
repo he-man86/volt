@@ -7,7 +7,7 @@
  */
 import { CompletionItemKind, type CompletionItem } from "vscode-languageserver-protocol"
 import type { BodySpan } from "../../frontend/syntax/index.js"
-import { NETWORK_MEANINGS, networkLabels, type NetworkForm } from "../shared/index.js"
+import { networkDetail, networkLabels, type NetworkForm } from "../shared/index.js"
 
 const MARKS: readonly NetworkForm[] = ["INVERT", "RISING", "FALLING"]
 const VALUES: readonly NetworkForm[] = ["ASSIGN", "RAIL", "BRANCH", "BRANCH_SHORTCIRCUIT", "EXECUTE", "OPERAND", "COMMENT"]
@@ -34,19 +34,19 @@ export function networkWordCompletions(source: string, offset: number): Completi
 
 /** INVERT, RISING, FALLING: a mark on the value written inside it. */
 function marks(): CompletionItem[] {
-  return MARKS.map((m) => ({ label: m, kind: CompletionItemKind.Function, detail: NETWORK_MEANINGS[m] }))
+  return MARKS.map((m) => ({ label: m, kind: CompletionItemKind.Function, detail: networkDetail(m) }))
 }
 
 /** ASSIGN's outputs, each a target's mark. */
 function outputs(): CompletionItem[] {
-  return ASSIGN_OUTPUTS.map((o) => ({ label: o, kind: CompletionItemKind.Field, detail: NETWORK_MEANINGS[o] }))
+  return ASSIGN_OUTPUTS.map((o) => ({ label: o, kind: CompletionItemKind.Field, detail: networkDetail(o) }))
 }
 
 function values(): CompletionItem[] {
   return VALUES.map((v) => ({
     label: v === "RAIL" ? "RAIL()" : v,
     kind: CompletionItemKind.Function,
-    detail: NETWORK_MEANINGS[v],
+    detail: networkDetail(v),
   }))
 }
 

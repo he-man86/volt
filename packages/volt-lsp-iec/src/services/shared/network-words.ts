@@ -23,7 +23,7 @@ import {
   type Token,
   type TopLevel,
 } from "../../frontend/syntax/index.js"
-import { labelMeaning, NETWORK_MEANINGS, type NetworkForm } from "./network-meanings.js"
+import { labelMeaning, networkMeaning, type NetworkForm } from "./network-meanings.js"
 
 /** The semantic-token class of a network word (a subset of the server's legend). */
 type NetworkWordKind = "keyword" | "function" | "label"
@@ -32,7 +32,7 @@ interface NetworkWord {
   start: number
   end: number
   kind: NetworkWordKind
-  /** What it runs as, one line (`network-meanings.ts`). */
+  /** What it means (`network-meanings.ts`): its line, or its measured text and the ST it runs as. */
   meaning: string
 }
 
@@ -87,7 +87,7 @@ function bodyWords(body: BodySpan): readonly NetworkWord[] {
 function readWords(body: BodySpan): NetworkWord[] {
   const out: NetworkWord[] = []
   const add = (span: Span, kind: NetworkWordKind, meaning: string) => out.push({ start: span.start, end: span.end, kind, meaning })
-  const form = (span: Span, kind: NetworkWordKind, f: NetworkForm) => add(span, kind, NETWORK_MEANINGS[f])
+  const form = (span: Span, kind: NetworkWordKind, f: NetworkForm) => add(span, kind, networkMeaning(f))
   const lang = languageLineWords(body)
   for (const w of lang) {
     const key = w.text.toUpperCase()

@@ -216,7 +216,8 @@ public class NoRetiredNetworkTextTests
 
     /// <summary>The lines of a file as (line number, the line, its pieces of text): a TypeScript line split at its <c>\n</c>
     /// escapes; in the HTML doc only its code — a <c>&lt;pre&gt;</c> block's lines and each <c>&lt;code&gt;</c> span (<c>Spans</c>: each
-    /// one on its own) — decoded.</summary>
+    /// one on its own) — decoded. A <c>&lt;pre class="st"&gt;</c> block is the plain ST a network runs as, not network
+    /// text: it is not read.</summary>
     private static IEnumerable<(int Line, string Raw, string[] Parts, bool Spans)> Units(string file, bool html, bool ts)
     {
         var lines = File.ReadAllText(file).Replace("\r\n", "\n").Split('\n');

@@ -11,6 +11,7 @@ import { completion, hover } from "../assist/index.js"
 import { definition, documentHighlights } from "../navigation/index.js"
 import { networkTokens, SEMANTIC_TOKEN_TYPES, semanticTokensData } from "../structure/index.js"
 import type { Document } from "./document.js"
+import { NETWORK_RUNS } from "./network-runs.generated.js"
 
 const NETWORK = `PROGRAM P
 VAR
@@ -176,29 +177,28 @@ describe("completion of the network words", () => {
   })
 })
 
-describe("hover on the network words: what each runs as, one line", () => {
+describe("hover on the network words: what each runs as, its row of the generated runs", () => {
   const hoverAt = (src: string, from: string, word: string) => {
     const { doc, project } = setup(src)
     const h = hover(doc, project, src.indexOf(from) + from.indexOf(word))
     return (h?.contents as { value: string } | undefined)?.value
   }
+  const row = (form: string) => NETWORK_RUNS.find((r) => r.form === form)!
 
-  test("RAIL() is the left rail", () => {
-    expect(hoverAt(NETWORK, "ASSIGN(RAIL(), Q => x);", "RAIL")).toBe("the left rail: TRUE")
-  })
-
-  test("a mark and an ASSIGN's output say what they run as", () => {
-    expect(hoverAt(NETWORK, "ASSIGN(INVERT(b)", "INVERT")).toBe("a negation of its value: NOT of it (bitwise on an integer)")
-    expect(hoverAt(NETWORK, "Q_SET => x", "Q_SET")).toBe("a set coil: the target is set TRUE while the value is TRUE")
-    expect(hoverAt(NETWORK, "Q_INVERTED => y", "Q_INVERTED")).toBe("a negated coil: the target receives NOT the value")
-  })
-
-  test("every other network word answers one line", () => {
+  test("a form answers its measured text and the ST the lowering makes of it", () => {
     for (const [from, word] of [
-      ["%DISABLED", "DISABLED"], ['%NETWORK "first"', "NETWORK"], ["ASSIGN(BRANCH(", "BRANCH"], ["BRANCH_SHORTCIRCUIT(", "BRANCH_SHORTCIRCUIT"],
+      ["ASSIGN(RAIL(), Q => x);", "RAIL"], ["ASSIGN(INVERT(b)", "INVERT"], ["Q_SET => x", "Q_SET"], ["Q_INVERTED => y", "Q_INVERTED"],
+      ["%DISABLED", "DISABLED"], ["ASSIGN(BRANCH(", "BRANCH"], ["BRANCH_SHORTCIRCUIT(", "BRANCH_SHORTCIRCUIT"],
       ["EXECUTE(EN", "EXECUTE"], ["ASSIGN(FALLING(a)", "FALLING"], ["IN := RISING(a)", "RISING"], ["ASSIGN(a, Q_INVERTED", "ASSIGN"],
-      ["JMP.l", "JMP"], ["JMP.l", "l"], ["Q => RETURN", "RETURN"], ["\nl:", "l"],
+      ["JMP.l", "JMP"], ["Q => RETURN", "RETURN"],
     ] as const) {
+      const r = row(word)
+      expect([from, hoverAt(NETWORK, from, word)]).toEqual([from, `\`\`\`st\n${r.text}\n\`\`\`\nruns as\n\`\`\`st\n${r.runsAs}\n\`\`\``])
+    }
+  })
+
+  test("a line and a label say what they are, one line", () => {
+    for (const [from, word] of [['%NETWORK "first"', "NETWORK"], ["JMP.l", "l"], ["\nl:", "l"]] as const) {
       const text = hoverAt(NETWORK, from, word)
       expect([from, typeof text]).toEqual([from, "string"])
       expect(text!.includes("\n")).toBe(false)
@@ -238,7 +238,7 @@ test("COMMENT is a function, the operand it wraps the operand", () => {
 })
 
 test("hover says what COMMENT is", () => {
-  expect(hoverAt(ITEMS, "ASSIGN(COMMENT(a, 'why'), Q => y);", "COMMENT")).toBe("an operand comment: the operand it wraps, the comment the engineer typed beside it")
+  expect(hoverAt(ITEMS, "ASSIGN(COMMENT(a, 'why'), Q => y);", "COMMENT")).toContain(NETWORK_RUNS.find((r) => r.form === "COMMENT")!.runsAs)
 })
 
 test("COMMENT is offered where an operand stands: a value, a statement's start, an output's target, a pin", () => {

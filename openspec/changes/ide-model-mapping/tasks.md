@@ -46,7 +46,7 @@
 
 - [x] 5.1 One proposal to the owner and Sim-Assist from the map, every rule with its row, following design.md "Language direction" (settled 2026-11-05) and closing its open points.
 - [x] 5.2 Build it after the owner decides (`network-language`, archived 2026-11-06).
-- [ ] 5.3 `network-text.html` "What it runs as": one row per network-only form and the exact plain ST it runs as, generated from the lowering's rules and gated, each row pinned by a run; it replaces the text in `services/shared/network-meanings.ts` (from `network-rail-and-pin-negation` 2.3).
+- [x] 5.3 `network-text.html` "What it runs as": one row per network-only form and the exact plain ST it runs as, generated from the lowering's rules and gated, each row pinned by a run; it replaces the text in `services/shared/network-meanings.ts` (from `network-rail-and-pin-negation` 2.3).
 
 ## 6. Verify on TwinCAT
 

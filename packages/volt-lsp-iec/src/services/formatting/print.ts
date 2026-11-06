@@ -205,7 +205,7 @@ function hasCommentOrPragma(body: BodySpan): boolean {
   return body.tokens.some((t) => t.kind === "line_comment" || t.kind === "block_comment" || t.kind === "pragma")
 }
 
-function printStatements(list: StatementList, depth: number): string {
+export function printStatements(list: StatementList, depth: number): string {
   return list.map((s) => printStatement(s, depth)).join("\n")
 }
 
