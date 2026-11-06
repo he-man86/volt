@@ -1,3 +1,5 @@
+﻿> SUPERSEDED (owner, 2026-11-06, archived as legacy): the vendor-facts snapshots are not re-recorded; their NWL facts fold into the map (`ide-model-mapping` 4.1, one source of truth). Spec delta removed so archiving files no requirement.
+
 > Checked 2026-11-06: every NWL row's push source in `vendor-facts.table.ts` is spelled in the network language and reads and writes back unchanged through the bridge's reader and writer, offline (`graphical-callee-seed`'s caller variable `r` renamed `res`: `R` is the reset operator, refused as a name). The snapshots are still stale (`IMPLEMENTATION` in 23 CODESYS and 16 TwinCAT rows, `refused-names` among them). Needs live CODESYS and TwinCAT.
 
 > Found by the language-line step-3 gate review (2026-10-27). Not started; it follows network-text-st, whose grammar
