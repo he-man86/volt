@@ -75,11 +75,11 @@ VAR
 END_VAR
 %LANGUAGE LD
 %NETWORK
-out := TRUE;
-JMP.Onwards := RAIL();
+ASSIGN(TRUE, Q => out);
+ASSIGN(RAIL(), Q => JMP.Onwards);
 %NETWORK
 Onwards:
-after := TRUE;
+ASSIGN(TRUE, Q => after);
 
 END_FUNCTION_BLOCK
 `,
@@ -100,15 +100,15 @@ VAR
 END_VAR
 %LANGUAGE LD
 %NETWORK
-JMP.Tail := cond;
+ASSIGN(cond, Q => JMP.Tail);
 %NETWORK
-RETURN := cond;
+ASSIGN(cond, Q => RETURN);
 %NETWORK
 Tail:
-done := TRUE;
-RETURN := RAIL();
+ASSIGN(TRUE, Q => done);
+ASSIGN(RAIL(), Q => RETURN);
 %NETWORK
-later := TRUE;
+ASSIGN(TRUE, Q => later);
 
 END_FUNCTION_BLOCK
 `,
@@ -133,7 +133,7 @@ END_VAR
 %NETWORK
 EXECUTE(EN := bRun, 'IF bStart THEN
 \ttarget := 40 + 2;
-END_IF').ENO;
+END_IF');
 
 END_FUNCTION_BLOCK
 `,
@@ -173,7 +173,7 @@ VAR
 END_VAR
 %LANGUAGE FBD
 %NETWORK
-next := VltRefSplit(src, doubled => twice).OUT;
+ASSIGN(VltRefSplit(src, doubled => twice), Q => next);
 
 END_FUNCTION_BLOCK
 `,
@@ -186,7 +186,7 @@ VAR
 END_VAR
 %LANGUAGE FBD
 %NETWORK
-next := VltRefSplit(source := src, doubled => twice).OUT;
+ASSIGN(VltRefSplit(source := src, doubled => twice), Q => next);
 
 END_FUNCTION_BLOCK
 `,
@@ -284,17 +284,17 @@ describe(`graphical / editing a body INTO a refused shape (${BASE})`, () => {
 			// Editing a conditional jump into an unconditional one is the swap DIRECTLY — no import at all,
 			// because only the RValue element changes. This is what was measured first.
 			vars: BOOLS,
-			nets: ["%NETWORK", "JMP.Done := a;", "%NETWORK", "Done:", "out := a;"],
-			from: "JMP.Done := a;",
-			to: "JMP.Done := RAIL();",
+			nets: ["%NETWORK", "ASSIGN(a, Q => JMP.Done);", "%NETWORK", "Done:", "ASSIGN(a, Q => out);"],
+			from: "ASSIGN(a, Q => JMP.Done);",
+			to: "ASSIGN(RAIL(), Q => JMP.Done);",
 		},
 		{
 			key: "eret",
 			what: "an unconditional RETURN",
 			vars: BOOLS,
-			nets: ["%NETWORK", "RETURN := a;", "%NETWORK", "out := a;"],
-			from: "RETURN := a;",
-			to: "RETURN := RAIL();",
+			nets: ["%NETWORK", "ASSIGN(a, Q => RETURN);", "%NETWORK", "ASSIGN(a, Q => out);"],
+			from: "ASSIGN(a, Q => RETURN);",
+			to: "ASSIGN(RAIL(), Q => RETURN);",
 		},
 		{
 			key: "earrow",
@@ -308,9 +308,9 @@ describe(`graphical / editing a body INTO a refused shape (${BASE})`, () => {
 			key: "eexec",
 			what: "an EXECUTE box",
 			vars: BOOLS,
-			nets: ["%NETWORK", "out := a;"],
-			from: "out := a;",
-			to: "EXECUTE('out := a;').ENO;",
+			nets: ["%NETWORK", "ASSIGN(a, Q => out);"],
+			from: "ASSIGN(a, Q => out);",
+			to: "EXECUTE('out := a;');",
 		},
 	]
 
@@ -383,7 +383,7 @@ END_FUNCTION_BLOCK
 METHOD Step : BOOL
 %LANGUAGE FBD
 %NETWORK
-EXECUTE(EN := bRun, 'target := 40 + 2;').ENO;
+EXECUTE(EN := bRun, 'target := 40 + 2;');
 
 
 END_METHOD

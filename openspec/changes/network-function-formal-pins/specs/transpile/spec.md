@@ -7,7 +7,7 @@ the box. An unknown pin name, a pin given twice or a missing pin SHALL be refuse
 built-in called with named arguments SHALL stay refused as `call-named-args`.
 
 #### Scenario: LIMIT with its pin names in FBD
-- **WHEN** an FBD `Main` holds `y := LIMIT(MN := 0, IN := v, MX := 100);` and runs with `v` at 150
+- **WHEN** an FBD `Main` holds `ASSIGN(LIMIT(MN := 0, IN := v, MX := 100), Q => y);` and runs with `v` at 150
 - **THEN** it lowers, and `y` is 100
 
 #### Scenario: the same call in ST
@@ -20,5 +20,5 @@ file.
 
 #### Scenario: a wire fed by MOVE of an array
 - **WHEN** an FBD network declares `VAR w1 : ANY; END_VAR`, assigns `w1 := MOVE(arr);` with `arr` an array, and
-  reads `out := w1;`
+  reads `ASSIGN(w1, Q => out);`
 - **THEN** the refusal names `w1` and stands on the wire's line

@@ -44,8 +44,8 @@ describe(`graphical / titles and comments (${BASE})`, () => {
 			`%LANGUAGE FBD\n%NETWORK "the interlock"\n` +
 			`// holds the drive off while the guard is open\n` +
 			`// second line of the same comment\n` +
-			`out1 := AND(a, b);\n` +
-			`%NETWORK\nout2 := OR(a, b);\n\nEND_PROGRAM\n`
+			`ASSIGN(AND(a, b), Q => out1);\n` +
+			`%NETWORK\nASSIGN(OR(a, b), Q => out2);\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
 		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)

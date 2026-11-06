@@ -92,7 +92,7 @@ const ROWS: Row[] = [
 		title: "1.1 an ST body holding network text is written as sent; the build reports it",
 		run: async (b) => {
 			const bare = n("st_net")
-			const text = fb(bare, { body: "%NETWORK\nx := 1;" })
+			const text = fb(bare, { body: "%NETWORK\nASSIGN(1, Q => x);" })
 			const r = await pushFresh(b, [{ op: "set", name: b.path(`${bare}.pou`), sourceText: text, ifVersion: null }])
 			expect(accepted(r), `${b.vendor}: refused: ${JSON.stringify(r)}`).toBe(true)
 			expect(noBlanks((await fetchOne(b, b.path(`${bare}.pou`))).sourceText)).toBe(noBlanks(text))

@@ -42,7 +42,7 @@ VAR
 END_VAR
 %LANGUAGE FBD
 %NETWORK
-y1 := ${FN}(n := i, OUT => k1).q;
+ASSIGN(${FN}(n := i, OUT => k1).q, Q => y1);
 %NETWORK
 ${FN}(n := i, OUT => k2).q;
 %NETWORK

@@ -46,20 +46,40 @@ test("the % lines of a network are its keywords; a title is a string", () => {
 
 test("a box's head is coloured where its call opens; the same word as a contact or a name is not", () => {
 	const words = rule("keyword.operator.word.network-text")
-	expect(matches(words, "x := ADD(a, b); y := BRANCH_SHORTCIRCUIT(FEED := c, a, b); z := RISING(c); r := RAIL(); q := a AND b; EXECUTE('n := 1;');")).toEqual([
-		"ADD",
-		"BRANCH_SHORTCIRCUIT",
-		"RISING",
-		"RAIL",
+	const text =
+		"ASSIGN(ADD(a, b), Q => x); ASSIGN(BRANCH_SHORTCIRCUIT(FEED := c, a, b), Q => y); ASSIGN(RISING(INVERT(c)), Q => z); " +
+		"ASSIGN(FALLING(c), Q => f); ASSIGN(RAIL(), Q => r); ASSIGN(a AND b, Q => q); EXECUTE('n := 1;'); " +
+		"ASSIGN(ADD(OPERAND('INT_TO_WORD(i)'), 1), Q => COMMENT(k, 'why'));"
+	expect(matches(words, text)).toEqual([
+		"ASSIGN", "ADD",
+		"ASSIGN", "BRANCH_SHORTCIRCUIT",
+		"ASSIGN", "RISING", "INVERT",
+		"ASSIGN", "FALLING",
+		"ASSIGN", "RAIL",
+		"ASSIGN",
 		"EXECUTE",
+		"ASSIGN", "ADD", "OPERAND", "COMMENT",
 	])
-	expect(matches(words, "s.ADD(a); xADD(a);")).toEqual([])
+	expect(matches(words, "s.ADD(a); xADD(a); s.ASSIGN(a);")).toEqual([])
 })
 
-test("the ENO a box shows is .ENO closing its call; a member of a variable is none", () => {
-	const eno = rule("keyword.other.eno.network-text")
-	expect(matches(eno, "lamp := MOVE(EN := c, 1, OUT => t).ENO; ok := f(a).ENO; x := GT(EN := c, i, 3); y := d.ENO;", 2)).toEqual([
-		"ENO",
-		"ENO",
+test("a jump and the return are targets of an ASSIGN; the same words elsewhere are not", () => {
+	const targets = rule("keyword.control.target.network-text")
+	expect(matches(targets, "ASSIGN(a, Q => JMP.l); ASSIGN(b, Q_INVERTED => JMP.???); ASSIGN(c, Q => RETURN);", 1)).toEqual([
+		"JMP",
+		"JMP",
+		"RETURN",
 	])
+	expect(matches(targets, "ASSIGN(a, Q => jmpx); t1(IN := a, Q => RETURNED);", 1)).toEqual([])
+})
+
+test("a mark on a receiver is in its output's name", () => {
+	const marks = rule("keyword.other.mark.network-text")
+	expect(matches(marks, "ASSIGN(a, Q_INVERTED => y, Q_SET => s, Q_RESET => r); t1(IN := a, PT := T#1S, q2_SET => k);", 1)).toEqual([
+		"_INVERTED",
+		"_SET",
+		"_RESET",
+		"_SET",
+	])
+	expect(matches(marks, "ASSIGN(a, Q => y); t1(IN := a, Q => x); ASSIGN(b, Q => Q_SET_x);", 1)).toEqual([])
 })

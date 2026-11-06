@@ -25,7 +25,7 @@ VAR
 END_VAR
 %LANGUAGE FBD
 %NETWORK
-out := NOT(AND(a, b));
+ASSIGN(NOT(AND(a, b)), Q => out);
 
 END_PROGRAM
 `
@@ -40,7 +40,7 @@ VAR
 END_VAR
 %LANGUAGE LD
 %NETWORK
-out := a AND b;
+ASSIGN(a AND b, Q => out);
 
 END_PROGRAM
 `
@@ -48,7 +48,7 @@ END_PROGRAM
 
 // LD featureset variations (mirror the C# LadderRoundTripTests at the live-bridge layer): a normally-closed
 // (negated) contact, a longer series, multiple coils in one network, and a SET coil.
-// A negated contact sits inline, `NOT a`, an operand carrying its modifier (network-text.html#elements).
+// A negated contact is a mark on its operand, `INVERT(a)` (network-text.html, Marks).
 function ldNegated(name: string) {
 	return `PROGRAM ${name}
 VAR
@@ -58,7 +58,7 @@ VAR
 END_VAR
 %LANGUAGE LD
 %NETWORK
-out := NOT a AND b;
+ASSIGN(INVERT(a) AND b, Q => out);
 
 END_PROGRAM
 `
@@ -73,7 +73,7 @@ VAR
 END_VAR
 %LANGUAGE LD
 %NETWORK
-out := a AND b AND c;
+ASSIGN(a AND b AND c, Q => out);
 
 END_PROGRAM
 `
@@ -88,8 +88,8 @@ VAR
 END_VAR
 %LANGUAGE LD
 %NETWORK
-q := a;
-q2 := b;
+ASSIGN(a, Q => q);
+ASSIGN(b, Q => q2);
 
 END_PROGRAM
 `
@@ -102,7 +102,7 @@ VAR
 END_VAR
 %LANGUAGE LD
 %NETWORK
-out S= a;
+ASSIGN(a, Q_SET => out);
 
 END_PROGRAM
 `
@@ -120,7 +120,7 @@ END_VAR
 %NETWORK
 EXECUTE(EN := bRun, '  IF bRun THEN
 \tiResult := 40 + 2;   (* the answer *)
-  END_IF').ENO;
+  END_IF');
 
 END_PROGRAM
 `
@@ -139,7 +139,7 @@ VAR
 END_VAR
 %LANGUAGE FBD
 %NETWORK
-EXECUTE(EN := bRun, '').ENO;
+EXECUTE(EN := bRun, '');
 
 END_PROGRAM
 `
@@ -156,7 +156,7 @@ VAR
 END_VAR
 %LANGUAGE LD
 %NETWORK
-out := a AND b;
+ASSIGN(a AND b, Q => out);
 
 END_FUNCTION_BLOCK
 `

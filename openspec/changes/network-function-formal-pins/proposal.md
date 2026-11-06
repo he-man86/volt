@@ -1,5 +1,5 @@
 > DRAFT, written from Sim-Assist (change `plc-workspace-ide`, 2026-10-31). Measured, not started.
-> Checked on dev 3bf209901e (2026-11-03): still real (`LIMIT`, `SEL`, `MIN`, `MUX` with formals: `call-named-args`, `builtins.ts:56`; `MOVE(arr)` wire: `network-box` at 1:1, `network.ts:123`). The FBD half of 1.1 is measured: `network-text-one-to-one/design.md` F12.
+> The FBD half of 1.1 is measured: `network-text-one-to-one/design.md` F12.
 
 ## Why
 
@@ -14,13 +14,13 @@ Measured with Sim-Assist's bundle of volt `2e45aa4098` (`parseDocument` + `build
 
 | Body | Measured | Expected |
 |---|---|---|
-| FBD `y := LIMIT(MN := 0, IN := v, MX := 100);` | `call-named-args` "LIMIT with named or output arguments" at 7:6 | lowers as `LIMIT(0, v, 100)` |
-| FBD `y := LIMIT(0, v, 100);` | lowers | lowers |
-| FBD `y := SEL(G := g, IN0 := a, IN1 := b);` | `call-named-args` "SEL with named or output arguments" | lowers as `SEL(g, a, b)` |
+| FBD `ASSIGN(LIMIT(MN := 0, IN := v, MX := 100), Q => y);` | `call-named-args` "LIMIT with named or output arguments" at 7:6 | lowers as `LIMIT(0, v, 100)` |
+| FBD `ASSIGN(LIMIT(0, v, 100), Q => y);` | lowers | lowers |
+| FBD `ASSIGN(SEL(G := g, IN0 := a, IN1 := b), Q => y);` | `call-named-args` "SEL with named or output arguments" | lowers as `SEL(g, a, b)` |
 | ST `y := LIMIT(MN := 0, IN := v, MX := 100);` | `call-named-args` | unchanged: `call-named-args` (`rk_builtin_named_args`, CODESYS refuses it in ST) |
 
 A second, smaller finding on the same run: an FBD wire fed by `MOVE` of an array
-(`VAR w1 : ANY; END_VAR` / `w1 := MOVE(arr);` / `out := w1;`, `arr, out : ARRAY[0..1] OF INT`) is refused as
+(`VAR w1 : ANY; END_VAR` / `w1 := MOVE(arr);` / `ASSIGN(w1, Q => out);`, `arr, out : ARRAY[0..1] OF INT`) is refused as
 `network-box` "the wire w1 has no type lowering can declare" at 1:1, the start of the file, not at the wire. `w1 :=
 arr;` instead gives `network-wire-type` at the wire. Whether CODESYS compiles an array-typed wire is not measured here.
 

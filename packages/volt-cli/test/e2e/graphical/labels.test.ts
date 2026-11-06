@@ -55,8 +55,8 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 		// that lives on the network object rather than in the statements.
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;\nEND_VAR\n` +
-			`%LANGUAGE FBD\n%NETWORK\nout1 := AND(a, b);\n` +
-			`%NETWORK\nDone:\nout2 := OR(a, b);\n\nEND_PROGRAM\n`
+			`%LANGUAGE FBD\n%NETWORK\nASSIGN(AND(a, b), Q => out1);\n` +
+			`%NETWORK\nDone:\nASSIGN(OR(a, b), Q => out2);\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
 		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
@@ -92,15 +92,15 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`%LANGUAGE FBD\n%NETWORK\nJMP.Done := a;\n` +
-			`%NETWORK\nDone:\nout := OR(a, b);\n\nEND_PROGRAM\n`
+			`%LANGUAGE FBD\n%NETWORK\nASSIGN(a, Q => JMP.Done);\n` +
+			`%NETWORK\nDone:\nASSIGN(OR(a, b), Q => out);\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
 		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
 
 		const v1 = await pull(item)
 		expect(v1).toBeDefined()
-		expect(v1.sourceText, "the jump was dropped").toMatch(/^JMP\.Done := a;$/m)
+		expect(v1.sourceText, "the jump was dropped").toMatch(/^ASSIGN\(a, Q => JMP\.Done\);$/m)
 		expect(v1.sourceText, "the jump's target label was dropped").toContain("\nDone:\n")
 
 		const refs = await bridge.refs()
@@ -133,15 +133,15 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`%LANGUAGE FBD\n%NETWORK\nRETURN := a;\n` +
-			`%NETWORK\nout := AND(a, b);\n\nEND_PROGRAM\n`
+			`%LANGUAGE FBD\n%NETWORK\nASSIGN(a, Q => RETURN);\n` +
+			`%NETWORK\nASSIGN(AND(a, b), Q => out);\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
 		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
 
 		const v1 = await pull(item)
 		expect(v1, "the item vanished after its create").toBeDefined()
-		expect(v1.sourceText, "the return was dropped").toMatch(/^RETURN := a;$/m)
+		expect(v1.sourceText, "the return was dropped").toMatch(/^ASSIGN\(a, Q => RETURN\);$/m)
 
 		// The FIXED POINT is the half that matters: TwinCAT imported the return happily and then refused to
 		// push the body back, so a POU Volt had just created could never be pushed again.
@@ -158,7 +158,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 	})
 
 	/**
-	 * AN UNCONDITIONAL `RETURN := RAIL();` — round-trips, or is refused for a reason that names the vendor limit.
+	 * AN UNCONDITIONAL `ASSIGN(RAIL(), Q => RETURN);` — round-trips, or is refused for a reason that names the vendor limit.
 	 *
 	 * CODESYS builds it: the item needs a VALUE, and "nothing drives this" is spelled as an unconnected
 	 * terminator — the rail — rather than as a null, which is what it used to be
@@ -175,8 +175,8 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`%LANGUAGE FBD\n%NETWORK\nout := AND(a, b);\n` +
-			`%NETWORK\nRETURN := RAIL();\n\nEND_PROGRAM\n`
+			`%LANGUAGE FBD\n%NETWORK\nASSIGN(AND(a, b), Q => out);\n` +
+			`%NETWORK\nASSIGN(RAIL(), Q => RETURN);\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
 		if (!landed(created)) {
@@ -186,7 +186,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 
 		const v1 = await pull(item)
 		expect(v1).toBeDefined()
-		expect(v1.sourceText, "the return was dropped").toMatch(/^RETURN := RAIL\(\);$/m)
+		expect(v1.sourceText, "the return was dropped").toMatch(/^ASSIGN\(RAIL\(\), Q => RETURN\);$/m)
 		expect(v1.sourceText).toBe(src)
 
 		await clean(item)
@@ -199,8 +199,8 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`%LANGUAGE FBD\n%NETWORK\nJMP.Done := RAIL();\n` +
-			`%NETWORK\nDone:\nout := AND(a, b);\n\nEND_PROGRAM\n`
+			`%LANGUAGE FBD\n%NETWORK\nASSIGN(RAIL(), Q => JMP.Done);\n` +
+			`%NETWORK\nDone:\nASSIGN(AND(a, b), Q => out);\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
 		if (!landed(created)) {
@@ -210,7 +210,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 
 		const v1 = await pull(item)
 		expect(v1).toBeDefined()
-		expect(v1.sourceText, "the jump was dropped").toMatch(/^JMP\.Done := RAIL\(\);$/m)
+		expect(v1.sourceText, "the jump was dropped").toMatch(/^ASSIGN\(RAIL\(\), Q => JMP\.Done\);$/m)
 		expect(v1.sourceText).toBe(src)
 
 		await clean(item)
@@ -224,10 +224,10 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 	 * jump to a label no network carries.
 	 */
 	const SHAPES: readonly (readonly [string, string])[] = [
-		["twice", "%NETWORK\nDone:\nout := AND(a, b);\n%NETWORK\nDONE:\nq := a;\n"],
-		["disabled_target", "%NETWORK\nJMP.Done := a;\n%NETWORK\n%DISABLED\nDone:\nout := OR(a, b);\n"],
-		["jump_disabled", "%NETWORK\n%DISABLED\nJMP.Done := a;\n%NETWORK\nDone:\nout := AND(a, b);\n"],
-		["missing", "%NETWORK\nJMP.Nowhere := a;\n%NETWORK\nout := AND(a, b);\n"],
+		["twice", "%NETWORK\nDone:\nASSIGN(AND(a, b), Q => out);\n%NETWORK\nDONE:\nASSIGN(a, Q => q);\n"],
+		["disabled_target", "%NETWORK\nASSIGN(a, Q => JMP.Done);\n%NETWORK\n%DISABLED\nDone:\nASSIGN(OR(a, b), Q => out);\n"],
+		["jump_disabled", "%NETWORK\n%DISABLED\nASSIGN(a, Q => JMP.Done);\n%NETWORK\nDone:\nASSIGN(AND(a, b), Q => out);\n"],
+		["missing", "%NETWORK\nASSIGN(a, Q => JMP.Nowhere);\n%NETWORK\nASSIGN(AND(a, b), Q => out);\n"],
 	]
 	for (const [key, nets] of SHAPES) {
 		it(`the IDE holds a label shape (${key}): it round-trips exactly`, async () => {

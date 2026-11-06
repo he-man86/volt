@@ -122,7 +122,7 @@ internal static class TcNetworkReader
                         "terminator. No measured project has one, and the model keeps one spelling of it.");
 
                 // COIL STORAGE STAYS ON THE TARGET, where this archive keeps it (measured: a coil operand comes
-                // back `Flags=Negation,Set`) and where the format spells it — `out S= v;` / `out R= v;`.
+                // back `Flags=Negation,Set`) and where the format spells it — `ASSIGN(v, Q_SET => out);` / `ASSIGN(v, Q_RESET => out);`.
                 // A JUMP IS READ OFF THE TARGET OPERAND TOO, the same rule CODESYS's reader applies.
                 //
                 // TwinCAT writes the bit in BOTH places — a jump built by its own importer carries
@@ -132,12 +132,12 @@ internal static class TcNetworkReader
                 //
                 // It covers RETURN as well as JMP, and the rule now lives in `Flags.WithControlFlowFrom` for
                 // that reason: this read lifted `Jump` and stopped, so on CODESYS — where the operand is the
-                // only place the bit appears — an engineer's RETURN coil came back as `??? := cond;`. The two
+                // only place the bit appears — an engineer's RETURN coil came back as `ASSIGN(cond, Q => ???);`. The two
                 // bits share a bit-field and an operand; splitting them across two lines is what let one be
                 // fixed while the other stayed broken.
                 // TWINCAT'S UNCONDITIONAL JUMP OR RETURN holds the empty operand where CODESYS holds the rail (its importer,
                 // corpus Vn_jump_uncond / Vn_return_uncond): one fact, read as the rail the model holds it as, so one text
-                // (`JMP.l := RAIL();`) names it on both vendors. The writer keeps the archive's operand (`RailJumpValue`).
+                // (`ASSIGN(RAIL(), Q => JMP.l);`) names it on both vendors. The writer keeps the archive's operand (`RailJumpValue`).
                 if (IsRailJump(targets, value)) value = new Terminator(Flags.None);
                 return new Assign(value, targets, flags.WithControlFlowFrom(targets));
             }

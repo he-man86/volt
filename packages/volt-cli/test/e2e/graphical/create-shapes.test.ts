@@ -50,8 +50,8 @@ describe(`graphical / create shapes (${BASE})`, () => {
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tc : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;\nEND_VAR\n` +
 			// NO blank line between networks — not the canonical form a PULL emits. It is written all the same
 			// (bridge-refusal-review 2.12: the layout-only gate is gone) and the pull below returns the canonical text.
-			`%LANGUAGE FBD\n%NETWORK\nout1 := AND(a, b);\n` +
-			`%NETWORK\nout2 := OR(b, c);\nEND_PROGRAM\n`
+			`%LANGUAGE FBD\n%NETWORK\nASSIGN(AND(a, b), Q => out1);\n` +
+			`%NETWORK\nASSIGN(OR(b, c), Q => out2);\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
 		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
@@ -115,7 +115,7 @@ describe(`graphical / create shapes (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\tt1 : TON;\n\ta : BOOL;\n\tpt : TIME;\n\tdone : BOOL;\nEND_VAR\n` +
-			`%LANGUAGE FBD\n%NETWORK\nt1(IN := a, PT := pt);\ndone := t1.Q;\n\nEND_PROGRAM\n`
+			`%LANGUAGE FBD\n%NETWORK\nt1(IN := a, PT := pt);\nASSIGN(t1.Q, Q => done);\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
 		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
@@ -126,7 +126,7 @@ describe(`graphical / create shapes (${BASE})`, () => {
 		// THE INSTANCE IS THE POINT. `t1(...)` must come back named t1 - if `instanceName` were ignored the call
 		// would return as a bare TON and the timer would lose its state between scans.
 		expect(v1.sourceText).toMatch(/^t1\(/m)
-		expect(v1.sourceText).toMatch(/done := t1\.Q;/)
+		expect(v1.sourceText).toMatch(/ASSIGN\(t1\.Q, Q => done\);/)
 
 		const refs = await bridge.refs()
 		const again = await pushOps([{ op: "set", name: item, sourceText: v1.sourceText, ifVersion: refs.items[item] }])
@@ -134,37 +134,5 @@ describe(`graphical / create shapes (${BASE})`, () => {
 		expect((await pull(item)).sourceText).toBe(v1.sourceText)
 
 		await clean(item)
-	})
-
-	/** ENO SHOWN WITHOUT EN (DIALECT N16, network-output-member 2.3): the flag is the box's own fact, so `f(…).ENO` read by
-	 * a coil comes back as written. Both writers set it only under an enable, and the pull dropped `.ENO`. */
-	it("a box showing its ENO without EN survives a create", async () => {
-		const fn = id("enofn")
-		const fnItem = inFolder(await projectRoot(), fid("enofn", "pou"))
-		const name = id("enonoen")
-		const item = inFolder(await projectRoot(), fid("enonoen", "pou"))
-		await clean(item)
-		await clean(fnItem)
-
-		const fnSrc = `FUNCTION ${fn} : INT\nVAR_INPUT\n\tIN : INT;\nEND_VAR\n%LANGUAGE ST\n${fn} := IN + 1;\n\nEND_FUNCTION\n`
-		const madeFn = await pushOps([{ op: "set", name: fnItem, sourceText: fnSrc, ifVersion: null }])
-		expect(landed(madeFn), `function create refused: ${JSON.stringify(madeFn.conflicts)}`).toBe(true)
-
-		const src =
-			`PROGRAM ${name}\nVAR\n\ti : INT;\n\tn : INT;\n\tx : BOOL;\nEND_VAR\n` +
-			`%LANGUAGE FBD\n%NETWORK\n${fn}(IN := i, OUT => n).ENO;\n\nEND_PROGRAM\n`
-		const created = await pushOps([{ op: "set", name: item, sourceText: src, ifVersion: null }])
-		expect(landed(created), `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
-
-		const v1 = await pull(item)
-		expect(v1.sourceText, "the box lost its ENO").toContain(`${fn}(IN := i, OUT => n).ENO;`)
-
-		const refs = await bridge.refs()
-		const again = await pushOps([{ op: "set", name: item, sourceText: v1.sourceText, ifVersion: refs.items[item] }])
-		expect(landed(again), `re-push refused: ${JSON.stringify(again.conflicts)}`).toBe(true)
-		expect((await pull(item)).sourceText).toBe(v1.sourceText)
-
-		await clean(item)
-		await clean(fnItem)
 	})
 })

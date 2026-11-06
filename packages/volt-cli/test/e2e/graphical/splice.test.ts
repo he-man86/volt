@@ -34,9 +34,9 @@ VAR
 END_VAR
 %LANGUAGE FBD
 %NETWORK
-out1 := AND(a, b);
+ASSIGN(AND(a, b), Q => out1);
 %NETWORK
-out2 := OR(a, b);
+ASSIGN(OR(a, b), Q => out2);
 END_PROGRAM
 `
 }
@@ -64,7 +64,7 @@ describe(`graphical / splice (${BASE})`, () => {
 		expect(nets1.length).toBe(2)
 
 		// Edit network 1 ONLY. Network 0's text is byte-identical, so the splice must carry it.
-		const edited = nets1[1].replace("out2 :=", "out2b :=").replace("OR(a, b);", "AND(a, NOT b);")
+		const edited = nets1[1].replace("Q => out2)", "Q => out2b)").replace("OR(a, b)", "AND(a, INVERT(b))")
 		expect(edited).not.toBe(nets1[1])
 		const pushed = v1.replace(nets1[1], edited).replace("\tout2 : BOOL;", "\tout2b : BOOL;")
 
@@ -99,16 +99,16 @@ VAR
 END_VAR
 %LANGUAGE FBD
 %NETWORK
-out1 := AND(a, b);
+ASSIGN(AND(a, b), Q => out1);
 %NETWORK
-out2 := OR(a, b);
+ASSIGN(OR(a, b), Q => out2);
 END_FUNCTION_BLOCK
 `
 		await createItem(full, src, await projectRoot())
 		const v1 = (await fetchItem(full)).sourceText
 		const nets1 = networks(v1)
 
-		const pushed = v1.replace(nets1[1], nets1[1].replace("OR(a, b);", "AND(a, NOT b);"))
+		const pushed = v1.replace(nets1[1], nets1[1].replace("OR(a, b)", "AND(a, INVERT(b))"))
 		const refs = await bridge.refs()
 		expect(landed((await bridge.push({
 			expectedProjectVersion: refs.projectVersion,
@@ -125,7 +125,7 @@ END_FUNCTION_BLOCK
 
 		const v1 = (await fetchItem(full)).sourceText
 		const nets = networks(v1)
-		const pushed = v1.replace(nets[1], nets[1].replace("OR(a, b);", "AND(a, NOT b);"))
+		const pushed = v1.replace(nets[1], nets[1].replace("OR(a, b)", "AND(a, INVERT(b))"))
 
 		const r1 = await bridge.refs()
 		expect(landed((await bridge.push({ expectedProjectVersion: r1.projectVersion,

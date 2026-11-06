@@ -70,7 +70,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 	// ── what ladderLabel.pou lost ────────────────────────────────────────────────────────────────────────
 
 	/**
-	 * AN UNDRIVEN COIL — a coil with nothing wired into it, which in LD is the rail: `out := TRUE;`.
+	 * AN UNDRIVEN COIL — a coil with nothing wired into it, which in LD is the rail: `ASSIGN(TRUE, Q => out);`.
 	 *
 	 * The reader already models it: an empty right-hand side becomes the TERMINATOR the archive actually holds,
 	 * not a null, because a null makes the in-place writer refuse ("the 'RValue' input of an item is removed")
@@ -79,7 +79,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 	 */
 	it("a coil with nothing driving it round-trips", async () => {
 		const name = id("ucoil")
-		await expectRoundTrip(fid("ucoil", "pou"), prg(name, "LD", `%NETWORK\nout := TRUE;\n`))
+		await expectRoundTrip(fid("ucoil", "pou"), prg(name, "LD", `%NETWORK\nASSIGN(TRUE, Q => out);\n`))
 	})
 
 	/**
@@ -92,7 +92,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 	 */
 	it("an empty network round-trips, or is refused by name", async () => {
 		const name = id("enet")
-		const src = prg(name, "LD", `%NETWORK\nout := a AND b;\n%NETWORK\n`)
+		const src = prg(name, "LD", `%NETWORK\nASSIGN(a AND b, Q => out);\n%NETWORK\n`)
 
 		const outcome = await expectRoundTripOrRefusal(fid("enet", "pou"), src, "network")
 		console.log(`  [empty network] ${BASE}: ${outcome}`)
@@ -108,7 +108,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 		const src = prg(
 			name,
 			"LD",
-			`%NETWORK\nFirst:\nout := TRUE;\n%NETWORK\nSecond:\n`,
+			`%NETWORK\nFirst:\nASSIGN(TRUE, Q => out);\n%NETWORK\nSecond:\n`,
 			"\tout : BOOL;\n",
 		)
 
@@ -131,10 +131,10 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 		const name = id("rcoil")
 		const before = await diagnostics()
 
-		const back = await expectRoundTrip(fid("rcoil", "pou"), prg(name, "LD", `%NETWORK\nout R= a;\n`))
+		const back = await expectRoundTrip(fid("rcoil", "pou"), prg(name, "LD", `%NETWORK\nASSIGN(a, Q_RESET => out);\n`))
 
-		expect(back, "the reset coil came back as something else").toContain("R=")
-		expect(back, "a reset coil must not degrade to a SET coil").not.toContain("S=")
+		expect(back, "the reset coil came back as something else").toContain("Q_RESET => out")
+		expect(back, "a reset coil must not degrade to a SET coil").not.toContain("Q_SET")
 		expect(await added(before), "the reset coil does not compile").toEqual([])
 	})
 
@@ -157,7 +157,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 		const src = prg(
 			name,
 			"LD",
-			`%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := a AND b;\nlatched S= w1;\ncleared R= w1;\n`,
+			`%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := a AND b;\nASSIGN(w1, Q_SET => latched);\nASSIGN(w1, Q_RESET => cleared);\n`,
 			"\ta : BOOL;\n\tb : BOOL;\n\tlatched : BOOL;\n\tcleared : BOOL;\n",
 		)
 
@@ -169,7 +169,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 
 		// Each coil keeps its own storage — a SET that came back as the RESET's (or plain) is the bug this pins.
 		expect(back, "the SET or the RESET coil lost its storage")
-			.toContain("VAR w1 : ANY; END_VAR\nw1 := a AND b;\nlatched S= w1;\ncleared R= w1;\n")
+			.toContain("VAR w1 : ANY; END_VAR\nw1 := a AND b;\nASSIGN(w1, Q_SET => latched);\nASSIGN(w1, Q_RESET => cleared);\n")
 
 		// THE FIXED POINT is the half a create cannot give: push back exactly what came out, and nothing moves.
 		const again = await pushOps([
@@ -189,7 +189,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 		const name = id("rise")
 		const back = await expectRoundTrip(
 			fid("rise", "pou"),
-			prg(name, "FBD", `%NETWORK\nout := AND(RISING(a), b);\n`),
+			prg(name, "FBD", `%NETWORK\nASSIGN(AND(RISING(a), b), Q => out);\n`),
 		)
 
 		expect(back, "the rising edge was dropped").toContain("RISING(a)")
@@ -200,7 +200,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 		const name = id("fall")
 		const back = await expectRoundTrip(
 			fid("fall", "pou"),
-			prg(name, "FBD", `%NETWORK\nout := AND(FALLING(a), b);\n`),
+			prg(name, "FBD", `%NETWORK\nASSIGN(AND(FALLING(a), b), Q => out);\n`),
 		)
 
 		expect(back, "the falling edge was dropped").toContain("FALLING(a)")

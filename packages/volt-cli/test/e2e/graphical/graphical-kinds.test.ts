@@ -43,11 +43,11 @@ END_VAR`
 /** `l AND r` in each language: LD's contacts in series, FBD's AND box. */
 const AND = (lang: string, l: string, r: string) => (lang === "LD" ? `${l} AND ${r}` : `AND(${l}, ${r})`)
 
-/** The one network used throughout, in whichever language: `coil := l AND r`. Deliberately IDENTICAL across
+/** The one network used throughout, in whichever language: `ASSIGN(l AND r, Q => coil)`. Deliberately IDENTICAL across
  *  every kind, so a failure isolates to the kind or the language and never to the network. It is also the
  *  canonical form the reader emits, which is what makes the re-push a fixed point. */
 const NET = (lang: string) => (coil: string, l = "a", r = "b") =>
-	`%LANGUAGE ${lang}\n%NETWORK\n${coil} := ${AND(lang, l, r)};\n`
+	`%LANGUAGE ${lang}\n%NETWORK\nASSIGN(${AND(lang, l, r)}, Q => ${coil});\n`
 
 /** A network that CALLS an FB instance — the shape whose type can only be resolved from the OWNER's
  *  declaration. `t1` is declared in `VARS`, i.e. one level above any member that calls it. */

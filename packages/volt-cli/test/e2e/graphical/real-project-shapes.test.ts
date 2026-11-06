@@ -105,7 +105,7 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 		const name = id("rp_wire")
 		await survivesOrIsRefused(
 			fid("rp_wire", "pou"),
-			program(name, "LD", `%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := a AND b;\nout := w1;\n`),
+			program(name, "LD", `%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := a AND b;\nASSIGN(w1, Q => out);\n`),
 		)
 	})
 
@@ -130,10 +130,10 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 	 * spellings go through the IDE here, because only the IDE can say they stayed different.
 	 */
 	it("a NOT box and a negated operand stay different", async () => {
-		const boxSrc = program(id("rp_notbox"), "FBD", `%NETWORK\nout := NOT(a);\n`)
+		const boxSrc = program(id("rp_notbox"), "FBD", `%NETWORK\nASSIGN(NOT(a), Q => out);\n`)
 		expect(await roundTrip(fid("rp_notbox", "pou"), boxSrc)).toBe(boxSrc)
 
-		const flagSrc = program(id("rp_notflag"), "FBD", `%NETWORK\nout := NOT a;\n`)
+		const flagSrc = program(id("rp_notflag"), "FBD", `%NETWORK\nASSIGN(INVERT(a), Q => out);\n`)
 		expect(await roundTrip(fid("rp_notflag", "pou"), flagSrc)).toBe(flagSrc)
 	})
 
@@ -147,7 +147,7 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 			id("rp_text"),
 			"LD",
 			// A quote in a title is ST's own `$"` (titles use ST's string escapes).
-			`%NETWORK "Muting of alarm $"No bunch$""\n//     aligned on purpose\nout := a AND b;\n`,
+			`%NETWORK "Muting of alarm $"No bunch$""\n//     aligned on purpose\nASSIGN(a AND b, Q => out);\n`,
 		)
 
 		expect(await roundTrip(full, src)).toBe(src)
@@ -160,7 +160,7 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 	 *
 	 * Built only from what BOTH vendors can create, so a failure here is a real regression rather than the
 	 * PLCopen boundary the three tests above already describe. Two deliberate choices make it vendor-neutral:
-	 * one value drives two coils as ONE chained assignment, not a wire — TwinCAT's only create door, the PLCopen
+	 * one value drives two coils as ONE ASSIGN with two targets, not a wire — TwinCAT's only create door, the PLCopen
 	 * import, folds a wire into exactly that assignment (D22 / C25, `fanout.test.ts`), and on a titled network the
 	 * title then has no rung to be stamped on, so the create is refused — and each connected component gets
 	 * its OWN network — a TwinCAT import decides its own network boundaries, one per connected component
@@ -172,7 +172,7 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 		const src = program(
 			id("rp_fix"),
 			"LD",
-			`%NETWORK "a rung"\nout := out2 := a AND b;\n` +
+			`%NETWORK "a rung"\nASSIGN(a AND b, Q => out, Q => out2);\n` +
 				`%NETWORK\nMOVE(a);\n`,
 		)
 
@@ -195,8 +195,8 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 		const src = program(
 			id("rp_par"),
 			"LD",
-			`%NETWORK\nout := BRANCH_SHORTCIRCUIT(FEED := go, a, b);\n` +
-				`%NETWORK\nout2 := a AND BRANCH(b, go);\n`,
+			`%NETWORK\nASSIGN(BRANCH_SHORTCIRCUIT(FEED := go, a, b), Q => out);\n` +
+				`%NETWORK\nASSIGN(a AND BRANCH(b, go), Q => out2);\n`,
 		)
 		const refs = await bridge.refs()
 		const fullAt = await existingOrAtRoot(refs.items, full)

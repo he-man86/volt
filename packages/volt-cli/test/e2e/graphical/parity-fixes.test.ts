@@ -53,7 +53,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const src =
 			`PROGRAM ${name}\nVAR\n\tgo : BOOL;\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n%LANGUAGE FBD\n` +
 			// The enable is the box's own EN pin, and its value goes to its output pin — this test is about the EN pin.
-			`%NETWORK\nAND(EN := go, a, b, OUT => out).ENO;\n\n` +
+			`%NETWORK\nAND(EN := go, a, b, OUT => out);\n\n` +
 			`END_PROGRAM\n`
 
 		// VENDOR-BLIND ON PURPOSE, because this is the one capability that genuinely differs and the difference
@@ -95,7 +95,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const full = fid("pf_fn", "pou")
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : INT;\n\tb : INT;\n\tout : INT;\nEND_VAR\n` +
-			`%LANGUAGE FBD\n%NETWORK\nout := MAX(a, b);\n\n` +
+			`%LANGUAGE FBD\n%NETWORK\nASSIGN(MAX(a, b), Q => out);\n\n` +
 			`END_PROGRAM\n`
 
 		const back = await roundTrip(full, src)
@@ -112,7 +112,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const name = id("pf_fnbuild")
 		const src =
 			`FUNCTION_BLOCK ${name}\nVAR\n\ta : INT;\n\tb : INT;\n\tout : INT;\nEND_VAR\n` +
-			`%LANGUAGE FBD\n%NETWORK\nout := MAX(a, b);\n\n` +
+			`%LANGUAGE FBD\n%NETWORK\nASSIGN(MAX(a, b), Q => out);\n\n` +
 			`END_FUNCTION_BLOCK\n`
 
 		await createItem(fid("pf_fnbuild"), src, await projectRoot())
@@ -168,12 +168,12 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const full = fid("pf_neg", "pou")
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`%LANGUAGE LD\n%NETWORK\nout := NOT a AND b;\n\n` +
+			`%LANGUAGE LD\n%NETWORK\nASSIGN(INVERT(a) AND b, Q => out);\n\n` +
 			`END_PROGRAM\n`
 
 		const back = await roundTrip(full, src)
 
-		expect(back).toContain("NOT a")
+		expect(back).toContain("INVERT(a)")
 		expect(back).toBe(src)
 	})
 
@@ -189,12 +189,12 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const full = fid("pf_set", "pou")
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`%LANGUAGE LD\n%NETWORK\nout S= a;\n\n` +
+			`%LANGUAGE LD\n%NETWORK\nASSIGN(a, Q_SET => out);\n\n` +
 			`END_PROGRAM\n`
 
 		const back = await roundTrip(full, src)
 
-		expect(back).toContain("S=")
+		expect(back).toContain("Q_SET => out")
 		expect(back).toBe(src)
 	})
 
@@ -208,7 +208,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const full = fid("pf_fix", "pou")
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`%LANGUAGE LD\n%NETWORK\nout S= NOT a AND b;\n\n` +
+			`%LANGUAGE LD\n%NETWORK\nASSIGN(INVERT(a) AND b, Q_SET => out);\n\n` +
 			`END_PROGRAM\n`
 
 		const once = await roundTrip(full, src)
@@ -242,14 +242,14 @@ END_VAR
 %NETWORK
 VAR w1 : ANY; END_VAR
 w1 := AND(a, b);
-p := w1;
-q := w1;
+ASSIGN(w1, Q => p);
+ASSIGN(w1, Q => q);
 ` +
 			`%NETWORK
 VAR w2 : ANY; END_VAR
 w2 := OR(a, b);
-x := w2;
-y := w2;
+ASSIGN(w2, Q => x);
+ASSIGN(w2, Q => y);
 
 ` +
 			`END_PROGRAM
@@ -300,7 +300,7 @@ END_VAR
 t1(IN := go, PT := pt);
 ` +
 			`%NETWORK
-done := t1.Q;
+ASSIGN(t1.Q, Q => done);
 
 ` +
 

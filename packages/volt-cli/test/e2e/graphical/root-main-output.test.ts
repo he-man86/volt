@@ -86,7 +86,7 @@ describe(`graphical / a root box's main output, network-text-one-to-one F3 (${BA
 	})
 
 	it("a root showing ENO holds the ENO and every declared output", async () => {
-		await shape("f3e", () => "c2(EN := e, CU := a, PV := 5).ENO;", (xml) => {
+		await shape("f3e", () => "c2(EN := e, CU := a, PV := 5);", (xml) => {
 			expect(outputList(xml)).toEqual({ names: ["ENO", "Q", "CV"], slots: [null, "", ""] })
 		})
 	})

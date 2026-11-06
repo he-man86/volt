@@ -347,8 +347,8 @@ namespace Volt.Ide.Codesys
                     {
                         // STORAGE COMES OFF THE TARGET, because that is where the model carries it and where
                         // this vendor keeps it — each target its own, so a fan-out whose coils disagree keeps
-                        // each coil's storage. The value's flags are never copied onto a target: the NOT in
-                        // `out := NOT a;` belongs to the input, and on the coil too the IDE would run
+                        // each coil's storage. The value's flags are never copied onto a target: the INVERT in
+                        // `ASSIGN(INVERT(a), Q => out);` belongs to the input, and on the coil too the IDE would run
                         // `out := NOT NOT a` — invisible to a re-pull and to the build (a negated BOOL coil compiles).
                         var asg = NwlInterop.New(_net, "BoxTreeAssign");
                         NwlInterop.Set(asg, "RValue", Node(a.Value));
@@ -434,7 +434,7 @@ namespace Volt.Ide.Codesys
                         // them and the vendor keeps its own.
                         var callee = b.Instance is null && b.StCode is null ? _scope.Callee(b.Type) : null;
                         if (callee is not null) NwlInterop.SetEnum(box, "CallType", callee.CallType);
-                        // A PROGRAM: with the fresh None a box something reads is not called at all, `x := p(a := a).q` compiled to
+                        // A PROGRAM: with the fresh None a box something reads is not called at all, `ASSIGN(p(a := a).q, Q => x)` compiled to
                         // `x := p.q` and an enabled one wrote no output, and it builds (live CODESYS 3.5.21.40, openspec
                         // nwl-box-storage-map). The editor's insert stores Program, and with it each runs as it reads.
                         var program = b.Instance is null && b.StCode is null && _scope.Signature(b.Type)?.Shape == CalleeShape.Program;
@@ -516,7 +516,7 @@ namespace Volt.Ide.Codesys
                             NwlInterop.Set(box, "Eno", eno);
                         }
                         // ENO WITHOUT EN (N16: the two are independent): the flag is the box's fact, not its enable's.
-                        // Set only under an enable, a pushed `f(…).ENO` lost it — the next pull dropped `.ENO`, and a root
+                        // Set only under an enable, a pushed box showing ENO without EN lost it — the next pull dropped the ENO, and a root
                         // box did not compile (network-output-member 2.3, `st-spellings-run.test.ts`).
                         else if (eno) NwlInterop.Set(box, "Eno", true);
                         // EN AND ENO NOT SHOWN ARE STORED FALSE, as the editor stores them on every box it draws but the
@@ -572,9 +572,9 @@ namespace Volt.Ide.Codesys
                         //
                         // <b>WHETHER THE BOX HAS AN ENO OUTPUT IS THE MODEL'S FACT, NOT ITS EN.</b> The two are
                         // independent (DIALECT N16, census 1.6: 40 enabled comparisons have EN and no ENO), and the
-                        // text keeps them apart — `x := GT(EN := c, a, b)` reads x off the comparison, `… .ENO` off
-                        // the ENO. Keyed on EN, both got the ENO slot, the reader then found a box with an ENO output
-                        // whose consumer reads its main output — the ENO — and the next pull said `.ENO`: x fed by
+                        // text keeps them apart — `ASSIGN(GT(EN := c, a, b).OUT, Q => x)` reads x off the comparison, `ASSIGN(GT(EN := c, a, b,
+                        // OUT => v), Q => x)` off the ENO. Keyed on EN, both got the ENO slot, the reader then found a box with an ENO output
+                        // whose consumer reads its main output — the ENO — and the next pull read it through ENO: x fed by
                         // ENO, a different program. Null is where the text has no position for the fact (a
                         // top-level box with no positional pin, a consumed operator with no EN), and there the box
                         // is built as the text reads it — by the text's own rule, never a copy of it here. A null

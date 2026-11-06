@@ -1,7 +1,7 @@
 /**
  * AN EXECUTE BOX WITHOUT EN RUNS IN A FUNCTION BLOCK (openspec network-text-one-to-one 4.2, F13): measured live, an
  * `EXECUTE(…)` pushed with no EN stored `En` null, and in an FB its code never ran (0 of 99 scans), where the editor
- * stores `false` and runs it every scan. Each of the four EN/ENO models is pushed into one FB, run in the simulation
+ * stores `false` and runs it every scan. Execute boxes with and without EN are pushed into one FB, run in the simulation
  * (`lib/codesys-run.ts`) from a PROGRAM calling it, and each box's counter is read back: every box without EN counts
  * every scan, the enabled ones count under their EN. CODESYS only (TwinCAT's driver refuses a new Execute box).
  */
@@ -33,11 +33,11 @@ END_VAR
 %NETWORK
 EXECUTE('a := a + 1;');
 %NETWORK
-EXECUTE('b := b + 1;').ENO;
+EXECUTE('b := b + 1;');
 %NETWORK
 EXECUTE(EN := go, 'c := c + 1;');
 %NETWORK
-EXECUTE(EN := go, 'd := d + 1;').ENO;
+EXECUTE(EN := go, 'd := d + 1;');
 
 END_FUNCTION_BLOCK
 `
@@ -63,7 +63,7 @@ describe.skipIf(VENDOR !== "codesys")(`graphical / an Execute box without EN run
 		await requireHealthy()
 	})
 
-	it("each EN/ENO model of a pushed Execute box runs its ST: without EN every scan, with EN under it", async () => {
+	it("a pushed Execute box with or without EN runs its ST: without EN every scan, with EN under it", async () => {
 		try {
 			await expectRoundTrip(FB_ITEM, fb)
 			await expectRoundTrip(PRG_ITEM, prg)

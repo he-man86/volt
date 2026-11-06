@@ -703,13 +703,13 @@ function identifierShapeSteps(): Step[] {
 /** `body-language-change`'s CODESYS subject (N24): an FB whose own body and every member body (method, action, property
  *  GET and SET) is ST, and the same FB with each body graphical — through the shipped push, as `volt push` sends it. */
 function languageSource(graphical: boolean): string {
-  const body = (lang: "LD" | "FBD", line: string) =>
-    graphical ? `%LANGUAGE ${lang}\n%NETWORK\n${line}\n` : `%LANGUAGE ST\n${line}\n`
+  const body = (lang: "LD" | "FBD", target: string, value: string) =>
+    graphical ? `%LANGUAGE ${lang}\n%NETWORK\nASSIGN(${value}, Q => ${target});\n` : `%LANGUAGE ST\n${target} := ${value};\n`
   return (
-    `FUNCTION_BLOCK VltF_Lc\nVAR\n\ta : BOOL;\n\tq : BOOL;\nEND_VAR\n${body("LD", "q := a;")}\nEND_FUNCTION_BLOCK\n` +
-    `\nMETHOD Step : BOOL\n${body("FBD", "q := a;")}\nEND_METHOD\n` +
-    `\nACTION Act\n${body("LD", "q := a;")}\nEND_ACTION\n` +
-    `\nPROPERTY Ready : BOOL\nGET\n${body("FBD", "Ready := a;")}\nEND_GET\nSET\n${body("LD", "q := Ready;")}\nEND_SET\n` +
+    `FUNCTION_BLOCK VltF_Lc\nVAR\n\ta : BOOL;\n\tq : BOOL;\nEND_VAR\n${body("LD", "q", "a")}\nEND_FUNCTION_BLOCK\n` +
+    `\nMETHOD Step : BOOL\n${body("FBD", "q", "a")}\nEND_METHOD\n` +
+    `\nACTION Act\n${body("LD", "q", "a")}\nEND_ACTION\n` +
+    `\nPROPERTY Ready : BOOL\nGET\n${body("FBD", "Ready", "a")}\nEND_GET\nSET\n${body("LD", "q", "Ready")}\nEND_SET\n` +
     `END_PROPERTY\n`
   )
 }
@@ -720,8 +720,8 @@ const LC_DECL = (n: string) => `PROGRAM ${n}\nVAR\n\ta : BOOL := TRUE;\n\tq : BO
  *  and edits #4 (network text, `packages/volt-cli/docs/network-text.html`). */
 function keepSource(after: boolean): string {
   const nets = after
-    ? ["o1 := a;", "o5 := b;", "o2 := a AND b;", "o4 := b;"]
-    : ["o1 := a;", "o2 := a AND b;", "o3 := b;", "o4 := a;"]
+    ? ["ASSIGN(a, Q => o1);", "ASSIGN(b, Q => o5);", "ASSIGN(a AND b, Q => o2);", "ASSIGN(b, Q => o4);"]
+    : ["ASSIGN(a, Q => o1);", "ASSIGN(a AND b, Q => o2);", "ASSIGN(b, Q => o3);", "ASSIGN(a, Q => o4);"]
   return (
     `PROGRAM VltF_Keep\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\to1 : BOOL;\n\to2 : BOOL;\n\to3 : BOOL;\n\to4 : BOOL;\n\to5 : BOOL;\nEND_VAR\n` +
     `%LANGUAGE LD\n${nets.map((n) => `%NETWORK\n${n}\n`).join("")}\nEND_PROGRAM\n`
@@ -770,7 +770,7 @@ const NWL_R_BASE = nwlProgram(
   "VltF_R",
   ["a : BOOL", "b : BOOL", "i : INT", "j : INT", "o1 : BOOL", "o2 : BOOL", "t1 : TON"],
   "LD",
-  ["o1 := a AND NOT b;", "t1(IN := a, PT := T#1S);", "o2 := t1.Q;", "j := ADD(i, 1);"],
+  ["ASSIGN(a AND INVERT(b), Q => o1);", "t1(IN := a, PT := T#1S);", "ASSIGN(t1.Q, Q => o2);", "ASSIGN(ADD(i, 1), Q => j);"],
 )
 /** A box of each CallType a corpus box holds (FunctionBlock, Function, Program, an operator): the call rows' subject. */
 const NWL_R_CALLS = nwlProgram(
@@ -778,11 +778,11 @@ const NWL_R_CALLS = nwlProgram(
   ["a : BOOL", "b : BOOL", "i : INT", "j : INT", "k : INT", "o1 : BOOL", "t1 : TON"],
   "LD",
   [
-    "k := VltF_RFn(x := i);",
+    "ASSIGN(VltF_RFn(x := i), Q => k);",
     "VltF_RPrg(EN := b);",
     "t1(IN := a, PT := T#1S);",
-    "o1 := a AND b;",
-    "j := ADD(i, 1);",
+    "ASSIGN(a AND b, Q => o1);",
+    "ASSIGN(ADD(i, 1), Q => j);",
   ],
 )
 /** ld-fbd-coverage 2R.1 C1: the boxes whose `OutputParam` Names/Types an IDE-drawn box stores and a pushed one derives —
@@ -798,16 +798,16 @@ const NWL_EDITOR = nwlProgram(
   ],
   "LD",
   [
-    "k := VltF_RFn(x := i);",
+    "ASSIGN(VltF_RFn(x := i), Q => k);",
     "t1(IN := a, PT := T#1S);",
-    { lines: ["VAR w1 : ANY; END_VAR", "t2(IN := b, PT := T#2S, Q => w1);", "o1 := w1;"] },
-    "o2 := a AND b;",
-    "j := ADD(i, 1);",
-    "o3 := GT(i, j);",
-    "o4 := a AND NOT b;",
-    "o5 := BRANCH_SHORTCIRCUIT(FEED := a, b, NOT c);",
+    { lines: ["VAR w1 : ANY; END_VAR", "w1 := t2(IN := b, PT := T#2S);", "ASSIGN(w1, Q => o1);"] },
+    "ASSIGN(a AND b, Q => o2);",
+    "ASSIGN(ADD(i, 1), Q => j);",
+    "ASSIGN(GT(i, j), Q => o3);",
+    "ASSIGN(a AND INVERT(b), Q => o4);",
+    "ASSIGN(BRANCH_SHORTCIRCUIT(FEED := a, b, INVERT(c)), Q => o5);",
     "MOVE(EN := a, 750, OUT => m);",
-    "o6 := VltF_RFn(EN := b, i).ENO;",
+    "ASSIGN(VltF_RFn(EN := b, i), Q => o6);",
   ],
 )
 /** The FBD half of C1: an operator tree, a negated operator PIN (FBD's negation, `InputFlags`), an enabled function
@@ -817,9 +817,9 @@ const NWL_EDITOR_FBD = nwlProgram(
   ["a : BOOL", "b : BOOL", "c : BOOL", "q : BOOL", "i : INT", "m : INT", "o : BOOL", "p : BOOL", "ok : BOOL"],
   "FBD",
   [
-    "o := AND(OR(AND(a, b, c), AND(a, b)), q);",
-    "p := AND(NOT a, b);",
-    "ok := VltF_RFn(EN := a, i).ENO;",
+    "ASSIGN(AND(OR(AND(a, b, c), AND(a, b)), q), Q => o);",
+    "ASSIGN(AND(INVERT(a), b), Q => p);",
+    "ASSIGN(VltF_RFn(EN := a, i), Q => ok);",
     "MOVE(EN := b, 7, OUT => m);",
   ],
 )
@@ -830,26 +830,26 @@ const NWL_EDITOR_MEMBERS = [
 ]
 /** An Execute box (CallType None; the snippet's per-line ids). */
 const NWL_R_EXEC = nwlProgram("VltF_RX", ["a : BOOL", "k : INT"], "LD", [
-  { lines: ["EXECUTE(EN := a, CODE := 'k := k + 1;", "k := k * 2;');"] },
+  { lines: ["EXECUTE(EN := a, 'k := k + 1;", "k := k * 2;');"] },
 ])
 /** A RETURN and a JMP built by the push (the assign item's own Jump/Return bit). */
 const NWL_R_FLOW = nwlProgram("VltF_RJ", ["a : BOOL", "b : BOOL", "o1 : BOOL"], "LD", [
-  "RETURN(a);",
-  "JMP(l1, b);",
-  { lines: ["l1:", "o1 := a;"] },
+  "ASSIGN(a, Q => RETURN);",
+  "ASSIGN(b, Q => JMP.l1);",
+  { lines: ["l1:", "ASSIGN(a, Q => o1);"] },
 ])
 /** A Parallel (the body's BranchCounter). */
 const NWL_R_PAR = nwlProgram("VltF_RP", ["a : BOOL", "b : BOOL", "c : BOOL", "o1 : BOOL"], "LD", [
-  "o1 := BRANCH_SHORTCIRCUIT(FEED := a, b, NOT c);",
+  "ASSIGN(BRANCH_SHORTCIRCUIT(FEED := a, b, INVERT(c)), Q => o1);",
 ])
 
 /** S3b (`nwl-rail-fed-wire`): a wire fed by the left rail, `w1 := TRUE` — the text a pull writes for a wire the IDE stores
  *  fed by the empty terminator — and, its own subject so a refusal of one leaves the other measured, the same wire again. */
 const NWL_RAIL = nwlProgram("VltF_Rail", ["a : BOOL", "b : BOOL", "o1 : BOOL", "o2 : BOOL"], "LD", [
-  { lines: ["VAR w1 : ANY; END_VAR", "w1 := TRUE;", "o1 := w1 AND a;", "o2 := w1 AND b;"] },
+  { lines: ["VAR w1 : ANY; END_VAR", "w1 := TRUE;", "ASSIGN(w1 AND a, Q => o1);", "ASSIGN(w1 AND b, Q => o2);"] },
 ])
 const NWL_RAIL_TRUE = nwlProgram("VltF_RailT", ["a : BOOL", "b : BOOL", "o1 : BOOL", "o2 : BOOL"], "LD", [
-  { lines: ["VAR w1 : ANY; END_VAR", "w1 := TRUE;", "o1 := w1 AND a;", "o2 := w1 AND b;"] },
+  { lines: ["VAR w1 : ANY; END_VAR", "w1 := TRUE;", "ASSIGN(w1 AND a, Q => o1);", "ASSIGN(w1 AND b, Q => o2);"] },
 ])
 /** S3a (`nwl-leaf-wire-type`, owner amendment a): a wire fed by a LEAF — an INT leaf into DINT pins, a leaf of an alias
  *  type, and the census's own WSM shape (a BOOL leaf into an FB's BOOL pins, `R_TRIG.CLK` and `TON.IN`). */
@@ -858,8 +858,8 @@ const NWL_LEAF_WIRE = nwlProgram(
   ["a : BOOL", "i : INT", "al : VltF_LwAl", "d : DINT", "e : DINT", "f : DINT", "k : INT", "t1 : TON", "r1 : R_TRIG"],
   "LD",
   [
-    { lines: ["VAR w1 : ANY; END_VAR", "w1 := i;", "d := VltF_LwFn(x := w1);", "e := VltF_LwFn(x := w1);"] },
-    { lines: ["VAR w2 : ANY; END_VAR", "w2 := al;", "f := VltF_LwFn(x := w2);", "k := MOVE(w2);"] },
+    { lines: ["VAR w1 : ANY; END_VAR", "w1 := i;", "ASSIGN(VltF_LwFn(x := w1), Q => d);", "ASSIGN(VltF_LwFn(x := w1), Q => e);"] },
+    { lines: ["VAR w2 : ANY; END_VAR", "w2 := al;", "ASSIGN(VltF_LwFn(x := w2), Q => f);", "ASSIGN(MOVE(w2), Q => k);"] },
     { lines: ["VAR w3 : ANY; END_VAR", "w3 := a;", "t1(IN := w3, PT := T#1S);", "r1(CLK := w3);"] },
   ],
 )
@@ -869,16 +869,16 @@ const NWL_S1_PLAIN = nwlProgram(
   "VltF_S1",
   ["a : BOOL", "b : BOOL", "c : BOOL", "q : BOOL", "o : BOOL", "p : BOOL"],
   "FBD",
-  ["o := AND(OR(AND(a, b, c), AND(a, b), AND(b, c)), q);", "p := AND(NOT(AND(a, b)), c);"],
+  ["ASSIGN(AND(OR(AND(a, b, c), AND(a, b), AND(b, c)), q), Q => o);", "ASSIGN(AND(NOT(AND(a, b)), c), Q => p);"],
 )
 /** S2, S6 and S5 in the spelling design 1.1 gives them — what the push answers before 2.3 spells them. */
 const NWL_S2 = nwlProgram("VltF_S2", ["a : BOOL", "b : BOOL", "o1 : BOOL", "o2 : BOOL", "k : INT"], "LD", [
-  "MOVE(EN := (o1 := a AND b), 750, OUT => k);",
-  "MOVE(EN := (o2 S= a AND b), 7, OUT => k);",
+  "MOVE(EN := ASSIGN(a AND b, Q => o1), 750, OUT => k);",
+  "MOVE(EN := ASSIGN(a AND b, Q_SET => o2), 7, OUT => k);",
 ])
 const NWL_S6 = nwlProgram("VltF_S6", ["a : BOOL", "b : BOOL", "o1 : BOOL", "fb1 : VltF_S6Fb"], "FBD", [
-  "fb1(xEnable := NOT a);",
-  "o1 := AND(NOT a, b);",
+  "fb1(xEnable := INVERT(a));",
+  "ASSIGN(AND(INVERT(a), b), Q => o1);",
 ])
 const NWL_S5 =
   "FUNCTION_BLOCK VltF_S5 EXTENDS VltF_S5Base\nVAR\nEND_VAR\n%LANGUAGE LD\n%NETWORK\nSUPER^();\n\n" +
@@ -1788,7 +1788,7 @@ export const ROWS: Row[] = [
         name: "VltF_Seed_FC",
         parent: "folder",
         via: "push",
-        source: SRC.caller("VltF_Seed_FC", "FBD", "\tn : INT;\n\tr : INT;", "r := VltF_Seed_F(n);"),
+        source: SRC.caller("VltF_Seed_FC", "FBD", "\tn : INT;\n\tres : INT;", "ASSIGN(VltF_Seed_F(n), Q => res);"),
       },
       {
         op: "create",
@@ -1801,7 +1801,7 @@ export const ROWS: Row[] = [
           "VltF_Seed_FE",
           "FBD",
           "\tgo : BOOL;\n\tn : INT;\n\tok : BOOL;",
-          "ok := VltF_Seed_F(EN := go, n).ENO;",
+          "ASSIGN(VltF_Seed_F(EN := go, n), Q => ok);",
         ),
       },
       {
@@ -1820,7 +1820,7 @@ export const ROWS: Row[] = [
         name: "VltF_Seed_PE",
         parent: "folder",
         via: "push",
-        source: SRC.caller("VltF_Seed_PE", "LD", "\tgo : BOOL;\n\tdone : BOOL;", "done := VltF_Seed_P(EN := go).ENO;"),
+        source: SRC.caller("VltF_Seed_PE", "LD", "\tgo : BOOL;\n\tdone : BOOL;", "ASSIGN(VltF_Seed_P(EN := go), Q => done);"),
       },
       {
         op: "create",
@@ -1842,7 +1842,7 @@ export const ROWS: Row[] = [
           "VltF_Seed_BE",
           "LD",
           "\tgo : BOOL;\n\tdone : BOOL;\n\tb : VltF_Seed_B;",
-          "done := b(EN := go).ENO;",
+          "ASSIGN(b(EN := go), Q => done);",
         ),
       },
       { tag: "built", op: "build" },

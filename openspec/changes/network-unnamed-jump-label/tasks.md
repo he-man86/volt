@@ -7,8 +7,8 @@
 ## 2. Read and write
 
 - [x] 2.1 The receiver reader takes `JMP.???` as a jump target with an unnamed label; one diagnostic on the label (C0007 "Expression expected instead of '?'" on the `???`, no `jump-label-undefined`)
-- [x] 2.2 The writer spells an empty stored label `JMP.???` (today `Unspellable`, `StNetworkWriter.cs:487`); the bridge reader already takes it (probe, dev 3bf209901e); round-trip test
+- [x] 2.2 The writer spells an empty stored label `JMP.???`; the bridge reader takes it; round-trip test
 
 ## 3. Consumers
 
-- [ ] 3.1 Sim-Assist: Insert Jump writes `JMP.??? := …` and selects the label (its follow-up, not Volt's)
+- [ ] 3.1 Sim-Assist: Insert Jump writes `ASSIGN(…, Q => JMP.???)` and selects the label (its follow-up, not Volt's)

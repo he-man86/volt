@@ -162,7 +162,7 @@ namespace Volt.Ide.Codesys
                             "terminator. No measured project has one, and the model keeps one spelling of it.");
 
                     // COIL STORAGE STAYS ON THE TARGET, where both vendors keep it, because the FORMAT spells
-                    // it there too — `out S= v;` / `out R= v;`, ExST's own assignment operators. A modifier
+                    // it there too — `ASSIGN(v, Q_SET => out);` / `ASSIGN(v, Q_RESET => out);`, the receiver's output name. A modifier
                     // that belongs to the coil lives on the coil.
                     // CONTROL FLOW IS READ OFF THE TARGET OPERAND, for the same reason storage is: that is
                     // where this vendor keeps it. A jump an engineer drew in the IDE has the bit on the operand

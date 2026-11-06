@@ -38,25 +38,25 @@ const or = (lang: string, x: string, y: string) => (lang === "LD" ? `${x} OR ${y
 
 /** The shapes: name → the body under `%LANGUAGE <LANG>`. */
 const SHAPES: Record<string, (lang: string) => string> = {
-	single_consumer_branch: (l) => `%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := ${and(l, "a", "b")};\nout := w1;\n`,
-	fanout_two_coils: (l) => `%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := ${and(l, "a", "b")};\nout1 := w1;\nout2 := w1;\n`,
-	leaf_fed_split: () => "%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := a;\nout1 := w1;\nout2 := w1;\n",
+	single_consumer_branch: (l) => `%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := ${and(l, "a", "b")};\nASSIGN(w1, Q => out);\n`,
+	fanout_two_coils: (l) => `%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := ${and(l, "a", "b")};\nASSIGN(w1, Q => out1);\nASSIGN(w1, Q => out2);\n`,
+	leaf_fed_split: () => "%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := a;\nASSIGN(w1, Q => out1);\nASSIGN(w1, Q => out2);\n",
 	rail_pin: () => "%NETWORK\nt1(IN := TRUE, PT := pt);\n",
 	pin_to_variable: () => "%NETWORK\nt1(IN := a, PT := pt, ET => el);\n",
-	negated_input: (l) => `%NETWORK\nout := ${and(l, "NOT a", "b")};\n`,
-	set_coil: () => "%NETWORK\nout S= a;\n",
-	reset_coil: (l) => `%NETWORK\nout R= ${and(l, "a", "b")};\n`,
-	rising_edge: (l) => `%NETWORK\nout := ${and(l, "RISING(a)", "b")};\n`,
-	execute: () => "%NETWORK\nEXECUTE(EN := go, 'n := n + 1;').ENO;\n",
-	multi_rung: (l) => `%NETWORK\nout1 := ${and(l, "a", "b")};\nout2 := ${or(l, "c", "d")};\nt1(IN := e, PT := pt);\n`,
-	assign_below_top: () => "%NETWORK\nt1(IN := (out := go), PT := pt);\n",
-	jump_and_label: (l) => `%NETWORK\nJMP.L1 := a;\n%NETWORK\nL1:\nout := ${or(l, "a", "b")};\n`,
-	return_uncond: (l) => `%NETWORK\nout := ${and(l, "a", "b")};\n%NETWORK\nRETURN := RAIL();\n`,
-	rail_coil: () => "%NETWORK\nout := TRUE;\n",
-	empty_network: (l) => `%NETWORK\nout := ${and(l, "a", "b")};\n%NETWORK\n`,
-	header: (l) => `%NETWORK "a rung"\n%DISABLED\n// a comment\nHere:\nout := ${and(l, "a", "b")};\n`,
-	enable_move: () => "%NETWORK\nout := MOVE(EN := go, b, OUT => out1).ENO;\n",
-	function_named: () => `%NETWORK\nn := ${FN}(A := i1, B := i2);\n`,
+	negated_input: (l) => `%NETWORK\nASSIGN(${and(l, "INVERT(a)", "b")}, Q => out);\n`,
+	set_coil: () => "%NETWORK\nASSIGN(a, Q_SET => out);\n",
+	reset_coil: (l) => `%NETWORK\nASSIGN(${and(l, "a", "b")}, Q_RESET => out);\n`,
+	rising_edge: (l) => `%NETWORK\nASSIGN(${and(l, "RISING(a)", "b")}, Q => out);\n`,
+	execute: () => "%NETWORK\nEXECUTE(EN := go, 'n := n + 1;');\n",
+	multi_rung: (l) => `%NETWORK\nASSIGN(${and(l, "a", "b")}, Q => out1);\nASSIGN(${or(l, "c", "d")}, Q => out2);\nt1(IN := e, PT := pt);\n`,
+	assign_below_top: () => "%NETWORK\nt1(IN := ASSIGN(go, Q => out), PT := pt);\n",
+	jump_and_label: (l) => `%NETWORK\nASSIGN(a, Q => JMP.L1);\n%NETWORK\nL1:\nASSIGN(${or(l, "a", "b")}, Q => out);\n`,
+	return_uncond: (l) => `%NETWORK\nASSIGN(${and(l, "a", "b")}, Q => out);\n%NETWORK\nASSIGN(RAIL(), Q => RETURN);\n`,
+	rail_coil: () => "%NETWORK\nASSIGN(TRUE, Q => out);\n",
+	empty_network: (l) => `%NETWORK\nASSIGN(${and(l, "a", "b")}, Q => out);\n%NETWORK\n`,
+	header: (l) => `%NETWORK "a rung"\n%DISABLED\n// a comment\nHere:\nASSIGN(${and(l, "a", "b")}, Q => out);\n`,
+	enable_move: () => "%NETWORK\nASSIGN(MOVE(EN := go, b, OUT => out1), Q => out);\n",
+	function_named: () => `%NETWORK\nASSIGN(${FN}(A := i1, B := i2), Q => n);\n`,
 }
 
 const LANGS = ["LD", "FBD"] as const
@@ -168,12 +168,9 @@ describe(`graphical / native writer (${BASE})`, () => {
 	})
 
 	it("a shape TwinCAT never wrote, or does not compile when built, is refused by name and writes nothing", async () => {
-		if (!twincat) return // CODESYS builds both from its live object model
+		if (!twincat) return // CODESYS builds it from its live object model
 		const refused: Record<string, string> = {
-			parallel: "%NETWORK\nout := BRANCH(FEED := go, a, b);\n",
-			enable_and: "%NETWORK\nout := AND(EN := go, a, b).ENO;\n",
-			// An Execute box hiding its ENO (F13): no TwinCAT archive was measured holding one.
-			execute_no_eno: "%NETWORK\nEXECUTE(EN := go, 'n := n + 1;');\n",
+			parallel: "%NETWORK\nASSIGN(BRANCH(FEED := go, a, b), Q => out);\n",
 		}
 		for (const [shape, body] of Object.entries(refused)) {
 			const bare = id(`nw_r_${shape}`)
@@ -194,7 +191,7 @@ describe(`graphical / native writer (${BASE})`, () => {
 			const at = c.src.indexOf("\n%LANGUAGE ")
 			const src = c.src.slice(0, at) + c.src.slice(at)
 				.replace(/\bb\b/g, "c")
-				.replace(/\nEND_FUNCTION_BLOCK\n$/, `%NETWORK\nout3 := ${or(c.lang, "d", "e")};\n\nEND_FUNCTION_BLOCK\n`)
+				.replace(/\nEND_FUNCTION_BLOCK\n$/, `%NETWORK\nASSIGN(${or(c.lang, "d", "e")}, Q => out3);\n\nEND_FUNCTION_BLOCK\n`)
 			const r = await pushOps([{ op: "set", name: c.item, sourceText: src, ifVersion: refs[c.item] }])
 			const back = landed(r) ? await pull(c.item) : undefined
 			// The canonical text the pull writes: the pushed text with a blank line before END_FUNCTION_BLOCK, as created.

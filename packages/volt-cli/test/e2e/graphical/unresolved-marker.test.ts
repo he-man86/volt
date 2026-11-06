@@ -125,21 +125,21 @@ describe(`graphical / the ??? marker (${BASE})`, () => {
 	})
 
 	/** THE BOX'S RESULT PIN wired to nothing: a stored member, so the text is the call statement alone — distinct from
-	 *  the Assign `??? := MOVE(src);` below, a different NWL item. */
+	 *  the Assign `ASSIGN(MOVE(src), Q => ???);` below, a different NWL item. */
 	it("`???` on a box's RESULT pin", async () => {
 		await roundTrips("qmark_res", "FBD", "%NETWORK\nMOVE(src);\n", BOOLS)
 
 	})
 
-	/** …and the Assign the v1 spelling also meant: a coil nobody named, driven by a box. */
+	/** …and the Assign: a coil nobody named, driven by a box. */
 	it("`???` as the target of an assign driven by a box", async () => {
-		await roundTrips("qmark_asg", "FBD", "%NETWORK\n??? := MOVE(src);\n", BOOLS)
+		await roundTrips("qmark_asg", "FBD", "%NETWORK\nASSIGN(MOVE(src), Q => ???);\n", BOOLS)
 	})
 
-	/** A COIL WITH NO TARGET. `??? := ioAxis.xVirtual;` is the shape a real project carried, and the reason the
+	/** A COIL WITH NO TARGET. `ASSIGN(ioAxis.xVirtual, Q => ???);` is the shape a real project carried, and the reason the
 	 *  format could not adopt `?` as its unconnected-pin token. */
 	it("`???` as a coil target", async () => {
-		await roundTrips("qmark_coil", "LD", "%NETWORK\n??? := a;\n", BOOLS)
+		await roundTrips("qmark_coil", "LD", "%NETWORK\nASSIGN(a, Q => ???);\n", BOOLS)
 	})
 
 	/** …and behind an UNCONNECTED ENABLE, which is how the two LIVE Lenze POUs (`Mach1_MIDS`, `AHWF`) carry it.
@@ -149,14 +149,14 @@ describe(`graphical / the ??? marker (${BASE})`, () => {
 			"qmark_coilen",
 			"LD",
 			// The box shows EN (wired to nothing) and the coil reads it through its ENO. (An operator box read so needs its
-			// value wired, `=> out` — without it the vendor stores and does not build it, X3.)
-			"%NETWORK\n??? := MOVE(EN := ???, a, OUT => out).ENO;\n",
+			// value wired, `OUT => out` — without it the vendor stores and does not build it, X3.)
+			"%NETWORK\nASSIGN(MOVE(EN := ???, a, OUT => out), Q => ???);\n",
 			BOOLS,
 		)
 	})
 
 	/** AN OPERAND INSIDE A GROUP — the marker where a plain variable belongs. */
 	it("`???` as an operand in a group", async () => {
-		await roundTrips("qmark_operand", "FBD", "%NETWORK\nout := AND(???, a);\n", BOOLS)
+		await roundTrips("qmark_operand", "FBD", "%NETWORK\nASSIGN(AND(???, a), Q => out);\n", BOOLS)
 	})
 })

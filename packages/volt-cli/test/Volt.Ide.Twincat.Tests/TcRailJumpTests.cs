@@ -9,7 +9,7 @@ namespace Volt.Ide.Twincat.Tests;
 /// <summary>
 /// TWINCAT'S UNCONDITIONAL JUMP AND RETURN hold the EMPTY OPERAND where CODESYS holds the rail (its importer's documents,
 /// <c>Vn_jump_uncond</c> / <c>Vn_return_uncond</c>). One fact, two vendor forms, mapped below the seam (openspec
-/// network-rail-and-pin-negation): the reader reads it as the rail, so the text is <c>JMP.l := RAIL();</c> on both vendors,
+/// network-rail-and-pin-negation): the reader reads it as the rail, so the text is <c>ASSIGN(RAIL(), Q =&gt; JMP.l);</c> on both vendors,
 /// and the writer keeps the archive's operand, so a push of that text unchanged changes nothing.
 /// </summary>
 public class TcRailJumpTests

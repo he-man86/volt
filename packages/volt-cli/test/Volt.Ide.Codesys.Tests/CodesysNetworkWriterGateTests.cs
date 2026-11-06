@@ -197,7 +197,7 @@ public class CodesysNetworkWriterGateTests
 ///
 /// <para><b>There was no CODESYS writer test at all before this one</b>, and the gap had a cost. The writer
 /// took the VALUE's whole flag record as "the storage" and applied every bit of it to each target, so the NOT
-/// in <c>out := NOT a;</c> landed on the COIL as well as on the input and the IDE ran <c>out := NOT NOT a</c> —
+/// in <c>ASSIGN(INVERT(a), Q =&gt; out);</c> landed on the COIL as well as on the input and the IDE ran <c>out := NOT NOT a</c> —
 /// the inverse of the committed source, on the vendor's own canonical FBD fixture.</para>
 ///
 /// <para><b>Nothing Volt had could see it.</b> The reader lifts only STORAGE back off a target
@@ -284,7 +284,7 @@ public class CodesysCoilFlagTests
         Assert.False(FlagsOf(coil).Ftrig);
     }
 
-    /// <summary>And the bit that genuinely DOES belong there still arrives. `out S= a;` is a SET COIL — the
+    /// <summary>And the bit that genuinely DOES belong there still arrives. `ASSIGN(a, Q_SET => out);` is a SET COIL — the
     /// format spells storage as the assignment OPERATOR now, and the model carries it on the target, so this
     /// is a straight write rather than the translation <c>CoilStorage</c> used to perform.</summary>
     [Fact]

@@ -429,7 +429,7 @@ public class CodesysNetworkReaderTests
     }
 
     /// <summary>A SET COIL MUST SURVIVE THE PULL, on the TARGET — where the vendor keeps it (measured on a real
-    /// ladder: 246 Set flags across 356 networks) and where the format now spells it, `out S= a;`. This reader
+    /// ladder: 246 Set flags across 356 networks) and where the format spells it, `ASSIGN(a, Q_SET => out);`. This reader
     /// dropped the targets' flags entirely, so a SET coil pulled as a PLAIN coil: invisible in git, and
     /// silently downgraded on the next push.</summary>
     [Fact]

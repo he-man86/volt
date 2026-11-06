@@ -490,9 +490,9 @@ internal static class TcNetworkWriter
                 // works — and skipped, retargeting `JMP Done` to `JMP Other` would write nothing at all.
                 // A LONE return keeps D31c's skip of the OPERANDS; a return beside a coil (2R.5, awkward-sweep #10) has
                 // its targets written like any coil's — the return's own target is the vendor's `???`. Its BITS are
-                // written either way (gate 2R.5): skipped, `RETURN S= ;` reported a push and wrote a plain return.
+                // written either way (gate 2R.5): skipped, a set return reported a push and wrote a plain return.
                 var loneReturn = a.Flags.Return && a.Targets.Count <= 1;
-                // The item's own marks (`y := NOT := a`) are kept as the archive holds them; a change is unmeasured on TwinCAT.
+                // The item's own marks (`ASSIGN(a, Q_INVERTED => y)`) are kept as the archive holds them; a change is unmeasured on TwinCAT.
                 if (TcUnmeasured.ItemMarks(a) != TcUnmeasured.ItemMarks(new Assign(a.Value, a.Targets, TcNetworkReader.ReadFlags(TcArchive.RequireFlagBits(e, "an assignment")))))
                     throw TcUnmeasured.InPlace(TcUnmeasured.ItemMarkShape);
                 return changed
@@ -520,7 +520,7 @@ internal static class TcNetworkWriter
                 if (!namesThisBox)
                     throw Refuse($"a box changes from '{was}' to '{b.Type}'");
 
-                // THE CONNECTION AND THE ENO OUTPUT ARE FACTS THE TEXT CARRIES (`… ENO EN c`, `.name`), and neither is a
+                // THE CONNECTION AND THE ENO OUTPUT ARE FACTS THE TEXT CARRIES (the call's flow, `.NAME`), and neither is a
                 // value this write can change: the connected slot is the one the archive stores null, and the ENO
                 // output is the box's `OutputParam` signature. Compared against the archive by the reader's own
                 // derivation, so a consumer moved from Q to ENO is refused here — sent to the IDE to rebuild — and

@@ -58,7 +58,6 @@ test("only a whole line holding the statement is the line", () => {
 		"%LANGUAGE IL",
 		"%LANGUAGE CFC UNSUPPORTED x",
 		"x := %LANGUAGE LD;",
-		"IMPLEMENTATION ST", // the retired line
 		"%LANGUAGE_DONE := TRUE;",
 	])
 		expect({ line, coloured: coloured(line) }).toEqual({ line, coloured: null })

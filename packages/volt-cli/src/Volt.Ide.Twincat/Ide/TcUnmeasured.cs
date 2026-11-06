@@ -107,7 +107,7 @@ internal static class TcUnmeasured
     /// <summary>The in-place half of <see cref="RefuseUnbuilt"/>: an edit that would WRITE one of its shapes into the
     /// archive the IDE holds. An <see cref="UnsupportedException"/> (a <see cref="NotSupportedException"/>), so the push routes the network to the builder, which
     /// refuses the shape by name before anything is written; a shape the IDE already holds, unchanged, is never refused.</summary>
-    /// <summary>The marks on the assignment ITEM itself (<c>y := NOT := a</c>, nwl-schema-completeness-gate #7a): measured on
+    /// <summary>The marks on the assignment ITEM itself (<c>ASSIGN(a, Q_INVERTED =&gt; y)</c>, nwl-schema-completeness-gate #7a): measured on
     /// CODESYS only, so no TwinCAT write sets or changes them.</summary>
     internal static Flags ItemMarks(Assign a) => a.Flags with { Jump = false, Return = false };
 
@@ -138,11 +138,11 @@ internal sealed class TcEnoRefusal : UnsupportedException
 {
     public TcEnoRefusal(string box, bool textReadsEno)
         : base(textReadsEno
-            ? $"TwinCAT: the text reads the '{box}' box through ENO (`… ENO EN c`), and the IDE builds that box with " +
-              "no ENO output — ENO names an output the box does not have. Without `ENO` shown, the text matches the box " +
+            ? $"TwinCAT: the text reads the '{box}' box through ENO (its flow where EN is shown), and the IDE builds that box with " +
+              "no ENO output — ENO names an output the box does not have. Read by its value (`.OUT`), the text matches the box " +
               "the IDE builds."
             : $"TwinCAT: the text reads the '{box}' box as a value, and the IDE builds that box with ENO as its main " +
-              "output — the text states a data output the box does not have. With `ENO` shown (`… ENO EN c`), the text " +
-              "matches the box the IDE builds.")
+              "output — the text states a data output the box does not have. Read through its ENO (the call alone, `EN :=` first), " +
+              "the text matches the box the IDE builds.")
     { }
 }

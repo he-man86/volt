@@ -34,7 +34,7 @@ VAR
 END_VAR
 %LANGUAGE LD
 %NETWORK
-out := a AND b;
+ASSIGN(a AND b, Q => out);
 
 END_FUNCTION_BLOCK
 `
@@ -75,9 +75,9 @@ VAR
 END_VAR
 %LANGUAGE LD
 %NETWORK
-out := BRANCH_SHORTCIRCUIT(FEED := go, a, b);
+ASSIGN(BRANCH_SHORTCIRCUIT(FEED := go, a, b), Q => out);
 %NETWORK
-out2 := a AND BRANCH(b, go);
+ASSIGN(a AND BRANCH(b, go), Q => out2);
 
 END_FUNCTION_BLOCK
 `

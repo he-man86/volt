@@ -220,7 +220,7 @@ public class CodesysBoxSlotTests
     }
 
     /// <summary>AN OPERATOR BOX SHOWING ENO WHOSE VALUE SLOT HOLDS AN EMPTY OPERAND has no target either: the same run answers "The
-    /// assignment target is not specified." It pulled as <c>AND(EN := go, a, b).ENO;</c>, which a push builds with no value slot.</summary>
+    /// assignment target is not specified." It pulled as <c>AND(EN := go, a, b);</c> read through its ENO, which a push builds with no value slot.</summary>
     [Fact]
     public void An_operator_box_showing_ENO_with_an_empty_value_slot_is_refused_by_name()
     {

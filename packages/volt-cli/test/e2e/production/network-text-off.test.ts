@@ -78,7 +78,7 @@ describe.skipIf(!production)(`production / a bridge without VOLT_GRAPHICAL (${BA
 		const name = inFolder(await projectRoot(), fid("prod_ld", "pou"))
 		const src =
 			`PROGRAM ${id("prod_ld")}\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`%LANGUAGE LD\n%NETWORK\nout := a;\n\nEND_PROGRAM\n`
+			`%LANGUAGE LD\n%NETWORK\nASSIGN(a, Q => out);\n\nEND_PROGRAM\n`
 		const r = await pushOps([{ op: "set", name, sourceText: src, ifVersion: null }])
 		expect(landed(r)).toBe(false)
 		expect(JSON.stringify(r.conflicts ?? r)).toContain(DISABLED)

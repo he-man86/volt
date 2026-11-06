@@ -786,7 +786,7 @@ public static class StNetworkReader
                 _i++;
                 if (Network && TryTarget() is { } nested)
                 {
-                    // A wire defined where it is first read, `(w1 := value)`; any other is an earlier text's coil inside a value.
+                    // A wire defined where it is first read, `(w1 := value)`; any other assignment inside a value is no network text.
                     if (nested is { Op: ":=", Comment: null } && _isWire(nested.Text) && !Chained())
                     {
                         var value = Expr();

@@ -30,11 +30,11 @@ const vars = (names: string[]): string =>
 const boxes = (named: boolean): string => `PROGRAM ${BOXES}
 ${vars(["outMid", "outRep", "outDel"])}%LANGUAGE FBD
 %NETWORK
-outMid := MID(${named ? "STR := txt, LEN := 2, POS := 3" : "txt, 2, 3"});
+ASSIGN(MID(${named ? "STR := txt, LEN := 2, POS := 3" : "txt, 2, 3"}), Q => outMid);
 %NETWORK
-outRep := REPLACE(${named ? "STR1 := txt, STR2 := 'ab', L := 2, P := 1" : "txt, 'ab', 2, 1"});
+ASSIGN(REPLACE(${named ? "STR1 := txt, STR2 := 'ab', L := 2, P := 1" : "txt, 'ab', 2, 1"}), Q => outRep);
 %NETWORK
-outDel := DELETE(${named ? "STR := txt, LEN := 2, POS := 3" : "txt, 2, 3"});
+ASSIGN(DELETE(${named ? "STR := txt, LEN := 2, POS := 3" : "txt, 2, 3"}), Q => outDel);
 
 END_PROGRAM
 `

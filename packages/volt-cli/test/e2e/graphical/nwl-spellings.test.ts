@@ -22,7 +22,7 @@ setDefaultTimeout(300_000)
 function fb(name: string, lang: "LD" | "FBD", code: string): string {
 	return (
 		`FUNCTION_BLOCK ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tgo : BOOL;\n\tstart : BOOL;\n\tn : BOOL;\n\tx : BOOL;\n\ty : BOOL;\n` +
-		`\tz : BOOL;\n\tt1 : TON;\nEND_VAR\n%LANGUAGE ${lang}\n%NETWORK\n${code}\n%NETWORK\nl:\nz := a;\n\nEND_FUNCTION_BLOCK\n`
+		`\tz : BOOL;\n\tt1 : TON;\nEND_VAR\n%LANGUAGE ${lang}\n%NETWORK\n${code}\n%NETWORK\nl:\nASSIGN(a, Q => z);\n\nEND_FUNCTION_BLOCK\n`
 	)
 }
 
@@ -39,18 +39,17 @@ const comment = (text: string) => new RegExp(`Name="Comment"[^>]*>${text}<`)
 
 const SAMPLES: Sample[] = [
 	{ key: "s1", lang: "LD", code: "a;" },                                         // #1
-	{ key: "s2", lang: "FBD", code: "NOT AND(a, b);" },                            // #2
-	{ key: "s7a", lang: "LD", code: "y := NOT := a;" },                            // #7a
-	{ key: "s7c", lang: "LD", code: "y := x := NOT := a;" },                       // #7a, last in a chain
-	{ key: "s7r", lang: "LD", code: "y := RISING := a;" },                     // #7a, stacked marks
-	{ key: "s8", lang: "LD", code: "NOT JMP.l := a;" },                            // #8
+	{ key: "s2", lang: "FBD", code: "INVERT(AND(a, b));" },                         // #2
+	{ key: "s7a", lang: "LD", code: "ASSIGN(a, Q_INVERTED => y);" },              // #7a
+	{ key: "s7c", lang: "LD", code: "ASSIGN(a, Q => y, Q_INVERTED => x);" },      // #7a, last in a target list
+	{ key: "s8", lang: "LD", code: "ASSIGN(a, Q_INVERTED => JMP.l);" },           // #8
 	{ key: "s11", lang: "LD", code: "BRANCH(FEED := start, a, b);" },              // #11
 	{ key: "s12", lang: "LD", code: "RAIL();" },                                   // #12
-	{ key: "s16", lang: "LD", code: "y := NOT EXECUTE(EN := go, 'n := TRUE;').ENO;" }, // #16
-	{ key: "s18", lang: "LD", code: "y := BRANCH(FEED := RAIL(), a, b);" },        // #18
-	{ key: "cv", lang: "LD", code: "y := NOT COMMENT(a, 'why value');", stored: [comment("why value")] },
-	{ key: "cc", lang: "LD", code: "COMMENT(y, 'why coil') S= a;", stored: [comment("why coil")] },
-	{ key: "cp", lang: "FBD", code: "y := t1(IN := COMMENT(a, 'why pin'), PT := T#1S).Q;", stored: [comment("why pin")] },
+	{ key: "s16", lang: "LD", code: "ASSIGN(INVERT(EXECUTE(EN := go, 'n := TRUE;')), Q => y);" }, // #16
+	{ key: "s18", lang: "LD", code: "ASSIGN(BRANCH(FEED := RAIL(), a, b), Q => y);" }, // #18
+	{ key: "cv", lang: "LD", code: "ASSIGN(INVERT(COMMENT(a, 'why value')), Q => y);", stored: [comment("why value")] },
+	{ key: "cc", lang: "LD", code: "ASSIGN(a, Q_SET => COMMENT(y, 'why coil'));", stored: [comment("why coil")] },
+	{ key: "cp", lang: "FBD", code: "ASSIGN(t1(IN := COMMENT(a, 'why pin'), PT := T#1S), Q => y);", stored: [comment("why pin")] },
 	{ key: "co", lang: "FBD", code: "t1(IN := a, PT := T#1S, Q => COMMENT(x, 'why output'));", stored: [comment("why output")] },
 ]
 

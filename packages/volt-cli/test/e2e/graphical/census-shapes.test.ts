@@ -52,24 +52,24 @@ describe(`graphical / census shapes, ld-fbd-coverage 2.3 (${BASE})`, () => {
 	})
 
 	it("S1: a bit operator storing an output slot is its pragmas, and the IDE keeps them", async () => {
-		await shape("s1", (n) => fb(n, "FBD", "out := AND(a, b);"))
+		await shape("s1", (n) => fb(n, "FBD", "ASSIGN(AND(a, b), Q => out);"))
 	})
 
 	it("S2: an assignment below the top level is its own pair", async () => {
-		await shape("s2", (n) => fb(n, "LD", "t1(IN := (out := go), PT := pt);"), "an assignment to 'out' below the top level")
+		await shape("s2", (n) => fb(n, "LD", "t1(IN := ASSIGN(go, Q => out), PT := pt);"), "an assignment to 'out' below the top level")
 	})
 
 	it("S3a: a leaf-fed wire is declared with the leaf's stored type", async () => {
-		await shape("s3a", (n) => fb(n, "LD", "VAR w1 : ANY; END_VAR\nw1 := a;\nout := w1 AND b;\nout2 := w1;"), "fed by the leaf 'a'")
+		await shape("s3a", (n) => fb(n, "LD", "VAR w1 : ANY; END_VAR\nw1 := a;\nASSIGN(w1 AND b, Q => out);\nASSIGN(w1, Q => out2);"), "fed by the leaf 'a'")
 	})
 
 	it("S3b: in LD a wire fed by the rail is TRUE, BOOL", async () => {
-		await shape("s3b", (n) => fb(n, "LD", "VAR w1 : ANY; END_VAR\nw1 := TRUE;\nout := w1 AND a;\nout2 := w1;"))
+		await shape("s3b", (n) => fb(n, "LD", "VAR w1 : ANY; END_VAR\nw1 := TRUE;\nASSIGN(w1 AND a, Q => out);\nASSIGN(w1, Q => out2);"))
 	})
 
 	it("S6: a negated input is the negated contact on its value, on an operator's and on a call's", async () => {
-		await shape("s6", (n) => fb(n, "FBD", "out := AND(a, NOT b);"), "a modifier on its input pin")
-		await shape("s6fb", (n) => fb(n, "FBD", "t1(IN := NOT go, PT := pt);"), "a modifier on its input pin")
+		await shape("s6", (n) => fb(n, "FBD", "ASSIGN(AND(a, INVERT(b)), Q => out);"), "a modifier on its input pin")
+		await shape("s6fb", (n) => fb(n, "FBD", "t1(IN := INVERT(go), PT := pt);"), "a modifier on its input pin")
 	})
 
 	describe("S5", () => {

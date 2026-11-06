@@ -305,7 +305,7 @@ internal sealed class TcArchiveBuilder
             b.Enable is not null ? Raw("EN", "true") : Null("EN"),
             // ENO SHOWN ONLY WHERE THE BOX HAS ONE: an enabled comparison read as a value is built EN, no ENO, as
             // CODESYS builds it (2R.5 #26), and with ENO shown beside an output list holding none TwinCAT does not compile
-            // it — measured live 2026-10-17, `x := a AND (v GT 40 EN c);` built "Identifier '__<POU>__ImpVar8' not
+            // it — measured live 2026-10-17, `ASSIGN(a AND GT(EN := c, v, 40).OUT, Q => x);` built "Identifier '__<POU>__ImpVar8' not
             // defined" (stored-shapes.test.ts). The flag is the box's own fact, not its EN's (N16): ENO without EN is shown
             // too (network-output-member 2.3).
             eno ? Raw("ENO", "true") : Null("ENO"),

@@ -64,7 +64,7 @@ END_VAR
 ` +
 			`%LANGUAGE LD
 %NETWORK
-out := a AND b;
+ASSIGN(a AND b, Q => out);
 ` +
 			`
 END_FUNCTION_BLOCK
@@ -76,7 +76,7 @@ END_FUNCTION_BLOCK
 		// Edit the PULLED text — the IDE owns its own network boundaries — and change an OPERAND, so the
 		// change gate cannot skip the rebuild.
 		const pulled = await fetchItem(full)
-		const edited = pulled.sourceText.replace("a AND b;", "a AND c;")
+		const edited = pulled.sourceText.replace("a AND b, Q", "a AND c, Q")
 		expect(edited, "the edit did not apply").not.toBe(pulled.sourceText)
 
 		const refs = await bridge.refs()
@@ -118,14 +118,14 @@ END_VAR
 %NETWORK
 VAR w1 : ANY; END_VAR
 w1 := a AND b;
-p := w1;
-q := w1;
+ASSIGN(w1, Q => p);
+ASSIGN(w1, Q => q);
 ` +
 			`%NETWORK
 VAR w2 : ANY; END_VAR
 w2 := a OR b;
-x := w2;
-y := w2;
+ASSIGN(w2, Q => x);
+ASSIGN(w2, Q => y);
 
 ` +
 			`
@@ -187,7 +187,7 @@ END_VAR
 // holds the drive off while the guard is open
 // second line of the same comment
 Guard:
-out := a AND b;
+ASSIGN(a AND b, Q => out);
 
 ` +
 			`
@@ -202,7 +202,7 @@ END_FUNCTION_BLOCK
 
 		// Change the LOGIC, which is what forces the rebuild. A title-only edit would leave the trees
 		// untouched and the change gate would skip it — the opposite of what this asks.
-		const edited = before.replace("a AND b;", "a AND c;")
+		const edited = before.replace("a AND b, Q", "a AND c, Q")
 		expect(edited, "the edit did not apply").not.toBe(before)
 
 		const refs = await bridge.refs()

@@ -4,7 +4,7 @@
  * `test/support/network-twin.ts`), on one stimulus that changes every scan; a driver PROGRAM counts the scans on which an
  * output of the network differs from the twin's. The measurement each spelling rests on:
  *
- *   `X(EN := e, …)`             a box with EN and no ENO, read by its value: held under a coil when disabled, at the root
+ *   `X(EN := e, …).OUT`         a box with EN and no ENO, read by its value: held under a coil when disabled, at the root
  *                               the IF that runs it, an enabled comparison FALSE when disabled, an FB not called;
  *   `c2(…).CV`                  an FB read through its moved pin: called before the item, read by that output;
  *   an FB in an enabled box's pin  called before the item on every scan, whatever the enabled box's EN;
@@ -12,8 +12,8 @@
  *                               EN — the edge is on `d`,
  *                               which rises outside the EN window (n = 8) and holds into it (n = 12): an edge run every
  *                               scan and one run only under the EN differ there, so `e_y12` tells the two orders apart;
- *   `JMP.l := v`, `RETURN := v` the jump and the return as targets on a value; a coil and a jump on one value one item;
- *   `y := (JMP.l := c) AND d`      a jump inside a tree;
+ *   `Q => JMP.l`, `Q => RETURN` the jump and the return as targets of an ASSIGN; a coil and a jump on one value one item;
+ *   `ASSIGN(ASSIGN(c, Q => JMP.l) AND d, Q => y)`  a jump inside a tree;
  *   a wire read before its definition  the value its definition held on the previous scan (network-output-member 2.3).
  *
  * CODESYS only (no TwinCAT runtime licence on the dev machine).
@@ -46,35 +46,34 @@ const net1 = `PROGRAM ${NET1}
 ${inputs}${outputs1}%LANGUAGE LD
 %NETWORK
 VAR w1 : ANY; END_VAR
-x6 := a AND w1;
+ASSIGN(a AND w1, Q => x6);
 w1 := b OR c;
-x7 := w1;
+ASSIGN(w1, Q => x7);
 %NETWORK
-y1 := MOVE(EN := c, i);
+ASSIGN(MOVE(EN := c, i).OUT, Q => y1);
 %NETWORK
 MOVE(EN := d, j, OUT => y2);
 %NETWORK
-x1 := a AND GT(EN := c, i, 3);
+ASSIGN(a AND GT(EN := c, i, 3).OUT, Q => x1);
 %NETWORK
-x3 := c1(EN := c, CU := a, PV := 5).Q;
+ASSIGN(c1(EN := c, CU := a, PV := 5).Q, Q => x3);
 %NETWORK
-x5 := ${FN}(EN := TRUE, IN := i, OUT => y9).ENO;
+ASSIGN(${FN}(EN := TRUE, IN := i, OUT => y9), Q => x5);
 %NETWORK
-y10 := c2(CU := a, PV := 5).CV;
+ASSIGN(c2(CU := a, PV := 5).CV, Q => y10);
 %NETWORK
-MOVE(EN := c, c3(CU := b, PV := 3).CV, OUT => y11).ENO;
+MOVE(EN := c, c3(CU := b, PV := 3).CV, OUT => y11);
 %NETWORK
-c4(EN := c, CU := RISING(d), PV := 5, CV => y12).ENO;
+c4(EN := c, CU := RISING(d), PV := 5, CV => y12);
 %NETWORK
-lamp := b AND d;
-JMP.skip1 := b AND d;
+ASSIGN(b AND d, Q => lamp, Q => JMP.skip1);
 %NETWORK
-y4 := ADD(y4, 1);
+ASSIGN(ADD(y4, 1), Q => y4);
 %NETWORK
 skip1:
-RETURN := d AND NOT a;
+ASSIGN(d AND INVERT(a), Q => RETURN);
 %NETWORK
-y6 := ADD(y6, 1);
+ASSIGN(ADD(y6, 1), Q => y6);
 
 END_PROGRAM
 `
@@ -116,12 +115,12 @@ END_PROGRAM
 const net2 = `PROGRAM ${NET2}
 ${inputs}${outputs2}%LANGUAGE LD
 %NETWORK
-x2 := (JMP.skip2 := c) AND d;
+ASSIGN(ASSIGN(c, Q => JMP.skip2) AND d, Q => x2);
 %NETWORK
-y5 := ADD(y5, 1);
+ASSIGN(ADD(y5, 1), Q => y5);
 %NETWORK
 skip2:
-y7 := ADD(y7, 1);
+ASSIGN(ADD(y7, 1), Q => y7);
 
 END_PROGRAM
 `
@@ -177,7 +176,7 @@ describe.skipIf(VENDOR !== "codesys")(`graphical / the spellings run as their tw
 		await requireHealthy()
 	})
 
-	it("EN without ENO, an FB's moved pin, the FB evaluation order, JMP.label := value, RETURN := value, a coil and a jump on one value and a jump in a tree", async () => {
+	it("EN without ENO, an FB's moved pin, the FB evaluation order, Q => JMP.label, Q => RETURN, a coil and a jump on one value and a jump in a tree", async () => {
 		try {
 			for (const item of ITEMS) await removeItem(item)
 			for (const [item, src] of [[fid("stfn"), fn], [fid("stnet1"), net1], [fid("sttwin1"), twin1], [fid("stnet2"), net2], [fid("sttwin2"), twin2], [fid("stdrv"), drv]] as const) {

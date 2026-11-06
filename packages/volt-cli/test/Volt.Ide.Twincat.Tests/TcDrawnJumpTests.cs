@@ -215,7 +215,7 @@ public class TcDrawnJumpTests
     /// <summary>THE DRAWN RUNG IS A JUMP BESIDE A COIL — two targets on one terminator: the jump destination <c>owrods</c>
     /// (<c>Flags = 4</c>) and the coil <c>out</c> (<c>Flags = 0</c>), the jump stored first. The jump is a target of the item
     /// like the coil, in stored order (openspec network-rail-and-pin-negation), on the rail:
-    /// <c>JMP.owrods := out := RAIL();</c>; and a push of that text unchanged keeps the network as the IDE holds it.</summary>
+    /// <c>ASSIGN(RAIL(), Q =&gt; JMP.owrods, Q =&gt; out);</c>; and a push of that text unchanged keeps the network as the IDE holds it.</summary>
     [Fact]
     public void The_drawn_rung_is_its_jump_and_its_coil_on_the_rail()
     {

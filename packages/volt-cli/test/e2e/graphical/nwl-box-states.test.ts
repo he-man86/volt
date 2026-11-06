@@ -97,7 +97,7 @@ describe.skipIf(VENDOR !== "codesys")(`graphical / stored box states, nwl-box-st
 		const H = id("bsI")
 		const hFile = fid("bsI")
 		const declared = `PROGRAM ${P}\nVAR_INPUT\n\ta : BOOL;\n\tn : INT;\nEND_VAR\nVAR_OUTPUT\n\tq1 : BOOL;\n\tq2 : INT;\nEND_VAR\n%LANGUAGE ST\nq1 := a;\nq2 := n + 1;\n\nEND_PROGRAM\n`
-		const holder = `PROGRAM ${H}\nVAR\n\ta : BOOL := TRUE;\n\tx : BOOL;\n\ti : INT := 5;\nEND_VAR\n%LANGUAGE FBD\n%NETWORK\nx := ${P}(a := a, n := i).q1;\n\nEND_PROGRAM\n`
+		const holder = `PROGRAM ${H}\nVAR\n\ta : BOOL := TRUE;\n\tx : BOOL;\n\ti : INT := 5;\nEND_VAR\n%LANGUAGE FBD\n%NETWORK\nASSIGN(${P}(a := a, n := i), Q => x);\n\nEND_PROGRAM\n`
 		await removeItem(hFile)
 		await removeItem(pFile)
 		await createItem(pFile, declared)
@@ -125,10 +125,10 @@ describe.skipIf(VENDOR !== "codesys")(`graphical / stored box states, nwl-box-st
 		await createItem(pFile, declared)
 		try {
 			const body = [
-				`%NETWORK\nx := ${P}(a := a, n := i).q1;`,
-				`%NETWORK\nk := ${P}(a := a, n := i).q2;`,
+				`%NETWORK\nASSIGN(${P}(a := a, n := i), Q => x);`,
+				`%NETWORK\nASSIGN(${P}(a := a, n := i).q2, Q => k);`,
 				`%NETWORK\n${P}(a := a, n := i, q2 => v);`,
-				`%NETWORK\ny := ${P}(EN := go, a := a, n := i).ENO;`,
+				`%NETWORK\nASSIGN(${P}(EN := go, a := a, n := i), Q => y);`,
 			].join("\n")
 			const pushed = await pushOps([{ op: "set", name: await at(hFile), sourceText: holder(body), ifVersion: null }])
 			expect(landed(pushed), JSON.stringify(pushed.conflicts)).toBe(true)

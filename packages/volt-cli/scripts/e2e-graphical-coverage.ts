@@ -6,7 +6,7 @@
  * anyone is what it has never pushed AT ALL — and that is the shape of every bug it has missed.
  *
  * It missed one. `ladderLabel.pou`, pulled from a real TwinCAT project, is two networks: one holding a coil
- * with nothing driving it (`coil := TRUE;` today) and one holding NOTHING but a label. Pushed back into an empty
+ * with nothing driving it (`ASSIGN(TRUE, Q => coil);` today) and one holding NOTHING but a label. Pushed back into an empty
  * project it came back gutted — declaration gone, LD turned to FBD, both labels gone, one network gone —
  * with `volt push` reporting success (`twincat-graphical-create-loss`). Neither shape appears anywhere in
  * `test/e2e`, so 175 passing tests on both vendors said nothing about either.
@@ -51,27 +51,27 @@ const line = (rest: string): RegExp => new RegExp(AT_LINE + rest, 'm')
  * reported apart.
  */
 const CONSTRUCTS: { name: string; where: string; match: RegExp; archive?: RegExp }[] = [
-	{ name: "wire (VAR w1 : ANY; END_VAR)", where: "#wires", match: /VAR_TEMP\s+w\d+\s*:\s*ANY;/ },
-	{ name: "coil (lvalue := operand)", where: "#elements", match: line("\\w[\\w.]*\\s*:=\\s*[^;\\s]") },
-	{ name: "chained assign (x := y S= v)", where: "#elements", match: /:=(\s|\\n)+\w[\w.]*\s*(:=|S=|R=)/ },
-	{ name: "contact (a AND b)", where: "#elements", match: /\w\s+(AND|OR)\s+(NOT\s+)?\w/ },
+	{ name: "wire (VAR w1 : ANY; END_VAR)", where: "#wires", match: /VAR\s+w\d+\s*:\s*ANY;/ },
+	{ name: "coil (ASSIGN(v, Q => y))", where: "#elements", match: /ASSIGN\(.*Q\s*=>\s*(?!JMP\.|RETURN\b)[\w.?]/ },
+	{ name: "parallel coils (ASSIGN(v, Q => x, Q => y))", where: "#elements", match: /ASSIGN\([^;]*Q\w*\s*=>\s*[\w.?]+\s*,\s*Q\w*\s*=>/ },
+	{ name: "series coils (ASSIGN(ASSIGN(…), Q => y))", where: "#elements", match: /ASSIGN\(\s*ASSIGN\(/ },
+	{ name: "contact (a AND b)", where: "#elements", match: /\w\)?\s+(AND|OR)\s+(INVERT\()?\w/ },
 	{ name: "operator box (ADD(a, b))", where: "#elements", match: /\b(AND|OR|XOR|ADD|MUL|SUB|DIV|MOD|GT|GE|EQ|NE|LE|LT|NOT)\(/ },
-	{ name: "function call", where: "#elements", match: /:=\s*[A-Z_]\w*\(/ },
+	{ name: "function call", where: "#elements", match: /ASSIGN\(\s*[A-Z_]\w*\(/ },
 	{ name: "FB instance call", where: "#elements", match: /\b\w+\((\w+\s*:=|\s*\))/ },
-	{ name: "output pin (=>)", where: "#elements", match: /=>/, archive: /n="OutputItems"[\s\S]{0,400}?<n \/>[\s\S]{0,400}?<v n="Operand">"[^"]+"/ },
-	{ name: "EN and ENO (X(EN := …).ENO)", where: "#en-eno", match: /\w\(EN\s*:=[^;]*\.ENO/ },
-	// ponytail: one call level only — a nested box inside an ENO-only call is not counted here
-	{ name: "ENO without EN (X(…).ENO)", where: "#en-eno", match: /\w\((?!EN\s*:=)[^;()]*\)\.ENO/ },
-	{ name: "EN without ENO (X(EN := …))", where: "#en-eno", match: /\w\(EN\s*:=(?:(?!\.ENO)[^;])*;/ },
+	{ name: "output pin (=>)", where: "#elements", match: /\b(?!Q\b|Q_)\w+\s*=>/, archive: /n="OutputItems"[\s\S]{0,400}?<n \/>[\s\S]{0,400}?<v n="Operand">"[^"]+"/ },
+	{ name: "EN (X(EN := …))", where: "#outputs", match: /\w\(EN\s*:=/ },
+	{ name: "another output flowing on (X(…).NAME)", where: "#outputs", match: /\)\.(?!ENO\b)[A-Za-z_]\w*/ },
 	{ name: "Execute box", where: "#execute", match: /\bEXECUTE\(/, archive: /<v n="ProvidesSTSnippet">true<|n="STSnippet"[^\/]*>\s*<o/ },
-	{ name: "negated contact (NOT a)", where: "#elements", match: /:=\s*NOT\s|\bAND\s+NOT\b|\bOR\s+NOT\b/ },
-	{ name: "rising edge (R_EDGE)", where: "#elements", match: /\bR_EDGE\(/ },
-	{ name: "falling edge (F_EDGE)", where: "#elements", match: /\bF_EDGE\(/ },
+	{ name: "negated contact (INVERT(a))", where: "#marks", match: /\bINVERT\(/ },
+	{ name: "rising edge (RISING(a))", where: "#marks", match: /\bRISING\(/ },
+	{ name: "falling edge (FALLING(a))", where: "#marks", match: /\bFALLING\(/ },
 	{ name: "BRANCH", where: "#elements", match: /\bBRANCH(_SHORTCIRCUIT)?\(/ },
-	{ name: "SET coil (S=)", where: "#elements", match: /\sS=\s/ },
-	{ name: "RESET coil (R=)", where: "#elements", match: /\sR=\s/ },
-	{ name: "JMP", where: "#elements", match: /\bJMP(\s+\w+|\()/, archive: /<v n="Flags">4</ },
-	{ name: "RETURN", where: "#elements", match: /\bRETURN\s*(;|\()/, archive: /<v n="Flags">8</ },
+	{ name: "negated coil (Q_INVERTED =>)", where: "#marks", match: /\bQ_INVERTED\s*=>\s*(?!JMP\.)/ },
+	{ name: "SET coil (Q_SET =>)", where: "#marks", match: /\bQ_SET\s*=>/ },
+	{ name: "RESET coil (Q_RESET =>)", where: "#marks", match: /\bQ_RESET\s*=>/ },
+	{ name: "JMP (=> JMP.l)", where: "#elements", match: /=>\s*JMP\./, archive: /<v n="Flags">4</ },
+	{ name: "RETURN (=> RETURN)", where: "#elements", match: /=>\s*RETURN\b/, archive: /<v n="Flags">8</ },
 	{ name: "network label (l:)", where: "#lines", match: line("[A-Za-z_]\\w*:(\\\\n|\\s)") },
 	{ name: "network title", where: "#lines", match: /%NETWORK\s+"/ },
 	{ name: "network comment", where: "#lines", match: line("\\/\\/ ") },
@@ -82,7 +82,7 @@ const CONSTRUCTS: { name: string; where: string; match: RegExp; archive?: RegExp
 	// THE TWO THAT WERE MISSING, and the reason this file exists. Both are shapes a real project holds and
 	// nothing in the suite creates.
 	{ name: "EMPTY network (%NETWORK and nothing under it)", where: "#lines", match: /%NETWORK[^\n\\`]*\\n\s*(%NETWORK|[`"'])/ },
-	{ name: "coil on the rail (x := TRUE;)", where: "#elements", match: line("\\w[\\w.]*\\s*:=\\s*TRUE;") },
+	{ name: "coil on the rail (ASSIGN(TRUE, Q => x))", where: "#elements", match: /ASSIGN\(\s*(TRUE|RAIL\(\))\s*,/ },
 ]
 
 function sources(dir: string): string[] {

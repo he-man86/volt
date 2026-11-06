@@ -9,7 +9,7 @@ namespace Volt.Engine.Tests.Format.Network;
 /// <para><b>What this replaces.</b> These used to be <c>CoilStorageTests</c>, gating a translation layer that
 /// moved a coil's storage off the TARGET and onto the VALUE on read, and back again on write — because the text
 /// format spelled it as a trailing word after the value (<c>out := a SET;</c>). The format now spells it as the
-/// assignment operator, where the vendors already keep it (<c>out S= a;</c>), so the translation has nothing to
+/// assignment operator, where the vendors already keep it (<c>ASSIGN(a, Q_SET =&gt; out);</c>), so the translation has nothing to
 /// do and is deleted. What is left to gate is the part that was never a translation at all: DECODING two bits
 /// into a coil kind.</para>
 ///

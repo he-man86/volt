@@ -1,4 +1,4 @@
-> Checked on dev 3bf209901e (2026-11-03): network-text-st is archived, so this can start. Most push sources are already re-spelled: 20 of the 23 rows pass the LSP network check; `nwl-stsnippet-line-ids`, `nwl-editor-refill` and `nwl-assign-item-flags` do not. The snapshots are still stale (`IMPLEMENTATION` in 23 CODESYS and 16 TwinCAT rows, `refused-names` among them). Needs live CODESYS and TwinCAT.
+> Checked 2026-11-06: every NWL row's push source in `vendor-facts.table.ts` is spelled in the network language and reads and writes back unchanged through the bridge's reader and writer, offline (`graphical-callee-seed`'s caller variable `r` renamed `res`: `R` is the reset operator, refused as a name). The snapshots are still stale (`IMPLEMENTATION` in 23 CODESYS and 16 TwinCAT rows, `refused-names` among them). Needs live CODESYS and TwinCAT.
 
 > Found by the language-line step-3 gate review (2026-10-27). Not started; it follows network-text-st, whose grammar
 > the re-spelled push sources must use. Nothing here is a fix to make before then.

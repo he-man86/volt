@@ -44,15 +44,15 @@ describe(`graphical / the push pre-flight (${BASE})`, () => {
 	/** A perfectly ordinary graphical POU — this one must never be the reason a push fails. */
 	const fine = (name: string) =>
 		["PROGRAM " + name, "VAR", "\ta : BOOL;", "\tb : BOOL;", "\tout : BOOL;", "END_VAR",
-		 "%LANGUAGE FBD", "%NETWORK", "out := AND(a, b);", "", "END_PROGRAM", ""].join(NL)
+		 "%LANGUAGE FBD", "%NETWORK", "ASSIGN(AND(a, b), Q => out);", "", "END_PROGRAM", ""].join(NL)
 
 	/**
 	 * …and one the push's reader refuses from the text alone, on both vendors: an enabled box whose call does not take its
-	 * `EN :=` first (`x := MOVE(1, EN := a);`) — refused by name, `NETWORK_PARSE`.
+	 * `EN :=` first (`ASSIGN(MOVE(1, EN := a), Q => x);`) — refused by name, `NETWORK_PARSE`.
 	 */
 	const broken = (name: string) =>
 		["PROGRAM " + name, "VAR", "\ta : BOOL;", "\tx : BOOL;", "END_VAR",
-		 "%LANGUAGE FBD", "%NETWORK", "x := MOVE(1, EN := a);", "", "END_PROGRAM", ""].join(NL)
+		 "%LANGUAGE FBD", "%NETWORK", "ASSIGN(MOVE(1, EN := a), Q => x);", "", "END_PROGRAM", ""].join(NL)
 
 	it("a create refused from its text leaves the item before it unwritten", async () => {
 		const firstName = id("pf_ok")
