@@ -198,8 +198,10 @@ def author(ide, data):
     for name, spec in sorted(data["callees"].items()):
         kinds = {"Function": PouType.Function, "FunctionBlock": PouType.FunctionBlock, "Program": PouType.Program}
         args = dict(name=name, type=kinds[spec["kind"]], language=ImplementationLanguages.st)
-        if spec.get("returnType"):
-            args["return_type"] = spec["returnType"]
+        if spec["kind"] == "Function":
+            # scripting creates no FUNCTION without a return type: a callee declaring none (bmFv) gets one here, which the
+            # declaration below then replaces
+            args["return_type"] = spec.get("returnType") or "BOOL"
         o = app.create_pou(**args)
         o.textual_declaration.replace(spec["declaration"])
         o.textual_implementation.replace(spec["body"])
@@ -208,7 +210,7 @@ def author(ide, data):
     for row in live:
         name = "BoxState_" + row["id"]
         o = app.create_pou(name=name, type=PouType.Program, language=languages[row["language"]])
-        o.textual_declaration.replace(data["holder"] % name)
+        o.textual_declaration.replace(row.get("holder", data["holder"]) % name)
         ide.insert_box(o, row["insertAs"], row["instance"] or "", row["insertEnEno"])
         ide.edit(o, lambda impl, row=row: apply_state(list(vp.prop(impl, "NetworkList"))[0], row))
     log("authored %d states" % len(live))

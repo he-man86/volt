@@ -27,7 +27,8 @@ LD consumed `ASSIGN(t2(a := a, n := i), Q => x);`: [null,''] = [null,'',''] / [n
 FBD root `EXECUTE('m := 1;');`: [null] / [null]
 FBD root `EXECUTE(EN := go, 'm := 1;');`: [null] = [null,''] = [null] eno=null / [] / [null] / [null]
 FBD root `a AND b;`: [] en=null eno=null / [null] en=null eno=null
-FBD root `bmF0(EN := go, a := a, b := b);`: [null,''] / [null] = [null] eno=null
+FBD root `bmF0(EN := go, a := a, b := b);`: [null,''] / [null] = [null] eno=null / [null,'???'] = [null] = [null,null] = [null,'']
+LD root `bmF0(EN := go, a := a, b := b);`: [null,''] / [null,'???'] = [null] = [null,null] = [null,'']
 FBD root `bmF0(a := a, b := b);`: [] / [null] = [''] / [null,null] = [null] = [null] en=null eno=null / [''] / [null,null] / [null,null]
 LD root `bmF0(a := a, b := b);`: [] / [null] = [''] / [null,null] = [null] / ['']
 FBD root `bmF2(EN := go, a := i, OUT => ???);`: [null,'???',null,'',''] / [null,'???','','']

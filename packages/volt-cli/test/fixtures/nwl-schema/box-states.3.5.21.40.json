@@ -44,6 +44,11 @@
 "kind": "Program",
 "declaration": "PROGRAM bmP0\nVAR_INPUT\n\ta : BOOL;\nEND_VAR\nVAR\n\tn : INT;\nEND_VAR\n",
 "body": "n := n + 1;\n"
+},
+"bmFv": {
+"kind": "Function",
+"declaration": "FUNCTION bmFv\nVAR_IN_OUT\n\tio : BOOL;\nEND_VAR\n",
+"body": "io := TRUE;\n"
 }
 },
 "note": "One row per stored box state measured live (openspec nwl-box-storage-map): the members as stored, then what the IDE made of it: build messages, the values a simulation run wrote (only those off their initial value), the compiler's language model, the editor's layout hash. `pull` is what Volt shows. Regenerate pull with VOLT_WRITE_BOX_STATES=1 dotnet test test/Volt.Ide.Codesys.Tests --filter CodesysBoxStatesTests.",
@@ -55718,6 +55723,1491 @@ null
 "afterReopen": true
 },
 "pull": "ASSIGN(EXECUTE(EN := go, \u0027m := 1;\u0027), Q =\u003E y);"
+},
+{
+"id": "1099",
+"kind": "F0on",
+"language": "LD",
+"position": "root",
+"live": true,
+"insertAs": "bmF0",
+"insertEnEno": true,
+"boxType": "bmF0",
+"instance": null,
+"callType": "Function",
+"en": true,
+"eno": true,
+"flags": [],
+"inputFlagsLength": null,
+"inputs": [
+"go",
+"a",
+"b"
+],
+"inputNames": [
+"EN",
+"a",
+"b"
+],
+"inputTypes": [
+"BOOL",
+"BOOL",
+"BOOL"
+],
+"outputs": [
+null,
+"???"
+],
+"outputNames": [
+"ENO"
+],
+"outputTypes": [
+"BOOL"
+],
+"extensible": false,
+"providesSnippet": false,
+"snippet": false,
+"target": null,
+"measured": {
+"build": [],
+"run": "",
+"code": "__ENO := go; IF __ENO THEN bmF0(a := a, b := b); END_IF; __Imp := __ENO;",
+"layout": "a6338d3332",
+"afterReopen": true
+},
+"pull": "bmF0(EN := go, a := a, b := b);"
+},
+{
+"id": "1100",
+"kind": "F0on",
+"language": "LD",
+"position": "root",
+"live": true,
+"insertAs": "bmF0",
+"insertEnEno": true,
+"boxType": "bmF0",
+"instance": null,
+"callType": "Function",
+"en": true,
+"eno": true,
+"flags": [],
+"inputFlagsLength": null,
+"inputs": [
+"go",
+"a",
+"b"
+],
+"inputNames": [
+"EN",
+"a",
+"b"
+],
+"inputTypes": [
+"BOOL",
+"BOOL",
+"BOOL"
+],
+"outputs": [
+null
+],
+"outputNames": [
+"ENO"
+],
+"outputTypes": [
+"BOOL"
+],
+"extensible": false,
+"providesSnippet": false,
+"snippet": false,
+"target": null,
+"measured": {
+"build": [],
+"run": "",
+"code": "__ENO := go; IF __ENO THEN bmF0(a := a, b := b); END_IF; __Imp := __ENO;",
+"layout": "a6338d3332",
+"afterReopen": true
+},
+"pull": "bmF0(EN := go, a := a, b := b);"
+},
+{
+"id": "1101",
+"kind": "F0on",
+"language": "LD",
+"position": "root",
+"live": true,
+"insertAs": "bmF0",
+"insertEnEno": true,
+"boxType": "bmF0",
+"instance": null,
+"callType": "Function",
+"en": true,
+"eno": true,
+"flags": [],
+"inputFlagsLength": null,
+"inputs": [
+"go",
+"a",
+"b"
+],
+"inputNames": [
+"EN",
+"a",
+"b"
+],
+"inputTypes": [
+"BOOL",
+"BOOL",
+"BOOL"
+],
+"outputs": [
+null,
+null
+],
+"outputNames": [
+"ENO"
+],
+"outputTypes": [
+"BOOL"
+],
+"extensible": false,
+"providesSnippet": false,
+"snippet": false,
+"target": null,
+"measured": {
+"build": [],
+"run": "",
+"code": "__ENO := go; IF __ENO THEN bmF0(a := a, b := b); END_IF; __Imp := __ENO;",
+"layout": "a6338d3332",
+"afterReopen": true
+},
+"pull": "bmF0(EN := go, a := a, b := b);"
+},
+{
+"id": "1102",
+"kind": "F0on",
+"language": "LD",
+"position": "root",
+"live": true,
+"insertAs": "bmF0",
+"insertEnEno": true,
+"boxType": "bmF0",
+"instance": null,
+"callType": "Function",
+"en": true,
+"eno": true,
+"flags": [],
+"inputFlagsLength": null,
+"inputs": [
+"go",
+"a",
+"b"
+],
+"inputNames": [
+"EN",
+"a",
+"b"
+],
+"inputTypes": [
+"BOOL",
+"BOOL",
+"BOOL"
+],
+"outputs": [
+null,
+"x"
+],
+"outputNames": [
+"ENO"
+],
+"outputTypes": [
+"BOOL"
+],
+"extensible": false,
+"providesSnippet": false,
+"snippet": false,
+"target": null,
+"measured": {
+"build": [],
+"run": "",
+"code": "__ENO := go; IF __ENO THEN bmF0(a := a, b := b); END_IF; __Imp := __ENO;",
+"layout": "a6338d3332",
+"afterReopen": true
+},
+"pull": "%UNSUPPORTED \u0022a variable on an output no declaration names\u0022 #68ee2f77"
+},
+{
+"id": "1103",
+"kind": "F0on",
+"language": "LD",
+"position": "root",
+"live": true,
+"insertAs": "bmF0",
+"insertEnEno": true,
+"boxType": "bmF0",
+"instance": null,
+"callType": "Function",
+"en": true,
+"eno": true,
+"flags": [],
+"inputFlagsLength": null,
+"inputs": [
+"go",
+"a",
+"b"
+],
+"inputNames": [
+"EN",
+"a",
+"b"
+],
+"inputTypes": [
+"BOOL",
+"BOOL",
+"BOOL"
+],
+"outputs": [
+null,
+""
+],
+"outputNames": [
+"ENO"
+],
+"outputTypes": [
+"BOOL"
+],
+"extensible": false,
+"providesSnippet": false,
+"snippet": false,
+"target": null,
+"measured": {
+"build": [],
+"run": "",
+"code": "__ENO := go; IF __ENO THEN bmF0(a := a, b := b); END_IF; __Imp := __ENO;",
+"layout": "a6338d3332",
+"afterReopen": true
+},
+"pull": "bmF0(EN := go, a := a, b := b);"
+},
+{
+"id": "1104",
+"kind": "Fvon",
+"language": "LD",
+"position": "root",
+"live": true,
+"insertAs": "bmFv",
+"insertEnEno": true,
+"boxType": "bmFv",
+"instance": null,
+"callType": "Function",
+"en": true,
+"eno": true,
+"flags": [],
+"inputFlagsLength": null,
+"inputs": [
+"go",
+"z"
+],
+"inputNames": [
+"EN",
+"io"
+],
+"inputTypes": [
+"BOOL",
+"BOOL[REF]"
+],
+"outputs": [
+null,
+null
+],
+"outputNames": [
+"ENO"
+],
+"outputTypes": [
+"BOOL"
+],
+"extensible": false,
+"providesSnippet": false,
+"snippet": false,
+"target": null,
+"measured": {
+"build": [],
+"run": "z=TRUE",
+"code": "__ENO := go; IF __ENO THEN bmFv(io := z); END_IF; __Imp := __ENO;",
+"layout": "f7ff335a31",
+"afterReopen": true
+},
+"pull": "bmFv(EN := go, io := z);"
+},
+{
+"id": "1105",
+"kind": "Fvon",
+"language": "LD",
+"position": "root",
+"live": true,
+"insertAs": "bmFv",
+"insertEnEno": true,
+"boxType": "bmFv",
+"instance": null,
+"callType": "Function",
+"en": true,
+"eno": true,
+"flags": [],
+"inputFlagsLength": null,
+"inputs": [
+"go",
+"z"
+],
+"inputNames": [
+"EN",
+"io"
+],
+"inputTypes": [
+"BOOL",
+"BOOL[REF]"
+],
+"outputs": [
+null,
+"???"
+],
+"outputNames": [
+"ENO"
+],
+"outputTypes": [
+"BOOL"
+],
+"extensible": false,
+"providesSnippet": false,
+"snippet": false,
+"target": null,
+"measured": {
+"build": [],
+"run": "z=TRUE",
+"code": "__ENO := go; IF __ENO THEN bmFv(io := z); END_IF; __Imp := __ENO;",
+"layout": "f7ff335a31",
+"afterReopen": true
+},
+"pull": "bmFv(EN := go, io := z);"
+},
+{
+"id": "1106",
+"kind": "Fvon",
+"language": "LD",
+"position": "root",
+"live": true,
+"insertAs": "bmFv",
+"insertEnEno": true,
+"boxType": "bmFv",
+"instance": null,
+"callType": "Function",
+"en": true,
+"eno": true,
+"flags": [],
+"inputFlagsLength": null,
+"inputs": [
+"go",
+"z"
+],
+"inputNames": [
+"EN",
+"io"
+],
+"inputTypes": [
+"BOOL",
+"BOOL[REF]"
+],
+"outputs": [
+null
+],
+"outputNames": [
+"ENO"
+],
+"outputTypes": [
+"BOOL"
+],
+"extensible": false,
+"providesSnippet": false,
+"snippet": false,
+"target": null,
+"measured": {
+"build": [],
+"run": "z=TRUE",
+"code": "__ENO := go; IF __ENO THEN bmFv(io := z); END_IF; __Imp := __ENO;",
+"layout": "f7ff335a31",
+"afterReopen": true
+},
+"pull": "bmFv(EN := go, io := z);"
+},
+{
+"id": "1107",
+"kind": "Fvon",
+"language": "LD",
+"position": "root",
+"live": true,
+"insertAs": "bmFv",
+"insertEnEno": true,
+"boxType": "bmFv",
+"instance": null,
+"callType": "Function",
+"en": true,
+"eno": true,
+"flags": [],
+"inputFlagsLength": null,
+"inputs": [
+"go",
+"z"
+],
+"inputNames": [
+"EN",
+"io"
+],
+"inputTypes": [
+"BOOL",
+"BOOL[REF]"
+],
+"outputs": [
+null,
+"x"
+],
+"outputNames": [
+"ENO"
+],
+"outputTypes": [
+"BOOL"
+],
+"extensible": false,
+"providesSnippet": false,
+"snippet": false,
+"target": null,
+"measured": {
+"build": [],
+"run": "z=TRUE",
+"code": "__ENO := go; IF __ENO THEN bmFv(io := z); END_IF; __Imp := __ENO;",
+"layout": "f7ff335a31",
+"afterReopen": true
+},
+"pull": "%UNSUPPORTED \u0022a variable on an output no declaration names\u0022 #8ee8e11d"
+},
+{
+"id": "1108",
+"kind": "Fvon",
+"language": "LD",
+"position": "root",
+"live": true,
+"insertAs": "bmFv",
+"insertEnEno": true,
+"boxType": "bmFv",
+"instance": null,
+"callType": "Function",
+"en": true,
+"eno": true,
+"flags": [],
+"inputFlagsLength": null,
+"inputs": [
+"go",
+"z"
+],
+"inputNames": [
+"EN",
+"io"
+],
+"inputTypes": [
+"BOOL",
+"BOOL[REF]"
+],
+"outputs": [
+null,
+""
+],
+"outputNames": [
+"ENO"
+],
+"outputTypes": [
+"BOOL"
+],
+"extensible": false,
+"providesSnippet": false,
+"snippet": false,
+"target": null,
+"measured": {
+"build": [],
+"run": "z=TRUE",
+"code": "__ENO := go; IF __ENO THEN bmFv(io := z); END_IF; __Imp := __ENO;",
+"layout": "f7ff335a31",
+"afterReopen": true
+},
+"pull": "bmFv(EN := go, io := z);"
+},
+{
+"id": "1109",
+"kind": "F0on",
+"language": "FBD",
+"position": "root",
+"live": true,
+"insertAs": "bmF0",
+"insertEnEno": true,
+"boxType": "bmF0",
+"instance": null,
+"callType": "Function",
+"en": true,
+"eno": true,
+"flags": [],
+"inputFlagsLength": null,
+"inputs": [
+"go",
+"a",
+"b"
+],
+"inputNames": [
+"EN",
+"a",
+"b"
+],
+"inputTypes": [
+"BOOL",
+"BOOL",
+"BOOL"
+],
+"outputs": [
+null,
+"???"
+],
+"outputNames": [
+"ENO"
+],
+"outputTypes": [
+"BOOL"
+],
+"extensible": false,
+"providesSnippet": false,
+"snippet": false,
+"target": null,
+"measured": {
+"build": [],
+"run": "",
+"code": "__ENO := go; IF __ENO THEN bmF0(a := a, b := b); END_IF; __Imp := __ENO;",
+"layout": "7bbe5d0b89",
+"afterReopen": true
+},
+"pull": "bmF0(EN := go, a := a, b := b);"
+},
+{
+"id": "1110",
+"kind": "F0on",
+"language": "FBD",
+"position": "root",
+"live": true,
+"insertAs": "bmF0",
+"insertEnEno": true,
+"boxType": "bmF0",
+"instance": null,
+"callType": "Function",
+"en": true,
+"eno": true,
+"flags": [],
+"inputFlagsLength": null,
+"inputs": [
+"go",
+"a",
+"b"
+],
+"inputNames": [
+"EN",
+"a",
+"b"
+],
+"inputTypes": [
+"BOOL",
+"BOOL",
+"BOOL"
+],
+"outputs": [
+null
+],
+"outputNames": [
+"ENO"
+],
+"outputTypes": [
+"BOOL"
+],
+"extensible": false,
+"providesSnippet": false,
+"snippet": false,
+"target": null,
+"measured": {
+"build": [],
+"run": "",
+"code": "__ENO := go; IF __ENO THEN bmF0(a := a, b := b); END_IF; __Imp := __ENO;",
+"layout": "7bbe5d0b89",
+"afterReopen": true
+},
+"pull": "bmF0(EN := go, a := a, b := b);"
+},
+{
+"id": "1111",
+"kind": "F0on",
+"language": "FBD",
+"position": "root",
+"live": true,
+"insertAs": "bmF0",
+"insertEnEno": true,
+"boxType": "bmF0",
+"instance": null,
+"callType": "Function",
+"en": true,
+"eno": true,
+"flags": [],
+"inputFlagsLength": null,
+"inputs": [
+"go",
+"a",
+"b"
+],
+"inputNames": [
+"EN",
+"a",
+"b"
+],
+"inputTypes": [
+"BOOL",
+"BOOL",
+"BOOL"
+],
+"outputs": [
+null,
+null
+],
+"outputNames": [
+"ENO"
+],
+"outputTypes": [
+"BOOL"
+],
+"extensible": false,
+"providesSnippet": false,
+"snippet": false,
+"target": null,
+"measured": {
+"build": [],
+"run": "",
+"code": "__ENO := go; IF __ENO THEN bmF0(a := a, b := b); END_IF; __Imp := __ENO;",
+"layout": "7bbe5d0b89",
+"afterReopen": true
+},
+"pull": "bmF0(EN := go, a := a, b := b);"
+},
+{
+"id": "1112",
+"kind": "F0on",
+"language": "FBD",
+"position": "root",
+"live": true,
+"insertAs": "bmF0",
+"insertEnEno": true,
+"boxType": "bmF0",
+"instance": null,
+"callType": "Function",
+"en": true,
+"eno": true,
+"flags": [],
+"inputFlagsLength": null,
+"inputs": [
+"go",
+"a",
+"b"
+],
+"inputNames": [
+"EN",
+"a",
+"b"
+],
+"inputTypes": [
+"BOOL",
+"BOOL",
+"BOOL"
+],
+"outputs": [
+null,
+"x"
+],
+"outputNames": [
+"ENO"
+],
+"outputTypes": [
+"BOOL"
+],
+"extensible": false,
+"providesSnippet": false,
+"snippet": false,
+"target": null,
+"measured": {
+"build": [],
+"run": "",
+"code": "__ENO := go; IF __ENO THEN bmF0(a := a, b := b); END_IF; __Imp := __ENO;",
+"layout": "7bbe5d0b89",
+"afterReopen": true
+},
+"pull": "%UNSUPPORTED \u0022a variable on an output no declaration names\u0022 #68ee2f77"
+},
+{
+"id": "1113",
+"kind": "F0on",
+"language": "FBD",
+"position": "root",
+"live": true,
+"insertAs": "bmF0",
+"insertEnEno": true,
+"boxType": "bmF0",
+"instance": null,
+"callType": "Function",
+"en": true,
+"eno": true,
+"flags": [],
+"inputFlagsLength": null,
+"inputs": [
+"go",
+"a",
+"b"
+],
+"inputNames": [
+"EN",
+"a",
+"b"
+],
+"inputTypes": [
+"BOOL",
+"BOOL",
+"BOOL"
+],
+"outputs": [
+null,
+""
+],
+"outputNames": [
+"ENO"
+],
+"outputTypes": [
+"BOOL"
+],
+"extensible": false,
+"providesSnippet": false,
+"snippet": false,
+"target": null,
+"measured": {
+"build": [],
+"run": "",
+"code": "__ENO := go; IF __ENO THEN bmF0(a := a, b := b); END_IF; __Imp := __ENO;",
+"layout": "7bbe5d0b89",
+"afterReopen": true
+},
+"pull": "bmF0(EN := go, a := a, b := b);"
+},
+{
+"id": "1114",
+"kind": "Fvon",
+"language": "FBD",
+"position": "root",
+"live": true,
+"insertAs": "bmFv",
+"insertEnEno": true,
+"boxType": "bmFv",
+"instance": null,
+"callType": "Function",
+"en": true,
+"eno": true,
+"flags": [],
+"inputFlagsLength": null,
+"inputs": [
+"go",
+"z"
+],
+"inputNames": [
+"EN",
+"io"
+],
+"inputTypes": [
+"BOOL",
+"BOOL[REF]"
+],
+"outputs": [
+null,
+null
+],
+"outputNames": [
+"ENO"
+],
+"outputTypes": [
+"BOOL"
+],
+"extensible": false,
+"providesSnippet": false,
+"snippet": false,
+"target": null,
+"measured": {
+"build": [],
+"run": "z=TRUE",
+"code": "__ENO := go; IF __ENO THEN bmFv(io := z); END_IF; __Imp := __ENO;",
+"layout": "1183828cd9",
+"afterReopen": true
+},
+"pull": "bmFv(EN := go, io := z);"
+},
+{
+"id": "1115",
+"kind": "Fvon",
+"language": "FBD",
+"position": "root",
+"live": true,
+"insertAs": "bmFv",
+"insertEnEno": true,
+"boxType": "bmFv",
+"instance": null,
+"callType": "Function",
+"en": true,
+"eno": true,
+"flags": [],
+"inputFlagsLength": null,
+"inputs": [
+"go",
+"z"
+],
+"inputNames": [
+"EN",
+"io"
+],
+"inputTypes": [
+"BOOL",
+"BOOL[REF]"
+],
+"outputs": [
+null,
+"???"
+],
+"outputNames": [
+"ENO"
+],
+"outputTypes": [
+"BOOL"
+],
+"extensible": false,
+"providesSnippet": false,
+"snippet": false,
+"target": null,
+"measured": {
+"build": [],
+"run": "z=TRUE",
+"code": "__ENO := go; IF __ENO THEN bmFv(io := z); END_IF; __Imp := __ENO;",
+"layout": "1183828cd9",
+"afterReopen": true
+},
+"pull": "bmFv(EN := go, io := z);"
+},
+{
+"id": "1116",
+"kind": "Fvon",
+"language": "FBD",
+"position": "root",
+"live": true,
+"insertAs": "bmFv",
+"insertEnEno": true,
+"boxType": "bmFv",
+"instance": null,
+"callType": "Function",
+"en": true,
+"eno": true,
+"flags": [],
+"inputFlagsLength": null,
+"inputs": [
+"go",
+"z"
+],
+"inputNames": [
+"EN",
+"io"
+],
+"inputTypes": [
+"BOOL",
+"BOOL[REF]"
+],
+"outputs": [
+null
+],
+"outputNames": [
+"ENO"
+],
+"outputTypes": [
+"BOOL"
+],
+"extensible": false,
+"providesSnippet": false,
+"snippet": false,
+"target": null,
+"measured": {
+"build": [],
+"run": "z=TRUE",
+"code": "__ENO := go; IF __ENO THEN bmFv(io := z); END_IF; __Imp := __ENO;",
+"layout": "1183828cd9",
+"afterReopen": true
+},
+"pull": "bmFv(EN := go, io := z);"
+},
+{
+"id": "1117",
+"kind": "Fvon",
+"language": "FBD",
+"position": "root",
+"live": true,
+"insertAs": "bmFv",
+"insertEnEno": true,
+"boxType": "bmFv",
+"instance": null,
+"callType": "Function",
+"en": true,
+"eno": true,
+"flags": [],
+"inputFlagsLength": null,
+"inputs": [
+"go",
+"z"
+],
+"inputNames": [
+"EN",
+"io"
+],
+"inputTypes": [
+"BOOL",
+"BOOL[REF]"
+],
+"outputs": [
+null,
+"x"
+],
+"outputNames": [
+"ENO"
+],
+"outputTypes": [
+"BOOL"
+],
+"extensible": false,
+"providesSnippet": false,
+"snippet": false,
+"target": null,
+"measured": {
+"build": [],
+"run": "z=TRUE",
+"code": "__ENO := go; IF __ENO THEN bmFv(io := z); END_IF; __Imp := __ENO;",
+"layout": "1183828cd9",
+"afterReopen": true
+},
+"pull": "%UNSUPPORTED \u0022a variable on an output no declaration names\u0022 #8ee8e11d"
+},
+{
+"id": "1118",
+"kind": "Fvon",
+"language": "FBD",
+"position": "root",
+"live": true,
+"insertAs": "bmFv",
+"insertEnEno": true,
+"boxType": "bmFv",
+"instance": null,
+"callType": "Function",
+"en": true,
+"eno": true,
+"flags": [],
+"inputFlagsLength": null,
+"inputs": [
+"go",
+"z"
+],
+"inputNames": [
+"EN",
+"io"
+],
+"inputTypes": [
+"BOOL",
+"BOOL[REF]"
+],
+"outputs": [
+null,
+""
+],
+"outputNames": [
+"ENO"
+],
+"outputTypes": [
+"BOOL"
+],
+"extensible": false,
+"providesSnippet": false,
+"snippet": false,
+"target": null,
+"measured": {
+"build": [],
+"run": "z=TRUE",
+"code": "__ENO := go; IF __ENO THEN bmFv(io := z); END_IF; __Imp := __ENO;",
+"layout": "1183828cd9",
+"afterReopen": true
+},
+"pull": "bmFv(EN := go, io := z);"
+},
+{
+"id": "1119",
+"kind": "MOVEon",
+"language": "FBD",
+"position": "root",
+"live": true,
+"insertAs": "MOVE",
+"insertEnEno": true,
+"boxType": "MOVE",
+"instance": null,
+"callType": "Move",
+"en": true,
+"eno": true,
+"flags": [],
+"inputFlagsLength": null,
+"inputs": [
+"go",
+"i"
+],
+"inputNames": [
+"EN"
+],
+"inputTypes": [
+"BOOL"
+],
+"outputs": [
+null,
+"u"
+],
+"outputNames": [
+"ENO",
+""
+],
+"outputTypes": [
+"BOOL",
+""
+],
+"extensible": false,
+"providesSnippet": false,
+"snippet": false,
+"target": null,
+"holder": "PROGRAM %s\nVAR\n\ta : BOOL := TRUE;\n\tb : BOOL := TRUE;\n\tgo : BOOL := TRUE;\n\tc, x, y, z : BOOL;\n\ti : INT := 5;\n\tj : INT := 7;\n\tk, m : INT;\n\tu : UINT;\n\tw : UINT := 5;\n\tdd : DINT := 70000;\n\tsv : SINT;\n\tt2 : bmFB2;\n\tt1 : bmFB1;\n\tt0 : bmFB0;\nEND_VAR\n",
+"vars": [
+"u"
+],
+"measured": {
+"build": [
+"C0195 Warning Implicit conversion from signed Type 'INT' to unsigned Type 'UINT' : Possible change of sign"
+],
+"run": "u=UINT#5",
+"code": "__ENO := go; IF __ENO THEN u := i; END_IF; __Imp := __ENO;",
+"layout": "aafe1c7cbd",
+"afterReopen": true
+},
+"pull": "MOVE(EN := go, i, OUT =\u003E u);"
+},
+{
+"id": "1120",
+"kind": "MOVEon",
+"language": "FBD",
+"position": "root",
+"live": true,
+"insertAs": "MOVE",
+"insertEnEno": true,
+"boxType": "MOVE",
+"instance": null,
+"callType": "Move",
+"en": true,
+"eno": true,
+"flags": [],
+"inputFlagsLength": null,
+"inputs": [
+"go",
+"dd"
+],
+"inputNames": [
+"EN"
+],
+"inputTypes": [
+"BOOL"
+],
+"outputs": [
+null,
+"k"
+],
+"outputNames": [
+"ENO",
+""
+],
+"outputTypes": [
+"BOOL",
+""
+],
+"extensible": false,
+"providesSnippet": false,
+"snippet": false,
+"target": null,
+"holder": "PROGRAM %s\nVAR\n\ta : BOOL := TRUE;\n\tb : BOOL := TRUE;\n\tgo : BOOL := TRUE;\n\tc, x, y, z : BOOL;\n\ti : INT := 5;\n\tj : INT := 7;\n\tk, m : INT;\n\tu : UINT;\n\tw : UINT := 5;\n\tdd : DINT := 70000;\n\tsv : SINT;\n\tt2 : bmFB2;\n\tt1 : bmFB1;\n\tt0 : bmFB0;\nEND_VAR\n",
+"vars": [
+"u"
+],
+"measured": {
+"build": [
+"C0032 Error Cannot convert type 'DINT' to type 'INT'"
+],
+"run": "",
+"code": "__ENO := go; IF __ENO THEN k := dd; END_IF; __Imp := __ENO;",
+"layout": "5ff46c319e",
+"afterReopen": true
+},
+"pull": "MOVE(EN := go, dd, OUT =\u003E k);"
+},
+{
+"id": "1121",
+"kind": "MOVEon",
+"language": "FBD",
+"position": "root",
+"live": true,
+"insertAs": "MOVE",
+"insertEnEno": true,
+"boxType": "MOVE",
+"instance": null,
+"callType": "Move",
+"en": true,
+"eno": true,
+"flags": [],
+"inputFlagsLength": null,
+"inputs": [
+"go",
+"w"
+],
+"inputNames": [
+"EN"
+],
+"inputTypes": [
+"BOOL"
+],
+"outputs": [
+null,
+"k"
+],
+"outputNames": [
+"ENO",
+""
+],
+"outputTypes": [
+"BOOL",
+""
+],
+"extensible": false,
+"providesSnippet": false,
+"snippet": false,
+"target": null,
+"holder": "PROGRAM %s\nVAR\n\ta : BOOL := TRUE;\n\tb : BOOL := TRUE;\n\tgo : BOOL := TRUE;\n\tc, x, y, z : BOOL;\n\ti : INT := 5;\n\tj : INT := 7;\n\tk, m : INT;\n\tu : UINT;\n\tw : UINT := 5;\n\tdd : DINT := 70000;\n\tsv : SINT;\n\tt2 : bmFB2;\n\tt1 : bmFB1;\n\tt0 : bmFB0;\nEND_VAR\n",
+"vars": [
+"u"
+],
+"measured": {
+"build": [
+"C0196 Warning Implicit conversion from unsigned Type 'UINT' to signed Type 'INT' : Possible change of sign"
+],
+"run": "k=INT#5",
+"code": "__ENO := go; IF __ENO THEN k := w; END_IF; __Imp := __ENO;",
+"layout": "cb2565edd8",
+"afterReopen": true
+},
+"pull": "MOVE(EN := go, w, OUT =\u003E k);"
+},
+{
+"id": "1122",
+"kind": "MOVEoff",
+"language": "FBD",
+"position": "root",
+"live": true,
+"insertAs": "MOVE",
+"insertEnEno": false,
+"boxType": "MOVE",
+"instance": null,
+"callType": "Move",
+"en": false,
+"eno": false,
+"flags": [],
+"inputFlagsLength": null,
+"inputs": [
+"i"
+],
+"inputNames": [],
+"inputTypes": [],
+"outputs": [
+"u"
+],
+"outputNames": [
+""
+],
+"outputTypes": [
+""
+],
+"extensible": false,
+"providesSnippet": false,
+"snippet": false,
+"target": null,
+"holder": "PROGRAM %s\nVAR\n\ta : BOOL := TRUE;\n\tb : BOOL := TRUE;\n\tgo : BOOL := TRUE;\n\tc, x, y, z : BOOL;\n\ti : INT := 5;\n\tj : INT := 7;\n\tk, m : INT;\n\tu : UINT;\n\tw : UINT := 5;\n\tdd : DINT := 70000;\n\tsv : SINT;\n\tt2 : bmFB2;\n\tt1 : bmFB1;\n\tt0 : bmFB0;\nEND_VAR\n",
+"vars": [
+"u"
+],
+"measured": {
+"build": [
+"C0195 Warning Implicit conversion from signed Type 'INT' to unsigned Type 'UINT' : Possible change of sign"
+],
+"run": "u=UINT#5",
+"code": "u := i;",
+"layout": "563ec27966",
+"afterReopen": true
+},
+"pull": "MOVE(i, OUT =\u003E u);"
+},
+{
+"id": "1123",
+"kind": "MOVEoff",
+"language": "FBD",
+"position": "root",
+"live": true,
+"insertAs": "MOVE",
+"insertEnEno": false,
+"boxType": "MOVE",
+"instance": null,
+"callType": "Move",
+"en": false,
+"eno": false,
+"flags": [],
+"inputFlagsLength": null,
+"inputs": [
+"dd"
+],
+"inputNames": [],
+"inputTypes": [],
+"outputs": [
+"k"
+],
+"outputNames": [
+""
+],
+"outputTypes": [
+""
+],
+"extensible": false,
+"providesSnippet": false,
+"snippet": false,
+"target": null,
+"holder": "PROGRAM %s\nVAR\n\ta : BOOL := TRUE;\n\tb : BOOL := TRUE;\n\tgo : BOOL := TRUE;\n\tc, x, y, z : BOOL;\n\ti : INT := 5;\n\tj : INT := 7;\n\tk, m : INT;\n\tu : UINT;\n\tw : UINT := 5;\n\tdd : DINT := 70000;\n\tsv : SINT;\n\tt2 : bmFB2;\n\tt1 : bmFB1;\n\tt0 : bmFB0;\nEND_VAR\n",
+"vars": [
+"u"
+],
+"measured": {
+"build": [
+"C0032 Error Cannot convert type 'DINT' to type 'INT'"
+],
+"run": "",
+"code": "k := dd;",
+"layout": "becfc559f9",
+"afterReopen": true
+},
+"pull": "MOVE(dd, OUT =\u003E k);"
+},
+{
+"id": "1124",
+"kind": "F2on",
+"language": "FBD",
+"position": "root",
+"live": true,
+"insertAs": "bmF2",
+"insertEnEno": true,
+"boxType": "bmF2",
+"instance": null,
+"callType": "Function",
+"en": true,
+"eno": true,
+"flags": [],
+"inputFlagsLength": null,
+"inputs": [
+"go",
+"i"
+],
+"inputNames": [
+"EN",
+"a"
+],
+"inputTypes": [
+"BOOL",
+"INT"
+],
+"outputs": [
+null,
+"u",
+"",
+""
+],
+"outputNames": [
+"ENO",
+"   ",
+"q1",
+"q2"
+],
+"outputTypes": [
+"BOOL",
+"INT",
+"INT",
+"BOOL"
+],
+"extensible": false,
+"providesSnippet": false,
+"snippet": false,
+"target": null,
+"holder": "PROGRAM %s\nVAR\n\ta : BOOL := TRUE;\n\tb : BOOL := TRUE;\n\tgo : BOOL := TRUE;\n\tc, x, y, z : BOOL;\n\ti : INT := 5;\n\tj : INT := 7;\n\tk, m : INT;\n\tu : UINT;\n\tw : UINT := 5;\n\tdd : DINT := 70000;\n\tsv : SINT;\n\tt2 : bmFB2;\n\tt1 : bmFB1;\n\tt0 : bmFB0;\nEND_VAR\n",
+"vars": [
+"u",
+"sv"
+],
+"measured": {
+"build": [
+"C0195 Warning Implicit conversion from signed Type 'INT' to unsigned Type 'UINT' : Possible change of sign"
+],
+"run": "u=UINT#5",
+"code": "__ENO := go; IF __ENO THEN u := bmF2(a := i); END_IF; __Imp := __ENO;",
+"layout": "60b6228600",
+"afterReopen": true
+},
+"pull": "bmF2(EN := go, a := i, OUT =\u003E u);"
+},
+{
+"id": "1125",
+"kind": "F2on",
+"language": "FBD",
+"position": "root",
+"live": true,
+"insertAs": "bmF2",
+"insertEnEno": true,
+"boxType": "bmF2",
+"instance": null,
+"callType": "Function",
+"en": true,
+"eno": true,
+"flags": [],
+"inputFlagsLength": null,
+"inputs": [
+"go",
+"i"
+],
+"inputNames": [
+"EN",
+"a"
+],
+"inputTypes": [
+"BOOL",
+"INT"
+],
+"outputs": [
+null,
+"k",
+"u",
+""
+],
+"outputNames": [
+"ENO",
+"   ",
+"q1",
+"q2"
+],
+"outputTypes": [
+"BOOL",
+"INT",
+"INT",
+"BOOL"
+],
+"extensible": false,
+"providesSnippet": false,
+"snippet": false,
+"target": null,
+"holder": "PROGRAM %s\nVAR\n\ta : BOOL := TRUE;\n\tb : BOOL := TRUE;\n\tgo : BOOL := TRUE;\n\tc, x, y, z : BOOL;\n\ti : INT := 5;\n\tj : INT := 7;\n\tk, m : INT;\n\tu : UINT;\n\tw : UINT := 5;\n\tdd : DINT := 70000;\n\tsv : SINT;\n\tt2 : bmFB2;\n\tt1 : bmFB1;\n\tt0 : bmFB0;\nEND_VAR\n",
+"vars": [
+"u",
+"sv"
+],
+"measured": {
+"build": [
+"C0195 Warning Implicit conversion from signed Type 'INT' to unsigned Type 'UINT' : Possible change of sign"
+],
+"run": "k=INT#5 u=UINT#6",
+"code": "__ENO := go; IF __ENO THEN k := bmF2(a := i, q1 => u); END_IF; __Imp := __ENO;",
+"layout": "b9b360d9e3",
+"afterReopen": true
+},
+"pull": "bmF2(EN := go, a := i, OUT =\u003E k, q1 =\u003E u);"
+},
+{
+"id": "1126",
+"kind": "F2on",
+"language": "FBD",
+"position": "root",
+"live": true,
+"insertAs": "bmF2",
+"insertEnEno": true,
+"boxType": "bmF2",
+"instance": null,
+"callType": "Function",
+"en": true,
+"eno": true,
+"flags": [],
+"inputFlagsLength": null,
+"inputs": [
+"go",
+"i"
+],
+"inputNames": [
+"EN",
+"a"
+],
+"inputTypes": [
+"BOOL",
+"INT"
+],
+"outputs": [
+null,
+"sv",
+"",
+""
+],
+"outputNames": [
+"ENO",
+"   ",
+"q1",
+"q2"
+],
+"outputTypes": [
+"BOOL",
+"INT",
+"INT",
+"BOOL"
+],
+"extensible": false,
+"providesSnippet": false,
+"snippet": false,
+"target": null,
+"holder": "PROGRAM %s\nVAR\n\ta : BOOL := TRUE;\n\tb : BOOL := TRUE;\n\tgo : BOOL := TRUE;\n\tc, x, y, z : BOOL;\n\ti : INT := 5;\n\tj : INT := 7;\n\tk, m : INT;\n\tu : UINT;\n\tw : UINT := 5;\n\tdd : DINT := 70000;\n\tsv : SINT;\n\tt2 : bmFB2;\n\tt1 : bmFB1;\n\tt0 : bmFB0;\nEND_VAR\n",
+"vars": [
+"u",
+"sv"
+],
+"measured": {
+"build": [
+"C0032 Error Cannot convert type 'INT' to type 'SINT'"
+],
+"run": "",
+"code": "__ENO := go; IF __ENO THEN sv := bmF2(a := i); END_IF; __Imp := __ENO;",
+"layout": "e40d2efd9d",
+"afterReopen": true
+},
+"pull": "bmF2(EN := go, a := i, OUT =\u003E sv);"
 }
 ]
 }

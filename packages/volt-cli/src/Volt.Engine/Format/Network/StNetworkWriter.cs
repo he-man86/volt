@@ -786,13 +786,20 @@ public static class StNetworkWriter
             // An operator runs its pins by position, whatever their names say (live CODESYS 3.5.21.40, openspec nwl-box-storage-map).
             if (NetworkSpelling.IsOperator(signature) && NetworkSpelling.OperatorPinOutOfPlace(b.Type, b.Inputs.Select(i => i.Formal).ToList()) is { } pin)
                 throw Unspellable("an operator pin named out of place", $"the '{b.Type}' box holds its pin {pin} out of its place, and runs by position.");
+            // A slot past a FUNCTION's stored output names is no output (NetworkSpelling.PastStoredNames): an unmarked `???` there is
+            // no text (lost-inert: an unchanged network keeps it); a variable is refused by name, since a rebuild would drop it with
+            // no word.
+            bool PastNames(Output o) => NetworkSpelling.PastStoredNames(b, signature, o);
+            if (b.Outputs.FirstOrDefault(o => PastNames(o) && (o.Value.Text != Box.UnnamedInstance || o.Value.Flags is { IsNone: false })) is { } past)
+                throw Unspellable("a variable on an output no declaration names", $"the '{b.Type}' box holds '{past.Value.Text}' on an output past its names.");
+            var outputs = b.Outputs.Where(o => !PastNames(o)).ToList();
             // One output, one target: the IDE writes no second one (live CODESYS 3.5.21.40, openspec nwl-box-storage-map).
-            if (b.Outputs.GroupBy(o => o.Formal ?? ResultPin, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1) is { } twice)
+            if (outputs.GroupBy(o => o.Formal ?? ResultPin, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1) is { } twice)
                 throw Unspellable("one output wired to two targets", $"the '{b.Type}' box wires {twice.Key} to two targets, and the IDE writes no second one.");
             var eno = b.HasEnoOutput ? 0 : (int?)null;
             var connected = b.ConnectedSlot;
             var next = 0;
-            foreach (var o in b.Outputs)
+            foreach (var o in outputs)
             {
                 // It runs as if unmarked (live CODESYS 3.5.21.40, openspec nwl-box-storage-map).
                 if (o.Value.Flags is { Rising: true } or { Falling: true })
@@ -811,8 +818,8 @@ public static class StNetworkWriter
                     args.Add(Received(OutputName(b, f, of, signature), of) + " => " + Target(o.Value));
                     continue;
                 }
-                // A slot past an FB's or a PROGRAM's names holding a variable is never written (live CODESYS 3.5.21.40); `???` there is
-                // the unnamed output a real project holds, which builds and writes nothing.
+                // A slot past an FB's or a PROGRAM's names holding a variable is never written (live CODESYS 3.5.21.40). `???` there is
+                // not measured on an FB or a PROGRAM: the real project's (lenze-mid) are FUNCTION boxes, above.
                 if ((b.Instance is not null || signature is { Shape: CalleeShape.Program }) && o.Value.Text != Box.UnnamedInstance)
                     throw Unspellable("a variable on an output no declaration names", $"the '{b.Type}' box holds '{o.Value.Text}' on an output past its names.");
                 // Each `OUT =>` is the next unnamed output slot: ENO and the slot a consumer reads are skipped.

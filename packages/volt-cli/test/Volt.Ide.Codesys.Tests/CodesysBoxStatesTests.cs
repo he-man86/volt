@@ -35,7 +35,7 @@ public class CodesysBoxStatesTests
     sealed class Row
     {
         public string Id = "", Kind = "", Language = "", Position = "", BoxType = "", CallType = "", Pull = "", Build = "", Layout = "";
-        public string? Instance, Target, Run;
+        public string? Instance, Target, Run, Holder;
         public bool? En, Eno;
         public bool Extensible, Snippet;
         public int? InputFlagsLength;
@@ -65,6 +65,8 @@ public class CodesysBoxStatesTests
                 BoxType = r.GetProperty("boxType").GetString()!,
                 Instance = S(r.GetProperty("instance")),
                 Target = S(r.GetProperty("target")),
+                // a state whose program declares more than the shared holder (a conversion at the output store) holds its own
+                Holder = r.TryGetProperty("holder", out var holder) ? holder.GetString() : null,
                 CallType = r.GetProperty("callType").GetString()!,
                 En = B(r.GetProperty("en")),
                 Eno = B(r.GetProperty("eno")),
@@ -87,11 +89,11 @@ public class CodesysBoxStatesTests
         return (doc, rows);
     });
 
-    static NetworkScope Scope(JsonElement root)
+    static NetworkScope Scope(JsonElement root, string? holder = null)
     {
         var callees = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var c in root.GetProperty("callees").EnumerateObject()) callees[c.Name] = c.Value.GetProperty("declaration").GetString()!;
-        var own = string.Format(root.GetProperty("holder").GetString()!.Replace("%s", "{0}"), "Holder");
+        var own = string.Format((holder ?? root.GetProperty("holder").GetString()!).Replace("%s", "{0}"), "Holder");
         return NetworkScope.FromDeclarations(own, n => callees.TryGetValue(n, out var d) ? d : null,
             () => Array.Empty<string>(), n => callees.ContainsKey(n) ? ItemKind.Kinds.Pou : null, Scopes.RefusedPouName, _ => null);
     }
@@ -152,7 +154,7 @@ public class CodesysBoxStatesTests
         var scope = Scope(doc.RootElement);
         var pulled = rows.ToDictionary(r => r.Id, r =>
         {
-            try { return Pulled(r, scope); }
+            try { return Pulled(r, r.Holder is null ? scope : Scope(doc.RootElement, r.Holder)); }
             catch (Exception e) { return "THROWS " + e.GetType().Name + ": " + e.Message; }
         });
         if (Writing)

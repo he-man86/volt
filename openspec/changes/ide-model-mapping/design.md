@@ -123,14 +123,20 @@ parts inside its `()`, and the flow is each call's return.
   ASSIGN(AND(ASSIGN(a, Q => x), b), Q => y);     // a coil inside a rung
   ```
   Measured by the run (assign map, 2026-11-06): a target list runs in list order; a mark on one coil of several acts on
-  that coil only, in all three shapes, and a mark on the line into the inner coil reaches both. A full stack runs
+  that coil only, in all three shapes, and a mark on the line into the inner coil reaches both. A jump in the list is
+  taken in its place: the targets after it are not written when it is (`ASSIGN(a, Q => x, Q => JMP.l, Q => y)`,
+  assign-states#0490-0495). A full stack runs
   innermost first: `NOT(NOT(R_TRIG(R_TRIG(a))))`. Settled as written above.
 - `BoxTreeTerminator` is what LD stores as the value of a coil, S, R, jump or return with no contact in front; FBD stores
   `???` there instead. It runs as always TRUE, like `RAIL()`, so its text is `RAIL()`: `ASSIGN(RAIL(), Q => y)`.
 - `???` (an empty operand, as the editor shows it) is written bare: `q1 => ???`. Not `'???'`, a STRING constant a user
   can type, and not `OPERAND('???')`. Bare `???` is no ST name, number or string, so it means nothing else. NWL stores
   it as the operand text `???` (not null: null is an output with nothing drawn on it), and the IDE's build refuses it with
-  `C0007 Expression expected instead of '?'`; the text keeps it and gives the same error, nothing is refused on push.
+  `C0007 Expression expected instead of '?'` on its first `?`; the text keeps it and gives the same error, nothing is
+  refused on push. On a jump's label it is a label no network holds, `C0117 No such label '???'` (assign-states#0496).
+  A slot past a FUNCTION's stored output names (lenze-mid's `[null,'???']` under names `[ENO]`) is drawn, compiled and run
+  as no slot, whatever it holds: `???` there has no text (lost-inert), a variable there is refused by name
+  (box-states#1099-1118).
 - `INVERT` on a value that is not BOOL runs as the bitwise `NOT` (MOVE's value or pin, an FB's INT output). On a plain
   INT coil a mark on the value or the target is stored and not in the code, so it gets no text (lost-inert); only a
   mark on the line runs.

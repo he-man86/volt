@@ -147,7 +147,10 @@ public static class StNetworkOracle
                 Node? enable = null;
                 var enableFlags = b.EnableFlags;
                 if (b.Enable is { } en) (enable, enableFlags) = Placed(S(en), b.EnableFlags, item: false, fired);
-                var outputs = b.Outputs.ToList();
+                // A FUNCTION's unmarked `???` past its stored output names is no output (box-states 1099-1118, lost-inert).
+                var outputs = b.Outputs.Where(o => !(NetworkSpelling.PastStoredNames(b, NetworkSpelling.SignatureOf(b, scope), o)
+                                                     && o.Value.Text == Box.UnnamedInstance && o.Value.Flags is null or { IsNone: true })).ToList();
+                if (outputs.Count != b.Outputs.Count) fired.Add("a function's ??? past its stored output names as no output");
                 // An FB box is the call of its instance (design "FB boxes: the instance is the call head"); a declared one
                 // carries its declaration's spelling of the type.
                 var type = b.Type;
@@ -175,7 +178,7 @@ public static class StNetworkOracle
                 if (root && !NetworkSpelling.ConnectedByEno(b) && b.ConnectedSlot is not > 0 && b.MainOutputName is null)
                 {
                     var signature = NetworkSpelling.SignatureOf(b, scope);
-                    var shown = b.StCode is not null || b.Enable is not null && (signature is not { Shape: CalleeShape.Function } || b.Outputs.Any(o => o.Formal is null));
+                    var shown = b.StCode is not null || b.Enable is not null && (signature is not { Shape: CalleeShape.Function } || outputs.Any(o => o.Formal is null));
                     if (shown != hasEno)
                     {
                         fired.Add("a root box's ENO shown where its EN is");

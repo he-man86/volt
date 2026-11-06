@@ -49,7 +49,7 @@ public class StNetworkOracleCodesysTests
         StNetworkOracle.Save("codesys", report, results);
         // network-language: 13 networks read a mark at its receiver, 3 an FB's first output in its declaration's case, 1 a root
         // box's ENO where its EN is — each runs alike, and an unchanged network is kept as stored.
-        StNetworkOracle.AssertTally(results, report, identical: 339, stored: 49, new Dictionary<string, int>(StringComparer.Ordinal));
+        StNetworkOracle.AssertTally(results, report, identical: 337, stored: 51, new Dictionary<string, int>(StringComparer.Ordinal));
     }
 
     /// <summary>THE CALLEES A PUSH MEETS OUT OF REACH (openspec network-output-member 1.2 "A callee no declaration in reach

@@ -33,6 +33,8 @@ interface Row {
 	live: boolean
 	pull: string
 	measured: { build: string[]; run: string | null }
+	/** the variables a state's own holder declares beside the shared ones (a conversion at the output store) */
+	vars?: string[]
 }
 
 const FIXTURES = join(import.meta.dir, "..", "..", "fixtures", "nwl-schema")
@@ -70,18 +72,18 @@ describe.skipIf(VENDOR !== "codesys")(`graphical / stored box states, nwl-box-st
 	it.skipIf(!served)("a stored state runs as the recording says", async () => {
 		await requireHealthy()
 		const clean = live.filter((r) => r.measured.run !== null && !r.measured.build.some((m) => m.includes("Error ")))
-		const vars = ["x", "y", "z", "k", "m"]
+		const vars = (r: Row) => ["x", "y", "z", "k", "m", ...(r.vars ?? [])]
 		// In groups: one run reads every variable online, one request at a time, and the probe answers within its hang guard
 		// for a group, not for the whole fixture (236 programs, 1180 reads: over 120 s, measured).
 		const values: Record<string, string> = {}
 		for (let i = 0; i < clean.length; i += 30) {
 			const group = clean.slice(i, i + 30)
-			Object.assign(values, await runCalled(group.map(nameOf), group.flatMap((r) => vars.map((v) => `${nameOf(r)}.${v}`))))
+			Object.assign(values, await runCalled(group.map(nameOf), group.flatMap((r) => vars(r).map((v) => `${nameOf(r)}.${v}`))))
 		}
 		const different = clean.flatMap((r) => {
-			const ran = vars
+			const ran = vars(r)
 				.map((v) => [v, values[`${nameOf(r)}.${v}`]!] as const)
-				.filter(([, value]) => !["FALSE", "0", "INT#0"].includes(value))
+				.filter(([, value]) => !["FALSE", "0", "INT#0", "UINT#0", "SINT#0"].includes(value))
 				.map(([v, value]) => `${v}=${value}`)
 				.sort()
 				.join(" ")
