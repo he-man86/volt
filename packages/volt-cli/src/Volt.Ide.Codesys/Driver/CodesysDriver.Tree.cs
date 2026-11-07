@@ -26,14 +26,26 @@ public sealed partial class CodesysDriver
         var unreadable = new List<UnreadableObject>();
         var applications = new List<string>();
         var root = _om.PrimaryProject;
+        _walkLibraries = new List<(string, string)>();
+        _walkLibrariesComplete = true;
         try { if (root != null) Walk(root, "", items, unwalked, unreadable, applications); }
         finally { _walkObserver = null; }
+        _libraryProject = root;
+        // A folder the walk could not read may hold a Library Manager: then the libraries are not known whole.
+        _libraryKey = LibrarySignatureMemo.KeyOf(_walkLibraries, _walkLibrariesComplete && unwalked.Count == 0);
         return new WalkResult(items, unwalked, unreadable, applications);
     }
 
     /// <summary>The observer of the walk running now (<see cref="WalkItems"/>): told each application as its subtree is
     /// walked. CODESYS learns its applications as it walks, so it states no total.</summary>
     private WalkObserver? _walkObserver;
+
+    /// <summary>The latest walk's libraries (<see cref="LibrarySignatureMemo.KeyOf"/>): the key the network scope's
+    /// library read is reused on, and the project it was walked in.</summary>
+    private List<(string Folder, string Manifest)> _walkLibraries = new();
+    private bool _walkLibrariesComplete;
+    private string? _libraryKey;
+    private object? _libraryProject;
 
     // The walk mirrors the CODESYS project tree 1:1 into workspace paths. Every container — a user folder, a
     // structural node (PLC Logic / Application / Task Configuration), or a device — nests its children under its
@@ -180,8 +192,11 @@ public sealed partial class CodesysDriver
                         BridgeLog.Warn($"could not read the library manager '{name}' in folder='{folderPath}' (named unreadable): {ex.Message}");
                         unreadable.Add(new UnreadableObject(name, folderPath, ex.Message, ItemKind.Kinds.Folder, Code: BridgeErrorCodes.Unreadable));
                         unwalked.Add(managerFolder);
+                        _walkLibrariesComplete = false;
                         continue;
                     }
+                    if (refused.Count > 0 || unspelled is not null) _walkLibrariesComplete = false;
+                    foreach (var lib in refs) _walkLibraries.Add((managerFolder, lib.Manifest));
                     foreach (var lib in refs)
                         items.Add(new ProjectItem(FolderPath.Encode(lib.Name), new ItemRef(lib), ItemKind.PlcLibRef, managerFolder));
                     foreach (var (lib, why) in refused)

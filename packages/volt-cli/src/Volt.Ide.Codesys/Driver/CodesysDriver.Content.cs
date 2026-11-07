@@ -347,7 +347,11 @@ public sealed partial class CodesysDriver
     ///
     /// <para>The network-text reader resolves an FB call's type from this same scope, so the engine's pre-flight (which
     /// reads every body against <see cref="NetworkScopeFor"/>) needs no driver override.</para></summary>
-    private ProjectDeclarations Declarations => _declarations ??= new ProjectDeclarations(this, ReadDeclarationText, RefusedPouName, ExtractLibrarySignatures);
+    private ProjectDeclarations Declarations => _declarations ??= new ProjectDeclarations(this, ReadDeclarationText, RefusedPouName,
+        // Reused while the walked libraries are unchanged: an extraction is a Build of every application
+        // (LibrarySignatureMemo), and a body calling a library block asks for it on every operation.
+        () => _librarySignatures.Get(_libraryProject, _libraryKey, ExtractLibrarySignatures));
+    private readonly LibrarySignatureMemo _librarySignatures = new();
     private ProjectDeclarations? _declarations;
 
     public NetworkScope NetworkScopeFor(string? declaration, PushedDeclarations pushedDeclarations) =>
