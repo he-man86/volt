@@ -415,7 +415,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		const before = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => fileOf(i.name).startsWith(name + "."))
 
 		const r1 = await bridge.refs()
-		const malformed = fbdProgram(name).replace("AND(a, b));", "AND(a, b))")   // a valid FBD body with its `;` removed
+		const malformed = fbdProgram(name).replace("Q => out);", "Q => out)")   // a valid FBD body with its `;` removed
 		const r = await bridge.push({ expectedProjectVersion: r1.projectVersion, ops: [{ op: "set", name: fullName, sourceText: malformed, ifVersion: r1.items[before.name] }] })
 		expect(landed(r)).toBe(false)
 		expect(JSON.stringify(r.conflicts)).toContain("';' expected")
