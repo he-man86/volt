@@ -20,7 +20,7 @@ const uri = (name: string) => `file:///app/Task%20Configuration/${name}.task`
 
 /** Each finding as [uri's task, code, severity, line, column, message]. */
 const findings = (...files: [string, string][]) =>
-  [...taskFindings(files.map(([name, text]) => ({ uri: uri(name), text })), project)].flatMap(([u, items]) =>
+  [...taskFindings(files.map(([name, text]) => ({ uri: uri(name), source: text })), project)].flatMap(([u, items]) =>
     items.map((d) => [u.slice(u.lastIndexOf("/") + 1), d.code, d.severity, d.span.startLine, d.span.startCol, d.message]),
   )
 

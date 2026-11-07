@@ -8,6 +8,8 @@
  */
 export { lowerUnit } from "./entry/lower-unit.js"
 export { lowerPrepared, lowerSource } from "./entry/lower-source.js"
+// an application by its task configuration: every Cyclic task's calls in one POU, and each task's facts
+export { lowerApplication, type LoweredApplication, type TaskFile } from "./entry/lower-application.js"
 // `LoweringProject` beyond design.md §2.1.1's row: the corpus gate binds its projects through it (`test/corpus/support`)
 export { prepareProject, type LibraryFile, type LoweringProject, type ParsedFile } from "./project/prepare.js"
 export { libraryBase, type LibraryBase } from "./project/library-base.js"

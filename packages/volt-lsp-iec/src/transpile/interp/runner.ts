@@ -2,7 +2,7 @@
  * THE RUNNER — a lowered POU prepared for execution: its frame and globals allocated and seeded, its init run, and the
  * harness's view of it — a scan, and a variable read or written by the path the IDE names it with.
  */
-import type { Access, IrLayout, IrPou, Place } from "../ir/index.js"
+import type { Access, IrApplication, IrLayout, IrPou, IrStmt, Place } from "../ir/index.js"
 import { elementaryRef, peelArray, type Type } from "../../frontend/types/index.js"
 import type { Span } from "../../frontend/syntax/index.js"
 import { instantiate, Memory, NaNBits, storeAs, toImage, type Val, visible } from "../semantics/index.js"
@@ -91,6 +91,34 @@ function shown(v: Val): Val {
 
 /** Prepare a lowered POU for execution: allocate its frame, seed it from the slots' initial values. */
 export function run(pou: IrPou, options: RunOptions = {}): Runner {
+  const { scanOf, ...access } = prepare(pou, options)
+  return { ...access, scan: scanOf(pou.body) }
+}
+
+/** How a host runs an application: a variable read and written as a POU's, and a task by its name. */
+export interface ApplicationRunner extends Omit<Runner, "scan"> {
+  /** Run one cycle of the Cyclic task `name`: its PROGRAM calls in order, on the application's globals. A name that is no
+   *  Cyclic task of the application is refused, naming the ones it has. */
+  runTask(name: string): void
+}
+
+/** Prepare a lowered application for execution — its globals and every called PROGRAM's instance shared by every task. */
+export function runApplication(app: IrApplication, options: RunOptions = {}): ApplicationRunner {
+  const { scanOf, ...access } = prepare(app.pou, options)
+  const tasks = new Map(app.tasks.map((t) => [t.name.toUpperCase(), scanOf(t.body)]))
+  return {
+    ...access,
+    runTask: (name) => {
+      const task = tasks.get(name.toUpperCase())
+      if (task === undefined)
+        throw new Error(`no Cyclic task ${name} runs in this application — only a Cyclic task runs; its tasks: ${app.tasks.map((t) => t.name).join(", ")}`)
+      task()
+    },
+  }
+}
+
+/** A POU's storage allocated and initialized, its variables' access, and how a body runs one cycle on it. */
+function prepare(pou: IrPou, options: RunOptions): Omit<Runner, "scan"> & { scanOf(body: readonly IrStmt[]): () => void } {
   const layouts = new Map(pou.layouts.map((l) => [l.name.toUpperCase(), l]))
   const frame = pou.slots.map((s) => instantiate(s.type, s.init, layouts))
   const routines = new Map(pou.routines.map((r) => [r.key, r]))
@@ -126,9 +154,9 @@ export function run(pou: IrPou, options: RunOptions = {}): Runner {
       const { container, key } = machine.locate(found.place)
       ;(container as Record<string | number, Val>)[key] = storeAs(value, found.type)
     },
-    scan: () => {
+    scanOf: (body) => () => {
       locals.splice(0, locals.length, ...(pou.locals ?? []).map((s) => instantiate(s.type, s.init, layouts)))
-      machine.block(pou.body)
+      machine.block(body)
     },
   }
 }

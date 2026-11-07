@@ -110,7 +110,7 @@ export function taskDiagnostics(store: WorkspaceStore): Map<string, VoltDiagnost
   for (const t of store.workspaceRefs.tasks) {
     const uri = pathToFileURL(t.path).href
     const table = store.project(uri)
-    byTable.set(table, [...(byTable.get(table) ?? []), { uri, text: t.text }])
+    byTable.set(table, [...(byTable.get(table) ?? []), { uri, source: t.text }])
   }
   const out = new Map<string, VoltDiagnostic[]>()
   for (const [table, files] of byTable) for (const [uri, items] of taskFindings(files, table)) out.set(uri, items.map(toLspDiagnostic))

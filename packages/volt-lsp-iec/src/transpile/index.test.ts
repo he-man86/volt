@@ -22,6 +22,8 @@ describe("transpile — public surface", () => {
       "load",
       // lowering then printing in one call, beside `load` (pipeline/, task 1.4.2)
       "lowerAndEmit",
+      // an application by its task configuration, and each task run by name (openspec runtime-task-configuration)
+      "lowerApplication",
       "lowerCodeKind",
       // the source path over an already-bound project (design.md §2.1.1's lower row, task 1.7.20); `lowerDiagnostic`,
       // the factory, left the surface then — nothing outside lowering builds a refusal
@@ -31,6 +33,7 @@ describe("transpile — public surface", () => {
       // binds a project for `lowerUnit` — the one place its library units are marked, so no caller can forget them
       "prepareProject",
       "run",
+      "runApplication",
       "rustType",
     ])
   })

@@ -216,3 +216,21 @@ export interface IrUnlowered {
   readonly uri: string
   readonly span: Span
 }
+
+/** One task of an application: the PROGRAM calls one `runTask` runs, in the order its `.task` states them, on the
+ *  application's one set of globals. */
+export interface IrTask {
+  readonly name: string
+  readonly body: readonly IrStmt[]
+}
+
+/**
+ * AN APPLICATION LOWERED BY ITS TASK CONFIGURATION — one POU holding every global and the one instance of every PROGRAM a
+ * task calls, and each Cyclic task's body. The POU's own body is every Cyclic task's calls in turn, task by task: what
+ * running each task once would do; a host runs a task by its own body (`runApplication`). With no `.task`, the POU is the
+ * main program lowered as `lowerSource` lowers it, and its one implicit task runs that POU's body.
+ */
+export interface IrApplication {
+  readonly pou: IrPou
+  readonly tasks: readonly IrTask[]
+}

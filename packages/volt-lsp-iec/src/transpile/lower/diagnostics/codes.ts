@@ -321,6 +321,13 @@ export const LOWER_CODES: Readonly<Record<string, LowerCodeKind>> = {
   // input named 'bInitRetains'" (`rk_init_slot_method_with_input`) — out of `attr-init-inputs`, which keeps that one input
   // (`rk_init_slot_method_binitretains` builds)
   "attr-init-signature": "invalid",
+  // a task configuration the application cannot run by (`entry/lower-application.ts`): a `.task` body the format refuses
+  // (`readTask`, the bridge's own refusals), a value with no meaning as a fact (`taskFacts`), a `Calls:` name that is no
+  // PROGRAM, and a project that already declares the name the tasks' entry takes
+  "task-descriptor": "invalid",
+  "task-value": "invalid",
+  "task-call": "invalid",
+  "task-entry": "invalid",
 }
 
 /** Templated families — `expr-${kind}` and friends expand over AST kinds, so they cannot be enumerated. */
