@@ -437,7 +437,7 @@ namespace Volt.Ide.Codesys
             if (same) return;
             throw new BridgeException(BridgeErrorCodes.Unsupported,
                 $"{what}: a {key} change is not written — Volt has no measured write for it on CODESYS (niche: accepted " +
-                $"loss, {occurrences} occurrence(s) in the corpora). Change it in the IDE and pull.");
+                $"loss, {occurrences} occurrence(s) in the corpora). Change it in the IDE.");
         }
     }
 }

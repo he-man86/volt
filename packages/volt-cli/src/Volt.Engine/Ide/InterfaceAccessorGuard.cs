@@ -45,7 +45,7 @@ public static class InterfaceAccessorGuard
         throw new BridgeException(BridgeErrorCodes.Unsupported,
             "an interface property's GET/SET carries only the fact that it exists — its declaration and " +
             "body are not writable, and writing them can crash the IDE. Remove the edit, or make the " +
-            "change in the IDE and pull.");
+            "change in the IDE.");
     }
 
     /// <summary>CODESYS: refuse a BODY pushed at an interface accessor — the accessor has no Implementation aspect, so

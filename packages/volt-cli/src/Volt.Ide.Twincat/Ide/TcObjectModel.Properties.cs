@@ -206,8 +206,8 @@ internal sealed partial class TcObjectModel
         var build = BuildOf(item, what, ownerExcluded: false);
         if (!File.Exists(path))
             throw new BridgeException(BridgeErrorCodes.Unreadable,
-                $"{what()}: its saved file '{path}' is not on disk — save the project in the IDE (File > Save All) and pull " +
-                "again; Volt reads that file for what the text cannot say, so it is not pulled without it.");
+                $"{what()}: its saved file '{path}' is not on disk — save the project in the IDE (File > Save All); " +
+                "Volt reads that file for what the text cannot say, so it is not pulled without it.");
 
         var doc = XDocument.Load(path!, LoadOptions.PreserveWhitespace);
         var obj = doc.Root?.Elements().FirstOrDefault()
@@ -218,7 +218,7 @@ internal sealed partial class TcObjectModel
         if (special is null && obj.Name.LocalName == "POU")
             throw new BridgeException(BridgeErrorCodes.Unreadable,
                 $"{what()}: its saved file '{path}' states no SpecialFunc, which TwinCAT writes on every POU — save the " +
-                "project in the IDE (File > Save All) and pull again.");
+                "project in the IDE (File > Save All).");
         var classes = doc.Descendants().Where(e => e.Name.LocalName == "ObjectProperties")
             .SelectMany(op => op.Descendants().Where(e => e.Name.LocalName == "o" && e.Attribute("t") is not null)
                                 .Select(e => (string)e.Attribute("t")!)
@@ -291,8 +291,8 @@ internal sealed partial class TcObjectModel
         var info = new FileInfo(_compileProject);
         if (!info.Exists)
             throw new BridgeException(BridgeErrorCodes.Unreadable,
-                $"twincat: the PLC project file '{_compileProject}' is not on disk — save the project in the IDE and pull " +
-                "again; Volt reads its build entries rather than assume an object is built.");
+                $"twincat: the PLC project file '{_compileProject}' is not on disk — save the project in the IDE; " +
+                "Volt reads its build entries rather than assume an object is built.");
         if (_compileEntries is { } cached && cached.Path == _compileProject && cached.Written == info.LastWriteTimeUtc
             && cached.Length == info.Length)
             return cached.Entries;

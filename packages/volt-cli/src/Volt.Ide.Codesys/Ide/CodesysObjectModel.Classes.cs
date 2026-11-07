@@ -43,7 +43,7 @@ namespace Volt.Ide.Codesys
                     throw new ChildRefusedException(Refused(
                         "a persistent list is not created by Volt yet — its factory is measured, but its dymmattributecount " +
                         "is not: the completeness oracle has not reproduced a re-created list (openspec bridge-one-to-one " +
-                        "§1.1). Create it in the IDE and pull; an update of an existing one is written."), ChildRefusalCause.Kind);
+                        "§1.1). Create it in the IDE; an update of an existing one is written."), ChildRefusalCause.Kind);
                 case (ObjectClass.AbstractMethod, ItemKind.PlcMethod):
                     // The vendor's abstract method class, with no body slot, made as `create-each-class` /
                     // `abstract-member-equivalence` made it (C2r): its constructor, the aspect it holds null from the POU
@@ -52,8 +52,8 @@ namespace Volt.Ide.Codesys
                 case (ObjectClass.Nvl, ItemKind.PlcGvl):
                     throw new ChildRefusedException(Refused(
                         "CODESYS creates a network variable list only through its wizard — its factory raised a " +
-                        "NullReferenceException when called without one (create-each-class, DIALECT C2r). Create it in the IDE " +
-                        "and pull; an update of an existing one is written."), ChildRefusalCause.Kind);
+                        "NullReferenceException when called without one (create-each-class, DIALECT C2r). Create it in the IDE" +
+                        "; an update of an existing one is written."), ChildRefusalCause.Kind);
                 default:
                     throw new ChildRefusedException(Refused(
                         $"no {cls.Word} class exists for this kind of object (code {itemType})"), ChildRefusalCause.Kind);

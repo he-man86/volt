@@ -17,7 +17,7 @@ namespace Volt.Engine.Tests;
 /// <para>It ends a body's declaration, starts its body and states its language, ST included; it is one of
 /// <see cref="PropertyLines"/>' closed keys, the first of them, so there is one <c>%</c>-line grammar. A METHOD or a
 /// property's GET/SET whose IDE object has no body slot has NO line. The old <c>IMPLEMENTATION &lt;LANG&gt;</c> line is no
-/// longer read: a push of it is refused by name, saying to pull again.</para>
+/// longer read: a push of it is refused by name, saying to state the %LANGUAGE line in its place.</para>
 ///
 /// <para>These pin the spelling, where the writer puts the line for every kind <see cref="ItemKind.ShapeOf"/> gives a body,
 /// that the reader splits on it through the three shapes an inferred boundary broke on, and the member with no slot.</para>
@@ -439,16 +439,16 @@ public class LanguageLineTests
     [Theory]
     [InlineData("FUNCTION_BLOCK FB_X\nVAR\nEND_VAR\nx := 1;\n\nEND_FUNCTION_BLOCK\n")]
     [InlineData("FUNCTION_BLOCK FB_X\nVAR\nEND_VAR\n%LANGUAGE ST\n\nEND_FUNCTION_BLOCK\n\nACTION Act\nx := 1;\nEND_ACTION\n")]
-    public void A_POU_or_an_action_with_no_line_is_refused_naming_volt_pull(string text)
+    public void A_POU_or_an_action_with_no_line_is_refused_naming_the_line(string text)
     {
         var ex = Assert.Throws<BridgeException>(() => StReader.Read(text, ItemKind.Kinds.Pou, "FB_X"));
         Assert.Equal(BridgeErrorCodes.InvalidSt, ex.ErrorCode);
         Assert.Contains("has no '%LANGUAGE <ST|LD|FBD>' line", ex.Message);
-        Assert.Contains("volt pull", ex.Message);
+        Assert.Contains("Add the line '%LANGUAGE ST|LD|FBD'", ex.Message);
     }
 
     /// <summary>THE RETIRED LINE: <c>IMPLEMENTATION &lt;LANG&gt;</c> is no longer read, and a push of it is refused by
-    /// name, saying to pull again — in a POU's own region, a member's, and a member that would otherwise read as having
+    /// name, saying to state the %LANGUAGE line in its place — in a POU's own region, a member's, and a member that would otherwise read as having
     /// no slot.</summary>
     [Theory]
     [InlineData("FUNCTION_BLOCK FB_X\nVAR\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\n\nEND_FUNCTION_BLOCK\n", "IMPLEMENTATION ST")]
@@ -460,7 +460,7 @@ public class LanguageLineTests
     {
         var ex = Assert.Throws<BridgeException>(() => StReader.Read(text, ItemKind.Kinds.Pou, "FB_X"));
         Assert.Equal(BridgeErrorCodes.InvalidSt, ex.ErrorCode);
-        Assert.Contains($"holds '{line}': `IMPLEMENTATION` is no longer read — pull again (it is now `%LANGUAGE <LANG>`).", ex.Message);
+        Assert.Contains($"holds '{line}': `IMPLEMENTATION` is not a line Volt reads: state `%LANGUAGE <LANG>` in its place.", ex.Message);
     }
 
     /// <summary>A METHOD whose IDE object has no body slot (CODESYS's <c>AbstractPOUMethodObject</c>) has NO line and

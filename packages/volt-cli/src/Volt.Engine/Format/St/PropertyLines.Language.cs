@@ -118,8 +118,8 @@ public static partial class PropertyLines
         if (words.Length == 0) return $"it states no language — a body states one: {readLines}";
         var word = words[0].ToUpperInvariant();
         if (words.Length == 1 && IsNeverShown(word))
-            return $"Volt shows no {word} body, so its line is '{UnsupportedLine(word)}', with nothing under it. Pull the " +
-                   "item again to get it";
+            return $"Volt shows no {word} body, so its line is '{UnsupportedLine(word)}', with nothing under it: state " +
+                   "that line";
         if (words.Length == 2 && word == Languages.St && words[1].Equals(UnsupportedWord, StringComparison.OrdinalIgnoreCase))
             return $"Volt shows every ST body, so ST is never {UnsupportedWord}: state '{LanguageLine(Languages.St)}'";
         return $"'{string.Join(" ", words)}' is no language a body can state. The line states one of ST, LD or FBD, or — " +
@@ -183,7 +183,7 @@ public static partial class PropertyLines
     /// <summary>The refusal of <see cref="RetiredLineIn"/>'s line, naming it and <paramref name="what"/>.</summary>
     public static BridgeException RetiredLineRefusal(string what, string line) =>
         new(BridgeErrorCodes.InvalidSt,
-            $"{what} holds '{line}': `IMPLEMENTATION` is no longer read — pull again (it is now `%{LanguageKey} <LANG>`).");
+            $"{what} holds '{line}': `IMPLEMENTATION` is not a line Volt reads: state `%{LanguageKey} <LANG>` in its place.");
 
     private static readonly Regex RetiredLine = new(@"^\s*IMPLEMENTATION[ \t]+[A-Za-z_][A-Za-z0-9_]*(?:[ \t]+UNSUPPORTED)?\s*$",
                                                     RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
@@ -198,8 +198,8 @@ public static partial class PropertyLines
         var stated = LanguageLinesIn(lines);
         if (stated.Count == 0) return body;
         throw new BridgeException(BridgeErrorCodes.Unsupported,
-            $"the ST body in the IDE holds the line '{lines[stated[0]].Trim()}' (line {stated[0] + 1}), which a workspace " +
-            $"file reads as the %{LanguageKey} line that states a body's language, so the body cannot be pulled as ST. Edit " +
+            $"the ST body in the IDE holds the line '{lines[stated[0]].Trim()}' (line {stated[0] + 1}), which Volt's text " +
+            $"reads as the %{LanguageKey} line that states a body's language, so the body cannot be read as ST. Edit " +
             "that line in the IDE.");
     }
 

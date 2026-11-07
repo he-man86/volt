@@ -181,7 +181,7 @@ public static class NetworkText
             throw new BridgeException(BridgeErrorCodes.Unsupported,
                 $"a body is stated '{PropertyLines.LanguageLine(language)}', and {NetworkTextSwitch.DisabledReason}, so it " +
                 $"cannot be pushed: this build shows that body as '{PropertyLines.UnsupportedLine(language)}' and " +
-                "never writes it. Pull the item to get that line; its declaration stays editable.");
+                "never writes it. State that line instead; its declaration stays editable.");
         }
 
         var result = StNetworkGate.Validate(body, scope);

@@ -715,8 +715,8 @@ public static class StReader
 		if (stray is not { } at) return;
 		throw new BridgeException(BridgeErrorCodes.InvalidSt,
 			$"{what} holds '{Truncate(region[at].Trim(), 80)}' after its declaration and no %{PropertyLines.LanguageKey} line. " +
-			$"A body states its language on the line that opens it: state '{PropertyLines.LanguageLine(Languages.St)}' above " +
-			"the code, or run `volt pull` to get the line the IDE's member has. (Only a member with no body slot has no " +
+			$"A body states its language on the line that opens it: state '{PropertyLines.LanguageLine(Languages.St)}' (or the language of the IDE's member) " +
+			"above the code. (Only a member with no body slot has no " +
 			"line, and nothing after its declaration.)");
 	}
 
@@ -1059,7 +1059,7 @@ public static class StReader
 		if (PropertyLines.RetiredLineIn(region) is { } retired) return PropertyLines.RetiredLineRefusal(what, retired);
 		return new BridgeException(BridgeErrorCodes.InvalidSt,
 			$"{what} has no '%{PropertyLines.LanguageKey} <ST|LD|FBD>' line — the text does not say where its declaration " +
-			"ends or what language its body is in. Run `volt pull` once to rewrite the workspace in the current format.");
+			$"ends or what language its body is in. Add the line '%{PropertyLines.LanguageKey} ST|LD|FBD' (its body's language) between its declaration and its body.");
 	}
 
 	// ─── Signature parsing (METHOD/ACTION/PROPERTY headers) ─────────

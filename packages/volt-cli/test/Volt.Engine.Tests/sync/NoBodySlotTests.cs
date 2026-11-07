@@ -20,7 +20,7 @@ namespace Volt.Engine.Tests;
 /// reads it (<see cref="FakeIde.Item.NoSlot"/>) and refuses a body written there as the driver's <c>RequireSlot</c> does.
 ///
 /// <para>The push guard against the live object (design.md, point 3): no line over a live member WITH a slot is the lost
-/// line, refused naming <c>volt pull</c>; a stated language over a live slotless member is refused; no line on a member
+/// line, refused saying to state the line; a stated language over a live slotless member is refused; no line on a member
 /// the push CREATES is accepted only for an ABSTRACT METHOD, created as the vendor's abstract class (C2r); dropping
 /// ABSTRACT over a live slotless member is refused (C2l). Statements under ABSTRACT are refused as both compilers refuse
 /// them (C0433), wherever there is a slot.</para>
@@ -118,13 +118,13 @@ public class NoBodySlotTests
         Assert.Equal(edited, Pulled(ide));
     }
 
-    /// <summary>No line over a live member WITH a slot is the lost line: refused naming the member and <c>volt pull</c>,
+    /// <summary>No line over a live member WITH a slot is the lost line: refused naming the member and the line to state,
     /// before any write — never read as "the member has no slot".</summary>
     [Theory]
     [InlineData("\nMETHOD ABSTRACT Pick : INT\n%LANGUAGE ST\nEND_METHOD", "\nMETHOD ABSTRACT Pick : INT\nEND_METHOD", "'Pick'")]
     [InlineData("\nMETHOD ABSTRACT Held : INT\n%LANGUAGE ST\nHeld := 1;\nEND_METHOD", "\nMETHOD ABSTRACT Held : INT\nEND_METHOD", "'Held'")]
     [InlineData("\nMETHOD Run : BOOL\nVAR\nEND_VAR\n%LANGUAGE ST\nRun := TRUE;\nEND_METHOD", "\nMETHOD Run : BOOL\nVAR\nEND_VAR\nEND_METHOD", "'Run'")]
-    public void No_line_over_a_live_member_with_a_slot_is_refused_naming_volt_pull(string from, string to, string named)
+    public void No_line_over_a_live_member_with_a_slot_is_refused_naming_the_line(string from, string to, string named)
     {
         var ide = Ide();
 
@@ -132,19 +132,19 @@ public class NoBodySlotTests
 
         Assert.Contains(named, reason);
         Assert.Contains("states no %LANGUAGE line", reason);
-        Assert.Contains("volt pull", reason);
+        Assert.Contains("State that line above the body.", reason);
         AssertNothingMutated(ide);
     }
 
     [Fact]
-    public void No_line_over_a_live_accessor_with_a_slot_is_refused_naming_volt_pull()
+    public void No_line_over_a_live_accessor_with_a_slot_is_refused_naming_the_line()
     {
         var ide = SlottedGetIde();
 
         var reason = Refused(Push(ide, Edit(Pulled(ide), "GET\nVAR\nEND_VAR\n%LANGUAGE ST\nEND_GET", "GET\nVAR\nEND_VAR\nEND_GET")));
 
         Assert.Contains("'Rdy' GET", reason);
-        Assert.Contains("volt pull", reason);
+        Assert.Contains("State that line above the body.", reason);
         AssertNothingMutated(ide);
     }
 
@@ -221,7 +221,7 @@ public class NoBodySlotTests
     }
 
     /// <summary>An accessor the IDE does not hold, added with no line, is a CREATE of that accessor: refused as one — never
-    /// as a line lost from an accessor that does not exist, whose remedy (<c>volt pull</c>) could not help.</summary>
+    /// as a line lost from an accessor that does not exist, whose remedy (state the line again) could not help.</summary>
     [Fact]
     public void An_accessor_added_with_no_line_is_refused_as_a_create_and_not_as_a_lost_line()
     {
@@ -231,7 +231,7 @@ public class NoBodySlotTests
 
         Assert.Contains("'Rdy' SET", reason);
         Assert.Contains("creates no accessor without one", reason);
-        Assert.DoesNotContain("volt pull", reason);
+        Assert.DoesNotContain("State that line above the body.", reason);
         AssertNothingMutated(ide);
     }
 
@@ -273,7 +273,7 @@ public class NoBodySlotTests
 
         Assert.Contains(named, reason);
         Assert.Contains("drops ABSTRACT", reason);
-        Assert.Contains("volt pull", reason);
+        Assert.Contains("Make the member concrete in the IDE, or delete it", reason);
         AssertNothingMutated(ide);
     }
 

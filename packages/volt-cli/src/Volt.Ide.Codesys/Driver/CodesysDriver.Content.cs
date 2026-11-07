@@ -132,14 +132,14 @@ public sealed partial class CodesysDriver
                     ? "a persistent list's factory is measured, but its dymmattributecount is not: the completeness oracle has " +
                       "not reproduced a re-created list"
                     : "CODESYS creates a network variable list only through its wizard (create-each-class, DIALECT C2r)") +
-                " (openspec bridge-one-to-one §1.1). Create it in the IDE and pull; an update of an existing one is written.");
+                " (openspec bridge-one-to-one §1.1). Create it in the IDE; an update of an existing one is written.");
         string? key = pushed.ParameterList ? "%PARAMETER_LIST"
             : pushed.NetVar.Count > 0 && pushed.Class?.Word != ObjectClass.Nvl ? "%NETVAR" : null;
         if (key is null) return;
         throw new Volt.Engine.BridgeException(BridgeErrorCodes.Unsupported,
             $"{what}: a create carrying {key} is not made — CODESYS makes such a list through its own factory, and Volt " +
             "has no measured write for what the line states (openspec bridge-one-to-one §1.1; niche: accepted loss, " +
-            $"{(key == "%NETVAR" ? 1 : 0)} occurrence(s) in the corpora). Create the list in the IDE and pull.");
+            $"{(key == "%NETVAR" ? 1 : 0)} occurrence(s) in the corpora). Create the list in the IDE.");
     }
 
     // ── body ──────────────────────────────────────────────────────────────────────────────────────

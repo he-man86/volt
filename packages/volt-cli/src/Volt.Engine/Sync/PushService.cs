@@ -255,7 +255,7 @@ public static class PushService
             {
                 preflight.Add(ConflictFor(op, new BridgeException(BridgeErrorCodes.BadRequest,
                     $"'{readOnly.Name}' is read-only: a {readOnly.Kind} descriptor is rendered from the IDE and is never " +
-                    "pushed. Change it in the IDE and pull.")));
+                    "pushed. Change it in the IDE.")));
                 continue;
             }
 
@@ -1043,14 +1043,14 @@ public static class PushService
                     throw new PushRefusal(op.Name,
                         $"'{name}' is not a wire name: its extension names no item kind. A push names each item " +
                         "exactly as refs/fetch published it, so this op could only be " +
-                        "applied by guessing which item it means. Pull, and push the names the workspace holds.");
+                        "applied by guessing which item it means. Push each name as refs publishes it.");
                 if (row.Role != KindRole.Descriptor
                     && (!FolderPath.IsMinted(ItemPath.FolderOf(name)) || ItemPath.FileOf(name).Length == row.Extension!.Length + 1))
                     throw new PushRefusal(op.Name,
                         $"'{name}' is not a path refs publishes: each folder in it is a name spelled as refs spells it " +
                         "(no empty segment, `%XX` for a character a path cannot hold or a space or dot at either end), and " +
                         "the item has a name before its extension. The IDE would hold it under another path, so the " +
-                        "next push of this name would not find it. Pull, and push the names the workspace holds.");
+                        "next push of this name would not find it. Push each name as refs publishes it.");
             }
         }
     }
@@ -1095,7 +1095,7 @@ public static class PushService
                     throw new PushRefusal(op.Name,
                         $"'{otherName}' and '{name}' are one IDE object '{bare}' (the IDE names an object without its " +
                         "kind), and this push deletes one and sets the other. A re-type in one push is not written: " +
-                        $"commit the deletion of '{deleted}' and `volt push`, then commit '{created}' and `volt push`.");
+                        $"delete '{deleted}' in one push, then create '{created}' in the next.");
                 }
                 if (!mine.ContainsKey(bare)) mine[bare] = name;
             }
@@ -1291,8 +1291,8 @@ public static class PushService
         op is SetItemOp { To: { } to } set
         && kinds.FindByWireName(to)!.Kind != kinds.FindByWireName(set.Name)!.Kind
             ? $"'{set.Name}' cannot become '{to}': a push cannot re-type an object by its NAME, so a set's `to` names " +
-              "the kind its `name` does. Delete it and create the new item if that is what you mean (`volt push` " +
-              "sends a re-typed file so) — that discards the object's identity, so it is not done for you."
+              "the kind its `name` does. Delete it and create the new item if that is what you mean " +
+              "— that discards the object's identity, so it is not done for you."
             : null;
 
     /// <summary>An item a push can address by its path: a source item, or the one descriptor a push writes.</summary>

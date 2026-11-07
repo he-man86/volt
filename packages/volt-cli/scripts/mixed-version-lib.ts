@@ -78,7 +78,7 @@ const refusedByName = (output: string) => REFUSED_BY_NAME.some((r) => r.test(out
  */
 const FORMAT_REFUSED = [
 	/the bridge rejected the push:[\s\S]*\[INVALID_ST\] '[^']+' has no 'IMPLEMENTATION <ST\|LD\|FBD>' line — the text does not say where its declaration ends or what language its body is in\. Run `volt pull` once to rewrite the workspace in the current format\./,
-	/the bridge rejected the push:[\s\S]*\[INVALID_ST\] '[^']+' holds 'IMPLEMENTATION [^']+': `IMPLEMENTATION` is no longer read — pull again \(it is now `%LANGUAGE <LANG>`\)\./,
+	/the bridge rejected the push:[\s\S]*\[INVALID_ST\] '[^']+' holds 'IMPLEMENTATION [^']+': `IMPLEMENTATION` is not a line Volt reads: state `%LANGUAGE <LANG>` in its place\./,
 ]
 const decoded = (s: string) => s.replace(/\\u([0-9a-fA-F]{4})/g, (_, h: string) => String.fromCharCode(parseInt(h, 16)))
 /** A PUSH refused by the other release's bridge for the text format, by name ({@link FORMAT_REFUSED}). */

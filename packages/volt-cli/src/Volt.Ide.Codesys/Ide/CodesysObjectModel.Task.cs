@@ -159,7 +159,7 @@ namespace Volt.Ide.Codesys
                     throw new Volt.Engine.BridgeException(BridgeErrorCodes.Unsupported,
                         $"CODESYS: the task's `{label}:` ({member}) has no measured write — it holds '{held}' and the push " +
                         $"states '{pushed}' (0 of 13 corpus tasks hold it off '{measured}': niche, accepted loss). Change it " +
-                        "in the IDE and pull.");
+                        "in the IDE.");
             }
 
             var f = Facet(node, "ScriptTaskObject");
@@ -191,7 +191,7 @@ namespace Volt.Ide.Codesys
                 throw new Volt.Engine.BridgeException(BridgeErrorCodes.BadRequest,
                     "CODESYS: `Watchdog: off` alone — a CODESYS task keeps its watchdog's time, unit and sensitivity behind " +
                     "the flag, so the line states them: `Watchdog: off <time> <unit> (sensitivity <n>)` (`''` for an empty " +
-                    "one). Pull the task to see its values.");
+                    "one). Read the task to see its values.");
         }
 
         /// <summary>The member labels a CODESYS task has — a TwinCAT label (<c>Auto start:</c>, …) is no member of it.</summary>

@@ -107,7 +107,7 @@ internal sealed partial class TcObjectModel
             if (was != now)
                 throw new BridgeException(BridgeErrorCodes.Unsupported,
                     $"TwinCAT: the task's `{label}:` ({element}) has no measured write — it holds '{was}' and the push " +
-                    $"states '{now}' (niche, accepted loss). Change it in the IDE and pull.");
+                    $"states '{now}' (niche, accepted loss). Change it in the IDE.");
         }
         if (t.ExternalEvent is not null || t.CallComments?.Any(c => c.Length > 0) == true)
             throw new VoltInvariantException("twincat: SysTaskPatch let an external event or a call comment through");

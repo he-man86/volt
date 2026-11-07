@@ -221,7 +221,7 @@ public class LanguageLinePushTests
 
         Assert.Contains("DoReset", reason);
         Assert.Contains("language", reason);
-        Assert.DoesNotContain("volt pull", reason);   // not a stale file: the line is there, its language is not
+        Assert.DoesNotContain("Add the line", reason);   // not a missing line: the line is there, its language is not
         AssertNothingWritten(ide);
     }
 
@@ -409,13 +409,13 @@ public class LanguageLinePushTests
     [Theory]
     [InlineData("(* @volt-implementation *)\nout := a;")]
     [InlineData("(* @volt-implementation LD *)\n" + Network)]
-    public void A_file_carrying_only_the_old_comment_is_refused_naming_volt_pull(string pouImpl)
+    public void A_file_carrying_only_the_old_comment_is_refused_naming_the_line(string pouImpl)
     {
         var ide = new FakeIde();
 
         var reason = Reason(Create(ide, $"{Decl}\n{pouImpl}\n\nEND_FUNCTION_BLOCK\n"));
 
-        Assert.Contains("volt pull", reason);
+        Assert.Contains("Add the line '%LANGUAGE ST|LD|FBD'", reason);
         Assert.Contains("%LANGUAGE", reason);   // the refusal names the line the file lacks
         AssertNothingWritten(ide);
     }
@@ -427,30 +427,30 @@ public class LanguageLinePushTests
 
         var reason = Reason(Create(ide, Motor("(* @volt-implementation *)\nDoReset := TRUE;")));
 
-        Assert.Contains("volt pull", reason);
+        Assert.Contains("state '%LANGUAGE ST'", reason);
         AssertNothingWritten(ide);
     }
 
     /// <summary>The exact pre-change shape of a body Volt cannot write — the retired comment, THEN the old marker
     /// comment — is what the corpora hold today (<c>VltFixtureCfc.pou</c>, <c>VltFixtureSfc.pou</c>, lenze-mid
-    /// <c>Mach1_MIDS.pou</c>). It is a file from before the change like any other: refused, naming <c>volt pull</c>.</summary>
+    /// <c>Mach1_MIDS.pou</c>). It is a file from before the change like any other: refused, saying to state the line.</summary>
     [Theory]
     [InlineData("CFC")]
     [InlineData("SFC")]
-    public void An_old_unsupported_POU_body_is_refused_naming_volt_pull(string language)
+    public void An_old_unsupported_POU_body_is_refused_naming_the_line(string language)
     {
         var ide = new FakeIde(new FakeIde.Item("FB_Chart", ItemKind.PlcPou, "", true, ChartDecl, "", language, null));
 
         var reason = Reason(Update(ide, "FB_Chart.pou",
             $"{ChartDecl}\n(* @volt-implementation *)\n(* @volt-graphical: {language} *)\n\nEND_FUNCTION_BLOCK\n"));
 
-        Assert.Contains("volt pull", reason);
+        Assert.Contains("Add the line '%LANGUAGE ST|LD|FBD'", reason);
         Assert.Empty(ide.WrittenContent);
         Assert.Equal(ChartDecl, ide.ReadContent(new ItemRef("FB_Chart")).Declaration);
     }
 
     /// <summary>The retired comment in a CURRENT file — one with its <c>%LANGUAGE</c> line — is a comment. Section 2b
-    /// had every <c>(* @volt-… *)</c> comment anywhere refused naming <c>volt pull</c>, which refused current files holding
+    /// had every <c>(* @volt-… *)</c> comment anywhere refused saying to state the line, which refused current files holding
     /// one in an ST body or a declaration: a scan over the code, not a condition of the split (openspec
     /// <c>bridge-refusal-review</c> 2.1). The hint survives where it means something: inside the no-boundary refusal.</summary>
     [Theory]
@@ -490,9 +490,9 @@ public class LanguageLinePushTests
     /// the marker line (the old writer put the folder under the boundary comment). The directive sits between the
     /// comment and the marker, so a check that looks only at the line directly above the marker misses it: the comment
     /// and <c>%FOLDER Sub</c> land at the end of the member's DECLARATION, which the driver writes into the IDE, and the
-    /// member's folder reads as none. It is a file from before the change: refused naming <c>volt pull</c>.</summary>
+    /// member's folder reads as none. It is a file from before the change: refused saying to state the line.</summary>
     [Fact]
-    public void An_old_unsupported_member_body_in_a_folder_is_refused_naming_volt_pull()
+    public void An_old_unsupported_member_body_in_a_folder_is_refused_naming_the_line()
     {
         var ide = new FakeIde(
             new FakeIde.Item("FB_X", ItemKind.PlcPou, "", true, "FUNCTION_BLOCK FB_X\nVAR\nEND_VAR", "", null, null, Children: new[] { "M" }),
@@ -502,7 +502,7 @@ public class LanguageLinePushTests
 
         var reason = Reason(Update(ide, "FB_X.pou", src));
 
-        Assert.Contains("volt pull", reason);
+        Assert.Contains("state '%LANGUAGE ST'", reason);
         Assert.Empty(ide.WrittenContent);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("writecontent:", System.StringComparison.Ordinal));
     }
@@ -574,7 +574,7 @@ public class LanguageLinePushTests
     }
 
     /// <summary>A file written before the line was renamed: its <c>IMPLEMENTATION</c> line is refused by name, saying to
-    /// pull again — on a create and on an update alike, nothing written.</summary>
+    /// state the %LANGUAGE line in its place — on a create and on an update alike, nothing written.</summary>
     [Fact]
     public void The_retired_IMPLEMENTATION_line_is_refused_saying_to_pull_again()
     {
@@ -582,7 +582,7 @@ public class LanguageLinePushTests
 
         var reason = Reason(Create(ide, $"{Decl}\nIMPLEMENTATION ST\nout := a;\n\nEND_FUNCTION_BLOCK\n"));
 
-        Assert.Contains("'FB_Motor' holds 'IMPLEMENTATION ST': `IMPLEMENTATION` is no longer read — pull again (it is now `%LANGUAGE <LANG>`).", reason);
+        Assert.Contains("'FB_Motor' holds 'IMPLEMENTATION ST': `IMPLEMENTATION` is not a line Volt reads: state `%LANGUAGE <LANG>` in its place.", reason);
         AssertNothingWritten(ide);
     }
 }

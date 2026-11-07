@@ -24,7 +24,7 @@ namespace Volt.Engine.Tests;
 /// reason in the file, and the reason for an LD/FBD body now travels to the pull message instead. Pushing the file back
 /// unchanged is the ordinary no-op; code under the line has nowhere to go and is refused by name; a member's
 /// <c>%FOLDER</c> follows the line; and a pushed file still holding a <c>(* @volt-… *)</c> comment is a file from before
-/// the change, refused naming <c>volt pull</c>.</para>
+/// the change, refused saying to state the line.</para>
 /// </summary>
 public class ReadOnlyBodyTests
 {
@@ -434,20 +434,20 @@ public class ReadOnlyBodyTests
 
     // ── no Volt comment survives ─────────────────────────────────────────────────────────────────
 
-    /// <summary>A file with NO boundary line where one belongs — the POU's, or a member's — is refused naming
-    /// <c>volt pull</c>, which rewrites it in the current format, whatever <c>(* @volt-… *)</c> comment it holds. Nothing
+    /// <summary>A file with NO boundary line where one belongs — the POU's, or a member's — is refused saying to
+    /// add the <c>%LANGUAGE</c> line, whatever <c>(* @volt-… *)</c> comment it holds. Nothing
     /// is written.</summary>
     [Theory]
     [InlineData("FUNCTION_BLOCK FB_Chart\nVAR\n\tx : INT;\nEND_VAR\n(* @volt-graphical: CFC *)\n\nEND_FUNCTION_BLOCK\n")]
     [InlineData("FUNCTION_BLOCK FB_Chart\nVAR\n\tx : INT;\nEND_VAR\n%LANGUAGE ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD Step : BOOL\n(* @volt-graphical: SFC *)\nEND_METHOD\n")]
     [InlineData("FUNCTION_BLOCK FB_Chart\nVAR\n\tx : INT;\nEND_VAR\n(* @volt-implementation *)\nx := 1;\n\nEND_FUNCTION_BLOCK\n")]
-    public void A_pushed_file_with_no_boundary_holding_a_volt_comment_is_refused_naming_volt_pull(string source)
+    public void A_pushed_file_with_no_boundary_holding_a_volt_comment_is_refused_naming_the_line(string source)
     {
         var ide = new FakeIde(Pou(null, null, "Step"), Method("Step", "SFC"));
 
         var reason = Reason(Update(ide, source));
 
-        Assert.Contains("volt pull", reason);
+        Assert.Matches(@"Add the line '%LANGUAGE ST\|LD\|FBD'|State that line above the body|state '%LANGUAGE ST'", reason);
         Assert.Empty(ide.WrittenContent);
     }
 

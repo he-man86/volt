@@ -157,8 +157,8 @@ public class OneOpPerItemTests
         });
 
         var conflict = Assert.Single(resp.Refused());
-        Assert.Contains("A re-type in one push is not written: commit the deletion of 'A.pou' and `volt push`, then commit " +
-                        "'A.dut' and `volt push`.", conflict.Reason);
+        Assert.Contains("A re-type in one push is not written: delete 'A.pou' in one push, then create " +
+                        "'A.dut' in the next.", conflict.Reason);
     }
 
     /// <summary>The ordinary shapes are untouched: one op per item, and a rename+move+edit whose target no other op

@@ -456,7 +456,7 @@ public sealed partial class BeckhoffDriver
         if (cls is not null)
             throw new ChildRefusedException(
                 $"%CLASS {cls}: TwinCAT makes no such class through its automation interface (tc-special-classes, DIALECT " +
-                "C2s) — create it in the IDE and pull.", ChildRefusalCause.Kind);
+                "C2s) — create it in the IDE.", ChildRefusalCause.Kind);
         // AN INTERFACE MEMBER IS CREATED WITH ITS TYPE (openspec bridge-refusal-review 2.4, 2.6): TwinCAT's CreateChild
         // takes an interface method's return type / an interface property's data type as its vInfo, and a property
         // created with none fails inside TcXaeShell ("Object reference not set to an instance of an object",

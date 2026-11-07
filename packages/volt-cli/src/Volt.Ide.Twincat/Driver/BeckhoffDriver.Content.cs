@@ -73,7 +73,7 @@ public sealed partial class BeckhoffDriver
             string What() => $"'{itf()}' ({System.IO.Path.GetFileName(facts.File)}): its property '{property}' {accessor}";
             if (declaration is null)
                 throw new BridgeException(BridgeErrorCodes.Unreadable,
-                    $"{What()} is not in the saved file — save the project in the IDE (File > Save All) and pull again: Volt " +
+                    $"{What()} is not in the saved file — save the project in the IDE (File > Save All): Volt " +
                     "reads the accessor's stored declaration from that file, since TwinCAT answers it on no other path (D21).");
             // Both stored forms the vendor was seen to save are the empty declaration the text spells: the measured
             // constant, and the EMPTY declaration of a vendor-saved file (`fixtures/tc-pou/ITF1.TcIO`, ProductVersion

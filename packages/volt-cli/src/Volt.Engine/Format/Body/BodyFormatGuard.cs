@@ -75,7 +75,7 @@ public static class BodyFormatGuard
                     $"{what} states no {Line} line, which says the accessor has no body slot — and a push creates no accessor " +
                     "without one (the slotless accessor class has no measured create; DIALECT C2n). State " +
                     $"'{PropertyLines.LanguageLine(Languages.St)}' (an empty body under ABSTRACT is an abstract member's), or " +
-                    "create the property in the IDE and pull.");
+                    "create the property in the IDE.");
             if (!StReader.MemberHeaderIsAbstract(declaration))
                 throw new BridgeException(BridgeErrorCodes.Unsupported,
                     $"{what} states no {Line} line, which says the method has no body slot — but it is not declared ABSTRACT, " +
@@ -196,7 +196,7 @@ public static class BodyFormatGuard
             }
             throw new BridgeException(BridgeErrorCodes.Unsupported,
                 $"{what} states no {Line} line, but the IDE holds it with a body slot ({Name(live, liveBody)}) — the line " +
-                "was lost. Run `volt pull` to get it back.");
+                "was lost. State that line above the body.");
         }
         if (live.IsNoSlot)
             throw new BridgeException(BridgeErrorCodes.Unsupported,
@@ -274,8 +274,8 @@ public static class BodyFormatGuard
     private static BridgeException DropsAbstract(string what) =>
         new(BridgeErrorCodes.Unsupported,
             $"{what}: its declaration drops ABSTRACT, but the IDE holds it as an abstract member with no body slot, and the " +
-            "IDE keeps it so: a push never re-types a member in place (DIALECT C2l). Make the member concrete in the IDE " +
-            "and run `volt pull`, or delete it in one push and add it with " +
+            "IDE keeps it so: a push never re-types a member in place (DIALECT C2l). Make the member concrete in the IDE, " +
+            "or delete it in one push and add it with " +
             $"'{PropertyLines.LanguageLine(Languages.St)}' in the next.");
 
     private static BridgeException StatementsUnderAbstract(string what) =>

@@ -113,6 +113,6 @@ public class InterfaceAccessorGuardTests
             InterfaceAccessorGuard.RefuseIfChanged(null, null, null, "x := 1;"));
 
         Assert.Contains("not writable", ex.Message);
-        Assert.Contains("make the change in the IDE and pull", ex.Message);
+        Assert.Contains("make the change in the IDE.", ex.Message);
     }
 }

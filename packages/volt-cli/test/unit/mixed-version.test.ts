@@ -187,7 +187,7 @@ describe("a pair of one wire whose text formats differ", () => {
 	 *  (`dist/release-matrix/mixed-version/mixed-version.log`). */
 	const previousBridge = asCliPrints("the bridge rejected the push:\n  Device/Plc Logic/Application/VltE2E_Mx.pou: [INVALID_ST] 'VltE2E_Mx' has no 'IMPLEMENTATION <ST|LD|FBD>' line — the text does not say where its declaration ends or what language its body is in. Run `volt pull` once to rewrite the workspace in the current format.")
 	/** This bridge refusing the previous CLI's `IMPLEMENTATION` text (`PropertyLines.RetiredLineRefusal`), as that CLI prints it. */
-	const currentBridge = asCliPrints("the bridge rejected the push:\n  Device/Plc Logic/Application/VltE2E_Mx.pou: [INVALID_ST] 'VltE2E_Mx' holds 'IMPLEMENTATION ST': `IMPLEMENTATION` is no longer read — pull again (it is now `%LANGUAGE <LANG>`).")
+	const currentBridge = asCliPrints("the bridge rejected the push:\n  Device/Plc Logic/Application/VltE2E_Mx.pou: [INVALID_ST] 'VltE2E_Mx' holds 'IMPLEMENTATION ST': `IMPLEMENTATION` is not a line Volt reads: state `%LANGUAGE <LANG>` in its place.")
 	/** The previous CLI's LOCAL read of a `%LANGUAGE` text it already pushed — measured 2026-10-27 after "push: 1/1": the
 	 *  bridge had applied the push, so this is no refusal before any op. */
 	const previousCliLocal = "applying: 0/1 (0%)\npush: 1/1 (100%)\nthis pou has no 'IMPLEMENTATION <ST|LD|FBD>' line — the text does not say where its declaration ends or what language its body is in. Run `volt pull` once to rewrite the workspace in the current format."
