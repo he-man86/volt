@@ -13,9 +13,12 @@ import {
   documentFindings,
   materializationFindings,
   MISSING_LANGUAGE,
+  taskFindings,
   type DiagnosticItem,
+  type TaskFile,
 } from "../analysis/index.js"
 import type { LibraryManifest } from "../frontend/library/index.js"
+import type { Scope } from "../frontend/symbols/index.js"
 import { rangeFromSpan, type Document, type FixData } from "../services/index.js"
 import type { WorkspaceStore } from "../workspace/workspace-store.js"
 
@@ -98,4 +101,18 @@ export function libraryManifestDiagnostics(manifests: readonly LibraryManifest[]
   return new Map(
     [...materializationFindings(manifests)].map(([path, items]) => [pathToFileURL(path).href, items.map(toLspDiagnostic)]),
   )
+}
+
+/** Each `.task` descriptor's findings, by file URI — the descriptors of one application checked together, against its
+ *  table (`WorkspaceStore.project`), so a PROGRAM two of its tasks call is found and one in two applications is not. */
+export function taskDiagnostics(store: WorkspaceStore): Map<string, VoltDiagnostic[]> {
+  const byTable = new Map<Scope, TaskFile[]>()
+  for (const t of store.workspaceRefs.tasks) {
+    const uri = pathToFileURL(t.path).href
+    const table = store.project(uri)
+    byTable.set(table, [...(byTable.get(table) ?? []), { uri, text: t.text }])
+  }
+  const out = new Map<string, VoltDiagnostic[]>()
+  for (const [table, files] of byTable) for (const [uri, items] of taskFindings(files, table)) out.set(uri, items.map(toLspDiagnostic))
+  return out
 }

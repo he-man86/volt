@@ -126,7 +126,7 @@ test("the same global in two applications is no ambiguity, and another applicati
   const gvl = "VAR_GLOBAL\n\tg_i : INT;\nEND_VAR\n"
   const prg = "PROGRAM PLC_PRG\nVAR\n\tj : INT := g_i;\nEND_VAR\n%LANGUAGE ST\nEND_PROGRAM\n"
   const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }), { networkText: NETWORK_TEXT_ENABLED }, failLoud)
-  store.setRefs({ libraryManifests: [], devices: [], applications: [appA, appB] }, undefined)
+  store.setRefs({ libraryManifests: [], devices: [], applications: [appA, appB], tasks: [] }, undefined)
   store.seedDisk([
     { uri: uri(`${appA}/GVL.gvl`), source: gvl },
     { uri: uri(`${appA}/PLC_PRG.pou`), source: prg },
@@ -156,7 +156,7 @@ test("a pool document resolves in each application, and reports what any applica
   const gvl = "VAR_GLOBAL\n\tg_i : INT;\nEND_VAR\n"
   const prg = "PROGRAM PLC_PRG\nVAR\n\tp : FB_Pool;\n\tq : FB_PoolB;\nEND_VAR\n%LANGUAGE ST\np();\nq();\nEND_PROGRAM\n"
   const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }), { networkText: NETWORK_TEXT_ENABLED }, failLoud)
-  store.setRefs({ libraryManifests: [], devices: [], applications: [appA, appB] }, undefined)
+  store.setRefs({ libraryManifests: [], devices: [], applications: [appA, appB], tasks: [] }, undefined)
   store.seedDisk([
     { uri: uri(`${appA}/GVL.gvl`), source: gvl },
     { uri: uri(`${appA}/PLC_PRG.pou`), source: prg },
@@ -189,7 +189,7 @@ test.failing("a pool POU only one application uses reports nothing from the appl
   const appB = `${ws}/Device_1/Plc Logic/Application`
   const uri = (p: string) => pathToFileURL(p).href
   const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }), { networkText: NETWORK_TEXT_ENABLED }, failLoud)
-  store.setRefs({ libraryManifests: [], devices: [], applications: [appA, appB] }, undefined)
+  store.setRefs({ libraryManifests: [], devices: [], applications: [appA, appB], tasks: [] }, undefined)
   store.seedDisk([
     { uri: uri(`${appA}/PLC_PRG.pou`), source: "PROGRAM PLC_PRG\nVAR\n\tq : FB_PoolB;\nEND_VAR\n%LANGUAGE ST\nq();\nEND_PROGRAM\n" },
     { uri: uri(`${appA}/FB_OnlyA.pou`), source: "FUNCTION_BLOCK FB_OnlyA\n%LANGUAGE ST\nEND_FUNCTION_BLOCK\n" },
@@ -213,7 +213,7 @@ test.failing("hover on a global from a pool document names every application's d
   const appB = `${ws}/Device_1/Plc Logic/Application`
   const uri = (p: string) => pathToFileURL(p).href
   const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }), { networkText: NETWORK_TEXT_ENABLED }, failLoud)
-  store.setRefs({ libraryManifests: [], devices: [], applications: [appA, appB] }, undefined)
+  store.setRefs({ libraryManifests: [], devices: [], applications: [appA, appB], tasks: [] }, undefined)
   const poolSource = "FUNCTION_BLOCK FB_Pool\nVAR\n\tj : INT;\nEND_VAR\n%LANGUAGE ST\nj := g_i;\nEND_FUNCTION_BLOCK\n"
   store.seedDisk([
     { uri: uri(`${appA}/GVL.gvl`), source: "VAR_GLOBAL\n\tg_i : INT;\nEND_VAR\n" },

@@ -11,7 +11,7 @@
 
 /** A task's watchdog: its three vendor members, each as the vendor holds it (`""` for an empty one), and whether it is
  *  enabled. A disabled watchdog keeps its values behind `off`. */
-export interface TaskWatchdog {
+interface TaskWatchdog {
   readonly time: string
   readonly unit: string
   readonly sensitivity: string
@@ -19,7 +19,7 @@ export interface TaskWatchdog {
 }
 
 /** A task member off its measured value, under its own label (`Core: 1`). */
-export interface TaskMember {
+interface TaskMember {
   readonly label: string
   readonly value: string
 }
@@ -61,7 +61,7 @@ const EMPTY = "''"
 const COMMENT_MARK = " // "
 
 /** Every off-default member label, CODESYS's then TwinCAT's, in the order the file states them. */
-export const TASK_MEMBER_LABELS: readonly string[] = [
+const TASK_MEMBER_LABELS: readonly string[] = [
   "Core",
   "Core2",
   "Task group",
@@ -226,6 +226,13 @@ function readCalls(s: string): { names: string[]; comments: string[] } {
     comments.push(mark < 0 ? "" : p.slice(mark + 2).trim())
   }
   return { names, comments }
+}
+
+/** A task's name: its `.task` file's base name (`…/Task%20Configuration/MainTask.task` → `MainTask`), from a path or a
+ *  file URI. */
+export function taskName(uri: string): string {
+  const base = uri.slice(Math.max(uri.lastIndexOf("/"), uri.lastIndexOf("\\")) + 1).replace(/\.task$/i, "")
+  return uri.includes("://") ? decodeURIComponent(base) : base
 }
 
 /** Read a `.task` body. Throws `TaskFormatError` on anything it cannot account for — a field it does not know would be

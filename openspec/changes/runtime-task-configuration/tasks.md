@@ -6,8 +6,8 @@
 
 ## 2. Diagnostics
 
-- [ ] 2.1 Unknown field, `Calls:` not a PROGRAM, interval not a TIME (errors); a PROGRAM in two tasks (warning)
-- [ ] 2.2 Tests per diagnostic, each able to fail
+- [x] 2.1 Unknown field, `Calls:` not a PROGRAM, interval not a TIME (errors); a PROGRAM in two tasks (warning)
+- [x] 2.2 Tests per diagnostic, each able to fail
 
 ## 3. Runtime
 

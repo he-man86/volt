@@ -110,11 +110,25 @@ test("a manifest an older Volt wrote is reported beside the documents, and clear
   // No MATERIALIZATION line: an older bridge wrote it.
   const text = "LIBRARY Old\nNAMESPACE Old\nRESOLUTION Old, 1.0.0.0 (x)\nPLACEHOLDER true\n"
   const manifest = parseLibraryManifest("/ws/Library Manager/Old/Old.library", text)!
-  store.setRefs({ libraryManifests: [manifest], devices: [], applications: [] }, undefined)
+  store.setRefs({ libraryManifests: [manifest], devices: [], applications: [], tasks: [] }, undefined)
   publisher.republish()
   expect(sent.map((p) => [p.uri.endsWith("Old.library"), codes(p.diagnostics)])).toEqual([[true, ["library-stale"]]])
   sent.length = 0
-  store.setRefs({ libraryManifests: [], devices: [], applications: [] }, undefined)
+  store.setRefs({ libraryManifests: [], devices: [], applications: [], tasks: [] }, undefined)
   publisher.republish()
   expect(sent.map((p) => [p.uri.endsWith("Old.library"), p.diagnostics])).toEqual([[true, []]])
+})
+
+test("a .task descriptor's findings are reported on it beside the documents, and cleared once it is corrected", () => {
+  const { store, sent, publisher } = setup({ pull: false })
+  const task = (calls: string) => ({ path: "/ws/Task Configuration/MainTask.task", text: `Type:      Cyclic\nInterval:  t#20ms\nPriority:  1\nCalls:     ${calls}\n` })
+  store.setRefs({ libraryManifests: [], devices: [], applications: [], tasks: [task("PA, Mian")] }, undefined)
+  publisher.republish()
+  expect(sent.map((p) => [p.uri.endsWith("MainTask.task"), codes(p.diagnostics), p.diagnostics.map((d) => d.range.start)])).toEqual([
+    [true, ["task-call-not-program"], [{ line: 3, character: 15 }]],
+  ])
+  sent.length = 0
+  store.setRefs({ libraryManifests: [], devices: [], applications: [], tasks: [task("PA, PB")] }, undefined)
+  publisher.republish()
+  expect(sent.map((p) => [p.uri.endsWith("MainTask.task"), p.diagnostics])).toEqual([[true, []]])
 })

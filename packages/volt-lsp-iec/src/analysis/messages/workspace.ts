@@ -18,3 +18,13 @@ export const materializationNewerMessage = (library: string, format: number, cur
   `${library} was materialized by a newer Volt (format ${format}) than this language server reads ` +
   `(format ${current}), so its graphical bodies are not checked. Update the language server (volt-vscode) ` +
   "to the version of the volt CLI that pulled the workspace."
+
+/** A `Calls:` name that names no PROGRAM: what it is instead, or nothing. */
+export const taskCallNotProgramMessage = (call: string, task: string, kind: string | undefined): string =>
+  kind === undefined
+    ? `'${call}' is no PROGRAM of the application — task '${task}' can call only a PROGRAM`
+    : `'${call}' is a ${kind.toUpperCase()}, not a PROGRAM — task '${task}' can call only a PROGRAM`
+
+/** A PROGRAM two or more tasks call: each runs it on the one instance. */
+export const programInSeveralTasksMessage = (program: string, tasks: readonly string[]): string =>
+  `PROGRAM '${program}' is called by ${tasks.length} tasks (${tasks.join(", ")}): each runs the same instance`

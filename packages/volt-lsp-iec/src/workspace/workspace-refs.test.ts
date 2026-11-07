@@ -57,6 +57,19 @@ test("the scan's task roots: `Calls:` PROGRAM names, lowercased, recursive; comm
   )
 })
 
+test("the scan holds every `.task` as its text (BOM dropped), and a call's comment is no part of its root's name", () => {
+  const ws = mkdtempSync(join(tmpdir(), "volt-refs-tasks-"))
+  try {
+    const text = "Type:      Cyclic\nInterval:  10 ms\nPriority:  1\nWatchdog:  off\nCalls:     PLC_PRG // runs first, Logger\n"
+    writeFileSync(join(ws, "MainTask.task"), `﻿${text}`)
+    const scan = scanWorkspaceRefs(ws)
+    expect(scan.refs.tasks).toEqual([{ path: join(ws, "MainTask.task"), text }])
+    expect(scan.taskRoots).toEqual(new Set(["plc_prg", "logger"]))
+  } finally {
+    rmSync(ws, { recursive: true, force: true })
+  }
+})
+
 test("the scan's devices: one instance per `.device` descriptor, named as the file's stem is spelled", () => {
   expect(scanWorkspaceRefs(root).refs.devices).toEqual([{ kind: "device", name: "EtherCAT_Master", uri: join(root, "EtherCAT_Master.device") }])
 })

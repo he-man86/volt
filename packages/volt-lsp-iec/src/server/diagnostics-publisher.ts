@@ -27,7 +27,7 @@ import {
 } from "vscode-languageserver-protocol/node"
 import { sameDocument } from "../workspace/document-key.js"
 import type { WorkspaceStore } from "../workspace/workspace-store.js"
-import { documentDiagnostics, libraryManifestDiagnostics } from "./document-diagnostics.js"
+import { documentDiagnostics, libraryManifestDiagnostics, taskDiagnostics } from "./document-diagnostics.js"
 
 /** What the publisher reads of the server: the store, whether the crawl has run, and which channel the client chose. */
 export interface PublisherHost {
@@ -173,14 +173,18 @@ export class DiagnosticsPublisher {
         return [NOT_COMPUTED]
       }
     }
-    // A `.library` manifest is no document: its one possible diagnostic is being stale (`libraryManifestDiagnostics`).
+    // A `.library` manifest is no document: its one possible diagnostic is being stale (`libraryManifestDiagnostics`); a
+    // `.task` descriptor's are its task configuration's (`taskDiagnostics`).
     return [...this.manifestReports()].find(([m]) => sameDocument(m, uri))?.[1] ?? []
   }
 
   private manifestReports(): Map<string, Diagnostic[]> {
     const generation = this.host.store.generation
     if (this.manifests?.generation !== generation)
-      this.manifests = { generation, byUri: libraryManifestDiagnostics(this.host.store.workspaceRefs.libraryManifests) }
+      this.manifests = {
+        generation,
+        byUri: new Map([...libraryManifestDiagnostics(this.host.store.workspaceRefs.libraryManifests), ...taskDiagnostics(this.host.store)]),
+      }
     return this.manifests.byUri
   }
 }

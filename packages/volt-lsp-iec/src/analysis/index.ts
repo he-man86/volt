@@ -15,6 +15,8 @@ export {
 export { documentFindings } from "./pipeline/document.js"
 export { MISSING_LANGUAGE } from "./checks/syntax/missing-language.js"
 export { materializationFindings } from "./checks/workspace/materialization.js"
+// the task configuration: each `.task` descriptor's findings (openspec runtime-task-configuration)
+export { taskFindings, type TaskFile } from "./checks/workspace/tasks.js"
 export type { Check, CheckContext } from "./pipeline/context.js"
 export { initializerWarnedTwice, SOURCE, type DiagnosticItem, type Fix, type FixEdit } from "./shared/diagnostic-item.js"
 // configuration

@@ -33,6 +33,15 @@ export interface WorkspaceRefs {
    *  (openspec multi-application-tree, design §8). Empty: no baseline states any, and the workspace is one scope. */
   applications: readonly string[]
   target?: Target
+  /** Every `.task` descriptor, by path, as its text — what the task configuration's findings are read from
+   *  (`analysis` `taskFindings`); the symbol table binds none of it. */
+  tasks: readonly TaskText[]
+}
+
+/** A `.task` file's path and text. */
+interface TaskText {
+  path: string
+  text: string
 }
 
 /**
@@ -61,7 +70,7 @@ export function workspaceEnvironment(refs: WorkspaceRefs): CompileEnvironment | 
 const deviceNameOf = (file: string): string | undefined => readFileSync(file, "utf8").match(/^Name:\s*(.+?)\s*$/m)?.[1]
 
 /** No workspace reference files known. */
-export const EMPTY_WORKSPACE_REFS: WorkspaceRefs = { libraryManifests: [], devices: [], applications: [] }
+export const EMPTY_WORKSPACE_REFS: WorkspaceRefs = { libraryManifests: [], devices: [], applications: [], tasks: [] }
 import { SOURCE_EXTENSION_SET, SOURCE_EXTENSIONS } from "./source-extensions.js"
 import { boundApplications } from "./binding.js"
 
@@ -121,11 +130,12 @@ export function readSourceText(file: string): string {
 /** A `.device` descriptor's instance — the pull names the file after it. */
 const deviceInstanceOf = (file: string): DeviceInstance => ({ kind: "device", name: basename(file, extname(file)), uri: file })
 /** Every PROGRAM on a `.task` `Calls:` line. A task can run several (`Calls: A, B, C`), so split the
- *  comma list — the old single-`\S+` grab captured only `A,` (trailing comma) and dropped B, C. */
-const taskRootsOf = (file: string): string[] =>
-  (readFileSync(file, "utf8").match(/^Calls:\s+(.+)/m)?.[1] ?? "")
+ *  comma list — the old single-`\S+` grab captured only `A,` (trailing comma) and dropped B, C. A call's comment
+ *  (`A // runs first`) is no part of its name. */
+const taskRootsOf = (text: string): string[] =>
+  (text.match(/^Calls:\s+(.+)/m)?.[1] ?? "")
     .split(",")
-    .map((s) => s.trim())
+    .map((s) => s.split("//")[0]!.trim())
     .filter((s) => s.length > 0)
 
 /** What a workspace holds beside its sources — the WHOLE reference state, which a `.task`, `.library`, `.device` or
@@ -180,6 +190,7 @@ class RefCollector {
   private readonly devices: DeviceInstance[] = []
   private readonly deviceNames: string[] = []
   private readonly taskRoots = new Set<string>()
+  private readonly tasks: TaskText[] = []
   private readonly paths: string[] = []
   private readonly projectSettings: ProjectSettings[] = []
 
@@ -200,7 +211,10 @@ class RefCollector {
       const body = readFileSync(file, "utf8")
       this.projectSettings.push({ folder: dirname(file), diagnostics: projectDiagnosticsFrom(body), unicodeIdentifiers: projectUnicodeIdentifiersFrom(body) })
     } else {
-      for (const p of taskRootsOf(file)) this.taskRoots.add(p.toLowerCase())
+      // a task descriptor: its text for the task configuration's findings, its calls the reachability roots
+      const text = readSourceText(file)
+      this.tasks.push({ path: file, text })
+      for (const p of taskRootsOf(text)) this.taskRoots.add(p.toLowerCase())
     }
     return true
   }
@@ -211,6 +225,7 @@ class RefCollector {
         libraryManifests: this.libraryManifests,
         devices: this.devices,
         applications: this.applications,
+        tasks: this.tasks,
         ...withTarget(targetOfDevices(this.deviceNames)),
       },
       taskRoots: this.taskRoots,

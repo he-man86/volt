@@ -14,10 +14,10 @@ import type { DurationValue } from "../ast/nodes/index.js"
 import type { TaskSettings } from "../format/task.js"
 
 /** The task types CODESYS's `KindOfTask` names — every one the bridge writes. */
-export const TASK_TYPES: readonly string[] = ["Cyclic", "Freewheeling", "Event", "ExternalEvent", "Status", "ParentSynchron"]
+const TASK_TYPES: readonly string[] = ["Cyclic", "Freewheeling", "Event", "ExternalEvent", "Status", "ParentSynchron"]
 
 /** A task's watchdog as facts. A disabled one keeps its stated values; a time it does not state is absent. */
-export interface TaskWatchdogFacts {
+interface TaskWatchdogFacts {
   readonly enabled: boolean
   readonly timeNs?: number
   readonly sensitivity?: number
@@ -40,7 +40,7 @@ export interface TaskFacts {
 }
 
 /** A value a descriptor states that has no meaning as a fact: the label it stands under, and why. */
-export interface TaskRefusal {
+interface TaskRefusal {
   readonly label: string
   readonly message: string
 }

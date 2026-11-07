@@ -352,7 +352,7 @@ test("store: an edit rebinds into its own application's table, and a pool docume
   const appB = resolve(ws, "Device_1/Plc Logic/Application")
   const uri = (p: string) => pathToFileURL(p).href
   const store = new WorkspaceStore(cfg(), { networkText: NETWORK_TEXT_ENABLED }, failLoud)
-  store.setRefs({ libraryManifests: [], devices: [], applications: [appA, appB] }, undefined)
+  store.setRefs({ libraryManifests: [], devices: [], applications: [appA, appB], tasks: [] }, undefined)
   const gvlA = uri(resolve(appA, "GVL.gvl"))
   const pool = uri(resolve(ws, "FB_Pool.pou"))
   store.seedDisk([
