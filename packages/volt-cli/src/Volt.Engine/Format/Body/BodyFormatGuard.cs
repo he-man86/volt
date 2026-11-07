@@ -37,7 +37,7 @@ public static class BodyFormatGuard
     public static void RequireAuthorable(ItemContent pushed, Func<string, KindShape>? shapeOf = null)
     {
         shapeOf ??= ItemKind.ShapeOf;
-        if (shapeOf(pushed.Kind).Body) Authorable("the item", pushed.Kind, pushed.Body, pushed.Stated, null);
+        if (shapeOf(pushed.Kind).Body) Authorable("the item", pushed.Kind, pushed.Body, pushed.Stated, pushed.Declaration);
         foreach (var member in pushed.Members) AuthorableMember(member, shapeOf);
     }
 
@@ -57,7 +57,7 @@ public static class BodyFormatGuard
         if (shape.Body) Authorable($"'{member.Name}'", member.Kind, member.Body, member.Stated, member.Declaration);
     }
 
-    /// <param name="declaration">The declaration that says whether <paramref name="site"/> is ABSTRACT: the member's
+    /// <param name="declaration">The declaration that says whether <paramref name="site"/> is ABSTRACT: the site's
     /// own, its property's for an accessor; read only at a member site.</param>
     private static void Authorable(string what, string site, string? body, StatedLanguage? stated, string declaration)
     {
