@@ -17,11 +17,13 @@ Every IDE, every model, in this order:
 |---|---|
 | `model`, `class`, `member`, `kind` | Where the option lives; `kind` is the object kind where it matters (NWL box: FUNCTION, FB, PROGRAM, operator, comparison, Execute) |
 | `option` | The stored value or state |
-| `source` | `census`, `editor` or `created` |
+| `source` | `census`, `editor`, `created` or `pushed` |
 | `picture`, `code`, `run`, `persists` | `same`, `differs`, `not-measured`; `faults` where the IDE raises an error on it |
 | `status` | `spelled`, `lost-inert` (held, no text and no refusal: a pull shows another state's text, nothing runs apart), `refused-inert`, `refused-gap` (refused, changes the code or the run, no text), `refused-fault`, `cannot-store`, `not-measured` |
 | `text` | The spelling or the refusal's wording |
 | `fixture` | The test that pins it |
+
+A `pushed` row holds a fact only a Volt push produces: what the push writes, then what CODESYS stores, builds and keeps after the push (a build, a reload). It cites the vendor-fact recording that measured it (`vendor-facts#<fact>`, `scripts/vendor-facts.<vendor>.json`), and its `text` is a network the push sent and pulled back.
 
 `not-measured` is a real status: such a state stays refused by name and is listed, never counted as known. Nothing in the row
 format names a vendor except `model`. A verification on another IDE of the same model adds its own column of results to the row.

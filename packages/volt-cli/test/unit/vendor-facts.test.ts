@@ -1085,22 +1085,24 @@ describe("the known divergences the 2.2 rows recorded (ld-fbd-coverage, closed b
     for (const at of ["fetched@pushed", "fetched@reloaded"]) {
       expect(count(cs["nwl-leaf-wire-type"][at], UNKNOWN_WIRE)).toBe(0)
       // 2R.3 (readability rule six): a split carries no type and no VAR_TEMP; it comes back as pushed (DIALECT N32, re-run 2R.3).
-      expect(cs["nwl-leaf-wire-type"][at]).toContain("  split1 := i;\n")
+      expect(cs["nwl-leaf-wire-type"][at]).toContain("\nw1 := i;\n")
     }
     expect(tc["nwl-leaf-wire-type"].steps.some((s: string) => s.startsWith("create lw (push): refused: NETWORK_UNSUPPORTED"))).toBe(true)
   })
 
   // CLOSED by 2.3 S3b: `g1 := ;` pulled back UNSUPPORTED on both vendors; LD types the empty terminator BOOL.
   it("CLOSED 2.3 S3b: a pushed terminator-fed wire `g1 := ;` comes back as pushed on both vendors", () => {
-    for (const s of [cs, tc])
-      for (const at of ["fetched.rail@pushed", "fetched.rail@reloaded"])
-        expect(s["nwl-rail-fed-wire"][at]).toContain("  split1 := ;\n")
+    // CODESYS re-recorded in the network language (ide-model-mapping 4.1); TwinCAT's snapshot is re-recorded in task 6.
+    for (const at of ["fetched.rail@pushed", "fetched.rail@reloaded"]) {
+      expect(cs["nwl-rail-fed-wire"][at]).toContain("\nw1 := TRUE;\n")
+      expect(tc["nwl-rail-fed-wire"][at]).toContain("  split1 := ;\n")
+    }
   })
 
   // A wire DIVERGENCE (memory: a wire divergence is a defect): `g1 := TRUE;` round-trips on CODESYS and is refused on
   // TwinCAT before its import (a leaf-fed wire, TcUnmeasured) — 2.3's S3a/S3b writers measure it through the import.
   it("KNOWN: `g1 := TRUE;` round-trips on CODESYS and is refused on TwinCAT (2.3 S3)", () => {
-    expect(cs["nwl-rail-fed-wire"]["fetched.railTrue@reloaded"]).toContain("  split1 := TRUE;\n")
+    expect(cs["nwl-rail-fed-wire"]["fetched.railTrue@reloaded"]).toContain("\nw1 := TRUE;\n")
     expect(tc["nwl-rail-fed-wire"]["fetched.railTrue@pushed"]).toBe("no subject: create railTrue (push) was refused")
   })
 })

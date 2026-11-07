@@ -24,7 +24,7 @@ public class NwlMapTests
 
     static readonly string[] Statuses = { "spelled", "lost-inert", "refused-inert", "refused-gap", "refused-fault", "cannot-store", "not-measured" };
     static readonly string[] Cells = { "same", "differs", "not-measured", "faults" };
-    static readonly string[] Sources = { "census", "editor", "created" };
+    static readonly string[] Sources = { "census", "editor", "created", "pushed" };
 
     static string Dir => Path.GetDirectoryName(NwlSchemaCensus.FixturePath)!;
     internal static string MapPath => Path.Combine(Dir, $"map.{NwlSchemaCensus.Version}.json");
@@ -181,8 +181,50 @@ public class NwlMapTests
             bad.AddRange(states.Keys.Where(id => !cited.Contains(id)).Select(id => $"{file} state {id}: no row"));
             bad.AddRange(Enumerable.Range(0, faults).Where(i => !faultsCited.Contains(i)).Select(i => $"{file} fault {i}: no row"));
         }
-        var unknown = Rows.Value.Where(r => r.Fixture is { } f && !Recordings.Keys.Any(p => f.StartsWith(p + "#", StringComparison.Ordinal)))
+        var unknown = Rows.Value.Where(r => r.Source != "pushed" && r.Fixture is { } f && !Recordings.Keys.Any(p => f.StartsWith(p + "#", StringComparison.Ordinal)))
             .Select(r => $"{r}: fixture '{r.Fixture}' names no recording");
         Assert.Empty(bad.Concat(unknown).Take(30));
+    }
+    const string VendorFacts = "vendor-facts#";
+    static string VendorFactsPath => Path.GetFullPath(Path.Combine(Dir, "..", "..", "..", "scripts", "vendor-facts.codesys.json"));
+
+    /// <summary>A <c>pushed</c> row cites the push that measured it: facts of <c>scripts/vendor-facts.codesys.json</c>, recorded on
+    /// the map's IDE. Its text is a network line the push sent and pulled back; <c>code same</c> needs every build of the fact
+    /// clean, <c>persists same</c> every pull after the reload equal to the pull after the push.</summary>
+    [Fact]
+    public void Every_pushed_row_cites_the_push_that_measured_it()
+    {
+        using var doc = JsonDocument.Parse(File.ReadAllText(VendorFactsPath));
+        var facts = doc.RootElement;
+        var bad = new List<string>();
+        var version = facts.GetProperty("ide-identity").GetProperty("exe").GetProperty("ProductVersion").GetString();
+        if (version != NwlSchemaCensus.Version) bad.Add($"vendor-facts.codesys.json is recorded on {version}, the map on {NwlSchemaCensus.Version}");
+        foreach (var r in Rows.Value)
+        {
+            var cites = r.Fixture?.StartsWith(VendorFacts, StringComparison.Ordinal) == true;
+            if (r.Source == "pushed" != cites) { bad.Add($"{r}: source {r.Source} with fixture '{r.Fixture}'"); continue; }
+            if (!cites) continue;
+            foreach (var name in r.Fixture!.Substring(VendorFacts.Length).Split(','))
+            {
+                if (!facts.TryGetProperty(name, out var fact)) { bad.Add($"{r}: no fact {name}"); continue; }
+                var keys = fact.EnumerateObject().ToList();
+                if (r.Code == "same")
+                    bad.AddRange(keys.Where(k => k.Name.StartsWith("diagnostics@", StringComparison.Ordinal) && k.Value.GetArrayLength() != 0)
+                        .Select(k => $"{r}: {name}.{k.Name} is not a clean build"));
+                if (r.Persists == "same")
+                    foreach (var k in keys.Where(k => k.Name.Contains("fetched", StringComparison.Ordinal) && k.Name.EndsWith("@pushed", StringComparison.Ordinal)))
+                    {
+                        var reloaded = k.Name.Replace("@pushed", "@reloaded", StringComparison.Ordinal);
+                        if (fact.TryGetProperty(reloaded, out var after) && after.GetRawText() != k.Value.GetRawText())
+                            bad.Add($"{r}: {name}.{reloaded} differs from {k.Name}");
+                    }
+            }
+            var pushed = r.Fixture!.Substring(VendorFacts.Length).Split(',').Where(n => facts.TryGetProperty(n, out _))
+                .SelectMany(n => facts.GetProperty(n).EnumerateObject())
+                .Where(k => k.Name.Contains("fetched", StringComparison.Ordinal) && k.Name.EndsWith("@pushed", StringComparison.Ordinal))
+                .SelectMany(k => k.Value.GetString()!.Split('\n').Select(l => l.Trim()));
+            if (!pushed.Contains(r.Text)) bad.Add($"{r}: '{r.Text}' is no line the push pulled back");
+        }
+        Assert.Empty(bad.Take(30));
     }
 }
