@@ -25,6 +25,7 @@ import {
   superType,
   thisType,
   staticNameOf,
+  isScalarMemberRead,
 } from "./member.js"
 import { callReturnType } from "./builtin-call.js"
 import { networkMemberType, wireType } from "./network-call.js"
@@ -125,7 +126,9 @@ function memberType(expr: Extract<Expr, { kind: "member" }>, scope: Scope, proje
   // and `staticScopeType` would call a FUNCTION an FB instance
   const holder = memberScopeOf(inferExprType(expr.base, scope, project))
   const held = holder?.kind === "namespace" ? staticScopeType(holder, expr.member.name) : undefined
-  return held?.kind === "enum" ? held : UNKNOWN
+  if (held?.kind === "enum") return held
+  // an integer read with a member that names no bit: a bit access of a base that is no structured variable, BIT
+  return isScalarMemberRead(expr, scope, project) ? elementaryRef("BIT") : UNKNOWN
 }
 
 function indexType(expr: Extract<Expr, { kind: "index" }>, scope: Scope, project: Scope): Type {

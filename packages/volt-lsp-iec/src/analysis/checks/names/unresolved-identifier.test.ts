@@ -493,8 +493,10 @@ test("SFC S9: a step's name outside every SFC POU is the unknown name it is ther
     .toEqual(["unresolved-identifier: Identifier 'S_Boot' not defined", "unknown-source: Cannot convert type 'Unknown type: 'S_Boot.x'' to type 'BOOL'"])
 })
 
+// …an INT, so `v.x` is the INT's bit access with a base that is no structured variable, as CODESYS says of an INT read with
+// a member (`sio_program_global_name`; `sfc_step_declared_as_variable` says it of the INT `S_Boot` its chart reads)
 test("SFC: a name the SFC POU declares is its variable, never a step — and in an ST POU nothing is a step", () => {
-  expect(sfcDiag({ "P.pou": sfcProgram("\tv : INT;\n\tbx : BOOL;", "bx := v.x;") })).toEqual([])
+  expect(sfcDiag({ "P.pou": sfcProgram("\tv : INT;\n\tbx : BOOL;", "bx := v.x;") })).toEqual(["not-structured: 'v' is no structured variable"])
   expect(sfcDiag({ "Q.pou": "PROGRAM Q\nVAR\n\tbx : BOOL;\nEND_VAR\n%LANGUAGE ST\nbx := S_Boot.x;\nEND_PROGRAM\n" }))
     .toEqual(["unresolved-identifier: Identifier 'S_Boot' not defined", "unknown-source: Cannot convert type 'Unknown type: 'S_Boot.x'' to type 'BOOL'"])
 })
@@ -592,4 +594,27 @@ test("a name nothing declares as __NEW's, SIZEOF's operand and as a STRING's len
   expect(said("n : DINT;", "n := SIZEOF(NoSuchType);")).toEqual(["Unknown type: 'NoSuchType'", "Identifier 'NoSuchType' not defined"])
   expect(said("n : DINT; v : INT;", "n := SIZEOF(v);")).toEqual([])
   expect(said("v : STRING(NoSuchLength);", ";")).toEqual(["Identifier 'NoSuchLength' not defined"])
+})
+
+// A PROGRAM and a global of one name: the GLOBAL is what the name means in a body (step 5 before 8), so the program is
+// neither called nor read through it — and an INT read with a member is no structured variable, typed BIT
+// (`sio_program_global_name`, CODESYS 3.5.21.40: the three messages below; `enum_library_member_vs_project_program` says the
+// same of an enum member). A constant bit index (`gw.cBit`) stays a bit access.
+test("a global sharing a PROGRAM's name wins it: no call, and its member read is no structured variable", () => {
+  const src =
+    "PROGRAM SioInfeed\nVAR\n\tk : INT;\nEND_VAR\nk := 1;\nEND_PROGRAM\n\nVAR_GLOBAL\n\tSioInfeed : INT;\nEND_VAR\n\n" +
+    "FUNCTION_BLOCK F\nVAR\n\tout : INT;\nEND_VAR\nSioInfeed();\nout := SioInfeed.k;\nEND_FUNCTION_BLOCK\n"
+  expect(diag(src).filter((d) => d.severity === "error").map((d) => d.message).sort()).toEqual([
+    "'SioInfeed' is no structured variable",
+    "Cannot convert type 'BIT' to type 'INT'",
+    "Program name, function or function block instance expected instead of 'SioInfeed'",
+  ])
+})
+
+test("an integer read with a member nothing declares is no structured variable; with a constant it is a bit", () => {
+  const said = (body: string) =>
+    diag(fb(`VAR\n\ti : INT;\n\tw : WORD;\n\tb : BOOL;\nEND_VAR\nVAR CONSTANT\n\tc : INT := 3;\nEND_VAR\n${body}`)).map((d) => d.message)
+  expect(said("b := w.nope;")).toContain("'w' is no structured variable")
+  expect(said("b := w.c;")).toEqual([])
+  expect(said("b := w.3;")).toEqual([])
 })

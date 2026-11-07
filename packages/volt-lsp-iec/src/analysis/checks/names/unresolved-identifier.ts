@@ -24,7 +24,7 @@ import { emit, type DiagnosticItem, type Fix } from "../../shared/diagnostic-ite
 import { compilerExprText } from "../../shared/expr-echo.js"
 import { fixOf, insertText } from "../../shared/fixes.js"
 import { changeToFixes } from "../../shared/near-miss.js"
-import { nameResolves, pointerMemberBases, unresolvedInExprs, unresolvedMembers } from "../../shared/resolution.js"
+import { nameResolves, pointerMemberBases, scalarMemberBases, unresolvedInExprs, unresolvedMembers } from "../../shared/resolution.js"
 
 export function checkUnresolvedIdentifiers(ctx: CheckContext, out: DiagnosticItem[]): void {
   // A NAME WHOSE DECLARATION FAILED TO PARSE IS NOT UNDEFINED — it is unparsed, and the parse error already said so.
@@ -119,6 +119,9 @@ function statementFindings(
   // `mem_pointer_member_without_deref`, both vendors 2026-10-02) — THIS's and SUPER's sentence, under their code
   for (const base of pointerMemberBases(exprs, scope, ctx.project))
     emit(out, base.span, "self-not-structured", ctx.messages.notStructuredVariable(compilerExprText(base)))
+  // …nor does an integer read with a member that names no bit; the read is a BIT, no hole, so its own code (`not-structured`)
+  for (const base of scalarMemberBases(exprs, scope, ctx.project))
+    emit(out, base.span, "not-structured", ctx.messages.notStructuredVariable(compilerExprText(base)))
 }
 
 /**

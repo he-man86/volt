@@ -57,6 +57,22 @@ export function resolveMemberChain(expr: Expr, scope: Scope, project: Scope): Sy
   }
 }
 
+/**
+ * `i.k` — an integer or bit string read with a member that is no bit index: a name nothing in scope declares (a constant
+ * names a bit, `w.cBit`; a digit is one, `w.3`; `%W0` a part). The vendor reads it as a bit access whose base "is no
+ * structured variable" and types it BIT: `SioInfeed.k` over an INT global is "'SioInfeed' is no structured variable" and
+ * "Cannot convert type 'BIT' to type 'INT'" (`sio_program_global_name`, CODESYS 3.5.21.40; `enum_library_member_vs_project_program`
+ * says the same of an enum member). A step of an SFC chart is no such read (`isSfcStepBase`).
+ */
+export function isScalarMemberRead(expr: Extract<Expr, { kind: "member" }>, scope: Scope, project: Scope): boolean {
+  if (!/^[A-Za-z_]\w*$/.test(expr.member.name)) return false
+  const base = inferExprType(expr.base, scope, project)
+  if (base.kind !== "elementary" || base.elem.name === "BIT") return false
+  if (base.elem.family !== "int" && base.elem.family !== "bitstring") return false
+  if (isSfcStepBase(expr, scope, project)) return false
+  return lookup(scope, expr.member.name) === undefined && bareEnumMember(scope, expr.member.name) === undefined
+}
+
 /** The member scope of a scoped type (enum, struct, FB, interface, a static base), or undefined. Completion kept a copy. A REFERENCE TO
  *  one is read through: `r.M(a := 1)` with `r : REFERENCE TO FB` calls the FB's method (`inh_override_reference_only`,
  *  both vendors build it and refuse only the override). */

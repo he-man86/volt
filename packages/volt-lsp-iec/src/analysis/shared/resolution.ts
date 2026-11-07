@@ -16,7 +16,7 @@
  */
 import { compilerTypeText, walkExpr, type CallExpr, type Expr, type Identifier, type MemberExpr, type Span, type TypeExpr } from "../../frontend/syntax/index.js"
 import { gvlBlockOf, hasUnresolvedBase, isLibrarySymbol, lookupLocal, lookupMember, resolveGvlMember, rootOf, type Scope, type Symbol } from "../../frontend/symbols/index.js"
-import { ANY_FAMILIES, boxMember, builtinName, GENERIC_PARAMETER_TYPES, inferExprType, isDialectType, isSfcStepBase, resolveBareName, sfcStepTypeScope } from "../../frontend/types/index.js"
+import { ANY_FAMILIES, boxMember, builtinName, GENERIC_PARAMETER_TYPES, inferExprType, isDialectType, isScalarMemberRead, isSfcStepBase, resolveBareName, sfcStepTypeScope } from "../../frontend/types/index.js"
 
 
 interface BareRef {
@@ -208,6 +208,19 @@ export function pointerMemberBases(exprs: Iterable<Expr>, scope: Scope, project:
       // …but not a STEP's name: D40 bets a variable of a type with no members of its own, a pointer's included, the step of
       // its POU's chart when read with a member in an SFC POU (`types/infer/sfc-step`) — as every other check then reads it
       if (x.kind === "member" && inferExprType(x.base, scope, project).kind === "pointer" && !isSfcStepBase(x, scope, project)) out.push(x.base)
+    })
+  return out
+}
+
+/**
+ * The bases of member reads `i.k` that are an integer read with a member naming no bit (`types` `isScalarMemberRead`):
+ * "'i' is no structured variable", the read itself then typed BIT — no hole (`sio_program_global_name`, CODESYS 3.5.21.40).
+ */
+export function scalarMemberBases(exprs: Iterable<Expr>, scope: Scope, project: Scope): Expr[] {
+  const out: Expr[] = []
+  for (const e of exprs)
+    walkExpr(e, (x) => {
+      if (x.kind === "member" && boxMember(x, scope, project) === undefined && isScalarMemberRead(x, scope, project)) out.push(x.base)
     })
   return out
 }
