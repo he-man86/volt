@@ -21,7 +21,7 @@ Every IDE, every model, in this order:
 | `picture`, `code`, `run`, `persists` | `same`, `differs`, `not-measured`; `faults` where the IDE raises an error on it |
 | `status` | `spelled`, `lost-inert` (held, no text and no refusal: a pull shows another state's text, nothing runs apart), `refused-inert`, `refused-gap` (refused, changes the code or the run, no text), `refused-fault`, `cannot-store`, `not-measured` |
 | `text` | The spelling or the refusal's wording |
-| `fixture` | The test that pins it |
+| `fixture` | The evidence, not a test: the recorded states (`box-states#<ids>`, `assign-states#<ids>`, `class-states#<ids>`, `<recording>#fault:<i>`) or, for `pushed`, the vendor facts; `NwlMapTests` checks each cited state's pull equals `text` |
 
 A `pushed` row holds a fact only a Volt push produces: what the push writes, then what CODESYS stores, builds and keeps after the push (a build, a reload). It cites the vendor-fact recording that measured it (`vendor-facts#<fact>`, `scripts/vendor-facts.<vendor>.json`), and its `text` is a network the push sent and pulled back.
 
@@ -58,7 +58,7 @@ covers what was run, and combinations cover what the shape generator reaches.
 
 ## Machine rules for measuring
 
-A full measurement needs a quiet machine and free disk (other sessions' heavy work paused, disk checked), and a dialog stops a
+The full rules: `packages/volt-cli/docs/ide-model-mapping.md`. A full measurement needs a quiet machine and free disk (other sessions' heavy work paused, disk checked), and a dialog stops a
 batch at once, because a modal dialog blocks the IDE and hides what follows. Every created object gets a unique id.
 
 ## Combinations against the map (task 2.3, decided 2026-11-06)

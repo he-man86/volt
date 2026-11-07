@@ -168,7 +168,8 @@ Volt deploys one thing — the static site at `packages/volt-web` — and it nee
 
 What CODESYS 3.5.21.40 stores, builds and runs in LD/FBD has one source: the NWL map,
 `packages/volt-cli/test/fixtures/nwl-schema/map.3.5.21.40.json` (gated by `NwlMapTests` and `NwlSchemaGateTests`). A new
-fact there is a new row with its fixture, never a new probe script.
+fact there is a new row with its fixture, never a new probe script; the method and machine rules:
+`packages/volt-cli/docs/ide-model-mapping.md`.
 
 The installer itself lives at **`installer/`** — `Volt.iss` plus a `README.md` documenting every location Volt
 writes on disk.

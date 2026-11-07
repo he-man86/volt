@@ -165,7 +165,7 @@ What the host never does: build a `HealthResponse`, compute a version or a path,
 declared format, or decide a wire error a shared rule already decides. A vendor fact the host measures gets its row in
 `Ide/DIALECT.md` and a test that pins it — except what CODESYS stores, builds and runs in LD/FBD: that has one source,
 the NWL map (`test/fixtures/nwl-schema/map.3.5.21.40.json`, gated by `NwlMapTests` and `NwlSchemaGateTests`), and a new
-fact there is a new row with its fixture.
+fact there is a new row with its fixture, measured as `docs/ide-model-mapping.md` describes.
 
 Above the wire, a vendor still has to be registered where the host cannot reach: the closed vendor list
 (`Volt.Contracts/Vocabulary/Vendors`: its id and display name, which the CLI binding and the connector read), the
