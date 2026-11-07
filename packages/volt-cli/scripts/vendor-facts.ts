@@ -954,6 +954,13 @@ export function mergeSnapshot(
   return out
 }
 
+/** Writes a snapshot atomically (a temp file renamed over the path): a kill leaves the old file or the new one, never half. */
+export function writeSnapshot(path: string, snapshot: Record<string, unknown>): void {
+  const tmp = `${path}.tmp`
+  writeFileSync(tmp, JSON.stringify(sortDeep(snapshot), null, "\t") + "\n")
+  renameSync(tmp, path)
+}
+
 /** The IDE a snapshot stands for (design 3): CODESYS 3.5 SP21, TwinCAT 3.1 in TcXaeShell — and, once a snapshot is
  *  committed, exactly the BUILD it was recorded on (`committed` = its `ide-identity` fact). Another IDE is refused BEFORE
  *  a row runs: its answers are never recorded, and never diffed against the committed ones as if the vendor had changed.
@@ -1047,13 +1054,15 @@ async function main(): Promise<number> {
       const t0 = Date.now()
       measured[row.id] = await runRow(row, { vendor, core: request, wire })
       console.log(`[vendor-facts] ${row.id}: ${((Date.now() - t0) / 1000).toFixed(1)} s`)
+      // Persisted as soon as measured: a kill loses at most the fact in flight (the final write below is the whole run).
+      if (write) writeSnapshot(path, mergeSnapshot(committed, measured, Object.keys(measured)))
       if (process.env.VOLT_FACTS_VERBOSE) console.log(JSON.stringify(sortDeep(measured[row.id]), null, 1))
     }
     const snapshot = sortDeep(mergeSnapshot(committed, measured, only)) as Record<string, unknown>
     const diff = diffSnapshots(committed, snapshot)
     for (const d of diff) console.log(`  ${d}`)
     if (write) {
-      writeFileSync(path, JSON.stringify(snapshot, null, "\t") + "\n")
+      writeSnapshot(path, snapshot)
       console.log(`[vendor-facts] wrote ${basename(path)} (${diff.length} difference(s) from what was committed)`)
       return 0
     }

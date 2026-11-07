@@ -11,6 +11,7 @@ import {
   diffSnapshots,
   expandReads,
   mergeSnapshot,
+  writeSnapshot,
   parseArgs,
   planRow,
   refuseIdeVersion,
@@ -780,6 +781,16 @@ describe("the command line", () => {
     const committed = { a: { x: 1 }, b: { y: 2 } }
     expect(mergeSnapshot(committed, { b: { y: 3 } }, ["b"])).toEqual({ a: { x: 1 }, b: { y: 3 } })
     expect(mergeSnapshot(committed, { b: { y: 3 } }, undefined)).toEqual({ b: { y: 3 } })
+  })
+
+  it("persists a snapshot atomically, sorted, leaving no temp file", () => {
+    const { mkdtempSync, readFileSync, readdirSync } = require("node:fs") as typeof import("node:fs")
+    const { join } = require("node:path") as typeof import("node:path")
+    const dir = mkdtempSync(join(require("node:os").tmpdir(), "vf-"))
+    const path = join(dir, "s.json")
+    writeSnapshot(path, { b: 1, a: { d: 2, c: 3 } })
+    expect(readFileSync(path, "utf8")).toBe('{\n\t"a": {\n\t\t"c": 3,\n\t\t"d": 2\n\t},\n\t"b": 1\n}\n')
+    expect(readdirSync(dir)).toEqual(["s.json"])
   })
 
   // review (abstract-member-push 1): VOLT_E2E_INSTANCE names an e2e IDE that is ALREADY UP; the runner `up`s and
