@@ -298,7 +298,13 @@ namespace Volt.Ide.Codesys
             // than a loud failure"), whose comment already claims the CODESYS twin throws on both of ITS
             // equivalents. It does. This third one, the precompile, was simply never covered.
             Build(app);   // FALSE (a failing compile) is fine: libraries precompile independently of the app.
+            return ReadPrecompiledLibrarySignatures();
+        }
 
+        /// <summary>The referenced-library signatures the IDE has ALREADY precompiled — no build. What a network scope
+        /// reads a library block's pins from (<c>CodesysDriver.PrecompiledLibrarySignatures</c>): a read never compiles.</summary>
+        public List<Volt.Engine.Library.LibSignature> ReadPrecompiledLibrarySignatures()
+        {
             var lmm = GetStaticMember("_3S.CoDeSys.Core.SystemInstances", "LanguageModelMgr")
                       ?? throw new BridgeException(BridgeErrorCodes.IdeUnsupported, "CODESYS: LanguageModelMgr unavailable");
             // `AllPrecompiledSignatures(true,true)` returns every resolved LIBRARY signature — libraries precompile

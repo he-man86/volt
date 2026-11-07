@@ -347,7 +347,8 @@ public sealed partial class CodesysDriver
     ///
     /// <para>The network-text reader resolves an FB call's type from this same scope, so the engine's pre-flight (which
     /// reads every body against <see cref="NetworkScopeFor"/>) needs no driver override.</para></summary>
-    private ProjectDeclarations Declarations => _declarations ??= new ProjectDeclarations(this, ReadDeclarationText, RefusedPouName, ExtractLibrarySignatures);
+    internal ProjectDeclarations Declarations => _declarations ??= new ProjectDeclarations(this, ReadDeclarationText, RefusedPouName, PrecompiledLibrarySignatures,
+        pushLibrarySignatures: PushLibrarySignatures);
     private ProjectDeclarations? _declarations;
 
     public NetworkScope NetworkScopeFor(string? declaration, PushedDeclarations pushedDeclarations) =>

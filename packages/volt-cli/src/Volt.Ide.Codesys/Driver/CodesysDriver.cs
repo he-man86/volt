@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -253,6 +253,30 @@ public sealed partial class CodesysDriver : VendorDriverBase, IVendorDriver, IIe
         foreach (var (app, path) in applications)
             all.AddRange(_om.ExtractLibrarySignatures(app).Select(s => s with { Application = path }));
         return all;
+    }
+
+    /// <summary>The library signatures a NETWORK SCOPE reads a library callee's pins from: the set the IDE has already
+    /// precompiled, never a build. The scope is built on every refs, fetch and push, and the extraction above builds
+    /// every application first — a read that compiled the project, outside the busy gate, rewriting the engineer's
+    /// message view (1-2.5 s per refs on the 3.5.21 fixture for one FBD body calling TON). A model that holds no
+    /// library signature at all has precompiled nothing yet (2 before a build, 5220 after, measured): refused by name
+    /// rather than read as "no such library block", which would spell the body differently after the next build.</summary>
+    /// <summary>The library signatures a PUSH's scope reads (inside the write gate): the precompiled set, and only where
+    /// the IDE has precompiled nothing yet the extraction that builds — the one place a scope may compile.</summary>
+    public IReadOnlyList<Volt.Engine.Library.LibSignature> PushLibrarySignatures()
+    {
+        var precompiled = _om.ReadPrecompiledLibrarySignatures();
+        return precompiled.Count > 0 ? precompiled : ExtractLibrarySignatures();
+    }
+
+    public IReadOnlyList<Volt.Engine.Library.LibSignature> PrecompiledLibrarySignatures()
+    {
+        var signatures = _om.ReadPrecompiledLibrarySignatures();
+        if (signatures.Count == 0)
+            throw new BridgeException(BridgeErrorCodes.Unreadable,
+                "CODESYS has precompiled no library yet, so a library block's pins in a graphical body cannot be read " +
+                "without compiling the project. Build the project once in CODESYS, then retry.");
+        return signatures;
     }
 
     /// <summary>Every Application node of the project with its root path, spelled as <see cref="WalkItems"/> spells
