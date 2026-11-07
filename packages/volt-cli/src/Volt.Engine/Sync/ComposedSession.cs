@@ -50,10 +50,6 @@ public class ComposedSession
     /// <summary>The host's select, then its rows at once (both hosts refreshed on select).</summary>
     public void SelectProject(ConnectRequest sel) { Host.SelectProject(sel); Probe(); }
 
-    /// <summary>This session's last extraction, which a DIRECTED <c>.library</c> read reuses while every library it names
-    /// keeps its version (<see cref="Library.LibrarySignatureCache"/>) — one per session, i.e. per pipe host.</summary>
-    public LibrarySignatureCache LibrarySignatureCache { get; } = new();
-
     // ── degraded state ──
     private volatile bool _isDegraded;
 

@@ -169,8 +169,7 @@ public static class FetchService
 
         // Extract the referenced-library signatures ONLY when they're needed: on a full fetch, never when its .library
         // versions all match the client's knownItems (no library changed — a library's API is immutable per version,
-        // so the client's existing signature files still stand), and always on init. This is the whole optimization:
-        // the precompile (Build) runs iff a .library version changed.
+        // so the client's existing signature files still stand), and always on init.
         // ONE decision, named — because the RESPONSE has to tell the client which of the two worlds it is in.
         // Signatures re-rendered ⇒ Changed carries the complete set per library folder, so anything the client
         // still holds there is gone. Not re-rendered ⇒ Changed carries no signatures at all, so the client must
@@ -178,29 +177,14 @@ public static class FetchService
         // always — a removed library's signatures would never go.
         //
         // A DIRECTED read that names a `.library` returns that library's signatures too (openspec
-        // directed-library-signatures): the same extraction — neither vendor has a per-library call (DIALECT C2c) — taken
-        // from the session's cache when every walked library's version is the one it was extracted against (on CODESYS
-        // every extraction is a `Build(app)` that rewrites the engineer's message view), and only the NAMED libraries'
-        // signatures rendered. `librariesRefreshed` stays false on it: the answer is complete for the named folders
-        // only. `LibraryManifestOnly` (volt show BRIDGE) answers the manifest alone and touches nothing.
-        var project = $"{bound.Vendor}\n{bound.ProjectName}";
+        // directed-library-signatures): the same extraction — neither vendor has a per-library call (DIALECT C2c) — with
+        // only the NAMED libraries' signatures rendered. No extraction builds (DIALECT C37d): CODESYS answers the set it
+        // has precompiled, and refuses by name where it has precompiled none. `librariesRefreshed` stays false on it: the
+        // answer is complete for the named folders only. `LibraryManifestOnly` (volt show BRIDGE) answers the manifest alone and touches nothing.
         var directedLibraries = onlyItems != null && namedLibRefs.Count > 0 && !request.LibraryManifestOnly;
-        IReadOnlyList<LibSignature> libSigs;
-        if (librariesRefreshed)
-        {
-            libSigs = link.Driver.ExtractLibrarySignatures();
-            link.Session.LibrarySignatureCache.Store(project, libRefs, libSigs);
-        }
-        else if (directedLibraries)
-        {
-            if (link.Session.LibrarySignatureCache.Reuse(project, libRefs) is { } cached) libSigs = cached;
-            else
-            {
-                libSigs = link.Driver.ExtractLibrarySignatures();
-                link.Session.LibrarySignatureCache.Store(project, libRefs, libSigs);
-            }
-        }
-        else libSigs = Array.Empty<LibSignature>();
+        var libSigs = librariesRefreshed || directedLibraries
+            ? link.Driver.ExtractLibrarySignatures()
+            : Array.Empty<LibSignature>();
         var total = done + libSigs.Count; // fold the (now known) signature count into the bar's tail
 
         // EVERY referenced-library element signature rides through as a read-only item (no referenced-only gate —

@@ -270,37 +270,6 @@ namespace Volt.Ide.Codesys
 
         // ── library signature extraction (referenced-library declarations from the resolved language model) ──
 
-        /// <summary>Extract the SIGNATURE (declaration, no body) of every referenced-library element. Precompiles the
-        /// libraries (best-effort build), then reads their precompiled <c>ISignature</c>s from
-        /// <c>SystemInstances.LanguageModelMgr.AllPrecompiledSignatures</c> — the same DLL the IDE's Library Manager
-        /// renders from, and the same reflection the rest of the bridge uses. Vendor libraries only; system libraries
-        /// are dropped by the caller. Filters compiler-mangled entries (<c>__</c>-prefixed) and non-library objects.</summary>
-        public List<Volt.Engine.Library.LibSignature> ExtractLibrarySignatures(object app)
-        {
-            // Ensure the libraries are PRECOMPILED: a freshly-opened project has an EMPTY precompiled set until a
-            // build runs, so AllPrecompiledSignatures returns nearly nothing (verified: 2 sigs before a build, 5220
-            // after). Build best-effort — even a FAILING app build (headless device/library mismatch) still
-            // precompiles the referenced libraries, which is all we need. Libraries precompile independently of the
-            // app, so this works whether or not the app build itself succeeds.
-            // NO SWALLOW, AND NO SILENT SKIP. This read `if (app != null) { try { Build(app); } catch { } }`,
-            // justified as "a failed build still precompiles the libraries" — but a failed build does not throw:
-            // `Build` returns FALSE for a compile that ran and reported errors. The only thing the catch could
-            // ever hide is a precompile that never RAN (no `CommandManager`, or `ExecuteCommand` missing/faulting
-            // on a modal IDE or a CODESYS version bump), which is exactly the case that leaves
-            // `AllPrecompiledSignatures` at the pre-build handful — measured at 2 sigs, against 5220 after.
-            //
-            // And a near-empty set is not a cosmetic loss. `fetch` has ALREADY decided `librariesRefreshed` is
-            // true by the time it calls this, so it ships that handful as the COMPLETE per-library picture, and
-            // `IdeTree.DroppedLibraryFile` then removes every library-signature file the client holds — a real
-            // deletion in the engineer's repository, and a STICKY one, because the next fetch sees unchanged
-            // `.library` versions and re-renders nothing. This is verbatim the chain `TcObjectModel`'s
-            // `FindLibraryManager` documents ("reporting 'no libraries' for a project that has them is worse
-            // than a loud failure"), whose comment already claims the CODESYS twin throws on both of ITS
-            // equivalents. It does. This third one, the precompile, was simply never covered.
-            Build(app);   // FALSE (a failing compile) is fine: libraries precompile independently of the app.
-            return ReadPrecompiledLibrarySignatures();
-        }
-
         /// <summary>The referenced-library signatures the IDE has ALREADY precompiled — no build. What a network scope
         /// reads a library block's pins from (<c>CodesysDriver.PrecompiledLibrarySignatures</c>): a read never compiles.</summary>
         public List<Volt.Engine.Library.LibSignature> ReadPrecompiledLibrarySignatures()

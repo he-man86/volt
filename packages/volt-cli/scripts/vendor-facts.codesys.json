@@ -5683,6 +5683,39 @@
 		"type-guid.v_enum@changed": null,
 		"type-guid.v_enum@created": null
 	},
+	"library-precompiled-on-add": {
+		"libraries-added": [
+			"#IoStandard",
+			"#3SLicense",
+			"#CAA Device Diagnosis",
+			"#Standard",
+			"#BreakpointLogging",
+			"#IecSfc",
+			"#Analyzation",
+			"#StringUtils",
+			"#Util",
+			"Util, * (System)"
+		],
+		"libraries-found": [
+			"#IoStandard",
+			"#3SLicense",
+			"#CAA Device Diagnosis",
+			"#Standard",
+			"#BreakpointLogging",
+			"#IecSfc",
+			"#Analyzation",
+			"#StringUtils",
+			"#Util"
+		],
+		"precompiled-added": 1217,
+		"precompiled-again": 1217,
+		"precompiled-found": 1102,
+		"steps": [
+			"find lm: accepted",
+			"invoke script.add_library: accepted",
+			"find lm2: accepted"
+		]
+	},
 	"member-order": {
 		"children@created": [
 			"Zeta",

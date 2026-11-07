@@ -68,12 +68,23 @@ namespace Volt.Ide.Codesys.Tests
             public object[] GetAllMethods(object sig) => new object[0];
         }
 
-        private static (T Result, int Builds) Read<T>(LanguageModel model, Func<NetworkScope, T> ask, bool push = false)
+        private static (T Result, int Builds) Read<T>(LanguageModel model, Func<NetworkScope, T> ask, bool push = false) =>
+            Drive(model, driver =>
+            {
+                const string declaration = "FUNCTION_BLOCK F\nVAR\n\tt1 : TON;\nEND_VAR\n";
+                // A read (refs, fetch) writes a pulled body against the pull scope; a push reads its text against its own.
+                return ask(push ? driver.NetworkScopeFor(declaration, PushedDeclarations.None) : driver.Declarations.ScopeForPull(declaration));
+            });
+
+        /// <summary>The builds the last <see cref="Drive{T}"/> ran — read after a refusal, which returns no tuple.</summary>
+        private static int _lastBuilds = -1;
+
+        private static (T Result, int Builds) Drive<T>(LanguageModel model, Func<CodesysDriver, T> ask)
         {
             var commands = new Commands();
-            // An Application node, so the extraction's build would have something to build.
+            // An Application node, so a build would have something to build.
             var root = new TreeNode("<project>", null, null,
-                new TreeNode("Device", null, null, new TreeNode("Plc Logic", null, null, new TreeNode("Application", null, null))));
+                new TreeNode("Device", null, null, new TreeNode("Plc Logic", null, null, new TreeNode("Application", new Application(), null))));
             _3S.CoDeSys.Core.SystemInstances.ObjectMgr = new Manager(root);
             _3S.CoDeSys.Core.SystemInstances.LanguageModelMgr = model;
             _3S.CoDeSys.ScriptDriverProjects.Common.CommandManager = commands;
@@ -81,13 +92,11 @@ namespace Volt.Ide.Codesys.Tests
             {
                 var driver = new CodesysDriver(new Projects(root));
                 driver.WalkItems();
-                const string declaration = "FUNCTION_BLOCK F\nVAR\n\tt1 : TON;\nEND_VAR\n";
-                // A read (refs, fetch) writes a pulled body against the pull scope; a push reads its text against its own.
-                var scope = push ? driver.NetworkScopeFor(declaration, PushedDeclarations.None) : driver.Declarations.ScopeForPull(declaration);
-                return (ask(scope), commands.Builds);
+                return (ask(driver), commands.Builds);
             }
             finally
             {
+                _lastBuilds = commands.Builds;
                 _3S.CoDeSys.Core.SystemInstances.ObjectMgr = null;
                 _3S.CoDeSys.Core.SystemInstances.LanguageModelMgr = null;
                 _3S.CoDeSys.ScriptDriverProjects.Common.CommandManager = null;
@@ -103,7 +112,7 @@ namespace Volt.Ide.Codesys.Tests
             Assert.Equal(0, builds);
         }
 
-        /// <summary>A push that finds the libraries precompiled does not build either: it may only where nothing is.</summary>
+        /// <summary>A push reads the precompiled model too.</summary>
         [Fact]
         public void A_push_reads_the_precompiled_model_without_a_build_when_it_holds_the_libraries()
         {
@@ -116,14 +125,38 @@ namespace Volt.Ide.Codesys.Tests
         [Fact]
         public void A_model_that_has_precompiled_no_library_is_refused_by_name_never_built()
         {
-            var commands = 0;
-            var ex = Assert.ThrowsAny<Exception>(() =>
-            {
-                var (_, builds) = Read(new LanguageModel(new Signature("REAL32__ADD", false)), s => s.BlockOutputs("TON"));
-                commands = builds;
-            });
+            var ex = Assert.ThrowsAny<Exception>(() => Read(new LanguageModel(new Signature("REAL32__ADD", false)), s => s.BlockOutputs("TON")));
             Assert.Contains("has precompiled no library", ex.Message);
-            Assert.Equal(0, commands);
+            Assert.Equal(0, _lastBuilds);
+        }
+
+        /// <summary>A push into a project CODESYS has precompiled nothing for is refused the same way: it never builds.</summary>
+        [Fact]
+        public void A_push_into_a_model_that_has_precompiled_no_library_is_refused_never_built()
+        {
+            var ex = Assert.ThrowsAny<Exception>(() => Read(new LanguageModel(new Signature("REAL32__ADD", false)), s => s.BlockOutputs("TON"), push: true));
+            Assert.Contains("has precompiled no library", ex.Message);
+            Assert.Equal(0, _lastBuilds);
+        }
+
+        /// <summary>A fetch's library extraction reads the precompiled model, one copy per application, and never builds
+        /// (DIALECT C37d).</summary>
+        [Fact]
+        public void A_fetchs_library_extraction_reads_the_precompiled_model_without_a_build()
+        {
+            var (sigs, builds) = Drive(new LanguageModel(new Signature("TON", true, new Var("Q", "BOOL"))), d => d.ExtractLibrarySignatures());
+            Assert.Equal(new[] { "TON" }, sigs.Select(s => s.Name).ToArray());
+            Assert.Equal(0, builds);
+        }
+
+        /// <summary>Where CODESYS has precompiled nothing, the extraction is refused rather than answered empty — a fetch
+        /// ships it as the complete per-library picture, and the client would delete every library file it holds.</summary>
+        [Fact]
+        public void A_fetchs_library_extraction_with_nothing_precompiled_is_refused_never_built()
+        {
+            var ex = Assert.ThrowsAny<Exception>(() => Drive(new LanguageModel(new Signature("REAL32__ADD", false)), d => d.ExtractLibrarySignatures()));
+            Assert.Contains("has precompiled no library", ex.Message);
+            Assert.Equal(0, _lastBuilds);
         }
     }
 }

@@ -291,8 +291,8 @@ applications, and throwing breaks `refs`.
 - **Referenced-library signatures materialize under the Library Manager** — one canonical `.library` manifest per
   library (`Library/LibraryManifest`); a fetch adds each element's declaration-only signature as a read-only item
   beside its library's manifest, re-extracted only when a walked `.library` changed (`FetchService`). Signatures are
-  never in `refs`, so never in `projectVersion`. Both vendors extract them: CODESYS from the precompiled signatures
-  after a build (`CodesysObjectModel.Libraries.cs`), TwinCAT from `_ITcPlcLibraryManager.ProduceAllLibrarySignatures()` out-of-process
+  never in `refs`, so never in `projectVersion`. Both vendors extract them: CODESYS from the signatures it has
+  already precompiled, never a build (`CodesysObjectModel.Libraries.cs`, DIALECT C37d), TwinCAT from `_ITcPlcLibraryManager.ProduceAllLibrarySignatures()` out-of-process
   (`TcLibrarySignatures`, DIALECT C2c).
 - **What round-trips, and what is refused instead** — push→fetch returns byte-identical `sourceText` at the same path
   for every member the text spells, and an **emptied body is cleared, not silently retained**. That is the

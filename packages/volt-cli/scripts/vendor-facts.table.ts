@@ -5096,4 +5096,23 @@ export const ROWS: Row[] = [
     steps: nwlSteps({ as: "rj", name: "VltF_RJ", source: NWL_R_FLOW }),
     reads: nwlReads("rj", ["Flags", "Operand", "Label"]),
   },
+  {
+    // Does CODESYS precompile a library the moment it is referenced, with no build? A fetch that re-renders library
+    // signatures reads the precompiled set and never builds (owner 2026-11-07: a build only when asked).
+    id: "library-precompiled-on-add",
+    dialect: ["C37d"],
+    vendors: { codesys: true, twincat: { absent: "TwinCAT's ProduceAllLibrarySignatures needs no build (C2c)" } },
+    steps: [
+      { tag: "found", op: "find", as: "lm", name: "Library Manager" },
+      { tag: "added", op: "invoke", on: "lm", path: "script.add_library", args: ["Util, * (System)"] },
+      { tag: "again", op: "find", as: "lm2", name: "Library Manager" },
+    ],
+    reads: [
+      { key: "libraries-found", at: "found", on: "lm", op: "member", path: "script.get_libraries()" },
+      { key: "precompiled-found", at: "found", op: "member", path: "static:_3S.CoDeSys.Core.SystemInstances.LanguageModelMgr.AllPrecompiledSignatures(true, true).$count" },
+      { key: "libraries-added", at: "added", on: "lm", op: "member", path: "script.get_libraries()" },
+      { key: "precompiled-added", at: "added", op: "member", path: "static:_3S.CoDeSys.Core.SystemInstances.LanguageModelMgr.AllPrecompiledSignatures(true, true).$count" },
+      { key: "precompiled-again", at: "again", op: "member", path: "static:_3S.CoDeSys.Core.SystemInstances.LanguageModelMgr.AllPrecompiledSignatures(true, true).$count" },
+    ],
+  },
 ]

@@ -34,7 +34,6 @@ public sealed class ProjectDeclarations
     private readonly Func<ItemRef, string?> _read;
     private readonly Func<string, bool> _isRefusedPouName;
     private readonly Func<IReadOnlyList<Library.LibSignature>> _librarySignatures;
-    private readonly Func<IReadOnlyList<Library.LibSignature>>? _pushLibrarySignatures;
     private IReadOnlyList<Library.LibSignature>? _libraries;
     private readonly Dictionary<string, string?> _declarationOf = new(StringComparer.OrdinalIgnoreCase);
     private Dictionary<string, (ItemRef Item, int Kind)>? _index;
@@ -76,20 +75,16 @@ public sealed class ProjectDeclarations
     /// <c>bridge-refusal-review</c> D4).</param>
     /// <param name="librarySignatures">The vendor's read of every referenced library's signatures
     /// (<c>IVendorSession.ExtractLibrarySignatures</c>) — a library FUNCTION's box is built with what it states (ld-fbd-coverage
-    /// 2R.4b). Read at most once per instance, and only when a box names a callee nothing in the project names. What a
-    /// READ (<see cref="ScopeForPull"/>) asks: it must never compile.</param>
-    /// <param name="pushLibrarySignatures">What a PUSH's scope (<see cref="ScopeFor"/>) asks instead, inside the bridge's
-    /// write gate — on CODESYS it may precompile (a build) where nothing is precompiled yet. Null: the same read.</param>
+    /// 2R.4b). Read at most once per instance, and only when a box names a callee nothing in the project names. It
+    /// never compiles, on a read or a push: a build runs only when the engineer asks for one (DIALECT C37d).</param>
     /// <param name="items">Every top-level item of the tree, as <see cref="ItemLookup.All"/> lists them and in its order —
     /// from a walk the operation already made, when the driver has one that still describes the tree (TwinCAT: a second
     /// full walk of a large solution costs minutes, openspec <c>twincat-large-solution-refs</c>); null (or a null answer)
     /// walks the tree for it.</param>
     public ProjectDeclarations(IIecTree tree, Func<ItemRef, string?> readDeclaration, Func<string, bool> isRefusedPouName,
                                Func<IReadOnlyList<Library.LibSignature>> librarySignatures,
-                               Func<IReadOnlyList<(ItemRef Item, string Name, int Kind)>?>? items = null,
-                               Func<IReadOnlyList<Library.LibSignature>>? pushLibrarySignatures = null)
+                               Func<IReadOnlyList<(ItemRef Item, string Name, int Kind)>?>? items = null)
     {
-        _pushLibrarySignatures = pushLibrarySignatures;
         _items = items;
         _tree = tree ?? throw new ArgumentNullException(nameof(tree));
         _read = readDeclaration ?? throw new ArgumentNullException(nameof(readDeclaration));
@@ -101,10 +96,6 @@ public sealed class ProjectDeclarations
     /// (<see cref="Library.LibraryFunctions.Of"/>), off the libraries read once for this instance.</summary>
     public Format.Network.Callee? LibraryFunction(string name) =>
         Library.LibraryFunctions.Of(_libraries ??= _librarySignatures(), name);
-
-    /// <summary><see cref="LibraryFunction"/> as a PUSH asks it (<c>pushLibrarySignatures</c>).</summary>
-    private Format.Network.Callee? PushedLibraryFunction(string name) =>
-        Library.LibraryFunctions.Of(_libraries ??= (_pushLibrarySignatures ?? _librarySignatures)(), name);
 
     /// <summary>The WIRE KIND of the top-level item named <paramref name="name"/> — the pushed one's, else the IDE's
     /// class (<see cref="ItemKind.Map"/>) — or null when neither holds such an item. By kind, never by the item's text
@@ -140,7 +131,7 @@ public sealed class ProjectDeclarations
 
     /// <summary>The scope of a body whose own declarations are <paramref name="declaration"/> (innermost first:
     /// <see cref="SourceScopes.Scope"/>), seeing <paramref name="pushed"/> before the IDE's items.</summary>
-    public NetworkScope ScopeFor(string? declaration, PushedDeclarations pushed) => Scope(declaration, pushed, PushedLibraryFunction);
+    public NetworkScope ScopeFor(string? declaration, PushedDeclarations pushed) => Scope(declaration, pushed, LibraryFunction);
 
     /// <summary>The scope a PULL writes a body against: the IDE's declarations alone, since a pull pushes nothing — and
     /// a read's library source, which never compiles.</summary>

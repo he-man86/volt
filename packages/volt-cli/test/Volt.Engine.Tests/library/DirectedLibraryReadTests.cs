@@ -445,17 +445,12 @@ public class DirectedLibraryReadTests
         }
     }
 
-    // ── 2.3 / design §3 Choice 2: a per-RESOLUTION session cache for directed reads ─────────────────────────
+    // ── every directed read reads the libraries afresh: nothing is cached across operations ─────────────────
 
-    /// <summary>The owner's recorded decision (proposal: "the extraction is cached per library RESOLUTION in the session,
-    /// so repeated reads cost one extraction"), confirmed by 1.2: on CODESYS every extraction runs <c>Build(app)</c>
-    /// (22.4-22.9 s after one edit on Pro2193) and REPLACES the engineer's message view, while the precompiled library set
-    /// is untouched by an edit or a Clean (7229 → 7229). So two directed reads with no library change extract ONCE —
-    /// whichever libraries they name, alone or together — and the later reads answer the full fetch's bytes.
-    /// (This replaced <c>Each_directed_library_read_extracts_once_and_nothing_is_cached</c>, which encoded §0's
-    /// no-cache default that the owner's decision overrides.)</summary>
+    /// <summary>No extraction builds (DIALECT C37d), so nothing is kept between reads: each directed read reads the
+    /// libraries afresh — whichever it names, alone or together — and answers the full fetch's bytes.</summary>
     [Fact]
-    public void Two_directed_reads_with_no_library_change_extract_once()
+    public void Each_directed_library_read_extracts_and_nothing_is_cached()
     {
         var ide = Project();
         var full = Full(Project());
@@ -464,7 +459,7 @@ public class DirectedLibraryReadTests
         var second = Directed(ide, IoMgrItf);
         var third = Directed(ide, Standard, IoMgrItf);
 
-        Assert.Equal(1, ide.ExtractCalls);
+        Assert.Equal(3, ide.ExtractCalls);
         Assert.Equal(InFolder(full, FolderOf(full, IoMgrItf)), second.Changed.Select(Describe).OrderBy(s => s, StringComparer.Ordinal).ToArray());
         Assert.Contains(third.Changed, c => c.File() == "TON.pou" && c.Folder() == FolderOf(full, Standard));
     }
@@ -486,26 +481,6 @@ public class DirectedLibraryReadTests
 
         Assert.Equal(2, ide.ExtractCalls);
         Assert.Contains("PT : LTIME", res.Changed.Single(c => c.File() == "TON.pou").SourceText);
-    }
-
-    /// <summary>A version that moved on a library nobody NAMED voids the cache too (gate step 3, finding 2). The answer
-    /// depends on every ref, not only the named ones: the matcher is built over every walked ref, and both refusals
-    /// (different RESOLUTIONs on one path, one wildcard over two compiled versions) depend on which compiled paths the
-    /// extraction holds. So the key is every walked ref's version — the full fetch's own signal (D1: ANY `.library`
-    /// version change re-extracts). (This replaced <c>A_moved_version_of_an_unnamed_library_does_not_extract_again</c>,
-    /// whose premise — a per-NAMED-library key — let a reused extraction answer differently from a full fetch, against
-    /// the spec's "the same items a full fetch writes".)</summary>
-    [Fact]
-    public void A_moved_version_of_an_unnamed_library_extracts_again()
-    {
-        var ide = Project();
-        Directed(ide, Standard);
-
-        ide.RemoveItem("CmpEventMgr");
-        ide.AddItem(Ref("CmpEventMgr", "CmpEventMgr", "CmpEventMgr, 3.5.19.0 (System)"));
-        Directed(ide, Standard);
-
-        Assert.Equal(2, ide.ExtractCalls);
     }
 
     /// <summary>The finding's repro: a wildcard ref resolved to 3.5.17.0, then an UNNAMED exact ref to 3.5.19.30 is added
@@ -537,38 +512,8 @@ public class DirectedLibraryReadTests
         Assert.Equal(2, session.ExtractCalls);
     }
 
-    /// <summary>The full fetch is unchanged (D1: it extracts iff a library moved, always on init) — it never READS the
-    /// cache, and its extraction refreshes it, so a directed read after it extracts nothing.</summary>
-    [Fact]
-    public void A_full_fetch_never_reads_the_cache_and_refreshes_it()
-    {
-        var ide = Project();
-        Directed(ide, Standard);
-
-        Full(ide);
-        Assert.Equal(2, ide.ExtractCalls);
-
-        Directed(ide, IoMgrItf);
-        Assert.Equal(2, ide.ExtractCalls);
-    }
-
-    /// <summary>The cache belongs to ONE bound project: after the bridge serves another project, a directed read extracts
-    /// again even where the `.library` version is the same (a wildcard ref's manifest does not name the version it
-    /// resolved to).</summary>
-    [Fact]
-    public void A_directed_read_after_the_served_project_changed_extracts_again()
-    {
-        var ide = Project();
-        Directed(ide, Standard);
-
-        ide.HealthProjectName = "OtherProject";
-        Directed(ide, Standard);
-
-        Assert.Equal(2, ide.ExtractCalls);
-    }
-
     /// <summary>`volt show BRIDGE` asks for the manifest only (design §3 Choice 3, R3): the incoming diff pane of a
-    /// drifted library compares the manifest, so it neither extracts nor touches the cache.</summary>
+    /// drifted library compares the manifest, so it extracts nothing.</summary>
     [Fact]
     public void A_manifest_only_directed_read_extracts_nothing_and_answers_the_manifest()
     {
@@ -584,7 +529,7 @@ public class DirectedLibraryReadTests
         Assert.Equal(Describe(Full(Project()).Changed.Single(c => c.Name == Standard)), Describe(res.Changed.Single()));
 
         Directed(ide, Standard);
-        Assert.Equal(1, ide.ExtractCalls);   // nothing was cached by the manifest-only read
+        Assert.Equal(1, ide.ExtractCalls);
     }
 
     /// <summary>A directed read naming TWO libraries answers both folders exactly as the full fetch writes them — neither
