@@ -141,7 +141,7 @@ export function bindAnyArgument(lw: Lowering, b: InvokeBindings, arg: CallArg, k
   if (raw === undefined) return undefined
   const viaRef = guardWrite(lw, raw, arg.span, FULL_WRITE)
   if (viaRef === undefined) return undefined
-  const place = lendGuards(lw, viaRef, arg.param!.name, arg.span)
+  const place = lendGuards(lw, viaRef, arg.param!.name, arg.span, undefined)
   if (place === undefined) return undefined
   const size = byteSize(lw, place.type)
   if (size === undefined) return lw.bail("any-input", "an ANY argument whose byte size is not measured", arg.span)

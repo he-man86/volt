@@ -8,7 +8,7 @@ import type { Expr, Span, Statement } from "../../../frontend/syntax/index.js"
 import { cursorOf } from "./cursor.js"
 import { elemOf, elementaryRef } from "../../../frontend/types/index.js"
 import { binaryOf, cast } from "../core/build.js"
-import { byHandle, noteRefusedStore, pointerFrame, pointerKey, type PointerTarget, pointerTargets, recordTarget } from "./state.js"
+import { byHandle, instanceFieldKey, noteRefusedStore, pointerFrame, pointerKey, type PointerTarget, pointerTargets, recordTarget } from "./state.js"
 import { addressOf, addressValue, adrOperand, imageAddressOf, pointerValue } from "./address.js"
 import { holderOf, holdsAddresses, noteCopy, noteStore } from "./escape.js"
 import { describePointer } from "./deref.js"
@@ -81,6 +81,32 @@ export function storePointer(lw: Lowering, target: Place, value: Expr, span: Spa
 }
 
 /** `r REF= x` — the reference's one target, and its value set (conformance `type_reference_to_int`, `op_sys_isvalidref`). */
+/**
+ * A REFERENCE TO INPUT OF AN FB GIVEN A GLOBAL FB INSTANCE — `rd(Conv := Scene.U2)`, which CODESYS binds to the global's
+ * own storage (conformance `sio_ref_input_global`: 3, TRUE). The FB's body is lowered once per TYPE, so a target in the
+ * caller's frame is no place it can name (`deref.ts` `unsuppliedInput`, `pointer-foreign`) — but a global is the same
+ * place in every body. It is recorded among the targets of the FB's own field (`FB:<type>.<field>`), as a store the body
+ * makes into the field itself is, and the body's `Conv.x` erases to it (form 1; several are form 3's tags). `null` when
+ * the field holds addresses or is no FB's; any other value is refused `pointer-foreign`.
+ */
+export function storeReferenceInput(lw: Lowering, member: Place, value: Expr, span: Span): IrStmt | undefined | null {
+  const key = member.type.kind === "reference" && !holdsAddresses(lw, member) ? instanceFieldKey(lw, member, true) : undefined
+  if (key === undefined) return null
+  const before = lw.diagnostics.length
+  const named = lowerPlace(lw, value)
+  lw.diagnostics.length = before
+  if (named === undefined) return null
+  // anything else names what the body cannot reach — or a value it would read as its one target, which it is not
+  if (named.root !== "global" || named.type.kind !== "function_block")
+    return lw.bail("pointer-foreign", `${describePointer(lw, member)} is a REFERENCE TO input given what is no global FB instance: the body, lowered once per type, cannot reach it`, span)
+  const address = addressOf(lw, value, member.type, span)
+  noteStore(lw, holderOf(lw, member, ""), address?.target.base)
+  if (address === undefined) return noteRefusedStore(lw, key, before)
+  const tag = recordTarget(lw, key, address.target, span)
+  if (tag === undefined) return noteRefusedStore(lw, key, before)
+  return { kind: "assign", target: member, value: { kind: "const", value: tag, type: member.type, span }, span }
+}
+
 export function bindReference(lw: Lowering, s: Extract<Statement, { kind: "assign" }>): IrStmt | undefined {
   const target = lowerPlace(lw, s.target)
   if (target === undefined) return undefined

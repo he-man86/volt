@@ -10,7 +10,7 @@ import { sharedState } from "../core/shared.js"
 import { baseOf } from "../core/chain.js"
 import type { Span, VarSection } from "../../../frontend/syntax/index.js"
 import { enumStorage } from "../values/enums.js"
-import { lookup, scopeUri } from "../../../frontend/symbols/index.js"
+import { lookupUnit, scopeUri } from "../../../frontend/symbols/index.js"
 import { declareOpenBounds, declareVars } from "./declare.js"
 import { overlayBytes, unionsOf } from "./unions.js"
 import { declareStatics } from "./statics.js"
@@ -45,7 +45,7 @@ export function storageOf(lw: Lowering, t: Type, at: Span, atUri: string | undef
   // or `string-capacity` when its stated capacity does not fold)
   if (t.kind === "elementary" && (t.name === "STRING" || t.name === "WSTRING") && t.length === undefined) return lw.sized(t, at)
   if (t.kind !== "struct" && t.kind !== "function_block") return t
-  const sym = lookup(lw.project, t.name)?.symbol
+  const sym = lookupUnit(lw.project, t.name)?.symbol
   const name = sym?.name ?? t.name
   const key = name.toUpperCase()
   // WHERE A REFUSAL POINTS: the type's own declaration, or — for a compiler struct the project does not declare
@@ -77,7 +77,7 @@ export function storageOf(lw: Lowering, t: Type, at: Span, atUri: string | undef
 type At = { span: Span; uri: string | undefined }
 
 /** The symbol a laid-out type is declared by, when lowering found one. */
-type LayoutSymbol = ReturnType<typeof lookup> extends infer R ? (R extends { symbol: infer S } ? S : never) | undefined : never
+type LayoutSymbol = ReturnType<typeof lookupUnit> extends infer R ? (R extends { symbol: infer S } ? S : never) | undefined : never
 
 /** A struct's fields or an FB instance's storage, lowered in the type's own scope — a base type's fields first. */
 function buildLayout(lw: Lowering, t: Extract<Type, { kind: "struct" | "function_block" }>, sym: LayoutSymbol, where: At): void {

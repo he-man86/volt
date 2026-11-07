@@ -23,7 +23,7 @@ import { constantValue, NaNBits } from "../../semantics/index.js"
 import { lowerExpr } from "../expressions/expressions.js"
 import { stored, valueAs } from "../values/convert.js"
 import { enumeratorValue } from "../values/enums.js"
-import { lookup } from "../../../frontend/symbols/index.js"
+import { lookupUnit } from "../../../frontend/symbols/index.js"
 import { unionsOf } from "../storage/unions.js"
 import { refusedRotateInInitializer } from "../builtins/value-functions.js"
 
@@ -253,7 +253,7 @@ function arrayWritten(lw: Lowering, written: TypeExpr | undefined): Extract<Type
   for (let t = written, hops = 0; t !== undefined && hops < 16; hops++) {
     if (t.kind === "array_type") return t
     if (t.kind !== "named_type") return undefined
-    const sym = lookup(lw.scope, t.name.text)?.symbol
+    const sym = lookupUnit(lw.scope, t.name.text)?.symbol
     const body = sym?.kind === "type" ? (sym.ast as TypeDecl).body : undefined
     t = body?.kind === "alias" ? body.target : undefined
   }
@@ -279,7 +279,7 @@ function fieldWritten(lw: Lowering, layoutName: string, field: string): TypeExpr
  *  a refusal of it points (`Lowering.inFile`). */
 export function aliasInit(lw: Lowering, t: TypeExpr): { init: Initializer; uri: string } | undefined {
   if (t.kind !== "named_type") return undefined
-  const sym = lookup(lw.scope, t.name.text)?.symbol
+  const sym = lookupUnit(lw.scope, t.name.text)?.symbol
   const body = sym?.kind === "type" ? (sym.ast as TypeDecl).body : undefined
   return body?.kind === "alias" && body.init !== undefined ? { init: body.init, uri: sym!.uri } : undefined
 }

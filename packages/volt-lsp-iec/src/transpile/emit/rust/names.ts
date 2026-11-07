@@ -25,6 +25,7 @@ export const TEMP_PURPOSES = {
   copy: "a copied in-out argument, written back after the call (`__copy_<i>`)",
   lent: "a lent place a routine takes as a parameter (`__lent_<i>`)",
   program: "a PROGRAM instance moved out of `prg` for the call into it",
+  moved: "a global instance a call lends, moved out of `g` (`prg`) for the call (`__moved_<i>`, `calls.ts` `movedInOuts`)",
   result: "the value of a call into a moved-out PROGRAM",
   mod_l: "MOD's left operand, read once",
   mod_r: "MOD's right operand, read once and tested for 0",

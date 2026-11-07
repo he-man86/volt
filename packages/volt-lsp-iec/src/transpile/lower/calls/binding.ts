@@ -20,6 +20,7 @@ import { tempPlace } from "../core/temps.js"
 import { refuseCursorOverrun } from "../pointers/cursor.js"
 import { inputWhereWritten, stringInputsOf } from "./string-inputs.js"
 import { chainNames } from "../core/chain.js"
+import { globalsReached } from "./reentrancy.js"
 
 /** The FB in-outs a routine would reach but a parameter or local of its own hides, by upper-cased name (`calledRoutine`). */
 export const shadowedInOutsOf = frameState(() => new Set<string>())
@@ -34,7 +35,7 @@ export const holding = (instance: Place | undefined, bindings: readonly (IrBindi
 
 /**
  * The place a VAR_IN_OUT argument binds. Refused: two `&mut` into one place (they do not exist in Rust — the handle form,
- * design §9 form 3, is for later), a bit, a global (every body holds the globals as one `&mut`), and a derived instance
+ * design §9 form 3, is for later), a bit, a global no recording binds or the callee reaches another way (`lendGuards`), and a derived instance
  * or struct standing in for its base type — the parameter would dispatch on the base, which is not modelled.
  */
 export function bindInOut(lw: Lowering, arg: CallArg, param: IrSlot, held: readonly Place[], callee: readonly IrStmt[], calleeFb: string | undefined, instance: Place | undefined): IrBinding | InFrame | undefined {
@@ -102,7 +103,7 @@ export function bindPlace(lw: Lowering, written: Place, arg: CallArg, param: IrS
       return { kind: "copy", value: { kind: "load", place: target, type: target.type, span: arg.span }, type: param.type, back: target, span: arg.span }
     return lw.bail("call-inout-alias", `${param.name} is bound to a variable the call already holds`, arg.span)
   }
-  if (lendGuards(lw, target, param.name, arg.span) === undefined) return undefined
+  if (lendGuards(lw, target, param.name, arg.span, callee) === undefined) return undefined
   const composite = (t: Type): string | undefined => (t.kind === "function_block" || t.kind === "struct" ? t.name.toUpperCase() : undefined)
   // An FB DERIVED from the in-out's type builds (`rk_inout_derived_fb`) — valid ST, not built. Any other type is refused:
   // "Type 'DUT_B' is not equal to type 'DUT_A' of VAR_IN_OUT" (`rk_inout_other_struct`), `call-inout-type`
@@ -140,11 +141,30 @@ export function bindPlace(lw: Lowering, written: Place, arg: CallArg, param: IrS
  * plain VAR_IN_OUT was correctly refused `call-inout-global`. A bit fared worse: `w.3` bound the whole WORD to a
  * `&mut bool` and the bit step was dropped silently.
  *
- * One function, two callers, so a third path cannot skip them by being written somewhere else.
+ * One function, two callers, so a third path cannot skip them by being written somewhere else. `callee` is the body the
+ * place is lent to — none for an ANY argument, given a global no recording measures.
+ *
+ * A GLOBAL FB OR STRUCT INSTANCE is lent like a local one: CODESYS binds the VAR_IN_OUT to the global's own storage
+ * (conformance `sio_inout_global_fb`: 2.5, TRUE; `sio_inout_global_struct`: 7, 8). A global of any other type is refused
+ * — no recording binds one. The emitted Rust hands the globals as one `&mut g` (`prg`) to every body that reaches them,
+ * so where the callee does, the instance is moved out of them for the call and back (`emit/rust/calls.ts`
+ * `movedInOuts`), as a call on a GVL instance is (`globalReentrant`) — exact only while the callee cannot reach it
+ * another way: by name, through an interface, or through a runtime index read again where it is put back.
  */
-export function lendGuards(lw: Lowering, target: Place, name: string, span: Span): Place | undefined {
+export function lendGuards(lw: Lowering, target: Place, name: string, span: Span, callee: readonly IrStmt[] | undefined): Place | undefined {
   if (target.path.some((s) => s.kind === "bit")) return lw.bail("call-inout-bit", `${name} is bound to a bit`, span)
-  if (target.root === "global") return lw.bail("call-inout-global", `${name} is bound to a global variable`, span)
+  if (target.root !== "global") return target
+  const variable = lw.shared.globals.slots[target.slot]!
+  const named = `${variable.list === undefined ? "" : `${variable.list}.`}${variable.name}`
+  if (callee === undefined) return lw.bail("call-inout-global", `${name} is an ANY argument given the global ${named}, which no recording measures`, span)
+  if (target.type.kind !== "function_block" && target.type.kind !== "struct") {
+    const type = target.type.kind === "elementary" ? target.type.name : target.type.kind
+    return lw.bail("call-inout-global", `${name} is bound to the global ${named} of type ${type}: only a global FB or struct instance bound to a VAR_IN_OUT is measured`, span)
+  }
+  const reach = globalsReached(lw, callee)
+  if (reach.slots.has(target.slot)) return lw.bail("call-inout-global-reach", `${name} is bound to ${named}, which the callee also reaches by name while it is lent`, span)
+  if (reach.open) return lw.bail("call-inout-global-reach", `${name} is bound to ${named}, and the callee calls through an interface, which may reach it while it is lent`, span)
+  if (!staticPath(target)) return lw.bail("call-inout-global-reach", `${name} is bound to ${named} through a runtime index, read again where it is put back after the call`, span)
   return target
 }
 

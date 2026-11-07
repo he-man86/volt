@@ -17,7 +17,7 @@
  * - BY THE BODIES lowering queued (`lw.bodies`, by the base's upper-cased name): `bodyChain` — `chainOf` (a body's in-outs,
  *   `calls/routines.ts`), `init/attributes.pathFields`, `storage/addresses.addressSharedByInstances`. A base with no
  *   queued body ends it.
- * - BY NAME LOOKUP in the project (`lookup(project, base.text)`): `declaredChain` — `chainNames` and `pouChain`
+ * - BY NAME LOOKUP in the project (`lookupUnit(project, base.text)`): `declaredChain` — `chainNames` and `pouChain`
  *   (`calls/routines.calledRoutine`'s in-outs), `init/fb-init.declaredArgs`, `interfaces/tags.implementsInterface`;
  *   `declaredTypeChain`, which a STRUCT's EXTENDS continues too (`init/initial-values.fieldWritten`, the declaration a
  *   field is written with); and `interfaceChainOf` for an interface's EXTENDS list.
@@ -29,7 +29,7 @@
 
 import type { Lowering } from "./lowering.js"
 import type { PendingBody } from "./shared.js"
-import { extendsChain, lookup, scopeForUnit, type Scope } from "../../../frontend/symbols/index.js"
+import { extendsChain, lookupUnit, scopeForUnit, type Scope } from "../../../frontend/symbols/index.js"
 import type { Interface, TopLevel } from "../../../frontend/syntax/index.js"
 import type { Type } from "../../../frontend/types/index.js"
 import { libraryOf } from "../../../frontend/library/index.js"
@@ -89,7 +89,7 @@ export function declaredChain(lw: Lowering, start: TopLevel | undefined): TopLev
   for (let unit = start; unit !== undefined && !units.includes(unit); ) {
     units.push(unit)
     const base = unit.kind === "function_block" ? unit.extends : undefined
-    unit = base === undefined ? undefined : (lookup(lw.project, base.text)?.symbol.ast as TopLevel | undefined)
+    unit = base === undefined ? undefined : (lookupUnit(lw.project, base.text)?.symbol.ast as TopLevel | undefined)
   }
   return units
 }
@@ -103,7 +103,7 @@ export function declaredTypeChain(lw: Lowering, name: string): TopLevel[] {
   const names = new Set<string>()
   for (let at: string | undefined = name; at !== undefined && !names.has(at.toUpperCase()); ) {
     names.add(at.toUpperCase())
-    const unit = lookup(lw.project, at)?.symbol.ast as TopLevel | undefined
+    const unit = lookupUnit(lw.project, at)?.symbol.ast as TopLevel | undefined
     if (unit === undefined) break
     units.push(unit)
     at = unit.kind === "function_block" ? unit.extends?.text : unit.kind === "type_decl" && unit.body.kind === "struct" ? unit.body.extends?.text : undefined
@@ -116,7 +116,7 @@ export function declaredTypeChain(lw: Lowering, name: string): TopLevel[] {
 export function pouChain(lw: Lowering, name: string): Unit[] {
   const units: Unit[] = []
   const names = new Set<string>()
-  for (const unit of declaredChain(lw, lookup(lw.project, name)?.symbol.ast as TopLevel | undefined)) {
+  for (const unit of declaredChain(lw, lookupUnit(lw.project, name)?.symbol.ast as TopLevel | undefined)) {
     if ((unit.kind !== "function_block" && unit.kind !== "program") || names.has(unit.name.text.toUpperCase())) break
     names.add(unit.name.text.toUpperCase())
     units.push(unit)
@@ -133,7 +133,7 @@ export function chainNames(lw: Lowering, name: string): Set<string> {
 export function interfaceChainOf(lw: Lowering, name: string): Interface[] {
   const chain: Interface[] = []
   const visit = (n: string): void => {
-    const ast = lookup(lw.project, n)?.symbol.ast
+    const ast = lookupUnit(lw.project, n)?.symbol.ast
     if (ast?.kind !== "interface" || chain.includes(ast)) return
     chain.push(ast)
     for (const base of ast.extends ?? []) visit(base.text)
@@ -163,9 +163,9 @@ export function chainNamesOf(t: Extract<Type, { kind: "function_block" }>): stri
  */
 export function libraryOnChain(lw: Lowering, of: { fb: string } | { itf: string }): boolean {
   const units: { name: { text: string } }[] =
-    "fb" in of ? declaredChain(lw, lookup(lw.project, of.fb)?.symbol.ast as TopLevel | undefined).filter((u) => "name" in u) as { name: { text: string } }[] : interfaceChainOf(lw, of.itf)
+    "fb" in of ? declaredChain(lw, lookupUnit(lw.project, of.fb)?.symbol.ast as TopLevel | undefined).filter((u) => "name" in u) as { name: { text: string } }[] : interfaceChainOf(lw, of.itf)
   return units.some((u) => {
-    const sym = lookup(lw.project, u.name.text)?.symbol
+    const sym = lookupUnit(lw.project, u.name.text)?.symbol
     return sym !== undefined && libraryOf(sym) !== undefined
   })
 }

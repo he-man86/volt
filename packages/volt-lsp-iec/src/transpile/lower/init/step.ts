@@ -6,7 +6,7 @@ import { type Lowering, zeroInit } from "../core/lowering.js"
 import { documentPath, type Span, type TopLevel } from "../../../frontend/syntax/index.js"
 import type { IrSlot, IrStmt } from "../../ir/index.js"
 import { holdsCall, type IrNode, isPlace, someNode } from "../../ir/walk.js"
-import { lookup } from "../../../frontend/symbols/index.js"
+import { lookupUnit } from "../../../frontend/symbols/index.js"
 import { initFrame, type InitStep } from "./state.js"
 import { typeZero } from "../../../frontend/types/index.js"
 import { declaredArgs, reachesFbInit, unreached, visit, writesGlobal } from "./fb-init.js"
@@ -29,7 +29,7 @@ export function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
   // {attribute 'instance-path'} (user decision 2026-09-15): the STRING holds the instance's path from the project tree —
   // the device folder (before `Plc Logic`), the application folder (after it), then the instance hierarchy from the POU.
   // The simulator's own reads `Device.Sim.Device.Application…`, a segment the tree does not hold.
-  const root = lookup(lw.project, lw.shared.root)?.symbol
+  const root = lookupUnit(lw.project, lw.shared.root)?.symbol
   // the DECODED path (`documentPath`): a client percent-encodes the uri, so `Plc%20Logic` and a device `Ger%C3%A4t` are
   // the tree's `Plc Logic` and `Gerät`
   const tree = (root === undefined ? "" : documentPath(root.uri)).split(/[\\/]/)

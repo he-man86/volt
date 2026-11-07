@@ -32,7 +32,7 @@ import { GLOBAL_CONTEXT } from "../core/keys.js"
 import type { Type } from "../../../frontend/types/index.js"
 import type { FbType, Lowering } from "../core/lowering.js"
 import type { Expr, Span, TopLevel } from "../../../frontend/syntax/index.js"
-import { lookup } from "../../../frontend/symbols/index.js"
+import { lookupUnit } from "../../../frontend/symbols/index.js"
 import type { IrExpr, IrStmt, Place } from "../../ir/index.js"
 import { sameTarget, staticPath } from "../places/path.js"
 import { instanceFieldKey, pointerKey } from "../pointers/state.js"
@@ -47,7 +47,7 @@ import { indexOfTag, NO_TAG, tagOfIndex } from "../core/tags.js"
 /** Whether the FB, or a base FB of it, IMPLEMENTS the interface — itself or one that EXTENDS it. */
 export function implementsInterface(lw: Lowering, fb: string, itf: string): boolean {
   const wanted = itf.toUpperCase()
-  for (const ast of declaredChain(lw, lookup(lw.project, fb)?.symbol.ast as TopLevel | undefined)) {
+  for (const ast of declaredChain(lw, lookupUnit(lw.project, fb)?.symbol.ast as TopLevel | undefined)) {
     if (ast.kind !== "function_block") return false
     if (implementsOf(ast).some((i) => interfaceChainOf(lw, i.text).some((a) => a.name.text.toUpperCase() === wanted))) return true
   }

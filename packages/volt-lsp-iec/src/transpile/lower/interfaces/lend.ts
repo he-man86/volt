@@ -32,7 +32,7 @@ export const instanceRelative = (root: Lowering, tag: number): boolean => interf
  * `lent` place, a `&mut` its callers lend it, appended the first time it is needed (design §24). The POU has no caller.
  * A GVL instance is no lend at all: its place is `global`, which every body holds (`g`) — so it is that place, in every
  * body (conformance `interface_holds_gvl_instance`; refused `interface-context` before transpile-restructure 4.13 (f)). A
- * call that already holds `g` mutably stays refused where its binding is (`call-inout-global`).
+ * global lent to a call that reaches it another way stays refused where its binding is (`call-inout-global-reach`).
  */
 export function lendPlace(root: Lowering, body: Lowering, tag: number, span: Span): Place | undefined {
   const instance = interfaceTables(body).instances[indexOfTag(tag)]!

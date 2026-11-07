@@ -5,7 +5,7 @@
 
 import type { Lowering } from "../core/lowering.js"
 import { elementaryRef, numberEnumerators, type Type } from "../../../frontend/types/index.js"
-import { bareEnumMember, findChildScope, lookup, lookupMember } from "../../../frontend/symbols/index.js"
+import { bareEnumMember, findChildScope, lookup, lookupMember, lookupUnit } from "../../../frontend/symbols/index.js"
 import type { Expr, TypeDecl } from "../../../frontend/syntax/index.js"
 import { enumValueOf } from "./fold.js"
 import type { IrExpr } from "../../ir/index.js"
@@ -16,7 +16,7 @@ import { stored } from "./convert.js"
  * without one converts, as measured (conformance `cc_enum_into_*`). An inline enum (`state : (Idle, Running)`) holds INT.
  */
 export function enumStorage(lw: Lowering, t: Extract<Type, { kind: "enum" }>): Type {
-  const sym = t.name === "(implicit)" ? undefined : lookup(lw.project, t.name)?.symbol
+  const sym = t.name === "(implicit)" ? undefined : lookupUnit(lw.project, t.name)?.symbol
   const body = sym?.kind === "type" ? (sym.ast as TypeDecl).body : undefined
   if (body?.kind === "enum" && body.baseType !== undefined) return lw.resolve(body.baseType, lw.project)
   return elementaryRef("INT")
@@ -59,7 +59,7 @@ export function enumConstant(lw: Lowering, e: Expr, depth = 0): IrExpr | undefin
   let declared = (sym.ast as { type?: Declared }).type
   while (declared?.kind === "array_type") declared = declared.element
   const implicit = sym.owner.kind !== "enum" && declared?.kind === "implicit_enum_type" ? declared.values : undefined
-  const decl = sym.owner.kind === "enum" ? lookup(lw.project, sym.owner.name)?.symbol : undefined
+  const decl = sym.owner.kind === "enum" ? lookupUnit(lw.project, sym.owner.name)?.symbol : undefined
   const body = decl?.kind === "type" ? (decl.ast as TypeDecl).body : undefined
   const values = implicit ?? (body?.kind === "enum" ? body.values : undefined)
   if (values === undefined) return undefined

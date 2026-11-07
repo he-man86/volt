@@ -317,3 +317,67 @@ describe.skipIf(skipRustSuite())("the emitted Rust holds and calls every global 
     expect(interp).toEqual(["3", "2", "4", "4", "5", "5", "8", "4", "-5", "5", "103", "4", "-4", "9"])
   })
 })
+
+/**
+ * A GLOBAL INSTANCE HANDED TO ANOTHER FB, AND A VARIABLE NAMED AS ITS TYPE — the shapes a generated scene uses (Sim-Assist,
+ * 2026-11-07; conformance `scene-io`): a model is an FB type, each scene object a global instance of it, and a user FB
+ * drives one through a parameter. CODESYS binds a VAR_IN_OUT and a REFERENCE TO input to the global's own storage
+ * (`sio_inout_global_fb`: 2.5, TRUE; `sio_inout_global_struct`: 7, 8; `sio_ref_input_global`: 3, TRUE).
+ */
+describe("a global FB or struct instance handed to another FB is bound to the global's own storage", () => {
+  const CONV = { uri: "FB_Conv.pou", source: "FUNCTION_BLOCK FB_Conv\nVAR_INPUT\n\tVelocity : REAL;\nEND_VAR\nVAR_OUTPUT\n\tActive : BOOL;\nEND_VAR\nActive := Velocity > 0.0;\nEND_FUNCTION_BLOCK\n" }
+  const POS = { uri: "ST_Pos.dut", source: "TYPE ST_Pos :\nSTRUCT\n\tx : INT;\n\ty : INT;\nEND_STRUCT\nEND_TYPE\n" }
+  const fb = (name: string, decl: string, body: string) => ({ uri: `${name}.pou`, source: `FUNCTION_BLOCK ${name}\n${decl}\n${body}\nEND_FUNCTION_BLOCK\n` })
+  const DRIVE = fb("FB_Drive", "VAR_IN_OUT\n\tConv : FB_Conv;\nEND_VAR", "Conv.Velocity := 2.5;\nConv();")
+  const PLACE = fb("FB_Place", "VAR_IN_OUT\n\tp : ST_Pos;\nEND_VAR", "p.x := 7;\np.y := p.x + 1;")
+  const REF = fb("FB_RefDrive", "VAR_INPUT\n\tConv : REFERENCE TO FB_Conv;\nEND_VAR", "Conv.Velocity := 3.0;\nConv();")
+  // reaches the globals itself — another global, by name — so the Rust holds `g` beside the lent instance
+  const PACED = fb("FB_Paced", "VAR_IN_OUT\n\tConv : FB_Conv;\nEND_VAR", "Conv.Velocity := Scene.speed;\nConv();")
+  const METHOD = {
+    uri: "FB_Driver.pou",
+    source: "FUNCTION_BLOCK FB_Driver\nEND_FUNCTION_BLOCK\nMETHOD Push : BOOL\nVAR_IN_OUT\n\tConv : FB_Conv;\nEND_VAR\nConv.Velocity := Scene.speed + 1.0;\nConv();\nPush := Conv.Active;\nEND_METHOD\n",
+  }
+  const SCENE = gvl("Scene", "\tU1 : FB_Conv;\n\tU2 : FB_Conv;\n\tU3 : FB_Conv;\n\tU4 : FB_Conv;\n\tpos : ST_Pos;\n\tspeed : REAL := 4.0;\n\tn : INT;\n", true)
+  const files = [CONV, POS, DRIVE, PLACE, REF, PACED, METHOD, SCENE]
+  const main = (vars: string, body: string) => `PROGRAM Main\nVAR\n${vars}END_VAR\n${body}\nEND_PROGRAM\n`
+  const codes = (vars: string, body: string, more: File[] = []) => lowerSource(main(vars, body), "Main", [...files, ...more], "Main.pou").diagnostics.map((d) => [d.code, d.message])
+
+  test.skipIf(skipRustSuite())("a VAR_IN_OUT (FB and struct), a REFERENCE TO input, a callee holding the globals, a METHOD — both backends", async () => {
+    const vars = "\td : FB_Drive;\n\tpl : FB_Place;\n\trd : FB_RefDrive;\n\tpc : FB_Paced;\n\tdv : FB_Driver;\n\tpushed : BOOL;\n"
+    const body = "d(Conv := Scene.U1);\npl(p := Scene.pos);\nrd(Conv := Scene.U2);\npc(Conv := Scene.U3);\npushed := dv.Push(Conv := Scene.U4);"
+    const reads = ["Scene.U1.Velocity", "Scene.U1.Active", "Scene.pos.x", "Scene.pos.y", "Scene.U2.Velocity", "Scene.U2.Active", "Scene.U3.Velocity", "Scene.U3.Active", "Scene.U4.Velocity", "pushed"]
+    const [rust, interp] = await bothBackends(main(vars, body), files, [{ reads }])
+    expect(rust).toEqual(interp)
+    expect(interp).toEqual(["2.5", "true", "7", "8", "3", "true", "4", "true", "5", "true"])
+  })
+
+  test("a global of any other type bound to a VAR_IN_OUT stays refused: no recording binds one", () => {
+    const inc = fb("FB_Inc", "VAR_IN_OUT\n\tv : INT;\nEND_VAR", "v := v + 1;")
+    expect(codes("\ti : FB_Inc;\n", "i(v := Scene.n);", [inc])).toEqual([
+      ["call-inout-global", "v is bound to the global Scene.n of type INT: only a global FB or struct instance bound to a VAR_IN_OUT is measured"],
+    ])
+  })
+
+  test("a callee that also reaches the lent global by name is refused by name: the Rust holds the globals beside it", () => {
+    const both = fb("FB_Both", "VAR_IN_OUT\n\tConv : FB_Conv;\nEND_VAR", "Conv.Velocity := 1.0;\nScene.U1.Velocity := Scene.U1.Velocity + 1.0;")
+    expect(codes("\tb : FB_Both;\n", "b(Conv := Scene.U1);", [both])).toEqual([
+      ["call-inout-global-reach", "Conv is bound to Scene.U1, which the callee also reaches by name while it is lent"],
+    ])
+  })
+
+  test("a REFERENCE TO input given a caller's own instance stays refused: the body cannot reach the caller's frame", () => {
+    expect(codes("\trd : FB_RefDrive;\n\tc : FB_Conv;\n", "rd(Conv := c);").map(([code]) => code)).toContain("pointer-foreign")
+  })
+})
+
+/** A VARIABLE NAMED AS ITS OWN FB TYPE (`sio_var_named_type`, `sio_var_named_type_case`: Lit, On, lit TRUE). A type position
+ *  names a type, never a variable (`lookupUnit`) — a GVL instance named as its FB took the variable for the type. */
+describe.skipIf(skipRustSuite())("a variable named as its own FB type", () => {
+  const LAMP = { uri: "SioLamp.pou", source: "FUNCTION_BLOCK SioLamp\nVAR_INPUT\n\tOn : BOOL;\nEND_VAR\nVAR_OUTPUT\n\tLit : BOOL;\nEND_VAR\nLit := On;\nEND_FUNCTION_BLOCK\n" }
+  test("a local and a GVL instance, exact case and another case — both backends", async () => {
+    const main = "PROGRAM Main\nVAR\n\tsioLamp : SioLamp;\n\tlit : BOOL;\n\tglit : BOOL;\nEND_VAR\nsioLamp(On := TRUE);\nlit := sioLamp.Lit;\nGVL_L.SioLamp.On := TRUE;\nGVL_L.SioLamp();\nglit := GVL_L.SioLamp.Lit;\nEND_PROGRAM\n"
+    const [rust, interp] = await bothBackends(main, [LAMP, gvl("GVL_L", "\tSioLamp : SioLamp;\n")], [{ reads: ["lit", "glit", "GVL_L.SioLamp.On"] }])
+    expect(rust).toEqual(interp)
+    expect(interp).toEqual(["true", "true", "true"])
+  })
+})

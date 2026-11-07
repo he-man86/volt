@@ -10,7 +10,7 @@ import { Prec, printed, type Printed } from "./precedence.js"
 import { globalsArgs, tmp } from "./names.js"
 import { borrowOf, movedOut, place } from "./place.js"
 import { copiesBack, guarded, guardLine, lend, lendMut, lentCopies, letTemp, type Printer, push, reachOfBody, typeOf } from "./printer.js"
-import { isCopy } from "./types.js"
+import { isCopy, rustType } from "./types.js"
 
 export function exprInvoke(p: Printer, e: Extract<IrExpr, { kind: "invoke" }>, slots: IrPou["slots"]): Printed {
   // the inputs by value, then the VAR_IN_OUT as `&mut` — a METHOD or ACTION on its instance, a FUNCTION free
@@ -20,7 +20,8 @@ export function exprInvoke(p: Printer, e: Extract<IrExpr, { kind: "invoke" }>, s
   // borrow. Inputs without one stay inline, where no order can show — except on a PROGRAM's METHOD, whose inline
   // arguments would run after the program is moved out and read its `::new()` stand-in (review of batch 3a).
   const onProgram = e.instance !== undefined && movesOut(p, e.instance, e.routine, e.inouts, e.lent ?? [])
-  const hoisted = hoistedInputs(p, e, onProgram)
+  const moving = movedInOuts(p, e.routine, e.inouts, e.instance)
+  const hoisted = hoistedInputs(p, e, onProgram || moving.size > 0)
   const inputLets = [...(e.order ?? e.inputs.keys())]
     .flatMap((k) =>
       typeof k === "number"
@@ -32,7 +33,7 @@ export function exprInvoke(p: Printer, e: Extract<IrExpr, { kind: "invoke" }>, s
   const dead = p.dead.get(e.routine)
   const inputs = e.inputs.flatMap((a, k) => (dead?.inputs.has(k) === true ? [] : [hoisted.has(k) ? tmp("arg", k) : expr(p, a, slots, Prec.Block)]))
   // the inputs, the in-outs, then each instance lent to the routine (design §24)
-  const args = callArguments(p, routine.key, inputs, e.inouts, routine.inouts, e.lent ?? [], slots)
+  const args = callArguments(p, routine.key, inputs, e.inouts, routine.inouts, e.lent ?? [], slots, moving)
   const fn = p.fnNames.get(routine.key)!
   // a METHOD of a PROGRAM's one instance runs moved out of `Programs`, as the program's call does (`prg` is handed in)
   const moved = onProgram ? movedOut(p, e.instance!, slots) : undefined
@@ -50,8 +51,8 @@ export function exprInvoke(p: Printer, e: Extract<IrExpr, { kind: "invoke" }>, s
         : guarded(p, e.instance, printed(`${receiverOf(place(p, e.instance, slots))}.${fn}(${args})`, Prec.Postfix), slots)
   // a VAR_IN_OUT bound through a dereference is checked before the call, as the interpreter checks it when binding
   const checked = e.inouts.reduce((text, b) => ("kind" in b ? text : guarded(p, b, text, slots)), call)
-  const lets = [inputLets, lentCopies(p, e.inouts, slots)].filter((l) => l !== "").join(" ")
-  const back = copiesBack(p, e.inouts, slots)
+  const lets = [inputLets, lentCopies(p, e.inouts, slots), movedLets(p, e.inouts, moving, slots)].filter((l) => l !== "").join(" ")
+  const back = [movedBack(p, e.inouts, moving, slots), copiesBack(p, e.inouts, slots)].filter((l) => l !== "").join(" ")
   if (back !== "") return printed(yields ? `{ ${lets} let ${tmp("back")} = ${checked.text}; ${back} ${tmp("back")} }` : `{ ${lets} ${checked.text}; ${back} }`, Prec.Postfix)
   return lets === "" ? checked : printed(`{ ${lets} ${checked.text} }`, Prec.Postfix)
 }
@@ -69,15 +70,15 @@ const receiverOf = (text: string): string => borrowOf(text) ?? text
  *   - that last call-holding input stays inline too, on a FUNCTION with no `g`/`prg`/`__mem` argument before it (which it
  *     could not borrow beside), when every input left inline after it in written order is also after it in the argument
  *     list — `len(concat(…))`, `insert(delete(str1, l, p), str2, …)`;
- *   - on a PROGRAM's METHOD every input but a constant is hoisted: an inline one would run after the program is moved
- *     out, and read its `::new()` stand-in (review of batch 3a).
+ *   - on a PROGRAM's METHOD, and beside an in-out moved out of the globals (`movedInOuts`), every input but a constant is
+ *     hoisted: an inline one would run after the move, and read its `::new()` stand-in (review of batch 3a).
  * A frozen in-out index (`IrFreeze`) is always taken where it is written.
  */
-function hoistedInputs(p: Printer, e: Extract<IrExpr, { kind: "invoke" }>, onProgram: boolean): Set<number> {
+function hoistedInputs(p: Printer, e: Extract<IrExpr, { kind: "invoke" }>, everyInput: boolean): Set<number> {
   const order = [...(e.order ?? e.inputs.keys())]
   const written = order.filter((k): k is number => typeof k === "number")
   const constant = (k: number): boolean => e.inputs[k]!.kind === "const"
-  if (onProgram) return new Set(written.filter((k) => !constant(k)))
+  if (everyInput) return new Set(written.filter((k) => !constant(k)))
   const last = written.reduce((at, k, i) => (holdsCall(e.inputs[k]!) ? i : at), -1)
   const hoisted = new Set(written.slice(0, last + 1).filter((k) => !constant(k)))
   const call = written[last]
@@ -96,11 +97,38 @@ function hoistedInputs(p: Printer, e: Extract<IrExpr, { kind: "invoke" }>, onPro
 
 /** A generated call's arguments: `g`/`prg`, the inputs, each VAR_IN_OUT lent (`lend`), then each instance lent to the
  *  callee (design §24) — for a routine's invoke and an FB call alike. */
-function callArguments(p: Printer, callee: string, inputs: readonly string[], inouts: readonly IrBinding[], params: IrPou["slots"], lent: readonly Place[], slots: IrPou["slots"]): string {
+function callArguments(p: Printer, callee: string, inputs: readonly string[], inouts: readonly IrBinding[], params: IrPou["slots"], lent: readonly Place[], slots: IrPou["slots"], moved: ReadonlySet<number>): string {
   const dead = p.dead.get(callee)?.inouts
-  const bound = inouts.flatMap((b, i) => (dead?.has(i) === true ? [] : [lend(p, b, i, params[i]!, slots)]))
+  const bound = inouts.flatMap((b, i) => (dead?.has(i) === true ? [] : [moved.has(i) ? `&mut ${tmp("moved", i)}` : lend(p, b, i, params[i]!, slots)]))
   return [...globalsArgs(reachOfBody(p, callee)), ...inputs, ...bound, ...lent.map((l) => lendMut(p, l, slots))].join(", ")
 }
+
+/**
+ * THE GLOBAL INSTANCES A CALL LENDS MOVED OUT — the in-outs bound to a global FB or struct instance (lowering's
+ * `lendGuards`) that `&mut g.x` cannot lend: the callee is handed `g` (`prg`) too, which would borrow it twice (E0499),
+ * or the call runs on an instance moved out of the same global (`movesOut`), whose stand-in the `&mut` would name. Each is
+ * moved out for the call (`movedLets`) and put back after it (`movedBack`) — the call's own storage throughout, which
+ * lowering allows only where the callee reaches it no other way. By index into the call's in-outs.
+ */
+function movedInOuts(p: Printer, callee: string, inouts: readonly IrBinding[], instance: Place | undefined): ReadonlySet<number> {
+  const dead = p.dead.get(callee)?.inouts
+  const reach = reachOfBody(p, callee)
+  const moved = new Set<number>()
+  for (const [i, b] of inouts.entries()) {
+    if ("kind" in b || b.root !== "global" || dead?.has(i) === true) continue
+    const held = p.globals.slots[b.slot]!.section === "program" ? reach.usesPrograms : reach.usesGlobals
+    if (held || (instance?.root === "global" && instance.slot === b.slot)) moved.add(i)
+  }
+  return moved
+}
+
+/** `let mut __moved_<i> = std::mem::replace(&mut g.x, T::new());` — each moved in-out taken out before the call. */
+const movedLets = (p: Printer, inouts: readonly IrBinding[], moved: ReadonlySet<number>, slots: IrPou["slots"]): string =>
+  [...moved].map((i) => `let mut ${tmp("moved", i)} = std::mem::replace(&mut ${place(p, inouts[i] as Place, slots)}, ${rustType((inouts[i] as Place).type)}::new());`).join(" ")
+
+/** `g.x = __moved_<i>;` — each moved in-out put back once the call returns. */
+const movedBack = (p: Printer, inouts: readonly IrBinding[], moved: ReadonlySet<number>, slots: IrPou["slots"]): string =>
+  [...moved].map((i) => `${place(p, inouts[i] as Place, slots)} = ${tmp("moved", i)};`).join(" ")
 
 /**
  * WHETHER A CALL ON A PROGRAM'S INSTANCE RUNS MOVED OUT OF `Programs` (lean 7.7.6) — or one on an FB instance declared in
@@ -156,10 +184,11 @@ export function stmtCall(p: Printer, s: Extract<IrStmt, { kind: "call" }>, slots
   // a VAR_IN_OUT bound through a dereference is checked too — the interpreter checks it when it binds the argument
   for (const b of s.inouts) if (!("kind" in b)) guardLine(p, b, slots, indent)
   const params = p.layouts.get(s.fb.toUpperCase())?.layout.inouts ?? []
-  const bound = callArguments(p, `layout:${s.fb.toUpperCase()}`, [], s.inouts, params, s.lent ?? [], slots)
+  const moving = movedInOuts(p, `layout:${s.fb.toUpperCase()}`, s.inouts, s.instance)
+  const bound = callArguments(p, `layout:${s.fb.toUpperCase()}`, [], s.inouts, params, s.lent ?? [], slots, moving)
   const instance = receiverOf(place(p, s.instance, slots))
-  const lets = lentCopies(p, s.inouts, slots)
-  const back = copiesBack(p, s.inouts, slots)
+  const lets = [lentCopies(p, s.inouts, slots), movedLets(p, s.inouts, moving, slots)].filter((l) => l !== "").join(" ")
+  const back = [movedBack(p, s.inouts, moving, slots), copiesBack(p, s.inouts, slots)].filter((l) => l !== "").join(" ")
   // the binding this call makes, which the FB's METHODs called from outside dispatch on (`lower/calls/last-binding.ts`)
   if (s.bind !== undefined)
     push(p, `${place(p, s.bind.place, slots)} = ${expr(p, { kind: "const", value: s.bind.tag, type: s.bind.place.type, span: s.span }, slots, Prec.Block)};`, indent, s.span)

@@ -5,7 +5,7 @@
 
 import { fbContext } from "../core/keys.js"
 import { type Fb, initFrame, type InitStep, pendingInitsOf } from "./state.js"
-import { lookup, lookupLocal, type Symbol } from "../../../frontend/symbols/index.js"
+import { lookupUnit, lookupLocal, type Symbol } from "../../../frontend/symbols/index.js"
 import { peelArray, type Type, typeZero, UNKNOWN } from "../../../frontend/types/index.js"
 import type { CallArg, Expr, TopLevel } from "../../../frontend/syntax/index.js"
 import { type Lowering, zeroInit } from "../core/lowering.js"
@@ -217,7 +217,7 @@ function callFbInits(st: InitStep, place: Place, t: Fb, inits: readonly Symbol[]
  */
 function visitFields(st: InitStep, place: Place, t: Fb | Extract<Type, { kind: "struct" }>, declaring: Lowering, mine: ReadonlyMap<string, IrStmt>, after: readonly IrStmt[], structured: Readonly<Record<string, IrInit>> | undefined): boolean {
   const { lw, span, fbInitCalls } = st
-  const owner = lookup(lw.project, t.name)?.symbol.ast as TopLevel | undefined
+  const owner = lookupUnit(lw.project, t.name)?.symbol.ast as TopLevel | undefined
   const nested = lw.bodies.get(t.name.toUpperCase())?.lowering ?? declaring
   const chain = t.kind === "function_block" ? chainNamesOf(t) : []
   const layoutFields = (lw.layouts.get(t.name.toUpperCase())?.fields ?? []) as IrSlot[]

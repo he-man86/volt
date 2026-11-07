@@ -130,3 +130,37 @@ export function ownProgram(st: InitStep, place: Place): boolean {
   const slot = lw.slots[place.slot]
   return place.root === undefined && root?.kind === "program" && slot?.type.kind === "function_block" && slot.type.name.toUpperCase() === root.name.toUpperCase()
 }
+
+/**
+ * WHAT A CALLEE'S RUN REACHES AMONG THE GLOBALS, to any depth: the global slots it names — a GVL variable, a PROGRAM's
+ * instance — and whether it is `open`: it calls through an interface (whose arms are finished only after the POU lowers)
+ * or a body that has not lowered, so what it reaches is not known here. What a global lent to it must be checked against
+ * (`binding.ts` `lendGuards`): the emitted Rust hands a body that reaches the globals the whole storage (`g`, `prg`).
+ */
+export function globalsReached(lw: Lowering, body: readonly IrStmt[]): { slots: ReadonlySet<number>; open: boolean } {
+  const slots = new Set<number>()
+  const seen = new Set<string>()
+  let open = false
+  const visit = (n: IrNode): boolean => {
+    if (isPlace(n)) {
+      if (n.root === "global") slots.add(n.slot)
+      return false
+    }
+    if (n.kind === "dispatch") open = true
+    if (n.kind === "invoke" && !seen.has(n.routine)) {
+      seen.add(n.routine)
+      const called = lw.routines.get(n.routine)
+      if (called?.state === "lowered") someNode(called.routine.body, visit)
+      else open = true
+    }
+    if (n.kind === "call" && !seen.has(fbContext(n.fb))) {
+      seen.add(fbContext(n.fb))
+      const called = lw.layouts.get(n.fb.toUpperCase())?.body
+      if (called !== undefined) someNode(called, visit)
+      else open = true
+    }
+    return false
+  }
+  someNode(body, visit)
+  return { slots, open }
+}

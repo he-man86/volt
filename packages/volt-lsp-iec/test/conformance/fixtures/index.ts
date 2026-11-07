@@ -102,6 +102,7 @@ import { ENUM_INIT_VALUE_TESTS } from "./types/enum-init-values.js"
 import { INTERFACE_CALL_TESTS } from "./calls/interface-calls.js"
 import { DECLARATION_LIFETIME_TESTS } from "./declarations/declaration-lifetimes.js"
 import { INOUT_CONSTANT_TESTS } from "./calls/inout-constant.js"
+import { SCENE_IO_TESTS } from "./calls/scene-io.js"
 import { ATOMIC_OPERAND_TESTS } from "./calls/atomic-operands.js"
 import { CALL_GRID_TESTS } from "./calls/call-grid.js"
 import { CALL_SHAPE_TESTS } from "./calls/call-shapes.js"
@@ -289,6 +290,7 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "interface-calls", tests: INTERFACE_CALL_TESTS },
   { name: "declaration-lifetimes", tests: DECLARATION_LIFETIME_TESTS },
   { name: "inout-constant", tests: INOUT_CONSTANT_TESTS },
+  { name: "scene-io", tests: SCENE_IO_TESTS },
   { name: "call-shapes", tests: CALL_SHAPE_TESTS },
   { name: "argument-count", tests: ARGUMENT_COUNT_TESTS },
   { name: "call-grid", tests: CALL_GRID_TESTS },

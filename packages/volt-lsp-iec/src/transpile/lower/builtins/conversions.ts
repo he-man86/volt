@@ -22,7 +22,7 @@ import { oneArgument } from "./arity.js"
 import { LoweringBug } from "../../semantics/faults.js"
 import { lowerExpr } from "../expressions/expressions.js"
 import { convert } from "../values/convert.js"
-import { lookup } from "../../../frontend/symbols/index.js"
+import { lookupUnit } from "../../../frontend/symbols/index.js"
 import { rawConversion } from "../pointers/raw-bool.js"
 
 /**
@@ -128,7 +128,7 @@ function refusesEnumToString(lw: Lowering, e: Call, to: Type): boolean {
   const operand = oneArgument(e, { named: true, output: true })
   if (!isString(to) || operand === undefined) return false
   const t = inferExprType(operand, lw.scope, lw.project)
-  const sym = t.kind === "enum" && t.name !== "(implicit)" ? lookup(lw.project, t.name)?.symbol : undefined
+  const sym = t.kind === "enum" && t.name !== "(implicit)" ? lookupUnit(lw.project, t.name)?.symbol : undefined
   if (sym?.kind !== "type" || !hasFrontendAttribute(sym.ast as TypeDecl, "to_string")) return false
   lw.bail("conversion-type", "a STRING conversion of an enum under {attribute 'to_string'} prints the member's name, which lowering does not model yet", e.span)
   return true

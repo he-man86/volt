@@ -80,7 +80,11 @@ export const LOWER_CODES: Readonly<Record<string, LowerCodeKind>> = {
   "call-inout-capacity": "not-modelled",
   "call-inout-derived": "not-modelled",
   "call-inout-type": "invalid",
-  "call-inout-global": "not-modelled",
+  // a global bound to a VAR_IN_OUT that is no FB or struct instance (`lendGuards`): no recording binds one
+  "call-inout-global": "not-measured",
+  // a global FB or struct instance lent to a callee that reaches it another way — by name, through an interface, a runtime
+  // index: the Rust moves it out of `Globals` for the call (`emit/rust/calls.ts` `movedInOuts`)
+  "call-inout-global-reach": "not-modelled",
   "call-inout-missing": "invalid",
   "call-inout-order": "not-measured",
   "call-inout-shadowed": "not-modelled",

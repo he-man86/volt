@@ -28,7 +28,7 @@ import { refuseImplicitString, storeArgument } from "../statements/assign.js"
 import { boundName, boundOf, openDims } from "../places/bounds.js"
 import { refuseDynamicMemory } from "../builtins/system.js"
 import { holdsAddresses } from "../pointers/escape.js"
-import { storePointer } from "../pointers/store.js"
+import { storePointer, storeReferenceInput } from "../pointers/store.js"
 import { refusedBoolLent } from "../pointers/raw-bool.js"
 
 /**
@@ -135,6 +135,9 @@ function calledInstance(lw: Lowering, call: Extract<Statement, { kind: "call_stm
   // twice). A runtime index on the way would be read on the stand-in, and a body reaching its program would too: refused.
   if (instance.root === "global" && !inGlobals(lw, instance) && !staticPath(instance))
     return lw.bail("call-program-member", `${instance.type.name} is called inside a PROGRAM's instance through a runtime index`, call.span)
+  // a REFERENCE TO input given a global FB instance is stored before the body runs, and the body — lowered at the first
+  // call — dereferences it: its target is recorded first (`storeReferenceInput`)
+  recordReferenceInputs(lw, call, instance as Place & { type: FbType })
   const layout = calledLayout(lw, instance.type.name, call.span)
   if (layout === undefined) return undefined
   const body = lw.bodies.get(instance.type.name.toUpperCase())
@@ -200,6 +203,19 @@ function fbArguments(
   return { before, after, bound }
 }
 
+/** The targets of the REFERENCE TO inputs a call gives a global FB instance, recorded before its body lowers — the store
+ *  itself is `fbInputStore`'s, where the arguments are written; this one only names the target, so it says nothing. */
+function recordReferenceInputs(lw: Lowering, call: Extract<Statement, { kind: "call_stmt" }>["call"], instance: Place & { type: FbType }): void {
+  const fields = lw.layouts.get(instance.type.name.toUpperCase())?.fields
+  for (const arg of call.args) {
+    const field = arg.param === undefined || arg.value === undefined || arg.output === true ? undefined : fieldIn(fields, arg.param.name)
+    if (field?.type.kind !== "reference") continue
+    const before = lw.diagnostics.length
+    storeReferenceInput(lw, { ...instance, path: [...instance.path, { kind: "field", name: field.name }], type: field.type, span: arg.span }, arg.value!, arg.span)
+    lw.diagnostics.length = before
+  }
+}
+
 /** `a := x`: the input stored into the instance's field before the call — an interface input as the tag it holds. */
 function fbInputStore(lw: Lowering, arg: CallArg, member: Place, field: IrSlot): IrStmt | IrStmt[] | undefined {
   // an input stored into an instance lent through a VAR_IN_OUT CONSTANT: CODESYS calls one (`inout_const_fb_call_13`), but
@@ -209,6 +225,9 @@ function fbInputStore(lw: Lowering, arg: CallArg, member: Place, field: IrSlot):
   if (field.type.kind === "interface") return storeInterface(lw, member, arg.value!, arg.span)
   // a pointer input that holds addresses (model 3) is handed one, as a store into the field (`pointers/store.ts`)
   if (field.type.kind === "pointer" && holdsAddresses(lw, member)) return storePointer(lw, member, arg.value!, arg.span)
+  // a REFERENCE TO input given a global FB instance names it in the body, which every body reaches (`storeReferenceInput`)
+  const referenced = field.type.kind === "reference" ? storeReferenceInput(lw, member, arg.value!, arg.span) : null
+  if (referenced !== null) return referenced
   const value = lowerExpr(lw, arg.value!, field.type)
   if (value === undefined || refuseImplicitString(lw, value, field.type, arg.span)) return undefined
   // an instance whose data the image holds is copied by value, its own region kept (`storeArgument`)
