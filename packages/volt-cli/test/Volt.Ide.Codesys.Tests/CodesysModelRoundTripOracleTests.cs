@@ -225,7 +225,7 @@ public class CodesysModelRoundTripOracleTests
                 En = true,
                 Eno = true,
             };
-            box.Outputs.List.Add(null!);
+            box.Outputs.List.Add(null);
             box.Outputs.List.Add(new Nwl.Operand { OperandExpr = "measured" });
             box.Outputs.List.Add(new Nwl.Operand { OperandExpr = "" });
             Fbd("Reader.A_box_output_pin_is_read_without_the_ENO_slot_or_the_unwired_ones", box);

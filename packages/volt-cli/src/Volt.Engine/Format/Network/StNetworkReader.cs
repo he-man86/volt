@@ -55,6 +55,7 @@ public static class StNetworkReader
         }
         var i = 1;
         var readers = new List<NetworkReader>();
+        var demuxIds = 0;
         while (i < lines.Count)
         {
             if (!IsNetworkLine(lines[i]))
@@ -63,7 +64,8 @@ public static class StNetworkReader
             open = OpenQuoteAfter(lines[i++], null);
             while (i < lines.Count && (open is not null || !IsNetworkLine(lines[i]))) open = OpenQuoteAfter(lines[i++], open);
             var reader = new NetworkReader(lines.GetRange(start, Math.Min(i, lines.Count) - start), start + 1, nets.Count, scope, bodyWires, allWires);
-            nets.Add(reader.Read());
+            var net = reader.Read();
+            nets.Add(net with { Trees = AfterEarlierNetworks(net.Trees, ref demuxIds) });
             readers.Add(reader);
         }
         var body = new NetworkBody(lang, nets);
@@ -1434,8 +1436,10 @@ public static class StNetworkReader
 
     /// <summary>
     /// THE DEMUX IDS A TEXT READ STATES: a wire's name is not the vendor's VarId (the writer names wires across the body, design.md
-    /// 1.4), so a read numbers each network's Demux nodes 1, 2, … in the order their definitions stand — the trees in item order,
-    /// each node before its children, the enable before the pins.
+    /// 1.4), so a read numbers a network's Demux nodes in the order their definitions stand — the trees in item order, each node
+    /// before its children, the enable before the pins — and <see cref="AfterEarlierNetworks"/> continues the count across the
+    /// body: CODESYS compiles a VarId as ONE variable of the POU, typed by its first definition, so one id in two networks
+    /// fails the build (C0032, vendor-facts nwl-leaf-wire-type).
     /// </summary>
     private static List<Node> NumberDemuxIds(IReadOnlyList<Node> trees)
     {
@@ -1448,6 +1452,25 @@ public static class StNetworkReader
         }
         foreach (var t in trees) Walk(t);
         return trees.Select(t => MapDemuxIds(t, ids)).ToList();
+    }
+
+    /// <summary>A network's Demux ids (1…m, <see cref="NumberDemuxIds"/>) moved past the <paramref name="earlier"/> ids the body's
+    /// earlier networks define, which then counts this network's too.</summary>
+    private static IReadOnlyList<Node> AfterEarlierNetworks(IReadOnlyList<Node> trees, ref int earlier)
+    {
+        var ids = new Dictionary<int, int>();
+        void Walk(Node? n)
+        {
+            if (n is null) return;
+            if (n is Demux { Input: not null } d) ids[d.VarId] = d.VarId;
+            foreach (var c in n.Children()) Walk(c);
+        }
+        foreach (var t in trees) Walk(t);
+        if (ids.Count == 0) return trees;
+        var by = earlier;
+        var moved = ids.Keys.ToDictionary(k => k, k => k + by);
+        earlier += ids.Count;
+        return trees.Select(t => MapDemuxIds(t, moved)).ToList();
     }
 
     private static Node MapDemuxIds(Node n, IReadOnlyDictionary<int, int> ids) => n switch

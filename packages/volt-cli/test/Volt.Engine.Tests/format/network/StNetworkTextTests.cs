@@ -143,7 +143,9 @@ public class StNetworkTextTests
 
     /// <summary>A wire read twice or more is a Demux, declared on its network's <c>VAR_TEMP</c> line. Wires are numbered across
     /// the body in the order they are defined (design.md 1.4), not by the vendor's VarId, which the text does not spell:
-    /// a read numbers each network's Demux nodes by where their definitions stand.</summary>
+    /// a read numbers the body's Demux nodes 1, 2, … by where their definitions stand, ACROSS its networks. CODESYS compiles
+    /// a VarId as one variable of the POU, typed by its first definition: the same id in two networks (an INT wire and a
+    /// BOOL wire) fails the build with C0032 (vendor-facts nwl-leaf-wire-type, 2026-11-07).</summary>
     [Fact]
     public void A_Demux_is_a_wire_on_the_WIRES_line_numbered_across_the_body()
     {
@@ -153,7 +155,7 @@ public class StNetworkTextTests
         var text = StNetworkWriter.Write(body, Scope(body));
         Assert.Equal("%LANGUAGE LD\n%NETWORK\nVAR w1 : ANY; END_VAR\nw1 := a AND b;\nASSIGN(w1, Q => x);\nASSIGN(w1 OR c, Q => y);\n%NETWORK\nVAR w2 : ANY; END_VAR\nw2 := d;\nASSIGN(w2, Q => u);\nASSIGN(w2, Q => v);\n", text);
         var back = StNetworkReader.Read(text, Scope(body));
-        Assert.Equal(new[] { 1, 1 }, back.Networks.Select(n => ((Demux)n.Trees[0]).VarId));
+        Assert.Equal(new[] { 1, 2 }, back.Networks.Select(n => ((Demux)n.Trees[0]).VarId));
     }
 
     /// <summary>An unconnected FB input (an empty operand) is the pin left out of the call: measured, the network runs as

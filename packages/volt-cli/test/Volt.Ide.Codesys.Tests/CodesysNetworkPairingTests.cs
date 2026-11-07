@@ -29,7 +29,7 @@ public class CodesysNetworkPairingTests
     {
         var outputs = new Nwl.OutputItemList();
         outputs.AppendOutputItem(new Nwl.Operand { OperandExpr = "", IsLValue = true });   // xBusy, unwired
-        outputs.List.Add(null!);                                                             // the connected slot
+        outputs.List.Add(null);                                                             // the connected slot
         var box = new Nwl.BoxTreeBox
         {
             BoxType = "L_FirstFASTErrCapture",

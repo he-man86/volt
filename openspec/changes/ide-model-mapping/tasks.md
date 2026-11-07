@@ -32,7 +32,9 @@
       network), `t()`.
       Done (2026-11-07): the row format gained source `pushed` (design.md), gated by `Every_pushed_row_cites_the_push_that_measured_it`.
       The 23 CODESYS facts behind N24, N28–N38 re-recorded on 3.5.21.40 (the runner now persists each fact as measured); 20 pushed
-      rows cite them. No row for N24 (the fact pulls nothing back) or N32 (its build now fails C0032): both stay in DIALECT.
+      rows cite them. No row for N24 (the fact pulls nothing back): it stays in DIALECT. N32's build failed C0032 because the
+      text reader numbered wire VarIds per network (1,1,1) where CODESYS compiles one POU variable per VarId; the reader now
+      numbers them across the body, the fact re-recorded clean (VarIds 1,2,3) and is the 21st pushed row; N32 keeps TwinCAT's half.
 - [ ] 4.2 Fold what the shape e2e tests measure (`census-shapes`, `create-shapes`, `stored-shapes`, `uncovered-shapes`, `real-project-shapes`) into the map's tests, then delete them, each with its reason; delete `record-nwl-corpus.py`, `record-nwl-live.py`, `voltprobe.py` after confirming each is unused.
       Open (2026-11-06): `create-shapes`, `uncovered-shapes`, `real-project-shapes` and the graphical coverage report script
       deleted (each case is a map row). `census-shapes` and `stored-shapes` are covered on the CODESYS side since class-states

@@ -186,12 +186,13 @@ internal static class Nwl
 
     internal sealed class OutputItemList
     {
-        private readonly List<object> _list = new List<object>();
+        private readonly List<object?> _list = new List<object?>();
         private bool _withoutList;
 
-        /// <summary>The holder's slots. Null only on <see cref="WithoutList"/> — a shape no vendor was measured holding,
-        /// described for the test that refuses it (a missing list is not an empty one).</summary>
-        public List<object> List => _withoutList ? null! : _list;
+        /// <summary>The holder's slots, a slot null where the IDE stores none (the ENO echo, a connected slot). The list itself
+        /// is null only on <see cref="WithoutList"/> — a shape no vendor was measured holding, described for the test that
+        /// refuses it (a missing list is not an empty one).</summary>
+        public List<object?> List => _withoutList ? null! : _list;
 
         public static OutputItemList WithoutList() => new OutputItemList { _withoutList = true };
 
@@ -202,7 +203,7 @@ internal static class Nwl
 
         /// <summary>The vendor's insert and remove (SP21 <c>NWLObject.plugin</c> 4.6.0.0). Insert TAKES a null — the slot the
         /// vendor stores null — where append does not (measured live 2026-10-15).</summary>
-        public void InsertOutputItem(int index, object? item) => _list.Insert(index, item!);
+        public void InsertOutputItem(int index, object? item) => _list.Insert(index, item);
         public void RemoveOutputItem(int index) => _list.RemoveAt(index);
     }
 

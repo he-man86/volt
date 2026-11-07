@@ -642,10 +642,10 @@ namespace Volt.Ide.Codesys
                     // THE WIRE ID IS WRITTEN AS THE MODEL CARRIES IT.
                     //
                     // A fresh id from the aspect's own allocator per wire would renumber a network's whole
-                    // fan-out on any edit, renaming wires the engineer never touched. There is no collision to
-                    // mint against: ids are NETWORK-scoped, not body-unique (measured by pushing the same `g0` in
-                    // two networks — both came back `g0`, each pairing with its own references), and TwinCAT
-                    // writes `d.VarId` straight through too.
+                    // fan-out on any edit, renaming wires the engineer never touched. The ids must be BODY-unique:
+                    // the compiler makes one POU variable per VarId, typed by its first definition, so one id in two
+                    // networks fails the build (C0032, vendor-facts nwl-leaf-wire-type) — the text reader numbers
+                    // them across the body. TwinCAT writes `d.VarId` straight through too.
                     case Demux d:
                     {
                         var dm = NwlInterop.New(_net, "BoxTreeDemux");

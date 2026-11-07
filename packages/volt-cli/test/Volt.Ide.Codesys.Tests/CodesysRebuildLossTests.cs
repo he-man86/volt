@@ -137,8 +137,8 @@ public class CodesysRebuildLossTests
                 InputItemList = new object[] { new Nwl.BoxTreeOperand { Operand = new Nwl.Operand { OperandExpr = "a", Boolean = true } } },
                 OutputParams = new Nwl.ParamList { Names = new[] { "ENO" }, Types = new[] { "BOOL" } },
             };
-            call.Outputs.List.Add(null!);
-            call.Outputs.List.Add(null!);
+            call.Outputs.List.Add(null);
+            call.Outputs.List.Add(null);
             var rung = new Nwl.BoxTreeAssign { RValue = call };
             rung.Outputs.List.Add(new Nwl.Operand { OperandExpr = target, IsLValue = true, Boolean = true });
             return rung;
@@ -169,7 +169,7 @@ public class CodesysRebuildLossTests
                 OutputParams = new Nwl.ParamList { Names = new[] { "Q", "ET" }, Types = new[] { "BOOL", "TIME" } },
             };
             call.Outputs.List.Add(new Nwl.Operand { OperandExpr = "x6", IsLValue = true });
-            call.Outputs.List.Add(null!);
+            call.Outputs.List.Add(null);
             return call;
         }
         var impl = new Nwl.NWLImplementationObject { DefaultViewMode = "Fbd" };
@@ -204,7 +204,7 @@ public class CodesysRebuildLossTests
             MainOutputIndex = 1,
         };
         call.Outputs.List.Add(new Nwl.Operand { OperandExpr = "x6", IsLValue = true });
-        call.Outputs.List.Add(null!);
+        call.Outputs.List.Add(null);
         var impl = new Nwl.NWLImplementationObject { DefaultViewMode = "Fbd" };
         impl.NetworkList.Add(new Nwl.Network().With(call));
         var scope = NetworkScope.FromDeclarations("PROGRAM P\nVAR\n\ta : BOOL;\n\tb : TIME;\n\tc : BOOL;\n\tx6 : BOOL;\n\tt1 : FB_T;\nEND_VAR",
@@ -220,7 +220,7 @@ public class CodesysRebuildLossTests
         Assert.DoesNotContain("MainOutputIndex", said);
         var rebuilt = (Nwl.BoxTreeBox)((Nwl.Network)impl.NetworkList.Single()).GetTree(0)!;
         Assert.Null(rebuilt.Outputs.List[1]);
-        Assert.Equal("x6", ((Nwl.Operand)rebuilt.Outputs.List[0]).OperandExpr);
+        Assert.Equal("x6", Assert.IsType<Nwl.Operand>(rebuilt.Outputs.List[0]).OperandExpr);
     }
 
     /// <summary>An unchanged network is kept — nothing is rebuilt and nothing is said about it; a header-only edit is
