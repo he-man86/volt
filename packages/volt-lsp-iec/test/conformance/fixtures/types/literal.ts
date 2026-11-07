@@ -254,7 +254,7 @@ END_METHOD
 `,
   },
   // ─── CHARACTERS OUTSIDE THE MEASURED SET ───────────────────────────────────────────────────────────
-  // `string-non-ascii` and `wstring-surrogate` were registered as `not-measured` only once the registry gate was
+  // `string-non-ascii` (and a surrogate pair, since measured) was registered as `not-measured` only once the registry gate was
   // widened to see a code written as a TERNARY — before that the corpus emitted them and the registry knew neither.
   // Nothing records what CODESYS stores for a character past ASCII, so lowering refuses both; these ask. Written with
   // `$` hex escapes, which are ST's own spelling and keep this file pure ASCII — `$C3$A9` is the UTF-8 for an

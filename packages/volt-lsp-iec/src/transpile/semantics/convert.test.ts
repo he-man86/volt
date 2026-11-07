@@ -8,7 +8,7 @@
  */
 import { expect, test } from "bun:test"
 import { elementaryRef } from "../../frontend/types/index.js"
-import { coerce } from "./convert.js"
+import { coerce, utf8Narrow, utf8Widen } from "./convert.js"
 import { INT_TO_REAL_CASES, REAL_TO_INT_CASES } from "./numeric.cases.js"
 import { fit } from "./store.js"
 
@@ -70,4 +70,11 @@ test("every recorded 64-bit integer -> REAL cell rounds once (`INT_TO_REAL_CASES
   expect(INT_TO_REAL_CASES.map((c) => `${c.name}: ${toReal(c.input.value, c.input.from)}`)).toEqual(
     INT_TO_REAL_CASES.map((c) => `${c.name}: ${c.expected}`),
   )
+})
+
+test("STRING_TO_WSTRING refuses a byte that starts no complete UTF-8 sequence (CODESYS reads past the terminator)", () => {
+  expect(() => utf8Widen("grÃ")).toThrow("byte 2 (16#C3) starts no complete UTF-8 sequence")
+  expect(() => utf8Widen("éA")).toThrow("byte 0 (16#E9)")
+  expect(() => utf8Widen("\u0080")).toThrow("byte 0 (16#80)")
+  expect(utf8Widen(utf8Narrow("a😀b"))).toBe("a😀b")
 })

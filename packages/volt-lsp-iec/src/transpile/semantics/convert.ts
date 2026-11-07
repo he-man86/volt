@@ -60,13 +60,74 @@ export function coerce(v: Val, to: Type, from: Type): Val {
 function toText(v: Val, to: Elementary, from: Type): Val {
   if (typeof v === "boolean") return v ? "TRUE" : "FALSE"
   const source = from.kind === "elementary" ? from.name : ""
-  // STRING <-> WSTRING carries the string, not the buffer behind it (the prelude's `narrow` / `widen`)
-  if (typeof v === "string") return source === to.elem.name ? v : visible(v)
+  // STRING <-> WSTRING carries the string, not the buffer behind it, as UTF-8 (the prelude's `narrow` / `widen`)
+  if (typeof v === "string") {
+    if (source === to.elem.name) return v
+    if (source === "WSTRING" && to.elem.name === "STRING") return utf8Narrow(visible(v))
+    if (source === "STRING" && to.elem.name === "WSTRING") return utf8Widen(visible(v))
+    return visible(v)
+  }
   if (source === "TIME") return timeText(v as bigint)
   if (source === "LTIME") return ltimeText(v as bigint)
   if (source === "LREAL") return lrealText(v instanceof NaNBits ? Number.NaN : (v as number))
   if (source === "LDATE" || source === "LDT" || source === "LTOD") return longCalendarText(source, v as bigint)
   return source === "DATE" || source === "DT" || source === "TOD" ? calendarText(source, v as bigint) : String(v)
+}
+
+/**
+ * WSTRING → STRING: each character as its UTF-8 bytes (conformance `wsu_narrow_*`, CODESYS 3.5.21.40): a surrogate pair
+ * is one four-byte character, a lone LOW surrogate its own three bytes (ED B0 80), and a high surrogate no low one follows
+ * one 0 byte, the next unit written after it — so the STRING ends there while the bytes behind it stay. The store then
+ * cuts at the capacity, inside a character too (`wsu_narrow_cut_inside`: STRING(5) holds 'gr' C3 B6 C3).
+ */
+export function utf8Narrow(w: string): string {
+  let out = ""
+  for (let i = 0; i < w.length; i++) {
+    const u = w.charCodeAt(i)
+    let cp = u
+    if (u >= 0xd800 && u < 0xdc00) {
+      const low = w.charCodeAt(i + 1)
+      if (!(low >= 0xdc00 && low < 0xe000)) {
+        out += "\0"
+        continue
+      }
+      cp = 0x10000 + ((u - 0xd800) << 10) + (low - 0xdc00)
+      i++
+    }
+    if (cp < 0x80) out += String.fromCharCode(cp)
+    else if (cp < 0x800) out += String.fromCharCode(0xc0 | (cp >> 6), 0x80 | (cp & 0x3f))
+    else if (cp < 0x10000) out += String.fromCharCode(0xe0 | (cp >> 12), 0x80 | ((cp >> 6) & 0x3f), 0x80 | (cp & 0x3f))
+    else out += String.fromCharCode(0xf0 | (cp >> 18), 0x80 | ((cp >> 12) & 0x3f), 0x80 | ((cp >> 6) & 0x3f), 0x80 | (cp & 0x3f))
+  }
+  return out
+}
+
+/**
+ * STRING → WSTRING: its bytes decoded as UTF-8 (`wsu_widen_*`), a four-byte character into a surrogate pair, ED B0 80
+ * back to the lone surrogate it came from. A byte that starts no sequence, or a sequence the string ends inside, is
+ * refused: CODESYS then reads past the terminator, so its answer is whatever memory follows (measured 2026-11-07).
+ */
+export function utf8Widen(s: string): string {
+  let out = ""
+  for (let i = 0; i < s.length; ) {
+    const b = s.charCodeAt(i)
+    const n = b < 0x80 ? 0 : b >= 0xc0 && b < 0xe0 ? 1 : b >= 0xe0 && b < 0xf0 ? 2 : b >= 0xf0 && b < 0xf8 ? 3 : -1
+    if (n < 0) throw new RangeError(utf8Refusal(s, i))
+    let cp = n === 0 ? b : b & (0x3f >> n)
+    for (let k = 1; k <= n; k++) {
+      const c = s.charCodeAt(i + k)
+      if (!(c >= 0x80 && c < 0xc0)) throw new RangeError(utf8Refusal(s, i))
+      cp = (cp << 6) | (c & 0x3f)
+    }
+    out += cp < 0x10000 ? String.fromCharCode(cp) : String.fromCharCode(0xd800 + ((cp - 0x10000) >> 10), 0xdc00 + ((cp - 0x10000) & 0x3ff))
+    i += n + 1
+  }
+  return out
+}
+
+function utf8Refusal(s: string, at: number): string {
+  return `STRING_TO_WSTRING of a STRING whose byte ${at} (16#${s.charCodeAt(at).toString(16).toUpperCase()}) starts no complete ` +
+    "UTF-8 sequence: CODESYS then reads past the terminator, so its result is whatever memory follows — refused"
 }
 
 /**

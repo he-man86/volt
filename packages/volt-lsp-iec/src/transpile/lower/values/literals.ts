@@ -23,11 +23,11 @@ export function stringLiteralText(lw: Lowering, e: Extract<Expr, { kind: "litera
     lw.bail("string-escape", `${e.text} holds a \`$\` escape that is not measured yet`, e.span)
     return null
   }
-  // A WSTRING holds UTF-16 code units, one per character: "héllo" into a WSTRING(3) is "hél" and "ü!" fits a
-  // WSTRING(2) (conformance `wstring_code_units`). A character beyond the BMP (two units) is not measured; nor is which
-  // byte a non-ASCII character TYPED into a STRING becomes — both refused.
-  if (wide ? [...decoded].some((ch) => ch.length > 1) : /[^\x00-\x7f]/.test(e.value as string)) {
-    lw.bail(wide ? "wstring-surrogate" : "string-non-ascii", `${e.text} holds a character not measured yet`, e.span)
+  // A WSTRING holds UTF-16 code units: "héllo" into a WSTRING(3) is "hél" and "ü!" fits a WSTRING(2) (conformance
+  // `wstring_code_units`); a character beyond the BMP is its two surrogate units (`wsu_widen_four_byte`). Which byte a
+  // non-ASCII character TYPED into a STRING becomes is not measured — refused.
+  if (!wide && /[^\x00-\x7f]/.test(e.value as string)) {
+    lw.bail("string-non-ascii", `${e.text} holds a character not measured yet`, e.span)
     return null
   }
   return decoded

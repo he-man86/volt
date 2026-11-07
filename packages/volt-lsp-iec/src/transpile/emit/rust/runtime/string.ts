@@ -67,18 +67,63 @@ impl<T: Copy + Default + PartialEq, const N: usize> IecStr<T, N> {
         self
     }
 }
-// WSTRING <-> STRING: one code unit per code unit, truncated at the TARGET's capacity — measured both ways
-// (conformance xo3_string_wide_conversions: a WSTRING(10) into a STRING(4) is 'abcd', a STRING(6) into a WSTRING(2)
-// is "he"). Measured on ASCII only: a STRING holds a non-ASCII character as its UTF-8 bytes, and what the vendor makes
-// of a byte past 0x7F crossing to a WSTRING is not recorded — this casts it as its value, as the interpreter does.
+// WSTRING <-> STRING as UTF-8, truncated at the TARGET's capacity (conformance xo3_string_wide_conversions, wsu_*): a
+// surrogate pair is one four-byte character, a lone low surrogate its own three bytes, a high surrogate no low one follows
+// one 0 byte with the next unit after it; the cut may land inside a character. The widen decodes; a byte that starts no
+// complete sequence is refused, since CODESYS then reads past the terminator (the interpreter's utf8Narrow / utf8Widen).
 impl<const N: usize> IecStr<u16, N> {
     #[must_use]
-    #[allow(clippy::cast_possible_truncation)] // a unit past 0xFF keeps its low byte: the cast IS the conversion (above)
-    pub fn narrow<const M: usize>(&self) -> IecStr<u8, M> { let mut out = IecStr::<u8, M>::new(); for &u in self.units() { if out.len == M { break } out.units[out.len] = u as u8; out.len += 1; } out }
+    #[allow(clippy::cast_possible_truncation)] // every cast below is masked to the bits it keeps
+    pub fn narrow<const M: usize>(&self) -> IecStr<u8, M> {
+        let src = self.units();
+        let mut bytes: Vec<u8> = Vec::new();
+        let mut i = 0;
+        while i < src.len() {
+            let unit = u32::from(src[i]);
+            let mut cp = unit;
+            if (0xD800..0xDC00).contains(&unit) {
+                match src.get(i + 1).map(|&w| u32::from(w)) {
+                    Some(low) if (0xDC00..0xE000).contains(&low) => { cp = 0x10000 + ((unit - 0xD800) << 10) + (low - 0xDC00); i += 1; }
+                    _ => { bytes.push(0); i += 1; continue; }
+                }
+            }
+            if cp < 0x80 { bytes.push(cp as u8); }
+            else if cp < 0x800 { bytes.extend([0xC0 | (cp >> 6) as u8, 0x80 | (cp & 0x3F) as u8]); }
+            else if cp < 0x1_0000 { bytes.extend([0xE0 | (cp >> 12) as u8, 0x80 | ((cp >> 6) & 0x3F) as u8, 0x80 | (cp & 0x3F) as u8]); }
+            else { bytes.extend([0xF0 | (cp >> 18) as u8, 0x80 | ((cp >> 12) & 0x3F) as u8, 0x80 | ((cp >> 6) & 0x3F) as u8, 0x80 | (cp & 0x3F) as u8]); }
+            i += 1;
+        }
+        let mut out = IecStr::<u8, M>::new();
+        for (k, &b) in bytes.iter().take(M).enumerate() { out.units[k] = b; }
+        out.scan();
+        out
+    }
 }
 impl<const N: usize> IecStr<u8, N> {
+    /// # Panics
+    /// On a byte that starts no complete UTF-8 sequence: CODESYS's result is then whatever memory follows the string.
     #[must_use]
-    pub fn widen<const M: usize>(&self) -> IecStr<u16, M> { let mut out = IecStr::<u16, M>::new(); for &u in self.units() { if out.len == M { break } out.units[out.len] = u16::from(u); out.len += 1; } out }
+    #[allow(clippy::cast_possible_truncation)] // a code point below 0x1_0000 is one unit; above, each half is masked
+    pub fn widen<const M: usize>(&self) -> IecStr<u16, M> {
+        let src = self.units();
+        let refuse = |at: usize| -> ! { panic!("STRING_TO_WSTRING of a STRING whose byte {at} (16#{:X}) starts no complete UTF-8 sequence: CODESYS then reads past the terminator, so its result is whatever memory follows - refused", src[at]) };
+        let mut wide: Vec<u16> = Vec::new();
+        let mut i = 0;
+        while i < src.len() {
+            let lead = u32::from(src[i]);
+            let extra = match lead { 0..=0x7F => 0, 0xC0..=0xDF => 1, 0xE0..=0xEF => 2, 0xF0..=0xF7 => 3, _ => refuse(i) };
+            let mut cp = if extra == 0 { lead } else { lead & (0x3F >> extra) };
+            for k in 1..=extra {
+                match src.get(i + k).map(|&w| u32::from(w)) { Some(cont) if (0x80..0xC0).contains(&cont) => cp = (cp << 6) | (cont & 0x3F), _ => refuse(i) }
+            }
+            if cp < 0x1_0000 { wide.push(cp as u16); } else { let off = cp - 0x1_0000; wide.extend([0xD800 | (off >> 10) as u16, 0xDC00 | (off & 0x3FF) as u16]); }
+            i += extra + 1;
+        }
+        let mut out = IecStr::<u16, M>::new();
+        for (k, &unit) in wide.iter().take(M).enumerate() { out.units[k] = unit; }
+        out.scan();
+        out
+    }
 }
 impl<T: Copy + PartialEq, const N: usize, const M: usize> PartialEq<IecStr<T, M>> for IecStr<T, N> { fn eq(&self, other: &IecStr<T, M>) -> bool { self.units[..self.len] == other.units[..other.len] } }
 impl<T: Copy + Eq, const N: usize> Eq for IecStr<T, N> {}
