@@ -6,7 +6,8 @@
  * hover↔completion parity test guards it).
  */
 import { CompletionItemKind, SymbolKind as Lsp } from "vscode-languageserver-protocol"
-import type { SymbolKind } from "../../frontend/symbols/index.js"
+import type { Symbol, SymbolKind } from "../../frontend/symbols/index.js"
+import { renderTypeExpr } from "../../frontend/syntax/index.js"
 
 export const SYMBOL_KINDS = {
   function_block: { lsp: Lsp.Class, human: "function block", completion: CompletionItemKind.Class, token: "class", keyword: "FUNCTION_BLOCK" },
@@ -32,3 +33,22 @@ export const SYMBOL_KINDS = {
 export const lspSymbolKind = (kind: SymbolKind): Lsp => SYMBOL_KINDS[kind].lsp
 
 export const humanKind = (kind: SymbolKind): string => SYMBOL_KINDS[kind].human
+
+const VARIABLE_KINDS: ReadonlySet<SymbolKind> = new Set(["var", "method_param", "gvl_var", "struct_field"])
+
+/**
+ * What a variable-like symbol IS, for hover and completion alike: its declared type and the VAR section that declares it
+ * (a struct field has no section). Undefined for anything else — a POU, a type, an enum value — which hover and
+ * completion describe by `humanKind`.
+ */
+export function variableFacts(sym: Symbol): { type: string; section?: string } | undefined {
+  if (!VARIABLE_KINDS.has(sym.kind) || sym.typeExpr === undefined) return undefined
+  return { type: renderTypeExpr(sym.typeExpr), ...(sym.varSection !== undefined ? { section: sym.varSection } : {}) }
+}
+
+/** Completion's `detail`: `REAL · VAR_INPUT` for a variable (`REAL` for a struct field), else the human kind. */
+export function symbolDetail(sym: Symbol): string {
+  const facts = variableFacts(sym)
+  if (facts === undefined) return humanKind(sym.kind)
+  return facts.section !== undefined ? `${facts.type} · ${facts.section}` : facts.type
+}

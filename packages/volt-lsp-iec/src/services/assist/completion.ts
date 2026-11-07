@@ -10,7 +10,7 @@
 import { CompletionItemKind, type CompletionItem } from "vscode-languageserver-protocol"
 import { bodiesAt, dialectOf, findChildScope, lookup, type Scope, type Symbol, visibleNames } from "../../frontend/symbols/index.js"
 import { memberScopeOf, resolveTypeExpr } from "../../frontend/types/index.js"
-import { networkBodies, SYMBOL_KINDS, scopeAtOffset } from "../shared/index.js"
+import { networkBodies, SYMBOL_KINDS, scopeAtOffset, symbolDetail } from "../shared/index.js"
 import { attributeNames, type BodySpan, type Dialect, isPlainStNetworkBody, plainStText, UNNAMED } from "../../frontend/syntax/index.js"
 import { pragmaHelp } from "./builtin-hover.js"
 import { jumpLabelCompletions, networkWordCompletions } from "./network-completion.js"
@@ -163,5 +163,5 @@ function addOnce(seen: Set<string>, name: string): boolean {
 }
 
 function item(sym: Symbol): CompletionItem {
-  return { label: sym.name, kind: SYMBOL_KINDS[sym.kind].completion, detail: SYMBOL_KINDS[sym.kind].human }
+  return { label: sym.name, kind: SYMBOL_KINDS[sym.kind].completion, detail: symbolDetail(sym) }
 }

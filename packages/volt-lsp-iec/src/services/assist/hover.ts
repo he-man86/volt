@@ -9,7 +9,7 @@
 import type { Hover } from "vscode-languageserver-protocol"
 import { allUnits, renderTypeExpr, spanContains, unitBodies, type Dialect } from "../../frontend/syntax/index.js"
 import { dialectOf, type Scope, type Symbol } from "../../frontend/symbols/index.js"
-import { humanKind, networkWordAt, rangeFromSpan, resolveAt, SYMBOL_KINDS } from "../shared/index.js"
+import { humanKind, networkWordAt, rangeFromSpan, resolveAt, SYMBOL_KINDS, variableFacts } from "../shared/index.js"
 import { builtinHover, pragmaHelp } from "./builtin-hover.js"
 import type { Document } from "../shared/index.js"
 import { tokenAtOffset } from "../shared/index.js"
@@ -56,9 +56,11 @@ function pragmaMd(word: string, dialect: Dialect): Hover | undefined {
   return help !== undefined ? { contents: { kind: "markdown", value: `\`{${word}}\`\n\n${help}` } } : undefined
 }
 
-/** The markdown hover for a resolved symbol — a declaration line + kind label. */
+/** The markdown hover for a resolved symbol — a declaration line + kind label (+ a variable's VAR section). */
 function symbolHover(sym: Symbol): Hover {
-  const value = `\`\`\`iecst\n${declarationLine(sym)}\n\`\`\`\n\n_${humanKind(sym.kind)}_`
+  const section = variableFacts(sym)?.section
+  const kind = `_${humanKind(sym.kind)}_${section !== undefined ? ` · ${section}` : ""}`
+  const value = `\`\`\`iecst\n${declarationLine(sym)}\n\`\`\`\n\n${kind}`
   return { contents: { kind: "markdown", value } }
 }
 

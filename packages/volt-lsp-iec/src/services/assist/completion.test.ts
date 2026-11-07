@@ -219,3 +219,66 @@ END_FUNCTION_BLOCK`
     expect(labelsAt(NET.indexOf("AND(???") + 4)).not.toContain("???")
   })
 })
+
+// A member item carries its declared type and VAR section — the facts hover shows for the same member
+// (`symbolDetail`, shared) — instead of only the kind label `variable` (Sim-Assist V4).
+describe("a member item names its type and section", () => {
+  const FB = `FUNCTION_BLOCK FB_Infeed
+VAR_INPUT
+	speed : REAL;
+END_VAR
+VAR_OUTPUT
+	done : BOOL;
+END_VAR
+VAR_IN_OUT
+	count : DINT;
+END_VAR
+VAR
+	state : INT;
+END_VAR
+END_FUNCTION_BLOCK`
+  const DUT = `TYPE ST_Part :
+STRUCT
+	weight : REAL;
+	id : UDINT;
+END_STRUCT
+END_TYPE`
+  const GVL = `VAR_GLOBAL
+	Infeed : FB_Infeed;
+END_VAR`
+  const PRG = `PROGRAM P
+VAR
+	inst : FB_Infeed;
+	part : ST_Part;
+END_VAR
+inst.;
+part.;
+Infeed.;
+END_PROGRAM`
+
+  function details(base: string): Record<string, string | undefined> {
+    const files = [
+      { uri: "file:///FB_Infeed.pou", source: FB },
+      { uri: "file:///ST_Part.dut", source: DUT },
+      { uri: "file:///GVL.gvl", source: GVL },
+      { uri: "file:///P.pou", source: PRG },
+    ].map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true, unicodeIdentifiers: false }, "codesys") }))
+    const project = build.buildSymbolTable(files, [], "codesys")
+    const items = completion(files[3], project, PRG.indexOf(`${base}.`) + base.length + 1)
+    return Object.fromEntries(items.map((i) => [i.label, i.detail]))
+  }
+
+  const FB_MEMBERS = { speed: "REAL · VAR_INPUT", done: "BOOL · VAR_OUTPUT", count: "DINT · VAR_IN_OUT", state: "INT · VAR" }
+
+  test("an FB instance's members", () => {
+    expect(details("inst")).toMatchObject(FB_MEMBERS)
+  })
+
+  test("a struct instance's fields: the type alone", () => {
+    expect(details("part")).toEqual({ weight: "REAL", id: "UDINT" })
+  })
+
+  test("a global FB instance's members", () => {
+    expect(details("Infeed")).toMatchObject(FB_MEMBERS)
+  })
+})

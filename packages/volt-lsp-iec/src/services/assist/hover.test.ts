@@ -168,8 +168,13 @@ END_FUNCTION_BLOCK`
     const h = hover(doc, project, at(SRC, "count", 1))
     const value = (h!.contents as { value: string }).value
     const item = completion(doc, project, at(SRC, "count := 0", 1)).find((i) => i.label === "count")
-    // hover renders `_<humanKind>_`; completion puts the same humanKind in `detail`.
-    expect(value).toContain(`_${item!.detail}_`)
+    // a variable: completion's `detail` is `<type> · <section>`; hover shows the same type and section
+    expect(item!.detail).toBe("INT · VAR")
+    expect(value).toContain("count : INT")
+    expect(value).toContain("_variable_ · VAR")
+    // a non-variable (a POU): both say the same human kind
+    const fb = completion(doc, project, at(SRC, "count := 0", 1)).find((i) => i.label === "FB_A")
+    expect(fb!.detail).toBe("function block")
   })
 })
 
