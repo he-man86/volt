@@ -224,10 +224,15 @@ namespace Volt.Ide.Codesys
             var published = LibFlag(item, "PublishSymbolsInContainer");
             var isPlaceholder = item.GetType().GetInterfaces().Any(i => i.Name == "IPlaceholderLibManItem");
             var name = RefDisplayName(item);
-            var resolution = isPlaceholder
-                ? (ManagedLibDisplay(LibMember(item, "EffectiveResolution")) ?? LibMember(item, "DefaultResolution") as string
-                   ?? throw LibUnreadable(item, "EffectiveResolution / DefaultResolution"))
-                : name;   // managed refs carry "Name, Version (Company)" in Name
+            // WHAT THE REFERENCE RESOLVED TO, as the IDE states it (DIALECT C37c, measured SP21): a placeholder's
+            // `EffectiveResolution`, a managed reference's `ManagedLibrary` — each null while it resolves to nothing, which
+            // is spelled UNRESOLVED, never the `DefaultResolution` or the wildcard `Name` (neither names what the IDE
+            // loaded). So a reference that resolves later changes its manifest, hence its version, hence the signatures
+            // are re-extracted and re-placed (the stale `(unresolved)` tree of 2026-11-06).
+            var resolved = LibMember(item, isPlaceholder ? "EffectiveResolution" : "ManagedLibrary");
+            var resolution = resolved is null
+                ? Volt.Engine.Library.LibraryManifest.Unresolved
+                : ManagedLibDisplay(resolved) ?? throw LibUnreadable(item, isPlaceholder ? "EffectiveResolution.DisplayName" : "ManagedLibrary.DisplayName");
 
             // DIRECT dependencies, by display name — the dependency tree captured as a REFERENCE (the deps live once
             // in the flat list; following these names rebuilds the hierarchy, with no signature duplication).
@@ -258,16 +263,10 @@ namespace Volt.Ide.Codesys
             return new LibRefNode(name, manifest);
         }
 
-        private static string? ManagedLibDisplay(object? managedLib)
-        {
-            if (managedLib == null) return null;
-            var disp = GetMember(managedLib, "DisplayName") as string;
-            if (!string.IsNullOrEmpty(disp)) return disp;
-            var title = GetMember(managedLib, "Title") as string ?? "";
-            var ver = GetMember(managedLib, "Version")?.ToString() ?? "";
-            var s = (title + " " + ver).Trim();
-            return string.IsNullOrEmpty(s) ? null : s;
-        }
+        /// <summary>A resolved library's <c>DisplayName</c> (<c>Standard, 3.5.22.0 (System)</c>, DIALECT C37c), or null when it
+        /// states none — the caller refuses the reference by name then.</summary>
+        private static string? ManagedLibDisplay(object managedLib) =>
+            GetMember(managedLib, "DisplayName") is string { Length: > 0 } disp ? disp : null;
 
         // ── library signature extraction (referenced-library declarations from the resolved language model) ──
 

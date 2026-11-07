@@ -86,4 +86,32 @@ public class UnresolvedLibraryFolderTests
     {
         Assert.NotEqual("", LibraryLayout.UnresolvedNameFor(@"C:\some\dir\"));
     }
+
+    private static LibraryRef Ref(string resolution) =>
+        new("Lib, * (Vendor)", "Lib, * (Vendor)", "Library Manager", resolution, "v1", null);
+
+    private static LibSignature Sig(string libraryPath) =>
+        new("FB_A", libraryPath, "FunctionBlock", new LibVar[0], new LibVar[0], new LibVar[0], new LibVar[0], null, null);
+
+    /// <summary>A managed reference's manifest states the library it RESOLVED to (DIALECT C37c), so its RESOLUTION is the
+    /// concrete version CODESYS lower-cases into the signature's path: the exact rule owns the signature, no wildcard
+    /// needed.</summary>
+    [Fact]
+    public void A_reference_stating_its_resolved_version_owns_its_signatures_exactly()
+    {
+        var r = Ref("Lib, 1.2.3.4 (Vendor)");
+        var claim = LibraryMatcher.Over(new[] { r }, new[] { Sig("lib, 1.2.3.4 (vendor)") }).For("lib, 1.2.3.4 (vendor)");
+        Assert.Same(r, claim.Owner);
+    }
+
+    /// <summary>An UNRESOLVED reference claims nothing, so a signature the IDE still produced (staged to a temp path)
+    /// stays loudly under <c>(unresolved)</c>.</summary>
+    [Fact]
+    public void An_unresolved_reference_claims_no_signature()
+    {
+        var path = TempStaged;
+        var claim = LibraryMatcher.Over(new[] { Ref(LibraryManifest.Unresolved) }, new[] { Sig(path) }).For(path);
+        Assert.Null(claim.Owner);
+        Assert.Empty(claim.Claimants);
+    }
 }

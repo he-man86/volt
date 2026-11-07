@@ -202,8 +202,76 @@ namespace Volt.Ide.Codesys.Tests
             Assert.Equal(
                 $"LIBRARY {NichePlaceholder}\nNAMESPACE Niche\nRESOLUTION " +
                 $"{Volt.Tests.Shared.WireParityCases.LibraryName}, {Volt.Tests.Shared.WireParityCases.LibraryVersion} " +
-                $"({Volt.Tests.Shared.WireParityCases.LibraryDistributor})\nPLACEHOLDER true\n" + lines + "MATERIALIZATION 5\n",
+                $"({Volt.Tests.Shared.WireParityCases.LibraryDistributor})\nPLACEHOLDER true\n" + lines + "MATERIALIZATION 6\n",
                 manifest);
+        }
+
+        /// <summary>A MANAGED reference (no placeholder interface) as SP21 answers it: its <c>Name</c> may be a wildcard, and
+        /// <c>ManagedLibrary</c> is the library it resolved to — null while it resolves to none (DIALECT C37c).</summary>
+        public sealed class ManagedItem
+        {
+            public ManagedItem(object? managed) => ManagedLibrary = managed;
+            public string Name => "Plain, * (Somebody)";
+            public string Namespace => "Plain";
+            public bool SystemLibrary => false;
+            public bool LinkAllContent => false;
+            public bool QualifiedOnly => false;
+            public bool Optional => false;
+            public bool HideWhenReferencedAsDependency => false;
+            public bool PublishSymbolsInContainer => false;
+            public object? ManagedLibrary { get; }
+            public System.Collections.IEnumerable GetDependencies() => new object[0];
+        }
+
+        /// <summary>A placeholder that resolves to nothing: <c>EffectiveResolution</c> null, <c>DefaultResolution</c> still the
+        /// string it was given (DIALECT C37c).</summary>
+        public sealed class UnresolvedPlaceholder : IPlaceholderLibManItem
+        {
+            public string Name => Niche;
+            public string Namespace => "Niche";
+            public string PlaceholderName => NichePlaceholder;
+            public bool SystemLibrary => false;
+            public bool LinkAllContent => false;
+            public bool QualifiedOnly => false;
+            public bool Optional => false;
+            public bool HideWhenReferencedAsDependency => false;
+            public bool PublishSymbolsInContainer => false;
+            public object? EffectiveResolution => null;
+            public string DefaultResolution => "Niche, 1.0 (Somebody)";
+            public System.Collections.IEnumerable GetDependencies() => new object[0];
+        }
+
+        private static string ManifestOf(object reference)
+        {
+            var walk = Walk(new LibManObject { ArchivesParameterTable = true, Libraries = new[] { reference } });
+            Assert.Empty(walk.UnreadableObjects);
+            var item = Assert.Single(walk.Items, i => i.KindCode == ItemKind.PlcLibRef);
+            return new CodesysDriver(projects: null).ReadManifest(item.Item, ItemKind.Kinds.Library);
+        }
+
+        /// <summary>THE 2026-11-06 BUG: a reference that resolves later in the session kept its manifest — RESOLUTION was its
+        /// wildcard <c>Name</c> either way — so its `.library` version did not move and the signatures first placed under
+        /// `(unresolved)` were never re-placed. The manifest states what the reference resolved to, or UNRESOLVED.</summary>
+        [Fact]
+        public void A_managed_reference_states_what_it_resolved_to_so_resolving_changes_its_manifest()
+        {
+            var unresolved = ManifestOf(new ManagedItem(null));
+            var resolved = ManifestOf(new ManagedItem(new CodesysWireParityTests.ManagedLibrary()));
+
+            Assert.Contains("\nRESOLUTION UNRESOLVED\n", unresolved);
+            Assert.Contains($"\nRESOLUTION {Volt.Tests.Shared.WireParityCases.LibraryName}, {Volt.Tests.Shared.WireParityCases.LibraryVersion} " +
+                            $"({Volt.Tests.Shared.WireParityCases.LibraryDistributor})\n", resolved);
+            Assert.NotEqual(unresolved, resolved);
+        }
+
+        /// <summary>An unresolved placeholder states it — never its <c>DefaultResolution</c>, which names a library the IDE
+        /// did not resolve to.</summary>
+        [Fact]
+        public void An_unresolved_placeholder_states_UNRESOLVED_not_its_default_resolution()
+        {
+            var manifest = ManifestOf(new UnresolvedPlaceholder());
+            Assert.Contains("\nRESOLUTION UNRESOLVED\n", manifest);
+            Assert.DoesNotContain("Niche, 1.0", manifest);
         }
     }
 }

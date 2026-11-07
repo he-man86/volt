@@ -804,22 +804,24 @@ public sealed partial class BeckhoffDriver
     private static string LibraryManifestFromXml(string xml)
     {
         var root = XDocument.Parse(xml).Root!;
-        string Required(XElement? e, string what) =>
-            e?.Value ?? throw new BridgeException(BridgeErrorCodes.Unsupported,
+        XElement RequiredElement(XElement? e, string what) =>
+            e ?? throw new BridgeException(BridgeErrorCodes.Unsupported,
                 $"twincat: the library reference's XML has no <{what}> — Volt reads it rather than assume it, so the " +
                 "reference is not materialized.");
+        string Required(XElement? e, string what) => RequiredElement(e, what).Value;
 
         var name = Required(root.Element("ItemName"), "ItemName");
         var reference = root.Descendants("PlaceholderReference").FirstOrDefault();
         var ns = Required((reference ?? root).Descendants("Namespace").FirstOrDefault(), "Namespace");
         var placeholder = Required(root.Element("ItemSubTypeName"), "ItemSubTypeName").Contains("PLACEHOLDER");
         // The reference's OWN EffectiveResolution is the first (a dependency's is nested under Dependencies).
-        var eff = root.Descendants("EffectiveResolution").FirstOrDefault();
-        var resolution = eff != null
-            ? LibraryManifest.Resolution(Required(eff.Element("LibraryName"), "EffectiveResolution/LibraryName"),
-                                         Required(eff.Element("Version"), "EffectiveResolution/Version"),
-                                         Required(eff.Element("Distributor"), "EffectiveResolution/Distributor"))
-            : Required(root.Descendants("DefaultResolution").FirstOrDefault(), "EffectiveResolution or DefaultResolution");
+        // RESOLUTION is what the reference RESOLVED to, never its DefaultResolution (DIALECT C37c). What TwinCAT answers for
+        // an unresolved reference is unmeasured, so a reference stating no EffectiveResolution is refused by name rather
+        // than read as `UNRESOLVED` (CODESYS's measured null) or given its default.
+        var eff = RequiredElement(root.Descendants("EffectiveResolution").FirstOrDefault(), "EffectiveResolution");
+        var resolution = LibraryManifest.Resolution(Required(eff.Element("LibraryName"), "EffectiveResolution/LibraryName"),
+                                                    Required(eff.Element("Version"), "EffectiveResolution/Version"),
+                                                    Required(eff.Element("Distributor"), "EffectiveResolution/Distributor"));
         // Direct dependencies, by name — the tree captured as a reference (matches CODESYS's DEPENDENCIES).
         var deps = root.Descendants("Dependency")
             .Select(d => d.Element("PlaceholderName")?.Value ?? d.Element("EffectiveResolution")?.Element("LibraryName")?.Value)

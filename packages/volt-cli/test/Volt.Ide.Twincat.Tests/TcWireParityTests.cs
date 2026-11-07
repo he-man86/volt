@@ -98,6 +98,19 @@ public class TcWireParityTests
         Assert.Contains("Optional = Maybe", odd.Message);
     }
 
+    /// <summary>A reference whose XML states no <c>EffectiveResolution</c> is refused by name — never written as its
+    /// <c>DefaultResolution</c>, which names a library TwinCAT did not resolve to. CODESYS states an unresolved reference
+    /// as a null resolution (DIALECT C37c) and spells it <c>RESOLUTION UNRESOLVED</c>; what TwinCAT answers for one is
+    /// unmeasured, so absence is not read as "unresolved" either.</summary>
+    [Fact]
+    public void A_reference_with_no_effective_resolution_is_refused_by_name_not_given_its_default()
+    {
+        var xml = PlaceholderXml.Substring(0, PlaceholderXml.IndexOf("<EffectiveResolution>", System.StringComparison.Ordinal)) +
+                  PlaceholderXml.Substring(PlaceholderXml.IndexOf("</EffectiveResolution>", System.StringComparison.Ordinal) + "</EffectiveResolution>".Length);
+        var refused = Assert.Throws<Volt.Engine.BridgeException>(() => Manifest(xml, ItemKind.Kinds.Library));
+        Assert.Contains("EffectiveResolution", refused.Message);
+    }
+
     /// <summary>An interface property with a GET: TwinCAT reads presence (its stored <c>PUBLIC / VAR / END_VAR</c> is a
     /// measured constant, spelled as the empty declaration), so the interface pulls as CODESYS's does.</summary>
     [Fact]

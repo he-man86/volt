@@ -48,11 +48,17 @@ public static class LibraryManifest
     /// line and is refused by name ("pull once").</item>
     /// <item>5: the line is the property line <c>%LANGUAGE ST|LD|FBD</c> (openspec <c>language-line</c>), and a member with
     /// no body slot states none. A format-4 file's <c>%LANGUAGE</c> line is refused by name ("pull again").</item>
+    /// <item>6: <c>RESOLUTION</c> states what the reference RESOLVED to (a managed reference's resolved library, not its
+    /// wildcard name), or <see cref="Unresolved"/> (DIALECT C37c) — so a reference resolving later changes its version
+    /// and its signatures are re-extracted.</item>
     /// </list>
     /// Bump it whenever what a pull writes changes meaning: the manifest is the library's version-hash basis, so the bump
     /// itself re-fetches every library on the next pull and restates the number the LSP reads — which is the repair.
     /// (A graphical body needs no bump to be re-fetched: its version hashes its text, which the new writer changes.)</summary>
-    public const int Materialization = 5;
+    public const int Materialization = 6;
+
+    /// <summary>The <c>RESOLUTION</c> of a reference the IDE resolves to no library (DIALECT C37c).</summary>
+    public const string Unresolved = "UNRESOLVED";
 
     public static string Build(
         string name,
