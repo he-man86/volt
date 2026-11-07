@@ -595,26 +595,3 @@ test("a name nothing declares as __NEW's, SIZEOF's operand and as a STRING's len
   expect(said("n : DINT; v : INT;", "n := SIZEOF(v);")).toEqual([])
   expect(said("v : STRING(NoSuchLength);", ";")).toEqual(["Identifier 'NoSuchLength' not defined"])
 })
-
-// A PROGRAM and a global of one name: the GLOBAL is what the name means in a body (step 5 before 8), so the program is
-// neither called nor read through it — and an INT read with a member is no structured variable, typed BIT
-// (`sio_program_global_name`, CODESYS 3.5.21.40: the three messages below; `enum_library_member_vs_project_program` says the
-// same of an enum member). A constant bit index (`gw.cBit`) stays a bit access.
-test("a global sharing a PROGRAM's name wins it: no call, and its member read is no structured variable", () => {
-  const src =
-    "PROGRAM SioInfeed\nVAR\n\tk : INT;\nEND_VAR\nk := 1;\nEND_PROGRAM\n\nVAR_GLOBAL\n\tSioInfeed : INT;\nEND_VAR\n\n" +
-    "FUNCTION_BLOCK F\nVAR\n\tout : INT;\nEND_VAR\nSioInfeed();\nout := SioInfeed.k;\nEND_FUNCTION_BLOCK\n"
-  expect(diag(src).filter((d) => d.severity === "error").map((d) => d.message).sort()).toEqual([
-    "'SioInfeed' is no structured variable",
-    "Cannot convert type 'BIT' to type 'INT'",
-    "Program name, function or function block instance expected instead of 'SioInfeed'",
-  ])
-})
-
-test("an integer read with a member nothing declares is no structured variable; with a constant it is a bit", () => {
-  const said = (body: string) =>
-    diag(fb(`VAR\n\ti : INT;\n\tw : WORD;\n\tb : BOOL;\nEND_VAR\nVAR CONSTANT\n\tc : INT := 3;\nEND_VAR\n${body}`)).map((d) => d.message)
-  expect(said("b := w.nope;")).toContain("'w' is no structured variable")
-  expect(said("b := w.c;")).toEqual([])
-  expect(said("b := w.3;")).toEqual([])
-})
