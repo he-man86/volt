@@ -8,6 +8,7 @@ import type { Span } from "../../frontend/syntax/index.js"
 import { instantiate, Memory, NaNBits, storeAs, toImage, type Val, visible } from "../semantics/index.js"
 import { namesVariable, pathRoot } from "../ir/path.js"
 import { Machine } from "./machine.js"
+import { indexOutOfBounds } from "../ir/faults.js"
 import { checkValue } from "./set-value.js"
 
 /** How a harness runs a POU. */
@@ -26,8 +27,25 @@ export interface Runner {
   /** Write a variable by its path — refused with a `RunnerValueError`, nothing written, when its declared type does not
    *  hold the value (`set-value.ts`). */
   set(path: string, value: Val): void
+  /** A variable resolved once by its path — read and written with no path to look up, as `get` and `set` of that path
+   *  read and write it. Refused when made, as `get` refuses the path. */
+  handle(path: string): RunnerHandle
   /** Run one scan cycle. */
   scan(): void
+}
+
+/**
+ * A VARIABLE BY HANDLE — what a host that copies its process image every scan keeps per pin (Sim-Assist, 2026-11-07: 400
+ * pins a scan cost more than the program). Never stale: it keeps the path's steps, not the records they lead through, so a
+ * struct or an array the program replaced (`a := b;`) and a VAR_TEMP started over are followed exactly as by `get`/`set`.
+ */
+export interface RunnerHandle {
+  /** The path it was made from. */
+  readonly path: string
+  /** The variable's value, as `Runner.get(path)` gives it. */
+  get(): Val
+  /** Write it, as `Runner.set(path, value)` does — a value its type does not hold refused, nothing written. */
+  set(value: Val): void
 }
 
 /** A path is not source: the places it builds have no span. */
@@ -76,6 +94,57 @@ function resolvePath(pou: IrPou, layouts: ReadonlyMap<string, IrLayout>, path: s
   // a variable the image holds, or a field of an instance whose data it holds, is read where the program writes it
   const imaged = toImage(place, { type: rootSlot.type, ...(rootSlot.image === undefined ? {} : { address: rootSlot.image }) }, layouts)
   return imaged.root === "image" ? { place: imaged, image: true, type } : { place, image: false, type }
+}
+
+/**
+ * A resolved path as its handle. THE STEPS ARE KEPT, NEVER A CONTAINER (runner-path-lookup-cost): `a := b;` on a struct or
+ * an array replaces the record a path leads through, and a VAR_TEMP starts over every scan, so every read and write walks
+ * from the root — the frame or the globals, which live as long as the runner — as `Frame.locate` does. What the walk would
+ * redo each time is taken once: each field's key (its name upper-cased) and each index's (checked against its bounds,
+ * counted from 0) — a path's index is a literal, so its bound check holds for the runner's life. A variable the image
+ * holds is read and written where the program does (`Machine.read`, `Machine.write`).
+ */
+function handleOf(path: string, found: ReturnType<typeof resolvePath>, machine: Machine, layouts: ReadonlyMap<string, IrLayout>): RunnerHandle {
+  const { place, type } = found
+  // only a value the variable's declared type holds, or a `RunnerValueError` and nothing written (`set-value.ts`) — a
+  // harness cannot plant a value the PLC couldn't hold; then stored as the type holds it, like every write the program makes
+  if (found.image)
+    return {
+      path,
+      get: () => shown(machine.read(place)),
+      set: (value) => {
+        checkValue(path, value, type, layouts)
+        machine.write(place, value)
+      },
+    }
+  const root = (place.root === "global" ? machine.globals : machine.root) as Record<string | number, Val>
+  const first: string | number = place.root === "global" ? place.slot : machine.keys[place.slot]
+  const keys = place.path.map((step): string | number => {
+    if (step.kind === "field") return step.name.toUpperCase()
+    if (step.kind !== "index" || step.index.kind !== "const" || step.length === undefined) throw new Error(`${path}: a step a path does not build`)
+    const i = Number(step.index.value) - Number(step.lower)
+    if (i < 0 || i >= step.length) throw new RangeError(indexOutOfBounds(i + Number(step.lower)))
+    return i
+  })
+  const last = keys.length
+  const container = (): Record<string | number, Val> => {
+    let at = root
+    let key = first
+    for (let s = 0; s < last; s++) {
+      at = at[key] as unknown as Record<string | number, Val>
+      key = keys[s]!
+    }
+    return at
+  }
+  const key = last === 0 ? first : keys[last - 1]
+  return {
+    path,
+    get: () => shown(container()[key]),
+    set: (value) => {
+      checkValue(path, value, type, layouts)
+      container()[key] = storeAs(value, type)
+    },
+  }
 }
 
 /** A value as the IDE shows it: a string is what stands before its terminator, not the buffer behind it
@@ -127,33 +196,21 @@ function prepare(pou: IrPou, options: RunOptions): Omit<Runner, "scan"> & { scan
   const locals: Val[] = []
   const machine = new Machine(frame as unknown as Record<number, Val>, pou.slots.map((_, i) => i), [], layouts, routines, globals, new Memory(pou.image), options.loopGuard, locals)
   if (pou.init !== undefined) machine.block(pou.init)
-  // A host copies its IO through get and set every scan, so each distinct path resolves once (runner-path-lookup-cost).
-  // The PLACE is kept, never the container it locates: `a := b;` replaces the record a path leads through. A path that
-  // does not resolve is refused every time; the map holds one entry per path a host named that exists.
-  const resolved = new Map<string, ReturnType<typeof resolvePath>>()
-  const resolve = (path: string) => {
-    let found = resolved.get(path)
-    if (found === undefined) resolved.set(path, (found = resolvePath(pou, layouts, path)))
+  // A host copies its IO through get and set every scan, so each distinct path resolves once (runner-path-lookup-cost)
+  // into its handle. A path that does not resolve is refused every time; the map holds one entry per path a host named
+  // that exists.
+  const handles = new Map<string, RunnerHandle>()
+  const handle = (path: string): RunnerHandle => {
+    let found = handles.get(path)
+    if (found === undefined) handles.set(path, (found = handleOf(path, resolvePath(pou, layouts, path), machine, layouts)))
     return found
   }
 
   return {
     frame,
-    get: (path) => {
-      const found = resolve(path)
-      if (found.image) return shown(machine.read(found.place))
-      const { container, key } = machine.locate(found.place)
-      return shown((container as Record<string | number, Val>)[key]!)
-    },
-    // only a value the variable's declared type holds, or a `RunnerValueError` and nothing written (`set-value.ts`) — a
-    // harness cannot plant a value the PLC couldn't hold; then stored as the type holds it, like every write the program makes
-    set: (path, value) => {
-      const found = resolve(path)
-      checkValue(path, value, found.type, layouts)
-      if (found.image) return machine.write(found.place, value)
-      const { container, key } = machine.locate(found.place)
-      ;(container as Record<string | number, Val>)[key] = storeAs(value, found.type)
-    },
+    get: (path) => handle(path).get(),
+    set: (path, value) => handle(path).set(value),
+    handle,
     scanOf: (body) => () => {
       locals.splice(0, locals.length, ...(pou.locals ?? []).map((s) => instantiate(s.type, s.init, layouts)))
       machine.block(body)

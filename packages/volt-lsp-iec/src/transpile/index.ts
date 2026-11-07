@@ -51,6 +51,6 @@ export {
   type ParsedFile,
   type TaskFile,
 } from "./lower/index.js"
-export { type ApplicationRunner, LoopGuardError, run, runApplication, type Runner, RunnerValueError } from "./interp/index.js"
+export { type ApplicationRunner, LoopGuardError, run, runApplication, type Runner, type RunnerHandle, RunnerValueError } from "./interp/index.js"
 export { emitRust, type Emitted, rustType } from "./emit/rust/index.js"
 export { load, lowerAndEmit } from "./pipeline/index.js"
