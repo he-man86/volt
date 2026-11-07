@@ -79,7 +79,7 @@ namespace Volt.Relay
         public const string CancelTimeout = "timeout";
         public const string CancelCallerGone = "caller_gone";
 
-        public static string Hello(string? voltVersion, string vendor, string pipe)
+        public static string Hello(string? voltVersion, string vendor, string pipe, RelayLastDrop? lastDrop = null)
         {
             using (var stream = new System.IO.MemoryStream())
             {
@@ -98,6 +98,18 @@ namespace Volt.Relay
                     w.WriteNumber("maxBytes", ChunkAssembly.MaxBytes);
                     w.WriteBoolean("ack", true);
                     w.WriteEndObject();
+                    // How the previous connection ended (openspec relay-last-drop-cause), on every connection after the
+                    // first. A relay that does not read it ignores it, as it ignores every hello member it does not know.
+                    if (lastDrop != null)
+                    {
+                        w.WriteStartObject("lastDrop");
+                        w.WriteString("cause", lastDrop.Cause);
+                        if (lastDrop.AgeS is int age) w.WriteNumber("ageS", age); else w.WriteNull("ageS");
+                        if (lastDrop.SilentS is int silent) w.WriteNumber("silentS", silent); else w.WriteNull("silentS");
+                        w.WriteNumber("inFlight", lastDrop.InFlight);
+                        w.WriteNumber("dialMs", lastDrop.DialMs);
+                        w.WriteEndObject();
+                    }
                     w.WriteEndObject();
                     w.WriteEndObject();
                 }
@@ -256,5 +268,34 @@ namespace Volt.Relay
                 };
             }
         }
+    }
+}
+
+namespace Volt.Relay
+{
+    /// <summary>How the previous connection ended, for the next <c>hello</c> (openspec relay-last-drop-cause).
+    /// <see cref="Cause"/> is a fixed token, never exception text (localized): <c>watchdog_silence</c>, <c>send_stalled</c>,
+    /// <c>chunk_unacked</c>, <c>chunk_send_failed</c>, <c>heartbeat_died</c>, <c>chunk_sender_died</c>,
+    /// <c>relay_close:&lt;status&gt;</c>, <c>dial_timeout</c>, <c>dial_failed:&lt;ExceptionType&gt;</c>,
+    /// <c>no_close:&lt;ExceptionType&gt;</c>, <c>receive_ended</c>. <see cref="AgeS"/> and <see cref="SilentS"/> are null when
+    /// that attempt never connected. <see cref="DialMs"/> is what the redial that carries it took.</summary>
+    public sealed class RelayLastDrop
+    {
+        public RelayLastDrop(string cause, int? ageS, int? silentS, int inFlight, long dialMs)
+        {
+            Cause = cause;
+            AgeS = ageS;
+            SilentS = silentS;
+            InFlight = inFlight;
+            DialMs = dialMs;
+        }
+
+        public string Cause { get; }
+        public int? AgeS { get; }
+        public int? SilentS { get; }
+        public int InFlight { get; }
+        public long DialMs { get; }
+
+        public RelayLastDrop WithDialMs(long dialMs) => new RelayLastDrop(Cause, AgeS, SilentS, InFlight, dialMs);
     }
 }

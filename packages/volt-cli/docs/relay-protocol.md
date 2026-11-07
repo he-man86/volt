@@ -62,11 +62,42 @@ The bridge's first frame, before any response frame:
 | `vendor` | `codesys` or `twincat`. |
 | `pipe` | The local pipe this tunnel serves. Diagnostic: it identifies WHICH IDE on a machine with several. |
 | `chunks` | What the bridge takes as a chunked request: messages of at most `maxBytes` bytes, each acked (see [Chunks](#chunks)). |
+| `lastDrop` | On every connection after the bridge's first: how the previous connection (or dial) ended. Absent on the first. See below. |
 
 There is **no negotiation**, and no acknowledgement of `hello`. A relay that will not serve this bridge (for
 example because it does not speak `protocol`) closes the socket with **1008 and a reason**; see
 [Closing a bridge](#closing-a-bridge). A 1008 whose reason contains `protocol` is a protocol refusal: that substring
 is the contract.
+
+`lastDrop` is `{ "cause", "ageS", "silentS", "inFlight", "dialMs" }`:
+
+```json
+"lastDrop": { "cause": "watchdog_silence", "ageS": 1290, "silentS": 26, "inFlight": 1, "dialMs": 1700 }
+```
+
+| member | meaning |
+| --- | --- |
+| `cause` | A fixed token, never exception text (which is localized). |
+| `ageS` | Seconds the previous connection was open; `null` when it never connected. |
+| `silentS` | Seconds since its last frame from the relay when it ended; `null` when it never connected. |
+| `inFlight` | Requests it abandoned. |
+| `dialMs` | What the dial of THIS connection took. |
+
+| `cause` | the previous connection ended because |
+| --- | --- |
+| `watchdog_silence` | no relay frame for the silence limit (25 s) |
+| `send_stalled` | a frame did not go out within the silence limit |
+| `chunk_unacked` | a chunk was not acked within the silence limit |
+| `chunk_send_failed` | a chunk could not be sent |
+| `heartbeat_died` | the bridge's heartbeat failed |
+| `chunk_sender_died` | the bridge's chunk sender failed |
+| `relay_close:<status>` | the relay closed it with that status (`no_status` when the close carried none) |
+| `no_close:<ExceptionType>` | it dropped without a close; the socket raised that exception type |
+| `dial_timeout` | the dial did not complete within the silence limit |
+| `dial_failed:<ExceptionType>` | the dial failed with that exception type |
+| `receive_ended` | the receive loop ended with no close and no exception |
+
+A relay ignores `lastDrop` unless it reads it, as it ignores every `hello` member it does not know.
 
 `hello` is sent once per connection, including after every reconnect. It is **not** re-sent when the served
 project changes; ask `health` for that. One source of truth.

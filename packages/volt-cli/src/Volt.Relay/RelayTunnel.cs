@@ -65,6 +65,9 @@ namespace Volt.Relay
         // The connection being served (or dialed): what its end line reports, and its socket while it is open. Replaced
         // per dial on the reconnect loop's own flow; the heartbeat writes only its DropCause.
         private Connection? _connection;
+        // How the previous connection ended, for the next hello (openspec relay-last-drop-cause). Null before the first
+        // connection has ended. Written and read only on the reconnect loop's own async flow.
+        private RelayLastDrop? _lastDrop;
         private Task? _loop;
         /// <summary>Awaited, with the request's id, after the tunnel has taken a request and before its pipe call starts.
         /// Null in every real bridge. A test sets it to hold a request QUEUED — the state that window is — long enough to
@@ -82,6 +85,11 @@ namespace Volt.Relay
             // Set by the heartbeat when IT drops the socket, so the end line names the watchdog or the dead
             // heartbeat rather than the receive exception the drop causes.
             public volatile string? DropCause;
+            // The same drop as a fixed token, for the next hello's lastDrop (openspec relay-last-drop-cause): set with
+            // DropCause, and never exception text.
+            public volatile string? DropToken;
+            // What this connection's dial took, for its own hello's lastDrop.
+            public long DialMs;
             // Chunking (openspec relay-chunked-results): set by the connection's announcement, whenever it comes, and never
             // carried to the next connection. The largest message this bridge sends (RelayChunks.MessageBytes); 0 = whole
             // frames. SawFrame: the first relay frame has been seen, so "no announcement yet" is logged once.
@@ -273,6 +281,7 @@ namespace Volt.Relay
                         cause = "could not connect (" + ended.GetType().Name + "): " + ended.Message;
                     else cause = "dropped without a close (" + ended.GetType().Name + "): " + ended.Message;
                 }
+                _lastDrop = LastDrop(conn, close, ended);
 
                 // Jittered, because every bridge pointed at one relay would otherwise redial in lockstep after
                 // that relay restarts and arrive as a thundering herd.
@@ -282,6 +291,23 @@ namespace Volt.Relay
                 try { await _delay(wait, stopping).ConfigureAwait(false); }
                 catch (OperationCanceledException) { return; }
             }
+        }
+
+        /// <summary>How <paramref name="conn"/> ended, as the next hello states it: the branches of the end line's cause, in
+        /// its order, each a fixed token. A connection that never connected has no age and no silence (null, stated).</summary>
+        private RelayLastDrop LastDrop(Connection conn, RelayClose? close, Exception? ended)
+        {
+            string token;
+            if (close != null)
+                token = "relay_close:" + (close.Status.HasValue ? close.Status.Value.ToString(CultureInfo.InvariantCulture) : "no_status");
+            else if (conn.DropToken != null) token = conn.DropToken;
+            else if (ended == null) token = "receive_ended";
+            else if (conn.ConnectedUtc == null) token = "dial_failed:" + ended.GetType().Name;
+            else token = "no_close:" + ended.GetType().Name;
+            var now = DateTime.UtcNow;
+            int? age = conn.ConnectedUtc is DateTime connected ? (int)(now - connected).TotalSeconds : (int?)null;
+            int? silent = conn.ConnectedUtc != null ? (int)(now - _lastInboundUtc).TotalSeconds : (int?)null;
+            return new RelayLastDrop(token, age, silent, conn.InFlightAtEnd.Length, 0);
         }
 
         /// <summary>The one line an engineer reads when the relay turns their bridge away. It names the relay's
@@ -325,12 +351,14 @@ namespace Volt.Relay
             using (var socket = _socketFactory())
             {
                 conn.Socket = socket;
-                await DialAsync(socket, stopping).ConfigureAwait(false);
+                var dialClock = Stopwatch.StartNew();
+                await DialAsync(socket, conn, stopping).ConfigureAwait(false);
+                conn.DialMs = dialClock.ElapsedMilliseconds;
                 // The socket is open; the relay has accepted nothing yet. "connected" is logged on its first frame.
                 conn.ConnectedUtc = DateTime.UtcNow;
 
                 _lastInboundUtc = DateTime.UtcNow;
-                await SendAsync(RelayFrames.Hello(_voltVersion, _vendor, _pipeName), stopping).ConfigureAwait(false);
+                await SendAsync(RelayFrames.Hello(_voltVersion, _vendor, _pipeName, _lastDrop?.WithDialMs(conn.DialMs)), stopping).ConfigureAwait(false);
 
                 using (var connectionDead = CancellationTokenSource.CreateLinkedTokenSource(stopping))
                 {
@@ -364,7 +392,7 @@ namespace Volt.Relay
         /// <summary>The dial, bounded by the silence limit. A path that takes the TCP connection and never answers the
         /// upgrade leaves a platform dial pending for ever, and no heartbeat runs yet to notice: the bridge would stay off
         /// the relay until its process restarts, the path long healed.</summary>
-        private async Task DialAsync(IRelaySocket socket, CancellationToken stopping)
+        private async Task DialAsync(IRelaySocket socket, Connection conn, CancellationToken stopping)
         {
             var dial = socket.ConnectAsync(new Uri(_config.Url), _config.Token, stopping);
             using (var bound = CancellationTokenSource.CreateLinkedTokenSource(stopping))
@@ -377,6 +405,7 @@ namespace Volt.Relay
                     // Observed, so the abort's fault on the pending dial is not an unobserved exception.
                     _ = dial.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
                     try { socket.Abort(); } catch { /* going anyway */ }
+                    conn.DropToken = "dial_timeout";
                     throw new TimeoutException("the upgrade did not complete within " +
                         _silenceLimit.TotalSeconds.ToString(CultureInfo.InvariantCulture) + "s");
                 }
@@ -764,7 +793,7 @@ namespace Volt.Relay
             {
                 Log(VoltLogLevel.Error, "relay: the heartbeat died — " + ex);
                 var conn = _connection;
-                if (conn != null) conn.DropCause = "the heartbeat died (" + ex.GetType().Name + "): " + ex.Message;
+                if (conn != null) { conn.DropCause = "the heartbeat died (" + ex.GetType().Name + "): " + ex.Message; conn.DropToken = "heartbeat_died"; }
                 // Take the socket with it. A connection with no heartbeat is not a connection; dropping it
                 // forces the reconnect that gets us a working one.
                 var socket = conn?.Socket;
@@ -801,7 +830,7 @@ namespace Volt.Relay
                 {
                     Log(VoltLogLevel.Warn, "relay: no frame for " + (int)_silenceLimit.TotalSeconds + "s — dropping the socket");
                     var conn = _connection;
-                    if (conn != null) conn.DropCause = "the watchdog dropped it (no frame for " + (int)_silenceLimit.TotalSeconds + "s)";
+                    if (conn != null) { conn.DropCause = "the watchdog dropped it (no frame for " + (int)_silenceLimit.TotalSeconds + "s)"; conn.DropToken = "watchdog_silence"; }
                     var socket = conn?.Socket;
                     if (socket != null) { try { socket.Abort(); } catch { /* going anyway */ } }
                     return;
@@ -818,6 +847,7 @@ namespace Volt.Relay
                     Log(VoltLogLevel.Warn, "relay: chunk " + stalled.Seq + " of " + stalled.Id + " was not acked within " + within +
                         " — the relay stopped acking; dropping the socket");
                     stalledConn!.DropCause = "a chunk was not acked (chunk " + stalled.Seq + " of " + stalled.Id + " within " + within + ")";
+                    stalledConn.DropToken = "chunk_unacked";
                     var socket = stalledConn.Socket;
                     if (socket != null) { try { socket.Abort(); } catch { /* going anyway */ } }
                     return;
@@ -863,6 +893,7 @@ namespace Volt.Relay
                                       _silenceLimit.TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture) + "s";
                         Log(VoltLogLevel.Warn, "relay: " + stalled + " — the connection to the relay stalls; dropping it");
                         sentOn.DropCause = "a send stalled (" + stalled + ")";
+                        sentOn.DropToken = "send_stalled";
                         // Observed, so the abort's fault on the pending send is not an unobserved exception.
                         _ = send.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
                         try { socket.Abort(); } catch { /* going anyway */ }
@@ -909,6 +940,7 @@ namespace Volt.Relay
                                 Log(VoltLogLevel.Warn, "relay: chunk " + chunk.Seq + " of " + chunk.Id + " could not be sent (" +
                                     ex.GetType().Name + ": " + ex.Message + ") — the relay cannot complete " + chunk.Id + "; dropping the socket");
                                 conn.DropCause = "a chunk could not be sent (chunk " + chunk.Seq + " of " + chunk.Id + ": " + ex.GetType().Name + ")";
+                                conn.DropToken = "chunk_send_failed";
                                 var socket = conn.Socket;
                                 if (socket != null) { try { socket.Abort(); } catch { /* going anyway */ } }
                             }
@@ -923,6 +955,7 @@ namespace Volt.Relay
                 // Like the heartbeat: a dead sender would leave every chunked answer waiting for ever, unseen.
                 Log(VoltLogLevel.Error, "relay: the chunk sender died — " + ex);
                 conn.DropCause = "the chunk sender died (" + ex.GetType().Name + "): " + ex.Message;
+                conn.DropToken = "chunk_sender_died";
                 var socket = conn.Socket;
                 if (socket != null) { try { socket.Abort(); } catch { /* going anyway */ } }
             }
