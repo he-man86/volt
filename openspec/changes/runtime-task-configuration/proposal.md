@@ -17,6 +17,6 @@ Today the TypeScript side (`volt-lsp-iec`) reads `.task` only for reachability r
 - Event, freewheeling and external-event task types are parsed and written, but only Cyclic runs, until the host asks for more.
 - No change to the C# format or the bridge.
 
-## Question for volt (from Sim-Assist, owner leaning the same way)
+## Decided
 
-Sim-Assist proposes that the scheduler stays in the host, and volt's contract stays at the format, the diagnostics, `runTask(name)` and the task facts. The scheduler's clock is the host's: Sim-Assist runs the PLC in a worker locked to the sim's 20 ms tick, with pause, step and Reset. A future volt runtime (Rust, or on a real target) would have its own clock and scheduler anyway, so a TS scheduler in volt would serve one host only. Watchdog semantics are CODESYS's (a trip after `sensitivity` consecutive cycles over `time`), so both hosts agree on meaning without sharing code. Does volt agree, or does it see a reason the scheduling order (priority, overlap, IO update per task) must be in volt so both hosts behave the same?
+The scheduler stays in the host; Volt's contract is the `.task` format, its diagnostics, `runTask(name)` and the task facts (volt, 2026-11-07).

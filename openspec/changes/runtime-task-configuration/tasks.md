@@ -1,7 +1,7 @@
 ## 1. Format
 
-- [ ] 1.1 `readTask` / `writeTask` in `volt-lsp-iec`, ported from `TaskDescriptorFormat.cs` (labels, pad, watchdog spelling, members, refusals)
-- [ ] 1.2 Test: corpus round trip, byte-equal with the C# writer; the refusals by line
+- [x] 1.1 `readTask` / `writeTask` in `volt-lsp-iec`, ported from `TaskDescriptorFormat.cs` (labels, pad, watchdog spelling, members, refusals)
+- [x] 1.2 Test: corpus round trip, byte-equal with the C# writer; the refusals by line
 - [ ] 1.3 Export them in the bundle surface Sim-Assist builds (`scripts/build-volt.mjs` there lists named exports)
 
 ## 2. Diagnostics
