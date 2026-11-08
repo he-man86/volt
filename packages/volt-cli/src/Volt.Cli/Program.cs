@@ -259,7 +259,9 @@ internal static class Program
         if (nodes.Count > 0)
         {
             Console.Error.WriteLine($"warning: the IDE holds {nodes.Count} node(s) whose content volt did not read. Each, and why:");
-            foreach (var n in nodes) Console.Error.WriteLine($"  ? {n.Name}/: {n.Reason}");
+            // one line per reason: a refresh names every library facade unread, and the same reason per line was noise
+            foreach (var g in nodes.GroupBy(n => n.Reason, StringComparer.Ordinal))
+                Console.Error.WriteLine($"  ? {string.Join(", ", g.Select(n => n.Name + "/"))}: {g.Key}");
         }
         if (unwalked.Count > 0)
         {
