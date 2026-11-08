@@ -8,6 +8,8 @@
  *   sio_var_named_type / _case     a variable named after its own FB type (exact case, other case)
  *   sio_user_ton                   a user FB named TON beside the Standard library's
  *   sio_program_global_name        a PROGRAM and a global of the same name
+ *   sio_global_named_fb / _dut     a global named exactly as its own FB / struct type, called and read
+ *   sio_global_int_named_fb / _dut a global INT named as an FB / struct type, beside a variable OF that type
  */
 import type { LanguageTest } from "../../types.js"
 
@@ -124,5 +126,53 @@ export const SCENE_IO_TESTS: readonly LanguageTest[] = [
     plcPrgVar: "k_sio_program_global_name : INT;",
     plcPrgBody: "SioInfeed();\nk_sio_program_global_name := SioInfeed.k;",
     alone: "it declares a PROGRAM and a global both named SioInfeed",
+  },
+  {
+    name: "sio_global_named_fb",
+    pouName: "SioMotor",
+    kind: "function_block",
+    feature: "a global named exactly as its own FB type (`SioMotor : SioMotor;`), called and read from PLC_PRG",
+    fromDoc: doc,
+    source:
+      "FUNCTION_BLOCK SioMotor\nVAR_INPUT\n\tOn : BOOL;\nEND_VAR\nVAR_OUTPUT\n\tRunning : BOOL;\nEND_VAR\nRunning := On;\nEND_FUNCTION_BLOCK\n\nVAR_GLOBAL\n\tSioMotor : SioMotor;\nEND_VAR\n",
+    gvlNames: ["GVL_LANG_sio_global_named_fb"],
+    plcPrgVar: "r_sio_global_named_fb : BOOL;",
+    plcPrgBody: "SioMotor(On := TRUE);\nr_sio_global_named_fb := SioMotor.Running;",
+  },
+  {
+    name: "sio_global_named_dut",
+    pouName: "SioPoint",
+    kind: "dut",
+    feature: "a global named exactly as its own struct type (`SioPoint : SioPoint;`), written and read from PLC_PRG",
+    fromDoc: doc,
+    source: "TYPE SioPoint :\nSTRUCT\n\tx : INT;\n\ty : INT;\nEND_STRUCT\nEND_TYPE\n\nVAR_GLOBAL\n\tSioPoint : SioPoint;\nEND_VAR\n",
+    gvlNames: ["GVL_LANG_sio_global_named_dut"],
+    plcPrgVar: "y_sio_global_named_dut : INT;",
+    plcPrgBody: "SioPoint.x := 4;\nSioPoint.y := SioPoint.x + 1;\ny_sio_global_named_dut := SioPoint.y;",
+  },
+  {
+    name: "sio_global_int_named_fb",
+    pouName: "SioValve",
+    kind: "function_block",
+    feature: "a global INT named as an FB type (`SioValve : INT;`): a variable OF the type called, the global written and read",
+    fromDoc: doc,
+    source:
+      "FUNCTION_BLOCK SioValve\nVAR_INPUT\n\tOpen : BOOL;\nEND_VAR\nVAR_OUTPUT\n\tIsOpen : BOOL;\nEND_VAR\nIsOpen := Open;\nEND_FUNCTION_BLOCK\n\nVAR_GLOBAL\n\tSioValve : INT;\nEND_VAR\n",
+    gvlNames: ["GVL_LANG_sio_global_int_named_fb"],
+    plcPrgVar: "v_sio_global_int_named_fb : SioValve;\n\to_sio_global_int_named_fb : BOOL;\n\tk_sio_global_int_named_fb : INT;",
+    plcPrgBody:
+      "v_sio_global_int_named_fb(Open := TRUE);\no_sio_global_int_named_fb := v_sio_global_int_named_fb.IsOpen;\nSioValve := 5;\nk_sio_global_int_named_fb := SioValve + 1;",
+  },
+  {
+    name: "sio_global_int_named_dut",
+    pouName: "SioPair",
+    kind: "dut",
+    feature: "a global INT named as a struct type (`SioPair : INT;`): a variable OF the type written and read, and the global",
+    fromDoc: doc,
+    source: "TYPE SioPair :\nSTRUCT\n\ta : INT;\n\tb : INT;\nEND_STRUCT\nEND_TYPE\n\nVAR_GLOBAL\n\tSioPair : INT;\nEND_VAR\n",
+    gvlNames: ["GVL_LANG_sio_global_int_named_dut"],
+    plcPrgVar: "p_sio_global_int_named_dut : SioPair;\n\tk_sio_global_int_named_dut : INT;",
+    plcPrgBody:
+      "p_sio_global_int_named_dut.a := 2;\np_sio_global_int_named_dut.b := p_sio_global_int_named_dut.a * 3;\nSioPair := 7;\nk_sio_global_int_named_dut := SioPair + p_sio_global_int_named_dut.b;",
   },
 ]

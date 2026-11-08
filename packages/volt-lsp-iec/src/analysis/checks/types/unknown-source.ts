@@ -90,7 +90,7 @@ export function checkUnknownSource(ctx: CheckContext, out: DiagnosticItem[]): vo
           // conversion, and nothing about structure (`decl_var_access_used`, both vendors 2026-10-01); the measured
           // structure message is over a dereference (`fbcall_this_in_program`: 'THIS^')
           // A POINTER base is no hole of its own: `unresolved-identifier` already said these words of it on this span
-          // (`pointerMemberBases`, `self-not-structured` — a refusal, which is what makes it a hole here); `h.p.x` once.
+          // (`memberlessBases`, `self-not-structured` — a refusal, which is what makes it a hole here); `h.p.x` once.
           if (x.kind === "member" && x.base.kind !== "ident_expr" && hole(x.base, scope) && inferExprType(x.base, scope, ctx.project).kind !== "pointer" && boxMember(x, scope, ctx.project) === undefined) push(ctx.messages.notStructuredVariable(compilerExprText(x.base, metType(scope))), x.base)
           // an operation that passes its operand's type through (NOT, a negation, ABS, ADR) reports its operand as an
           // operator does — measured for a LITERAL hole only (`hole.ts` `passThroughOperand`)

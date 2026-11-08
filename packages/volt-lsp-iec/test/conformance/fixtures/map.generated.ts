@@ -14,20 +14,20 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     3500
- *     refused       2510
+ *     confirmed     3505
+ *     refused       2527
  *     not-lowered    395
  *     lsp-gap         94
  *     diverges         5
  *     unaskable      310
  *
  *   tier                     lowered    clean
- *     decl                   1062     1062
+ *     decl                   1066     1066
  *     arith                  1793     1792
  *     control                 197      184
  *     aggregate               176      176
  *     call                    460      460
- *     indirect                496      495
+ *     indirect                497      496
  *
  *   surviving lints (a lint listed here is work, not policy — 12 allowed ones are named with their reasons)
  *     unreachable_patterns                       9
@@ -54,7 +54,7 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         3923
+ *     agree         3928
  *     disagree         0
  *     not-run        261
  *       not-run: no elementary variable to seed or compare      105
@@ -72,11 +72,11 @@
  *       agree,   5/6 unanswered (the interpreter's loop guard): tr_27_loop_cap_repeat_1000001
  *       agree,   5/6 unanswered (the interpreter's loop guard): tr_27_loop_cap_while_5000000
  *
- *   pedantic — 2385 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *   pedantic — 2386 clippy::pedantic + clippy::perf findings; the ten most frequent
  *     clippy::cast_possible_truncation          985
  *     clippy::cast_sign_loss                    733
  *     clippy::cast_possible_wrap                333
- *     clippy::pub_underscore_fields             141
+ *     clippy::pub_underscore_fields             142
  *     clippy::struct_excessive_bools             75
  *     clippy::cast_precision_loss                31
  *     clippy::single_match_else                  21
@@ -96,7 +96,7 @@
  *     tr_a10_string_to_dint_underscore_sign_edges   10.8
  *     tr_a10_string_to_int_literal_forms            10.8
  *
- *   shape — 2117 distinct emission shapes over 4184 lowered fixtures, 2346 distinct constructs.
+ *   shape — 2122 distinct emission shapes over 4189 lowered fixtures, 2352 distinct constructs.
  *   20 constructs carry a review note (`NOTES`): 39 fixtures are improvable, 24 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  *   Notes per owning task (openspec transpile-restructure; a merged note counts once under each owner of its items;
@@ -5332,6 +5332,10 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   signed_unsigned_comparison: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 5, shape: "1a25ea05d2" },
   signed_unsigned_conversion: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 6.4, shape: "2eccb149f5" },
   sio_conv: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.4, shape: "7c449bf7dc" },
+  sio_global_int_named_dut: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "5c844046d0" },
+  sio_global_int_named_fb: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "2cfe1439c1" },
+  sio_global_named_dut: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 3, shape: "df0b329d2f" },
+  sio_global_named_fb: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "d48cfd14d2" },
   sio_inout_global_fb: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "038251d64a" },
   sio_inout_global_struct: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "831fa66062" },
   sio_lamp: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.4, shape: "bf09e73ef2" },
@@ -5341,6 +5345,24 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   sio_user_ton: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.4, shape: "a8af140a75" },
   sio_var_named_type: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.4, shape: "23df4b3b2b" },
   sio_var_named_type_case: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "23df4b3b2b" },
+  smem_bool_bit: { evidence: "refused" },
+  smem_bool_name: { evidence: "refused" },
+  smem_date_bit: { evidence: "refused" },
+  smem_date_name: { evidence: "refused" },
+  smem_int_name_write: { evidence: "refused" },
+  smem_real_bit: { evidence: "refused" },
+  smem_real_constant_bit: { evidence: "refused" },
+  smem_real_name: { evidence: "refused" },
+  smem_real_name_write: { evidence: "refused" },
+  smem_reference_int_bit: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 3.1, shape: "06ece61bc9" },
+  smem_reference_int_name: { evidence: "refused" },
+  smem_reference_real_bit: { evidence: "refused" },
+  smem_reference_real_name: { evidence: "refused" },
+  smem_reference_word_bit_past: { evidence: "refused" },
+  smem_string_bit: { evidence: "refused" },
+  smem_string_name: { evidence: "refused" },
+  smem_time_bit: { evidence: "refused" },
+  smem_time_name: { evidence: "refused" },
   sn_alias_mismatch_used: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.3, shape: "83234c202b" },
   sn_case_differs_only: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "6c53c8e066" },
   sn_dut_mismatch: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "not-run", size: 1.8, shape: "1cff40fa06", diverges: { codesys: "known", twincat: "known" } },

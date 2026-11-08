@@ -57,20 +57,40 @@ export function resolveMemberChain(expr: Expr, scope: Scope, project: Scope): Sy
   }
 }
 
+/** The type a member is read off: the base's, read through a REFERENCE TO — `r.3` is a bit of the referenced variable
+ *  (`reference_bit_access`), `r.17` past a WORD's width refused as on the WORD (`smem_reference_word_bit_past`). */
+export function memberBaseType(expr: Extract<Expr, { kind: "member" }>, scope: Scope, project: Scope): Type {
+  const t = inferExprType(expr.base, scope, project)
+  return t.kind === "reference" ? t.target : t
+}
+
 /**
  * `i.k` — an integer or bit string read with a member that is no bit index: a name nothing in scope declares (a constant
  * names a bit, `w.cBit`; a digit is one, `w.3`; `%W0` a part). The vendor reads it as a bit access whose base "is no
  * structured variable" and types it BIT: `SioInfeed.k` over an INT global is "'SioInfeed' is no structured variable" and
  * "Cannot convert type 'BIT' to type 'INT'" (`sio_program_global_name`, CODESYS 3.5.21.40; `enum_library_member_vs_project_program`
- * says the same of an enum member). A step of an SFC chart is no such read (`isSfcStepBase`).
+ * says the same of an enum member) — through a REFERENCE TO one too, and written as read (`smem_reference_int_name`,
+ * `smem_int_name_write`). A step of an SFC chart is no such read (`isSfcStepBase`).
  */
 export function isScalarMemberRead(expr: Extract<Expr, { kind: "member" }>, scope: Scope, project: Scope): boolean {
   if (!/^[A-Za-z_]\w*$/.test(expr.member.name)) return false
-  const base = inferExprType(expr.base, scope, project)
+  const base = memberBaseType(expr, scope, project)
   if (base.kind !== "elementary" || base.elem.name === "BIT") return false
   if (base.elem.family !== "int" && base.elem.family !== "bitstring") return false
   if (isSfcStepBase(expr, scope, project)) return false
   return lookup(scope, expr.member.name) === undefined && bareEnumMember(scope, expr.member.name) === undefined
+}
+
+/**
+ * `x.m` off an elementary value that is no integer — a BOOL, a REAL, a TIME, a DATE, a STRING, directly or through a
+ * REFERENCE TO — whatever `m` is (a name, a constant, a digit): "'x' is no structured variable", and the read has no
+ * type ("Cannot convert type 'Unknown type: 'x.foo'' to type 'BOOL'", "'x.foo' is no valid assignment target"), the
+ * `smem_*` fixtures, CODESYS 3.5.21.40. A step of an SFC chart is no such read (`isSfcStepBase`).
+ */
+export function isValueMemberRead(expr: Extract<Expr, { kind: "member" }>, scope: Scope, project: Scope): boolean {
+  const base = memberBaseType(expr, scope, project)
+  if (base.kind !== "elementary" || base.elem.family === "int" || base.elem.family === "bitstring") return false
+  return !isSfcStepBase(expr, scope, project)
 }
 
 /** The member scope of a scoped type (enum, struct, FB, interface, a static base), or undefined. Completion kept a copy. A REFERENCE TO

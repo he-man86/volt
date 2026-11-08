@@ -248,8 +248,86 @@ const REFUSED_ENUM_VALUE_RECOVERY: readonly CeilingException[] = ENUM_VALUE_WORD
   },
 )
 
+/** Where the TwinCAT half of the 2026-11-08 member fixtures is tracked. */
+const TWINCAT_SCALAR_MEMBERS =
+  "a TwinCAT recording of fixtures/names/scalar-members.ts and calls/scene-io.ts (record:language on TwinCAT; the 2026-11-08 batch measured CODESYS only)"
+
+/**
+ * `bitAccessNonInteger` (2026-11-08): "Biaccess is only possible on integer types", measured on CODESYS 3.5.21.40 alone
+ * (`fixtures/names/scalar-members.ts`, `smem_*_bit`) — no TwinCAT recording holds those fixtures yet, so on TwinCAT the
+ * builder fires on nothing. New ground, not a regression.
+ */
+const BIT_ACCESS_NON_INTEGER: readonly CeilingException[] = (
+  [
+    ["fixtures.twincat", "group types: never-fired builders"],
+    ["fixtures.twincat", "total: never-fired builders"],
+    ["coverage", "builders with 0 TP on twincat"],
+  ] as const
+).map(([baseline, measure]) => ({
+  baseline,
+  measure,
+  by: 1,
+  fixture: "smem_real_bit",
+  task: TWINCAT_SCALAR_MEMBERS,
+  why: "a builder measured on CODESYS only fires on no TwinCAT recording",
+}))
+
+/**
+ * …and the front-end dumps over the same fixtures (and `sio_program_global_name`, the same shape): on TwinCAT nothing
+ * recorded says the member read is refused, so each unbound or untyped member is a finding there; on CODESYS three are
+ * untyped where the vendor names no unknown type — a bit access through a REFERENCE (`x.0`, as every bit access, by
+ * design: `call-arguments` `isBitAccess`), one past the width (`x.17`) and a member written as a target (`x.foo :=`).
+ */
+const SCALAR_MEMBER_READS = ["bool", "date", "real", "reference_real", "string", "time"].flatMap((t) => [`smem_${t}_name`, `smem_${t}_bit`])
+const SCALAR_MEMBER_DUMPS: readonly CeilingException[] = [
+  ...["sio_program_global_name", "smem_int_name_write", "smem_real_constant_bit", "smem_real_name_write", "smem_reference_int_name"]
+    .concat(SCALAR_MEMBER_READS.filter((f) => f.endsWith("_name")))
+    .flatMap((fixture) =>
+      (["findings", "fixtures twincat: member NONE"] as const).map((measure) => ({
+        baseline: "resolution-dump",
+        measure,
+        by: 1,
+        fixture,
+        task: TWINCAT_SCALAR_MEMBERS,
+        why: "a member read off a value with no members, refused on CODESYS, unrecorded on TwinCAT",
+      })),
+    ),
+  ...[...SCALAR_MEMBER_READS, "smem_real_constant_bit", "smem_real_name_write", "smem_reference_int_bit", "smem_reference_word_bit_past"].map((fixture) => ({
+    baseline: "type-dump",
+    measure: "fixtures twincat: member UNKNOWN",
+    by: 1,
+    fixture,
+    task: TWINCAT_SCALAR_MEMBERS,
+    why: "a member read off a value with no members (or a bit access, untyped by design), unrecorded on TwinCAT",
+  })),
+  {
+    baseline: "type-dump",
+    measure: "fixtures twincat: call UNKNOWN",
+    by: 1,
+    fixture: "sio_program_global_name",
+    task: TWINCAT_SCALAR_MEMBERS,
+    why: "`SioInfeed()` where a global INT shares a PROGRAM's name — no call target on CODESYS, unrecorded on TwinCAT",
+  },
+  ...(
+    [
+      ["smem_reference_int_bit", "`x.0` through a REFERENCE TO INT: a bit access, untyped by design (`call-arguments` `isBitAccess`)"],
+      ["smem_reference_word_bit_past", "`x.17` past a WORD through a REFERENCE: a bit access, untyped by design; the vendor names no unknown type"],
+      ["smem_real_name_write", "`x.foo :=` into a REAL: the vendor says no valid assignment target, and names no unknown type"],
+    ] as const
+  ).map(([fixture, why]) => ({
+    baseline: "type-dump",
+    measure: "fixtures codesys: member UNKNOWN",
+    by: 1,
+    fixture,
+    task: "the front-end's types of bit accesses and refused targets (as `reference_bit_access`, part B)",
+    why,
+  })),
+]
+
 export const CEILING_EXCEPTIONS_C: readonly CeilingException[] = [
   ...REFUSED_ENUM_VALUE_RECOVERY,
+  ...BIT_ACCESS_NON_INTEGER,
+  ...SCALAR_MEMBER_DUMPS,
   // a LIBRARY function's box read through its namespace with ENO on TwinCAT: "Program name, function or function block
   // instance expected instead of 'Standard.LEN'" + "Identifier 'Standard' not defined" — CODESYS's namespace on TwinCAT
   {

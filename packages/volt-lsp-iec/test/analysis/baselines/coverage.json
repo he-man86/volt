@@ -3,14 +3,15 @@
     "builders with 0 TP on both vendors": 3,
     "builders with 0 TP on codesys": 4,
     "builders with 0 TP on codesys only": 1,
-    "builders with 0 TP on twincat": 27,
-    "builders with 0 TP on twincat only": 24,
+    "builders with 0 TP on twincat": 28,
+    "builders with 0 TP on twincat only": 25,
     "checks firing on 0 fixtures": 0
   },
   "findings": [
     "builder abstractAssignTarget: 0 TP on twincat (called by checkAbstractAssign)",
     "builder abstractKeywordMissing: 0 TP on twincat (called by checkPragmas)",
     "builder attributeOnlyOnVariables: 0 TP on twincat (called by checkPragmas)",
+    "builder bitAccessNonInteger: 0 TP on twincat (called by checkBitNumber)",
     "builder boundsNeedVariableLength: 0 TP on codesys (called by checkIntrinsicOperands)",
     "builder defaultNotConstant: 0 TP on twincat (called by checkConstantContext)",
     "builder defaultOutputUnused: 0 TP on twincat (called by checkAbstractOutputDefault)",

@@ -51,6 +51,9 @@ export interface TypeMessages {
   refAssignCannotConvert(from: string, to: string): string
   /** Bit access on a function-call result (C0061). verified both vendors. */
   bitAccessOnCall(): string
+  /** A bit number off an elementary value that is no integer, `r.0` with `r : REAL` — the vendor's spelling, "Biaccess"
+   *  (`smem_*_bit`, CODESYS 3.5.21.40; TwinCAT unrecorded). */
+  bitAccessNonInteger(): string
   /** A pointer indexed with a count other than 1 (C0126). verified both vendors. */
   pointerIndexArity(type: string): string
   /** An array indexed with the wrong number of indices (C0048). verified both vendors. */
@@ -101,6 +104,7 @@ export function typeMessages({ tc }: VendorWording): TypeMessages {
     compareNotPossibleTwo: (left, right) => `Compare not possible on objects of type '${left}' or '${right}'`,
     refAssignCannotConvert: (from, to) => (tc ? `Cannot convert type '${to}' to type '${from}'` : `Cannot convert type '${from}' to type '${to}'`),
     bitAccessOnCall: () => (tc ? `Bitaccess on function call is not allowed` : `Bit access on function call is not allowed`),
+    bitAccessNonInteger: () => `Biaccess is only possible on integer types`,
     pointerIndexArity: (type) => `Variable of type '${type}' requires exactly 1 Index`,
     arrayIndexCount: (dims) => `Array requires exactly ${dims} indexes`,
     referenceAssignWriteAccess: () => `Reference assign needs variable with write access`,

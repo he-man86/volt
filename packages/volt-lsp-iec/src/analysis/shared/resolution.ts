@@ -16,7 +16,7 @@
  */
 import { compilerTypeText, walkExpr, type CallExpr, type Expr, type Identifier, type MemberExpr, type Span, type TypeExpr } from "../../frontend/syntax/index.js"
 import { gvlBlockOf, hasUnresolvedBase, isLibrarySymbol, lookupLocal, lookupMember, resolveGvlMember, rootOf, type Scope, type Symbol } from "../../frontend/symbols/index.js"
-import { ANY_FAMILIES, boxMember, builtinName, GENERIC_PARAMETER_TYPES, inferExprType, isDialectType, isScalarMemberRead, isSfcStepBase, resolveBareName, sfcStepTypeScope } from "../../frontend/types/index.js"
+import { ANY_FAMILIES, boxMember, builtinName, GENERIC_PARAMETER_TYPES, inferExprType, isDialectType, isScalarMemberRead, isSfcStepBase, isValueMemberRead, resolveBareName, sfcStepTypeScope } from "../../frontend/types/index.js"
 
 
 interface BareRef {
@@ -197,17 +197,19 @@ function checkMember(m: MemberExpr, scope: Scope, project: Scope): MemberRef | u
 }
 
 /**
- * The bases of member accesses `p.x` in `exprs` that are a POINTER, read without its `^` — "'p' is no structured
- * variable" on both vendors, the access then a hole (rule M3, `mem_pointer_member_without_deref`, 2026-10-02). A
- * pointer has no members of its own; `p^.x` is the target's.
+ * The bases of member accesses `x.m` in `exprs` that have no members: a POINTER read without its `^` — "'p' is no
+ * structured variable" on both vendors, the access then a hole (rule M3, `mem_pointer_member_without_deref`, 2026-10-02); a
+ * pointer has no members of its own, `p^.x` is the target's — and an elementary value that is no integer (`types`
+ * `isValueMemberRead`), the same words and a hole (the `smem_*` fixtures, CODESYS 3.5.21.40).
  */
-export function pointerMemberBases(exprs: Iterable<Expr>, scope: Scope, project: Scope): Expr[] {
+export function memberlessBases(exprs: Iterable<Expr>, scope: Scope, project: Scope): Expr[] {
   const out: Expr[] = []
   for (const e of exprs)
     walkExpr(e, (x) => {
       // …but not a STEP's name: D40 bets a variable of a type with no members of its own, a pointer's included, the step of
       // its POU's chart when read with a member in an SFC POU (`types/infer/sfc-step`) — as every other check then reads it
-      if (x.kind === "member" && inferExprType(x.base, scope, project).kind === "pointer" && !isSfcStepBase(x, scope, project)) out.push(x.base)
+      if (x.kind !== "member") return
+      if ((inferExprType(x.base, scope, project).kind === "pointer" && !isSfcStepBase(x, scope, project)) || (boxMember(x, scope, project) === undefined && isValueMemberRead(x, scope, project))) out.push(x.base)
     })
   return out
 }

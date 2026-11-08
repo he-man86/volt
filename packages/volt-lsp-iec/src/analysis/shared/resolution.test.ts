@@ -36,3 +36,35 @@ test("an integer read with a member nothing declares is no structured variable; 
   expect(said("b := w.c;")).toEqual([])
   expect(said("b := w.3;")).toEqual([])
 })
+
+// `names/scalar-members.ts`, CODESYS 3.5.21.40: a member read through a REFERENCE TO an integer is the integer's; off any
+// other elementary value — a REAL, a STRING, a TIME, a BOOL, a DATE, directly or through a REFERENCE TO — it is no
+// structured variable AND has no type, whatever the member; a bit number there is also "Biaccess is only possible on
+// integer types" (the vendor's spelling).
+const value = (decl: string, body: string) =>
+  diag(fb(`VAR\n${decl}\n\tout : BOOL;\nEND_VAR\nVAR CONSTANT\n\tc : INT := 0;\nEND_VAR\n${body}`))
+    .filter((d) => d.severity === "error")
+    .map((d) => d.message)
+    .sort()
+
+test("a REFERENCE TO an integer read with a member nothing declares is the integer's: no structured variable, a BIT", () => {
+  expect(value("\tv : INT;\n\tx : REFERENCE TO INT;", "out := x.foo;")).toEqual(["'x' is no structured variable"])
+  expect(value("\tv : INT;\n\tx : REFERENCE TO INT;", "out := x.0;")).toEqual([])
+  expect(value("\tx : INT;", "x.foo := TRUE;")).toEqual(["'x' is no structured variable"])
+})
+
+test.each([["REAL"], ["STRING"], ["TIME"], ["BOOL"], ["DATE"], ["REFERENCE TO REAL"]])("a member read off a %s is no structured variable and has no type", (t) => {
+  expect(value(`\tx : ${t};`, "out := x.foo;")).toEqual(["'x' is no structured variable", "Cannot convert type 'Unknown type: 'x.foo'' to type 'BOOL'"].sort())
+  expect(value(`\tx : ${t};`, "out := x.c;")).toEqual(["'x' is no structured variable", "Cannot convert type 'Unknown type: 'x.c'' to type 'BOOL'"].sort())
+  expect(value(`\tx : ${t};`, "out := x.0;")).toEqual(
+    ["'x' is no structured variable", "Biaccess is only possible on integer types", "Cannot convert type 'Unknown type: 'x.0'' to type 'BOOL'"].sort(),
+  )
+})
+
+test("a member written into a REAL is no structured variable and no valid assignment target", () => {
+  expect(value("\tx : REAL;", "x.foo := TRUE;")).toEqual(["'x' is no structured variable", "'x.foo' is no valid assignment target"].sort())
+})
+
+test("a bit number past the width is refused through a REFERENCE TO as on the variable", () => {
+  expect(value("\tv : WORD;\n\tx : REFERENCE TO WORD;", "out := x.17;")).toEqual(["'17' is no valid bit number for 'x'"])
+})

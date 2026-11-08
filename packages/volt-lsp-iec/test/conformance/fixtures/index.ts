@@ -140,6 +140,7 @@ import { OBJECT_NAME_TESTS } from "./names/object-names.js"
 import { UNICODE_IDENTIFIERS_OFF_TESTS } from "./names/unicode-identifiers-off.js"
 import { LIBRARY_RULE_TESTS } from "./names/libraries.js"
 import { MEMBER_RULE_TESTS } from "./names/members.js"
+import { SCALAR_MEMBER_TESTS } from "./names/scalar-members.js"
 import { SFC_STEP_TESTS } from "./names/sfc-steps.js"
 import { ELEMENTARY_RULE_TESTS } from "./types/elementary-rules.js"
 import { LITERAL_CONTEXT_TESTS } from "./types/literal-contexts.js"
@@ -314,6 +315,7 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "names-word-positions", tests: WORD_POSITION_TESTS },
   { name: "names-libraries", tests: LIBRARY_RULE_TESTS },
   { name: "names-members", tests: MEMBER_RULE_TESTS },
+  { name: "names-scalar-members", tests: SCALAR_MEMBER_TESTS },
   { name: "names-sfc-steps", tests: SFC_STEP_TESTS },
   { name: "types-elementary-rules", tests: ELEMENTARY_RULE_TESTS },
   { name: "types-literal-contexts", tests: LITERAL_CONTEXT_TESTS },
