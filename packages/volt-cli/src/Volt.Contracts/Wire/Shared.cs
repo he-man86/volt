@@ -74,7 +74,9 @@ public abstract class ReadResponse
     /// <summary>Tree nodes the walk FOUND that have no file and hold what it did not read — normally empty. Each is
     /// named by its node path, <c>&lt;folder&gt;/&lt;name&gt;</c>: a container holding a setting no text spells (a
     /// Library Manager, an application's compiler defines), or an object whose kind the IDE could not state — then
-    /// its folder and its own subtree are in <see cref="UnwalkedFolders"/>.</summary>
+    /// its folder and its own subtree are in <see cref="UnwalkedFolders"/>. On a fetch that refreshes the libraries it
+    /// also names each referenced library none of whose signatures the IDE returned (its folder): not read, so the
+    /// client keeps that folder as it stands rather than read the absence as every element gone.</summary>
     [JsonPropertyName("unreadableNodes")]
     public List<UnreadableNode> UnreadableNodes { get; set; } = new();
 

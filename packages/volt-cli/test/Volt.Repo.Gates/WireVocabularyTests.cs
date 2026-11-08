@@ -166,6 +166,7 @@ public class WireVocabularyTests
             ("Volt.Engine/Ide/MemberWithoutDeclarationException.cs", 1),   // a member with no declaration (MemberSites, both drivers): its own type carries the push's delete-then-create advice (3c review 2)
             ("Volt.Engine/Sync/TreeLookup.cs", 2),   // moved from Ide/ItemLookup (volt-cli-rework step 5); +1 Read maps a driver's UNREADABLE to the folder's ITEM_UNVERIFIED (3c review 1)
             ("Volt.Engine/Sync/Versioning.cs", 1),   // the code an `unreadable` entry carries when its materialize failed uncoded (wire-final-shape §4)
+            ("Volt.Engine/Library/LibraryFetch.cs", 1),   // an `unreadableNodes` entry's code: a referenced library no extracted signature belongs to (not precompiled yet), kept rather than read as empty
             ("Volt.Ide.Codesys/Driver/CodesysDriver.Tree.cs", 4),   // wire-final-shape §4: an unreadable entry's code — a kind, a folder's properties, the library manager, a library reference the IDE did not answer
             ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Tree.cs", 3),   // wire-final-shape §4: an unreadable entry's code — an item C2i must not open, a kind, a folder's Exclude property (a read-only one too: the read refuses it, twincat-readonly-build-properties)
             ("Volt.Engine/Sync/PushConflicts.cs", 2),

@@ -287,6 +287,25 @@ internal static class LibraryFetch
             ?? refs.Select(r => r.WalkedFolder).FirstOrDefault(f => f.Length > 0) ?? "",
             LibraryLayout.UnresolvedFolder);
 
+    /// <summary>The walked refs NO extracted signature is claimed by — named by their node path (the library's folder),
+    /// for the wire's <c>unreadableNodes</c>. The IDE answers the signatures it has (CODESYS: the set it has PRECOMPILED,
+    /// DIALECT C37d, which a cold IDE still precompiling holds in part), so a library absent from that set is a library
+    /// this read did not read — not one with no elements, which a refresh would ship as an empty folder and the client
+    /// apply as the deletion of every signature it holds there. A ref that claims a signature someone else owns (one
+    /// RESOLUTION, two refs) or that is claimed ambiguously WAS read.</summary>
+    internal static List<UnreadableNode> UnreadLibraries(IReadOnlyList<LibraryRef> refs, IReadOnlyList<LibSignature> sigs)
+    {
+        var matcher = LibraryMatcher.Over(refs, sigs);
+        var read = new HashSet<LibraryRef>(sigs.SelectMany(s => matcher.For(LibraryMatcher.Key(s)).Claimants));
+        return refs.Where(r => !read.Contains(r))
+            .Select(r => r.Folder).Distinct(StringComparer.Ordinal)
+            .Select(f => new UnreadableNode(f, BridgeErrorCodes.Unreadable,
+                "no signature the IDE returned belongs to this library, so its elements were not read (CODESYS: it is " +
+                "not precompiled yet, or it publishes its elements under another library's path); the library files " +
+                "held for it are kept as they are"))
+            .ToList();
+    }
+
     internal static readonly string LibraryExt = "." + ItemKind.ExtFor(ItemKind.Kinds.Library);
 
     internal static readonly Regex ResolutionLine = new Regex(@"^RESOLUTION (.+)$", RegexOptions.Multiline);

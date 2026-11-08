@@ -195,6 +195,13 @@ public static class FetchService
             : LibraryFetch.AppendAll(libSigs, libRefs, changed, onProgress, done, total);
         var librarySignatures = changed.Count - projectChanged; // read-only library API files, written beside each .library
 
+        // A refresh ships each library folder as COMPLETE, so a library no extracted signature belongs to — not yet
+        // precompiled on a cold CODESYS (DIALECT C37d) — is named UNREAD by its node path, and the client keeps its folder
+        // as it stands instead of reading the absence as "every element gone".
+        var unreadNodes = librariesRefreshed
+            ? ProjectSnapshot.WireOrder(snap.UnreadableNodes.Concat(LibraryFetch.UnreadLibraries(libRefs, libSigs)), u => u.Name, u => u.Reason)
+            : snap.UnreadableNodes;
+
         // "Known to the client, and this walk produced no version for it" — MINUS the items the walk saw and
         // could not read. Absence from the response otherwise carries two meanings the wire cannot separate,
         // "this is gone" and "this defeated the reader", and the response already counts the second in its
@@ -217,7 +224,7 @@ public static class FetchService
                 "removed by this fetch only when the walk found it at another path of its own application (moved): " +
                 "items there were not seen, which is not the same as gone.");
 
-        var drops = Drops(("unreadable", snap.Unreadable.Count),
+        var drops = Drops(("unreadable", snap.Unreadable.Count), ("library-unread", unreadNodes.Count - snap.UnreadableNodes.Count),
                           ("lib-render-null", libRenderNull), ("lib-unmatched", libUnmatched));
         var libClause = librarySignatures > 0 ? $", {librarySignatures} library signatures" : "";
         VoltLog.Debug($"fetch{(isInit ? " init" : "")}: {projectChanged} of {fullVersions.Count} project items changed, {removed.Count} removed{libClause}{drops} ({sw.ElapsedMilliseconds}ms)");
@@ -233,7 +240,7 @@ public static class FetchService
             // so the removal pass does not read "absent" as "deleted") and already counted in the log — naming
             // them on the wire is what makes an item that simply never arrives visible to a client at all.
             Unreadable = snap.Unreadable,
-            UnreadableNodes = snap.UnreadableNodes,
+            UnreadableNodes = unreadNodes,
             // The caveat travels WITH the answer. `removed` above already spares everything under these
             // folders; saying so is what lets a client keep the baseline entries it did not see as well.
             UnwalkedFolders = unwalkedFolders.ToList(),

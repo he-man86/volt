@@ -147,4 +147,35 @@ public class LibrariesRefreshedTests
         Assert.Contains("Library Manager/Standard/Standard.library", resp.Removed);
         Assert.True(resp.LibrariesRefreshed);
     }
+
+    /// <summary>A REFERENCED LIBRARY WITH NO SIGNATURE IN THE EXTRACTED SET IS UNREAD, NOT EMPTY. CODESYS answers the set
+    /// it has precompiled (DIALECT C37d), which on a cold IDE still precompiling can hold one library and not the next.
+    /// A refresh ships each library folder as complete, so a library absent from the set read as one with no elements,
+    /// and the client dropped every signature file it held for it. It is named in <c>unreadableNodes</c> by its node
+    /// path — the client keeps that folder — and the libraries the set does hold still refresh.</summary>
+    [Fact]
+    public void A_library_with_no_extracted_signature_is_named_unread_and_the_others_still_refresh()
+    {
+        var ide = new FakeIde(
+            FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", "x := 1;"),
+            FakeIde.Item.Library("CmpX", "LIBRARY CmpX\nNAMESPACE CmpX\nRESOLUTION CmpX, 1.0.0.0 (System)"),
+            FakeIde.Item.Library("CmpY", "LIBRARY CmpY\nNAMESPACE CmpY\nRESOLUTION CmpY, 1.0.0.0 (System)"))
+        {
+            LibSignatures = new List<Volt.Engine.Library.LibSignature>
+            {
+                new("FX", "cmpx, 1.0.0.0 (system)", "FunctionBlock",
+                    new List<Volt.Engine.Library.LibVar> { new("IN", "BOOL", null) },
+                    new List<Volt.Engine.Library.LibVar>(), new List<Volt.Engine.Library.LibVar>(),
+                    new List<Volt.Engine.Library.LibVar>(), null, null, null, "", null),
+            },
+        };
+
+        var resp = Fetch(ide, new FetchRequest { Init = true });
+
+        Assert.True(resp.LibrariesRefreshed);
+        Assert.Contains(resp.Changed, c => c.Name == "Library Manager/CmpX/FX.pou");
+        var unread = Assert.Single(resp.UnreadableNodes);
+        Assert.Equal("Library Manager/CmpY", unread.Name);
+        Assert.Equal(BridgeErrorCodes.Unreadable, unread.Code);
+    }
 }

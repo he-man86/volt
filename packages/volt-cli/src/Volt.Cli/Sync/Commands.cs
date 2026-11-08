@@ -101,6 +101,7 @@ public static class Commands
 
         // init: there is no previous volt/ide tree to carry anything forward from, so the flag is moot.
         var tree = IdeTree.BuildVoltIdeTree(gitDir, head, null, ideFiles, new List<string>(), fetched.LibrariesRefreshed,
+            fetched.UnreadableNodes.Select(n => n.Name).ToList(),
             (done, total) => progress.Report(1, "Importing objects", done, total));
         var commit = IdeTree.CommitVoltIde(gitDir, tree, head, $"volt: IDE @ {fetched.ProjectVersion}");
         Git.UpdateRef(gitDir, IdeTree.Range, commit);
@@ -388,7 +389,7 @@ public static class Commands
         var parentIde = IdeTree.VoltIdeHead(gitDir);
 
         var tree = IdeTree.BuildVoltIdeTree(gitDir, head, parentIde, ideFiles, fetched.Removed,
-            fetched.LibrariesRefreshed,
+            fetched.LibrariesRefreshed, fetched.UnreadableNodes.Select(n => n.Name).ToList(),
             (done, total) => progress.Report(1, "Importing objects", done, total));
         progress.Enter(2, "Merging");
         var parent = parentIde ?? head;
@@ -716,7 +717,7 @@ public static class Commands
                 // (below) — the order the full path keeps. Merged first, a failure before the ref left HEAD on the IDE's
                 // layout while volt/ide and the baseline were the old ones, and the next push sent that re-layout up as
                 // edits nobody made (step 2 review, round 2).
-                var layoutTree = IdeTree.BuildVoltIdeTree(gitDir, head, head, canonicalFiles, Array.Empty<string>(), librariesRefreshed: false);
+                var layoutTree = IdeTree.BuildVoltIdeTree(gitDir, head, head, canonicalFiles, Array.Empty<string>(), librariesRefreshed: false, unreadNodes: Array.Empty<string>());
                 partialLayout = IdeTree.CommitVoltIde(gitDir, layoutTree, head, $"volt: adopt the IDE's layout @ {resp.NewProjectVersion}");
                 foreach (var item in canonical) adopted[item.Name] = item.Version;
             }
@@ -727,7 +728,7 @@ public static class Commands
                 .Concat(canonicalFiles).ToList();
             var landedRemovals = landedOps.Where(o => o is DeleteItemOp || (o is SetItemOp { To: { } t } && t != o.Name))
                 .Select(o => o.Name).ToList();
-            var tree = IdeTree.BuildVoltIdeTree(gitDir, head, voltHead, landedFiles, landedRemovals, librariesRefreshed: false);
+            var tree = IdeTree.BuildVoltIdeTree(gitDir, head, voltHead, landedFiles, landedRemovals, librariesRefreshed: false, unreadNodes: Array.Empty<string>());
             ideCommit = IdeTree.CommitVoltIde(gitDir, tree, voltHead,
                 $"volt: IDE @ {resp.NewProjectVersion} (the push landed in part: {notLanded.Count} op(s) did not land)");
         }
@@ -748,7 +749,7 @@ public static class Commands
         if (canonical.Count > 0)
         {
             var tree = IdeTree.BuildVoltIdeTree(gitDir, head, head, canonical.SelectMany(Materialize.MaterializeItem).ToList(),
-                                                Array.Empty<string>(), librariesRefreshed: false);
+                                                Array.Empty<string>(), librariesRefreshed: false, unreadNodes: Array.Empty<string>());
             ideCommit = IdeTree.CommitVoltIde(gitDir, tree, head, $"volt: IDE @ {resp.NewProjectVersion} (as the IDE holds the push)");
             // The version of the text adopted, which is the IDE's for exactly that text.
             foreach (var item in canonical) adopted[item.Name] = item.Version;

@@ -31,6 +31,7 @@ public static class IdeTree
         IReadOnlyList<MaterializedFile> ideFiles,
         IReadOnlyList<string> removedPaths,
         bool librariesRefreshed,
+        IReadOnlyCollection<string> unreadNodes,
         Action<int, int>? onBlobs = null)
     {
         var seen = new HashSet<string>();
@@ -65,7 +66,10 @@ public static class IdeTree
         // were immortal and kept resolving in the LSP long after the element was gone.
         // When the fetch SKIPPED the precompile there are no signatures in the response at all, so the folders
         // are carried forward untouched — replacing them then would delete every one of them.
-        bool DroppedLibraryFile(string rel) => librariesRefreshed && UnderLibrary(rel) && !replaced.Contains(rel);
+        // A node the fetch names UNREAD (`unreadableNodes` — a library none of whose signatures the IDE returned) was not
+        // read, so its files' absence is no evidence they are gone: carried forward as they stand.
+        bool Unread(string rel) => unreadNodes.Any(n => rel.StartsWith(n + "/", StringComparison.Ordinal));
+        bool DroppedLibraryFile(string rel) => librariesRefreshed && UnderLibrary(rel) && !replaced.Contains(rel) && !Unread(rel);
 
         // Changed IDE items — fresh content from the fetch, streamed INLINE into git objects (no temp file, no
         // per-file hash-object). Added first so they win the `seen` de-dup over any same-path parent/scaffold entry.

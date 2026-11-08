@@ -71,7 +71,7 @@ internal sealed class ProjectSnapshot
     /// <summary>THE order every read op names both lists in — by name, then reason, ordinally — so refs and fetch
     /// answer one list (environment-dependency-audit 2.5b: with two unreadable items on 3.5.18.30 refs kept the walk's
     /// order and fetch sorted, and a client comparing them saw a disagreement that was not there).</summary>
-    private static List<T> WireOrder<T>(IEnumerable<T> entries, Func<T, string> name, Func<T, string> reason) =>
+    internal static List<T> WireOrder<T>(IEnumerable<T> entries, Func<T, string> name, Func<T, string> reason) =>
         entries.OrderBy(name, StringComparer.Ordinal).ThenBy(reason, StringComparer.Ordinal).ToList();
 
     /// <summary>Folders the driver could not enumerate. Non-empty means "there may be items under here this

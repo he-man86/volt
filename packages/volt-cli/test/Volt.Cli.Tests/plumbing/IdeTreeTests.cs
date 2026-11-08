@@ -47,7 +47,7 @@ public class IdeTreeTests
 
             // The IDE changed only A. B unchanged, C never existed IDE-side.
             var ideFiles = new List<MaterializedFile> { new("A.pou", "ide-A-v2") };
-            var tree = IdeTree.BuildVoltIdeTree(gitDir, head, parent, ideFiles, Array.Empty<string>(), librariesRefreshed: false);
+            var tree = IdeTree.BuildVoltIdeTree(gitDir, head, parent, ideFiles, Array.Empty<string>(), librariesRefreshed: false, unreadNodes: Array.Empty<string>());
 
             Assert.Equal("ide-A-v2", Blob(root, tree, "src/A.pou"));   // changed item → fresh fetch content
             Assert.Equal("ide-B", Blob(root, tree, "src/B.pou"));       // UNCHANGED → parent's, NOT "user-edited-B"
@@ -72,7 +72,7 @@ public class IdeTreeTests
 
             // The IDE deleted B; A untouched.
             var tree = IdeTree.BuildVoltIdeTree(gitDir, null, parent,
-                Array.Empty<MaterializedFile>(), new[] { "B.pou" }, librariesRefreshed: false);
+                Array.Empty<MaterializedFile>(), new[] { "B.pou" }, librariesRefreshed: false, unreadNodes: Array.Empty<string>());
 
             Assert.True(Has(root, tree, "src/A.pou"));  // carried from parent
             Assert.False(Has(root, tree, "src/B.pou")); // removed → dropped
@@ -99,7 +99,7 @@ public class IdeTreeTests
 
             // The IDE deleted B, which lives two folders down. The wire reports its path.
             var tree = IdeTree.BuildVoltIdeTree(gitDir, null, parent,
-                Array.Empty<MaterializedFile>(), new[] { "Machine/Deep/B.pou" }, librariesRefreshed: false);
+                Array.Empty<MaterializedFile>(), new[] { "Machine/Deep/B.pou" }, librariesRefreshed: false, unreadNodes: Array.Empty<string>());
 
             Assert.True(Has(root, tree, "src/Machine/A.pou"));       // untouched, carried from parent
             Assert.False(Has(root, tree, "src/Machine/Deep/B.pou")); // removed → dropped, folder or not
@@ -129,7 +129,7 @@ public class IdeTreeTests
             // What `volt pull` passes: the fetch's `Removed`, i.e. the names `refs` published.
             var removed = Materialize.PathToItem("DUTs/X.dut")!;
             var tree = IdeTree.BuildVoltIdeTree(gitDir, null, parent,
-                Array.Empty<MaterializedFile>(), new[] { removed, "DUTs/B.pou" }, librariesRefreshed: false);
+                Array.Empty<MaterializedFile>(), new[] { removed, "DUTs/B.pou" }, librariesRefreshed: false, unreadNodes: Array.Empty<string>());
 
             Assert.False(Has(root, tree, "src/DUTs/B.pou"));
             Assert.False(Has(root, tree, "src/DUTs/X.dut")); // the IDE deleted it — so must the workspace
@@ -155,7 +155,7 @@ public class IdeTreeTests
 
             var tree = IdeTree.BuildVoltIdeTree(gitDir, null, parent,
                 new List<MaterializedFile> { new("DUTs/Y.dut", "TYPE Y : (A, B); END_TYPE") },
-                Array.Empty<string>(), librariesRefreshed: false);
+                Array.Empty<string>(), librariesRefreshed: false, unreadNodes: Array.Empty<string>());
 
             Assert.True(Has(root, tree, "src/DUTs/Y.dut"));
             Assert.True(Has(root, tree, "src/DUTs/X.dut"));
@@ -179,7 +179,7 @@ public class IdeTreeTests
             }), Array.Empty<string>(), "parent");
 
             var tree = IdeTree.BuildVoltIdeTree(gitDir, null, parent,
-                new List<MaterializedFile> { new("Motion/A.pou", "A") }, new[] { "POUs/A.pou" }, librariesRefreshed: false);
+                new List<MaterializedFile> { new("Motion/A.pou", "A") }, new[] { "POUs/A.pou" }, librariesRefreshed: false, unreadNodes: Array.Empty<string>());
 
             Assert.True(Has(root, tree, "src/Motion/A.pou"));
             Assert.False(Has(root, tree, "src/POUs/A.pou"));
@@ -205,7 +205,7 @@ public class IdeTreeTests
 
             var tree = IdeTree.BuildVoltIdeTree(gitDir, null, parent,
                 new List<MaterializedFile> { new("Device_1/Plc Logic/Application/PLC_PRG.pou", "B2") }, Array.Empty<string>(),
-                librariesRefreshed: false);
+                librariesRefreshed: false, unreadNodes: Array.Empty<string>());
 
             Assert.True(Has(root, tree, "src/Device/Plc Logic/Application/PLC_PRG.pou"));
             Assert.True(Has(root, tree, "src/Device_1/Plc Logic/Application/PLC_PRG.pou"));
@@ -230,7 +230,7 @@ public class IdeTreeTests
                     new("Plc Logic/Application/010 PC01/pgPC01.pou", "PROGRAM pgPC01\n%LANGUAGE ST\nEND_PROGRAM\n"),
                     new("Global Vars/GVL Constants.gvl", "VAR_GLOBAL CONSTANT\nEND_VAR\n"),
                 },
-                Array.Empty<string>(), librariesRefreshed: false);
+                Array.Empty<string>(), librariesRefreshed: false, unreadNodes: Array.Empty<string>());
 
             Assert.Equal("PROGRAM pgPC01\n%LANGUAGE ST\nEND_PROGRAM\n", Blob(root, tree, "src/Plc Logic/Application/010 PC01/pgPC01.pou"));
             Assert.Equal("VAR_GLOBAL CONSTANT\nEND_VAR\n", Blob(root, tree, "src/Global Vars/GVL Constants.gvl"));
@@ -253,7 +253,7 @@ public class IdeTreeTests
 
             var tree = IdeTree.BuildVoltIdeTree(gitDir, head, null,
                 new List<MaterializedFile> { new("A.pou", "ide-A"), new("POUs/B.pou", "ide-B") },
-                Array.Empty<string>(), librariesRefreshed: false);
+                Array.Empty<string>(), librariesRefreshed: false, unreadNodes: Array.Empty<string>());
 
             Assert.Equal("ide-A", Blob(root, tree, "src/A.pou"));
             Assert.Equal("ide-B", Blob(root, tree, "src/POUs/B.pou")); // nested path lands correctly
@@ -286,7 +286,7 @@ public class IdeTreeTests
             // the wire never sends, and so hid that the sweep matched no deleted DUT at all.
             var removed = Materialize.PathToItem("POUs/ERROR.dut")!;
             var tree = IdeTree.BuildVoltIdeTree(gitDir, null, parent,
-                Array.Empty<MaterializedFile>(), new[] { removed }, librariesRefreshed: false);
+                Array.Empty<MaterializedFile>(), new[] { removed }, librariesRefreshed: false, unreadNodes: Array.Empty<string>());
 
             Assert.False(Has(root, tree, "src/POUs/ERROR.dut"));                  // the real deletion lands
             Assert.True(Has(root, tree, "src/Library Manager/CAA/ERROR.dut"));    // the collateral one does not
@@ -328,11 +328,45 @@ public class IdeTreeTests
             };
 
             var tree = IdeTree.BuildVoltIdeTree(gitDir, null, parent, ideFiles, Array.Empty<string>(),
-                                                librariesRefreshed: librariesRefreshed);
+                                                librariesRefreshed: librariesRefreshed, unreadNodes: Array.Empty<string>());
 
             Assert.True(Has(root, tree, "src/Library Manager/CAA/StillThere.pou"));  // carried either way
             Assert.True(Has(root, tree, "src/POUs/PLC_PRG.pou"));                   // project items untouched
             Assert.Equal(expectStaleKept, Has(root, tree, "src/Library Manager/CAA/Gone.pou"));
+        }
+        finally { TestUtil.ForceDelete(root); }
+    }
+
+    /// <summary>A REFRESH SPARES A LIBRARY IT DID NOT READ. A library the bridge names in <c>unreadableNodes</c> — no
+    /// signature of it in the IDE's precompiled set, as on a cold CODESYS still precompiling — was not read, so the
+    /// absence of its signatures from the refreshed answer is no evidence they are gone: its folder is carried forward
+    /// as it stands, while every library the refresh did read is still replaced.</summary>
+    [Fact]
+    public void A_refresh_keeps_the_signatures_of_a_library_named_unread()
+    {
+        var root = TestUtil.NewRepo();
+        try
+        {
+            var gitDir = Git.ResolveGitDir(root);
+            var parent = Git.CommitTree(gitDir, Git.BuildTree(gitDir, new[]
+            {
+                new IndexEntry("100644", Git.WriteBlob(gitDir, "X"), "src/Library Manager/CmpX/CmpX.library"),
+                new IndexEntry("100644", Git.WriteBlob(gitDir, "G"), "src/Library Manager/CmpX/Gone.pou"),
+                new IndexEntry("100644", Git.WriteBlob(gitDir, "Y"), "src/Library Manager/CmpY/CmpY.library"),
+                new IndexEntry("100644", Git.WriteBlob(gitDir, "F"), "src/Library Manager/CmpY/F.pou"),
+            }), Array.Empty<string>(), "parent");
+
+            var ideFiles = new[]
+            {
+                new MaterializedFile("Library Manager/CmpX/CmpX.library", "X"),
+                new MaterializedFile("Library Manager/CmpY/CmpY.library", "Y"),
+            };
+
+            var tree = IdeTree.BuildVoltIdeTree(gitDir, null, parent, ideFiles, Array.Empty<string>(),
+                                                librariesRefreshed: true, unreadNodes: new[] { "Library Manager/CmpY" });
+
+            Assert.True(Has(root, tree, "src/Library Manager/CmpY/F.pou"));     // not read: kept
+            Assert.False(Has(root, tree, "src/Library Manager/CmpX/Gone.pou")); // read, and absent: gone
         }
         finally { TestUtil.ForceDelete(root); }
     }

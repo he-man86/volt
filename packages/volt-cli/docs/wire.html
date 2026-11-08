@@ -127,8 +127,9 @@
   <code>items</code> while it reads &mdash; the name a forced <code>deleteItem</code> addresses it by.
   <code>unreadableNodes</code> lists the tree nodes with no file the walk did not read, each <code>{ name, code, reason }</code>
   with <code>name</code> the node path <code>&lt;folder&gt;/&lt;name&gt;</code>: a container holding a setting no text
-  spells, or an object whose kind the IDE could not state (its folder and subtree are then in
-  <code>unwalkedFolders</code>). <code>code</code> is <code>UNREADABLE</code> (the IDE did not give what Volt asked of the
+  spells, an object whose kind the IDE could not state (its folder and subtree are then in
+  <code>unwalkedFolders</code>), or &mdash; on a fetch that refreshes the libraries &mdash; a referenced library none of
+  whose signatures the IDE returned, whose folder the client keeps as it stands. <code>code</code> is <code>UNREADABLE</code> (the IDE did not give what Volt asked of the
   object), <code>UNSUPPORTED</code> (the object holds what Volt's text has no spelling for, or sits in a folder excluded
   from the build), or the code of the read that failed. An object whose name the IDE does not answer is in neither
   list: it has no path, and its folder is in <code>unwalkedFolders</code>.
@@ -136,6 +137,7 @@
 <pre>Device/Plc Logic/Application/CM_Carrier.pou       unreadable: an FB whose body could not be read
 Device/Plc Logic/Application/Library Manager      unreadableNodes: a manager holding a setting no text spells
 Device/Plc Logic/Application/Sim                  unreadableNodes: a folder excluded from the build
+Device/Plc Logic/Application/Library Manager/Util unreadableNodes: a library not precompiled yet
 Device/Plc Logic/Application/Sim/SimType.dut      unreadable: an item in that folder, not built</pre>
 <pre>Device/Plc Logic/Application/PLC_PRG.pou          CODESYS: a device's application
 Device_1/Plc Logic/Application/PLC_PRG.pou        another device, another item
