@@ -26,6 +26,12 @@
  * This backend executes a SUBSET: enough for the conformance oracle and for a POU written to be tested, not enough to
  * run a real project. That is a statement of fact rather than a roadmap; the number is measured because a plan for
  * this component once justified itself with a figure 470x the real one.
+ *
+ * **The project's settings are an input, never a default.** A host lowers with the project's `.projectsettings` among the
+ * files it hands `lowerApplication` / `lowerSource` (as pulled, `Project Settings.projectsettings`): its "UTF-8 Encoding
+ * for STRING" row decides a STRING literal's bytes past ASCII and how WSTRING_TO_STRING / STRING_TO_WSTRING cross (on:
+ * UTF-8; off: Latin-1 and '?' for a literal, a unit's low byte and a byte-for-byte widen for a conversion). Unstated —
+ * no file, or TwinCAT's, which has no such row — each of those is refused (`string-encoding-unstated`).
  */
 // THE SURFACE, named one by one (design.md §2.1.1; `index.test.ts` pins the runtime names). Beyond the design's list, each
 // with its consumer: `LoopGuardError` (a harness's loop guard giving up — `test/conformance/backends.test.ts`, the

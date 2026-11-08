@@ -125,6 +125,28 @@ impl<const N: usize> IecStr<u8, N> {
         out
     }
 }
+// The same crossings with "UTF-8 Encoding for STRING" OFF (CODESYS 3.5.21.40, commit 1d71f12416): the narrow keeps each
+// unit's low byte (a surrogate pair D83D DE00 is 16#3D then 0, which ends the string), the widen takes each byte as its
+// unit (the interpreter's lowByteNarrow and identity). Truncated at the TARGET's capacity, as the UTF-8 pair is.
+impl<const N: usize> IecStr<u16, N> {
+    #[must_use]
+    #[allow(clippy::cast_possible_truncation)] // the low byte is what the conversion keeps
+    pub fn narrow_low_byte<const M: usize>(&self) -> IecStr<u8, M> {
+        let mut out = IecStr::<u8, M>::new();
+        for (k, &unit) in self.units().iter().take(M).enumerate() { out.units[k] = (unit & 0xFF) as u8; }
+        out.scan();
+        out
+    }
+}
+impl<const N: usize> IecStr<u8, N> {
+    #[must_use]
+    pub fn widen_bytes<const M: usize>(&self) -> IecStr<u16, M> {
+        let mut out = IecStr::<u16, M>::new();
+        for (k, &b) in self.units().iter().take(M).enumerate() { out.units[k] = u16::from(b); }
+        out.scan();
+        out
+    }
+}
 impl<T: Copy + PartialEq, const N: usize, const M: usize> PartialEq<IecStr<T, M>> for IecStr<T, N> { fn eq(&self, other: &IecStr<T, M>) -> bool { self.units[..self.len] == other.units[..other.len] } }
 impl<T: Copy + Eq, const N: usize> Eq for IecStr<T, N> {}
 impl<T: Copy + PartialOrd, const N: usize, const M: usize> PartialOrd<IecStr<T, M>> for IecStr<T, N> { fn partial_cmp(&self, other: &IecStr<T, M>) -> Option<std::cmp::Ordering> { self.units[..self.len].partial_cmp(&other.units[..other.len]) } }

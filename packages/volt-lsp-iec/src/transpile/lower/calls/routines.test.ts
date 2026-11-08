@@ -188,7 +188,7 @@ test("a call to a member with no body slot is refused by name, never run as an e
   const source = "FUNCTION_BLOCK ABSTRACT Base\n%LANGUAGE ST\nRun();\nEND_FUNCTION_BLOCK\n\nMETHOD PROTECTED ABSTRACT Run\nEND_METHOD\n"
   const parseResult = parseDocument(uri, source, { networkText: true, unicodeIdentifiers: false }, "codesys")
   expect(parseResult.errors).toEqual([])
-  const r = lowerPrepared({ uri, parseResult }, "Base", prepareProject([{ uri, parseResult, source }], []))
+  const r = lowerPrepared({ uri, parseResult }, "Base", prepareProject([{ uri, parseResult, source }], [], undefined))
   expect(r.pou).toBeUndefined()
   const refusal = r.diagnostics.find((d) => d.code === "graphical-body")
   expect(refusal?.message).toContain("has no body slot: it holds no code (no %LANGUAGE line)")

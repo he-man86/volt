@@ -4,6 +4,7 @@
 import { describe, expect, test } from "bun:test"
 import { run } from "../../interp/index.js"
 import { lowerSource } from "../index.js"
+import { UTF8_ON } from "../../../../test/support/transpile.js"
 
 describe("lower — a STRING CURSOR (a character pointer a caller fills with a string's address)", () => {
   // transpile-review 38: STRING and WSTRING are isolated from each other and from every other type — CODESYS converts
@@ -12,7 +13,7 @@ describe("lower — a STRING CURSOR (a character pointer a caller fills with a s
   // convert type 'REAL' to type 'STRING'", every `uop_*` probe). Only the explicit X_TO_Y conversion is legal.
   describe("an implicit string-kind conversion CODESYS refuses is refused while lowering", () => {
     const codes = (vars: string, body: string, extra = ""): { lowered: boolean; codes: string[] } => {
-      const { pou, diagnostics } = lowerSource(`PROGRAM P\nVAR ${vars} END_VAR\n${body}\nEND_PROGRAM\n${extra}`, "P")
+      const { pou, diagnostics } = lowerSource(`PROGRAM P\nVAR ${vars} END_VAR\n${body}\nEND_PROGRAM\n${extra}`, "P", UTF8_ON)
       return { lowered: pou !== undefined, codes: diagnostics.map((d) => d.code) }
     }
     const NW = "narrow : STRING := 'abc'; wide : WSTRING := \"abc\"; intoWide : WSTRING; intoNarrow : STRING; same : BOOL; rv : REAL; n : INT;"

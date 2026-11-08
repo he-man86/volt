@@ -29,7 +29,7 @@ import { NaNBits } from "../../src/transpile/semantics/nan.js"
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { LoopGuardError, lowerSource, run, RunnerValueError, type IrPou } from "../../src/transpile/index.js"
+import { LoopGuardError, run, RunnerValueError, type IrPou } from "../../src/transpile/index.js"
 import { type RustAccess, rustAccess } from "./support/rust-access.js"
 import type { Type } from "../../src/frontend/types/index.js"
 import { ALL_TESTS } from "./fixtures/index.js"
@@ -38,7 +38,7 @@ import { runPaths } from "./support/run-paths.js"
 import { RUSTC as rustc, skipRustSuite } from "./support/rustc.js"
 import { buildRust } from "./support/rustc-cache-build.js"
 import { compareOutcomes, type Outcome } from "./support/differential.js"
-import { PROJECT_BASE } from "./support/project-libraries.js"
+import { lowerOnProject } from "./support/project-libraries.js"
 import { HARNESS_LOOP_GUARD } from "./support/transpile/edge.js"
 import type { LanguageTest } from "./types.js"
 
@@ -99,7 +99,7 @@ const TRANSCENDENTAL = /\b(EXPT|SQRT|LN|LOG|EXP|SIN|COS|TAN|ASIN|ACOS|ATAN)\s*\(
 
 function prepare(t: LanguageTest): Case | undefined {
   const { source: rest, gvls } = assembleFixture(t, ALL_TESTS)
-  const { pou } = lowerSource(rest, "PLC_PRG", gvls, undefined, PROJECT_BASE)
+  const { pou } = lowerOnProject(rest, gvls)
   if (pou === undefined) return undefined
   const transcendental = TRANSCENDENTAL.test(rest)
   const paths: Case["paths"] = []
@@ -313,7 +313,7 @@ const PROBES: ReadonlyArray<{ name: string; source: string; why: string }> = [
 
 /** A probe lowered into the same shape the fixture sweep uses. */
 function prepareProbe(name: string, source: string): Case | undefined {
-  const { pou } = lowerSource(source, "PLC_PRG", [], undefined, PROJECT_BASE)
+  const { pou } = lowerOnProject(source, [])
   if (pou === undefined) return undefined
   const paths: Case["paths"] = []
   for (const slot of pou.slots) {
@@ -384,7 +384,7 @@ function withinUlp(a: string, b: string): boolean {
 
 test("a place the interpreter cannot read is an answer to compare, not a place dropped from the comparison", () => {
   const source = "PROGRAM PLC_PRG\nVAR\n\ta : ARRAY[0..2] OF INT;\nEND_VAR\na[0] := 1;\nEND_PROGRAM\n"
-  const { pou } = lowerSource(source, "PLC_PRG", [], undefined, PROJECT_BASE)
+  const { pou } = lowerOnProject(source, [])
   if (pou === undefined) throw new Error("the source does not lower")
   const b = interpreterOutcome({ name: "unreadable", pou, paths: [{ path: "a[5]", ...rustAccess(pou, "a[5]") }], cycles: 1, transcendental: false })
   if (b === undefined || b.faulted) throw new Error("the program itself runs")

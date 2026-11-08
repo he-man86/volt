@@ -4,7 +4,6 @@
  */
 
 import type { Lowering } from "../core/lowering.js"
-import { EXEC_ORACLE_UTF8_ENCODING } from "../conditions.js"
 import { utf8Narrow } from "../../semantics/convert.js"
 import { calendarNanoseconds, decodeStringLiteral, type Expr } from "../../../frontend/syntax/index.js"
 import {
@@ -20,17 +19,31 @@ import {
 /** A string literal's decoded text, or null (reported) when it holds an escape not measured yet. */
 export function stringLiteralText(lw: Lowering, e: Extract<Expr, { kind: "literal" }>): string | null {
   const wide = e.literalKind === "wstring"
-  // A character past ASCII TYPED into a STRING is its UTF-8 bytes under the exec oracle's "UTF-8 Encoding for STRING"
-  // (`EXEC_ORACLE_UTF8_ENCODING`, `slit_*`): 'größe' is 7 bytes, a STRING(3) of it 'gr' and C3. Encoded before the `$`
-  // escapes are read, so an escape stays the one byte it names. A WSTRING holds UTF-16 code units: "héllo" into a
-  // WSTRING(3) is "hél" (`wstring_code_units`), a character beyond the BMP its two surrogate units (`wsu_widen_four_byte`).
+  // A character past ASCII TYPED into a STRING is what the project's "UTF-8 Encoding for STRING" makes it: on, its UTF-8
+  // bytes (`slit_*`: 'größe' is 7 bytes, a STRING(3) of it 'gr' and C3); off, its Latin-1 byte, '?' for each UTF-16 unit
+  // past U+00FF (CODESYS 3.5.21.40, commit 1d71f12416: 'größe' LEN 5, 'a计b' a ? b). Encoded before the `$` escapes are
+  // read, so an escape stays the one byte it names. A WSTRING holds UTF-16 code units: "héllo" into a WSTRING(3) is "hél"
+  // (`wstring_code_units`), a character beyond the BMP its two surrogate units (`wsu_widen_four_byte`).
   const raw = e.value as string
-  const decoded = decodeStringLiteral(wide || !EXEC_ORACLE_UTF8_ENCODING ? raw : utf8Narrow(raw), wide)
+  const encoding = lw.shared.encoding
+  if (!wide && /[^\x00-\x7f]/.test(raw) && encoding === undefined) {
+    lw.bail("string-encoding-unstated", `${e.text} holds a character past ASCII, whose bytes the project's "UTF-8 Encoding for STRING" decides — no .projectsettings states it`, e.span)
+    return null
+  }
+  const decoded = decodeStringLiteral(wide ? raw : encoding === "utf8" ? utf8Narrow(raw) : latin1Literal(raw), wide)
   if (decoded === undefined) {
     lw.bail("string-escape", `${e.text} holds a \`$\` escape that is not measured yet`, e.span)
     return null
   }
   return decoded
+}
+
+/** A STRING literal's text with "UTF-8 Encoding for STRING" off: each UTF-16 unit up to U+00FF is its Latin-1 byte, any
+ *  other '?' — a surrogate pair two of them ('a😀b' is a ? ? b). ASCII is itself. */
+function latin1Literal(raw: string): string {
+  let out = ""
+  for (let i = 0; i < raw.length; i++) out += raw.charCodeAt(i) <= 0xff ? raw[i] : "?"
+  return out
 }
 
 /**

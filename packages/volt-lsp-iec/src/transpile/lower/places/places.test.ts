@@ -4,7 +4,7 @@
 import { describe, expect, test } from "bun:test"
 import { lowerSource } from "../index.js"
 import { run } from "../../interp/index.js"
-import { ir, wrap } from "../../../../test/support/transpile.js"
+import { ir, UTF8_ON, wrap } from "../../../../test/support/transpile.js"
 
 describe("lower — STRING (design §18)", () => {
   test("a STRING slot carries its capacity — 80 when sizeless, as measured", () => {
@@ -31,7 +31,7 @@ describe("lower — STRING (design §18)", () => {
   })
 
   test("a non-ASCII character typed into a STRING is its UTF-8 bytes — the exec oracle's \"UTF-8 Encoding for STRING\" (`slit_*`)", () => {
-    const pou = ir(wrap("iCount := 1;", "iCount : INT;\n  text : STRING := 'héllo$21';"))
+    const pou = ir(wrap("iCount := 1;", "iCount : INT;\n  text : STRING := 'héllo$21';"), undefined, UTF8_ON)
     expect(pou.slots[1]!.init).toBe("hÃ©llo!")
   })
 })

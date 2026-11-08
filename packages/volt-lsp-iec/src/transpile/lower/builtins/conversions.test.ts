@@ -5,7 +5,7 @@ import { describe, expect, test } from "bun:test"
 import { run } from "../../interp/index.js"
 import type { IrAssign } from "../../ir/index.js"
 import { lowerSource } from "../index.js"
-import { ir, wrap } from "../../../../test/support/transpile.js"
+import { ir, UTF8_ON, wrap } from "../../../../test/support/transpile.js"
 
 /** The Standard library as the bridge materializes it (`Library Manager/Standard/LEN.pou`) — only what these call. */
 const STANDARD_LEN = {
@@ -108,6 +108,7 @@ test("a string conversion keeps the operand's own capacity past 80 characters", 
       "narrow := WSTRING_TO_STRING(w100);\ncnt := 0;\nFOR i := 0 TO 120 DO IF narrow[i] = 0 THEN EXIT; END_IF cnt := cnt + 1; END_FOR\nwidened := STRING_TO_WSTRING(txt);\n" +
       "wideLen := 0;\nFOR i := 0 TO 120 DO IF widened[i] = 0 THEN EXIT; END_IF wideLen := wideLen + 1; END_FOR\nEND_PROGRAM\n",
     "P",
+    UTF8_ON,
   )
   expect(diagnostics.map((d) => d.code)).toEqual([])
   const runner = run(pou!)
@@ -131,6 +132,7 @@ test("a STRING<->WSTRING conversion result is cut at 255 units, whatever its sou
       "toNarrow300 := WSTRING_TO_STRING(w300);\nbareNarrow300 := TO_STRING(w300);\nzNarrow := WSTRING_TO_STRING(w300);\n" +
       "kept := 0;\nFOR i := 0 TO 399 DO IF zNarrow[i] = 90 THEN kept := kept + 1; END_IF END_FOR\nEND_PROGRAM\n",
     "P",
+    UTF8_ON,
   )
   expect(diagnostics.map((d) => d.code)).toEqual([])
   const runner = run(pou!)

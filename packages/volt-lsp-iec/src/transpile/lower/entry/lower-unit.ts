@@ -63,7 +63,7 @@ export function lowerUnit(unit: TopLevel, scope: Scope, prepared: LoweringProjec
   // step 4f, task 4.13 (a): the next lowering starts with them, so no use lowers on part of a set
   const seed = new Map<string, readonly PointerTarget[]>()
   for (let pass = 1; ; pass++) {
-    const shared = newShared(prepared.attributes, unit.name.text, prepared.libraryUnits)
+    const shared = newShared(prepared.attributes, unit.name.text, prepared.libraryUnits, prepared.encoding)
     if (answer !== undefined) runOnEscapes(shared, answer)
     seedTargets(shared, seed)
     const lowered = lowerOnce(unit, scope, prepared.project, shared, fold)

@@ -31,6 +31,7 @@ import {
 } from "../../src/transpile/semantics/text.cases.js"
 import { PARSE_INT_CASES, type ParseIntInput, WIDE_PARSE_INT_CASES } from "../../src/transpile/semantics/parse.cases.js"
 import { type StringCase, type StringInput } from "../../src/transpile/semantics/string.cases.js"
+import { CROSSING_CASES, type CrossingInput } from "../../src/transpile/semantics/convert.cases.js"
 import { lengthOf } from "../../src/transpile/semantics/string.js"
 import {
   CASE_IMAGE,
@@ -228,6 +229,15 @@ function stringCaseRust(input: StringInput, read = "format!(\"{:?}\", s.units.it
   return `{ let mut s = ${type}::<${input.m}>::new(); ${ops.join(" ")} ${read} }`
 }
 
+/** A crossing case as the emitter prints the conversion (`emit/rust/convert.ts` `crossing`): the source literal, the method
+ *  its encoding names, at the target's capacity — the string it holds, as its units. */
+function crossingCaseRust(input: CrossingInput): string {
+  const wide = input.op === "narrow"
+  const units = Array.from({ length: input.text.length }, (_, i) => `${input.text.charCodeAt(i)}${wide ? "u16" : "u8"}`)
+  const method = input.encoding === "utf8" ? input.op : input.op === "narrow" ? "narrow_low_byte" : "widen_bytes"
+  return `format!("{:?}", IecStr::<${wide ? "u16" : "u8"}, ${input.text.length + 1}>::lit(&[${units.join(", ")}]).${method}::<${input.m}>().units().iter().map(|&u| u32::from(u)).collect::<Vec<u32>>())`
+}
+
 /** The buffer a case expects, as `stringCaseRust` prints it: its m units, zeros past what it holds. */
 const stringCaseUnits = (c: StringCase): string =>
   `[${Array.from({ length: c.input.m }, (_, i) => (i < c.expected.length ? c.expected.charCodeAt(i) : 0)).join(", ")}]`
@@ -317,6 +327,11 @@ describe.skipIf(skipRustSuite())("runtime twins — the Rust runtime against the
     const got = await runTwin("string_store", runtimeText("string_store_within"), STRING_CASE_LIST.map((c) => stringCaseRust(c.input)))
     expect(got).toHaveLength(STRING_CASE_LIST.length)
     expect(STRING_CASE_LIST.map((c, i) => `${c.name}: ${got[i]}`)).toEqual(STRING_CASE_LIST.map((c) => `${c.name}: ${stringCaseUnits(c)}`))
+  }, 60_000)
+
+  test("runtime/string.ts: IecStr::narrow / widen / narrow_low_byte / widen_bytes over every STRING <-> WSTRING crossing case", async () => {
+    const got = await runTwin("string_crossing", runtimeText("string"), CROSSING_CASES.map((c) => crossingCaseRust(c.input)))
+    expect(CROSSING_CASES.map((c, i) => `${c.name}: ${got[i]}`)).toEqual(CROSSING_CASES.map((c) => `${c.name}: [${c.expected.join(", ")}]`))
   }, 60_000)
 
   test("runtime/string.ts: IecStr::length (LEN_INTERNAL, 7.4.6) over every string case — the interpreter's lengthOf", async () => {

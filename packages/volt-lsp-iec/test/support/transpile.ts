@@ -4,11 +4,16 @@
  * not the failure path, so a lowering diagnostic fails the test where it is asked.
  */
 import { expect } from "bun:test"
-import { emitRust, lowerSource } from "../../src/transpile/index.js"
+import { emitRust, type LibraryFile, lowerSource } from "../../src/transpile/index.js"
 
-/** Lower and require success. */
-export function ir(src: string, name?: string) {
-  const { pou, diagnostics } = lowerSource(src, name)
+/** The exec oracle project's "UTF-8 Encoding for STRING" — on, what every run recording was made under — as its
+ *  `.projectsettings` states it: handed beside a test's source that lowers a STRING past ASCII or a STRING <-> WSTRING
+ *  conversion, which no stated setting refuses (`string-encoding-unstated`). */
+export const UTF8_ON: readonly LibraryFile[] = [{ uri: "Project Settings.projectsettings", source: "UTF-8 encoding:        on\n" }]
+
+/** Lower (beside `files`) and require success. */
+export function ir(src: string, name?: string, files: readonly LibraryFile[] = []) {
+  const { pou, diagnostics } = lowerSource(src, name, files)
   expect(diagnostics).toEqual([])
   return pou!
 }

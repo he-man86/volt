@@ -5,7 +5,7 @@
 import { describe, expect, test } from "bun:test"
 import { run } from "../../interp/index.js"
 import { lowerSource } from "../index.js"
-import { ir, wrap } from "../../../../test/support/transpile.js"
+import { ir, UTF8_ON, wrap } from "../../../../test/support/transpile.js"
 
 describe("lower — total, never silently wrong", () => {
   test("an unlowerable construct is reported with a code, and the POU does not lower", () => {
@@ -230,13 +230,14 @@ END_PROGRAM
 
   // `WSTRING_TO_STRING` / `STRING_TO_WSTRING` were `conversion-type` — every STRING conversion was to or from a NUMBER.
   // Recorded first (conformance `xo3_string_wide_conversions`): one code unit per code unit, truncated at the TARGET's
-  // capacity, both ways. Every unit the model holds is ASCII (a non-ASCII literal is refused), so nothing is re-encoded.
+  // capacity, both ways. Every unit here is ASCII, so the project's encoding (stated: the exec oracle's, on) re-encodes nothing.
   test("WSTRING and STRING convert one code unit per code unit, truncated at the target's capacity", () => {
     const runner = run(
       ir(
         "PROGRAM P\nVAR\n\twide : WSTRING(10) := \"abcdefghij\";\n\tnarrow : STRING(4);\n\troomy : STRING(20);\n\tback : WSTRING(3);\n\tshort : STRING(6) := 'hello';\n\twidened : WSTRING(2);\n\tsameText : BOOL;\nEND_VAR\n" +
           "narrow := WSTRING_TO_STRING(wide);\nroomy := WSTRING_TO_STRING(wide);\nback := STRING_TO_WSTRING(roomy);\nwidened := STRING_TO_WSTRING(short);\nsameText := roomy = 'abcdefghij';\nEND_PROGRAM\n",
         "P",
+        UTF8_ON,
       ),
     )
     runner.scan()

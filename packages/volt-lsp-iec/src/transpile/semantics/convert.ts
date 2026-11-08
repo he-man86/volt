@@ -1,6 +1,7 @@
 /** A CONVERSION NODE'S VALUE (`coerce`), before `fit` stores it at the target's width. */
 import { isBoolValued, type Type } from "../../frontend/types/index.js"
-import type { IrValue } from "../ir/index.js"
+import type { IrValue, StringEncoding } from "../ir/index.js"
+import { LoweringBug } from "./faults.js"
 import type { Val } from "./value.js"
 import { fit } from "./store.js"
 import { visible } from "./string.js"
@@ -37,10 +38,10 @@ type Elementary = Extract<Type, { kind: "elementary" }>
  * out-of-range result (REAL_TO_INT(40000.0) is -25536); BOOL → numeric is 1/0; numeric → BOOL is "not zero". A
  * dispatcher over the five conversions below; no rule of its own.
  */
-export function coerce(v: Val, to: Type, from: Type): Val {
+export function coerce(v: Val, to: Type, from: Type, encoding?: StringEncoding): Val {
   if (to.kind !== "elementary") return v
   const family = to.elem.family
-  if (family === "string") return toText(v, to, from)
+  if (family === "string") return toText(v, to, from, encoding)
   if (typeof v === "string") return fromText(visible(v), to, from)
   if (isBoolValued(to)) return toBool(v)
   // a NaN into a REAL of the other width is quieted, its payload moved (`atWidth`); into anything else it is the number NaN
@@ -57,15 +58,19 @@ export function coerce(v: Val, to: Type, from: Type): Val {
  * → STRING: an integer's decimal text, 'TRUE'/'FALSE', a TIME as `T#` and its non-zero components ('T#1d2h', 'T#0ms').
  * (STRING → integer is `fromText`; `fit` then wraps it like any integer: STRING_TO_INT('99999') is -31073.)
  */
-function toText(v: Val, to: Elementary, from: Type): Val {
+function toText(v: Val, to: Elementary, from: Type, encoding: StringEncoding | undefined): Val {
   if (typeof v === "boolean") return v ? "TRUE" : "FALSE"
   const source = from.kind === "elementary" ? from.name : ""
-  // STRING <-> WSTRING carries the string, not the buffer behind it, as UTF-8 (the prelude's `narrow` / `widen`)
+  // STRING <-> WSTRING carries the string, not the buffer behind it, as the node's encoding says (the Rust runtime's
+  // `narrow` / `widen`, `narrow_low_byte` / `widen_bytes`)
   if (typeof v === "string") {
     if (source === to.elem.name) return v
-    if (source === "WSTRING" && to.elem.name === "STRING") return utf8Narrow(visible(v))
-    if (source === "STRING" && to.elem.name === "WSTRING") return utf8Widen(visible(v))
-    return visible(v)
+    const cross = (source === "WSTRING" && to.elem.name === "STRING") || (source === "STRING" && to.elem.name === "WSTRING")
+    if (!cross) return visible(v)
+    if (encoding === undefined) throw new LoweringBug(`a ${source}_TO_${to.elem.name} conversion carries no encoding — lowering states one on every such node`)
+    const narrow = to.elem.name === "STRING"
+    if (encoding === "utf8") return narrow ? utf8Narrow(visible(v)) : utf8Widen(visible(v))
+    return narrow ? lowByteNarrow(visible(v)) : visible(v)
   }
   if (source === "TIME") return timeText(v as bigint)
   if (source === "LTIME") return ltimeText(v as bigint)
@@ -99,6 +104,17 @@ export function utf8Narrow(w: string): string {
     else if (cp < 0x10000) out += String.fromCharCode(0xe0 | (cp >> 12), 0x80 | ((cp >> 6) & 0x3f), 0x80 | (cp & 0x3f))
     else out += String.fromCharCode(0xf0 | (cp >> 18), 0x80 | ((cp >> 12) & 0x3f), 0x80 | ((cp >> 6) & 0x3f), 0x80 | (cp & 0x3f))
   }
+  return out
+}
+
+/**
+ * WSTRING → STRING with "UTF-8 Encoding for STRING" OFF: each UTF-16 unit's LOW BYTE (CODESYS 3.5.21.40, commit
+ * 1d71f12416: 'a计b' is 97 16#A1 98; a surrogate pair D83D DE00 is 16#3D then 0, which ends the string while the bytes
+ * behind it stay). Its widen back is byte for byte: a STRING's bytes ARE the units (`toText`).
+ */
+function lowByteNarrow(w: string): string {
+  let out = ""
+  for (let i = 0; i < w.length; i++) out += String.fromCharCode(w.charCodeAt(i) & 0xff)
   return out
 }
 
@@ -213,8 +229,8 @@ function realToInt(n: number, to: Elementary): bigint {
 
 /** A conversion node's value as its target stores it — `coerce`, then `fit`. The one rule the IR fold and the
  *  interpreter both run (lean 10.3). */
-export function convertValue(v: Val, to: Type, from: Type): Val {
-  return fit(coerce(v, to, from), to)
+export function convertValue(v: Val, to: Type, from: Type, encoding?: StringEncoding): Val {
+  return fit(coerce(v, to, from, encoding), to)
 }
 
 /** A constant node's value — the literal as its type stores it. */

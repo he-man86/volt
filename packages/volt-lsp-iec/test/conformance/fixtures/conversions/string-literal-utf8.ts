@@ -3,7 +3,8 @@
  * `wstring-utf8-narrowing` left it unmeasured; the transpiler refuses it, `string-non-ascii`). A two-, a three- and a
  * four-byte character, a literal cut at the STRING's capacity inside a character, and the widen of such a literal.
  *
- * Recorded on the recording project, whose compile option "UTF-8 encoding" is off (`Project Settings.projectsettings`).
+ * Run on the exec oracle's project, whose compile option "UTF-8 encoding" is on (`codesys.run.json`; the replay hands its
+ * `Project Settings.projectsettings`), built on the build-recording project, where it is off (`codesys.build.json`).
  * Each probe stores the literal in the body and reads single bytes (BYTE by index) and `LEN`, never a rendered string.
  */
 import type { LanguageTest } from "../../types.js"

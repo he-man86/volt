@@ -106,7 +106,7 @@ function refusalOf(lw: Lowering, sym: Symbol, decl: VarDecl): Refusal | undefine
   let answers = aloneAnswers.get(lw.shared.attributes)
   if (answers === undefined) aloneAnswers.set(lw.shared.attributes, (answers = new Map()))
   if (answers.has(sym)) return answers.get(sym)
-  const alone = new Lowering(lw.project, lw.project, newShared(lw.shared.attributes, "", lw.shared.libraryUnits), sym.uri)
+  const alone = new Lowering(lw.project, lw.project, newShared(lw.shared.attributes, "", lw.shared.libraryUnits, lw.shared.encoding), sym.uri)
   listVariable(alone, sym, decl)
   const routines = [...alone.routines.values()].flatMap((r) => (r.state === "lowered" ? [r.routine] : []))
   const first = alone.diagnostics[0]

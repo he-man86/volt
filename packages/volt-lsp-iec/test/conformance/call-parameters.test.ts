@@ -13,13 +13,12 @@ import { expect, test } from "bun:test"
 import { type CallExpr, isStBody, parseSource, type TopLevel, type VarSection } from "../../src/frontend/syntax/index.js"
 import { build, scopeForUnit } from "../../src/frontend/symbols/index.js"
 import { resolveCallee } from "../../src/frontend/types/index.js"
-import { lowerSource } from "../../src/transpile/index.js"
 import { positionalBinding, positionalParameters } from "../../src/transpile/lower/calls/parameters.js"
 import { execBodyStatements } from "../../src/transpile/lower/conditions.js"
 import { readFiles, TRANSPILE_PARSE } from "../../src/transpile/lower/project/prepare.js"
 import { ALL_TESTS } from "./fixtures/index.js"
 import { assembleFixture } from "./support/fixture-units.js"
-import { PROJECT_BASE } from "./support/project-libraries.js"
+import { PROJECT_BASE, lowerOnProject } from "./support/project-libraries.js"
 
 /** Every call expression in an AST subtree (a test walk: the AST has no child table). */
 function callsOf(node: unknown, out: CallExpr[] = []): CallExpr[] {
@@ -40,7 +39,7 @@ test("lowering binds every positional argument as resolveCallee does", () => {
   const project = PROJECT_BASE.prepared.project
   for (const t of ALL_TESTS) {
     const { source, gvls } = assembleFixture(t, ALL_TESTS)
-    if (lowerSource(source, "PLC_PRG", gvls, undefined, PROJECT_BASE).pou === undefined) continue
+    if (lowerOnProject(source, gvls).pou === undefined) continue
     const parseResult = parseSource(source, TRANSPILE_PARSE, "codesys")
     const read = readFiles(gvls)
     if ("unparsed" in read) {

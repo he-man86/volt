@@ -176,11 +176,22 @@ function stringConversion(lw: Lowering, e: Call, from: Type, to: Type, wideParse
   // a WSTRING parsed into an integer reads the WSTRING itself — its own grammar (`parseIntegerWide`); into a REAL, its
   // narrowed STRING, whose prefix parse the wide one reads alike (`wstring_parse_grammar`); into every integer type as the
   // STRING parse is (`wstring_parse_widths`)
-  if (wideParse && isReal(to)) return { kind: "convert", value: convert(source, withLength(elementaryRef("STRING"), Math.min(capacity!, CONVERSION_RESULT))), type: to, span: e.span }
+  // That narrow is this model's step, not the program's conversion: it crosses as UTF-8 whatever the project encodes, so a
+  // unit past ASCII becomes bytes of 16#80 and up (or a lone high surrogate's 0) — each ending the number, as any
+  // character that is no part of one does.
+  if (wideParse && isReal(to)) {
+    const narrowed: IrExpr = { kind: "convert", value: source, type: withLength(elementaryRef("STRING"), Math.min(capacity!, CONVERSION_RESULT)), span: source.span, encoding: "utf8" }
+    return { kind: "convert", value: narrowed, type: to, span: e.span }
+  }
   if (wideParse) return { kind: "convert", value: capacity! > CONVERSION_RESULT ? convert(source, withLength(source.type, CONVERSION_RESULT)) : source, type: defaultCapacity(to), span: e.span }
   if (isString(to) && isString(source.type)) {
     const cross = elemOf(to)?.name !== elemOf(source.type)?.name
-    return { kind: "convert", value: source, type: cross ? withLength(to, CONVERSION_RESULT) : defaultCapacity(to), span: e.span }
+    if (!cross) return { kind: "convert", value: source, type: defaultCapacity(to), span: e.span }
+    // how the units cross is the project's "UTF-8 Encoding for STRING" (`StringEncoding`), never a default
+    const encoding = lw.shared.encoding
+    if (encoding === undefined)
+      return lw.bail("string-encoding-unstated", `${elemOf(source.type)?.name}_TO_${elemOf(to)?.name} crosses as the project's "UTF-8 Encoding for STRING" decides — no .projectsettings states it`, e.span)
+    return { kind: "convert", value: source, type: withLength(to, CONVERSION_RESULT), span: e.span, encoding }
   }
   // a STRING parsed into a number reads at most 255 units of it
   const read = capacity !== undefined && capacity > CONVERSION_RESULT ? convert(source, withLength(source.type, CONVERSION_RESULT)) : source

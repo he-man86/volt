@@ -133,7 +133,7 @@ function compileExpr(e: IrExpr): Run<Val> {
     }
     case "convert": {
       const value = compiledExpr(e.value)
-      return (m) => convertValue(value(m), e.type, e.value.type)
+      return (m) => convertValue(value(m), e.type, e.value.type, e.encoding)
     }
     case "reinterpret":
       return compileReinterpret(e)

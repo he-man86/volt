@@ -340,4 +340,16 @@ export interface IrConvert {
   value: IrExpr
   type: Type
   span: Span
+  /** Present exactly on a STRING <-> WSTRING conversion: how its units cross, as the project's "UTF-8 Encoding for
+   *  STRING" makes them ({@link StringEncoding}). */
+  encoding?: StringEncoding
 }
+
+/**
+ * The project's Compile option "UTF-8 Encoding for STRING", as a STRING <-> WSTRING conversion runs it (CODESYS 3.5.21.40,
+ * commit 1d71f12416's measurement; `wsu_*` recorded ON):
+ *   - `utf8` (on): WSTRING_TO_STRING writes each character's UTF-8 bytes, STRING_TO_WSTRING decodes them.
+ *   - `latin1` (off): WSTRING_TO_STRING keeps each UTF-16 unit's LOW BYTE (计 is 16#A1; a surrogate pair 16#3D then 0,
+ *     which ends the string), STRING_TO_WSTRING widens byte for byte.
+ */
+export type StringEncoding = "utf8" | "latin1"

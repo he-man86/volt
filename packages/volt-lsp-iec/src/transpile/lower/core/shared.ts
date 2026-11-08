@@ -4,7 +4,7 @@
  * beside it by reference, in each model's own `state` (`sharedState`).
  */
 import type { TopLevel } from "../../../frontend/syntax/index.js"
-import type { IrLayout, IrRoutine, IrSlot } from "../../ir/index.js"
+import type { IrLayout, IrRoutine, IrSlot, StringEncoding } from "../../ir/index.js"
 import type { LowerDiagnostic } from "../diagnostics/diagnostic.js"
 import type { Lowering } from "./lowering.js"
 
@@ -52,12 +52,15 @@ export interface Shared {
   /** Every top-level unit that came from a LIBRARY file rather than from project source — what `isBodylessLibrary`
    *  asks, so a signature with no statements is refused instead of lowering to a routine that does nothing. */
   libraryUnits: ReadonlySet<object>
+  /** The project's "UTF-8 Encoding for STRING" (`LoweringProject.encoding`) — undefined where nothing states it. */
+  encoding: StringEncoding | undefined
 }
 
 export function newShared(
   attributes: AttributeLookup = new Map(),
   root = "",
   libraryUnits: ReadonlySet<object> = new Set(),
+  encoding?: StringEncoding,
 ): Shared {
   return {
     layouts: new Map(),
@@ -69,6 +72,7 @@ export function newShared(
     root,
     dispatches: [],
     libraryUnits,
+    encoding,
   }
 }
 

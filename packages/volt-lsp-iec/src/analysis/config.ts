@@ -9,6 +9,9 @@
  */
 import { splitLines } from "../frontend/syntax/index.js"
 
+/** Read by lowering too (the bytes a STRING holds), so it lives with the descriptor formats the front-end reads. */
+export { projectUtf8EncodingFrom } from "../frontend/syntax/index.js"
+
 export type Vendor = "codesys" | "twincat"
 
 /** The three states a configurable diagnostic can take — CODESYS's off / warning / error. */
@@ -149,20 +152,6 @@ export function projectDiagnosticsFrom(body: string): Partial<Record<Configurabl
     }
   }
   return out
-}
-
-/**
- * The project's Compile option "UTF-8 Encoding for STRING", as its `.projectsettings` states it — the CODESYS descriptor's
- * `UTF-8 encoding:` row, `on` or `off`. Undefined where the file has no such row (a TwinCAT descriptor); any other value
- * is refused by name.
- */
-export function projectUtf8EncodingFrom(body: string): boolean | undefined {
-  const line = splitLines(body).find((l) => l.toLowerCase().startsWith("utf-8 encoding:"))
-  if (line === undefined) return undefined
-  const value = line.slice(line.indexOf(":") + 1).trim()
-  if (value === "on") return true
-  if (value === "off") return false
-  throw new Error(`.projectsettings: "UTF-8 encoding" is '${value}', neither 'on' nor 'off'`)
 }
 
 /**

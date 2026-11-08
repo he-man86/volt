@@ -7,8 +7,7 @@ import { LOWER_CODES, LOWER_CODE_PREFIXES } from "../../src/transpile/index.js"
 import type { IrBuiltinName, IrExpr, IrStmt } from "../../src/transpile/ir/index.js"
 import { ALL_TESTS } from "../conformance/fixtures/index.js"
 import { assembleFixture } from "../conformance/support/fixture-units.js"
-import { PROJECT_BASE } from "../conformance/support/project-libraries.js"
-import { lowerSource } from "../../src/transpile/lower/index.js"
+import { lowerOnProject } from "../conformance/support/project-libraries.js"
 import { hasCorpus, LOWERING_TIMEOUT, fromPou, pass } from "./support/walk.js"
 
 // ─── question 3: lowering is total ───────────────────────────────────────────────────────────────────────────
@@ -232,7 +231,7 @@ describe.skipIf(!hasCorpus)("3. lowering is total, and its documented reach is m
       // assembled exactly as `backends` does it, so both gates read the same program from a fixture
       const { source, gvls } = assembleFixture(t, ALL_TESTS)
       try {
-        for (const d of lowerSource(source, "PLC_PRG", gvls, undefined, PROJECT_BASE).diagnostics ?? []) produced.add(d.code)
+        for (const d of lowerOnProject(source, gvls).diagnostics ?? []) produced.add(d.code)
       } catch {
         // a throw is question 3's first assertion, not this one's
       }
@@ -250,7 +249,7 @@ describe.skipIf(!hasCorpus)("3. lowering is total, and its documented reach is m
     for (const t of ALL_TESTS) {
       const { source, gvls } = assembleFixture(t, ALL_TESTS)
       try {
-        const { pou } = lowerSource(source, "PLC_PRG", gvls, undefined, PROJECT_BASE)
+        const { pou } = lowerOnProject(source, gvls)
         if (pou !== undefined) fromPou(pou, p.kinds, p.builtins)
       } catch {
         // as above

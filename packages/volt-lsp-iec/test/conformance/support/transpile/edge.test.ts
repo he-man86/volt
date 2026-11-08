@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test"
-import { lowerSource } from "../../../../src/transpile/index.js"
-import { PROJECT_BASE } from "../project-libraries.js"
+import { lowerOnProject } from "../project-libraries.js"
 import { rustAccess } from "../rust-access.js"
 import { compareEdge, type EdgeOutcome, edgeSeeds, interpOutcome, reachesLibm } from "./edge.js"
 
@@ -10,7 +9,7 @@ import { compareEdge, type EdgeOutcome, edgeSeeds, interpOutcome, reachesLibm } 
  */
 test("an edge seed the interpreter refuses throws instead of reading as a program fault", () => {
   const source = "PROGRAM PLC_PRG\nVAR\n\ta : ARRAY[0..2] OF INT;\nEND_VAR\na[0] := 1;\nEND_PROGRAM\n"
-  const { pou } = lowerSource(source, "PLC_PRG", [], undefined, PROJECT_BASE)
+  const { pou } = lowerOnProject(source, [])
   if (pou === undefined) throw new Error("the source does not lower")
   const p = { path: "a[5]", ...rustAccess(pou, "a[5]") }
   const plan = { paths: [], cycles: 1, variants: [{ label: "oob", seed: { p, s: { label: "1", interp: 1n, rust: "1" } } }] }
@@ -25,7 +24,7 @@ test("an edge seed the interpreter refuses throws instead of reading as a progra
  */
 test("edge variants the interpreter's loop guard gives up on are counted, and none answered is not-run", () => {
   const source = "PROGRAM PLC_PRG\nVAR\n\ti : DINT;\n\tn : DINT;\nEND_VAR\nWHILE i < n DO i := i + 1; END_WHILE\nEND_PROGRAM\n"
-  const { pou } = lowerSource(source, "PLC_PRG", [], undefined, PROJECT_BASE)
+  const { pou } = lowerOnProject(source, [])
   if (pou === undefined) throw new Error("the source does not lower")
   const n = { path: "n", ...rustAccess(pou, "n") }
   const i = { path: "i", ...rustAccess(pou, "i") }
@@ -49,7 +48,7 @@ test("edge variants the interpreter's loop guard gives up on are counted, and no
  */
 test("the edge column compares a REAL NaN by its bits, sign and payload", () => {
   const source = "PROGRAM PLC_PRG\nVAR\n\tx : REAL;\n\ty : REAL;\nEND_VAR\ny := -x;\nEND_PROGRAM\n"
-  const { pou } = lowerSource(source, "PLC_PRG", [], undefined, PROJECT_BASE)
+  const { pou } = lowerOnProject(source, [])
   if (pou === undefined) throw new Error("the source does not lower")
   const x = { path: "x", ...rustAccess(pou, "x") }
   const y = { path: "y", ...rustAccess(pou, "y") }

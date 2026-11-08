@@ -44,12 +44,12 @@ import { test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import type { Vendor } from "../../../src/analysis/index.js"
-import { lowerSource, type LoweredPou } from "../../../src/transpile/index.js"
+import { type LoweredPou } from "../../../src/transpile/index.js"
 import { ALL_TESTS } from "../fixtures/index.js"
 import type { LanguageTest } from "../types.js"
 import { EVIDENCE_ORDER, type Evidence } from "./evidence.js"
 import { assembleFixture } from "./fixture-units.js"
-import { PROJECT_BASE } from "./project-libraries.js"
+import { lowerOnProject } from "./project-libraries.js"
 import type { RunRecorded } from "./recordings.js"
 import { selectFixtures } from "./selection.js"
 
@@ -90,7 +90,7 @@ export function lowering(c: LanguageTest): LoweredPou {
     // A GVL is an object of its own, named by its pouName — `GVL_Name.var` reaches it only under that name, which a
     // file gives it. Folded into the one source, every list was named `source`, and no qualified access could resolve.
     const { source, gvls } = assembleFixture(c, ALL_TESTS)
-    lowered = lowerSource(source, "PLC_PRG", gvls, undefined, PROJECT_BASE)
+    lowered = lowerOnProject(source, gvls)
     loweredCache.set(c.name, lowered)
   }
   return lowered

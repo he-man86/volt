@@ -328,6 +328,11 @@ export const LOWER_CODES: Readonly<Record<string, LowerCodeKind>> = {
   "task-value": "invalid",
   "task-call": "invalid",
   "task-entry": "invalid",
+  // the project's "UTF-8 Encoding for STRING" is a fact Volt is not given when no `.projectsettings` states it: a STRING
+  // literal past ASCII and a STRING <-> WSTRING conversion are then refused (`project/prepare.ts` `settingsEncoding`), and a
+  // `.projectsettings` the reader refuses (a row neither on nor off, a second file) is refused as the descriptor it is
+  "string-encoding-unstated": "not-measured",
+  "project-settings": "invalid",
 }
 
 /** Templated families — `expr-${kind}` and friends expand over AST kinds, so they cannot be enumerated. */

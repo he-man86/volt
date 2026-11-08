@@ -39,7 +39,7 @@ function evaluate(e: IrExpr): Val | undefined {
       return constValue(e.value, e.type)
     case "convert": {
       const inner = evaluate(e.value)
-      return inner === undefined ? undefined : convertValue(inner, e.type, e.value.type)
+      return inner === undefined ? undefined : convertValue(inner, e.type, e.value.type, e.encoding)
     }
     case "unary": {
       const operand = evaluate(e.operand)

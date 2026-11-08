@@ -9,8 +9,10 @@ import {
   type ParsedFile,
   prepareProject,
   readFiles,
+  settingsEncoding,
   TRANSPILE_PARSE,
 } from "../project/prepare.js"
+import type { StringEncoding } from "../../ir/index.js"
 import type { LibraryBase } from "../project/library-base.js"
 import { lowerDiagnostic, type LoweredPou, misplaced } from "../diagnostics/diagnostic.js"
 import { LoweringBug } from "../../semantics/faults.js"
@@ -21,6 +23,8 @@ import { EXEC_ORACLE_DIALECT } from "../conditions.js"
 import { lowerUnit } from "./lower-unit.js"
 
 /** Parse, bind and lower one source string, against the files a project would hand in beside it. The test/CLI path.
+ *  Among those files, the project's `.projectsettings` states its "UTF-8 Encoding for STRING" (`settingsEncoding`); with
+ *  none, a STRING literal past ASCII and a STRING <-> WSTRING conversion are refused (`string-encoding-unstated`).
  *  `uri` places the source in a project tree — where an `instance-path` takes its device and application from.
  *  `base`, when given, holds the project's libraries already bound (`libraryBase`); `libraries` is then only the
  *  program's other files — its GVLs and sibling POUs, none of them in the base and no `.library` among them. `fold`
@@ -36,23 +40,32 @@ export function lowerSource(source: string, name?: string, libraries: readonly L
     const first = read.unparsed.parseResult.errors[0]!
     return { diagnostics: [lowerDiagnostic("parse", `${read.unparsed.uri} did not parse: ${first.message}`, first.span, read.unparsed.uri)] }
   }
+  const stated = settingsEncoding(read.settings)
+  if ("refused" in stated) return { diagnostics: [lowerDiagnostic("project-settings", stated.refused.message, ZERO_SPAN, stated.refused.uri)] }
   const own = [{ uri, parseResult, source }, ...read.files]
   // every file a refusal may name, by its text (`inFiles`)
   // looked up, never copied: a base holds every library file, and this runs some 10 000 times a suite
   const sources = (file: string): string | undefined => own.find((f) => f.uri === file)?.source ?? base?.sources.get(file)
-  if (base === undefined) return inFiles(lowerPrepared({ uri, parseResult }, name, prepareProject(own, read.manifests), fold), sources)
+  if (base === undefined) return inFiles(lowerPrepared({ uri, parseResult }, name, prepareProject(own, read.manifests, stated.encoding), fold), sources)
   // A CALLER'S MISTAKE, SAID AS ONE — both were silent. A file already in the base is taken off by uri afterwards, and
   // its copy in the base with it, so every later program lowered against a base missing that file; a manifest beside a
   // base was dropped, since the base's are the ones linked against.
   const twice = own.find((f) => base.sources.has(f.uri))
   if (twice !== undefined) throw new Error(`${twice.uri} is already bound in the library base — hand in only the program's own files`)
   if (read.manifests.length > 0) throw new Error("a .library manifest handed beside a library base — bind it into the base (`libraryBase`)")
-  return inFiles(lowerOnBase({ uri, parseResult }, name, own, base, fold), sources)
+  return inFiles(lowerOnBase({ uri, parseResult }, name, own, base, stated.encoding, fold), sources)
 }
 
 /** The program's files bound on the base for this lowering only — and taken off again whatever happens, so the next
  *  program starts from the libraries alone. */
-function lowerOnBase(file: { uri: string; parseResult: ReturnType<typeof parseSource> }, name: string | undefined, own: readonly ParsedFile[], base: LibraryBase, fold: boolean): LoweredPou {
+function lowerOnBase(
+  file: { uri: string; parseResult: ReturnType<typeof parseSource> },
+  name: string | undefined,
+  own: readonly ParsedFile[],
+  base: LibraryBase,
+  encoding: StringEncoding | undefined,
+  fold: boolean,
+): LoweredPou {
   const project = base.prepared.project
   for (const f of own) build.bindFile(project, f)
   build.relink(project, base.manifests)
@@ -64,6 +77,7 @@ function lowerOnBase(file: { uri: string; parseResult: ReturnType<typeof parseSo
       // the program's own over the base's — layered, not copied: the base can hold thousands
       attributes: { get: (key) => attributes.get(key) ?? base.prepared.attributes.get(key) },
       libraryUnits: libraryUnits.length === 0 ? base.prepared.libraryUnits : new Set([...base.prepared.libraryUnits, ...libraryUnits]),
+      encoding,
     }, fold)
   } finally {
     for (const f of own) build.unbindFile(project, f.uri)

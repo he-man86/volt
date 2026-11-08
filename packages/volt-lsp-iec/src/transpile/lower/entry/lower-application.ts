@@ -62,6 +62,13 @@ interface CallSite {
  * Lower the application `files` hold (its POUs and GVLs, its libraries' files, or — with `base` — the program's own
  * files only, as `lowerSource` takes them) by the task configuration `tasks` states; with no task, lower `main` as its one
  * implicit task.
+ *
+ * THE PROJECT'S SETTINGS ARE ONE OF `files`: its `.projectsettings` (the bridge's descriptor, as pulled) states the Compile
+ * option "UTF-8 Encoding for STRING", which decides the bytes a STRING literal past ASCII holds and how WSTRING_TO_STRING /
+ * STRING_TO_WSTRING cross — on: UTF-8; off: Latin-1 with '?' past it for a literal, a unit's low byte and a byte-for-byte
+ * widen for a conversion. Handed none, or one with no such row (TwinCAT's), the setting is unstated and each of those is
+ * refused (`string-encoding-unstated`) — never run on a default. Two `.projectsettings`, or a row neither on nor off, are
+ * refused (`project-settings`).
  */
 export function lowerApplication(files: readonly LibraryFile[], tasks: readonly TaskFile[], main?: string, base?: LibraryBase): LoweredApplication {
   const read = readFiles(files)
@@ -69,7 +76,8 @@ export function lowerApplication(files: readonly LibraryFile[], tasks: readonly 
     const first = read.unparsed.parseResult.errors[0]!
     return { diagnostics: [lowerDiagnostic("parse", `${read.unparsed.uri} did not parse: ${first.message}`, first.span, read.unparsed.uri)] }
   }
-  const handed = [...read.files, ...files.filter((f) => f.uri.toLowerCase().endsWith(".library"))]
+  // the files `lowerSource` reads again: the parsed ones, the manifests and the project's settings
+  const handed = [...read.files, ...files.filter((f) => f.uri.toLowerCase().endsWith(".library")), ...read.settings]
   if (tasks.length === 0) {
     if (main === undefined) throw new Error("an application with no .task names its main program — the implicit task's one call")
     return implicitTask(read.files, handed, main, base)

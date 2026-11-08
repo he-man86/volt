@@ -55,7 +55,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { ALL_TESTS } from "../test/conformance/fixtures/index.js"
 import { assembleFixture } from "../test/conformance/support/fixture-units.js"
-import { PROJECT_BASE } from "../test/conformance/support/project-libraries.js"
+import { lowerOnProject } from "../test/conformance/support/project-libraries.js"
 import { EVIDENCE_ORDER, rateFixture, type Evidence } from "../test/conformance/support/evidence.js"
 import { assertNotes, deadNotes, notesByTask, notesOf } from "../test/conformance/support/notes/notes.js"
 import { NOTES } from "../test/conformance/support/notes/notes.data.js"
@@ -72,7 +72,7 @@ import { buildRust } from "../test/conformance/support/rustc-cache-build.js"
 
 /** What a harness binary is run with; a re-proved cache hit runs both builds on each (`support/rustc-cache.ts`). */
 const HARNESS_PROBES = [[], [EDGE_ARG]]
-import { emitRust, lowerSource } from "../src/transpile/index.js"
+import { emitRust } from "../src/transpile/index.js"
 
 const OUT = join(import.meta.dir, "..", "test", "conformance", "fixtures", "map.generated.ts")
 const check = process.argv.includes("--check")
@@ -120,7 +120,7 @@ await Promise.all(
       const { source, gvls } = assembleFixture(t, ALL_TESTS)
       let pou
       try {
-        pou = lowerSource(source, "PLC_PRG", gvls, undefined, PROJECT_BASE).pou
+        pou = lowerOnProject(source, gvls).pou
       } catch {
         pou = undefined // a THROW is a defect `rateFixture` already reports as `diverges`; there is no Rust to rate
       }

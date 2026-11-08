@@ -25,10 +25,9 @@
  */
 import { describe, expect, test } from "bun:test"
 import { emitRust } from "../../src/transpile/emit/rust/index.js"
-import { lowerSource } from "../../src/transpile/lower/index.js"
 import { ALL_TESTS } from "./fixtures/index.js"
 import { assembleFixture } from "./support/fixture-units.js"
-import { PROJECT_BASE, PROJECT_LOWERING } from "./support/project-libraries.js"
+import { lowerOnProject, PROJECT_LOWERING } from "./support/project-libraries.js"
 
 
 
@@ -125,7 +124,7 @@ function programs(): Program[] {
     const { source: source, gvls } = assembleFixture(t, ALL_TESTS)
     let pou
     try {
-      pou = lowerSource(source, "PLC_PRG", gvls, undefined, PROJECT_BASE).pou
+      pou = lowerOnProject(source, gvls).pou
     } catch {
       continue // a lowering throw is `corpus`'s to report
     }

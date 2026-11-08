@@ -16,14 +16,13 @@ import { join } from "node:path"
 import { computeDiagnostics, resolveConfig, type AnalysisInitOptions } from "../../../src/analysis/index.js"
 import { parseDocument, parseSource, type CompileEnvironment, type Dialect } from "../../../src/frontend/syntax/index.js"
 import { build, type Scope } from "../../../src/frontend/symbols/index.js"
-import { lowerSource } from "../../../src/transpile/lower/index.js"
 import { run } from "../../../src/transpile/interp/index.js"
 import { assembleFixture, splitLists, withDependencies } from "./fixture-units.js"
 import { plcPrgSource } from "./plc-prg.js"
 import { conformanceUri } from "./fixture-uri.js"
 import { RECORDING_ENVIRONMENT, recordingParse } from "./recording-environment.js"
 import { RUNS } from "./recordings.js"
-import { PROJECT_LIBRARY, PROJECT_BASE, PROJECT_MANIFESTS, projectDevices } from "./project-libraries.js"
+import { PROJECT_LIBRARY, lowerOnProject, PROJECT_MANIFESTS, projectDevices } from "./project-libraries.js"
 import type { LanguageTest } from "../types.js"
 
 export type Evidence = NonNullable<LanguageTest["evidence"]>
@@ -215,7 +214,7 @@ export function rateFixture(t: LanguageTest, all: readonly LanguageTest[]): Evid
   const { source, libraries } = sourceOf(t, all)
   let pou
   try {
-    pou = lowerSource(source, "PLC_PRG", libraries, undefined, PROJECT_BASE).pou
+    pou = lowerOnProject(source, libraries).pou
   } catch {
     return "diverges" // a THROW is not a refusal — lowering must end in a diagnostic, so this is a defect
   }

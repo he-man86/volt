@@ -4,7 +4,7 @@
  * statement, `callsIn` on every body, of every lowered fixture's IR.
  */
 import { expect, test } from "bun:test"
-import { type IrExpr, type IrInvoke, type IrPou, lowerSource, type Place } from "../../src/transpile/index.js"
+import { type IrExpr, type IrInvoke, type IrPou, type Place } from "../../src/transpile/index.js"
 import {
   callsIn,
   findPlace,
@@ -19,7 +19,7 @@ import {
 } from "../../src/transpile/ir/walk.js"
 import { ALL_TESTS } from "./fixtures/index.js"
 import { assembleFixture } from "./support/fixture-units.js"
-import { PROJECT_BASE } from "./support/project-libraries.js"
+import { lowerOnProject } from "./support/project-libraries.js"
 
 /** The walk `holdsCall` was until 1.2.3, kept verbatim as this test's oracle. */
 function reflectiveHoldsCall(node: unknown): boolean {
@@ -196,7 +196,7 @@ for (const t of ALL_TESTS)
   test(`${t.name}: the IR walks answer as the walks they replaced`, () => {
     // lowering is total: a fixture that throws fails this test by name, never drops out of the comparison
     const { source, gvls } = assembleFixture(t, ALL_TESTS)
-    const pou = lowerSource(source, "PLC_PRG", gvls, undefined, PROJECT_BASE).pou
+    const pou = lowerOnProject(source, gvls).pou
     if (pou === undefined) return
     totals.lowered += 1
     const differ: string[] = []

@@ -221,7 +221,7 @@ async function snapshot(sinkAll: Sink, only?: string): Promise<void> {
   const { assembleFixture } = await load<typeof import("../test/conformance/support/fixture-units.ts")>(
     "test/conformance/support/fixture-units.ts",
   )
-  const { PROJECT_BASE } = await load<typeof import("../test/conformance/support/project-libraries.ts")>(
+  const { lowerOnProject } = await load<typeof import("../test/conformance/support/project-libraries.ts")>(
     "test/conformance/support/project-libraries.ts",
   )
   const { runPaths } = await load<typeof import("../test/conformance/support/run-paths.ts")>(
@@ -237,7 +237,7 @@ async function snapshot(sinkAll: Sink, only?: string): Promise<void> {
     let lowered: any
     try {
       const { source, gvls } = assembleFixture(t, ALL_TESTS)
-      lowered = transpile.lowerSource(source, "PLC_PRG", gvls, undefined, PROJECT_BASE)
+      lowered = lowerOnProject(source, gvls)
     } catch (e) {
       sink(key, "lowering", failure(e))
       continue

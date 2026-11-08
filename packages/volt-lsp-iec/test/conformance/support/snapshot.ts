@@ -29,10 +29,10 @@ import { NaNBits } from "../../../src/transpile/semantics/nan.js"
 import { rmSync } from "node:fs"
 import { join } from "node:path"
 import { renderType, type Type } from "../../../src/frontend/types/index.js"
-import { CLOCK, emitRust, lowerSource, run, type IrPou, type LoweredPou } from "../../../src/transpile/index.js"
+import { CLOCK, emitRust, run, type IrPou, type LoweredPou } from "../../../src/transpile/index.js"
 import type { LanguageTest } from "../types.js"
 import { assembleFixture } from "./fixture-units.js"
-import { PROJECT_BASE } from "./project-libraries.js"
+import { lowerOnProject } from "./project-libraries.js"
 import { runPaths } from "./run-paths.js"
 import { CLIPPY, RUSTC } from "./rustc.js"
 import { buildRust } from "./rustc-cache-build.js"
@@ -247,7 +247,7 @@ export async function snapshotFixture(
   let lowered: LoweredPou
   try {
     const { source, gvls } = assembleFixture(t, all)
-    lowered = lowerSource(source, "PLC_PRG", gvls, undefined, PROJECT_BASE)
+    lowered = lowerOnProject(source, gvls)
   } catch (e) {
     if (layers.includes("ir")) out.ir = failure(e)
     return out

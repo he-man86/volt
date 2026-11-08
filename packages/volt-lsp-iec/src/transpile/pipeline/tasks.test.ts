@@ -91,3 +91,16 @@ test("a refusal lowering meets in a task's call is reported on the .task's call"
   const lowered = lowerApplication(files, [task("Fast", "A, D")])
   expect(lowered.diagnostics.map((d) => [d.code, d.uri.slice(d.uri.lastIndexOf("/") + 1), d.span.startLine, d.span.startCol])).toEqual([["call-inout-missing", "Fast.task", 5, 14]])
 })
+
+test("the project's .projectsettings is one of the files: its \"UTF-8 Encoding for STRING\" reaches every task's code", () => {
+  const files = [...FILES, { uri: "D.pou", source: "PROGRAM D\nVAR txt : STRING; b : BYTE; END_VAR\ntxt := 'ö';\nb := txt[0];\nEND_PROGRAM\n" }]
+  const settings = (row: string) => ({ uri: "file:///app/Project%20Settings.projectsettings", source: `UTF-8 encoding:        ${row}\n` })
+  const byte = (row: string) => {
+    const lowered = lowerApplication([...files, settings(row)], [task("Fast", "D")])
+    const runner = runApplication(lowered.application!)
+    runner.runTask("Fast")
+    return runner.get("D.b")
+  }
+  expect([byte("off"), byte("on")]).toEqual([246n, 195n])
+  expect(lowerApplication(files, [task("Fast", "D")]).diagnostics.map((d) => [d.code, d.uri.slice(d.uri.lastIndexOf("/") + 1)])).toEqual([["string-encoding-unstated", "D.pou"]])
+})

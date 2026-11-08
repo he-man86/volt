@@ -88,7 +88,7 @@ function runsAs(map: MapFile, body: string): string {
   const source = `${map.holder.replace("%s", "P")}${body}\nEND_PROGRAM\n${callees.join("")}`
   const parseResult = parseSource(source, TRANSPILE_PARSE, EXEC_ORACLE_DIALECT)
   if (parseResult.errors.length > 0) throw new Error(`${body}: ${parseResult.errors[0]!.message}`)
-  const { project } = prepareProject([{ uri: "runs://P", parseResult, source }], [])
+  const { project } = prepareProject([{ uri: "runs://P", parseResult, source }], [], undefined)
   const unit = allUnits(parseResult.units).find((u) => "name" in u && u.name?.text === "P")!
   const net = unitBodies(unit).find(isPlainStNetworkBody)
   if (net === undefined) throw new Error(`${body}: no network body`)

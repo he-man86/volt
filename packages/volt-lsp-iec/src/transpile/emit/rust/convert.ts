@@ -59,6 +59,15 @@ function castLiteral(v: IrValue, target: string): Printed | undefined {
   return text === undefined ? undefined : printed(text, text.startsWith("-") ? Prec.Unary : Prec.Postfix)
 }
 
+/** A STRING <-> WSTRING conversion's runtime method, as the node's encoding says (`IrConvert.encoding`): UTF-8 `narrow` /
+ *  `widen`, or a unit's low byte and a byte-for-byte widen (`narrow_low_byte` / `widen_bytes`) — the interpreter's
+ *  `utf8Narrow` / `utf8Widen` and `lowByteNarrow` / identity. */
+function crossing(e: Extract<IrExpr, { kind: "convert" }>, narrow: boolean): string {
+  if (e.encoding === undefined) throw new Error("emit: a STRING <-> WSTRING conversion carries no encoding — lowering states one on every such node")
+  if (e.encoding === "utf8") return narrow ? "narrow" : "widen"
+  return narrow ? "narrow_low_byte" : "widen_bytes"
+}
+
 /** The result of an `f64` math routine, narrowed to the IEC type — or left alone when that type IS `f64`. */
 export function fromF64(value: Printed, target: string): Printed {
   return target === "f64" ? value : printed(`${at(value, Prec.As)} as ${target}`, Prec.As)
@@ -105,7 +114,7 @@ export function exprConvert(p: Printer, e: Extract<IrExpr, { kind: "convert" }>,
   if (to === "string" && from === "string") {
     const target = stringType(e.type)
     const source = stringType(e.value.type)
-    const how = target.name === source.name ? "to" : target.name === "IecString" ? "narrow" : "widen"
+    const how = target.name === source.name ? "to" : crossing(e, target.name === "IecString")
     return printed(`${receiver}.${how}::<${target.capacity}>()`, Prec.Postfix)
   }
   if (to === "string") {

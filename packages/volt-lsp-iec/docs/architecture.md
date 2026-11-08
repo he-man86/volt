@@ -579,8 +579,10 @@ parsed into an integer reads the WSTRING by its own grammar — the STRING parse
 whole text, else 0 (`semantics/parse.ts` `parseIntegerWide`, Rust `iec_parse_int_wide`, `wstring_parse_grammar`), into
 every integer type as the STRING parse does past 32 and 64 bits; a negative text into an unsigned type is 0 for both, where
 a signed one wraps it (`wstring_parse_widths`, 108 cells). Refused by name:
-an implicit string crossing (`assign-string` [invalid]), unmeasured escapes (`string-escape` [not-measured], `wstring-surrogate` [not-measured],
-`string-non-ascii` [not-measured]), a whole-string write through a cursor's `p^` that would go past the caller's variable — a store,
+an implicit string crossing (`assign-string` [invalid]), unmeasured escapes (`string-escape` [not-measured], `wstring-surrogate` [not-measured]),
+a STRING literal past ASCII or a STRING <-> WSTRING conversion when no `.projectsettings` among the files states the project's
+"UTF-8 Encoding for STRING" (`string-encoding-unstated` [not-measured]; stated, on is UTF-8, off Latin-1 / a unit's low byte),
+a whole-string write through a cursor's `p^` that would go past the caller's variable — a store,
 a chain link, an FB output copied out, `p^` lent to a wider writable VAR_IN_OUT (`cursor-overrun` [not-modelled]), REAL_TO_STRING
 (`conversion-type` [not-measured]), a Standard function's lent input that the library repo's body writes, lends writable or takes the
 address of (`input-borrow-written` [not-modelled] — a repo defect, never a silent copy) and LEN_INTERNAL of a STRING longer than its

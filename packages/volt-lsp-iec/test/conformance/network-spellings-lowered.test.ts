@@ -5,9 +5,8 @@
  * same stimulus by the same driver, and must agree on every scan too — so the lowering runs what CODESYS runs.
  */
 import { expect, test } from "bun:test"
-import { lowerSource } from "../../src/transpile/lower/index.js"
 import { run } from "../../src/transpile/interp/index.js"
-import { PROJECT_BASE } from "./support/project-libraries.js"
+import { lowerOnProject } from "./support/project-libraries.js"
 
 const inputs = "VAR_INPUT\n\ta, b, c, d : BOOL;\n\ti, j : INT;\nEND_VAR\n"
 const outputs = "VAR_OUTPUT\n\ty1, y2, y4, y5, y6, y7, y9, y10, y11, y12 : INT;\n\tx1, x2, x3, x5, x6, x7, lamp : BOOL;\nEND_VAR\nVAR\n\tc1, c2, c3, c4 : CTU;\nEND_VAR\n"
@@ -125,7 +124,7 @@ test("every spelling CODESYS ran as its network lowers to what its twin lowers t
     { uri: "P_Twin.pou", source: twin },
     { uri: "FN_Inc.pou", source: fn },
   ]
-  const { pou, diagnostics } = lowerSource(driver, "PLC_PRG", files, "PLC_PRG.pou", PROJECT_BASE)
+  const { pou, diagnostics } = lowerOnProject(driver, files, "PLC_PRG.pou")
   expect(diagnostics).toEqual([])
   const r = run(pou!)
   for (let scan = 0; scan < 48; scan++) r.scan()

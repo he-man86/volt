@@ -171,7 +171,9 @@ export interface ApplicationRunner extends Omit<Runner, "scan"> {
   runTask(name: string): void
 }
 
-/** Prepare a lowered application for execution — its globals and every called PROGRAM's instance shared by every task. */
+/** Prepare a lowered application for execution — its globals and every called PROGRAM's instance shared by every task.
+ *  The project's "UTF-8 Encoding for STRING" is not an option here: `lowerApplication` read it off the `.projectsettings`
+ *  among its files, and the IR carries it (a STRING literal's bytes; `IrConvert.encoding` on each STRING <-> WSTRING). */
 export function runApplication(app: IrApplication, options: RunOptions = {}): ApplicationRunner {
   const { scanOf, ...access } = prepare(app.pou, options)
   const tasks = new Map(app.tasks.map((t) => [t.name.toUpperCase(), scanOf(t.body)]))

@@ -103,6 +103,7 @@ export { LANGUAGE_KEY, languageLine, retiredLineMessage } from "./format/object-
 export { baseNameOf, documentPath, objectNameOf, sourceObjectOf } from "./format/source-object.js"
 export { graphicalMarkerLanguage, isPlainStNetworkBody, isStBody, unitBodies } from "./format/bodies.js"
 // the `.task` descriptor: its text (byte-compatible with the bridge's) and what its values mean
+export { projectUtf8EncodingFrom } from "./format/project-settings.js"
 export { readTask, TaskFormatError, taskName, writeTask, type TaskSettings } from "./format/task.js"
 export { TASK_TYPES, taskFacts, taskTimeNs, type TaskFacts } from "./parse/task-facts.js"
 export { taskCallSpans, taskLabelSpan, taskLineSpan } from "./format/task-spans.js"

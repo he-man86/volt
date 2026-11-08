@@ -14,7 +14,7 @@ import { parseSource, type Dialect } from "../../../src/frontend/syntax/index.js
 import type { DeviceInstance } from "../../../src/frontend/symbols/index.js"
 import { scanWorkspaceRefs } from "../../../src/workspace/workspace-refs.js"
 import { parseLibraryManifest, type LibraryManifest } from "../../../src/frontend/library/index.js"
-import { libraryBase, type LibraryBase, type LibraryFile } from "../../../src/transpile/index.js"
+import { libraryBase, type LibraryBase, type LibraryFile, type LoweredPou, lowerSource } from "../../../src/transpile/index.js"
 import { walkSources } from "../../corpus/support/project.js"
 import { LIBRARY_MANAGER } from "./fixture-units.js"
 
@@ -40,6 +40,16 @@ export const PROJECT_LOWERING: readonly LibraryFile[] = withImplementations([...
 
 /** Those libraries bound ONCE (`libraryBase`): every fixture lowers on top of them, rather than binding 857 files anew. */
 export const PROJECT_BASE: LibraryBase = libraryBase(PROJECT_LOWERING)
+
+/** The exec oracle project's own `.projectsettings` — its "UTF-8 Encoding for STRING" is ON (read off the project in
+ *  CODESYS, 2026-11-08), which every run recording (`codesys.run.json`, `slit_*`, `wsu_*`) was made under. */
+export const PROJECT_SETTINGS: LibraryFile = read(join(import.meta.dir, "..", "..", "..", "test-corpus", "CodesysTestProject", "Project Settings.projectsettings"))
+
+/** A fixture's `PLC_PRG` lowered as the exec oracle's project compiles it: on the project's libraries (`PROJECT_BASE`),
+ *  beside its own `files` and the project's settings (`PROJECT_SETTINGS`). */
+export function lowerOnProject(source: string, files: readonly LibraryFile[], uri?: string): LoweredPou {
+  return lowerSource(source, "PLC_PRG", [...files, PROJECT_SETTINGS], uri, PROJECT_BASE)
+}
 
 /**
  * THE FIXTURE PROJECTS' DEVICE TREES — each vendor's recording project's device-tree instances, from the `.device`

@@ -9,6 +9,8 @@
 import { expect, test } from "bun:test"
 import { elementaryRef } from "../../frontend/types/index.js"
 import { coerce, utf8Narrow, utf8Widen } from "./convert.js"
+import { CROSSING_CASES } from "./convert.cases.js"
+import { visible } from "./string.js"
 import { INT_TO_REAL_CASES, REAL_TO_INT_CASES } from "./numeric.cases.js"
 import { fit } from "./store.js"
 
@@ -77,4 +79,20 @@ test("STRING_TO_WSTRING refuses a byte that starts no complete UTF-8 sequence (C
   expect(() => utf8Widen("éA")).toThrow("byte 0 (16#E9)")
   expect(() => utf8Widen("\u0080")).toThrow("byte 0 (16#80)")
   expect(utf8Widen(utf8Narrow("a😀b"))).toBe("a😀b")
+})
+
+/**
+ * STRING <-> WSTRING under each setting of "UTF-8 Encoding for STRING" (`convert.cases.ts`): `coerce` with the node's
+ * encoding, then the store at the target's capacity — the string it holds, unit by unit. A crossing with no encoding is
+ * lowering's bug: every such node carries one, and unstated it is refused before it is built.
+ */
+test("STRING <-> WSTRING crosses as the encoding says, on and off", () => {
+  const run = (c: (typeof CROSSING_CASES)[number]) => {
+    const [from, to] = c.input.op === "narrow" ? ["WSTRING", "STRING"] : ["STRING", "WSTRING"]
+    const target = { ...elementaryRef(to!), length: c.input.m }
+    const held = visible(fit(coerce(c.input.text, target, elementaryRef(from!), c.input.encoding), target) as string)
+    return `${c.name}: ${[...held].map((ch) => ch.charCodeAt(0)).join(" ")}`
+  }
+  expect(CROSSING_CASES.map(run)).toEqual(CROSSING_CASES.map((c) => `${c.name}: ${c.expected.join(" ")}`))
+  expect(() => coerce("a", elementaryRef("STRING"), elementaryRef("WSTRING"))).toThrow("WSTRING_TO_STRING conversion carries no encoding")
 })

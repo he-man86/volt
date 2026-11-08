@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { load } from "../index.js"
+import { load, lowerAndEmit, lowerSource } from "../index.js"
 
 // End to end, ST -> lower -> interpreter: STRING and WSTRING stores and conversions.
 describe("interp — STRING (design §18; every expectation recorded in conformance `string_*`)", () => {
@@ -88,5 +88,86 @@ describe("interp — STRING (design §18; every expectation recorded in conforma
   test("STRING_TO_INT skips leading spaces, takes a sign, stops at a non-digit — and wraps", () => {
     const pou = scanned("spaced : STRING := ' +12abc'; huge : STRING := '99999'; x : INT; y : INT;", "x := STRING_TO_INT(spaced); y := STRING_TO_INT(huge);")
     expect([pou.get("x"), pou.get("y")]).toEqual([12n, -31073n])
+  })
+})
+
+/**
+ * THE PROJECT'S "UTF-8 Encoding for STRING" IS AN INPUT (handed as its `.projectsettings`): CODESYS 3.5.21.40, commit
+ * 1d71f12416 — on (the exec oracle's project, `slit_*` / `wsu_*` recorded) a STRING past ASCII is UTF-8; off (the
+ * build-recording project) a literal is Latin-1 with '?' per UTF-16 unit past it, WSTRING_TO_STRING keeps each unit's low
+ * byte and STRING_TO_WSTRING widens byte for byte. Unstated, neither is guessed: each is refused by name.
+ */
+describe("interp — a STRING past ASCII as the project's \"UTF-8 Encoding for STRING\" makes it", () => {
+  const settings = (row: string) => [{ uri: "Project Settings.projectsettings", source: `Replace constants:     on\n${row}Max compiler warnings: 100\n` }]
+  const ON = settings("UTF-8 encoding:        on\n")
+  const OFF = settings("UTF-8 encoding:        off\n")
+  const program = (vars: string, body: string) => `PROGRAM P\nVAR\n${vars}\nEND_VAR\n${body}\nEND_PROGRAM\n`
+  const bytes = (n: number) => Array.from({ length: n }, (_, i) => `u${i} : WORD;`).join(" ")
+  const reads = (of: string, n: number) => Array.from({ length: n }, (_, i) => `u${i} := ${of}[${i}];`).join(" ")
+  /** `body` run once on `files`' settings: `n` (the units before the terminator, counted as LEN counts them — LEN is a
+   *  library's) and the first `count` units of `of`. */
+  const units = (files: typeof ON, vars: string, body: string, of: string, count: number) => {
+    const pou = load(program(`n : INT; ${vars} ${bytes(count)}`, `${body} ${reads(of, count)}`), "P", files)
+    pou.scan()
+    return [pou.get("n"), ...Array.from({ length: count }, (_, i) => pou.get(`u${i}`))]
+  }
+  const literal = (files: typeof ON, text: string, count: number) => units(files, "txt : STRING;", `txt := '${text}'; n := 0; WHILE txt[n] <> 0 DO n := n + 1; END_WHILE`, "txt", count)
+
+  test("off: a literal is Latin-1, '?' for each UTF-16 unit past U+00FF", () => {
+    expect(literal(OFF, "größe", 6)).toEqual([5n, 103n, 114n, 246n, 223n, 101n, 0n])
+    expect(literal(OFF, "a计b", 4)).toEqual([3n, 97n, 63n, 98n, 0n])
+    expect(literal(OFF, "a😀b", 5)).toEqual([4n, 97n, 63n, 63n, 98n, 0n])
+  })
+
+  test("on: a literal is its UTF-8 bytes (slit_two_byte, slit_four_byte)", () => {
+    expect(literal(ON, "größe", 8)).toEqual([7n, 103n, 114n, 195n, 182n, 195n, 159n, 101n, 0n])
+    expect(literal(ON, "a😀b", 7)).toEqual([6n, 97n, 240n, 159n, 152n, 128n, 98n, 0n])
+  })
+
+  test("off: WSTRING_TO_STRING keeps each unit's low byte — a surrogate pair's 16#3D then 0 ends it", () => {
+    const narrow = (text: string) => units(OFF, "w : WSTRING; txt : STRING;", `w := "${text}"; txt := WSTRING_TO_STRING(w); n := 0; WHILE txt[n] <> 0 DO n := n + 1; END_WHILE`, "txt", 4)
+    expect(narrow("a计b")).toEqual([3n, 97n, 0xa1n, 98n, 0n])
+    expect(narrow("a$D83D$DE00b")).toEqual([2n, 97n, 0x3dn, 0n, 98n])
+  })
+
+  test("off: STRING_TO_WSTRING widens byte for byte — the Latin-1 literal back to its characters", () => {
+    expect(units(OFF, "w : WSTRING;", "w := STRING_TO_WSTRING('größe');", "w", 6)).toEqual([0n, 103n, 114n, 246n, 223n, 101n, 0n])
+  })
+
+  test("on: the same conversions as UTF-8 (wsu_narrow_three_byte, slit_widen_two_byte)", () => {
+    expect(units(ON, "w : WSTRING; txt : STRING;", `w := "a计b"; txt := WSTRING_TO_STRING(w); n := 0; WHILE txt[n] <> 0 DO n := n + 1; END_WHILE`, "txt", 5)).toEqual([5n, 97n, 232n, 174n, 161n, 98n])
+    expect(units(ON, "w : WSTRING;", "w := STRING_TO_WSTRING('größe');", "w", 6)).toEqual([0n, 103n, 114n, 246n, 223n, 101n, 0n])
+  })
+
+  test("unstated, a literal past ASCII and every STRING <-> WSTRING conversion are refused by name; ASCII needs no setting", () => {
+    const refused = (vars: string, body: string) => lowerSource(program(vars, body), "P").diagnostics.map((d) => [d.code, d.message])
+    expect(refused("txt : STRING;", "txt := 'größe';")).toEqual([
+      ["string-encoding-unstated", `'größe' holds a character past ASCII, whose bytes the project's "UTF-8 Encoding for STRING" decides — no .projectsettings states it`],
+    ])
+    expect(refused("w : WSTRING; txt : STRING;", "txt := WSTRING_TO_STRING(w);")).toEqual([
+      ["string-encoding-unstated", `WSTRING_TO_STRING crosses as the project's "UTF-8 Encoding for STRING" decides — no .projectsettings states it`],
+    ])
+    expect(refused("w : WSTRING; txt : STRING;", "w := TO_WSTRING(txt);").map(([code]) => code)).toEqual(["string-encoding-unstated"])
+    // a TwinCAT descriptor states no such row: still unstated
+    const twincat = [{ uri: "Project Settings.projectsettings", source: "Replace constants:     on\n" }]
+    expect(lowerSource(program("txt : STRING;", "txt := 'é';"), "P", twincat).diagnostics.map((d) => d.code)).toEqual(["string-encoding-unstated"])
+    expect(refused("txt : STRING;", "txt := 'plain';")).toEqual([])
+  })
+
+  test("a .projectsettings the reader refuses, or a second one, is refused as the descriptor it is", () => {
+    const bad = settings("UTF-8 encoding:        yes\n")
+    expect(lowerSource(program("x : INT;", "x := 1;"), "P", bad).diagnostics.map((d) => [d.code, d.uri, d.message])).toEqual([
+      ["project-settings", "Project Settings.projectsettings", `.projectsettings: "UTF-8 encoding" is 'yes', neither 'on' nor 'off'`],
+    ])
+    const two = [...ON, { uri: "Other/Project Settings.projectsettings", source: "UTF-8 encoding:        off\n" }]
+    expect(lowerSource(program("x : INT;", "x := 1;"), "P", two).diagnostics.map((d) => d.code)).toEqual(["project-settings"])
+  })
+
+  test("the emitted Rust crosses as the node's encoding says", () => {
+    const body = program("w : WSTRING; txt : STRING;", "txt := WSTRING_TO_STRING(w); w := STRING_TO_WSTRING(txt);")
+    expect(lowerAndEmit(body, "P", OFF).emitted.code).toContain(".narrow_low_byte::<255>()")
+    expect(lowerAndEmit(body, "P", OFF).emitted.code).toContain(".widen_bytes::<255>()")
+    expect(lowerAndEmit(body, "P", ON).emitted.code).toContain(".narrow::<255>()")
+    expect(lowerAndEmit(body, "P", ON).emitted.code).toContain(".widen::<255>()")
   })
 })

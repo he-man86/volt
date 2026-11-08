@@ -1,11 +1,10 @@
 import { expect, test } from "bun:test"
-import { lowerSource } from "../../../../src/transpile/index.js"
-import { PROJECT_BASE } from "../project-libraries.js"
+import { lowerOnProject } from "../project-libraries.js"
 import { replayFault } from "./fault.js"
 
 const lowered = (body: string) => {
   const source = `PROGRAM PLC_PRG\nVAR\n\ti : DINT;\n\tz : DINT;\nEND_VAR\n${body}\nEND_PROGRAM\n`
-  const { pou } = lowerSource(source, "PLC_PRG", [], undefined, PROJECT_BASE)
+  const { pou } = lowerOnProject(source, [])
   if (pou === undefined) throw new Error("the source does not lower")
   return pou
 }

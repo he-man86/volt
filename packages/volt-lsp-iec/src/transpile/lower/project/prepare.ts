@@ -8,8 +8,10 @@ import {
   memberAttributes,
   type ParseOptions,
   parseSource,
+  projectUtf8EncodingFrom,
   unitAttributes,
 } from "../../../frontend/syntax/index.js"
+import type { StringEncoding } from "../../ir/index.js"
 import { build, isLibrarySymbol, type Scope } from "../../../frontend/symbols/index.js"
 import { type LibraryManifest, parseLibraryManifest } from "../../../frontend/library/index.js"
 import { EXEC_ORACLE_DIALECT, EXEC_ORACLE_TARGET } from "../conditions.js"
@@ -45,11 +47,20 @@ export interface LoweringProject {
   attributes: { get(node: object): ReadonlySet<string> | undefined }
   /** The units that came from LIBRARY files — a bodyless one of these is refused (`isBodylessLibrary`). */
   libraryUnits: ReadonlySet<object>
+  /** The project's "UTF-8 Encoding for STRING", as its `.projectsettings` states it (`settingsEncoding`) — undefined where
+   *  nothing states it, and then a STRING literal past ASCII and every STRING <-> WSTRING conversion is refused
+   *  (`string-encoding-unstated`), never given a default. */
+  encoding: StringEncoding | undefined
 }
 
 /** Bind parsed files into the project lowering reads. A library's bodies are whatever its files hold — hand in the library
  *  repo's (`libraries/` `withImplementations`) to run one, or its materialized declarations to have it refused. */
-export function prepareProject(files: readonly ParsedFile[], manifests: readonly LibraryManifest[]): LoweringProject {
+export function prepareProject(files: readonly ParsedFile[], manifests: readonly LibraryManifest[], encoding: StringEncoding | undefined): LoweringProject {
+  return { ...bindProject(files, manifests), encoding }
+}
+
+/** The files bound, with no project setting — a library base's (`libraryBase`), whose program brings its own. */
+export function bindProject(files: readonly ParsedFile[], manifests: readonly LibraryManifest[]): Omit<LoweringProject, "encoding"> {
   return {
     // on the exec oracle's target, which the platform integers' width is (frontend-conformance 4.1.1)
     project: build.buildSymbolTable(files, manifests, EXEC_ORACLE_DIALECT, { target: EXEC_ORACLE_TARGET }),
@@ -89,12 +100,34 @@ export interface ParsedFile {
  * named, not built on — a GVL whose `gN : INT := 7` is missing its semicolon was put into the symbol table half-parsed,
  * and the failure resurfaced downstream wearing someone else's name (`aggregate-init`, `place-not-local`).
  */
-export function readFiles(files: readonly LibraryFile[]): { files: ParsedFile[]; manifests: LibraryManifest[] } | { unparsed: ParsedFile } {
+export function readFiles(files: readonly LibraryFile[]): { files: ParsedFile[]; manifests: LibraryManifest[]; settings: LibraryFile[] } | { unparsed: ParsedFile } {
   const manifests = files.flatMap((l) => parseLibraryManifest(l.uri, l.source) ?? [])
+  const settings = files.filter(isProjectSettings)
   const parsed = files
-    .filter((l) => !l.uri.toLowerCase().endsWith(".library"))
+    .filter((l) => !l.uri.toLowerCase().endsWith(".library") && !isProjectSettings(l))
     .map((l) => ({ uri: l.uri, parseResult: l.parseResult ?? parseSource(l.source, TRANSPILE_PARSE, EXEC_ORACLE_DIALECT), source: l.source }))
   const unparsed = parsed.find((f) => f.parseResult.errors.length > 0)
-  return unparsed === undefined ? { files: parsed, manifests } : { unparsed }
+  return unparsed === undefined ? { files: parsed, manifests, settings } : { unparsed }
+}
+
+/** A project's `.projectsettings` descriptor, recognised by its name as a `.library` manifest is. */
+const isProjectSettings = (f: LibraryFile): boolean => f.uri.toLowerCase().endsWith(".projectsettings")
+
+/**
+ * THE PROJECT'S "UTF-8 Encoding for STRING", from the `.projectsettings` handed in beside the sources — the bridge's
+ * descriptor, read by the analysis's reader (`projectUtf8EncodingFrom`). No file, or one with no such row (TwinCAT's,
+ * DIALECT D39), states nothing: `encoding` undefined. Two files, or a row that is neither on nor off, are refused by name.
+ */
+export function settingsEncoding(settings: readonly LibraryFile[]): { encoding: StringEncoding | undefined } | { refused: { uri: string; message: string } } {
+  if (settings.length > 1) return { refused: { uri: settings[1]!.uri, message: `two .projectsettings are handed in (${settings[0]!.uri}, ${settings[1]!.uri}) — a project has one` } }
+  const file = settings[0]
+  if (file === undefined) return { encoding: undefined }
+  let on: boolean | undefined
+  try {
+    on = projectUtf8EncodingFrom(file.source)
+  } catch (e) {
+    return { refused: { uri: file.uri, message: (e as Error).message } }
+  }
+  return { encoding: on === undefined ? undefined : on ? "utf8" : "latin1" }
 }
 

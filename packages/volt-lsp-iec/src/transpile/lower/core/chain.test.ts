@@ -31,7 +31,7 @@ END_FUNCTION_BLOCK
 `
 
 const parseResult = parseSource(SOURCE, TRANSPILE_PARSE, "codesys")
-const { project } = prepareProject([{ uri: "transpile://chain", parseResult, source: SOURCE }], [])
+const { project } = prepareProject([{ uri: "transpile://chain", parseResult, source: SOURCE }], [], undefined)
 const lw = new Lowering(project, project)
 const unit = (name: string) => lookup(project, name)?.symbol.ast as TopLevel
 const names = (units: readonly { name: { text: string } }[]) => units.map((u) => u.name.text)

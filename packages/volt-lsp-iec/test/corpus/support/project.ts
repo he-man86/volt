@@ -13,6 +13,7 @@ import { parseDocument, parseSource } from "../../../src/frontend/syntax/index.j
 import type { Vendor } from "../../../src/analysis/index.js"
 import { prepareProject, type LoweringProject, type ParsedFile } from "../../../src/transpile/index.js"
 import { EXEC_ORACLE_DIALECT } from "../../../src/transpile/lower/conditions.js"
+import { settingsEncoding } from "../../../src/transpile/lower/project/prepare.js"
 import { SOURCE_EXTENSION_SET } from "../../../src/workspace/source-extensions.js"
 import { readSourceText, scanWorkspaceRefs } from "../../../src/workspace/workspace-refs.js"
 import { withImplementations } from "../../../libraries/index.js"
@@ -96,5 +97,9 @@ export function loweringProject(dir: string, parsed: readonly ParsedFile[] = par
       return body
     })
     .filter((f) => f.parseResult.errors.length === 0)
-  return { ...prepareProject(files, scanWorkspaceRefs(dir).refs.libraryManifests), files }
+  // the project's own "UTF-8 Encoding for STRING", off its `.projectsettings` — four corpora have it off, the exec oracle's on
+  const settings = walkSources(dir, new Set([".projectsettings"])).map((uri) => ({ uri, source: readFileSync(uri, "utf8") }))
+  const stated = settingsEncoding(settings)
+  if ("refused" in stated) throw new Error(`${stated.refused.uri}: ${stated.refused.message}`)
+  return { ...prepareProject(files, scanWorkspaceRefs(dir).refs.libraryManifests, stated.encoding), files }
 }

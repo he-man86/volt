@@ -2,7 +2,7 @@
  * A project's libraries, bound once, for a sweep that lowers many programs against the same references.
  */
 
-import { type LibraryFile, type LoweringProject, prepareProject, readFiles } from "./prepare.js"
+import { bindProject, type LibraryFile, type LoweringProject, readFiles } from "./prepare.js"
 import type { LibraryManifest } from "../../../frontend/library/index.js"
 
 /**
@@ -18,7 +18,8 @@ import type { LibraryManifest } from "../../../frontend/library/index.js"
  * named like a library's NAMESPACE no longer hides that namespace, since the namespaces are bound before it.
  */
 export interface LibraryBase {
-  readonly prepared: LoweringProject
+  /** The libraries bound — no project setting: the program's `.projectsettings` comes with its own files (`lowerSource`). */
+  readonly prepared: Omit<LoweringProject, "encoding">
   readonly manifests: readonly LibraryManifest[]
   /** Every file the base holds, its text by uri — a program's file of the same uri would be taken off WITH it, and a
    *  refusal in a library is checked against its text (`lowerSource`). */
@@ -31,7 +32,9 @@ export interface LibraryBase {
 export function libraryBase(libraries: readonly LibraryFile[]): LibraryBase {
   const read = readFiles(libraries)
   if ("unparsed" in read) throw new Error(`${read.unparsed.uri} did not parse: ${read.unparsed.parseResult.errors[0]!.message}`)
-  const prepared = prepareProject(read.files, read.manifests)
+  // A CALLER'S MISTAKE, SAID AS ONE: the settings are the project's, handed with the program's own files
+  if (read.settings.length > 0) throw new Error(`${read.settings[0]!.uri} handed into a library base — hand the project's .projectsettings with the program's files`)
+  const prepared = bindProject(read.files, read.manifests)
   const extended = new Set(prepared.project.children.flatMap((c) => (c.extendsName === undefined ? [] : [c.extendsName.toLowerCase()])))
   return { prepared, manifests: read.manifests, sources: new Map(read.files.map((f) => [f.uri, f.source])), extended }
 }
