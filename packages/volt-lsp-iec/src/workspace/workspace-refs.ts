@@ -19,7 +19,7 @@
  */
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { basename, dirname, extname, join } from "node:path"
-import { projectDiagnosticsFrom, projectUnicodeIdentifiersFrom, type ConfigurableCode, type DiagnosticState } from "../analysis/index.js"
+import { projectDiagnosticsFrom, projectUnicodeIdentifiersFrom, projectUtf8EncodingFrom, type ConfigurableCode, type DiagnosticState } from "../analysis/index.js"
 import { parseLibraryManifest, type LibraryManifest } from "../frontend/library/index.js"
 import type { DeviceInstance } from "../frontend/symbols/index.js"
 import type { CompileEnvironment, Target } from "../frontend/syntax/index.js"
@@ -160,6 +160,8 @@ export interface ProjectSettings {
   diagnostics: Partial<Record<ConfigurableCode, DiagnosticState>>
   /** Its Compile option "Unicode identifiers" (`projectUnicodeIdentifiersFrom`) — undefined where the file states none. */
   unicodeIdentifiers: boolean | undefined
+  /** Its Compile option "UTF-8 Encoding for STRING" (`projectUtf8EncodingFrom`) — undefined where the file states none. */
+  utf8Encoding: boolean | undefined
 }
 
 /** A file that exists and could not be read, with the I/O code that said so. */
@@ -209,7 +211,7 @@ class RefCollector {
       // One PLC project's compiler-warning configuration — see `projectDiagnosticsFrom`. A TwinCAT solution holds one
       // per PLC project: each governs its own folder, and none replaces another's.
       const body = readFileSync(file, "utf8")
-      this.projectSettings.push({ folder: dirname(file), diagnostics: projectDiagnosticsFrom(body), unicodeIdentifiers: projectUnicodeIdentifiersFrom(body) })
+      this.projectSettings.push({ folder: dirname(file), diagnostics: projectDiagnosticsFrom(body), unicodeIdentifiers: projectUnicodeIdentifiersFrom(body), utf8Encoding: projectUtf8EncodingFrom(body) })
     } else {
       // a task descriptor: its text for the task configuration's findings, its calls the reachability roots
       const text = readSourceText(file)

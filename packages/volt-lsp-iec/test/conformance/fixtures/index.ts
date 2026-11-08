@@ -15,6 +15,7 @@ import { INTEGER_TO_INTEGER_TESTS } from "./conversions/integer-to-integer.js"
 import { CROSS_FAMILY_TESTS } from "./conversions/cross-family.js"
 import { TO_STRING_FORMAT_TESTS, TRANSPILE_REVIEW_TO_STRING_TESTS } from "./conversions/to-string-format.js"
 import { WSTRING_UTF8_TESTS } from "./conversions/wstring-utf8.js"
+import { STRING_LITERAL_UTF8_TESTS } from "./conversions/string-literal-utf8.js"
 import { INTEGER_TO_REAL_TESTS } from "./conversions/integer-to-real.js"
 import { REAL_TO_INTEGER_LADDER_TESTS } from "./conversions/real-to-integer-ladder.js"
 import { REAL_TO_INTEGER_TESTS } from "./conversions/real-to-integer.js"
@@ -214,6 +215,7 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "cross-family", tests: CROSS_FAMILY_TESTS },
   { name: "to-string-format", tests: [...TO_STRING_FORMAT_TESTS, ...TRANSPILE_REVIEW_TO_STRING_TESTS] },
   { name: "wstring-utf8", tests: WSTRING_UTF8_TESTS },
+  { name: "string-literal-utf8", tests: STRING_LITERAL_UTF8_TESTS },
   { name: "semantic", tests: SEMANTIC_TESTS },
   { name: "statement-edges", tests: STATEMENT_EDGE_TESTS },
   { name: "unary-operand", tests: UNARY_OPERAND_TESTS },

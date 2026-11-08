@@ -39,6 +39,7 @@ export class ProjectConfigs {
           ...editor,
           diagnostics: { ...editor.diagnostics, ...s.diagnostics },
           ...(s.unicodeIdentifiers === undefined ? {} : { unicodeIdentifiers: s.unicodeIdentifiers }),
+          ...(s.utf8Encoding === undefined ? {} : { utf8Encoding: s.utf8Encoding }),
         }),
       }))
       .sort((a, b) => b.folder.length - a.folder.length)

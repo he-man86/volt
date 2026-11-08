@@ -98,7 +98,7 @@ test("the workspace scan picks up the project's .projectsettings", () => {
     )
     writeFileSync(join(dir, "Main.pou"), "PROGRAM Main\nVAR\n  n : INT;\nEND_VAR\nn := 1;\nEND_PROGRAM\n")
     const scan = scanWorkspace(dir)
-    expect(scan.projectSettings).toEqual([{ folder: dir, diagnostics: { "inout-own-access": "off" }, unicodeIdentifiers: undefined }])
+    expect(scan.projectSettings).toEqual([{ folder: dir, diagnostics: { "inout-own-access": "off" }, unicodeIdentifiers: undefined, utf8Encoding: undefined }])
     expect(scan.sources.length).toBe(1) // the settings file is NOT a source unit
   } finally {
     rmSync(dir, { recursive: true, force: true })
@@ -252,8 +252,8 @@ test("each PLC project's .projectsettings governs its own documents, and none re
     }
     const scan = scanWorkspace(dir)
     expect(scan.projectSettings).toEqual([
-      { folder: a, diagnostics: { "no-op-statement": "off" }, unicodeIdentifiers: undefined },
-      { folder: b, diagnostics: { "inout-own-access": "off" }, unicodeIdentifiers: undefined },
+      { folder: a, diagnostics: { "no-op-statement": "off" }, unicodeIdentifiers: undefined, utf8Encoding: undefined },
+      { folder: b, diagnostics: { "inout-own-access": "off" }, unicodeIdentifiers: undefined, utf8Encoding: undefined },
     ])
     const store = new WorkspaceStore(resolveConfig({ vendor: "twincat" }), { networkText: NETWORK_TEXT_ENABLED }, failLoud)
     store.configs.configure({ vendor: "twincat" }, scan.projectSettings)

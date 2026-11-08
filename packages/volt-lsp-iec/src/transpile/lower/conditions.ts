@@ -9,6 +9,9 @@
  *   RegisterSize '64' (not '32'), PackMode '8'                         prag_if_register_size(_32), prag_if_packmode
  *   the task MainTask (and no other name)                              prag_if_defined_task(_absent)
  *   no project compile define                                          prag_project_defined_in_body
+ *   "UTF-8 Encoding for STRING" ON                                     slit_*, uoff_wstring_control, wsu_* (read off the
+ *                                                                      project in CODESYS, 2026-11-08; the build-recording
+ *                                                                      project has it OFF: Latin-1, '?', a unit's low byte)
  */
 import { bodyStatements, type BodyParse, type BodySpan, type ConditionWorld, type DeviceFacts, type Dialect, type Target, type TopLevel } from "../../frontend/syntax/index.js"
 import { bodyConditionWorld, type Scope } from "../../frontend/symbols/index.js"
@@ -22,6 +25,10 @@ export const EXEC_ORACLE_TARGET: Target = Object.freeze({ pointerBits: 64 as con
  *  recording), so lowering binds its project as CODESYS and every dialect-dependent rule it asks answers CODESYS's (rule
  *  LT12's `negativeLiteralComparisonTarget`, transpile-restructure 6.2). */
 export const EXEC_ORACLE_DIALECT: Dialect = "codesys"
+/** The exec oracle project's Compile option "UTF-8 Encoding for STRING": a STRING literal past ASCII is its UTF-8 bytes, and
+ *  WSTRING_TO_STRING / STRING_TO_WSTRING encode and decode UTF-8 (`semantics/convert`). Lowering is told no project's
+ *  setting: a project with the option off narrows a character to Latin-1 or '?' and a WSTRING unit to its low byte. */
+export const EXEC_ORACLE_UTF8_ENCODING = true
 const EXEC_ORACLE_PROJECT: NonNullable<ConditionWorld["project"]> = Object.freeze({ defines: new Set<string>(), tasks: new Set(["MainTask"]) })
 
 /** One exec world per names world, so `bodyStatements`' cache keeps one tree per body (lowering keys maps on its nodes). */

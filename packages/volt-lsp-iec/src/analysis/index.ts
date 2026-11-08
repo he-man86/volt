@@ -25,6 +25,7 @@ export {
   CONFIGURABLE_CODES,
   projectDiagnosticsFrom,
   projectUnicodeIdentifiersFrom,
+  projectUtf8EncodingFrom,
   type AnalysisInitOptions,
   type ConfigurableCode,
   type DiagnosticState,

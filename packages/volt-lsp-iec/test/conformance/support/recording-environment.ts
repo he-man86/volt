@@ -38,3 +38,11 @@ export const RECORDING_ENVIRONMENT: CompileEnvironment = Object.freeze({
 export function recordingParse(t: Pick<LanguageTest, "unicodeIdentifiers">): ParseOptions {
   return { networkText: true, unicodeIdentifiers: t.unicodeIdentifiers === "on" }
 }
+
+/**
+ * THE RECORDING PROJECTS' COMPILE OPTION "UTF-8 ENCODING FOR STRING" — off in CODESYS's build-recording project
+ * (`CodesysTestProject.3.5.21.40.project`: its `.projectsettings` states `UTF-8 encoding: off`, and its build warns of a STRING
+ * literal past Latin-1, `slit_three_byte`). The EXEC oracle's project (`CodesysTestProject.project`) has it ON — read off both
+ * projects in CODESYS 2026-11-08 — which is the transpiler's world (`transpile/lower/conditions.ts`). TwinCAT states none.
+ */
+export const RECORDING_UTF8_ENCODING: Readonly<Record<"codesys" | "twincat", boolean | undefined>> = Object.freeze({ codesys: false, twincat: undefined })

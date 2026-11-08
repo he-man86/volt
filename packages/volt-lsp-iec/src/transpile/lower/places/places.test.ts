@@ -30,9 +30,9 @@ describe("lower — STRING (design §18)", () => {
     expect(pou.slots[1]!.init).toBe("héllo")
   })
 
-  test("a non-ASCII character typed into a STRING is refused — which byte it becomes is not measured", () => {
-    const { diagnostics } = lowerSource(wrap("iCount := 1;", "iCount : INT;\n  text : STRING := 'héllo';"))
-    expect(diagnostics.map((d) => d.code)).toEqual(["string-non-ascii"])
+  test("a non-ASCII character typed into a STRING is its UTF-8 bytes — the exec oracle's \"UTF-8 Encoding for STRING\" (`slit_*`)", () => {
+    const pou = ir(wrap("iCount := 1;", "iCount : INT;\n  text : STRING := 'héllo$21';"))
+    expect(pou.slots[1]!.init).toBe("hÃ©llo!")
   })
 })
 

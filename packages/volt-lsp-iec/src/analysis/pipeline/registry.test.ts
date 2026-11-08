@@ -41,6 +41,7 @@ describe("the run order", () => {
       "checkStructInit",
       "checkPointerConversion",
       "checkStringConstant",
+      "checkStringEncoding",
       "checkReferenceAssign",
       "checkDataRecursion",
       "checkEnumInit",

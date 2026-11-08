@@ -46,6 +46,7 @@ import { checkArrayInit } from "../checks/types/array-init.js"
 import { checkStructInit } from "../checks/types/struct-init.js"
 import { checkPointerConversion } from "../checks/types/pointer-conversion.js"
 import { checkStringConstant } from "../checks/types/string-constant.js"
+import { checkStringEncoding } from "../checks/types/string-encoding.js"
 import { checkReferenceAssign } from "../checks/types/reference-assign.js"
 import { checkDataRecursion } from "../checks/types/data-recursion.js"
 import { checkEnumInit } from "../checks/types/enum-init.js"
@@ -144,6 +145,7 @@ export const REGISTRY: readonly RegistryEntry[] = [
   both(checkStructInit, "types"),
   both(checkPointerConversion, "types"),
   both(checkStringConstant, "types"),
+  both(checkStringEncoding, "types"),
   both(checkReferenceAssign, "types"),
   both(checkDataRecursion, "types"),
   both(checkEnumInit, "types"),

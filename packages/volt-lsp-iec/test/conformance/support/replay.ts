@@ -16,7 +16,7 @@ import { ALL_TESTS } from "../fixtures/index.js"
 import { splitLists, withDependencies } from "./fixture-units.js"
 import { plcPrgSource } from "./plc-prg.js"
 import { conformanceUri } from "./fixture-uri.js"
-import { RECORDING_ENVIRONMENT, recordingParse } from "./recording-environment.js"
+import { RECORDING_ENVIRONMENT, RECORDING_UTF8_ENCODING, recordingParse } from "./recording-environment.js"
 import { PROJECT_LIBRARY, PROJECT_MANIFESTS, projectDevices } from "./project-libraries.js"
 
 function extFor(kind: string): string {
@@ -240,7 +240,7 @@ export function withReplayFixture<T>(testIdx: number, vendor: Vendor, ask: (file
 export function replayDiagnostics({ own, plc, lists, dependencies }: ReplayFiles, project: Scope, vendor: Vendor): DiagnosticItem[] {
   // each document under its own project's "Unicode identifiers", as its parse read it (`recordingParse`)
   return replayDocuments({ own, plc, lists, dependencies }).flatMap((d) =>
-    computeDiagnostics({ uri: d.uri, parseResult: d.parseResult, source: d.source, project, config: resolveConfig({ vendor, unicodeIdentifiers: d.parseResult.unicodeIdentifiers }) }),
+    computeDiagnostics({ uri: d.uri, parseResult: d.parseResult, source: d.source, project, config: resolveConfig({ vendor, unicodeIdentifiers: d.parseResult.unicodeIdentifiers, utf8Encoding: RECORDING_UTF8_ENCODING[vendor] }) }),
   )
 }
 

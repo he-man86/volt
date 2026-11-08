@@ -14,19 +14,19 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     3505
- *     refused       2527
- *     not-lowered    395
+ *     confirmed     3513
+ *     refused       2528
+ *     not-lowered    393
  *     lsp-gap         94
  *     diverges         5
  *     unaskable      310
  *
  *   tier                     lowered    clean
- *     decl                   1066     1066
- *     arith                  1793     1792
+ *     decl                   1067     1067
+ *     arith                  1794     1793
  *     control                 197      184
  *     aggregate               176      176
- *     call                    460      460
+ *     call                    466      466
  *     indirect                497      496
  *
  *   surviving lints (a lint listed here is work, not policy — 12 allowed ones are named with their reasons)
@@ -54,7 +54,7 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         3928
+ *     agree         3936
  *     disagree         0
  *     not-run        261
  *       not-run: no elementary variable to seed or compare      105
@@ -72,10 +72,10 @@
  *       agree,   5/6 unanswered (the interpreter's loop guard): tr_27_loop_cap_repeat_1000001
  *       agree,   5/6 unanswered (the interpreter's loop guard): tr_27_loop_cap_while_5000000
  *
- *   pedantic — 2386 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *   pedantic — 2392 clippy::pedantic + clippy::perf findings; the ten most frequent
  *     clippy::cast_possible_truncation          985
  *     clippy::cast_sign_loss                    733
- *     clippy::cast_possible_wrap                333
+ *     clippy::cast_possible_wrap                339
  *     clippy::pub_underscore_fields             142
  *     clippy::struct_excessive_bools             75
  *     clippy::cast_precision_loss                31
@@ -96,7 +96,7 @@
  *     tr_a10_string_to_dint_underscore_sign_edges   10.8
  *     tr_a10_string_to_int_literal_forms            10.8
  *
- *   shape — 2122 distinct emission shapes over 4189 lowered fixtures, 2352 distinct constructs.
+ *   shape — 2130 distinct emission shapes over 4197 lowered fixtures, 2354 distinct constructs.
  *   20 constructs carry a review note (`NOTES`): 39 fixtures are improvable, 24 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  *   Notes per owning task (openspec transpile-restructure; a merged note counts once under each owner of its items;
@@ -3235,7 +3235,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   lit_utf8_into_wstring: { evidence: "refused" },
   lit_utf8_lowercase_into_wstring: { evidence: "refused" },
   lit_utf8_lowercase_prefix: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "26dc793f57" },
-  lit_utf8_non_ascii: { evidence: "not-lowered" },
+  lit_utf8_non_ascii: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 2.8, shape: "6523c0de41" },
   lit_utf8_non_ascii_into_wstring: { evidence: "refused" },
   lit_utf8_string: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 3, shape: "ab6022136a" },
   lit_wchar_typed: { evidence: "refused" },
@@ -5345,6 +5345,13 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   sio_user_ton: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.4, shape: "a8af140a75" },
   sio_var_named_type: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.4, shape: "23df4b3b2b" },
   sio_var_named_type_case: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "23df4b3b2b" },
+  slit_cut_inside: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 2.2, shape: "842794897b" },
+  slit_four_byte: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 2.1, shape: "ec1abc102e" },
+  slit_into_wstring: { evidence: "refused" },
+  slit_long_three_byte: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 2.4, shape: "ee26c1c26c" },
+  slit_three_byte: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 2.1, shape: "71e6f30a10" },
+  slit_two_byte: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 2, shape: "43e47ab984" },
+  slit_widen_two_byte: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2, shape: "51949c3af3" },
   smem_bool_bit: { evidence: "refused" },
   smem_bool_name: { evidence: "refused" },
   smem_date_bit: { evidence: "refused" },
@@ -6039,7 +6046,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   ufeff_after_start: { evidence: "refused" },
   ufeff_in_body: { evidence: "refused" },
   ufeff_in_comment: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.7, shape: "6214ab89c9" },
-  ufeff_in_string: { evidence: "not-lowered" },
+  ufeff_in_string: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "552ae282f2" },
   ufeff_in_wstring: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "0c041f1cad" },
   unary_minus_at_the_edge: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 4.7, shape: "fa2e0dc547" },
   unary_minus_on_bool: { evidence: "refused" },

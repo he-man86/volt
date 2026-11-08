@@ -328,6 +328,22 @@ export const CEILING_EXCEPTIONS_C: readonly CeilingException[] = [
   ...REFUSED_ENUM_VALUE_RECOVERY,
   ...BIT_ACCESS_NON_INTEGER,
   ...SCALAR_MEMBER_DUMPS,
+  // `stringNotRepresentable` (2026-11-08): judged only where a `.projectsettings` states "UTF-8 encoding" off — TwinCAT's
+  // descriptor states none, so on TwinCAT the builder fires on nothing (`slit_three_byte`, CODESYS 3.5.21.40)
+  ...(
+    [
+      ["fixtures.twincat", "group types: never-fired builders"],
+      ["fixtures.twincat", "total: never-fired builders"],
+      ["coverage", "builders with 0 TP on twincat"],
+    ] as const
+  ).map(([baseline, measure]) => ({
+    baseline,
+    measure,
+    by: 1,
+    fixture: "slit_three_byte",
+    task: "none: TwinCAT states no \"UTF-8 encoding\" (its `.projectsettings` has no such row), so nothing is judged there",
+    why: "a builder that depends on a CODESYS-only project option fires on no TwinCAT recording",
+  })),
   // a LIBRARY function's box read through its namespace with ENO on TwinCAT: "Program name, function or function block
   // instance expected instead of 'Standard.LEN'" + "Identifier 'Standard' not defined" — CODESYS's namespace on TwinCAT
   {

@@ -45,7 +45,7 @@ describe("the draft's repro: a reached LD/FBD POU whose body is refused", () => 
 
 describe("per code, the file that holds the cause", () => {
   test("in the main source: a refusal of the POU's own body", () => {
-    expect(lowered("PROGRAM Main\nVAR\n\tx : INT;\nEND_VAR\nx := 'é';\nEND_PROGRAM\n", [])).toEqual([["string-non-ascii", MAIN, 5, "'é'"]])
+    expect(lowered("PROGRAM Main\nVAR\n\tx : INT;\nEND_VAR\nx := '$Z';\nEND_PROGRAM\n", [])).toEqual([["string-escape", MAIN, 5, "'$Z'"]])
   })
 
   test("in a second POU: a positional call past the parameters, inside FB_X's body", () => {
@@ -56,15 +56,15 @@ describe("per code, the file that holds the cause", () => {
   })
 
   test("in a second POU's METHOD and in a FUNCTION: each in its own file", () => {
-    const fbm: File = { uri: "FB_M.pou", source: "FUNCTION_BLOCK FB_M\nEND_FUNCTION_BLOCK\nMETHOD Go : INT\nGo := 'é';\nEND_METHOD\n" }
-    expect(lowered("PROGRAM Main\nVAR\n\tm : FB_M;\n\tn : INT;\nEND_VAR\nn := m.Go();\nEND_PROGRAM\n", [fbm])).toEqual([["string-non-ascii", "FB_M.pou", 4, "'é'"]])
-    const fn: File = { uri: "F_S.pou", source: "FUNCTION F_S : INT\nF_S := 'é';\nEND_FUNCTION\n" }
-    expect(lowered("PROGRAM Main\nVAR\n\tn : INT;\nEND_VAR\nn := F_S();\nEND_PROGRAM\n", [fn])).toEqual([["string-non-ascii", "F_S.pou", 2, "'é'"]])
+    const fbm: File = { uri: "FB_M.pou", source: "FUNCTION_BLOCK FB_M\nEND_FUNCTION_BLOCK\nMETHOD Go : INT\nGo := '$Z';\nEND_METHOD\n" }
+    expect(lowered("PROGRAM Main\nVAR\n\tm : FB_M;\n\tn : INT;\nEND_VAR\nn := m.Go();\nEND_PROGRAM\n", [fbm])).toEqual([["string-escape", "FB_M.pou", 4, "'$Z'"]])
+    const fn: File = { uri: "F_S.pou", source: "FUNCTION F_S : INT\nF_S := '$Z';\nEND_FUNCTION\n" }
+    expect(lowered("PROGRAM Main\nVAR\n\tn : INT;\nEND_VAR\nn := F_S();\nEND_PROGRAM\n", [fn])).toEqual([["string-escape", "F_S.pou", 2, "'$Z'"]])
   })
 
   test("in a GVL: a declaration the body reaches, at that declaration", () => {
-    const list: File = { uri: "GVL_X.gvl", source: "VAR_GLOBAL\n\tok : INT;\n\tbad : STRING := 'é';\nEND_VAR\n" }
-    expect(lowered("PROGRAM Main\nVAR\n\tx : INT;\nEND_VAR\nbad := 'a';\nEND_PROGRAM\n", [list])).toEqual([["string-non-ascii", "GVL_X.gvl", 3, "'é'"]])
+    const list: File = { uri: "GVL_X.gvl", source: "VAR_GLOBAL\n\tok : INT;\n\tbad : STRING := '$Z';\nEND_VAR\n" }
+    expect(lowered("PROGRAM Main\nVAR\n\tx : INT;\nEND_VAR\nbad := 'a';\nEND_PROGRAM\n", [list])).toEqual([["string-escape", "GVL_X.gvl", 3, "'$Z'"]])
   })
 
   test("in a DUT: a field no backend holds, at the field — not at the POU that holds the struct", () => {
@@ -73,9 +73,9 @@ describe("per code, the file that holds the cause", () => {
   })
 
   test("in a DUT: an alias type's own initializer a variable takes, at that initializer — as a variable and as an element", () => {
-    const dut: File = { uri: "T_Text.dut", source: "TYPE T_Text : STRING := 'é';\nEND_TYPE\n" }
-    expect(lowered("PROGRAM Main\nVAR\n\tx : T_Text;\nEND_VAR\nEND_PROGRAM\n", [dut])).toEqual([["string-non-ascii", "T_Text.dut", 1, "'é'"]])
-    expect(lowered("PROGRAM Main\nVAR\n\tx : ARRAY[1..2] OF T_Text;\nEND_VAR\nEND_PROGRAM\n", [dut])).toEqual([["string-non-ascii", "T_Text.dut", 1, "'é'"]])
+    const dut: File = { uri: "T_Text.dut", source: "TYPE T_Text : STRING := '$Z';\nEND_TYPE\n" }
+    expect(lowered("PROGRAM Main\nVAR\n\tx : T_Text;\nEND_VAR\nEND_PROGRAM\n", [dut])).toEqual([["string-escape", "T_Text.dut", 1, "'$Z'"]])
+    expect(lowered("PROGRAM Main\nVAR\n\tx : ARRAY[1..2] OF T_Text;\nEND_VAR\nEND_PROGRAM\n", [dut])).toEqual([["string-escape", "T_Text.dut", 1, "'$Z'"]])
   })
 
   test("in a GVL: an FB instance whose init the init step does not walk, at the instance", () => {

@@ -196,19 +196,19 @@ describe("the sweep — every kind of global, referenced or not, read and writte
   })
 
   test("a global whose declaration does not lower is named with its refusal; the runner refuses it, and a body reaching it is refused", () => {
-    const list = gvl("GVL_X", "\tok : INT;\n\tbad : STRING := 'é';\n")
+    const list = gvl("GVL_X", "\tok : INT;\n\tbad : STRING := '$Z';\n")
     const { pou, diagnostics } = lowerSource(idle, "Main", [list], "Main.pou")
     expect(diagnostics).toEqual([])
     // named with its refusal, in the list's file at the initializer (openspec lowering-diagnostic-uri)
     const [bad] = pou!.unlowered!
-    expect([bad!.list, bad!.name, bad!.code, bad!.message, bad!.uri, bad!.span.startLine]).toEqual(["GVL_X", "bad", "string-non-ascii", "'é' holds a character not measured yet", "GVL_X.gvl", 3])
+    expect([bad!.list, bad!.name, bad!.code, bad!.message, bad!.uri, bad!.span.startLine]).toEqual(["GVL_X", "bad", "string-escape", "'$Z' holds a `$` escape that is not measured yet", "GVL_X.gvl", 3])
     const p = run(pou!)
     expect(p.get("GVL_X.ok")).toBe(0n)
-    const refused = "GVL_X.bad has no value — its declaration did not lower (string-non-ascii: 'é' holds a character not measured yet)"
+    const refused = "GVL_X.bad has no value — its declaration did not lower (string-escape: '$Z' holds a `$` escape that is not measured yet)"
     expect(() => p.get("GVL_X.bad")).toThrow(refused)
     expect(() => p.set("bad", "x")).toThrow(refused)
     const reached = lowerSource("PROGRAM Main\nVAR\n\tx : INT;\nEND_VAR\nbad := 'a';\nEND_PROGRAM\n", "Main", [list], "Main.pou")
-    expect([reached.pou, reached.diagnostics.map((d) => [d.code, d.span.startLine])]).toEqual([undefined, [["string-non-ascii", 3]]])
+    expect([reached.pou, reached.diagnostics.map((d) => [d.code, d.span.startLine])]).toEqual([undefined, [["string-escape", 3]]])
     // storage no backend holds is the same: a type that does not resolve
     const missing = lowerSource(idle, "Main", [gvl("GVL_U", "\tmissing : T_Missing;\n")], "Main.pou").pou!
     expect(missing.unlowered!.map((u) => [u.list, u.name, u.code, u.uri, u.span.startLine])).toEqual([["GVL_U", "missing", "slot-unknown", "GVL_U.gvl", 2]])

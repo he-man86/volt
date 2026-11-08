@@ -20,6 +20,7 @@ import { TWINCAT_TRIAGE, CODESYS_TRIAGE } from "../conformance/support/divergenc
 import { KNOWN_DIVERGENCES } from "../conformance/support/divergences.js"
 import { withReplayFixture, replayDocuments, networkDocuments } from "../conformance/support/replay.js"
 import { nameRefusal } from "../conformance/support/name-refusal.js"
+import { RECORDING_UTF8_ENCODING } from "../conformance/support/recording-environment.js"
 import { PACKAGE } from "../frontend/sources.js"
 import { recordingMessages, PARSER, INLINE, NETWORK_ROW, registryRows, builderNames, shapeOf } from "./census-owners.js"
 
@@ -122,7 +123,7 @@ function fixtureFindings(i: number, vendor: Vendor, rec: ReturnType<typeof recor
         uri: doc.uri,
         project,
         // under its own project's "Unicode identifiers", as its parse read it (`recordingParse`)
-        config: resolveConfig({ vendor, unicodeIdentifiers: doc.parseResult.unicodeIdentifiers }),
+        config: resolveConfig({ vendor, unicodeIdentifiers: doc.parseResult.unicodeIdentifiers, utf8Encoding: RECORDING_UTF8_ENCODING[vendor] }),
         messages: rec.messages,
         tokens: () => doc.parseResult.tokens,
       }

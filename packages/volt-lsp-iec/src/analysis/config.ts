@@ -68,6 +68,9 @@ export interface AnalysisInitOptions {
    *  no page of its project sets the option and its create refuses every name past ASCII (D39, volt-cli
    *  `scripts/vendor-facts.twincat.json`, fact `identifier-shapes`). */
   unicodeIdentifiers?: boolean
+  /** The project's Compile option "UTF-8 Encoding for STRING" (`projectUtf8EncodingFrom`). Undefined where nothing states
+   *  it — TwinCAT's descriptor has no such row — and then nothing that depends on it is judged. */
+  utf8Encoding?: boolean
 }
 
 export interface ResolvedConfig {
@@ -77,6 +80,7 @@ export interface ResolvedConfig {
   diagnostics: Record<ConfigurableCode, DiagnosticState>
   diagnoseDeadCode: boolean
   unicodeIdentifiers: boolean
+  utf8Encoding: boolean | undefined
 }
 
 /** All configurable codes → "warning" — CODESYS's default. */
@@ -93,6 +97,7 @@ export function resolveConfig(opts: AnalysisInitOptions): ResolvedConfig {
     diagnostics: { ...defaultDiagnostics(), ...opts.diagnostics },
     diagnoseDeadCode: opts.diagnoseDeadCode ?? false,
     unicodeIdentifiers: opts.unicodeIdentifiers ?? false,
+    utf8Encoding: opts.utf8Encoding,
   }
 }
 
@@ -144,6 +149,20 @@ export function projectDiagnosticsFrom(body: string): Partial<Record<Configurabl
     }
   }
   return out
+}
+
+/**
+ * The project's Compile option "UTF-8 Encoding for STRING", as its `.projectsettings` states it — the CODESYS descriptor's
+ * `UTF-8 encoding:` row, `on` or `off`. Undefined where the file has no such row (a TwinCAT descriptor); any other value
+ * is refused by name.
+ */
+export function projectUtf8EncodingFrom(body: string): boolean | undefined {
+  const line = splitLines(body).find((l) => l.toLowerCase().startsWith("utf-8 encoding:"))
+  if (line === undefined) return undefined
+  const value = line.slice(line.indexOf(":") + 1).trim()
+  if (value === "on") return true
+  if (value === "off") return false
+  throw new Error(`.projectsettings: "UTF-8 encoding" is '${value}', neither 'on' nor 'off'`)
 }
 
 /**

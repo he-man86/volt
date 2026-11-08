@@ -4,6 +4,8 @@
  */
 
 import type { Lowering } from "../core/lowering.js"
+import { EXEC_ORACLE_UTF8_ENCODING } from "../conditions.js"
+import { utf8Narrow } from "../../semantics/convert.js"
 import { calendarNanoseconds, decodeStringLiteral, type Expr } from "../../../frontend/syntax/index.js"
 import {
   elementaryRef,
@@ -18,16 +20,14 @@ import {
 /** A string literal's decoded text, or null (reported) when it holds an escape not measured yet. */
 export function stringLiteralText(lw: Lowering, e: Extract<Expr, { kind: "literal" }>): string | null {
   const wide = e.literalKind === "wstring"
-  const decoded = decodeStringLiteral(e.value as string, wide)
+  // A character past ASCII TYPED into a STRING is its UTF-8 bytes under the exec oracle's "UTF-8 Encoding for STRING"
+  // (`EXEC_ORACLE_UTF8_ENCODING`, `slit_*`): 'größe' is 7 bytes, a STRING(3) of it 'gr' and C3. Encoded before the `$`
+  // escapes are read, so an escape stays the one byte it names. A WSTRING holds UTF-16 code units: "héllo" into a
+  // WSTRING(3) is "hél" (`wstring_code_units`), a character beyond the BMP its two surrogate units (`wsu_widen_four_byte`).
+  const raw = e.value as string
+  const decoded = decodeStringLiteral(wide || !EXEC_ORACLE_UTF8_ENCODING ? raw : utf8Narrow(raw), wide)
   if (decoded === undefined) {
     lw.bail("string-escape", `${e.text} holds a \`$\` escape that is not measured yet`, e.span)
-    return null
-  }
-  // A WSTRING holds UTF-16 code units: "héllo" into a WSTRING(3) is "hél" and "ü!" fits a WSTRING(2) (conformance
-  // `wstring_code_units`); a character beyond the BMP is its two surrogate units (`wsu_widen_four_byte`). Which byte a
-  // non-ASCII character TYPED into a STRING becomes is not measured — refused.
-  if (!wide && /[^\x00-\x7f]/.test(e.value as string)) {
-    lw.bail("string-non-ascii", `${e.text} holds a character not measured yet`, e.span)
     return null
   }
   return decoded
