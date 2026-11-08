@@ -5,7 +5,7 @@
  * `one-to-one/TaskDescriptorMembersTests.cs` pin as the writer's output.
  */
 import { expect, test } from "bun:test"
-import { readdirSync, readFileSync, statSync } from "node:fs"
+import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { readTask, TaskFormatError, writeTask, type TaskSettings } from "./task.js"
 
@@ -13,9 +13,9 @@ const CORPUS = join(import.meta.dir, "..", "..", "..", "..", "test-corpus")
 
 /** Every `.task` file under `dir`. */
 function taskFiles(dir: string): string[] {
-  return readdirSync(dir).flatMap((name) => {
-    const p = join(dir, name)
-    return statSync(p).isDirectory() ? taskFiles(p) : name.endsWith(".task") ? [p] : []
+  return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const p = join(dir, e.name)
+    return e.isDirectory() ? taskFiles(p) : e.name.endsWith(".task") ? [p] : []
   })
 }
 
