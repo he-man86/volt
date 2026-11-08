@@ -3,8 +3,8 @@
     "builders with 0 TP on both vendors": 3,
     "builders with 0 TP on codesys": 4,
     "builders with 0 TP on codesys only": 1,
-    "builders with 0 TP on twincat": 28,
-    "builders with 0 TP on twincat only": 25,
+    "builders with 0 TP on twincat": 29,
+    "builders with 0 TP on twincat only": 26,
     "checks firing on 0 fixtures": 0
   },
   "findings": [
@@ -32,6 +32,7 @@
     "builder propertyBoundToInOut: 0 TP on twincat (called by checkCallArguments)",
     "builder recursiveConstant: 0 TP on twincat (called by checkConstantCycle)",
     "builder reservedKeyword: 0 TP on twincat (called by checkReservedKeyword)",
+    "builder stringNotRepresentable: 0 TP on twincat (called by checkStringEncoding)",
     "builder subrangeAssignTarget: 0 TP on both vendors (called by checkAssignmentTypes, checkEnumInit, checkIntrinsicOperands, checkNarrowingConversion, checkSubrange)",
     "builder unionInheritance: 0 TP on twincat (called by checkHeaderRules)",
     "builder unknownAttribute: 0 TP on twincat (called by checkPragmas)",
@@ -45,6 +46,7 @@
     "check checkInputDefault (declarations): fires on 0 fixtures on twincat (not run for it)",
     "check checkNewInExpression (flow): fires on 0 fixtures on twincat (not run for it)",
     "check checkReservedKeyword (names): fires on 0 fixtures on twincat (not run for it)",
+    "check checkStringEncoding (types): fires on 0 fixtures on twincat",
     "check checkTypedLiteral (types): fires on 0 fixtures on twincat"
   ]
 }
