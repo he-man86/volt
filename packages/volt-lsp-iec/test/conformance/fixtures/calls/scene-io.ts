@@ -27,6 +27,7 @@ export const SCENE_IO_TESTS: readonly LanguageTest[] = [
     fromDoc: doc,
     source:
       "FUNCTION_BLOCK FB_LANG_sio_conv\nVAR_INPUT\n\tVelocity : REAL;\nEND_VAR\nVAR_OUTPUT\n\tActive : BOOL;\nEND_VAR\nActive := Velocity > 0.0;\nEND_FUNCTION_BLOCK\n",
+    plcPrgVar: "inst_sio_conv : FB_LANG_sio_conv;",
   },
   {
     name: "sio_pos",
@@ -35,6 +36,7 @@ export const SCENE_IO_TESTS: readonly LanguageTest[] = [
     feature: "a struct a global instance is declared of (support)",
     fromDoc: doc,
     source: "TYPE DUT_LANG_sio_pos :\nSTRUCT\n\tx : INT;\n\ty : INT;\nEND_STRUCT\nEND_TYPE\n",
+    plcPrgVar: "s_sio_pos : DUT_LANG_sio_pos;",
   },
   {
     name: "sio_inout_global_fb",
@@ -76,6 +78,7 @@ export const SCENE_IO_TESTS: readonly LanguageTest[] = [
     feature: "an FB type a variable is named after (support)",
     fromDoc: doc,
     source: "FUNCTION_BLOCK SioLamp\nVAR_INPUT\n\tOn : BOOL;\nEND_VAR\nVAR_OUTPUT\n\tLit : BOOL;\nEND_VAR\nLit := On;\nEND_FUNCTION_BLOCK\n",
+    plcPrgVar: "inst_sio_lamp : SioLamp;",
   },
   {
     name: "sio_var_named_type",

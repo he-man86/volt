@@ -14,20 +14,20 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     3491
- *     refused       2509
+ *     confirmed     3500
+ *     refused       2510
  *     not-lowered    395
  *     lsp-gap         94
  *     diverges         5
  *     unaskable      310
  *
  *   tier                     lowered    clean
- *     decl                   1058     1058
+ *     decl                   1062     1062
  *     arith                  1793     1792
  *     control                 197      184
  *     aggregate               176      176
- *     call                    458      458
- *     indirect                493      492
+ *     call                    460      460
+ *     indirect                496      495
  *
  *   surviving lints (a lint listed here is work, not policy — 12 allowed ones are named with their reasons)
  *     unreachable_patterns                       9
@@ -54,7 +54,7 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         3914
+ *     agree         3923
  *     disagree         0
  *     not-run        261
  *       not-run: no elementary variable to seed or compare      105
@@ -96,7 +96,7 @@
  *     tr_a10_string_to_dint_underscore_sign_edges   10.8
  *     tr_a10_string_to_int_literal_forms            10.8
  *
- *   shape — 2110 distinct emission shapes over 4175 lowered fixtures, 2335 distinct constructs.
+ *   shape — 2117 distinct emission shapes over 4184 lowered fixtures, 2346 distinct constructs.
  *   20 constructs carry a review note (`NOTES`): 39 fixtures are improvable, 24 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  *   Notes per owning task (openspec transpile-restructure; a merged note counts once under each owner of its items;
@@ -5331,6 +5331,16 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   signed_overflow: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 4, shape: "aa65b32e9f" },
   signed_unsigned_comparison: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 5, shape: "1a25ea05d2" },
   signed_unsigned_conversion: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 6.4, shape: "2eccb149f5" },
+  sio_conv: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.4, shape: "7c449bf7dc" },
+  sio_inout_global_fb: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "038251d64a" },
+  sio_inout_global_struct: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "831fa66062" },
+  sio_lamp: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.4, shape: "bf09e73ef2" },
+  sio_pos: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 3.1, shape: "92015d9ebc" },
+  sio_program_global_name: { evidence: "refused" },
+  sio_ref_input_global: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.7, shape: "b40e80c5a0" },
+  sio_user_ton: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.4, shape: "a8af140a75" },
+  sio_var_named_type: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.4, shape: "23df4b3b2b" },
+  sio_var_named_type_case: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "23df4b3b2b" },
   sn_alias_mismatch_used: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.3, shape: "83234c202b" },
   sn_case_differs_only: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "6c53c8e066" },
   sn_dut_mismatch: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "not-run", size: 1.8, shape: "1cff40fa06", diverges: { codesys: "known", twincat: "known" } },
