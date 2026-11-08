@@ -41,6 +41,13 @@
       0582-0595 (`SUPER^`, two ENOs into one box, an array element heading its call), and kept: they hold the only live pins
       of TwinCAT's refusals of those shapes (`TcUnmeasured`), until 6.1. The three scripts stay: `voltprobe.py` is imported by the `author-*-fixture.py`
       recorders and `vendor-facts.codesys.py`; the two `record-nwl-*.py` record the inputs of the NWL completeness oracles.
+      Re-checked (2026-11-08, offline): unchanged. Of the TwinCAT halves, the refusals (`a modifier on its input pin` / `on
+      the EN pin`, `a negated empty slot`, `referenced above its definition`, `defined below the top level`, `a parallel
+      branch`) have no offline pin (S2's and S3a's expected phrases are thrown by no code today — those pass only by
+      round-tripping live), and four shapes (two ENOs into one box, an array element heading its
+      call, a comparison's ENO and an enabled comparison as a value) are a LIVE TwinCAT round-trip + build with no recorded
+      state: both tests wait for 6.1. `voltprobe.py` is still imported by five `author-*` recorders, `vendor-facts.codesys.py`
+      and both `record-nwl-*.py`; `test/fixtures/nwl-corpus/` (their output) is read by seven Codesys/Twincat test files.
 - [x] 4.3 `scripts/README.md`, `CLAUDE.md` and `ARCHITECTURE.md` state the one source.
 - [x] 4.4 Clean the previous attempts (owner, 2026-11-05), only after their facts are rows: delete `DIALECT.md`'s NWL rows that moved, its superseded rows and citations of deleted probes; rewrite the history notes in `ARCHITECTURE.md`, `CLAUDE.md`, `scripts/README.md` and `docs/driver.html` to the current state (a mistake worth remembering stays as its one-line rule); delete the network and NWL changes from `openspec/changes/archive`, which git keeps. The other archived changes and the vendor reference docs stay.
       Open (2026-11-06): N43 and D30 deleted, the deleted-probe citations gone, the map named in N21/C18. The other NWL rows
