@@ -104,7 +104,7 @@ export { baseNameOf, documentPath, objectNameOf, sourceObjectOf } from "./format
 export { graphicalMarkerLanguage, isPlainStNetworkBody, isStBody, unitBodies } from "./format/bodies.js"
 // the `.task` descriptor: its text (byte-compatible with the bridge's) and what its values mean
 export { readTask, TaskFormatError, taskName, writeTask, type TaskSettings } from "./format/task.js"
-export { taskFacts, type TaskFacts } from "./parse/task-facts.js"
+export { TASK_TYPES, taskFacts, taskTimeNs, type TaskFacts } from "./parse/task-facts.js"
 export { taskCallSpans, taskLabelSpan, taskLineSpan } from "./format/task-spans.js"
 
 // printing a declared type or an expression

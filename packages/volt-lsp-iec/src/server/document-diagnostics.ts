@@ -113,6 +113,6 @@ export function taskDiagnostics(store: WorkspaceStore): Map<string, VoltDiagnost
     byTable.set(table, [...(byTable.get(table) ?? []), { uri, source: t.text }])
   }
   const out = new Map<string, VoltDiagnostic[]>()
-  for (const [table, files] of byTable) for (const [uri, items] of taskFindings(files, table)) out.set(uri, items.map(toLspDiagnostic))
+  for (const [table, files] of byTable) for (const [uri, items] of taskFindings(files, table, store.configs.editor.vendor)) out.set(uri, items.map(toLspDiagnostic))
   return out
 }

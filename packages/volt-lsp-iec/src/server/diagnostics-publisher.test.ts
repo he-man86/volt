@@ -125,7 +125,7 @@ test("a .task descriptor's findings are reported on it beside the documents, and
   store.setRefs({ libraryManifests: [], devices: [], applications: [], tasks: [task("PA, Mian")] }, undefined)
   publisher.republish()
   expect(sent.map((p) => [p.uri.endsWith("MainTask.task"), codes(p.diagnostics), p.diagnostics.map((d) => d.range.start)])).toEqual([
-    [true, ["task-call-not-program"], [{ line: 3, character: 15 }]],
+    [true, ["C0046", "C0035"], [{ line: 3, character: 15 }, { line: 3, character: 15 }]],
   ])
   sent.length = 0
   store.setRefs({ libraryManifests: [], devices: [], applications: [], tasks: [task("PA, PB")] }, undefined)

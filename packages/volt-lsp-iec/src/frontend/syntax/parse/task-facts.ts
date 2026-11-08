@@ -14,7 +14,7 @@ import type { DurationValue } from "../ast/nodes/index.js"
 import type { TaskSettings } from "../format/task.js"
 
 /** The task types CODESYS's `KindOfTask` names — every one the bridge writes. */
-const TASK_TYPES: readonly string[] = ["Cyclic", "Freewheeling", "Event", "ExternalEvent", "Status", "ParentSynchron"]
+export const TASK_TYPES: readonly string[] = ["Cyclic", "Freewheeling", "Event", "ExternalEvent", "Status", "ParentSynchron"]
 
 /** A task's watchdog as facts. A disabled one keeps its stated values; a time it does not state is absent. */
 interface TaskWatchdogFacts {
@@ -69,9 +69,12 @@ function bareTime(value: string, unit: string): bigint | undefined {
   return scaled % denominator === 0n ? scaled / denominator : undefined
 }
 
+/** A time member as written — a TIME literal, or a bare number in `unit` — in nanoseconds, or undefined. */
+export const taskTimeNs = (value: string, unit: string): bigint | undefined => timeLiteral(value) ?? bareTime(value, unit)
+
 /** A time member in nanoseconds as a safe number, or the reason it is none. */
 function nanoseconds(value: string, unit: string, what: string): number | string {
-  const ns = timeLiteral(value) ?? bareTime(value, unit)
+  const ns = taskTimeNs(value, unit)
   if (ns === undefined)
     return unit.length === 0
       ? `${what} '${value}' is not a TIME — a TIME literal (t#20ms) or a number with its unit`
