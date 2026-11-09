@@ -270,3 +270,9 @@ test("a box's output store converts as an assignment does: a change of sign warn
     ["error", "Cannot convert type 'INT' to type 'SINT'", at(src, body[7]!), at(src, body[7]!) + 2],
   ])
 })
+
+test("an unnamed ??? input takes no type from a ??? target elsewhere in the network: each ??? is its own unknown", () => {
+  const timer = "FUNCTION_BLOCK FB_P\nVAR_INPUT\n\tIN : BOOL;\n\tPT : TIME;\nEND_VAR\nVAR_OUTPUT\n\tQ : BOOL;\nEND_VAR\n%LANGUAGE ST\nQ := IN;\nEND_FUNCTION_BLOCK\n"
+  const src = `${timer}${ld("\ta, x : BOOL;\n\tt1 : FB_P;", "%NETWORK\nASSIGN(t1(IN := a, PT := ???), Q => x);\nASSIGN(a, Q => ???);\n")}`
+  expect([...diagnose(src), ...networkDiags(src)].map((d) => d.message).filter((m) => m.startsWith("Cannot convert"))).toEqual([])
+})
