@@ -15,18 +15,18 @@
  *
  *   evidence
  *     confirmed     3513
- *     refused       2528
+ *     refused       2530
  *     not-lowered    393
  *     lsp-gap         94
  *     diverges         5
- *     unaskable      310
+ *     unaskable      317
  *
  *   tier                     lowered    clean
  *     decl                   1067     1067
- *     arith                  1794     1793
- *     control                 197      184
+ *     arith                  1796     1795
+ *     control                 200      187
  *     aggregate               176      176
- *     call                    466      466
+ *     call                    468      468
  *     indirect                497      496
  *
  *   surviving lints (a lint listed here is work, not policy — 12 allowed ones are named with their reasons)
@@ -54,12 +54,12 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         3936
+ *     agree         3941
  *     disagree         0
- *     not-run        261
+ *     not-run        263
  *       not-run: no elementary variable to seed or compare      105
  *       not-run: reaches the platform's libm (pow, ln, sin…)     77
- *       not-run: the emitted Rust does not build                 73
+ *       not-run: the emitted Rust does not build                 75
  *       not-run: the interpreter's loop guard gives up on every variant     6
  *       agree,   1/8 unanswered (the interpreter's loop guard): cc3_empty_and_noop
  *       agree,  1/11 unanswered (the interpreter's loop guard): flw_empty_semicolon_body
@@ -72,12 +72,12 @@
  *       agree,   5/6 unanswered (the interpreter's loop guard): tr_27_loop_cap_repeat_1000001
  *       agree,   5/6 unanswered (the interpreter's loop guard): tr_27_loop_cap_while_5000000
  *
- *   pedantic — 2392 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *   pedantic — 2400 clippy::pedantic + clippy::perf findings; the ten most frequent
  *     clippy::cast_possible_truncation          985
  *     clippy::cast_sign_loss                    733
  *     clippy::cast_possible_wrap                339
- *     clippy::pub_underscore_fields             142
- *     clippy::struct_excessive_bools             75
+ *     clippy::pub_underscore_fields             146
+ *     clippy::struct_excessive_bools             79
  *     clippy::cast_precision_loss                31
  *     clippy::single_match_else                  21
  *     clippy::float_cmp                          14
@@ -96,7 +96,7 @@
  *     tr_a10_string_to_dint_underscore_sign_edges   10.8
  *     tr_a10_string_to_int_literal_forms            10.8
  *
- *   shape — 2130 distinct emission shapes over 4197 lowered fixtures, 2354 distinct constructs.
+ *   shape — 2137 distinct emission shapes over 4204 lowered fixtures, 2356 distinct constructs.
  *   20 constructs carry a review note (`NOTES`): 39 fixtures are improvable, 24 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  *   Notes per owning task (openspec transpile-restructure; a merged note counts once under each owner of its items;
@@ -597,6 +597,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   calls_queryinterface_legal: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 1, edge: "agree", size: 2.3, shape: "294e0c820c" },
   calls_querypointer_int_second: { evidence: "refused" },
   calls_querypointer_legal: { evidence: "not-lowered" },
+  calls_r_trig_clk_int: { evidence: "refused", tier: "call", rust: "compiles", pedantic: 0, edge: "agree", size: 4.2, shape: "24d95c56f2" },
   calls_sqrt_of_bool: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 0, edge: "agree", size: 2.8, shape: "b024da35a3" },
   calls_sqrt_of_string: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 0, edge: "agree", size: 2.8, shape: "8bef3565a6" },
   calls_struct_instance_called: { evidence: "refused" },
@@ -3654,6 +3655,13 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   ng_network_disabled: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.1, shape: "ce731566ed" },
   ng_network_title_and_comment: { evidence: "unaskable", tier: "arith", rust: "compiles", pedantic: 0, edge: "agree", size: 2.4, shape: "40bbcec5aa" },
   ng_opaque_leaf_negation: { evidence: "unaskable", tier: "arith", rust: "compiles", pedantic: 0, edge: "agree", size: 2.4, shape: "f3e6fd3115" },
+  ng_ot_abs_en: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 2, edge: "agree", size: 2.6, shape: "e2cb866fc5" },
+  ng_ot_add_bool: { evidence: "unaskable", tier: "arith", rust: "rejected", pedantic: 0, edge: "not-run", size: 2.3, shape: "f61cd0f6ed" },
+  ng_ot_inverted_time_output: { evidence: "unaskable" },
+  ng_ot_rising_int: { evidence: "unaskable", tier: "call", rust: "compiles", pedantic: 2, edge: "agree", size: 3.3, shape: "85eabda055" },
+  ng_ot_rising_word: { evidence: "unaskable" },
+  ng_ot_sel_en: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 2, edge: "agree", size: 2.6, shape: "290681b9cf" },
+  ng_ot_sqrt_en: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 2, edge: "agree", size: 2.6, shape: "daf0db924a" },
   ng_r1_div_three_inputs: { evidence: "unaskable", tier: "arith", rust: "compiles", pedantic: 1, edge: "agree", size: 2.4, shape: "2a63a26adb" },
   ng_r1_eq_three_inputs: { evidence: "unaskable" },
   ng_r1_ge_three_inputs: { evidence: "unaskable" },
@@ -3823,6 +3831,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   oopb_itf_return_missing: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 1.6, shape: "b9e5d147aa" },
   oopb_itf_return_type_mismatch: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 1.5, shape: "5231b87194" },
   oopb_itf_section_mismatch: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 1.5, shape: "23b13ec195" },
+  op_arithmetic_bool_plus_bool: { evidence: "refused", tier: "arith", rust: "rejected", pedantic: 0, edge: "not-run", size: 2.8, shape: "7488068875" },
   op_arithmetic_bool_plus_int: { evidence: "refused" },
   op_arithmetic_int_plus_dint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.4, shape: "8b85a1728a" },
   op_arithmetic_int_plus_real: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.4, shape: "76bd052235" },

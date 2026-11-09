@@ -96,6 +96,8 @@ const rows = new Map<string, FixtureMapRow>()
 const excused = new Map<string, number>()
 /** A fixture INSIDE the input contract whose emitted Rust the compiler refused — an emitter defect, refused below. */
 const rejected = new Map<string, string>()
+/** CODESYS's build answer per fixture: a build it refused leaves the emitted Rust unclaimed. */
+const BUILDS = JSON.parse(readFileSync(join(import.meta.dir, "..", "test", "conformance", "recordings", "codesys.build.json"), "utf8")).tests as Record<string, { buildSuccess: boolean }>
 /** Every construct any fixture emits, with its normalized line — a note keyed by anything else is refused below. */
 const constructs = new Map<string, string>()
 /** Why each `not-run` edge row did not run, by reason. */
@@ -143,7 +145,9 @@ await Promise.all(
       // outside the input contract, which makes the EMISSION fine and the CLAIM false.
       const built = build.exit === 0
       const stderr = build.stderr
-      if (!built && rejectionIsADefect(evidence)) rejected.set(t.name, rendered(stderr).slice(0, 600))
+      // a fixture whose BUILD CODESYS refused is outside the input contract, whatever its run rating (a network body is
+      // `unaskable` to the exec recorder, and `ng_ot_add_bool` is refused by the build)
+      if (!built && rejectionIsADefect(evidence) && BUILDS[t.name]?.buildSuccess !== false) rejected.set(t.name, rendered(stderr).slice(0, 600))
       // ONE pass over the compiler's JSON, all three halves out of it
       const { found, excused: covered, pedantic } = splitFindings(stderr, code.split("\n").length)
       for (const lint of covered) excused.set(lint, (excused.get(lint) ?? 0) + 1)
