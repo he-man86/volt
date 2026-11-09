@@ -172,3 +172,14 @@ END_FUNCTION_BLOCK`
   expect(got("codesys")).toEqual(["A single bit cannot be referenced. A reference to the complete byte will be stored."])
   expect(got("twincat")).toEqual([])
 })
+
+test("a network box showing EN: SEL counts its operands and the math operators type theirs without EN (network-operator-typing)", () => {
+  const net = (box: string): string[] =>
+    diagnose(`PROGRAM P\nVAR\n\tx, y, b : BOOL;\n\ti, j, oi : INT;\n\tolr : LREAL;\nEND_VAR\n%LANGUAGE FBD\n%NETWORK\nASSIGN(${box}, Q => y);\nEND_PROGRAM`)
+      .filter((d) => d.severity === "error")
+      .map((d) => `${d.code}: ${d.message}`)
+  expect(net("SEL(EN := x, b, i, j, OUT => oi)")).toEqual([])
+  expect(net("SQRT(EN := x, i, OUT => olr)")).toEqual([])
+  for (const op of ["ABS", "LN", "LOG", "EXP", "SIN", "COS", "TAN", "ASIN", "ACOS", "ATAN"])
+    expect(net(`${op}(EN := x, i, OUT => ${op === "ABS" ? "oi" : "olr"})`)).toEqual([])
+})

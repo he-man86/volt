@@ -14,7 +14,7 @@
  * operator name is UNSHADOWED (a project/library symbol of the same name skips) and the argument's type is a
  * KNOWN non-numeric elementary (not ANY_NUM = int/bitstring/real).
  */
-import { atomicOperand, elementaryType, elementaryTypeRef, inferExprType, inTypeGroup, renderType } from "../../../frontend/types/index.js"
+import { atomicOperand, elementaryType, elementaryTypeRef, inferExprType, inTypeGroup, networkBox, renderType } from "../../../frontend/types/index.js"
 import { conversionWarning, storeConversionError } from "../../shared/rules.js"
 import { type CallExpr, type Expr, type Span } from "../../../frontend/syntax/index.js"
 import { forEachExpr, lookup, type Scope } from "../../../frontend/symbols/index.js"
@@ -49,8 +49,11 @@ interface IntrinsicCall {
 }
 
 export function checkIntrinsicOperands(ctx: CheckContext, out: DiagnosticItem[]): void {
-  forEachExpr(ctx.parseResult, ctx.project, (e, scope) => {
-    if (e.kind !== "call" || e.callee.kind !== "ident_expr") return
+  forEachExpr(ctx.parseResult, ctx.project, (x, scope) => {
+    if (x.kind !== "call") return
+    // a network box: the call its callee takes, its shown EN left out (`types` `infer/network-box.ts`)
+    const e = networkBox(x, scope, ctx.project)?.st ?? x
+    if (e.callee.kind !== "ident_expr") return
     const name = e.callee.name.toUpperCase()
     operandCount(ctx, e, name, scope, out)
     const arg = e.args[0]?.value

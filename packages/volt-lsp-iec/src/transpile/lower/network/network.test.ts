@@ -66,6 +66,13 @@ describe("a network body lowers to what it runs", () => {
     expect(r.get("done")).toBe(true)
   })
 
+  test("SEL and ABS showing EN run as their plain call while EN is TRUE, EN no operand (network-operator-typing)", () => {
+    const r = runner("x, y, g : BOOL; i : INT := -4; j : INT := 6; os, oa : INT;",
+      "%NETWORK\nASSIGN(SEL(EN := x, g, i, j, OUT => os), Q => y);\n%NETWORK\nASSIGN(ABS(EN := x, i, OUT => oa), Q => y);\n", "", "FBD")
+    expect(trace(r, "os", [{}, { x: true }, { g: true }])).toEqual([0n, -4n, 6n])
+    expect(r.get("oa")).toBe(4n)
+  })
+
   test("an FB box is its instance called before the item, handing on its first output or the one its member names", () => {
     const r = runner("a, x : BOOL; n : INT; c1 : FB_C;", "%NETWORK\nASSIGN(c1(CU := a).CV, Q => n);\n%NETWORK\nASSIGN(c1(CU := FALSE), Q => x);\n", COUNTER, "FBD")
     expect(trace(r, "n", [{ a: true }, {}, {}])).toEqual([1n, 2n, 3n])
