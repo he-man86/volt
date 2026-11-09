@@ -43,7 +43,9 @@ const VARIABLE_KINDS: ReadonlySet<SymbolKind> = new Set(["var", "method_param", 
  */
 export function variableFacts(sym: Symbol): { type: string; section?: string } | undefined {
   if (!VARIABLE_KINDS.has(sym.kind) || sym.typeExpr === undefined) return undefined
-  return { type: renderTypeExpr(sym.typeExpr), ...(sym.varSection !== undefined ? { section: sym.varSection } : {}) }
+  // a CONSTANT section is the section as declared (`VAR_GLOBAL CONSTANT`): a client tells it from a writable one
+  const section = sym.varSection === undefined ? undefined : sym.constant === true ? `${sym.varSection} CONSTANT` : sym.varSection
+  return { type: renderTypeExpr(sym.typeExpr), ...(section !== undefined ? { section } : {}) }
 }
 
 /** Completion's `detail`: `REAL · VAR_INPUT` for a variable (`REAL` for a struct field), else the human kind. */

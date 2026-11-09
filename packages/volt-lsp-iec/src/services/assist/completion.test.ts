@@ -305,3 +305,19 @@ END_PROGRAM`
   expect(labels).toContain("x")
   expect(labels).not.toContain("io")
 })
+
+test("a constant's detail names its CONSTANT section, so a client can tell it from a variable it may write", () => {
+  const src = `PROGRAM Main
+VAR
+	x : INT;
+END_VAR
+VAR CONSTANT
+	C : INT := 1;
+END_VAR
+x := 1;
+END_PROGRAM`
+  const { doc, project } = setup(src)
+  const detail = (name: string) => completion(doc, project, src.indexOf("x := 1;")).find((i) => i.label === name)?.detail
+  expect(detail("C")).toBe("INT · VAR CONSTANT")
+  expect(detail("x")).toBe("INT · VAR")
+})

@@ -2,8 +2,8 @@
 
 ## 1. Detail
 
-- [ ] 1.1 A `VAR CONSTANT` / `VAR_GLOBAL CONSTANT` variable's completion detail names `CONSTANT` with its section (`INT · VAR_GLOBAL CONSTANT`)
-- [ ] 1.2 Tests in `completion.test.ts` ("a member item names its type and section"): a GVL constant after `G.`, a local constant by name
+- [x] 1.1 A `VAR CONSTANT` / `VAR_GLOBAL CONSTANT` variable's completion detail names `CONSTANT` with its section (`INT · VAR_GLOBAL CONSTANT`)
+- [x] 1.2 Tests in `completion.test.ts` ("a member item names its type and section"): a GVL constant after `G.`, a local constant by name
 
 ## 2. Consumers
 
