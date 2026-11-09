@@ -268,7 +268,8 @@ END_PROGRAM`
     return Object.fromEntries(items.map((i) => [i.label, i.detail]))
   }
 
-  const FB_MEMBERS = { speed: "REAL · VAR_INPUT", done: "BOOL · VAR_OUTPUT", count: "DINT · VAR_IN_OUT", state: "INT · VAR" }
+  // `count`, the VAR_IN_OUT, is no member an instance offers (C0178)
+  const FB_MEMBERS = { speed: "REAL · VAR_INPUT", done: "BOOL · VAR_OUTPUT", state: "INT · VAR" }
 
   test("an FB instance's members", () => {
     expect(details("inst")).toMatchObject(FB_MEMBERS)
@@ -281,4 +282,26 @@ END_PROGRAM`
   test("a global FB instance's members", () => {
     expect(details("Infeed")).toMatchObject(FB_MEMBERS)
   })
+})
+
+test("completion after an instance's `.` leaves out its VAR_IN_OUT members — reading one from outside is C0178", () => {
+  const src = `FUNCTION_BLOCK Fb
+VAR_IN_OUT
+	io : INT;
+END_VAR
+VAR_INPUT
+	x : INT;
+END_VAR
+END_FUNCTION_BLOCK
+PROGRAM Main
+VAR
+	f : Fb;
+	n : INT;
+END_VAR
+f.;
+END_PROGRAM`
+  const { doc, project } = setup(src)
+  const labels = completion(doc, project, src.indexOf("f.;") + 2).map((i) => i.label)
+  expect(labels).toContain("x")
+  expect(labels).not.toContain("io")
 })

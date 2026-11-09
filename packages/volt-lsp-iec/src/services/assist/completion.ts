@@ -112,7 +112,9 @@ function memberCompletions(base: string, scope: Scope, project: Scope): Completi
 
   const items: CompletionItem[] = []
   const seen = new Set<string>()
-  for (const m of visibleNames(memberScope, false)) if (addOnce(seen, m.name)) items.push(item(m))
+  // a VAR_IN_OUT is bound per call and has no storage on the instance: `inst.io` from outside is C0178
+  for (const m of visibleNames(memberScope, false))
+    if (m.varSection !== "VAR_IN_OUT" && addOnce(seen, m.name)) items.push(item(m))
   return items
 }
 
