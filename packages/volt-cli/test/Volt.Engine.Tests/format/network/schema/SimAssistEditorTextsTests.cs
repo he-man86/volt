@@ -14,7 +14,7 @@ namespace Volt.Engine.Tests.Format.Network.Schema;
 
 /// <summary>
 /// The texts Sim-Assist's LD/FBD editor tests produce (openspec <c>nwl-schema-completeness-gate</c> 1.2), committed as
-/// <c>test/fixtures/nwl-schema/sim-assist-editor-texts.v1.jsonl</c>: each body goes text → model → text through the
+/// <c>test/fixtures/nwl-schema/sim-assist-editor-texts.v2.jsonl</c>: each body goes text → model → text through the
 /// reader and the writer and either writes back as itself or is refused by name. A text that reads and writes back
 /// differently is a second spelling, and fails here naming it.
 ///
@@ -24,7 +24,7 @@ namespace Volt.Engine.Tests.Format.Network.Schema;
 /// </summary>
 public class SimAssistEditorTextsTests(Xunit.Abstractions.ITestOutputHelper output)
 {
-    static string Path_ => Path.Combine(Path.GetDirectoryName(NwlSchemaCensus.FixturePath)!, "sim-assist-editor-texts.v1.jsonl");
+    static string Path_ => Path.Combine(Path.GetDirectoryName(NwlSchemaCensus.FixturePath)!, "sim-assist-editor-texts.v2.jsonl");
 
     /// <summary>The expected refusals: what the reader names, and the decision or the editor defect behind it.</summary>
     static readonly (string Names, string Why)[] Expected =
@@ -33,18 +33,8 @@ public class SimAssistEditorTextsTests(Xunit.Abstractions.ITestOutputHelper outp
             "(a) an inline ST comment: a network's comment is its // lines before the code, and an operand's is COMMENT(a, 'why') (nwl-schema-completeness-gate, operand comment)"),
         ("a // comment after the code starts",
             "(a) a trailing // comment: as above, COMMENT(a, 'why') or the network's // lines (nwl-schema-completeness-gate, operand comment)"),
-        ("value is no network text",
-            "(a) a coil written as an assignment, y := a, y S= a, y R= a: every coil is an ASSIGN, ASSIGN(a, Q => y) (network-language rule 3)"),
-        ("(y := value) is no network text",
-            "(a) a coil written as an assignment inside a value, (y := a) AND b: ASSIGN(ASSIGN(a, Q => y) AND b, …) (network-language rule 3)"),
-        ("a jump or a return is a target of an ASSIGN",
-            "(a) a jump or a return written as an assignment, JMP.l := a, RETURN := a: ASSIGN(a, Q => JMP.l), ASSIGN(a, Q => RETURN) (network-language rule 3)"),
-        ("a mark is a function around a value",
-            "(a) a mark written as a word, NOT a, NOT y := a, RISING y := a: a mark on a value is a function, INVERT(a), and on a receiver it is in the output's name, Q_INVERTED => y (network-language rules 1, 2)"),
-        (".ENO is no network text",
-            "(a) a call closed by .ENO: ENO is the flow of a box showing EN, written as the call alone (network-language rule 4)"),
-        ("a mark before a pin",
-            "(a) a mark word before a pin, NOT IN := a, NOT Q => x: IN := INVERT(a), Q_INVERTED => x (network-language rules 1, 2)"),
+        ("hands on its ENO and wires its value nowhere",
+            "(a) an operator box read through its ENO with its value unwired, GT(EN := c, i, j) in a rung: CODESYS does not build it; GT(EN := c, i, j, OUT => v) (live 3.5.21.40, nwl-box-storage-map)"),
     };
 
     const string TonDeclaration =
@@ -55,7 +45,7 @@ public class SimAssistEditorTextsTests(Xunit.Abstractions.ITestOutputHelper outp
     public static IReadOnlyList<Text> Texts()
     {
         var lines = File.ReadAllLines(Path_);
-        Assert.Contains("\"volt\":\"a292dd0f66\"", lines[0]);
+        Assert.Contains("\"volt\":\"95ead1202b\"", lines[0]);
         var texts = new List<Text>();
         for (var n = 1; n < lines.Length; n++)
         {
@@ -86,7 +76,7 @@ public class SimAssistEditorTextsTests(Xunit.Abstractions.ITestOutputHelper outp
     {
         var failures = new List<string>();
         var refused = new Dictionary<string, int>();
-        var verdicts = new StringBuilder("# the bridge reader's verdict on each line of sim-assist-editor-texts.v1.jsonl (the LSP's test compares its own); " +
+        var verdicts = new StringBuilder("# the bridge reader's verdict on each line of sim-assist-editor-texts.v2.jsonl (the LSP's test compares its own); " +
             "regenerate with VOLT_WRITE_NWL_SHAPES=1 dotnet test test/Volt.Engine.Tests --filter SimAssistEditorTextsTests\n");
         foreach (var t in Texts())
         {
