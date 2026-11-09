@@ -132,6 +132,8 @@ const INTRINSICS: LanguageTest[] = [
         "src := impl;\nok := __QUERYPOINTER(src, p);")),
   fb("calls_sqrt_of_bool", "SQRT of a BOOL variable",
     fbText("calls_sqrt_of_bool", "\tflag : BOOL;\n\tres : REAL;", "res := SQRT(flag);")),
+  fb("calls_r_trig_clk_int", "an INT into R_TRIG's BOOL input CLK (openspec network-operator-typing)",
+    fbText("calls_r_trig_clk_int", "\trt : R_TRIG;\n\ti : INT;\n\ty : BOOL;", "rt(CLK := i);\ny := rt.Q;")),
 ]
 
 const NON_CALLABLE_AND_RECURSION: LanguageTest[] = [

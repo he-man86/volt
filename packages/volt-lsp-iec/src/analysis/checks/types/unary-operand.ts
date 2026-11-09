@@ -26,8 +26,8 @@
  * and the only asymmetry left is the TARGET it names: `-` and `NOT` both name the concrete integer, except that
  * `NOT` on a REAL or a STRING names the generic `ANY_BIT`, because there is no integer it could produce.</p>
  */
-import { stmtExprs, walkExpr, walkStatements } from "../../../frontend/syntax/index.js"
-import { bodies } from "../../../frontend/symbols/index.js"
+import { stmtExprs, walkExpr, walkStatements, type Expr } from "../../../frontend/syntax/index.js"
+import { bodies, type Scope } from "../../../frontend/symbols/index.js"
 import { elemOf, inferExprType, renderType, unaryOperandConversion } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
@@ -36,22 +36,21 @@ export function checkUnaryOperand(ctx: CheckContext, out: DiagnosticItem[]): voi
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project))
     walkStatements(statements, (s) => {
       for (const e of stmtExprs(s))
-        walkExpr(e, (x) => {
-          if (x.kind !== "unary" || (x.op !== "-" && x.op !== "NOT")) return
-          const operand = inferExprType(x.operand, scope, ctx.project)
-          const elem = elemOf(operand)
-          if (elem === undefined) return // unresolved or composite → skip (zero-FP)
-          // The operand converts into the type the operator computes in — the expression's own type — except that `NOT`
-          // on a REAL or a STRING has no integer to name and says `ANY_BIT` (`unaryOperandConversion`).
-          const conversion = unaryOperandConversion(x.op, elem.family)
-          if (conversion === "none") return
-          const target = conversion === "ANY_BIT" ? "ANY_BIT" : renderType(inferExprType(x, scope, ctx.project), { form: "compiler" })
-          emit(
-            out,
-            x.span,
-            "unary-operand-type",
-            ctx.messages.cannotConvert(renderType(operand, { form: "compiler" }), target),
-          )
-        })
+        walkExpr(e, (x) => unaryOperandError(x, scope, ctx, out))
     })
+}
+
+/** A `-` or `NOT`'s operand converted into the type it computes in, reported (a network's negated output, `X_INVERTED =>`,
+ *  is `NOT` on that output: `ng_ot_inverted_time_output`). */
+export function unaryOperandError(x: Expr, scope: Scope, ctx: CheckContext, out: DiagnosticItem[]): void {
+  if (x.kind !== "unary" || (x.op !== "-" && x.op !== "NOT")) return
+  const operand = inferExprType(x.operand, scope, ctx.project)
+  const elem = elemOf(operand)
+  if (elem === undefined) return // unresolved or composite → skip (zero-FP)
+  // The operand converts into the type the operator computes in — the expression's own type — except that `NOT`
+  // on a REAL or a STRING has no integer to name and says `ANY_BIT` (`unaryOperandConversion`).
+  const conversion = unaryOperandConversion(x.op, elem.family)
+  if (conversion === "none") return
+  const target = conversion === "ANY_BIT" ? "ANY_BIT" : renderType(inferExprType(x, scope, ctx.project), { form: "compiler" })
+  emit(out, x.span, "unary-operand-type", ctx.messages.cannotConvert(renderType(operand, { form: "compiler" }), target))
 }

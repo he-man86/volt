@@ -62,11 +62,12 @@ function boxValue(box: NetworkBox, scope: Scope, project: Scope): Type {
   // `MOVE(x)`: the value it moves (an array's too, `w1 := MOVE(arr)`)
   const moved = upper === "MOVE" ? positional(box.pins.filter((a) => !a.output)) : undefined
   if (moved?.length === 1) return inferExprType(moved[0]!, scope, project)
-  const values = upper !== undefined && (upper === "NOT" || OPERATOR_OF[upper] !== undefined) ? positional(box.pins) : undefined
-  if (values !== undefined && upper === "NOT" && values.length === 1)
+  const values = upper === "NOT" ? positional(box.pins) : undefined
+  if (values !== undefined && values.length === 1)
     return inferExprType({ kind: "unary", op: "NOT", operand: values[0]!, span: box.call.span }, scope, project)
-  if (values !== undefined && upper !== "NOT" && values.length >= 2) return inferExprType(chain(OPERATOR_OF[upper!]!, values, box.call), scope, project)
   if (values !== undefined) return UNKNOWN
+  const operation = operatorBoxExpr(box)
+  if (operation !== undefined) return operation === null ? UNKNOWN : inferExprType(operation, scope, project)
   return stCallReturnType({ ...box.st, args: box.pins.filter((a) => !a.output) }, scope, project)
 }
 
@@ -94,6 +95,16 @@ export function networkMemberType(e: MemberExpr, scope: Scope, project: Scope): 
 function positional(args: readonly CallArg[]): Expr[] | undefined {
   if (args.some((a) => a.param !== undefined || a.output || a.value === undefined)) return undefined
   return args.map((a) => a.value!)
+}
+
+/** The ST operation an operator box is (`ADD(a, b, c)`: `a + b + c`); null for an operator box written in another form;
+ *  undefined for any other box. */
+export function operatorBoxExpr(box: NetworkBox): Expr | null | undefined {
+  const upper = box.call.callee.kind === "ident_expr" ? box.call.callee.name.toUpperCase() : undefined
+  const op = upper === undefined ? undefined : OPERATOR_OF[upper]
+  if (op === undefined) return undefined
+  const values = positional(box.pins)
+  return values !== undefined && values.length >= 2 ? chain(op, values, box.call) : null
 }
 
 /** `a op b op c`, left to right — what an extensible box computes. */

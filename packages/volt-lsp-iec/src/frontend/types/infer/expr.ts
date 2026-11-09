@@ -207,6 +207,9 @@ function binaryResultType(e: BinaryExpr, scope: Scope, project: Scope): Type {
     // string is already unsigned and answers the same either way.
     const bitwise = BITWISE_OPERATORS.has(e.op) ? bitwiseResultType(l, r) : undefined
     if (bitwise !== undefined) return bitwise
+    // two BOOLs in arithmetic compute in USINT (`op_arithmetic_bool_plus_bool`: "Cannot convert type 'USINT' to type
+    // 'BOOL'", CODESYS 3.5.21.40); `checkedMeetType` keeps them unmet, as SEL and MAX of two BOOLs are BOOLs
+    if (ARITHMETIC_OPERATORS.has(e.op) && l.elem.family === "bool" && r.elem.family === "bool") return elementaryRef("USINT")
     const meet = checkedMeetType(l, r)
     if (meet !== undefined) return meet
     if (aliasElem(l.name) === aliasElem(r.name)) return l

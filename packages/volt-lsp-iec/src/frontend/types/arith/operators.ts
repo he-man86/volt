@@ -194,7 +194,8 @@ export function operandFamilyRule(
   b: string,
 ): { kind: "convert"; from: string; to: string } | { kind: "mod-undefined"; type: string } | undefined {
   if (!ARITHMETIC_OPERATORS.has(op)) return undefined
-  if (a === "BOOL" || b === "BOOL") return { kind: "convert", from: "BOOL", to: a === "BOOL" ? b : a }
+  // two BOOLs meet at USINT (`op_arithmetic_bool_plus_bool`, `ng_ot_add_bool`, CODESYS 3.5.21.40)
+  if (a === "BOOL" || b === "BOOL") return { kind: "convert", from: "BOOL", to: a !== "BOOL" ? a : b !== "BOOL" ? b : "USINT" }
   if ((op === "+" || op === "-") && narrowDateWideDuration(a, b)) return { kind: "convert", from: "LTIME", to: "ULINT" }
   const scaled = durationScaleConversion(op, a, b)
   if (scaled !== undefined && isDuration(scaled.from)) return { kind: "convert", from: scaled.from, to: scaled.to }

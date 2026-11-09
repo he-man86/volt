@@ -22,6 +22,8 @@ import {
   UNNAMED,
   walkAllExprs,
   type CallArg,
+  type CallExpr,
+  type Expr,
   type MemberExpr,
   type Span,
   type TopLevel,
@@ -32,6 +34,8 @@ import { bodies, isLibrarySymbol, lookupMember, scopeForUnit, visibleNames, type
 import {
   type CalleeInfo,
   constancyOf,
+  elementaryRef,
+  isNetworkBox,
   networkBox,
   inferExprType,
   resolveCallee,
@@ -43,6 +47,8 @@ import type { CheckContext } from "../../pipeline/context.js"
 import { emit, SOURCE, withFixes, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import { changeToFixes } from "../../shared/near-miss.js"
 import { bindableMember } from "../../shared/resolution.js"
+import { storeConversionError } from "../../shared/rules.js"
+import { unaryOperandError } from "../types/unary-operand.js"
 import { argTypeError, outputTypeError, storeTypeError } from "./_argument-types.js"
 import { checkInOutBindings, checkMissingInOuts, countsInOuts } from "./_in-out-arguments.js"
 
@@ -51,15 +57,18 @@ export function checkCallArguments(ctx: CheckContext, out: DiagnosticItem[]): vo
     walkAllExprs(statements, (x) => {
       if (x.kind !== "call") return
       // a network box: the call its callee takes (an FB's its instance's), its shown EN left out (`types` `infer/network-box.ts`)
+      if (checkEdge(x, scope, ctx, out)) return
       const box = networkBox(x, scope, ctx.project)
       if (box !== undefined) checkValueStore(box, scope, ctx, out)
+      if (box !== undefined) checkInvertedOutputs(box, scope, ctx, out)
       const e = box?.st ?? x
       const callee = resolveCallee(e, scope, ctx.project)
       if (callee === undefined) return // unresolved callee → skip (zero-FP)
-      // A library FB's or method's materialized signature is lossy — inheritance is flattened, inputs may vanish — so its
-      // arguments are not checked. A library FUNCTION has no inheritance and keeps its VAR_INPUT: it is checked like any
-      // other. Skipping it too hid "Cannot convert type 'WSTRING' to type 'STRING(255)'" for Standard's LEN (gap 9).
-      if (isLibrarySymbol(callee.sym) && callee.sym.kind !== "function") return
+      // A library FB's or method's materialized signature is lossy — inheritance is flattened, inputs may vanish — so only
+      // the inputs it names are checked, by type (`calls_r_trig_clk_int`: "Cannot convert type 'INT' to type 'BOOL'"). A
+      // library FUNCTION has no inheritance and keeps its VAR_INPUT: it is checked like any other. Skipping it too hid
+      // "Cannot convert type 'WSTRING' to type 'STRING(255)'" for Standard's LEN (gap 9).
+      if (isLibrarySymbol(callee.sym) && callee.sym.kind !== "function") return checkNamedInputTypes(e.args, callee, scope, ctx, out)
       checkCall(e.args, e.callee.span, callee, scope, ctx, out)
     })
   }
@@ -73,6 +82,39 @@ function checkValueStore(box: NetworkBox, scope: Scope, ctx: CheckContext, out: 
   if (pin?.value === undefined || (pin.value.kind === "ident_expr" && pin.value.name === UNNAMED)) return
   const read: MemberExpr = { kind: "member", base: box.call, member: { kind: "ident_expr", name: VALUE, span: pin.param!.span }, span: box.call.span }
   storeTypeError(inferExprType(read, scope, ctx.project), pin.value, scope, ctx, out, true)
+}
+
+/** A network's edge, `RISING(x)` / `FALLING(x)`, is an R_TRIG / F_TRIG on its BOOL input CLK: its value converts into it
+ *  (`ng_ot_rising_int`: "Cannot convert type 'INT' to type 'BOOL'", CODESYS 3.5.21.40). True where `x` is an edge. */
+function checkEdge(x: CallExpr, scope: Scope, ctx: CheckContext, out: DiagnosticItem[]): boolean {
+  const name = x.callee.kind === "ident_expr" ? x.callee.name : undefined
+  if (name === undefined || !["RISING", "FALLING"].includes(name.toUpperCase()) || !isNetworkBox(scope, name)) return false
+  const value = x.args[0]?.value
+  const refused = value === undefined ? undefined : storeConversionError(elementaryRef("BOOL"), value, value.span, scope, ctx.project, ctx.messages, "argument")
+  if (refused !== undefined) out.push({ ...refused, code: "call-argument-type" })
+  return true
+}
+
+/** An output stored negated, `ET_INVERTED => v`: `v := NOT <box>.ET`, its operand's conversion and its store reported as
+ *  ST reports them (`ng_ot_inverted_time_output`: "Cannot convert type 'TIME' to type 'UDINT'", "Cannot convert type
+ *  'UDINT' to type 'TIME'", CODESYS 3.5.21.40). */
+function checkInvertedOutputs(box: NetworkBox, scope: Scope, ctx: CheckContext, out: DiagnosticItem[]): void {
+  for (const pin of box.pins) {
+    if (pin.coil !== "INVERTED" || pin.param === undefined || pin.value === undefined) continue
+    const read: MemberExpr = { kind: "member", base: box.call, member: { kind: "ident_expr", name: pin.param.name, span: pin.param.span }, span: pin.span }
+    const negated: Expr = { kind: "unary", op: "NOT", operand: read, span: pin.span }
+    unaryOperandError(negated, scope, ctx, out)
+    storeTypeError(inferExprType(negated, scope, ctx.project), pin.value, scope, ctx, out)
+  }
+}
+
+/** A library FB's inputs named in its call, each against the type its signature declares. */
+function checkNamedInputTypes(args: readonly CallArg[], callee: CalleeInfo, scope: Scope, ctx: CheckContext, out: DiagnosticItem[]): void {
+  for (const a of args) {
+    if (a.output || a.param === undefined || a.value === undefined) continue
+    const param = callee.params.find((p) => p.name.text.toLowerCase() === a.param!.name.toLowerCase())
+    if (param !== undefined) argTypeError(a.value, param, callee.sym.name, scope, ctx, out)
+  }
 }
 
 /** One call's arguments against its resolved callee, concern by concern — in the order the findings are reported. */

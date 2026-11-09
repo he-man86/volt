@@ -219,6 +219,24 @@ iRes := xA + iB;
 END_METHOD
 `,
   },
+  {
+    name: "op_arithmetic_bool_plus_bool",
+    pouName: "FB_LANG_op_arithmetic_bool_plus_bool",
+    kind: "function_block",
+    feature: "BOOL + BOOL into a BOOL — the ST twin of a network ADD box on BOOLs (openspec network-operator-typing)",
+    fromDoc: "03-operators.md",
+    plcPrgVar: "fb_oabb : FB_LANG_op_arithmetic_bool_plus_bool;",
+    plcPrgBody: "fb_oabb();",
+    source: `FUNCTION_BLOCK FB_LANG_op_arithmetic_bool_plus_bool
+VAR
+	a : BOOL;
+	b : BOOL;
+	x : BOOL;
+END_VAR
+x := a + b;
+END_FUNCTION_BLOCK
+`,
+  },
   // ─── Selection operators (IEC 61131-3 standard) ─────────────────
 
   {

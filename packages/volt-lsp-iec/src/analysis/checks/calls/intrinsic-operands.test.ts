@@ -183,3 +183,16 @@ test("a network box showing EN: SEL counts its operands and the math operators t
   for (const op of ["ABS", "LN", "LOG", "EXP", "SIN", "COS", "TAN", "ASIN", "ACOS", "ATAN"])
     expect(net(`${op}(EN := x, i, OUT => ${op === "ABS" ? "oi" : "olr"})`)).toEqual([])
 })
+
+test("a network types an edge's value, a negated output and an operator box's operands as ST does (network-operator-typing)", () => {
+  const net = (vars: string, box: string): string[] =>
+    diagnose(`FUNCTION_BLOCK T\nVAR_OUTPUT\n\tET : TIME;\nEND_VAR\nEND_FUNCTION_BLOCK\nPROGRAM P\nVAR\n\tx, y, a, b : BOOL;\n${vars}END_VAR\n%LANGUAGE FBD\n%NETWORK\n${box}\nEND_PROGRAM`)
+      .filter((d) => d.severity === "error")
+      .map((d) => d.message)
+  // ng_ot_rising_int, ng_ot_inverted_time_output, ng_ot_add_bool (CODESYS 3.5.21.40)
+  expect(net("\ti : INT;\n", "ASSIGN(RISING(i), Q => y);")).toEqual(["Cannot convert type 'INT' to type 'BOOL'"])
+  expect(net("", "ASSIGN(FALLING(a), Q => y);")).toEqual([])
+  expect(net("\tt1 : T;\n\tet : TIME;\n", "ASSIGN(t1(EN := x, ET_INVERTED => et), Q => y);").sort()).toEqual([
+    "Cannot convert type 'TIME' to type 'UDINT'", "Cannot convert type 'UDINT' to type 'TIME'"])
+  expect(net("", "ASSIGN(ADD(a, b), Q => x);").sort()).toEqual(["Cannot convert type 'BOOL' to type 'USINT'", "Cannot convert type 'USINT' to type 'BOOL'"])
+})
