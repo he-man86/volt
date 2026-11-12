@@ -1592,7 +1592,7 @@
     "check network-text: div": 0,
     "check network-text: fired": 19,
     "group calls: GAP": 5,
-    "group calls: never-fired builders": 3,
+    "group calls: never-fired builders": 4,
     "group calls: open FP": 0,
     "group declarations: GAP": 21,
     "group declarations: never-fired builders": 7,

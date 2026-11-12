@@ -6,7 +6,7 @@
  */
 import { decodeStringLiteral, decodeUtf8Literal, typedLiteralForm, type BinaryExpr, type Expr, type Span, type Target } from "../../frontend/syntax/index.js"
 import { targetOf, type Scope } from "../../frontend/symbols/index.js"
-import { ARITHMETIC_OPERATORS, SHORT_CIRCUIT_OPERATORS, shortCircuitType, classifyConversion, constEval, isSameType, strictEnum, elementaryTypeRef, elemOf, inferExprType, isAssignable, literalCheckType, literalErrorType, operandFamilyRule, parseConversionName, REAL_LITERAL_TYPE, renderType, type Type, UNKNOWN, unparenthesised, untypedNumberValue } from "../../frontend/types/index.js"
+import { ARITHMETIC_OPERATORS, BITWISE_OPERATORS, boolBesideIntegerType, SHORT_CIRCUIT_OPERATORS, shortCircuitType, classifyConversion, constEval, isSameType, strictEnum, elementaryTypeRef, elemOf, inferExprType, isAssignable, literalCheckType, literalErrorType, operandFamilyRule, parseConversionName, REAL_LITERAL_TYPE, renderType, type Type, UNKNOWN, unparenthesised, untypedNumberValue } from "../../frontend/types/index.js"
 import { SOURCE, type DiagnosticItem, type Fix } from "./diagnostic-item.js"
 import { compilerStringLiteralText, type Messages } from "../messages/index.js"
 
@@ -340,6 +340,17 @@ export function shortCircuitErrors(e: BinaryExpr, scope: Scope, project: Scope, 
     ...sides.filter((t) => t.kind === "elementary" && t.elem.family === "bool").map(() => binaryDiag(e, messages.cannotConvert("BOOL", into))),
     binaryDiag(e, messages.cannotConvert(into, "BOOL")),
   ]
+}
+
+/** AND / OR / XOR on a BOOL beside an integer (`types/arith/operators` `boolBesideIntegerType`): the operand of the other
+ *  kind than their meet is refused into it — the BOOL into an unsigned integer, an 8-bit integer into a BIT. */
+export function bitwiseBoolErrors(e: BinaryExpr, scope: Scope, project: Scope, messages: Messages): DiagnosticItem[] {
+  if (!BITWISE_OPERATORS.has(e.op)) return []
+  const sides = [inferExprType(e.left, scope, project), inferExprType(e.right, scope, project)]
+  const meet = boolBesideIntegerType(sides[0]!, sides[1]!)
+  if (meet === undefined || meet.kind !== "elementary") return []
+  const refused = sides.find((t) => t.kind === "elementary" && (t.name === "BOOL") !== (meet.name === "BIT"))!
+  return [binaryDiag(e, messages.cannotConvert(renderType(refused, { form: "compiler" }), meet.name))]
 }
 
 function binaryDiag(e: BinaryExpr, message: string): DiagnosticItem {

@@ -83,6 +83,8 @@ export { checkedMeetType, checkedNegationType, literalOperandType } from "./arit
 export { durationScaleConversion, narrowDateWideDuration, temporalArithmeticType, temporalResultType } from "./arith/temporal.js"
 export {
   ARITHMETIC_OPERATORS,
+  BITWISE_OPERATORS,
+  boolBesideIntegerType,
   comparisonConverts,
   negativeLiteralComparisonTarget,
   notResultType,

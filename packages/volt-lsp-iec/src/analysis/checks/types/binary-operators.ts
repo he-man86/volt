@@ -8,7 +8,7 @@ import type { Expr } from "../../../frontend/syntax/index.js"
 import { networkBox, operatorBoxExpr } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import type { DiagnosticItem } from "../../shared/diagnostic-item.js"
-import { binaryOpErrors, shortCircuitErrors } from "../../shared/rules.js"
+import { binaryOpErrors, bitwiseBoolErrors, shortCircuitErrors } from "../../shared/rules.js"
 
 export function checkBinaryOperators(ctx: CheckContext, out: DiagnosticItem[]): void {
   forEachExpr(ctx.parseResult, ctx.project, (x, scope) => {
@@ -17,6 +17,7 @@ export function checkBinaryOperators(ctx: CheckContext, out: DiagnosticItem[]): 
     for (let e: Expr | null | undefined = box === undefined ? x : operatorBoxExpr(box); e?.kind === "binary"; e = box === undefined ? undefined : e.left) {
       out.push(...binaryOpErrors(e, scope, ctx.project, ctx.messages))
       out.push(...shortCircuitErrors(e, scope, ctx.project, ctx.messages))
+      out.push(...bitwiseBoolErrors(e, scope, ctx.project, ctx.messages))
     }
   })
 }

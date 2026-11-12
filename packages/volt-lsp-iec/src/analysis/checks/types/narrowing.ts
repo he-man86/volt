@@ -6,7 +6,7 @@
  */
 import { stmtExprs, walkExpr, walkStatements, type Expr } from "../../../frontend/syntax/index.js"
 import { bodies, forEachDecl, type Scope } from "../../../frontend/symbols/index.js"
-import { checkedMeetType, comparisonConverts, durationScaleConversion, type ElementaryType, elementaryRef, elementaryTypeRef, inferExprType, integerLiteralType, integerOfWidth, isDuration, isIntegerType, isIntLiteral, literalCheckType, literalContextConversion, negativeLiteralComparisonTarget, operandConversion, literalOperandType, notResultType, unparenthesised, resolveTypeExpr, SHORT_CIRCUIT_OPERATORS, shortCircuitType, selectionValueArguments, type Type, untypedNumberValue } from "../../../frontend/types/index.js"
+import { checkedMeetType, comparisonConverts, durationScaleConversion, type ElementaryType, elementaryRef, elementaryTypeRef, inferExprType, integerLiteralType, integerOfWidth, isDuration, isIntegerType, isIntLiteral, literalCheckType, literalContextConversion, negativeLiteralComparisonTarget, operandConversion, literalOperandType, notResultType, unparenthesised, resolveTypeExpr, SHORT_CIRCUIT_OPERATORS, shortCircuitType, BITWISE_OPERATORS, boolBesideIntegerType, selectionValueArguments, type Type, untypedNumberValue } from "../../../frontend/types/index.js"
 import type { Messages } from "../../messages/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { pushForDeclaration, withFixes, type DiagnosticItem } from "../../shared/diagnostic-item.js"
@@ -124,16 +124,19 @@ function operandSignWarnings(x: Expr, scope: Scope, project: Scope, messages: Me
     const w = integer === undefined ? undefined : conversionWarning(notResultType(operand), operand, x.operand, messages)
     return w === undefined ? [] : [w]
   }
-  if (x.kind === "binary" && SHORT_CIRCUIT_OPERATORS.has(x.op)) {
-    // AND_THEN / OR_ELSE: each signed integer operand converts into the unsigned integer they meet in (`shortCircuitType`)
+  const shortCircuit = x.kind === "binary" && SHORT_CIRCUIT_OPERATORS.has(x.op)
+  if (x.kind === "binary" && (shortCircuit || BITWISE_OPERATORS.has(x.op))) {
+    // AND_THEN / OR_ELSE, and AND / OR / XOR on a BOOL beside an integer: each signed integer operand converts into the
+    // unsigned integer they meet in (`shortCircuitType`, `boolBesideIntegerType`)
     const sides = [x.left, x.right] as const
     const types = sides.map((s) => inferExprType(s, scope, project))
-    const meet = shortCircuitType(types[0]!, types[1]!)
-    if (meet === undefined) return []
-    return sides.flatMap((s, i) => {
-      const w = integral(types[i]!) === undefined ? undefined : conversionWarning(meet, types[i]!, s, messages)
-      return w === undefined ? [] : [w]
-    })
+    const meet = (shortCircuit ? shortCircuitType : boolBesideIntegerType)(types[0]!, types[1]!)
+    if (meet !== undefined)
+      return sides.flatMap((s, i) => {
+        const w = integral(types[i]!) === undefined ? undefined : conversionWarning(meet, types[i]!, s, messages)
+        return w === undefined ? [] : [w]
+      })
+    if (shortCircuit) return []
   }
   if (x.kind === "binary") {
     const scaled = durationScaleWarnings(x.op, x.left, x.right, scope, project, messages)

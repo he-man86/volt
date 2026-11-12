@@ -15,7 +15,7 @@
  *
  *   evidence
  *     confirmed     3513
- *     refused       2530
+ *     refused       2543
  *     not-lowered    393
  *     lsp-gap         94
  *     diverges         5
@@ -352,6 +352,15 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   bit_access_read: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 6.6, shape: "6feb816c1e" },
   bit_access_write: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 5.3, shape: "5c4004719d" },
   bit_and_bool: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "c2fc2a59cb" },
+  bit_and_bool_byte_into_byte: { evidence: "refused" },
+  bit_and_bool_dword_into_dword: { evidence: "refused" },
+  bit_and_bool_int_into_int: { evidence: "refused" },
+  bit_and_bool_lword_into_lword: { evidence: "refused" },
+  bit_and_bool_sint_into_sint: { evidence: "refused" },
+  bit_and_bool_udint_into_udint: { evidence: "refused" },
+  bit_and_bool_usint_into_usint: { evidence: "refused" },
+  bit_and_bool_word_into_bool: { evidence: "refused" },
+  bit_and_bool_word_into_word: { evidence: "refused" },
   bit_and_byte: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "538760d1f9" },
   bit_and_dint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "12f2a0f145" },
   bit_and_dword: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "58bb9e02d8" },
@@ -364,8 +373,11 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   bit_and_ulint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "05b3a35fbe" },
   bit_and_usint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "538760d1f9" },
   bit_and_word: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "eaa17d66a1" },
+  bit_and_word_bool_into_bool: { evidence: "refused" },
+  bit_and_word_bool_into_word: { evidence: "refused" },
   bit_index_out_of_range_rejected: { evidence: "refused" },
   bit_or_bool: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "b60393ff56" },
+  bit_or_bool_word_into_word: { evidence: "refused" },
   bit_or_byte: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "875b65f004" },
   bit_or_dint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "8be591976d" },
   bit_or_dword: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "f64ad4ca15" },
@@ -460,6 +472,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   bit_shr_word_17: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "099834d86a" },
   bit_string_arithmetic: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 5.5, shape: "fac7979faf" },
   bit_xor_bool: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "b028730fa0" },
+  bit_xor_bool_word_into_word: { evidence: "refused" },
   bit_xor_byte: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "1c562e3983" },
   bit_xor_dint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "21b29ab896" },
   bit_xor_dword: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "3f834dc623" },

@@ -79,3 +79,35 @@ test("arithmetic on BOOLs refuses EACH BOOL operand into the type they meet in �
   expect(mismatches(vars, "n := a + b;")).toEqual(["Cannot convert type 'BOOL' to type 'USINT'", "Cannot convert type 'BOOL' to type 'USINT'"])
   expect(mismatches(vars, "i := a + i;")).toEqual(["Cannot convert type 'BOOL' to type 'INT'"])
 })
+
+test("a BOOL beside a 16-, 32- or 64-bit integer in AND / OR / XOR is refused into the unsigned integer of that width (bit_*_bool_*_into_*)", () => {
+  // CODESYS 3.5.21.40, 2026-11-12: the operation is that unsigned integer — silent into a WORD, refused into a BOOL
+  const all = (vars: string, body: string): string[] =>
+    diagnose(`PROGRAM PLC_PRG\nVAR\n${vars}\nEND_VAR\n${body}\nEND_PROGRAM`)
+      .filter((d) => d.severity === "error" || d.severity === "warning")
+      .map((d) => d.message)
+      .sort()
+  const word = "b : BOOL; w : WORD; o : BOOL;"
+  for (const body of ["w := b AND w;", "w := w AND b;", "w := b OR w;", "w := b XOR w;"])
+    expect(all(word, body)).toEqual(["Cannot convert type 'BOOL' to type 'UINT'"])
+  for (const body of ["o := b AND w;", "o := w AND b;"])
+    expect(all(word, body)).toEqual(["Cannot convert type 'BOOL' to type 'UINT'", "Cannot convert type 'UINT' to type 'BOOL'"])
+  expect(all("b : BOOL; w : DWORD;", "w := b AND w;")).toEqual(["Cannot convert type 'BOOL' to type 'UDINT'"])
+  expect(all("b : BOOL; w : UDINT;", "w := b AND w;")).toEqual(["Cannot convert type 'BOOL' to type 'UDINT'"])
+  expect(all("b : BOOL; w : LWORD;", "w := b AND w;")).toEqual(["Cannot convert type 'BOOL' to type 'ULINT'"])
+  expect(all("b : BOOL; w : INT;", "w := b AND w;")).toEqual([
+    "Cannot convert type 'BOOL' to type 'UINT'",
+    "Implicit conversion from signed Type 'INT' to unsigned Type 'UINT' : Possible change of sign",
+    "Implicit conversion from unsigned Type 'UINT' to signed Type 'INT' : Possible change of sign",
+  ])
+})
+
+test("a BOOL beside an 8-bit integer in AND is a BIT — the integer refused into it, the BIT refused into it back (bit_and_bool_{byte,usint,sint}_into_*)", () => {
+  const all = (vars: string, body: string): string[] =>
+    diagnose(`PROGRAM PLC_PRG\nVAR\n${vars}\nEND_VAR\n${body}\nEND_PROGRAM`)
+      .filter((d) => d.severity === "error" || d.severity === "warning")
+      .map((d) => d.message)
+      .sort()
+  for (const t of ["BYTE", "USINT", "SINT"])
+    expect(all(`b : BOOL; w : ${t};`, "w := b AND w;")).toEqual([`Cannot convert type 'BIT' to type '${t}'`, `Cannot convert type '${t}' to type 'BIT'`])
+})

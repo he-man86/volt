@@ -125,16 +125,33 @@ export function notResultType(operand: Type): Type {
  * warnings on CODESYS — one per operand going in, and one for the result coming back out into a signed destination
  * (`bit_{and,or,xor}_{sint,int,dint,lint}`). The unsigned integer both operands convert to, or undefined when the pair
  * is not two same-width integers with a signed one among them (BOOL operands are boolean logic and keep their type; a
- * bit string is already unsigned).
+ * bit string is already unsigned) — or a BOOL beside an integer (`boolBesideIntegerType`).
  */
 export function bitwiseResultType(l: Type, r: Type): Type | undefined {
   const a = l.kind === "elementary" ? l.elem : undefined
   const b = r.kind === "elementary" ? r.elem : undefined
-  if (a === undefined || b === undefined || a.bits !== b.bits) return undefined
+  if (a === undefined || b === undefined) return undefined
+  const besideBool = boolBesideIntegerType(l, r)
+  if (besideBool !== undefined) return besideBool
+  if (a.bits !== b.bits) return undefined
   if (a.family !== "int" || b.family !== "int") return undefined
   if (a.signed !== true && b.signed !== true) return undefined
   // an integer is 8, 16, 32 or 64 bits wide, so the ladder answers every pair that reaches here
   return elementaryTypeRef(integerOfWidth(a.bits, false))
+}
+
+/**
+ * A BOOL BESIDE AN INTEGER OR BIT STRING in AND / OR / XOR, either side (`bit_{and,or,xor}_bool_*_into_*`,
+ * `ng_ot_rising_word`, CODESYS 3.5.21.40): beside 16, 32 or 64 bits the unsigned integer of that width, the BOOL refused
+ * into it ("Cannot convert type 'BOOL' to type 'UINT'"); beside 8 bits a BIT, the integer refused into it ("Cannot
+ * convert type 'BYTE' to type 'BIT'"). Undefined for any other pair.
+ */
+export function boolBesideIntegerType(l: Type, r: Type): Type | undefined {
+  const [a, b] = [l, r].map((t) => (t.kind === "elementary" ? t.elem : undefined))
+  if (a === undefined || b === undefined) return undefined
+  const other = a.name === "BOOL" ? b : b.name === "BOOL" ? a : undefined
+  if (other === undefined || (other.family !== "int" && other.family !== "bitstring") || other.bits === undefined || other.bits < 8) return undefined
+  return elementaryTypeRef(other.bits === 8 ? elementaryType("BIT")! : integerOfWidth(other.bits, false))
 }
 
 /**

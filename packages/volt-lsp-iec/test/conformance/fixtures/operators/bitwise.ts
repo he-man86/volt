@@ -62,6 +62,26 @@ const boolLogic: LanguageTest[] = (["AND", "OR", "XOR"] as const).map((op) =>
   ),
 )
 
+/** A BOOL beside an integer in a bit operator — `AND(RISING(w), w)` in a network (`ng_ot_rising_word`) asked on its own:
+ *  AND of a BOOL and a WORD either order into a WORD and into a BOOL, then OR / XOR and the other widths. */
+function boolBeside(op: string, other: string, boolFirst: boolean, into: string): LanguageTest {
+  const order = boolFirst ? `bool_${other}` : `${other}_bool`
+  return probe(
+    `bit_${op.toLowerCase()}_${order.toLowerCase()}_into_${into.toLowerCase()}`,
+    `\tb : BOOL;\n\tw : ${other};`,
+    "b := TRUE;\nw := 10;",
+    boolFirst ? `b ${op} w` : `w ${op} b`,
+    into,
+    `${boolFirst ? `BOOL ${op} ${other}` : `${other} ${op} BOOL`} stored into a ${into}`,
+  )
+}
+const boolBesideInteger: LanguageTest[] = [
+  ...[true, false].flatMap((first) => ["WORD", "BOOL"].map((into) => boolBeside("AND", "WORD", first, into))),
+  boolBeside("OR", "WORD", true, "WORD"),
+  boolBeside("XOR", "WORD", true, "WORD"),
+  ...["BYTE", "USINT", "SINT", "DWORD", "LWORD", "INT", "UDINT"].map((t) => boolBeside("AND", t, true, t)),
+]
+
 /** Width of each shiftable type, for the counts that matter. */
 const SHIFT_TYPES: readonly [string, number][] = [
   ["BYTE", 8],
@@ -87,4 +107,4 @@ const shifts: LanguageTest[] = SHIFT_TYPES.flatMap(([t, w]) =>
   ),
 )
 
-export const BITWISE_TESTS: readonly LanguageTest[] = [...logic, ...boolLogic, ...shifts]
+export const BITWISE_TESTS: readonly LanguageTest[] = [...logic, ...boolLogic, ...boolBesideInteger, ...shifts]

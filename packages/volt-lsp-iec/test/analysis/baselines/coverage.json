@@ -33,7 +33,7 @@
     "builder recursiveConstant: 0 TP on twincat (called by checkConstantCycle)",
     "builder reservedKeyword: 0 TP on twincat (called by checkReservedKeyword)",
     "builder stringNotRepresentable: 0 TP on twincat (called by checkStringEncoding)",
-    "builder subrangeAssignTarget: 0 TP on both vendors (called by checkAssignmentTypes, checkEnumInit, checkIntrinsicOperands, checkNarrowingConversion, checkSubrange)",
+    "builder subrangeAssignTarget: 0 TP on both vendors (called by checkAssignmentTypes, checkCallArguments, checkEnumInit, checkIntrinsicOperands, checkNarrowingConversion, checkSubrange)",
     "builder unionInheritance: 0 TP on twincat (called by checkHeaderRules)",
     "builder unknownAttribute: 0 TP on twincat (called by checkPragmas)",
     "builder variableDeclarationExpectedInsteadOf: 0 TP on twincat (called by checkParseErrors)",

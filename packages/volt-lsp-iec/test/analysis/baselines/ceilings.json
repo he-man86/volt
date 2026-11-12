@@ -1,7 +1,7 @@
 {
   "fixtures.codesys": {
     "group calls: GAP": 1,
-    "group calls: never-fired builders": 2,
+    "group calls: never-fired builders": 3,
     "group calls: open FP": 0,
     "group declarations: GAP": 19,
     "group declarations: never-fired builders": 0,
@@ -35,7 +35,7 @@
   },
   "fixtures.twincat": {
     "group calls: GAP": 0,
-    "group calls: never-fired builders": 3,
+    "group calls: never-fired builders": 4,
     "group calls: open FP": 0,
     "group declarations: GAP": 16,
     "group declarations: never-fired builders": 7,
