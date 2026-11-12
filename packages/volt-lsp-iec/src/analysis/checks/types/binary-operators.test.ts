@@ -71,3 +71,11 @@ test("MOD of untyped REAL literals is refused — in an initializer and in a bod
   expect(mismatches("rl : REAL := 5.5 MOD 2.0;", "rl := rl;")).toEqual(["MOD is not defined for REAL"])
   expect(mismatches("rl : REAL;", "rl := 5.5 MOD 2.0;")).toEqual(["MOD is not defined for REAL"])
 })
+
+test("arithmetic on BOOLs refuses EACH BOOL operand into the type they meet in — two BOOLs twice, one beside an INT once", () => {
+  // op_arithmetic_bool_plus_bool, ng_ot_add_bool: "Cannot convert type 'BOOL' to type 'USINT'" twice (CODESYS 3.5.21.40);
+  // meet_bool_plus_int: once
+  const vars = "a : BOOL; b : BOOL; i : INT; n : USINT;"
+  expect(mismatches(vars, "n := a + b;")).toEqual(["Cannot convert type 'BOOL' to type 'USINT'", "Cannot convert type 'BOOL' to type 'USINT'"])
+  expect(mismatches(vars, "i := a + i;")).toEqual(["Cannot convert type 'BOOL' to type 'INT'"])
+})

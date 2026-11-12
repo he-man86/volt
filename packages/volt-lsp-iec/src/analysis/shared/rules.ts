@@ -287,24 +287,24 @@ export function conversionArgError(x: Expr, scope: Scope, project: Scope, messag
 
 
 /**
- * The binary-operator-type-mismatch diagnostic for one binary node, or undefined — the ST body check and the network-text
+ * The binary-operator-type-mismatch diagnostics for one binary node — the ST body check and the network-text
  * operand check both call it. Both operands must be elementary (else skip, zero-FP): `MOD` on a non-integer, or
  * arithmetic mixing `BOOL` or a string with a numeric.
  */
-export function binaryOpError(e: BinaryExpr, scope: Scope, project: Scope, messages: Messages): DiagnosticItem | undefined {
-  if (!ARITHMETIC_OPERATORS.has(e.op)) return undefined
+export function binaryOpErrors(e: BinaryExpr, scope: Scope, project: Scope, messages: Messages): DiagnosticItem[] {
+  if (!ARITHMETIC_OPERATORS.has(e.op)) return []
   // ARITHMETIC ON A `strict` ENUM is refused, once per operation whichever operand it is (`cv_strict_enum_arithmetic`:
   // `e - INT#1`, `e * 2`, `e + e` one message each; `prag_strict_enum_add_literal`, both vendors)
   for (const side of [e.left, e.right]) {
     const strict = strictEnum(project, inferExprType(side, scope, project), enumeratorValue(project))
-    if (strict !== undefined) return binaryDiag(e, messages.strictEnumArithmetic(strict.name))
+    if (strict !== undefined) return [binaryDiag(e, messages.strictEnumArithmetic(strict.name))]
   }
   // A POINTER MINUS A REAL converts the REAL into the pointer, which it cannot: "Cannot convert type 'REAL' to type
   // 'POINTER TO INT'" (`dt_pointer_arithmetic_refused`, CODESYS 2026-10-03 — the only refused form of the four asked;
   // TwinCAT converts the pointer into the REAL instead, `messages` `pointerMinusReal`)
   const [lt, rt] = [inferExprType(e.left, scope, project), inferExprType(e.right, scope, project)]
   if (e.op === "-" && lt.kind === "pointer" && rt.kind === "elementary" && rt.elem.family === "real")
-    return binaryDiag(e, messages.pointerMinusReal(renderType(rt, { form: "compiler" }), renderType(lt, { form: "compiler" })))
+    return [binaryDiag(e, messages.pointerMinusReal(renderType(rt, { form: "compiler" }), renderType(lt, { form: "compiler" })))]
   // MOD names an untyped REAL literal's own type, LREAL — `5.5 MOD 2.0` is "MOD is not defined for REAL"
   // (`tr_a20_real_mod_in_initializer`, 6.A.20); `inferExprType` answers UNKNOWN for one beside another, and the operand
   // was skipped. Only MOD: what the other operators make of one beside a string or a BOOL is not recorded.
@@ -312,13 +312,16 @@ export function binaryOpError(e: BinaryExpr, scope: Scope, project: Scope, messa
     elemName(x, scope, project) ?? (e.op === "MOD" && typeof untypedNumberValue(unparenthesised(x)) === "number" ? REAL_LITERAL_TYPE : undefined)
   const a = named(e.left)
   const b = named(e.right)
-  if (a === undefined || b === undefined) return undefined
+  if (a === undefined || b === undefined) return []
   // The rule is the type layer's (`operandFamilyRule`): a BOOL operand converts, MOD is integer-only and names
   // `REAL` for every floating operand (parity with the compiler's wording, not the more precise operand name), a
   // string converts to ANY_NUM or to the number beside it.
+  // A BOOL is converted once per BOOL OPERAND: two BOOLs are two messages (`op_arithmetic_bool_plus_bool`, `ng_ot_add_bool`).
   const rule = operandFamilyRule(e.op, a, b)
-  if (rule === undefined) return undefined
-  return binaryDiag(e, rule.kind === "convert" ? messages.cannotConvert(rule.from, rule.to) : messages.modNotDefined(rule.type))
+  if (rule === undefined) return []
+  if (rule.kind === "mod-undefined") return [binaryDiag(e, messages.modNotDefined(rule.type))]
+  const times = rule.from === "BOOL" && a === "BOOL" && b === "BOOL" ? 2 : 1
+  return Array.from({ length: times }, () => binaryDiag(e, messages.cannotConvert(rule.from, rule.to)))
 }
 
 /**

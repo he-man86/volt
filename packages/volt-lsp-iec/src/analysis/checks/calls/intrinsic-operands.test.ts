@@ -194,5 +194,5 @@ test("a network types an edge's value, a negated output and an operator box's op
   expect(net("", "ASSIGN(FALLING(a), Q => y);")).toEqual([])
   expect(net("\tt1 : T;\n\tet : TIME;\n", "ASSIGN(t1(EN := x, ET_INVERTED => et), Q => y);").sort()).toEqual([
     "Cannot convert type 'TIME' to type 'UDINT'", "Cannot convert type 'UDINT' to type 'TIME'"])
-  expect(net("", "ASSIGN(ADD(a, b), Q => x);").sort()).toEqual(["Cannot convert type 'BOOL' to type 'USINT'", "Cannot convert type 'USINT' to type 'BOOL'"])
+  expect(net("", "ASSIGN(ADD(a, b), Q => x);").sort()).toEqual(["Cannot convert type 'BOOL' to type 'USINT'", "Cannot convert type 'BOOL' to type 'USINT'", "Cannot convert type 'USINT' to type 'BOOL'"])
 })

@@ -39,7 +39,7 @@ export { codesysCodeFor, CODESYS_CODE_MAP } from "./error-code-map.js"
 // parse-error dumps read (`test/frontend/dumps.ts`) — the server's raw stream that also read them is gone (2.5)
 export { PARSE_ERROR_CODES, parseErrorMessage, vendorReportsParseError } from "./checks/syntax/parse-errors.js"
 // the shared rules the network-text check and the census tools read
-export { assignmentPairError, binaryOpError, conversionArgError, narrowingPairError, stringLiteralMessageType } from "./shared/rules.js"
+export { assignmentPairError, binaryOpErrors, conversionArgError, narrowingPairError, stringLiteralMessageType } from "./shared/rules.js"
 export { unresolvedInExprs, unresolvedMembers } from "./shared/resolution.js"
 export { compilerExprText, structEcho } from "./shared/expr-echo.js"
 export { bareConversionArgument, isHole, reported } from "./shared/hole.js"
