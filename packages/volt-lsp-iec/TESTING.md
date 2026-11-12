@@ -52,6 +52,7 @@ test/
       codesys.build.json     what CODESYS's build said     <- scripts/record-language.ts (live bridge)
       twincat.build.json     what TwinCAT's build said     <- scripts/record-language.ts (TwinCAT worker)
       codesys.run.json       every variable after N scans  <- scripts/record-exec.ts (headless simulator)
+      codesys.run.utf8-off.json  the slit_*/wsu_* runs with "UTF-8 Encoding for STRING" off  <- the same, VOLT_EXEC_RECORDING
     transpile-replay.test.ts THE FIXTURE CONTRACT's rows - one per evidence rating: the confirmed runs, the
                              interpreter and the emitted Rust vs the run
     transpile-replay-lowered.test.ts   the rest of the lowered fixtures: the emitted Rust builds (or says why

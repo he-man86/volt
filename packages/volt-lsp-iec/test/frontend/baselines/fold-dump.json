@@ -27,7 +27,7 @@
     "run: initializer does not fold": 0,
     "run: not asked, __POSITION's text — niche: accepted loss (0 occurrences in the corpora)": 1,
     "run: not asked, a body names the variable": 2203,
-    "run: not asked, a non-ASCII character in a STRING literal, its stored bytes not measured — niche: accepted loss (0 occurrences in the corpora)": 1,
+    "run: not asked, a non-ASCII character in a STRING literal, its bytes the project's UTF-8 setting the fold is not handed — niche: accepted loss (0 occurrences in the corpora)": 1,
     "run: not asked, reached through an initializing declaration": 15,
     "run: not asked, the declaration holds no scalar initializer": 8635,
     "run: not asked, the initializer reads a variable, an element or a project function": 33,

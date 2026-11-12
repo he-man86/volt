@@ -108,8 +108,8 @@ export function utf8Narrow(w: string): string {
 }
 
 /**
- * WSTRING → STRING with "UTF-8 Encoding for STRING" OFF: each UTF-16 unit's LOW BYTE (CODESYS 3.5.21.40, commit
- * 1d71f12416: 'a计b' is 97 16#A1 98; a surrogate pair D83D DE00 is 16#3D then 0, which ends the string while the bytes
+ * WSTRING → STRING with "UTF-8 Encoding for STRING" OFF: each UTF-16 unit's LOW BYTE (CODESYS 3.5.21.40,
+ * `wsu_narrow_three_byte` OFF: 'a计b' is 97 16#A1 98; a surrogate pair D83D DE00 is 16#3D then 0, which ends the string while the bytes
  * behind it stay). Its widen back is byte for byte: a STRING's bytes ARE the units (`toText`).
  */
 function lowByteNarrow(w: string): string {

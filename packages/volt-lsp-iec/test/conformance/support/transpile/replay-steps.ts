@@ -5,7 +5,7 @@
 import { expect } from "bun:test"
 import { parseSource, type Expr, type TopLevel } from "../../../../src/frontend/syntax/index.js"
 import { build, scopeForUnit } from "../../../../src/frontend/symbols/index.js"
-import { CLOCK, emitRust, run, type IrPou, type IrValue } from "../../../../src/transpile/index.js"
+import { CLOCK, emitRust, run, type IrPou, type IrValue, type LoweredPou } from "../../../../src/transpile/index.js"
 import { rustAccess } from "../rust-access.js"
 import { ALL_TESTS } from "../../fixtures/index.js"
 import { withDependencies } from "../fixture-units.js"
@@ -111,9 +111,9 @@ export function clockAt(c: LanguageTest, rec: RunRecorded, i: number): bigint | 
   return (ideValue(raw) as bigint) * 1_000_000n // a TIME counts milliseconds
 }
 
-/** The recorded values as the IR holds them, and the interpreter's answers reduced to the same display. */
-export function compareInterp(c: LanguageTest, rec: RunRecorded): void {
-  const lowered = lowering(c)
+/** The recorded values as the IR holds them, and the interpreter's answers reduced to the same display — of `lowered`,
+ *  the fixture as the exec oracle's project compiles it unless another project's lowering is named. */
+export function compareInterp(c: LanguageTest, rec: RunRecorded, lowered: LoweredPou = lowering(c)): void {
   if (lowered.pou === undefined)
     throw new Error(`cannot lower: ${lowered.diagnostics[0]?.message} [${lowered.diagnostics[0]?.code}]`)
   const pou = run(lowered.pou)

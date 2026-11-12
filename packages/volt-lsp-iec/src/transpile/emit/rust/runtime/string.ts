@@ -125,7 +125,7 @@ impl<const N: usize> IecStr<u8, N> {
         out
     }
 }
-// The same crossings with "UTF-8 Encoding for STRING" OFF (CODESYS 3.5.21.40, commit 1d71f12416): the narrow keeps each
+// The same crossings with "UTF-8 Encoding for STRING" OFF (CODESYS 3.5.21.40, wsu_* in codesys.run.utf8-off.json): the narrow keeps each
 // unit's low byte (a surrogate pair D83D DE00 is 16#3D then 0, which ends the string), the widen takes each byte as its
 // unit (the interpreter's lowByteNarrow and identity). Truncated at the TARGET's capacity, as the UTF-8 pair is.
 impl<const N: usize> IecStr<u16, N> {

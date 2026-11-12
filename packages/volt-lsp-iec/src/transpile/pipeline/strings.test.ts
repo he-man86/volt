@@ -92,10 +92,11 @@ describe("interp — STRING (design §18; every expectation recorded in conforma
 })
 
 /**
- * THE PROJECT'S "UTF-8 Encoding for STRING" IS AN INPUT (handed as its `.projectsettings`): CODESYS 3.5.21.40, commit
- * 1d71f12416 — on (the exec oracle's project, `slit_*` / `wsu_*` recorded) a STRING past ASCII is UTF-8; off (the
- * build-recording project) a literal is Latin-1 with '?' per UTF-16 unit past it, WSTRING_TO_STRING keeps each unit's low
- * byte and STRING_TO_WSTRING widens byte for byte. Unstated, neither is guessed: each is refused by name.
+ * THE PROJECT'S "UTF-8 Encoding for STRING" IS AN INPUT (handed as its `.projectsettings`): CODESYS 3.5.21.40 — on (the
+ * exec oracle's project, `slit_*` / `wsu_*` in `codesys.run.json`) a STRING past ASCII is UTF-8; off (the build-recording
+ * project, the same fixtures in `codesys.run.utf8-off.json`) a literal is Latin-1 with '?' per UTF-16 unit past it,
+ * WSTRING_TO_STRING keeps each unit's low byte and STRING_TO_WSTRING widens byte for byte. Unstated, neither is guessed:
+ * each is refused by name.
  */
 describe("interp — a STRING past ASCII as the project's \"UTF-8 Encoding for STRING\" makes it", () => {
   const settings = (row: string) => [{ uri: "Project Settings.projectsettings", source: `Replace constants:     on\n${row}Max compiler warnings: 100\n` }]
@@ -113,7 +114,7 @@ describe("interp — a STRING past ASCII as the project's \"UTF-8 Encoding for S
   }
   const literal = (files: typeof ON, text: string, count: number) => units(files, "txt : STRING;", `txt := '${text}'; n := 0; WHILE txt[n] <> 0 DO n := n + 1; END_WHILE`, "txt", count)
 
-  test("off: a literal is Latin-1, '?' for each UTF-16 unit past U+00FF", () => {
+  test("off: a literal is Latin-1, '?' for each UTF-16 unit past U+00FF (utf8-off slit_two_byte, slit_three_byte, slit_four_byte)", () => {
     expect(literal(OFF, "größe", 6)).toEqual([5n, 103n, 114n, 246n, 223n, 101n, 0n])
     expect(literal(OFF, "a计b", 4)).toEqual([3n, 97n, 63n, 98n, 0n])
     expect(literal(OFF, "a😀b", 5)).toEqual([4n, 97n, 63n, 63n, 98n, 0n])
@@ -124,13 +125,13 @@ describe("interp — a STRING past ASCII as the project's \"UTF-8 Encoding for S
     expect(literal(ON, "a😀b", 7)).toEqual([6n, 97n, 240n, 159n, 152n, 128n, 98n, 0n])
   })
 
-  test("off: WSTRING_TO_STRING keeps each unit's low byte — a surrogate pair's 16#3D then 0 ends it", () => {
+  test("off: WSTRING_TO_STRING keeps each unit's low byte — a surrogate pair's 16#3D then 0 ends it (utf8-off wsu_narrow_three_byte, wsu_narrow_surrogate_pair)", () => {
     const narrow = (text: string) => units(OFF, "w : WSTRING; txt : STRING;", `w := "${text}"; txt := WSTRING_TO_STRING(w); n := 0; WHILE txt[n] <> 0 DO n := n + 1; END_WHILE`, "txt", 4)
     expect(narrow("a计b")).toEqual([3n, 97n, 0xa1n, 98n, 0n])
     expect(narrow("a$D83D$DE00b")).toEqual([2n, 97n, 0x3dn, 0n, 98n])
   })
 
-  test("off: STRING_TO_WSTRING widens byte for byte — the Latin-1 literal back to its characters", () => {
+  test("off: STRING_TO_WSTRING widens byte for byte — the Latin-1 literal back to its characters (utf8-off slit_widen_two_byte)", () => {
     expect(units(OFF, "w : WSTRING;", "w := STRING_TO_WSTRING('größe');", "w", 6)).toEqual([0n, 103n, 114n, 246n, 223n, 101n, 0n])
   })
 

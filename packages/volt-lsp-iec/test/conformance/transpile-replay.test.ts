@@ -11,14 +11,16 @@ import { beforeAll, describe, expect, test } from "bun:test"
 import { join } from "node:path"
 import { emitRust } from "../../src/transpile/index.js"
 import { ALL_TESTS } from "./fixtures/index.js"
-import { RUNS } from "./support/recordings.js"
+import { RUNS, RUNS_UTF8_OFF } from "./support/recordings.js"
+import { assembleFixture } from "./support/fixture-units.js"
+import { lowerOnProject, PROJECT_SETTINGS_UTF8_OFF } from "./support/project-libraries.js"
 import { ideValue } from "./support/display.js"
 import { CLIPPY, inRustBuildDir, RUSTC as rustc, skipLintCheck, skipRustSuite } from "./support/rustc.js"
 import { buildRust } from "./support/rustc-cache-build.js"
 import { edgeHarness, edgePlan, HARNESS_LOOP_GUARD } from "./support/transpile/edge.js"
 import { buildArgv, rendered, splitFindings } from "./support/transpile/lint-policy.js"
 import type { LanguageTest } from "./types.js"
-import { lowering, rated } from "./support/fixture-suite.js"
+import { lowering, rated, SELECTION } from "./support/fixture-suite.js"
 import {
   HARNESS_PROBES,
   compareInterp,
@@ -30,6 +32,7 @@ import {
   recordedScan,
   compareRust,
   compareFault,
+  BY_NAME,
 } from "./support/transpile/replay-steps.js"
 
 /**
@@ -65,6 +68,23 @@ describe("confirmed — the vendor ran it, and we produce its values", () => {
       expect(ideValue(rec.cycles!)).toBe(BigInt(c.cycles ?? 1)) // the recorder's gate held
       compareInterp(c, rec)
     })
+  }
+})
+
+/**
+ * THE SAME FIXTURES ON A PROJECT WITH "UTF-8 Encoding for STRING" OFF — the `slit_*` / `wsu_*` runs recorded on the
+ * build-recording project (`RUNS_UTF8_OFF`): a literal past ASCII is Latin-1, '?' per UTF-16 unit past U+00FF;
+ * WSTRING_TO_STRING keeps each unit's low byte, STRING_TO_WSTRING widens byte for byte. Lowered with that project's
+ * setting; a case CODESYS does not compile there must not lower.
+ */
+describe("utf8-off — the vendor ran it with the option off, and we produce its values", () => {
+  for (const [name, rec] of Object.entries(RUNS_UTF8_OFF)) {
+    if (!SELECTION.has(name)) continue
+    const c = BY_NAME.get(name)!
+    const { source, gvls } = assembleFixture(c, ALL_TESTS)
+    const lowered = () => lowerOnProject(source, gvls, undefined, PROJECT_SETTINGS_UTF8_OFF)
+    if (rec.error !== undefined) test(`${name} — does not compile in CODESYS, and does not lower`, () => expect(lowered().pou).toBeUndefined())
+    else test(name, () => compareInterp(c, rec, lowered()))
   }
 })
 

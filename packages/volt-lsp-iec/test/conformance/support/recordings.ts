@@ -20,9 +20,12 @@ export interface RunRecorded {
   unreadable?: Record<string, string>
 }
 
-/** Every fixture's run, by fixture name. */
-export const RUNS: Readonly<Record<string, RunRecorded>> = (
-  JSON.parse(readFileSync(join(import.meta.dir, "..", "recordings", "codesys.run.json"), "utf8")) as {
-    tests: Record<string, RunRecorded>
-  }
-).tests
+const readRuns = (file: string): Readonly<Record<string, RunRecorded>> =>
+  (JSON.parse(readFileSync(join(import.meta.dir, "..", "recordings", file), "utf8")) as { tests: Record<string, RunRecorded> }).tests
+
+/** Every fixture's run, by fixture name — on the exec oracle's project ("UTF-8 Encoding for STRING" on). */
+export const RUNS: Readonly<Record<string, RunRecorded>> = readRuns("codesys.run.json")
+
+/** The `slit_*` / `wsu_*` runs on the build-recording project, `CodesysTestProject.3.5.21.40`, where "UTF-8 Encoding for
+ *  STRING" is off (`VOLT_EXEC_RECORDING=codesys.run.utf8-off.json`, `scripts/record-exec.ts`). */
+export const RUNS_UTF8_OFF: Readonly<Record<string, RunRecorded>> = readRuns("codesys.run.utf8-off.json")

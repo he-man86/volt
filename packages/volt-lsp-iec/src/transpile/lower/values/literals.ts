@@ -21,7 +21,7 @@ export function stringLiteralText(lw: Lowering, e: Extract<Expr, { kind: "litera
   const wide = e.literalKind === "wstring"
   // A character past ASCII TYPED into a STRING is what the project's "UTF-8 Encoding for STRING" makes it: on, its UTF-8
   // bytes (`slit_*`: 'größe' is 7 bytes, a STRING(3) of it 'gr' and C3); off, its Latin-1 byte, '?' for each UTF-16 unit
-  // past U+00FF (CODESYS 3.5.21.40, commit 1d71f12416: 'größe' LEN 5, 'a计b' a ? b). Encoded before the `$` escapes are
+  // past U+00FF (CODESYS 3.5.21.40, `slit_*` in codesys.run.utf8-off.json: 'größe' LEN 5, 'a计b' a ? b). Encoded before the `$` escapes are
   // read, so an escape stays the one byte it names. A WSTRING holds UTF-16 code units: "héllo" into a WSTRING(3) is "hél"
   // (`wstring_code_units`), a character beyond the BMP its two surrogate units (`wsu_widen_four_byte`).
   const raw = e.value as string

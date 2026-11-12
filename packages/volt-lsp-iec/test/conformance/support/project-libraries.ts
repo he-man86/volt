@@ -45,10 +45,18 @@ export const PROJECT_BASE: LibraryBase = libraryBase(PROJECT_LOWERING)
  *  CODESYS, 2026-11-08), which every run recording (`codesys.run.json`, `slit_*`, `wsu_*`) was made under. */
 export const PROJECT_SETTINGS: LibraryFile = read(join(import.meta.dir, "..", "..", "..", "test-corpus", "CodesysTestProject", "Project Settings.projectsettings"))
 
+/** The same settings with "UTF-8 Encoding for STRING" off — what the build-recording project states (read off it in
+ *  CODESYS, 2026-11-08), under which `codesys.run.utf8-off.json` was recorded. */
+export const PROJECT_SETTINGS_UTF8_OFF: LibraryFile = (() => {
+  const on = /^(UTF-8 encoding:[ \t]+)on(?=\r?$)/m
+  if (!on.test(PROJECT_SETTINGS.source)) throw new Error(`${PROJECT_SETTINGS.uri} states no "UTF-8 encoding: on" row to turn off`)
+  return { ...PROJECT_SETTINGS, source: PROJECT_SETTINGS.source.replace(on, "$1off") }
+})()
+
 /** A fixture's `PLC_PRG` lowered as the exec oracle's project compiles it: on the project's libraries (`PROJECT_BASE`),
- *  beside its own `files` and the project's settings (`PROJECT_SETTINGS`). */
-export function lowerOnProject(source: string, files: readonly LibraryFile[], uri?: string): LoweredPou {
-  return lowerSource(source, "PLC_PRG", [...files, PROJECT_SETTINGS], uri, PROJECT_BASE)
+ *  beside its own `files` and the project's `settings` (the oracle's own, `PROJECT_SETTINGS`, unless named). */
+export function lowerOnProject(source: string, files: readonly LibraryFile[], uri?: string, settings: LibraryFile = PROJECT_SETTINGS): LoweredPou {
+  return lowerSource(source, "PLC_PRG", [...files, settings], uri, PROJECT_BASE)
 }
 
 /**
