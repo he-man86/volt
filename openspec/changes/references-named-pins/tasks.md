@@ -18,4 +18,4 @@
 
 ## 4. Consumers
 
-- [ ] 4.1 Sim-Assist regenerates its bundle and drops its own walk for B and C (`walkedPins`) and its use-position lookup for A (its task, not Volt's)
+- [x] 4.1 Sim-Assist regenerates its bundle and drops its own walk for B and C (`walkedPins`) and its use-position lookup for A (its task, not Volt's; done in Sim-Assist change `model-io-refactor-review`, bundle from dev `03609354f4`)
