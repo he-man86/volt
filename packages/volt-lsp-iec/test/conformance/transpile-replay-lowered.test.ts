@@ -15,7 +15,7 @@ import { rejectionIsADefect } from "./support/transpile/correctness.js"
 import { edgeHarness, edgePlan, HARNESS_LOOP_GUARD } from "./support/transpile/edge.js"
 import { buildArgv, rendered, splitFindings } from "./support/transpile/lint-policy.js"
 import { expectStillDiverges } from "./support/expected-failure.js"
-import { lowering, rated, SELECTION } from "./support/fixture-suite.js"
+import { BUILDS, lowering, rated, SELECTION } from "./support/fixture-suite.js"
 import {
   HARNESS_PROBES,
   compareInterp,
@@ -119,7 +119,9 @@ describe.skipIf(skipRustSuite())("the rest of the lowered fixtures — the emitt
 
   test("a fixture whose ST CODESYS accepts emits Rust that compiles", () => {
     const broken = rest
-      .filter((c) => built.get(c.name)?.ok === false && rejectionIsADefect(c.evidence ?? ""))
+      // a fixture whose BUILD CODESYS refused is outside the input contract, whatever its run rating — as the rater
+      // judges it (`rate-fixtures.ts`: a network body is `unaskable` to the exec recorder, `ng_ot_add_bool` is refused)
+      .filter((c) => built.get(c.name)?.ok === false && rejectionIsADefect(c.evidence ?? "") && BUILDS.codesys.tests[c.name]?.buildSuccess !== false)
       .map((c) => `${c.name} (${c.evidence}):\n${built.get(c.name)!.why}`)
     expect(broken).toEqual([])
   })
