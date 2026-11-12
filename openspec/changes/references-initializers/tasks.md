@@ -2,13 +2,13 @@
 
 ## 1. References
 
-- [ ] 1.1 `findReferences` walks every declaration's initial value (POU var sections, GVLs, DUT fields) in its declaration's scope
-- [ ] 1.2 Test: references of a global and of an FB output include `a : INT := g;` and `b : TIME := t.ET;`
+- [x] 1.1 `findReferences` walks every declaration's initial value (POU var sections, GVLs, DUT fields) in its declaration's scope
+- [x] 1.2 Test: references of a global and of an FB output include `a : INT := g;` and `b : TIME := t.ET;`
 
 ## 2. Resolve at an initial value
 
-- [ ] 2.1 `resolveAt` resolves an identifier and a member chain inside an initial value
-- [ ] 2.2 Test: definition, references and rename at `g` and at `ET` in an initial value
+- [x] 2.1 `resolveAt` resolves an identifier and a member chain inside an initial value
+- [x] 2.2 Test: definition, references and rename at `g` and at `ET` in an initial value
 
 ## 3. Consumers
 

@@ -9,31 +9,46 @@
  */
 import {
   allUnits,
+  type Expr,
   type MemberExpr,
   type ParseResult,
   spanContains,
+  walkAllExprs,
+  walkExpr,
 } from "../../frontend/syntax/index.js"
-import { bareEnumMember, bodiesAt, lookup, lookupUnit, type Scope, scopeForUnit, type Symbol, symbolDefinedAt } from "../../frontend/symbols/index.js"
+import {
+  bareEnumMember,
+  bodiesAt,
+  lookup,
+  lookupUnit,
+  type Scope,
+  scopeForUnit,
+  type Symbol,
+  symbolDefinedAt,
+} from "../../frontend/symbols/index.js"
 import { boxMember, resolveMemberChain } from "../../frontend/types/index.js"
 import type { Document } from "./document.js"
-import { exprAtOffset, memberAtOffset, tokenAtOffset } from "./positions.js"
+import { tokenAtOffset } from "./positions.js"
 import { unitTypeNameRefs } from "./type-refs.js"
 
 export function resolveAt(doc: Document, project: Scope, offset: number): Symbol | undefined {
   // Body path — resolve through the statement tree where the cursor sits, in the body's own scope (a property accessor's
   // for its locals; this used the unit scope, so a getter-local resolved nowhere — consolidate-lsp-structure A5).
   for (const { scope, statements } of bodiesAt(doc.parseResult.units, project, offset)) {
-    const member = memberAtOffset(statements, offset)
-    if (member !== undefined) {
-      const sym = resolveMember(member, scope, project)
-      if (sym !== undefined) return sym
-    }
-    const expr = exprAtOffset(statements, offset)
-    if (expr?.kind === "ident_expr") {
-      return lookup(scope, expr.name)?.symbol ?? bareEnumMember(scope, expr.name)
-    }
-    // `.g` — the global past every local (rule E33)
-    if (expr?.kind === "global_expr") return resolveMemberChain(expr, scope, project)
+    const walk = (visit: (e: Expr) => void) => walkAllExprs(statements, visit)
+    const sym = resolveInExprs(walk, scope, project, offset)
+    if (sym !== undefined) return sym
+  }
+  // An initial value (`a : INT := g;`) — its names resolve in the unit's scope, as the declaration does
+  for (const unit of allUnits(doc.parseResult.units)) {
+    if (!("varSections" in unit) || !spanContains(unit.span, offset)) continue
+    for (const section of unit.varSections)
+      for (const decl of section.decls) {
+        const init = decl.init
+        if (init === undefined || init.kind === "aggregate_init" || !spanContains(init.span, offset)) continue
+        const scope = scopeForUnit(project, unit)
+        if (scope !== undefined) return resolveInExprs((visit) => walkExpr(init, visit), scope, project, offset)
+      }
   }
 
   // Declaration path — the cursor is on a defining identifier, a type name, or a modifier.
@@ -48,6 +63,32 @@ export function resolveAt(doc: Document, project: Scope, offset: number): Symbol
     const scope = unitScopeAtOffset(doc.parseResult, project, offset)
     return lookup(scope, tok.text)?.symbol ?? bareEnumMember(scope, tok.text)
   }
+  return undefined
+}
+
+/** The symbol the expression under `offset` names among those `walk` visits: a member chain's member, a bare name, a `.g`. */
+function resolveInExprs(
+  walk: (visit: (e: Expr) => void) => void,
+  scope: Scope,
+  project: Scope,
+  offset: number,
+): Symbol | undefined {
+  let member: MemberExpr | undefined
+  let best: Expr | undefined
+  walk((e) => {
+    if (e.kind === "member" && offset >= e.member.span.start && offset < e.member.span.end) member = e
+    if (
+      offset >= e.span.start &&
+      offset < e.span.end &&
+      (best === undefined || e.span.end - e.span.start < best.span.end - best.span.start)
+    )
+      best = e
+  })
+  const viaMember = member === undefined ? undefined : resolveMember(member, scope, project)
+  if (viaMember !== undefined) return viaMember
+  if (best?.kind === "ident_expr") return lookup(scope, best.name)?.symbol ?? bareEnumMember(scope, best.name)
+  // `.g` — the global past every local (rule E33)
+  if (best?.kind === "global_expr") return resolveMemberChain(best, scope, project)
   return undefined
 }
 

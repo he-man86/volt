@@ -11,9 +11,28 @@
  * member; a bare ident through scope lookup.
  * The `.member` IdentExpr of a chain is NOT counted as a standalone ident (it's covered by the member node).
  */
-import { allUnits, type CallExpr, type IdentExpr, type Span, type TopLevel, UNNAMED, walkAllExprs } from "../../frontend/syntax/index.js"
+import {
+  allUnits,
+  type CallExpr,
+  type Expr,
+  type IdentExpr,
+  type Span,
+  type TopLevel,
+  UNNAMED,
+  walkAllExprs,
+  walkExpr,
+} from "../../frontend/syntax/index.js"
 import { unitTypeNameRefs } from "../shared/type-refs.js"
-import { bareEnumMember, lookup, lookupMember, lookupUnit, type Scope, scopeForUnit, sourceBodies, type Symbol } from "../../frontend/symbols/index.js"
+import {
+  bareEnumMember,
+  lookup,
+  lookupMember,
+  lookupUnit,
+  type Scope,
+  scopeForUnit,
+  sourceBodies,
+  type Symbol,
+} from "../../frontend/symbols/index.js"
 import { networkBox, resolveMemberChain } from "../../frontend/types/index.js"
 import { rangeFromSpan, resolveMember } from "../shared/index.js"
 import type { Location, Range } from "vscode-languageserver-protocol"
@@ -47,40 +66,64 @@ export function findReferences(docs: Iterable<Document>, project: Scope, target:
   const t = targetsOf(target)
   const out: Ref[] = t.all.map((s) => ({ uri: s.uri, range: rangeFromSpan(s.span) })) // the declarations themselves
   for (const doc of docs) {
-    for (const { scope, statements } of sourceBodies(doc.parseResult.units, project)) {
-      // a member's name and a pin's name are no bare identifiers: each names a member, found by its own branch below
-      const memberNames = new Set<IdentExpr>()
-      walkAllExprs(statements, (e) => {
-        if (e.kind === "member") memberNames.add(e.member)
-        if (e.kind === "call") for (const a of e.args) if (a.param !== undefined) memberNames.add(a.param)
-      })
-      walkAllExprs(statements, (e) => {
-        if (e.kind === "member") {
-          if (t.named(e.member.name) && t.has(resolveMember(e, scope, project))) {
-            out.push({ uri: doc.uri, range: rangeFromSpan(e.member.span) })
-          }
-        } else if (e.kind === "call") {
-          for (const span of pinSpans(e, scope, project, t)) out.push({ uri: doc.uri, range: rangeFromSpan(span) })
-        } else if (e.kind === "global_expr") {
-          // `.g` — the global past every local (rule E33): renaming `g` without it leaves "no global definition for 'g'"
-          if (t.named(e.name.name) && t.has(resolveMemberChain(e, scope, project))) out.push({ uri: doc.uri, range: rangeFromSpan(e.name.span) })
-        } else if (e.kind === "ident_expr" && !memberNames.has(e) && t.named(e.name)) {
-          const s = lookup(scope, e.name)?.symbol ?? bareEnumMember(scope, e.name)
-          if (t.has(s)) out.push({ uri: doc.uri, range: rangeFromSpan(e.span) })
-        }
-      })
-    }
-    // Type positions — `inst : T`, `EXTENDS T`, `IMPLEMENTS T`, return/field/alias types. Bodies above never
-    // see these, so without this a type rename leaves its declaration uses stale (broken project).
+    for (const { scope, statements } of sourceBodies(doc.parseResult.units, project))
+      exprRefs((visit) => walkAllExprs(statements, visit), scope, project, t, doc.uri, out)
     for (const unit of allUnits(doc.parseResult.units)) {
-      const uscope = scopeForUnit(project, unit) ?? project
+      // an initial value (`a : INT := g;`) resolves in its declaration's unit scope
+      // ponytail: scalar initial values only; an aggregate's (`[g, 1]`, `(x := g)`) when a rename needs it
+      const own = scopeForUnit(project, unit)
+      if (own !== undefined && "varSections" in unit)
+        for (const section of unit.varSections)
+          for (const decl of section.decls) {
+            const init = decl.init
+            if (init !== undefined && init.kind !== "aggregate_init")
+              exprRefs((visit) => walkExpr(init, visit), own, project, t, doc.uri, out)
+          }
+      // Type positions — `inst : T`, `EXTENDS T`, `IMPLEMENTS T`, return/field/alias types. Bodies above never
+      // see these, so without this a type rename leaves its declaration uses stale (broken project).
+      const uscope = own ?? project
       for (const ref of unitTypeNameRefs(unit)) {
         if (ref.qualified) continue // `NS.T` keys on the last segment; skip to avoid cross-namespace collisions
-        if (t.named(ref.name) && t.has(lookupUnit(uscope, ref.name)?.symbol)) out.push({ uri: doc.uri, range: rangeFromSpan(ref.span) })
+        if (t.named(ref.name) && t.has(lookupUnit(uscope, ref.name)?.symbol))
+          out.push({ uri: doc.uri, range: rangeFromSpan(ref.span) })
       }
     }
   }
   return out
+}
+
+/** The occurrences of a target among the expressions `walk` visits, resolved in `scope`: a member, a call's named pin,
+ *  a `.g`, a bare name — a member's and a pin's name are no bare identifiers. */
+function exprRefs(
+  walk: (visit: (e: Expr) => void) => void,
+  scope: Scope,
+  project: Scope,
+  t: Targets,
+  uri: string,
+  out: Ref[],
+): void {
+  // a member's name and a pin's name are no bare identifiers: each names a member, found by its own branch below
+  const memberNames = new Set<IdentExpr>()
+  walk((e) => {
+    if (e.kind === "member") memberNames.add(e.member)
+    if (e.kind === "call") for (const a of e.args) if (a.param !== undefined) memberNames.add(a.param)
+  })
+  walk((e) => {
+    if (e.kind === "member") {
+      if (t.named(e.member.name) && t.has(resolveMember(e, scope, project))) {
+        out.push({ uri, range: rangeFromSpan(e.member.span) })
+      }
+    } else if (e.kind === "call") {
+      for (const span of pinSpans(e, scope, project, t)) out.push({ uri, range: rangeFromSpan(span) })
+    } else if (e.kind === "global_expr") {
+      // `.g` — the global past every local (rule E33): renaming `g` without it leaves "no global definition for 'g'"
+      if (t.named(e.name.name) && t.has(resolveMemberChain(e, scope, project)))
+        out.push({ uri, range: rangeFromSpan(e.name.span) })
+    } else if (e.kind === "ident_expr" && !memberNames.has(e) && t.named(e.name)) {
+      const s = lookup(scope, e.name)?.symbol ?? bareEnumMember(scope, e.name)
+      if (t.has(s)) out.push({ uri, range: rangeFromSpan(e.span) })
+    }
+  })
 }
 
 const CALLABLES: ReadonlySet<string> = new Set(["function", "function_block", "program", "method"])
@@ -93,11 +136,16 @@ const CALLABLES: ReadonlySet<string> = new Set(["function", "function_block", "p
 function pinSpans(call: CallExpr, scope: Scope, project: Scope, t: Targets): Span[] {
   if (!call.args.some((a) => a.param !== undefined && t.begins(a.param.name))) return [] // no pin can bind a target
   const box = networkBox(call, scope, project)
-  const head = box?.instance !== undefined && !(box.instance.kind === "ident_expr" && box.instance.name === UNNAMED) ? box.instance : call.callee
+  const head =
+    box?.instance !== undefined && !(box.instance.kind === "ident_expr" && box.instance.name === UNNAMED)
+      ? box.instance
+      : call.callee
   // the callee's own scope, by its declaration's span (`scopeForUnit`), for a head naming a POU or method, no instance
   const own = () => {
     const callee = resolveMemberChain(call.callee, scope, project)
-    return callee !== undefined && CALLABLES.has(callee.kind) ? scopeForUnit(project, callee.ast as TopLevel) : undefined
+    return callee !== undefined && CALLABLES.has(callee.kind)
+      ? scopeForUnit(project, callee.ast as TopLevel)
+      : undefined
   }
   const out: Span[] = []
   for (const a of box?.pins ?? call.args) {
@@ -106,7 +154,11 @@ function pinSpans(call: CallExpr, scope: Scope, project: Scope, t: Targets): Spa
     const member = resolveMemberChain({ kind: "member", base: head, member: param, span: a.span }, scope, project)
     const calleeScope = member === undefined ? own() : undefined
     if (t.has(member ?? (calleeScope === undefined ? undefined : lookupMember(calleeScope, param.name))))
-      out.push({ ...param.span, end: param.span.start + param.name.length, endCol: param.span.startCol + param.name.length })
+      out.push({
+        ...param.span,
+        end: param.span.start + param.name.length,
+        endCol: param.span.startCol + param.name.length,
+      })
   }
   return out
 }

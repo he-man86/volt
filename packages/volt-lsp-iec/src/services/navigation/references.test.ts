@@ -238,3 +238,38 @@ END_PROGRAM`,
   const edit = rename(docs, project, docs[0]!, files["file:///F.pou"]!.indexOf("inp :"), "x")
   expect(applyEdits(files["file:///P.pou"]!, edit?.changes?.["file:///P.pou"] ?? [])).toContain("res := F(x := 1);")
 })
+
+test("a use in an initial value is a reference: a global's (`a : INT := g;`) and an FB output's (`b : TIME := t.ET;`)", () => {
+  const src = `FUNCTION_BLOCK FB_T
+VAR_OUTPUT
+    ET : TIME;
+END_VAR
+END_FUNCTION_BLOCK
+
+VAR_GLOBAL
+    g : INT;
+    t : FB_T;
+END_VAR
+
+PROGRAM P
+VAR
+    a : INT := g;
+    b : TIME := t.ET;
+END_VAR
+a := g;
+END_PROGRAM`
+  const parseResult = parseSource(src, { networkText: true, unicodeIdentifiers: false }, "codesys")
+  const doc: Document = { uri: "file:///P.pou", source: src, parseResult }
+  const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }], [], "codesys")
+  const lines = (offset: number) => (references([doc], project, doc, offset) ?? []).map((r) => r.range.start.line).sort((x, y) => x - y)
+  const g = src.indexOf("g : INT")
+  expect(lines(g)).toEqual([7, 13, 16])
+  expect(lines(src.indexOf("ET : TIME") + 1)).toEqual([2, 14])
+  // asked at the use in the initial value: definition, references and rename act on the same symbols
+  const atInit = src.indexOf(":= g;") + 3
+  expect(definition(doc, project, atInit)?.range.start.line).toBe(7)
+  expect(lines(atInit)).toEqual([7, 13, 16])
+  expect(lines(src.indexOf("t.ET;") + 3)).toEqual([2, 14])
+  const edits = rename([doc], project, doc, atInit, "gg")?.changes?.[doc.uri] ?? []
+  expect(edits).toHaveLength(3)
+})
