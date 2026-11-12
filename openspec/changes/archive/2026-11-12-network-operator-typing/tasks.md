@@ -15,4 +15,4 @@
 
 ## 3. Consumers
 
-- [ ] 3.1 Sim-Assist: with a bundle that reads them, Ctrl+Shift+E offers SEL and `NO_EN_ENO` goes (its task, not Volt's)
+- [x] 3.1 Sim-Assist: with a bundle that reads them, Ctrl+Shift+E offers SEL and `NO_EN_ENO` goes (its task, not Volt's)

@@ -7,4 +7,4 @@
 
 ## 2. Consumers
 
-- [ ] 2.1 Sim-Assist regenerates its bundle; its write filter then leaves constants out with no change (its task, not Volt's)
+- [x] 2.1 Sim-Assist regenerates its bundle; its write filter then leaves constants out with no change (its task, not Volt's)
