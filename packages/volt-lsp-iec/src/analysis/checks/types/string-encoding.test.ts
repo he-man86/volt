@@ -27,3 +27,13 @@ test("Latin-1 is representable; the option on, or unstated, says nothing; a WSTR
   expect(said("txt := 'a计b';", undefined)).toEqual([])
   expect(said(`w := "a计b";`, false)).toEqual([])
 })
+
+test("a STRING literal's message type counts UTF-8 bytes with the option on, characters off or unstated (`slit_into_wstring`)", () => {
+  const msg = (utf8Encoding: boolean | undefined) =>
+    diagnose(src("w := 'a计b';"), "codesys", resolveConfig({ vendor: "codesys", utf8Encoding }))
+      .filter((d) => d.code === "assignment-type-mismatch")
+      .map((d) => d.message)
+  expect(msg(true)).toEqual(["Cannot convert type 'STRING(INT#5)' to type 'WSTRING'"])
+  expect(msg(false)).toEqual(["Cannot convert type 'STRING(INT#3)' to type 'WSTRING'"])
+  expect(msg(undefined)).toEqual(["Cannot convert type 'STRING(INT#3)' to type 'WSTRING'"])
+})

@@ -27,7 +27,7 @@ export function checkEdge(x: CallExpr, scope: Scope, ctx: CheckContext, out: Dia
   const name = x.callee.kind === "ident_expr" ? x.callee.name : undefined
   if (name === undefined || !["RISING", "FALLING"].includes(name.toUpperCase()) || !isNetworkBox(scope, name)) return false
   const value = x.args[0]?.value
-  const refused = value === undefined ? undefined : storeConversionError(elementaryRef("BOOL"), value, value.span, scope, ctx.project, ctx.messages, "argument")
+  const refused = value === undefined ? undefined : storeConversionError(elementaryRef("BOOL"), value, value.span, scope, ctx.project, ctx.messages, "argument", ctx.config.utf8Encoding)
   if (refused !== undefined) out.push({ ...refused, code: "call-argument-type" })
   return true
 }

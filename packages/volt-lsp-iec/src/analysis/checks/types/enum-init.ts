@@ -112,7 +112,7 @@ type ValueKind = { kind: "refused" | "time"; type: string } | { kind: "variable"
 function valueKind(value: Expr, scope: Scope, ctx: CheckContext): ValueKind | undefined {
   if (value.kind === "literal") {
     if (value.literalKind === "bool") return { kind: "refused", type: "BOOL" }
-    const str = stringLiteralMessageType(value)
+    const str = stringLiteralMessageType(value, ctx.config.utf8Encoding)
     if (typeof str === "string") return { kind: "refused", type: str }
     if (value.literalKind === "time") {
       const t = literalType(value)

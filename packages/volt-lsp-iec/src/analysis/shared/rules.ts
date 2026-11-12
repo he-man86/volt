@@ -114,11 +114,12 @@ export function assignmentPairError(
   scope: Scope,
   project: Scope,
   messages: Messages,
+  utf8Encoding?: boolean,
 ): DiagnosticItem | undefined {
   // a POINTER target takes an integer by the target's rule (`compat` `integerIntoPointer`)
   const t = inferExprType(target, scope, project)
   const lhs = t.kind === "pointer" ? t : checkable(t)
-  return lhs === undefined ? undefined : storeConversionError(lhs, value, target.span, scope, project, messages, "assignment")
+  return lhs === undefined ? undefined : storeConversionError(lhs, value, target.span, scope, project, messages, "assignment", utf8Encoding)
 }
 
 /**
@@ -147,6 +148,7 @@ export function storeConversionError(
   project: Scope,
   messages: Messages,
   site: StoreSite,
+  utf8Encoding?: boolean,
 ): DiagnosticItem | undefined {
   const strict = strictEnumStore(lhs, value, scope, project, messages)
   if (strict !== "not-strict") return strict === "accepted" ? undefined : { severity: "error", span, source: SOURCE, code: "assignment-type-mismatch", message: strict }
@@ -164,7 +166,7 @@ export function storeConversionError(
   const rhs = literalErrorType(value, lhs) ?? checkableType(value, scope, project)
   if (rhs === undefined || (lhs.kind === "pointer" && rhs.kind !== "elementary")) return undefined
   if (isAssignable(lhs, rhs, targetOf(project))) return undefined
-  const display = rhsDisplay(value, rhs)
+  const display = rhsDisplay(value, rhs, utf8Encoding)
   if (display === undefined) return undefined
   return {
     severity: "error",
@@ -219,8 +221,8 @@ function strictEnumStore(lhs: Type, value: Expr, scope: Scope, project: Scope, m
 }
 
 /** The RHS type as the COMPILER renders it in the mismatch message — a string literal's own form, else the type's. */
-function rhsDisplay(value: Expr, rhs: Type): string | undefined {
-  const literal = stringLiteralMessageType(value)
+function rhsDisplay(value: Expr, rhs: Type, utf8Encoding?: boolean): string | undefined {
+  const literal = stringLiteralMessageType(value, utf8Encoding)
   return literal === null ? renderType(rhs, { form: "compiler" }) : literal
 }
 
@@ -230,14 +232,15 @@ function rhsDisplay(value: Expr, rhs: Type): string | undefined {
  * `cc_string_escape_literal_into_int`). So is a quoted typed literal that is a STRING: `UTF8#'ä'` by its UTF-8 bytes,
  * STRING(INT#2); a `UCHAR#'AB'` by the token's own text it stands for, STRING(INT#8) (`lit_utf8_*_into_wstring`,
  * `lit_uchar_two_chars`, 2026-10-01). `null` for an expression that is no string literal; `undefined` for one whose
- * escape the shared decoder does not know — it has no measured length, and no message.
+ * escape the shared decoder does not know — it has no measured length, and no message. A plain STRING literal counts UTF-8 BYTES where the project's "UTF-8 Encoding
+ * for STRING" is on: `w := 'a计b'` is STRING(INT#5) on, STRING(INT#3) off or unstated (`slit_into_wstring`, 2026-11-12).
  */
-export function stringLiteralMessageType(value: Expr): string | null | undefined {
+export function stringLiteralMessageType(value: Expr, utf8Encoding?: boolean): string | null | undefined {
   if (value.kind !== "literal") return null
   if (value.literalKind === "string" || value.literalKind === "wstring") {
     const wide = value.literalKind === "wstring"
     const decoded = decodeStringLiteral(value.value as string, wide)
-    return decoded === undefined ? undefined : compilerStringLiteralText(decoded.length, wide)
+    return decoded === undefined ? undefined : compilerStringLiteralText(utf8Encoding === true && !wide ? Buffer.byteLength(decoded, "utf8") : decoded.length, wide)
   }
   if (value.literalKind !== "typed") return null
   const form = typedLiteralForm(value.text)

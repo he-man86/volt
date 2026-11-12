@@ -98,7 +98,7 @@ function mathOperand(ctx: CheckContext, c: IntrinsicCall, out: DiagnosticItem[])
   // 'BOOL' to type 'LREAL'" (`calls_sqrt_of_bool`, both vendors 2026-10-06), where C0072's "Operation 'Sqrt' is not
   // possible" was a guess no recording held
   if (name === "SQRT" && unshadowed(c)) {
-    const refused = storeConversionError(elementaryTypeRef(elementaryType("LREAL")!), arg, arg.span, scope, ctx.project, ctx.messages, "argument")
+    const refused = storeConversionError(elementaryTypeRef(elementaryType("LREAL")!), arg, arg.span, scope, ctx.project, ctx.messages, "argument", ctx.config.utf8Encoding)
     if (refused !== undefined) out.push({ ...refused, code: "call-argument-type" })
   }
 }
@@ -150,7 +150,7 @@ function atomicOperands(ctx: CheckContext, c: IntrinsicCall, out: DiagnosticItem
   const atomic = atomicOperand(name, ctx.project.dialect)
   if (atomic?.store === true && unshadowed(c)) {
     const dword = atomic.type
-    const refused = storeConversionError(dword, arg, arg.span, scope, ctx.project, ctx.messages, "argument")
+    const refused = storeConversionError(dword, arg, arg.span, scope, ctx.project, ctx.messages, "argument", ctx.config.utf8Encoding)
     const t = inferExprType(arg, scope, ctx.project)
     const elem = t.kind === "elementary" ? t.elem : undefined
     if (refused !== undefined) out.push({ ...refused, code: "test-and-set-operand" })

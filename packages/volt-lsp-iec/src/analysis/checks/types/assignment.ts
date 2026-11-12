@@ -31,7 +31,7 @@ function checkPlainStore(ctx: CheckContext, s: Assignment, scope: Scope, out: Di
   places.forEach((place, i) => {
     if (i > 0 && ops[i - 1] !== undefined) return
     const value = places[i + 1] ?? s.value
-    const pair = assignmentPairError(place, value, scope, ctx.project, ctx.messages)
+    const pair = assignmentPairError(place, value, scope, ctx.project, ctx.messages, ctx.config.utf8Encoding)
     // the store's fix: wrap the value in `TO_<target>(…)` (design.md §4 F1) — not preferred, an error's value may be the
     // wrong variable; the rule is shared with network text, whose findings get no fix, so the ST statement attaches it.
     // Only the INNERMOST link stores a value: an outer link's value is the next target, which `TO_<T>(b) := c` cannot be.
@@ -53,7 +53,7 @@ export function checkAssignmentTypes(ctx: CheckContext, out: DiagnosticItem[]): 
       // converted to BOOL by the one store rule. REF= is `reference-assign`'s.
       if (s.op === "S=" || s.op === "R=") {
         for (const side of [s.target, s.value]) {
-          const diag = storeConversionError(BOOL, side, side.span, scope, ctx.project, ctx.messages, "assignment")
+          const diag = storeConversionError(BOOL, side, side.span, scope, ctx.project, ctx.messages, "assignment", ctx.config.utf8Encoding)
           if (diag !== undefined) out.push(diag)
         }
         return
@@ -107,7 +107,7 @@ export function checkAssignmentTypes(ctx: CheckContext, out: DiagnosticItem[]): 
       if (diag !== undefined) out.push(diag)
       continue
     }
-    const diag = storeConversionError(lhs, decl.init, decl.init.span, scope, ctx.project, ctx.messages, "initial value")
+    const diag = storeConversionError(lhs, decl.init, decl.init.span, scope, ctx.project, ctx.messages, "initial value", ctx.config.utf8Encoding)
     if (diag !== undefined) out.push(diag)
   }
 }
