@@ -12,4 +12,4 @@
 
 ## 3. Consumers
 
-- [ ] 3.1 Sim-Assist regenerates its bundle; its refactoring then renames initial values (its task, not Volt's)
+- [x] 3.1 Sim-Assist regenerates its bundle; its refactoring then renames initial values (its task, not Volt's)
