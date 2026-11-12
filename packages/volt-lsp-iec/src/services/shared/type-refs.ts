@@ -4,6 +4,8 @@
  * (`position: "base"`). Two consumers share it, so they can never drift:
  *   - `findReferences` (rename/references) — matches EVERY ref (incl. bases) to the target symbol, so
  *     renaming a type also updates its `: T` / `EXTENDS T` / `IMPLEMENTS T` uses (the P0 rename-corruption bug).
+ *   - `resolveAt` — a cursor on a type position names a POU, interface or type (`lookupUnit`), never a variable of
+ *     its name: `eye : Eye` is the FB `Eye`, whatever the global `eye` beside it.
  */
 import type { Identifier, Span, TopLevel, TypeExpr } from "../../frontend/syntax/index.js"
 

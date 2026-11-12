@@ -8,13 +8,16 @@
  * Conservative: unresolved → undefined (a feature simply does nothing rather than guess).
  */
 import {
+  allUnits,
+  type MemberExpr,
   type ParseResult,
   spanContains,
 } from "../../frontend/syntax/index.js"
-import { bareEnumMember, bodiesAt, lookup, type Scope, scopeForUnit, type Symbol, symbolDefinedAt } from "../../frontend/symbols/index.js"
+import { bareEnumMember, bodiesAt, lookup, lookupUnit, type Scope, scopeForUnit, type Symbol, symbolDefinedAt } from "../../frontend/symbols/index.js"
 import { boxMember, resolveMemberChain } from "../../frontend/types/index.js"
 import type { Document } from "./document.js"
 import { exprAtOffset, memberAtOffset, tokenAtOffset } from "./positions.js"
+import { unitTypeNameRefs } from "./type-refs.js"
 
 export function resolveAt(doc: Document, project: Scope, offset: number): Symbol | undefined {
   // Body path — resolve through the statement tree where the cursor sits, in the body's own scope (a property accessor's
@@ -22,9 +25,7 @@ export function resolveAt(doc: Document, project: Scope, offset: number): Symbol
   for (const { scope, statements } of bodiesAt(doc.parseResult.units, project, offset)) {
     const member = memberAtOffset(statements, offset)
     if (member !== undefined) {
-      // the member closing an FB box's call (`t1(…).Q`) is the output of its instance: the call's own type is no FB's
-      const instance = member.base.kind === "call" ? boxMember(member, scope, project)?.box.instance : undefined
-      const sym = resolveMemberChain(instance !== undefined ? { ...member, base: instance } : member, scope, project)
+      const sym = resolveMember(member, scope, project)
       if (sym !== undefined) return sym
     }
     const expr = exprAtOffset(statements, offset)
@@ -36,14 +37,32 @@ export function resolveAt(doc: Document, project: Scope, offset: number): Symbol
   }
 
   // Declaration path — the cursor is on a defining identifier, a type name, or a modifier.
+  // A type position first: it defines nothing, and a list's symbol spans every offset of its list
+  const at = tokenAtOffset(doc.parseResult.tokens, offset)
+  const tok = at !== undefined && (at.kind === "identifier" || at.kind === "keyword") ? at : undefined
+  if (tok !== undefined && inTypePosition(doc.parseResult, tok.span.start))
+    return lookupUnit(unitScopeAtOffset(doc.parseResult, project, offset), tok.text)?.symbol
   const onDef = symbolDefinedAt(project, doc.uri, offset)
   if (onDef !== undefined) return onDef
-  const tok = tokenAtOffset(doc.parseResult.tokens, offset)
-  if (tok !== undefined && (tok.kind === "identifier" || tok.kind === "keyword")) {
+  if (tok !== undefined) {
     const scope = unitScopeAtOffset(doc.parseResult, project, offset)
     return lookup(scope, tok.text)?.symbol ?? bareEnumMember(scope, tok.text)
   }
   return undefined
+}
+
+/** Whether `start` begins an unqualified type position (`unitTypeNameRefs`) of the document. */
+function inTypePosition(parseResult: ParseResult, start: number): boolean {
+  for (const unit of allUnits(parseResult.units))
+    for (const ref of unitTypeNameRefs(unit)) if (!ref.qualified && ref.span.start === start) return true
+  return false
+}
+
+/** The symbol a member names; the member closing an FB box's call (`t1(…).Q`) is the output of its instance: the call's
+ *  own type is no FB's. */
+export function resolveMember(member: MemberExpr, scope: Scope, project: Scope): Symbol | undefined {
+  const instance = member.base.kind === "call" ? boxMember(member, scope, project)?.box.instance : undefined
+  return resolveMemberChain(instance !== undefined ? { ...member, base: instance } : member, scope, project)
 }
 
 /**

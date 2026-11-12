@@ -285,11 +285,16 @@ export function* visibleNames(scope: Scope, outward: boolean): Generator<Symbol>
  * offset is a position in ONE document, so only what that document declares is searched: its project-level symbols
  * (tagged by `uri`) and its own scope subtrees (project children tagged by `defUri`). Walking the whole project tree
  * was an O(project) tax on the go-to-definition hot path, and a document-local offset can fall inside another file's
- * span.
+ * span. Of the project-level symbols the narrowest wins: a list's symbol spans the whole list, so a cursor on a global's
+ * declaration inside it is the global, not the list.
  */
 export function symbolDefinedAt(project: Scope, uri: string, offset: number): Symbol | undefined {
+  let narrowest: Symbol | undefined
   for (const syms of project.symbols.values())
-    for (const s of syms) if (s.uri === uri && spanContains(s.span, offset)) return s
+    for (const s of syms)
+      if (s.uri === uri && spanContains(s.span, offset) && (narrowest === undefined || s.span.end - s.span.start < narrowest.span.end - narrowest.span.start))
+        narrowest = s
+  if (narrowest !== undefined) return narrowest
   const walk = (scope: Scope): Symbol | undefined => {
     for (const syms of scope.symbols.values()) for (const s of syms) if (spanContains(s.span, offset)) return s
     for (const child of scope.children) {

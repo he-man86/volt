@@ -35,7 +35,8 @@ test("code-lens: a reference count above each named declaration", () => {
   // Compute is called once (`lib.Compute(...)`) → 1 body reference.
   const compute = lenses.find((l) => l.range.start.line === 2)
   expect(compute?.command?.title).toBe("1 reference")
-  // A type-only symbol (Lib, used solely as a declaration type) has 0 body references.
-  expect(lenses.find((l) => l.range.start.line === 0)?.command?.title).toBe("0 references")
+  // A type used only in a declaration counts that type position (`lib : Lib`), which a rename of Lib edits — the local
+  // `lib` of its name (case-insensitive) does not take it.
+  expect(lenses.find((l) => l.range.start.line === 0)?.command?.title).toBe("1 reference")
   expect(lenses.every((l) => /^\d+ references?$/.test(l.command?.title ?? ""))).toBe(true)
 })

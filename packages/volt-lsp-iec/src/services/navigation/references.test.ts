@@ -120,3 +120,121 @@ END_FUNCTION_BLOCK`
   expect(definition(doc, project, dotted)?.range.start.line).toBe(1)
   expect(references([doc], project, doc, dotted)).toHaveLength(4)
 })
+
+// A scene of several files (openspec references-named-pins): an FB's members named as a call's pins, in ST and in a
+// network, a marked output, a box output read through its call, and a global asked at its declaration in its list.
+const SCENE: Record<string, string> = {
+  "file:///Belt.pou": `FUNCTION_BLOCK Belt
+VAR_INPUT
+    Speed : REAL;
+END_VAR
+VAR_OUTPUT
+    Actual : REAL;
+END_VAR
+END_FUNCTION_BLOCK`,
+  "file:///Eye.pou": `FUNCTION_BLOCK Eye
+VAR_OUTPUT
+    Active : BOOL;
+END_VAR
+END_FUNCTION_BLOCK`,
+  "file:///Scene.gvl": `VAR_GLOBAL
+    belt : Belt;
+    eye : Eye;
+END_VAR`,
+  "file:///Main.pou": `PROGRAM Main
+VAR
+    v : REAL;
+    Speed : REAL;
+END_VAR
+belt(Speed := Speed, Actual => v);
+END_PROGRAM`,
+  "file:///Cell.pou": `PROGRAM Cell
+VAR
+    av : REAL;
+    y : BOOL;
+END_VAR
+%LANGUAGE LD
+%NETWORK
+belt(EN := RAIL(), Speed := av, Actual => av);
+%NETWORK
+ASSIGN(eye().Active, Q_INVERTED => y);
+%NETWORK
+AND(eye(Active_INVERTED => y), TRUE);
+END_PROGRAM`,
+}
+
+const scene = () => {
+  const docs: Document[] = Object.entries(SCENE).map(([uri, source]) => ({
+    uri,
+    source,
+    parseResult: parseSource(source, { networkText: true, unicodeIdentifiers: false }, "codesys"),
+  }))
+  const project = build.buildSymbolTable(docs.map((d) => ({ uri: d.uri, parseResult: d.parseResult, source: d.source })), [], "codesys")
+  const doc = (name: string) => docs.find((d) => d.uri.endsWith(name))!
+  const renamed = (file: string, needle: string, to: string) => {
+    const d = doc(file)
+    const edit = rename(docs, project, d, d.source.indexOf(needle), to)
+    return Object.fromEntries(docs.map((x) => [x.uri.slice("file:///".length), applyEdits(x.source, edit?.changes?.[x.uri] ?? [])]))
+  }
+  return { docs, project, doc, renamed }
+}
+
+test("a global asked at its declaration in its list is the global, not the list (A)", () => {
+  const { docs, project, doc, renamed } = scene()
+  const gvl = doc("Scene.gvl")
+  const atEye = gvl.source.indexOf("eye :")
+  expect(definition(gvl, project, atEye)?.range.start.line).toBe(2)
+  // …and its type beside it, `Eye`, is the FB, never the global of its name (case-insensitive)
+  expect(definition(gvl, project, gvl.source.indexOf(": Eye") + 2)?.uri).toBe("file:///Eye.pou")
+  expect(references(docs, project, gvl, atEye)).toHaveLength(3) // its declaration and Cell's two boxes
+  const out = renamed("Scene.gvl", "eye :", "cam")
+  expect(out["Scene.gvl"]).toContain("cam : Eye;")
+  expect(out["Cell.pou"]).toContain("ASSIGN(cam().Active, Q_INVERTED => y);")
+  expect(out["Cell.pou"]).toContain("AND(cam(Active_INVERTED => y), TRUE);")
+})
+
+test("a rename of an input renames the call's named pin, in ST and in a network — never a local of its name (B)", () => {
+  const { renamed } = scene()
+  const out = renamed("Belt.pou", "Speed :", "Velocity")
+  expect(out["Belt.pou"]).toContain("Velocity : REAL;")
+  expect(out["Main.pou"]).toContain("belt(Velocity := Speed, Actual => v);")
+  expect(out["Main.pou"]).toContain("    Speed : REAL;")
+  expect(out["Cell.pou"]).toContain("belt(EN := RAIL(), Velocity := av, Actual => av);")
+  // …and the local renamed leaves the pin
+  expect(renamed("Main.pou", "Speed :", "s")["Main.pou"]).toContain("belt(Speed := s, Actual => v);")
+})
+
+test("a rename of an output renames `=>` pins, a marked one's name part, and a box output read through its call (B, C)", () => {
+  const { renamed } = scene()
+  expect(renamed("Belt.pou", "Actual :", "Real")["Main.pou"]).toContain("belt(Speed := Speed, Real => v);")
+  const out = renamed("Eye.pou", "Active :", "On")
+  expect(out["Eye.pou"]).toContain("On : BOOL;")
+  expect(out["Cell.pou"]).toContain("ASSIGN(eye().On, Q_INVERTED => y);")
+  expect(out["Cell.pou"]).toContain("AND(eye(On_INVERTED => y), TRUE);")
+  expect(out["Cell.pou"]).toContain("belt(EN := RAIL(), Speed := av, Actual => av);")
+})
+
+test("a rename of a FUNCTION's input renames its named pin in a call", () => {
+  const files: Record<string, string> = {
+    "file:///F.pou": `FUNCTION F : INT
+VAR_INPUT
+    inp : INT;
+END_VAR
+F := inp;
+END_FUNCTION`,
+    "file:///P.pou": `PROGRAM P
+VAR
+    res : INT;
+END_VAR
+res := F(inp := 1);
+END_PROGRAM`,
+  }
+  const docs: Document[] = Object.entries(files).map(([uri, source]) => ({
+    uri,
+    source,
+    parseResult: parseSource(source, { networkText: true, unicodeIdentifiers: false }, "codesys"),
+  }))
+  const project = build.buildSymbolTable(docs.map((d) => ({ uri: d.uri, parseResult: d.parseResult, source: d.source })), [], "codesys")
+  const edit = rename(docs, project, docs[0]!, files["file:///F.pou"]!.indexOf("inp :"), "x")
+  expect(applyEdits(files["file:///P.pou"]!, edit?.changes?.["file:///P.pou"] ?? [])).toContain("res := F(x := 1);")
+})
